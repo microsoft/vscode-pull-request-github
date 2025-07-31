@@ -22,7 +22,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
 	public contextValue?: string;
-	public description: string | undefined;
 
 	constructor(
 		parent: TreeNodeParent,

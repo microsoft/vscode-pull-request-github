@@ -32,6 +32,8 @@ import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private static ID = 'PullRequestCommentController';
+	static readonly PREFIX = 'github-browse';
+
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
@@ -298,6 +300,22 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		});
 	}
 
+	protected override onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
+		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		const activeUri = activeTab?.input instanceof vscode.TabInputText ? activeTab.input.uri : (activeTab?.input instanceof vscode.TabInputTextDiff ? activeTab.input.original : undefined);
+
+		if (editor === undefined || !editor.document.uri.authority.startsWith(PullRequestCommentController.PREFIX) || !activeUri || (activeUri.scheme !== Schemes.Pr)) {
+			return;
+		}
+
+		const params = fromPRUri(activeUri);
+		if (!params || params.prNumber !== this.pullRequestModel.number) {
+			return;
+		}
+
+		return this.tryAddCopilotMention(editor, this.pullRequestModel);
+	}
+
 	hasCommentThread(thread: GHPRCommentThread): boolean {
 		if (thread.uri.scheme !== Schemes.Pr) {
 			return false;
@@ -356,7 +374,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
 					if (result === 'Refresh') {
-						this.pullRequestModel.invalidate();
+						this.pullRequestModel.githubRepository.getPullRequest(this.pullRequestModel.number);
 					}
 				});
 			} else {

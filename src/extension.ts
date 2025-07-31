@@ -39,6 +39,7 @@ import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
+import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PRNotificationDecorationProvider } from './view/prNotificationDecorationProvider';
@@ -227,7 +228,7 @@ async function init(
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
+	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, context);
 	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());
@@ -410,6 +411,28 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
 	context.subscriptions.push(copilotRemoteAgentManager);
+	if (vscode.chat?.registerChatSessionItemProvider) {
+		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
+			label = vscode.l10n.t('GitHub Copilot Coding Agent');
+			provideChatSessionItems = async (token) => {
+				return await copilotRemoteAgentManager.provideChatSessions(token);
+			};
+			provideChatSessionContent = async (id, token) => {
+				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
+			};
+			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
+		}();
+
+		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
+			'copilot-swe-agent',
+			provider
+		));
+
+		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
+			'copilot-swe-agent',
+			provider
+		));
+	}
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);
@@ -436,6 +459,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
+	const githubFilesystemProvider = new GitHubCommitFileSystemProvider(reposManager, apiImpl, credentialStore);
+	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher);
 	return apiImpl;

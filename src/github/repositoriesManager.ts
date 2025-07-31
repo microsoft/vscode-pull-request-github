@@ -15,6 +15,7 @@ import { fromPRUri, fromRepoUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { PullRequestChangeEvent } from './githubRepository';
 import { IssueModel } from './issueModel';
 import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
@@ -45,8 +46,14 @@ export class RepositoriesManager extends Disposable {
 	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
 	readonly onDidLoadAnyRepositories = this._onDidLoadAnyRepositories.event;
 
-	private _onDidChangeAnyPullRequests = new vscode.EventEmitter<IssueModel[]>();
+	private _onDidChangeAnyPullRequests = new vscode.EventEmitter<PullRequestChangeEvent[]>();
 	readonly onDidChangeAnyPullRequests = this._onDidChangeAnyPullRequests.event;
+
+	private _onDidAddPullRequest = new vscode.EventEmitter<IssueModel>();
+	readonly onDidAddPullRequest = this._onDidAddPullRequest.event;
+
+	private _onDidAddAnyGitHubRepository = new vscode.EventEmitter<FolderRepositoryManager>();
+	readonly onDidChangeAnyGitHubRepository = this._onDidAddAnyGitHubRepository.event;
 
 	private _state: ReposManagerState = ReposManagerState.Initializing;
 
@@ -82,6 +89,8 @@ export class RepositoriesManager extends Disposable {
 			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount()),
 			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository)),
 			folderManager.onDidChangeAnyPullRequests(e => this._onDidChangeAnyPullRequests.fire(e)),
+			folderManager.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)),
+			folderManager.onDidChangeGithubRepositories(() => this._onDidAddAnyGitHubRepository.fire(folderManager)),
 		];
 		this._subs.set(folderManager, disposables);
 	}

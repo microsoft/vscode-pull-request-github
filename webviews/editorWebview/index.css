@@ -66,6 +66,12 @@ textarea:focus,
 	transform: translate(-50%, -50%);
 }
 
+.loading-button {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 4px;
+}
+
 .comment-body li div {
 	display: inline;
 }
@@ -389,6 +395,7 @@ body .merged .merged-message>a {
 body .commit .commit-message>a {
 	margin-right: 3px;
 }
+
 body .comment-container .review-comment-container .pending-label,
 body .resolved-container .outdatedLabel {
 	background: var(--vscode-badge-background);
@@ -477,8 +484,14 @@ body button .icon {
 	margin-top: 18px;
 }
 
+.overview-title {
+	display: flex;
+	align-items: center;
+}
+
 .overview-title h2 {
 	font-size: 32px;
+	margin-right: 6px;
 }
 
 .overview-title textarea {
@@ -514,6 +527,7 @@ body button .icon {
 }
 
 .branch-tag {
+	margin-top: 3px;
 	padding: 2px 4px;
 	background: var(--vscode-editorInlayHint-background);
 	color: var(--vscode-editorInlayHint-foreground);
@@ -532,7 +546,7 @@ body button .icon {
 	align-items: flex-start;
 }
 
-.small-button {
+small-button {
 	display: flex;
 	font-size: 11px;
 	padding: 0 5px;
@@ -729,6 +743,10 @@ body button .icon {
 	white-space: nowrap;
 }
 
+.commit .commit-message a.message {
+	cursor: pointer;
+}
+
 .timeline-detail {
 	display: flex;
 	align-items: center;
@@ -739,6 +757,7 @@ body button .icon {
 	min-width: 50px;
 	font-family: var(--vscode-editor-font-family);
 	margin-bottom: -2px;
+	cursor: pointer;
 }
 
 .merged .merged-message .message,
@@ -845,7 +864,7 @@ textarea {
 .editing-form {
 	padding: 5px 0;
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	min-width: 300px;
 }
 
@@ -865,12 +884,11 @@ textarea {
 	flex-grow: unset;
 }
 
-.dropdown-container {
+:not(.button-group) .dropdown-container {
 	justify-content: right;
 }
 
-.form-actions {
-	display: flex;
+:not(.title-editing-form)>.form-actions {
 	justify-content: flex-end;
 	padding-top: 10px;
 }
@@ -1211,7 +1229,7 @@ code {
 	#sidebar {
 		display: grid;
 		column-gap: 20px;
-		grid-template-columns: 50% 50%;
+		grid-template-columns: calc(50% - 10px) calc(50% - 10px);
 		padding: 0;
 		padding-bottom: 24px;
 	}
@@ -1253,6 +1271,10 @@ code {
 	display: flex;
 }
 
+.icon.copilot-icon {
+	margin-right: 6px;
+}
+
 .action-bar {
 	position: absolute;
 	display: flex;
@@ -1282,7 +1304,7 @@ code {
 }
 
 .title-editing-form>.form-actions {
-	margin-left: 0;
+	margin-left: 8px;
 }
 
 /* permalinks */
@@ -1430,6 +1452,7 @@ code {
 	margin-bottom: 1rem;
 	color: inherit;
 }
+
 .markdown-alert .markdown-alert-title {
 	display: flex;
 	align-items: center;
@@ -1439,6 +1462,7 @@ code {
 .markdown-alert-title svg {
 	padding-right: 3px;
 }
+
 .markdown-alert>:first-child {
 	margin-top: 0;
 }

@@ -33,7 +33,7 @@ import {
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
-import { PullRequestModel } from './pullRequestModel';
+import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
@@ -147,7 +147,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 	}
 
-	registerPrListeners() {
+	protected override registerPrListeners() {
 		disposeAll(this._prListeners);
 		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
@@ -160,8 +160,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 
 		if (this._item) {
-			this._prListeners.push(this._item.onDidChangeComments(() => {
-				if (!this._isUpdating) {
+			this._prListeners.push(this._item.onDidChange(e => {
+				if (e.comments && !this._isUpdating) {
 					this.refreshPanel();
 				}
 			}));
@@ -205,6 +205,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.continueOnGitHub() && isCrossRepository;
 	}
 
+	private preLoadInfoNotRequiredForOverview(pullRequest: PullRequestModel): void {
+		// Load some more info in the background, don't await.
+		pullRequest.getFileChangesInfo();
+	}
+
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
 		try {
 			const [
@@ -222,13 +227,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isBranchUpToDateWithBase,
 				mergeability,
 				emailForCommit,
+				coAuthors,
 			] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
 					pullRequestModel.number,
 				),
-				pullRequestModel.githubRepository.getTimelineEvents(pullRequestModel),
+				pullRequestModel.getTimelineEvents(pullRequestModel),
 				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 				pullRequestModel.getStatusChecks(),
 				pullRequestModel.getReviewRequests(),
@@ -241,6 +247,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
 				pullRequestModel.getMergeability(),
 				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
+				pullRequestModel.getCoAuthors()
 			]);
 			if (!pullRequest) {
 				throw new Error(
@@ -265,6 +272,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
+
+			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
@@ -293,7 +302,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isIssue: false,
 				emailForCommit,
 				currentUserReviewState: reviewState,
-				revertable: pullRequest.state === GithubItemStateEnum.Merged
+				revertable: pullRequest.state === GithubItemStateEnum.Merged,
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
 			};
 			this._postMessage({
 				command: 'pr.initialize',
@@ -311,22 +321,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	): Promise<void> {
+		const result = super.update(folderRepositoryManager, pullRequestModel, 'pr:github');
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
-			this._folderRepositoryManager = folderRepositoryManager;
 			this.registerPrListeners();
 		}
 
-		this._postMessage({
-			command: 'set-scroll',
-			scrollPosition: this._scrollPosition,
-		});
-
-		if (!this._item || (this._item.number !== pullRequestModel.number) || !this._panel.webview.html) {
-			this._panel.webview.html = this.getHtmlForWebview();
-		}
-
-		const result = vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
-
+		await result;
 		// Notify that this PR overview is now active
 		PullRequestOverviewPanel._onVisible.fire(pullRequestModel);
 
@@ -479,7 +479,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.githubRepository.getTimelineEvents(this._item);
+		return this._item.getTimelineEvents(this._item);
 	}
 
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
@@ -491,10 +491,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo; openToTheSide?: boolean }>): Promise<void> {
+	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			const openToTheSide = message.args.openToTheSide || false;
-			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, openToTheSide);
+			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, message.args.link.openToTheSide ?? false);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
@@ -538,7 +537,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
-			await PullRequestModel.openCommitChanges(this._folderRepositoryManager, commitSha);
+			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
@@ -627,8 +626,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {

@@ -3,22 +3,28 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nodePath from 'path';
 import vscode from 'vscode';
+import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { Repository } from '../api/api';
-import { COPILOT_LOGINS, CopilotPRStatus } from '../common/copilot';
+import { COPILOT_ACCOUNTS } from '../common/comment';
+import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
-import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
+import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED, CODING_AGENT_PROMPT_FOR_CONFIRMATION } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { toOpenPullRequestWebviewUri } from '../common/uri';
+import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
+import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../view/theme';
 import { OctokitCommon } from './common';
-import { CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
-import { FolderRepositoryManager } from './folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
+import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
@@ -29,6 +35,7 @@ type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 export interface IAPISessionLogs {
 	readonly info: SessionInfo;
 	readonly logs: string;
+	readonly setupSteps: SessionSetupStep[] | undefined;
 }
 
 export interface ICopilotRemoteAgentCommandArgs {
@@ -36,6 +43,15 @@ export interface ICopilotRemoteAgentCommandArgs {
 	summary?: string;
 	source?: string;
 	followup?: string;
+	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
+}
+
+export interface ICopilotRemoteAgentCommandResponse {
+	uri: string;
+	title: string;
+	description: string;
+	author: string;
+	linkTag: string;
 }
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
@@ -44,9 +60,9 @@ const CONTINUE = vscode.l10n.t('Continue');
 // With Pending Changes
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
+const CONTINUE_AND_DO_NOT_ASK_AGAIN = vscode.l10n.t('Continue and don\'t ask again');
 const COMMIT_YOUR_CHANGES = vscode.l10n.t('Commit your changes to continue coding agent session. Close integrated terminal to cancel.');
 
-const FOLLOW_UP_REGEX = /open-pull-request-webview.*((%7B.*?%7D)|(\{.*?\}))/;
 const COPILOT = '@copilot';
 
 const body_suffix = vscode.l10n.t('Created from VS Code via the [GitHub Pull Request](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension.');
@@ -61,6 +77,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
 		super();
@@ -110,9 +128,34 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await getCopilotApi(this.credentialStore, this.telemetry);
 	}
 
+	private _repoManagerInitializationPromise: Promise<void> | undefined;
+	private async waitRepoManagerInitialization() {
+		if (this.repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this.repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+			return;
+		}
+
+		if (!this._repoManagerInitializationPromise) {
+			this._repoManagerInitializationPromise = new Promise((resolve) => {
+				const disposable = this.repositoriesManager.onDidChangeState(() => {
+					if (this.repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this.repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+						disposable.dispose();
+						resolve();
+					}
+				});
+			});
+		}
+
+		return this._repoManagerInitializationPromise;
+	}
+
 	enabled(): boolean {
 		return vscode.workspace
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED, false);
+	}
+
+	promptForConfirmation(): boolean {
+		return vscode.workspace
+			.getConfiguration(CODING_AGENT).get(CODING_AGENT_PROMPT_FOR_CONFIRMATION, true);
 	}
 
 	async isAssignable(): Promise<boolean> {
@@ -203,33 +246,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, baseRef, remote, repository, ghRepository, fm };
 	}
 
-	private parseFollowup(followup: string | undefined, repoInfo: { owner: string; repo: string }): number | undefined {
-		if (!followup) {
-			return;
-		}
-		const match = followup.match(FOLLOW_UP_REGEX);
-		if (!match || match.length < 2) {
-			Logger.error(`Ignoring. Invalid followup format: ${followup}`, CopilotRemoteAgentManager.ID);
-			return;
-		}
-
-		try {
-			const followUpData = JSON.parse(decodeURIComponent(match[1]));
-			if (!followUpData || !followUpData.owner || !followUpData.repo || !followUpData.pullRequestNumber) {
-				Logger.error(`Ignoring. Invalid followup data: ${followUpData}`, CopilotRemoteAgentManager.ID);
-				return;
-			}
-
-			if (repoInfo.owner !== followUpData.owner || repoInfo.repo !== followUpData.repo) {
-				Logger.error(`Ignoring. Follow up data does not match current repository: ${JSON.stringify(followUpData)}`, CopilotRemoteAgentManager.ID);
-				return;
-			}
-			return followUpData.pullRequestNumber;
-		} catch (error) {
-			Logger.error(`Ignoring. Error while parsing follow up data: ${followup}`, CopilotRemoteAgentManager.ID);
-		}
-	}
-
 	async addFollowUpToExistingPR(pullRequestNumber: number, userPrompt: string, summary?: string): Promise<string | undefined> {
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
@@ -258,25 +274,27 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
+	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | ICopilotRemoteAgentCommandResponse | undefined> {
 		if (!args) {
 			return;
 		}
-		const { userPrompt, summary, source, followup } = args;
+		const { userPrompt, summary, source, followup, _version } = args;
 
 		/* __GDPR__
 			"remoteAgent.command.args" : {
 				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"isFollowup" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"userPromptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"summaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				"summaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
 		this.telemetry.sendTelemetryEvent('remoteAgent.command.args', {
 			source: source?.toString() || 'unknown',
 			isFollowup: !!followup ? 'true' : 'false',
 			userPromptLength: userPrompt.length.toString(),
-			summaryLength: summary ? summary.length.toString() : '0'
+			summaryLength: summary ? summary.length.toString() : '0',
+			version: _version?.toString() || 'unknown'
 		});
 
 		if (!userPrompt || userPrompt.trim().length === 0) {
@@ -309,7 +327,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		let autoPushAndCommit = false;
 		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
-		const detail = vscode.l10n.t('Your current chat session will end, and its context will be used to continue your work in a new pull request.');
+		const detail = vscode.l10n.t('Your chat context will be used to continue work in a new pull request.');
 		if (source !== 'prompt' && hasChanges && this.autoCommitAndPushEnabled()) {
 			// Pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
@@ -341,7 +359,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (modalResult === PUSH_CHANGES) {
 				autoPushAndCommit = true;
 			}
-		} else {
+		} else if (this.promptForConfirmation()) {
 			// No pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
 				source !== 'prompt' ? message : vscode.l10n.t('Copilot coding agent will implement the specification outlined in this prompt file'),
@@ -350,10 +368,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 					detail: source !== 'prompt' ? detail : undefined
 				},
 				CONTINUE,
+				CONTINUE_AND_DO_NOT_ASK_AGAIN,
 				LEARN_MORE,
 			);
 			if (!modalResult) {
 				return;
+			}
+
+			if (modalResult === CONTINUE_AND_DO_NOT_ASK_AGAIN) {
+				await vscode.workspace.getConfiguration(CODING_AGENT).update(CODING_AGENT_PROMPT_FOR_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
 			}
 
 			if (modalResult === LEARN_MORE) {
@@ -387,7 +410,35 @@ export class CopilotRemoteAgentManager extends Disposable {
 			outcome: 'success'
 		});
 
-		vscode.commands.executeCommand('vscode.open', webviewUri);
+		this._onDidChangeChatSessions.fire();
+		const viewLocationSetting = vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation');
+		const pr = await (async () => {
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return;
+			}
+			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			return sessions.find(session => session.number === number);
+		})();
+
+		if (!viewLocationSetting || viewLocationSetting === 'disabled') {
+			vscode.commands.executeCommand('vscode.open', webviewUri);
+		} else {
+			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
+			if (pr) {
+				vscode.window.showChatSession('copilot-swe-agent', `${pr.number}`, {});
+			}
+		}
+
+		if (pr && (_version && _version === 2)) { /* version 2 means caller knows how to render this */
+			return {
+				uri: webviewUri.toString(),
+				title: pr.title,
+				description: pr.body,
+				author: COPILOT_ACCOUNTS[pr.author.login].name,
+				linkTag: `#${pr.number}`
+			};
+		}
 
 		// allow-any-unicode-next-line
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
@@ -556,13 +607,19 @@ export class CopilotRemoteAgentManager extends Disposable {
 			title = titleMatch[1].trim();
 		}
 
+		const formatBodyPlaceholder = (problemContext: string): string => {
+			const header = vscode.l10n.t('Coding agent has begun work on **{0}** and will replace this description as work progresses.', title);
+			const collapsedContext = `<details><summary>${vscode.l10n.t('See problem context')}</summary>\n\n${problemContext}\n\n</details>`;
+			return `${header}\n\n${collapsedContext}`;
+		};
+
 		const problemStatement: string = `${prompt} ${problemContext ? `: ${problemContext}` : ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
 			event_type: 'visual_studio_code_remote_agent_tool_invoked',
 			pull_request: {
 				title,
-				body_placeholder: problemContext,
+				body_placeholder: formatBodyPlaceholder(problemContext),
 				base_ref,
 				body_suffix,
 				...(hasChanges && { head_ref: ref })
@@ -573,7 +630,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
 			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
-			const prLlmString = `The remote agent has begun work. The user can track progress on GitHub.com by visiting ${pull_request.html_url} and within VS Code by visiting ${webviewUri.toString()}. Format all links as markdown (eg: [link text](url)).`;
+			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
 			return {
 				state: 'success',
 				number: pull_request.number,
@@ -599,13 +656,39 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
+	async getWorkflowStepsFromAction(pullRequest: PullRequestModel): Promise<SessionSetupStep[]> {
+		const lastRun = await this.getLatestCodingAgentFromAction(pullRequest, 0, false);
+		if (!lastRun) {
+			return [];
+		}
+
+		try {
+			const jobs = await pullRequest.githubRepository.getWorkflowJobs(lastRun.id);
+			const steps: SessionSetupStep[] = [];
+
+			for (const job of jobs) {
+				if (job.steps) {
+					for (const step of job.steps) {
+						steps.push({ name: step.name, status: step.status });
+					}
+				}
+			}
+
+			return steps;
+		} catch (error) {
+			Logger.error(`Failed to get workflow steps: ${error}`, CopilotRemoteAgentManager.ID);
+			return [];
+		}
+	}
+
 	async getLatestCodingAgentFromAction(pullRequest: PullRequestModel, sessionIndex = 0, completedOnly = true): Promise<OctokitCommon.WorkflowRun | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return;
 		}
 		const runs = await pullRequest.githubRepository.getWorkflowRunsFromAction(pullRequest.createdAt);
-		const padawanRuns = runs
+		const workflowRuns = runs.flatMap(run => run.workflow_runs);
+		const padawanRuns = workflowRuns
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
 			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
 
@@ -617,20 +700,33 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this.getLatestRun(padawanRuns);
 	}
 
-	async getSessionLogFromPullRequest(pullRequestId: number, sessionIndex = 0, completedOnly = true): Promise<IAPISessionLogs | undefined> {
+	async getSessionLogFromPullRequest(pullRequest: PullRequestModel, sessionIndex = 0, completedOnly = true): Promise<IAPISessionLogs | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return undefined;
 		}
 
-		const sessions = await capi.getAllSessions(pullRequestId);
+		const sessions = await capi.getAllSessions(pullRequest.id);
 		const session = sessions.filter(s => !completedOnly || s.state === 'completed').at(sessionIndex);
 		if (!session) {
 			return undefined;
 		}
 
 		const logs = await capi.getLogsFromSession(session.id);
-		return { info: session, logs };
+
+		// If session is in progress, try to fetch workflow steps to show setup progress
+		let setupSteps: SessionSetupStep[] | undefined;
+		if (session.state === 'in_progress' || logs.trim().length === 0) {
+			try {
+				// Get workflow steps instead of logs
+				setupSteps = await this.getWorkflowStepsFromAction(pullRequest);
+			} catch (error) {
+				// If we can't fetch workflow steps, don't fail the entire request
+				Logger.warn(`Failed to fetch workflow steps for session ${session.id}: ${error}`, CopilotRemoteAgentManager.ID);
+			}
+		}
+
+		return { info: session, logs, setupSteps };
 	}
 
 	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
@@ -656,10 +752,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			})[0];
 	}
 
-	clearNotifications() {
-		this._stateModel.clearNotifications();
-	}
-
 	get notificationsCount(): number {
 		return this._stateModel.notifications.size;
 	}
@@ -669,7 +761,860 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this._stateModel.notifications.has(key);
 	}
 
-	public getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
+	getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
 		return this._stateModel.get(owner, repo, prNumber);
+	}
+
+	getCounts(): { total: number; inProgress: number; error: number } {
+		return this._stateModel.getCounts();
+	}
+
+	public async provideChatSessions(token: vscode.CancellationToken): Promise<ChatSessionWithPR[]> {
+		try {
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return [];
+			}
+
+			// Check if the token is already cancelled
+			if (token.isCancellationRequested) {
+				return [];
+			}
+
+			await this.waitRepoManagerInitialization();
+
+			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			return await Promise.all(codingAgentPRs.map(async session => {
+				const timeline = await session.getTimelineEvents(session);
+				const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
+				if (status !== CopilotPRStatus.Completed && status !== CopilotPRStatus.Failed) {
+					const disposable = session.onDidChange(() => {
+						this._onDidChangeChatSessions.fire();
+						disposable.dispose(); // Clean up listener after firing
+					});
+					this._register(disposable);
+				}
+				return {
+					id: `${session.number}`,
+					label: session.title || `Session ${session.number}`,
+					iconPath: this.getIconForSession(status),
+					pullRequest: session
+				};
+			}));
+		} catch (error) {
+			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+		return [];
+	}
+
+	private extractPromptFromEvent(event: TimelineEvent): string {
+		let body = '';
+		if (event.event === EventType.Commented) {
+			body = (event as CommentEvent).body;
+		} else if (event.event === EventType.Reviewed) {
+			body = (event as ReviewEvent).body;
+		}
+
+		// Extract the prompt before any separator pattern (used in addFollowUpToExistingPR)
+		// but keep the @copilot mention
+		const separatorMatch = body.match(/^(.*?)\s*\n\n\s*---\s*\n\n/s);
+		if (separatorMatch) {
+			return separatorMatch[1].trim();
+		}
+
+		return body.trim();
+	}
+
+	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
+		try {
+			const capi = await this.copilotApi;
+			if (!capi || token.isCancellationRequested) {
+				return this.createEmptySession();
+			}
+
+			const pullRequestNumber = parseInt(id);
+			if (isNaN(pullRequestNumber)) {
+				Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			await this.waitRepoManagerInitialization();
+
+			const pullRequest = await this.findPullRequestById(pullRequestNumber, true);
+			if (!pullRequest) {
+				Logger.error(`Pull request not found: ${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			const sessions = await capi.getAllSessions(pullRequest.id);
+			if (!sessions || sessions.length === 0) {
+				Logger.warn(`No sessions found for pull request ${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			if (!Array.isArray(sessions)) {
+				Logger.error(`getAllSessions returned non-array: ${typeof sessions}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			const history = await this.buildSessionHistory(sessions, pullRequest, capi);
+			const activeResponseCallback = this.findActiveResponseCallback(sessions, pullRequest);
+			const requestHandler = this.createRequestHandlerIfNeeded(pullRequest);
+
+			return {
+				history,
+				activeResponseCallback,
+				requestHandler
+			};
+		} catch (error) {
+			Logger.error(`Failed to provide chat session content: ${error}`, CopilotRemoteAgentManager.ID);
+			return this.createEmptySession();
+		}
+	}
+
+	private async buildSessionHistory(
+		sessions: SessionInfo[],
+		pullRequest: PullRequestModel,
+		capi: CopilotApi
+	): Promise<Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2>> {
+		const sortedSessions = sessions.slice().sort((a, b) =>
+			new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+		);
+
+		const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
+		const timelineEvents = await pullRequest.getTimelineEvents(pullRequest);
+
+		Logger.appendLine(`Found ${timelineEvents.length} timeline events`, CopilotRemoteAgentManager.ID);
+
+		for (const [sessionIndex, session] of sortedSessions.entries()) {
+			const logs = await capi.getLogsFromSession(session.id);
+			const sessionPrompt = await this.determineSessionPrompt(session, sessionIndex, pullRequest, timelineEvents, capi);
+
+			// Create request turn for this session
+			const sessionRequest = new vscode.ChatRequestTurn2(
+				sessionPrompt,
+				undefined, // command
+				[], // references
+				'copilot-swe-agent',
+				[], // toolReferences
+				[]
+			);
+			history.push(sessionRequest);
+
+			// Create response turn
+			const responseHistory = await this.createResponseTurn(pullRequest, logs, session);
+			if (responseHistory) {
+				history.push(responseHistory);
+			}
+		}
+
+		return history;
+	}
+
+	private async determineSessionPrompt(
+		session: SessionInfo,
+		sessionIndex: number,
+		pullRequest: PullRequestModel,
+		timelineEvents: readonly TimelineEvent[],
+		capi: CopilotApi
+	): Promise<string> {
+		let sessionPrompt = session.name || `Session ${sessionIndex + 1} (ID: ${session.id})`;
+
+		if (sessionIndex === 0) {
+			sessionPrompt = await this.getInitialSessionPrompt(session, pullRequest, capi, sessionPrompt);
+		} else {
+			sessionPrompt = await this.getFollowUpSessionPrompt(sessionIndex, timelineEvents, sessionPrompt);
+		}
+
+		// TODO: @rebornix, remove @copilot prefix from session prompt for now
+		sessionPrompt = sessionPrompt.replace(/@copilot\s*/gi, '').trim();
+		return sessionPrompt;
+	}
+
+	private async getInitialSessionPrompt(
+		session: SessionInfo,
+		pullRequest: PullRequestModel,
+		capi: CopilotApi,
+		defaultPrompt: string
+	): Promise<string> {
+		try {
+			const jobInfo = await capi.getJobBySessionId(
+				pullRequest.base.repositoryCloneUrl.owner,
+				pullRequest.base.repositoryCloneUrl.repositoryName,
+				session.id
+			);
+			if (jobInfo && jobInfo.problem_statement) {
+				let prompt = jobInfo.problem_statement;
+				const titleMatch = jobInfo.problem_statement.match(/TITLE: \s*(.*)/i);
+				if (titleMatch && titleMatch[1]) {
+					prompt = titleMatch[1].trim();
+				}
+				Logger.appendLine(`Session 0: Found problem_statement from Jobs API: ${prompt}`, CopilotRemoteAgentManager.ID);
+				return prompt;
+			}
+		} catch (error) {
+			Logger.warn(`Failed to get job info for session ${session.id}: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+		return defaultPrompt;
+	}
+
+	private async getFollowUpSessionPrompt(
+		sessionIndex: number,
+		timelineEvents: readonly TimelineEvent[],
+		defaultPrompt: string
+	): Promise<string> {
+		const copilotStartedEvents = timelineEvents
+			.filter((event): event is CopilotStartedEvent => event.event === EventType.CopilotStarted)
+			.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+		const copilotFinishedEvents = timelineEvents
+			.filter((event): event is CopilotFinishedEvent => event.event === EventType.CopilotFinished)
+			.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+		Logger.appendLine(`Session ${sessionIndex}: Found ${copilotStartedEvents.length} CopilotStarted events and ${copilotFinishedEvents.length} CopilotFinished events`, CopilotRemoteAgentManager.ID);
+
+		const copilotStartedEvent = copilotStartedEvents[sessionIndex];
+		if (!copilotStartedEvent) {
+			Logger.appendLine(`Session ${sessionIndex}: No CopilotStarted event found at index ${sessionIndex}`, CopilotRemoteAgentManager.ID);
+			return defaultPrompt;
+		}
+
+		const currentSessionStartTime = new Date(copilotStartedEvent.createdAt).getTime();
+		const previousSessionEndTime = this.getPreviousSessionEndTime(sessionIndex, copilotFinishedEvents);
+
+		const relevantEvents = this.findRelevantTimelineEvents(timelineEvents, previousSessionEndTime, currentSessionStartTime);
+
+		const matchingEvent = relevantEvents[0];
+		if (matchingEvent) {
+			const prompt = this.extractPromptFromEvent(matchingEvent);
+			Logger.appendLine(`Session ${sessionIndex}: Found matching event - ${matchingEvent.event}`, CopilotRemoteAgentManager.ID);
+			return prompt;
+		} else {
+			Logger.appendLine(`Session ${sessionIndex}: No matching event found between times ${previousSessionEndTime} and ${currentSessionStartTime}`, CopilotRemoteAgentManager.ID);
+			Logger.appendLine(`Session ${sessionIndex}: Relevant events found: ${relevantEvents.length}`, CopilotRemoteAgentManager.ID);
+			return defaultPrompt;
+		}
+	}
+
+	private getPreviousSessionEndTime(sessionIndex: number, copilotFinishedEvents: CopilotFinishedEvent[]): number {
+		if (sessionIndex > 0 && copilotFinishedEvents[sessionIndex - 1]) {
+			return new Date(copilotFinishedEvents[sessionIndex - 1].createdAt).getTime();
+		}
+		return 0;
+	}
+
+	private findRelevantTimelineEvents(
+		timelineEvents: readonly TimelineEvent[],
+		previousSessionEndTime: number,
+		currentSessionStartTime: number
+	): TimelineEvent[] {
+		return timelineEvents
+			.filter(event => {
+				if (event.event !== EventType.Commented && event.event !== EventType.Reviewed) {
+					return false;
+				}
+
+				const eventTime = new Date(
+					event.event === EventType.Commented ? (event as CommentEvent).createdAt :
+						event.event === EventType.Reviewed ? (event as ReviewEvent).submittedAt : ''
+				).getTime();
+
+				// Must be after previous session and before current session
+				return eventTime > previousSessionEndTime && eventTime < currentSessionStartTime;
+			})
+			.filter(event => {
+				if (event.event === EventType.Commented) {
+					const comment = event as CommentEvent;
+					return comment.body.includes('@copilot') || comment.body.includes(COPILOT);
+				} else if (event.event === EventType.Reviewed) {
+					const review = event as ReviewEvent;
+					return review.body.includes('@copilot') || review.body.includes(COPILOT);
+				}
+				return false;
+			})
+			.sort((a, b) => {
+				const timeA = new Date(
+					a.event === EventType.Commented ? (a as CommentEvent).createdAt :
+						a.event === EventType.Reviewed ? (a as ReviewEvent).submittedAt : ''
+				).getTime();
+				const timeB = new Date(
+					b.event === EventType.Commented ? (b as CommentEvent).createdAt :
+						b.event === EventType.Reviewed ? (b as ReviewEvent).submittedAt : ''
+				).getTime();
+				return timeB - timeA; // Most recent first (closest to session start)
+			});
+	}
+
+	private async createResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
+		if (logs.trim().length > 0) {
+			return await this.parseSessionLogsIntoResponseTurn(pullRequest, logs, session);
+		} else if (session.state === 'in_progress') {
+			// For in-progress sessions without logs, create a placeholder response
+			const placeholderParts = [new vscode.ChatResponseProgressPart('Session is initializing...')];
+			const responseResult: vscode.ChatResult = {};
+			return new vscode.ChatResponseTurn2(placeholderParts, responseResult, 'copilot-swe-agent');
+		} else {
+			// For completed sessions without logs, add an empty response to maintain pairing
+			const emptyParts = [new vscode.ChatResponseMarkdownPart('_No logs available for this session_')];
+			const responseResult: vscode.ChatResult = {};
+			return new vscode.ChatResponseTurn2(emptyParts, responseResult, 'copilot-swe-agent');
+		}
+	}
+
+	private findActiveResponseCallback(
+		sessions: SessionInfo[],
+		pullRequest: PullRequestModel
+	): ((stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void>) | undefined {
+		// Only the latest in-progress session gets activeResponseCallback
+		const inProgressSession = sessions
+			.slice()
+			.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+			.find(session => session.state === 'in_progress');
+
+		if (inProgressSession) {
+			return this.createActiveResponseCallback(pullRequest, inProgressSession.id);
+		}
+		return undefined;
+	}
+
+	private createRequestHandlerIfNeeded(pullRequest: PullRequestModel): vscode.ChatRequestHandler | undefined {
+		return (pullRequest.state === GithubItemStateEnum.Open)
+			? this.createRequestHandler(pullRequest)
+			: undefined;
+	}
+
+	private createEmptySession(): vscode.ChatSession {
+		return {
+			history: [],
+			requestHandler: undefined
+		};
+	}
+
+	private createActiveResponseCallback(pullRequest: PullRequestModel, sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
+		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+			// Use the shared streaming logic
+			return this.streamSessionLogs(stream, pullRequest, sessionId, token);
+		};
+	}
+
+	private async streamNewLogContent(pullRequest: PullRequestModel, stream: vscode.ChatResponseStream, newLogContent: string): Promise<{ hasStreamedContent: boolean; hasSetupStepProgress: boolean }> {
+		try {
+			if (!newLogContent.trim()) {
+				return { hasStreamedContent: false, hasSetupStepProgress: false };
+			}
+
+			// Parse the new log content
+			const logChunks = parseSessionLogs(newLogContent);
+			let hasStreamedContent = false;
+			let hasSetupStepProgress = false;
+
+			for (const chunk of logChunks) {
+				for (const choice of chunk.choices) {
+					const delta = choice.delta;
+
+					if (delta.role === 'assistant') {
+						// Handle special case for run_custom_setup_step
+						if (choice.finish_reason === 'tool_calls' && delta.tool_calls?.length && delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+							const toolCall = delta.tool_calls[0];
+							let args: any = {};
+							try {
+								args = JSON.parse(toolCall.function.arguments);
+							} catch {
+								// fallback to empty args
+							}
+
+							if (delta.content && delta.content.trim()) {
+								// Finished setup step - create/update tool part
+								const toolPart = this.createToolInvocationPart(pullRequest, toolCall, args.name || delta.content);
+								if (toolPart) {
+									stream.push(toolPart);
+									hasStreamedContent = true;
+								}
+							} else {
+								// Running setup step - just track progress
+								hasSetupStepProgress = true;
+								Logger.appendLine(`Setup step in progress: ${args.name || 'Unknown step'}`, CopilotRemoteAgentManager.ID);
+							}
+						} else {
+							if (delta.content) {
+								if (!delta.content.startsWith('<pr_title>')) {
+									stream.markdown(delta.content);
+									hasStreamedContent = true;
+								}
+							}
+
+							if (delta.tool_calls) {
+								for (const toolCall of delta.tool_calls) {
+									const toolPart = this.createToolInvocationPart(pullRequest, toolCall, delta.content || '');
+									if (toolPart) {
+										stream.push(toolPart);
+										hasStreamedContent = true;
+									}
+								}
+							}
+						}
+					}
+
+					// Handle finish reasons
+					if (choice.finish_reason && choice.finish_reason !== 'null') {
+						Logger.appendLine(`Streaming finish_reason: ${choice.finish_reason}`, CopilotRemoteAgentManager.ID);
+					}
+				}
+			}
+
+			if (hasStreamedContent) {
+				Logger.appendLine(`Streamed content (markdown or tool parts), progress should be cleared`, CopilotRemoteAgentManager.ID);
+			} else if (hasSetupStepProgress) {
+				Logger.appendLine(`Setup step progress detected, keeping progress indicator`, CopilotRemoteAgentManager.ID);
+			} else {
+				Logger.appendLine(`No actual content streamed, progress may still be showing`, CopilotRemoteAgentManager.ID);
+			}
+			return { hasStreamedContent, hasSetupStepProgress };
+		} catch (error) {
+			Logger.error(`Error streaming new log content: ${error}`, CopilotRemoteAgentManager.ID);
+			return { hasStreamedContent: false, hasSetupStepProgress: false };
+		}
+	}
+
+	private async streamSessionLogs(stream: vscode.ChatResponseStream, pullRequest: PullRequestModel, sessionId: string, token: vscode.CancellationToken): Promise<void> {
+		const capi = await this.copilotApi;
+		if (!capi || token.isCancellationRequested) {
+			return;
+		}
+
+		let lastLogLength = 0;
+		let lastProcessedLength = 0;
+		let hasActiveProgress = false;
+		const pollingInterval = 3000; // 3 seconds
+
+		return new Promise<void>((resolve, reject) => {
+			let cancellationListener: vscode.Disposable | undefined;
+			let isCompleted = false;
+
+			const complete = async () => {
+				if (isCompleted) {
+					return;
+				}
+				isCompleted = true;
+				cancellationListener?.dispose();
+
+				const multiDiffPart = await this.getFileChangesMultiDiffPart(pullRequest);
+				if (multiDiffPart) {
+					stream.push(multiDiffPart);
+				}
+
+				resolve();
+			};
+
+			cancellationListener = token.onCancellationRequested(async () => {
+				if (isCompleted) {
+					return;
+				}
+
+				try {
+					const sessionInfo = await capi.getSessionInfo(sessionId);
+					if (sessionInfo && sessionInfo.state !== 'completed' && sessionInfo.workflow_run_id) {
+						await pullRequest.githubRepository.cancelWorkflow(sessionInfo.workflow_run_id);
+						stream.markdown(vscode.l10n.t('Session has been cancelled.'));
+						complete();
+					}
+				} catch (error) {
+					Logger.error(`Error while trying to cancel session ${sessionId} workflow: ${error}`, CopilotRemoteAgentManager.ID);
+				}
+			});
+
+			const pollForUpdates = async (): Promise<void> => {
+				try {
+					if (token.isCancellationRequested) {
+						complete();
+						return;
+					}
+
+					// Get the specific session info
+					const sessionInfo = await capi.getSessionInfo(sessionId);
+					if (!sessionInfo || token.isCancellationRequested) {
+						complete();
+						return;
+					}
+
+					// Get session logs
+					const logs = await capi.getLogsFromSession(sessionId);
+
+					// Check if session is still in progress
+					if (sessionInfo.state !== 'in_progress') {
+						if (logs.length > lastProcessedLength) {
+							const newLogContent = logs.slice(lastProcessedLength);
+							const streamResult = await this.streamNewLogContent(pullRequest, stream, newLogContent);
+							if (streamResult.hasStreamedContent) {
+								hasActiveProgress = false;
+							}
+						}
+						hasActiveProgress = false;
+						complete();
+						return;
+					}
+
+					if (logs.length > lastLogLength) {
+						Logger.appendLine(`New logs detected, attempting to stream content`, CopilotRemoteAgentManager.ID);
+						const newLogContent = logs.slice(lastProcessedLength);
+						const streamResult = await this.streamNewLogContent(pullRequest, stream, newLogContent);
+						lastProcessedLength = logs.length;
+
+						if (streamResult.hasStreamedContent) {
+							Logger.appendLine(`Content was streamed, resetting hasActiveProgress to false`, CopilotRemoteAgentManager.ID);
+							hasActiveProgress = false;
+						} else if (streamResult.hasSetupStepProgress) {
+							Logger.appendLine(`Setup step progress detected, keeping progress active`, CopilotRemoteAgentManager.ID);
+							// Keep hasActiveProgress as is, don't reset it
+						} else {
+							Logger.appendLine(`No content was streamed, keeping hasActiveProgress as ${hasActiveProgress}`, CopilotRemoteAgentManager.ID);
+						}
+					}
+
+					lastLogLength = logs.length;
+
+					if (!token.isCancellationRequested && sessionInfo.state === 'in_progress') {
+						if (!hasActiveProgress) {
+							Logger.appendLine(`Showing progress indicator (hasActiveProgress was false)`, CopilotRemoteAgentManager.ID);
+							stream.progress('Working...');
+							hasActiveProgress = true;
+						} else {
+							Logger.appendLine(`NOT showing progress indicator (hasActiveProgress was true)`, CopilotRemoteAgentManager.ID);
+						}
+						setTimeout(pollForUpdates, pollingInterval);
+					} else {
+						complete();
+					}
+				} catch (error) {
+					Logger.error(`Error polling for session updates: ${error}`, CopilotRemoteAgentManager.ID);
+					if (!token.isCancellationRequested) {
+						setTimeout(pollForUpdates, pollingInterval);
+					} else {
+						reject(error);
+					}
+				}
+			};
+
+			// Start polling
+			setTimeout(pollForUpdates, pollingInterval);
+		});
+	}
+
+	private async getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
+		try {
+			const repoInfo = await this.repoInfo();
+			if (!repoInfo) {
+				return undefined;
+			}
+
+			const { fm: folderManager } = repoInfo;
+			const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequest);
+
+			if (changeModels.length === 0) {
+				return undefined;
+			}
+
+			const diffEntries: vscode.ChatResponseDiffEntry[] = [];
+			for (const changeModel of changeModels) {
+				diffEntries.push({
+					originalUri: changeModel.parentFilePath,
+					modifiedUri: changeModel.filePath,
+					goToFileUri: changeModel.filePath
+				});
+			}
+
+			const title = `Changes in Pull Request #${pullRequest.number}`;
+			return new vscode.ChatResponseMultiDiffPart(diffEntries, title);
+		} catch (error) {
+			Logger.error(`Failed to get file changes multi diff part: ${error}`, CopilotRemoteAgentManager.ID);
+			return undefined;
+		}
+	}
+
+	private async findPullRequestById(number: number, fetch: boolean): Promise<PullRequestModel | undefined> {
+		for (const folderManager of this.repositoriesManager.folderManagers) {
+			for (const githubRepo of folderManager.gitHubRepositories) {
+				const pullRequest = githubRepo.pullRequestModels.find(pr => pr.number === number);
+				if (pullRequest) {
+					return pullRequest;
+				}
+
+				if (fetch) {
+					try {
+						const pullRequest = await githubRepo.getPullRequest(number, false);
+						if (pullRequest) {
+							return pullRequest;
+						}
+					} catch (error) {
+						// Continue to next repository if this one doesn't have the PR
+						Logger.debug(`PR ${number} not found in ${githubRepo.remote.owner}/${githubRepo.remote.repositoryName}: ${error}`, CopilotRemoteAgentManager.ID);
+					}
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
+		if (!toolCall.function?.name || !toolCall.id) {
+			return undefined;
+		}
+
+		// Hide reply_to_comment tool
+		if (toolCall.function.name === 'reply_to_comment') {
+			return undefined;
+		}
+
+		const toolPart = new vscode.ChatToolInvocationPart(toolCall.function.name, toolCall.id);
+		toolPart.isComplete = true;
+		toolPart.isError = false;
+		toolPart.isConfirmed = true;
+
+		try {
+			const toolDetails = parseToolCallDetails(toolCall, deltaContent);
+			toolPart.toolName = toolDetails.toolName;
+
+			if (toolCall.function.name === 'bash') {
+				toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);
+			} else {
+				toolPart.invocationMessage = new vscode.MarkdownString(toolDetails.invocationMessage);
+			}
+
+			if (toolDetails.pastTenseMessage) {
+				toolPart.pastTenseMessage = new vscode.MarkdownString(toolDetails.pastTenseMessage);
+			}
+			if (toolDetails.originMessage) {
+				toolPart.originMessage = new vscode.MarkdownString(toolDetails.originMessage);
+			}
+			if (toolDetails.toolSpecificData) {
+				if ('command' in toolDetails.toolSpecificData) {
+					if ((toolDetails.toolSpecificData.command === 'view' || toolDetails.toolSpecificData.command === 'edit') && toolDetails.toolSpecificData.fileLabel) {
+						const uri = vscode.Uri.file(nodePath.join(pullRequest.githubRepository.rootUri.fsPath, toolDetails.toolSpecificData.fileLabel));
+						toolPart.invocationMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);
+						toolPart.invocationMessage.supportHtml = true;
+						toolPart.pastTenseMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);
+					}
+				} else {
+					toolPart.toolSpecificData = toolDetails.toolSpecificData;
+				}
+			}
+		} catch (error) {
+			toolPart.toolName = toolCall.function.name || 'unknown';
+			toolPart.invocationMessage = new vscode.MarkdownString(`Tool: ${toolCall.function.name}`);
+			toolPart.isError = true;
+		}
+
+		return toolPart;
+	}
+
+	private async parseSessionLogsIntoResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
+		try {
+			const logChunks = parseSessionLogs(logs);
+			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart> = [];
+			let currentResponseContent = '';
+
+			for (const chunk of logChunks) {
+				for (const choice of chunk.choices) {
+					const delta = choice.delta;
+
+					if (delta.role === 'assistant') {
+						// Handle special case for run_custom_setup_step
+						if (choice.finish_reason === 'tool_calls' && delta.tool_calls?.length && delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+							const toolCall = delta.tool_calls[0];
+							let args: any = {};
+							try {
+								args = JSON.parse(toolCall.function.arguments);
+							} catch {
+								// fallback to empty args
+							}
+
+							// Ignore if delta.content is empty/undefined (running state)
+							if (delta.content && delta.content.trim()) {
+								// Add any accumulated content as markdown first
+								if (currentResponseContent.trim()) {
+									responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+									currentResponseContent = '';
+								}
+
+								const toolPart = this.createToolInvocationPart(pullRequest, toolCall, args.name || delta.content);
+								if (toolPart) {
+									responseParts.push(toolPart);
+								}
+							}
+							// Skip if content is empty (running state)
+						} else {
+							if (delta.content) {
+								if (!delta.content.startsWith('<pr_title>')) {
+									currentResponseContent += delta.content;
+								}
+							}
+
+							if (delta.tool_calls) {
+								// Add any accumulated content as markdown first
+								if (currentResponseContent.trim()) {
+									responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+									currentResponseContent = '';
+								}
+
+								for (const toolCall of delta.tool_calls) {
+									const toolPart = this.createToolInvocationPart(pullRequest, toolCall, delta.content || '');
+									if (toolPart) {
+										responseParts.push(toolPart);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (currentResponseContent.trim()) {
+				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+			}
+
+			if (session.state === 'completed' || session.state === 'failed' /** session can fail with proposed changes */) {
+				const fileChangesPart = await this.getFileChangesMultiDiffPart(pullRequest);
+				if (fileChangesPart) {
+					responseParts.push(fileChangesPart);
+				}
+			}
+
+			if (responseParts.length > 0) {
+				const responseResult: vscode.ChatResult = {};
+				return new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent');
+			}
+
+			return undefined;
+		} catch (error) {
+			Logger.error(`Failed to parse session logs into response turn: ${error}`, CopilotRemoteAgentManager.ID);
+			return undefined;
+		}
+	}
+
+	private createRequestHandler(pullRequest: PullRequestModel): vscode.ChatRequestHandler {
+		return async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
+			try {
+				if (token.isCancellationRequested) {
+					return {};
+				}
+
+				// Validate user input
+				const userPrompt = request.prompt;
+				if (!userPrompt || userPrompt.trim().length === 0) {
+					stream.markdown(vscode.l10n.t('Please provide a message for the coding agent.'));
+					return {};
+				}
+
+				stream.progress('Working on your request...');
+
+				// Add follow-up comment to the PR
+				const result = await this.addFollowUpToExistingPR(pullRequest.number, userPrompt);
+				if (!result) {
+					stream.markdown(vscode.l10n.t('Failed to add follow-up comment to the pull request.'));
+					return {};
+				}
+
+				// Show initial success message
+				stream.markdown(result);
+				stream.markdown('\n\n');
+
+				// Wait for new session and stream its progress
+				const newSession = await this.waitForNewSession(pullRequest, stream, token);
+				if (!newSession) {
+					return {};
+				}
+
+				// Stream the new session logs
+				stream.markdown(vscode.l10n.t('Coding agent is now working on your request...'));
+				stream.markdown('\n\n');
+
+				await this.streamSessionLogs(stream, pullRequest, newSession.id, token);
+
+				return {};
+			} catch (error) {
+				Logger.error(`Error in request handler: ${error}`, CopilotRemoteAgentManager.ID);
+				stream.markdown(vscode.l10n.t('An error occurred while processing your request.'));
+				return { errorDetails: { message: error.message } };
+			}
+		};
+	}
+
+	private async waitForNewSession(
+		pullRequest: PullRequestModel,
+		stream: vscode.ChatResponseStream,
+		token: vscode.CancellationToken
+	): Promise<SessionInfo | undefined> {
+		// Get the current number of sessions
+		const capi = await this.copilotApi;
+		if (!capi) {
+			stream.markdown(vscode.l10n.t('Failed to connect to Copilot API.'));
+			return undefined;
+		}
+
+		const initialSessions = await capi.getAllSessions(pullRequest.id);
+		const initialSessionCount = initialSessions.length;
+
+		// Poll for a new session to start
+		const maxWaitTime = 5 * 60 * 1000; // 5 minutes
+		const pollInterval = 3000; // 3 seconds
+		const startTime = Date.now();
+
+		while (Date.now() - startTime < maxWaitTime && !token.isCancellationRequested) {
+			const currentSessions = await capi.getAllSessions(pullRequest.id);
+
+			// Check if a new session has started
+			if (currentSessions.length > initialSessionCount) {
+				return currentSessions
+					.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+			}
+
+			await new Promise(resolve => setTimeout(resolve, pollInterval));
+		}
+
+		stream.markdown(vscode.l10n.t('Timed out waiting for the coding agent to respond. The agent may still be processing your request.'));
+		return undefined;
+	}
+
+	private getIconForSession(status: CopilotPRStatus): vscode.Uri | vscode.ThemeIcon {
+		// Use the same icons as webview components for consistency
+		const themeData = this.repositoriesManager.folderManagers[0]?.themeWatcher?.themeData;
+		if (!themeData) {
+			// Fallback to theme icons if no theme data available
+			switch (status) {
+				case CopilotPRStatus.Completed:
+					return new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));
+				case CopilotPRStatus.Failed:
+					return new vscode.ThemeIcon('close', new vscode.ThemeColor('testing.iconFailed'));
+				default:
+					return new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
+			}
+		}
+
+		// Use the same SVG icons as webview components with theme-appropriate colors
+		const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
+			vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
+		const themeKind = isDark ? 'dark' : 'light';
+
+		switch (status) {
+			case CopilotPRStatus.Completed:
+				return DataUri.copilotSuccessAsImageDataURI(
+					getIconForeground(themeData, themeKind),
+					getNotebookStatusSuccessIconForeground(themeData, themeKind)
+				);
+			case CopilotPRStatus.Failed:
+				return DataUri.copilotErrorAsImageDataURI(
+					getIconForeground(themeData, themeKind),
+					getListErrorForeground(themeData, themeKind)
+				);
+			default:
+				return DataUri.copilotInProgressAsImageDataURI(
+					getIconForeground(themeData, themeKind),
+					getListWarningForeground(themeData, themeKind)
+				);
+		}
+	}
+
+	public refreshChatSessions(): void {
+		this._onDidChangeChatSessions.fire();
 	}
 }

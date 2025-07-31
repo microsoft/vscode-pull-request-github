@@ -5,15 +5,14 @@
 
 import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
-import { COPILOT_ACCOUNTS, IComment, IReviewThread } from '../common/comment';
-import { Disposable } from '../common/lifecycle';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import * as Common from '../common/timelineEvent';
-import { compareIgnoreCase, formatError } from '../common/utils';
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
@@ -42,7 +41,7 @@ import {
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
 	SuggestedActorsResponse,
-	TimelineEventsResponse,
+	UserResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
@@ -57,8 +56,9 @@ import {
 	PullRequestChecks,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
+	User,
 } from './interface';
-import { IssueModel } from './issueModel';
+import { IssueChangeEvent, IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
@@ -67,19 +67,16 @@ import * as limitedSchema from './queriesLimited.gql';
 import * as sharedSchema from './queriesShared.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
-	eventTime,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
-	insertNewCommitsSinceReview,
 	isInCodespaces,
 	parseAccount,
-	parseCombinedTimelineEvents,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
+	parseGraphQLUser,
 	parseGraphQLViewerPermission,
 	parseMergeMethod,
 	parseMilestone,
-	parseSelectRestTimelineEvents,
 	restPaginate,
 } from './utils';
 
@@ -155,6 +152,11 @@ export enum CopilotWorkingStatus {
 	Done = 'Done',
 }
 
+export interface PullRequestChangeEvent {
+	model: IssueModel;
+	event: IssueChangeEvent;
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
@@ -162,14 +164,20 @@ export class GitHubRepository extends Disposable {
 	protected _metadata: Promise<IMetadata> | undefined;
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentControllerRegistry;
-	private _pullRequestModels = new Map<number, PullRequestModel>();
+	private _pullRequestModelsByNumber: LRUCache<number, { model: PullRequestModel, disposables: vscode.Disposable[] }> = new LRUCache({
+		maxAge: 1000 * 60 * 60 * 4 /* 4 hours */, stale: true, updateAgeOnGet: true,
+		dispose: (_key, value) => {
+			disposeAll(value.disposables);
+			value.model.dispose();
+		}
+	});
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
-	private _onDidChangePullRequests: vscode.EventEmitter<IssueModel[]> = this._register(new vscode.EventEmitter());
-	public readonly onDidChangePullRequests: vscode.Event<IssueModel[]> = this._onDidChangePullRequests.event;
+	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
+	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -186,8 +194,12 @@ export class GitHubRepository extends Disposable {
 		return this.remote.equals(repo.remote);
 	}
 
-	get pullRequestModels(): Map<number, PullRequestModel> {
-		return this._pullRequestModels;
+	getExistingPullRequestModel(prNumber: number): PullRequestModel | undefined {
+		return this._pullRequestModelsByNumber.get(prNumber)?.model;
+	}
+
+	get pullRequestModels(): PullRequestModel[] {
+		return Array.from(this._pullRequestModelsByNumber.values().map(value => value.model));
 	}
 
 	public async ensureCommentsController(): Promise<void> {
@@ -198,10 +210,10 @@ export class GitHubRepository extends Disposable {
 
 			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`github-browse-${this.remote.normalizedHost}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
-			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
 			this._register(this.commentsHandler);
 			this._register(this.commentsController);
 		} catch (e) {
@@ -228,7 +240,7 @@ export class GitHubRepository extends Disposable {
 		public remote: GitHubRemote,
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
-		private readonly _telemetry: ITelemetry,
+		public readonly telemetry: ITelemetry,
 		silent: boolean = false
 	) {
 		super();
@@ -258,7 +270,7 @@ export class GitHubRepository extends Disposable {
 					"action": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
+			this.telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
 				action: action.context
 			});
 
@@ -560,6 +572,19 @@ export class GitHubRepository extends Disposable {
 		return success;
 	}
 
+	async getCommitParent(ref: string): Promise<string | undefined> {
+		Logger.debug(`Fetch commit for ref ${ref} - enter`, this.id);
+		try {
+			const { octokit, remote } = await this.ensure();
+			const commit = (await octokit.call(octokit.api.repos.getCommit, { owner: remote.owner, repo: remote.repositoryName, ref })).data;
+			return commit.parents[0].sha;
+		} catch (e) {
+			Logger.error(`Fetching commit for ref ${ref} failed: ${e}`, this.id);
+		}
+		Logger.debug(`Fetch commit for ref ${ref} - done`, this.id);
+	}
+
+
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		let remote: GitHubRemote | undefined;
 		try {
@@ -852,11 +877,11 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo[]> {
 		const { octokit, remote } = await this.ensure();
 		const createdDate = new Date(fromDate);
 		const created = `>=${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
-		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo[0]>(octokit.api.actions.listWorkflowRunsForRepo, {
+		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo>(octokit.api.actions.listWorkflowRunsForRepo, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			event: 'dynamic',
@@ -864,6 +889,16 @@ export class GitHubRepository extends Disposable {
 		});
 
 		return allRuns;
+	}
+
+	public async getWorkflowJobs(workflowRunId: number): Promise<OctokitCommon.WorkflowJob[]> {
+		const { octokit, remote } = await this.ensure();
+		const jobs = await octokit.call(octokit.api.actions.listJobsForWorkflowRun, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			run_id: workflowRunId
+		});
+		return jobs.data.jobs;
 	}
 
 	async fork(): Promise<string | undefined> {
@@ -939,18 +974,26 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
-		let model = this._pullRequestModels.get(pullRequest.number);
+	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
+		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
-			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
-			this._pullRequestModels.set(pullRequest.number, model);
-			this._onDidAddPullRequest.fire(model);
+			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
+			const prModel = model;
+			const disposables: vscode.Disposable[] = [];
+			disposables.push(model.onDidChange(e => this._onPullRequestModelChanged(prModel, e)));
+			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
+			if (!silent) {
+				this._onDidAddPullRequest.fire(model);
+			}
 		}
 
 		return model;
+	}
+
+	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
+		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
@@ -1010,7 +1053,12 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
+	async getPullRequest(id: number, useCache: boolean = false): Promise<PullRequestModel | undefined> {
+		if (useCache && this._pullRequestModelsByNumber.has(id)) {
+			Logger.debug(`Using cached pull request model for ${id}`, this.id);
+			return this._pullRequestModelsByNumber.get(id)!.model;
+		}
+
 		try {
 			const { query, remote, schema } = await this.ensure();
 			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
@@ -1056,7 +1104,7 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this, remote, await parseGraphQLIssue(data.repository.issue, this));
+			return new IssueModel(this.telemetry, this, remote, await parseGraphQLIssue(data.repository.issue, this));
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;
@@ -1231,6 +1279,27 @@ export class GitHubRepository extends Disposable {
 		} while (hasNextPage);
 
 		return ret;
+	}
+
+	async resolveUser(login: string): Promise<User | undefined> {
+		Logger.debug(`Fetch user ${login}`, this.id);
+		const { query, schema } = await this.ensure();
+
+		try {
+			const { data } = await query<UserResponse>({
+				query: schema.GetUser,
+				variables: {
+					login,
+				},
+			});
+			return parseGraphQLUser(data, this);
+		} catch (e) {
+			// Ignore cases where the user doesn't exist
+			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {
+				Logger.warn(e.message);
+			}
+		}
+		return undefined;
 	}
 
 	async getAssignableUsers(): Promise<IAccount[]> {
@@ -1473,229 +1542,6 @@ export class GitHubRepository extends Disposable {
 
 	isCurrentUser(authProviderId: AuthProvider, login: string): Promise<boolean> {
 		return this._credentialStore.isCurrentUser(authProviderId, login);
-	}
-
-
-	/**
-	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
-	 */
-	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false): Promise<Common.TimelineEvent[]> {
-		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
-			return [];
-		}
-
-		Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
-
-		const { octokit, remote } = await this.ensure();
-		try {
-			const timeline = await restPaginate<typeof octokit.api.issues.listEventsForTimeline, OctokitCommon.ListEventsForTimelineResponse>(octokit.api.issues.listEventsForTimeline, {
-				issue_number: issueModel.number,
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				per_page: 100
-			});
-
-			const timelineEvents = parseSelectRestTimelineEvents(issueModel, timeline);
-			if (timelineEvents.length === 0) {
-				return [];
-			}
-			if (!skipMerge) {
-				const oldLastEvent = issueModel.timelineEvents.length > 0 ? issueModel.timelineEvents[issueModel.timelineEvents.length - 1] : undefined;
-				let allEvents: Common.TimelineEvent[];
-				if (!oldLastEvent) {
-					allEvents = timelineEvents;
-				} else {
-					const oldEventTime = (eventTime(oldLastEvent) ?? 0);
-					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
-					allEvents = [...issueModel.timelineEvents, ...newEvents];
-				}
-				const oldTimeline = issueModel.timelineEvents;
-				issueModel.timelineEvents = allEvents;
-				if (oldLastEvent && (allEvents.length !== oldTimeline.length)) {
-					this._onDidChangePullRequests.fire([issueModel]);
-				}
-			}
-			return timelineEvents;
-		} catch (e) {
-			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);
-			return [];
-		}
-	}
-
-	async getIssueTimelineEvents(issueModel: IssueModel): Promise<Common.TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.ensure();
-
-		try {
-			const { data } = await query<TimelineEventsResponse>({
-				query: schema.IssueTimelineEvents,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: issueModel.number,
-				},
-			});
-
-			if (data.repository === null) {
-				Logger.error('Unexpected null repository when getting issue timeline events', GitHubRepository.ID);
-				return [];
-			}
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel, true), this);
-
-			const crossRefs = new Map(events
-				.filter((event): event is Common.CrossReferencedEvent => {
-					if ((event.event === Common.EventType.CrossReferenced) && !event.source.isIssue) {
-						return (compareIgnoreCase(event.source.owner, issueModel.remote.owner) === 0 && compareIgnoreCase(event.source.repo, issueModel.remote.repositoryName) === 0);
-					}
-					return false;
-
-				}).map((event: Common.CrossReferencedEvent) => {
-					return [event.source.url, event];
-				}));
-
-			for (const model of this._pullRequestModels.values()) {
-				if (crossRefs.has(model.html_url)) {
-					crossRefs.delete(model.html_url);
-				}
-			}
-			const oldEvents = issueModel.timelineEvents;
-			issueModel.timelineEvents = events;
-			if (crossRefs.size > 0) {
-				this._onDidChangePullRequests.fire([issueModel]);
-			} else if (oldEvents.length !== events.length) {
-				this._onDidChangePullRequests.fire([issueModel]);
-			}
-			return events;
-		} catch (e) {
-			console.log(e);
-			return [];
-		}
-	}
-
-	async copilotWorkingStatus(issueModel: IssueModel): Promise<CopilotWorkingStatus | undefined> {
-		const copilotEvents = await this.getCopilotTimelineEvents(issueModel);
-		if (copilotEvents.length > 0) {
-			const lastEvent = copilotEvents[copilotEvents.length - 1];
-			if (lastEvent.event === Common.EventType.CopilotFinished) {
-				return CopilotWorkingStatus.Done;
-			} else if (lastEvent.event === Common.EventType.CopilotStarted) {
-				return CopilotWorkingStatus.InProgress;
-			} else if (lastEvent.event === Common.EventType.CopilotFinishedError) {
-				return CopilotWorkingStatus.Error;
-			}
-		}
-		return CopilotWorkingStatus.NotCopilotIssue;
-	}
-
-	/**
-	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
-	 */
-	async getTimelineEvents(pullRequestModel: PullRequestModel): Promise<Common.TimelineEvent[]> {
-		const getTimelineEvents = async () => {
-			Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - enter`, PullRequestModel.ID);
-			const { query, remote, schema } = await this.ensure();
-			try {
-				const { data } = await query<TimelineEventsResponse>({
-					query: schema.TimelineEvents,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: pullRequestModel.number,
-					},
-				});
-
-				if (data.repository === null) {
-					Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
-				}
-				return data;
-			} catch (e) {
-				Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
-				console.log(e);
-				return undefined;
-			}
-		};
-
-		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
-			getTimelineEvents(),
-			pullRequestModel.getViewerLatestReviewCommit(),
-			(await this.getAuthenticatedUser()).login,
-			pullRequestModel.getReviewThreads()
-		]);
-
-
-		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel, true), this);
-
-		this.addReviewTimelineEventComments(events, reviewThreads);
-		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, pullRequestModel.head);
-		Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - done`, PullRequestModel.ID);
-		const oldEvents = pullRequestModel.timelineEvents;
-		pullRequestModel.timelineEvents = events;
-		if (oldEvents.length !== events.length) {
-			this._onDidChangePullRequests.fire([pullRequestModel]);
-		}
-		return events;
-	}
-
-	private addReviewTimelineEventComments(events: Common.TimelineEvent[], reviewThreads: IReviewThread[]): void {
-		interface CommentNode extends IComment {
-			childComments?: CommentNode[];
-		}
-
-		const reviewEvents = events.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed);
-		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
-
-		const reviewEventsById = reviewEvents.reduce((index, evt) => {
-			index[evt.id] = evt;
-			evt.comments = [];
-			return index;
-		}, {} as { [key: number]: Common.ReviewEvent });
-
-		const commentsById = reviewComments.reduce((index, evt) => {
-			index[evt.id] = evt;
-			return index;
-		}, {} as { [key: number]: CommentNode });
-
-		const roots: CommentNode[] = [];
-		let i = reviewComments.length;
-		while (i-- > 0) {
-			const c: CommentNode = reviewComments[i];
-			if (!c.inReplyToId) {
-				roots.unshift(c);
-				continue;
-			}
-			const parent = commentsById[c.inReplyToId];
-			parent.childComments = parent.childComments || [];
-			parent.childComments = [c, ...(c.childComments || []), ...parent.childComments];
-		}
-
-		roots.forEach(c => {
-			const review = reviewEventsById[c.pullRequestReviewId!];
-			if (review) {
-				review.comments = review.comments.concat(c).concat(c.childComments || []);
-			}
-		});
-
-		reviewThreads.forEach(thread => {
-			if (!thread.prReviewDatabaseId || !reviewEventsById[thread.prReviewDatabaseId]) {
-				return;
-			}
-			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
-			prReviewThreadEvent.reviewThread = {
-				threadId: thread.id,
-				canResolve: thread.viewerCanResolve,
-				canUnresolve: thread.viewerCanUnresolve,
-				isResolved: thread.isResolved
-			};
-
-		});
-
-		const pendingReview = reviewEvents.filter(r => r.state?.toLowerCase() === 'pending')[0];
-		if (pendingReview) {
-			// Ensures that pending comments made in reply to other reviews are included for the pending review
-			pendingReview.comments = reviewComments.filter(c => c.isDraft);
-		}
 	}
 
 	/**

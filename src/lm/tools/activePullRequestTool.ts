@@ -90,7 +90,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	): Promise<string | string[]> {
 		let copilotSteps: string | string[] = [];
 		try {
-			const logs = await this.copilotRemoteAgentManager.getSessionLogFromPullRequest(pullRequest.id);
+			const logs = await this.copilotRemoteAgentManager.getSessionLogFromPullRequest(pullRequest);
 			if (!logs) {
 				throw new Error('Could not get session logs');
 			}
@@ -148,7 +148,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 				currentApprovals: status[1]?.approvals.length ?? 0,
 				areChangesRequested: (status[1]?.requestedChanges.length ?? 0) > 0,
 			},
-			isDraft: pullRequest.isDraft,
+			isDraft: pullRequest.isDraft ? 'is a draft and cannot be merged until marked as ready for review' : 'false',
 			codingAgentSession,
 			changes: (await pullRequest.getFileChangesInfo()).map(change => {
 				if (change instanceof InMemFileChange) {

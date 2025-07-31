@@ -4,32 +4,38 @@
  *--------------------------------------------------------------------------------------------*/
 
 import MarkdownIt from 'markdown-it';
-import type monacoType from 'monaco-editor';
+import type { languages as monacoLanguages } from 'monaco-editor/esm/vs/editor/editor.api';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { Temporal } from 'temporal-polyfill';
+import { parseDiff, SessionResponseLogChunk, toFileLabel } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
 import { PullInfo } from './messages';
-import { parseDiff, type SessionInfo, type SessionResponseLogChunk } from './sessionsApi';
+import { type SessionInfo, type SessionSetupStepResponse } from './sessionsApi';
 
 interface SessionViewProps {
 	readonly pullInfo: PullInfo | undefined;
 	readonly info: SessionInfo;
 	readonly logs: readonly SessionResponseLogChunk[];
+	readonly setupSteps?: readonly SessionSetupStepResponse[];
 }
 
 export const SessionView: React.FC<SessionViewProps> = (props) => {
 	return (
 		<div className="session-container">
 			<SessionHeader info={props.info} pullInfo={props.pullInfo} />
+			{props.logs.length === 0 && props.setupSteps && props.setupSteps.length > 0 && (
+				<SetupStageLog setupSteps={props.setupSteps} />
+			)}
 			<SessionLog logs={props.logs} />
-			{props.info.state === 'in_progress' && (
+			{props.info.state === 'in_progress' && !(props.logs.length === 0 && props.setupSteps && props.setupSteps.length > 0) && (
 				<div className="session-in-progress-indicator">
 					<span className="icon"><i className="codicon codicon-loading"></i></span>
-					Session is in progress...</div>
+					Session is in progress...
+				</div>
 			)}
 		</div>
 	);
@@ -106,6 +112,17 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 		if (choice.delta.role === 'assistant') {
 			if (choice.finish_reason === 'stop' && choice.delta.content.startsWith('<pr_title>')) {
 				return;
+			} if (choice.finish_reason === 'tool_calls' && choice.delta.tool_calls?.length && choice.delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+				const toolCall = choice.delta.tool_calls[0];
+				const args = JSON.parse(toolCall.function.arguments);
+
+				return (
+					<CodeView
+						key={`setup-steps-${index}`}
+						label={args.name || 'Setup Step'}
+						content={{ value: choice.delta.content, lang: 'markdown' }}
+					/>
+				);
 			} else {
 				// For markdown content, use a custom renderer component
 				return (
@@ -121,8 +138,9 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 				return;
 			}
 
-			const args = JSON.parse(choice.delta.tool_calls[0].function.arguments);
-			name = choice.delta.tool_calls[0].function.name;
+			const toolCall = choice.delta.tool_calls[0];
+			const args = JSON.parse(toolCall.function.arguments);
+			name = toolCall.function.name;
 
 			if (name === 'str_replace_editor') {
 				if (args.command === 'view') {
@@ -253,7 +271,7 @@ const MarkdownContent: React.FC<MarkdownContentProps> = ({ content }) => {
 };
 
 function getLanguageForResource(filePath: string): string | undefined {
-	const langs = (monaco.languages as typeof monacoType.languages).getLanguages();
+	const langs = (monaco.languages as typeof monacoLanguages).getLanguages();
 	for (const lang of langs) {
 		if (lang.extensions && lang.extensions.some(ext => filePath.endsWith(ext))) {
 			return lang.id;
@@ -262,9 +280,69 @@ function getLanguageForResource(filePath: string): string | undefined {
 	return undefined;
 }
 
-
-function toFileLabel(file: string): string {
-	// File paths are absolute and look like: `/home/runner/work/repo/repo/<path>`
-	const parts = file.split('/');
-	return parts.slice(6).join('/');
+// Setup Stage Log component
+interface SetupStageLogProps {
+	readonly setupSteps: readonly SessionSetupStepResponse[];
 }
+
+const SetupStageLog: React.FC<SetupStageLogProps> = ({ setupSteps }) => {
+	if (!setupSteps || setupSteps.length === 0) {
+		return null;
+	}
+
+	const getStatusIcon = (step: SessionSetupStepResponse) => {
+		switch (step.status) {
+			case 'completed':
+				return <i className="codicon codicon-check"></i>;
+			case 'in_progress':
+				return <i className="codicon codicon-loading codicon-modifier-spin"></i>;
+			case 'queued':
+			default:
+				return <i className="codicon codicon-clock"></i>;
+		}
+	};
+
+	const getStatusClass = (step: SessionSetupStepResponse) => {
+		switch (step.status) {
+			case 'completed':
+				return 'setup-step-completed';
+			case 'in_progress':
+				return 'setup-step-in-progress';
+			case 'queued':
+			default:
+				return 'setup-step-queued';
+		}
+	};
+
+	// Show completed steps and the first non-completed step (in_progress or queued)
+	const stepsToShow: Array<SessionSetupStepResponse> = [];
+	let foundNonCompleted = false;
+
+	for (const step of setupSteps) {
+		if (step.status === 'completed') {
+			stepsToShow.push(step);
+		} else if (!foundNonCompleted) {
+			stepsToShow.push(step);
+			foundNonCompleted = true;
+		}
+	}
+
+	const setupStepsElements = stepsToShow.map((step, index) => (
+		<div key={index} className={`setup-log-line ${getStatusClass(step)}`}>
+			<span className="setup-step-icon">{getStatusIcon(step)}</span>
+			<span className="setup-step-name">{step.name}</span>
+		</div>
+	));
+
+	return (
+		<div className="setup-stage-log">
+			<h3 className="setup-stage-title">
+				<span className="icon"><i className="codicon codicon-gear"></i></span>
+				Environment Setup
+			</h3>
+			<div className="setup-log-content">
+				{setupStepsElements}
+			</div>
+		</div>
+	);
+};

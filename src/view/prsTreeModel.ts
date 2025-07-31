@@ -9,8 +9,8 @@ import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
+import { PullRequestChangeEvent } from '../github/githubRepository';
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
-import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { UnsatisfiedChecks } from '../github/utils';
@@ -28,7 +28,7 @@ export class PrsTreeModel extends Disposable {
 	private _activePRDisposables: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private readonly _onDidChangePrStatus: vscode.EventEmitter<string[]> = this._register(new vscode.EventEmitter<string[]>());
 	public readonly onDidChangePrStatus = this._onDidChangePrStatus.event;
-	private readonly _onDidChangeData: vscode.EventEmitter<IssueModel[] | FolderRepositoryManager | void> = this._register(new vscode.EventEmitter<IssueModel[] | FolderRepositoryManager | void>());
+	private readonly _onDidChangeData: vscode.EventEmitter<PullRequestChangeEvent[] | FolderRepositoryManager | void> = this._register(new vscode.EventEmitter<PullRequestChangeEvent[] | FolderRepositoryManager | void>());
 	public readonly onDidChangeData = this._onDidChangeData.event;
 	private _expandedQueries: Set<string> | undefined;
 	private _hasLoaded: boolean = false;
@@ -51,12 +51,12 @@ export class PrsTreeModel extends Disposable {
 			}
 
 			this._repoEvents.get(manager)!.push(manager.onDidChangeActivePullRequest(e => {
-				const prs: IssueModel[] = [];
+				const prs: PullRequestChangeEvent[] = [];
 				if (e.old) {
-					prs.push(e.old);
+					prs.push({ model: e.old, event: {} });
 				}
 				if (e.new) {
-					prs.push(e.new);
+					prs.push({ model: e.new, event: {} });
 				}
 				this._onDidChangeData.fire(prs);
 
@@ -66,15 +66,12 @@ export class PrsTreeModel extends Disposable {
 				}
 				if (manager.activePullRequest) {
 					this._activePRDisposables.set(manager, [
-						manager.activePullRequest.onDidChangeComments(() => {
-							if (manager.activePullRequest) {
-								this._onDidChangeData.fire([manager.activePullRequest]);
+						manager.activePullRequest.onDidChange(e => {
+							if (e.comments && manager.activePullRequest) {
+								this._onDidChangeData.fire([{ model: manager.activePullRequest, event: e }]);
 							}
 						})]);
 				}
-			}));
-			this._repoEvents.get(manager)!.push(manager.onDidChangeAnyPullRequests(e => {
-				this._onDidChangeData.fire(e);
 			}));
 		};
 		this._register({ dispose: () => this._repoEvents.forEach((disposables) => disposeAll(disposables)) });
@@ -82,6 +79,19 @@ export class PrsTreeModel extends Disposable {
 		for (const manager of this._reposManager.folderManagers) {
 			repoEvents(manager);
 		}
+
+		this._register(this._reposManager.onDidChangeAnyPullRequests((prs) => {
+			const needsRefresh = prs.filter(pr => pr.event.state || pr.event.title || pr.event.body || pr.event.comments || pr.event.draft || pr.event.timeline);
+			this.clearQueriesContainingPullRequests(needsRefresh);
+			this._onDidChangeData.fire(needsRefresh);
+		}));
+
+		this._register(this._reposManager.onDidAddPullRequest(() => {
+			if (this._hasLoaded) {
+				this._onDidChangeData.fire();
+			}
+		}));
+
 		this._register(this._reposManager.onDidChangeFolderRepositories((changed) => {
 			if (changed.added) {
 				repoEvents(changed.added);
@@ -130,6 +140,9 @@ export class PrsTreeModel extends Disposable {
 	}
 
 	public clearCache(silent: boolean = false) {
+		if (this._cachedPRs.size === 0) {
+			return;
+		}
 		this._cachedPRs.clear();
 		if (!silent) {
 			this._onDidChangeData.fire();
@@ -267,6 +280,26 @@ export class PrsTreeModel extends Disposable {
 		this._getChecks(prs.items);
 		this.hasLoaded = true;
 		return prs;
+	}
+
+	private clearQueriesContainingPullRequests(pullRequests: PullRequestChangeEvent[]): void {
+		const withStateChange = pullRequests.filter(prChange => prChange.event.state);
+		if (!withStateChange || withStateChange.length === 0) {
+			return;
+		}
+		for (const [, queries] of this._cachedPRs.entries()) {
+			for (const [queryKey, itemsResult] of queries.entries()) {
+				if (!itemsResult || !itemsResult.items || itemsResult.items.length === 0) {
+					continue;
+				}
+				const hasPR = withStateChange.some(prChange =>
+					itemsResult.items.some(item => item === prChange.model)
+				);
+				if (hasPR) {
+					queries.delete(queryKey);
+				}
+			}
+		}
 	}
 
 	override dispose() {

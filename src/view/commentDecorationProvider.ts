@@ -36,7 +36,7 @@ export class CommentDecorationProvider extends TreeDecorationProvider {
 		const folderManager = this._repositoriesManager.getManagerForFile(uri);
 		if (query && folderManager) {
 			const hasComment = folderManager.gitHubRepositories.find(repo => {
-				const pr = repo.pullRequestModels.get(query.prNumber);
+				const pr = repo.getExistingPullRequestModel(query.prNumber);
 				if (pr?.reviewThreadsCache.find(c => c.path === query.fileName)) {
 					return true;
 				}

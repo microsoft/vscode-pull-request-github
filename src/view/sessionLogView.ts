@@ -357,9 +357,13 @@ class SessionLogView extends Disposable {
 					this.copilotApi.getSessionInfo(this._source.sessionId),
 					this.copilotApi.getLogsFromSession(this._source.sessionId)
 				]);
-				return { logs, info };
+				return { logs, info, setupSteps: undefined };
 			} else {
-				return this.copilotAgentManager.getSessionLogFromPullRequest(this._source.pullRequest.id, -1 - this._source.link.sessionIndex, false);
+				const pullRequest = await this.getPullRequestModel(this._source.pullRequest);
+				if (!pullRequest) {
+					return undefined;
+				}
+				return this.copilotAgentManager.getSessionLogFromPullRequest(pullRequest, -1 - this._source.link.sessionIndex, false);
 			}
 		};
 		if (this._source.type === 'session') {
@@ -409,7 +413,8 @@ class SessionLogView extends Disposable {
 			type: 'loaded',
 			pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 			info: apiResponse.info,
-			logs: apiResponse.logs
+			logs: apiResponse.logs,
+			setupSteps: apiResponse.setupSteps
 		} as messages.LoadedMessage);
 
 		if (apiResponse.info.state === 'in_progress') {
@@ -430,7 +435,8 @@ class SessionLogView extends Disposable {
 					type: 'update',
 					pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 					info: apiResult.info,
-					logs: apiResult.logs
+					logs: apiResult.logs,
+					setupSteps: apiResult.setupSteps
 				} as messages.UpdateMessage);
 
 				if (apiResult.info.state !== 'in_progress') {

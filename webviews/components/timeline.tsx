@@ -107,14 +107,10 @@ export default Timeline;
 
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
-	const pr = context.pr;
 
 	const handleCommitClick = (e: React.MouseEvent) => {
-		if (pr.isCurrentlyCheckedOut) {
-			e.preventDefault();
-			context.openCommitChanges(event.sha);
-		}
-		// If not checked out, let the default href behavior proceed
+		e.preventDefault();
+		context.openCommitChanges(event.sha);
 	};
 
 	return (
@@ -129,7 +125,6 @@ const CommitEventView = (event: CommitEvent) => {
 					<a
 						className="message"
 						onClick={handleCommitClick}
-						href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
 						title={event.htmlUrl}
 					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
@@ -140,7 +135,6 @@ const CommitEventView = (event: CommitEvent) => {
 				<a
 					className="sha"
 					onClick={handleCommitClick}
-					href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
 					title={event.htmlUrl}
 				>
 					{event.sha.slice(0, 7)}
@@ -477,8 +471,8 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 
 	const handleSessionLogClick = (e: React.MouseEvent) => {
 		if (sessionLink) {
-			const openToTheSide = e.ctrlKey || e.metaKey;
-			openSessionLog(sessionLink, openToTheSide);
+			sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
+			openSessionLog(sessionLink);
 		}
 	};
 
@@ -518,8 +512,8 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 	const { openSessionLog } = useContext(PullRequestContext);
 
 	const handleSessionLogClick = (e: React.MouseEvent) => {
-		const openToTheSide = e.ctrlKey || e.metaKey;
-		openSessionLog(event.sessionLink, openToTheSide);
+		event.sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
+		openSessionLog(event.sessionLink);
 	};
 
 	return (

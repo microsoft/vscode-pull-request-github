@@ -131,6 +131,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public contextValue: string;
 	public resourceUri: vscode.Uri;
 	public tooltip?: string | vscode.MarkdownString | undefined;
+	readonly isCopilot: boolean;
 
 	constructor(
 		parent: TreeNodeParent,
@@ -146,8 +147,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		super(parent);
 
 		this.prs = new Map();
-		const isCopilot = _categoryQuery && isCopilotQuery(_categoryQuery);
-		const hasCopilotChanges = isCopilot && this._copilotManager.notificationsCount > 0;
+		this.isCopilot = !!_categoryQuery && isCopilotQuery(_categoryQuery);
+		const hasCopilotChanges = this.isCopilot && this._copilotManager.notificationsCount > 0;
 
 		switch (this.type) {
 			case PRType.All:
@@ -184,7 +185,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this.contextValue = 'query';
 		}
 
-		if (isCopilot) {
+		if (this.isCopilot) {
 			this.tooltip = vscode.l10n.t('Pull requests you asked the coding agent to create');
 		} else if (this.type === PRType.LocalPullRequest) {
 			this.tooltip = vscode.l10n.t('Pull requests for branches you have locally');
@@ -194,6 +195,28 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this.tooltip = new vscode.MarkdownString(vscode.l10n.t('Pull requests for query: `{0}`', _categoryQuery));
 		} else {
 			this.tooltip = this.label;
+		}
+
+		this.description = this._getDescription();
+	}
+
+	private _getDescription(): string | undefined {
+		if (!this.isCopilot) {
+			return undefined;
+		}
+		const counts = this._copilotManager.getCounts();
+		if (counts.total === 0) {
+			return undefined;
+		} else if (counts.error > 0) {
+			if (counts.inProgress > 0) {
+				return vscode.l10n.t('{0} in progress, {1} with errors', counts.inProgress, counts.error);
+			} else {
+				return vscode.l10n.t('{0} with errors', counts.error);
+			}
+		} else if (counts.inProgress > 0) {
+			return vscode.l10n.t('{0} in progress', counts.inProgress);
+		} else {
+			return vscode.l10n.t('done working on {0}', counts.total);
 		}
 	}
 

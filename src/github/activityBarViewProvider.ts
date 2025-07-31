@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
@@ -79,7 +80,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
 
 		const result: Partial<PullRequest> = {
-			events: await this._item.githubRepository.getTimelineEvents(this._item),
+			events: await this._item.getTimelineEvents(this._item),
 			mergeable: mergability,
 		};
 		await this.refresh();
@@ -188,7 +189,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			disposeAll(this._prDisposables);
 		}
 		this._prDisposables = [];
-		this._prDisposables.push(pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.onDidChange(() => this.updatePullRequest(pullRequestModel)));
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
@@ -213,13 +214,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				pullRequestModel.number,
 			),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			pullRequestModel.githubRepository.getTimelineEvents(pullRequestModel),
+			pullRequestModel.getTimelineEvents(pullRequestModel),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
-			pullRequestModel.validateDraftMode()
+			pullRequestModel.validateDraftMode(),
+			ensureEmojis(this._folderRepositoryManager.context)
 		])
 			.then(result => {
 				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = result;
@@ -267,7 +269,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					createdAt: pullRequest.createdAt,
 					body: pullRequest.body,
 					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels,
+					labels: pullRequest.item.labels.map(label => ({ ...label, displayName: emojify(label.name) })),
 					author: {
 						login: pullRequest.author.login,
 						name: pullRequest.author.name,
@@ -441,8 +443,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {

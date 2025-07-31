@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CommentEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -26,7 +26,13 @@ export enum ReviewType {
 	RequestChanges = 'requestChanges',
 }
 
+export interface DisplayLabel extends ILabel {
+	displayName: string;
+}
+
 export interface Issue {
+	owner: string;
+	repo: string;
 	number: number;
 	title: string;
 	titleHTML: string;
@@ -37,7 +43,7 @@ export interface Issue {
 	author: IAccount;
 	state: GithubItemStateEnum; // TODO: don't allow merged
 	events: TimelineEvent[];
-	labels: ILabel[];
+	labels: DisplayLabel[];
 	assignees: IAccount[];
 	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
@@ -63,6 +69,7 @@ export interface Issue {
 }
 
 export interface PullRequest extends Issue {
+	isCopilotOnMyBehalf: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
@@ -137,4 +144,15 @@ export enum PreReviewState {
 
 export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
+}
+
+export interface OverviewContext {
+	'preventDefaultContextMenuItems': true;
+	owner: string;
+	repo: string;
+	number: number;
+}
+
+export interface CodingAgentContext extends SessionLinkInfo {
+	'preventDefaultContextMenuItems': true;
 }

@@ -4,19 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { shikiToMonaco } from '@shikijs/monaco';
-import * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import { createHighlighter } from 'shiki';
+import { parseSessionLogs, SessionResponseLogChunk } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import type * as messages from './messages';
-import { parseSessionLogs, SessionInfo, SessionResponseLogChunk } from './sessionsApi';
+import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
 import { SessionView } from './sessionView';
 
 const themeName = 'vscode-theme';
 
 type SessionViewState =
 	| { state: 'loading' }
-	| { state: 'ready'; readonly info: SessionInfo; readonly logs: readonly SessionResponseLogChunk[]; readonly pullInfo: messages.PullInfo | undefined }
+	| { state: 'ready'; readonly info: SessionInfo; readonly logs: readonly SessionResponseLogChunk[]; readonly pullInfo: messages.PullInfo | undefined; readonly setupSteps?: readonly SessionSetupStepResponse[] }
 	| { state: 'error'; readonly url: string | undefined }
 	;
 
@@ -49,7 +50,8 @@ export function App() {
 						state: 'ready',
 						info: message.info,
 						logs: parseSessionLogs(message.logs),
-						pullInfo: message.pullInfo
+						pullInfo: message.pullInfo,
+						setupSteps: message.setupSteps
 					});
 					break;
 				}
@@ -89,7 +91,7 @@ export function App() {
 			</div>
 		);
 	} else {
-		return <SessionView info={state.info} logs={state.logs} pullInfo={state.pullInfo} />;
+		return <SessionView info={state.info} logs={state.logs} pullInfo={state.pullInfo} setupSteps={state.setupSteps} />;
 	}
 }
 

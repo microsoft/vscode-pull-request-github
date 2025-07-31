@@ -16,6 +16,7 @@
 
 ## Pull Request Guidelines
 - Never touch the yarn.lock file.
+- Run `yarn run lint` and also `npm run hygiene` and fix any errors or warnings before submitting a PR.
 
 ---
 _Last updated: 2025-06-20_

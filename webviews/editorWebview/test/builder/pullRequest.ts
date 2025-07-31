@@ -11,6 +11,8 @@ import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combin
 import { AccountBuilder } from './account';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
+	owner: { default: 'owner' },
+	repo: { default: 'name' },
 	number: { default: 1234 },
 	title: { default: 'the default title' },
 	titleHTML: { default: 'the default title' },
@@ -59,5 +61,6 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	busy: { default: undefined },
 	lastReviewType: { default: undefined },
 	canAssignCopilot: { default: false },
+	isCopilotOnMyBehalf: { default: false },
 	reactions: { default: [] },
 });
