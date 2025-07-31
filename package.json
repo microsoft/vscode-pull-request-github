@@ -863,6 +863,11 @@
 		},
 		"commands": [
 			{
+				"command": "pr.helloWorld",
+				"title": "%command.pr.helloWorld.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "githubpr.remoteAgent",
 				"title": "%command.githubpr.remoteAgent.title%",
 				"enablement": "config.githubPullRequests.codingAgent.enabled"

@@ -217,6 +217,14 @@ export function registerCommands(
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 ) {
 	const logId = 'RegisterCommands';
+	
+	// Hello World command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', () => {
+			vscode.window.showInformationMessage('Hello, World!');
+		}),
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
