@@ -413,8 +413,6 @@ export function AddComment({
 			}
 			: commentMethods(isIssue);
 
-	const commentStartingText = pendingCommentText ?? (isCopilotOnMyBehalf ? '@copilot ' : '');
-
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
 			<textarea
@@ -423,8 +421,14 @@ export function AddComment({
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
 				onInput={({ target }) => updatePR({ pendingCommentText: (target as any).value })}
 				onKeyDown={onKeyDown}
-				value={commentStartingText}
+				value={pendingCommentText}
 				placeholder="Leave a comment"
+				onClick={() => {
+					if (!pendingCommentText && isCopilotOnMyBehalf && !textareaRef.current?.textContent) {
+						textareaRef.current!.textContent = '@copilot ';
+						textareaRef.current!.setSelectionRange(9, 9);
+					}
+				}}
 			/>
 			<div className="form-actions">
 				{(hasWritePermission || isAuthor) ? (
