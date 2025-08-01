@@ -454,7 +454,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			// Create terminal with git commit command
 			const terminal = vscode.window.createTerminal({
-				name: 'GitHub coding agent',
+				name: 'GitHub Coding Agent',
 				cwd: repository.rootUri.fsPath,
 				message: `\x1b[1m${vscode.l10n.t(COMMIT_YOUR_CHANGES)}\x1b[0m`
 			});

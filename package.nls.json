@@ -319,7 +319,7 @@
 	"command.notifications.markPullRequestsAsDone.title": "Mark Pull Requests as Done",
 	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
-	"command.codingAgent.openSessionLog.title": "Open coding agent session log",
+	"command.codingAgent.openSessionLog.title": "Open Coding Agent Session Log",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment": [
