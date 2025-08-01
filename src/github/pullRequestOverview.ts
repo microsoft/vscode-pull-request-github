@@ -516,9 +516,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			// need to wait until we get the updated timeline events
 			let events: TimelineEvent[] = [];
 			if (result) {
-				do {
+				// Wait for the first copilot timeline event with timeout
+				const maxWaitTime = 60 * 1000; // 1 minute timeout
+				const pollInterval = 2000; // 2 seconds
+				const startTime = Date.now();
+
+				while (Date.now() - startTime < maxWaitTime) {
 					events = await this._getTimeline();
-				} while (copilotEventToStatus(mostRecentCopilotEvent(events)) !== CopilotPRStatus.Completed && await new Promise<boolean>(c => setTimeout(() => c(true), 2000)));
+					if (copilotEventToStatus(mostRecentCopilotEvent(events)) === CopilotPRStatus.Completed) {
+						break;
+					}
+					await new Promise<void>(resolve => setTimeout(resolve, pollInterval));
+				}
 			}
 			const reply: CancelCodingAgentReply = {
 				events

@@ -1185,6 +1185,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 		let lastProcessedLength = 0;
 		let hasActiveProgress = false;
 		const pollingInterval = 3000; // 3 seconds
+		const maxWaitTime = 60 * 60 * 1000; // 1 hour timeout for long-running sessions
+		const startTime = Date.now();
 
 		return new Promise<void>((resolve, reject) => {
 			let cancellationListener: vscode.Disposable | undefined;
@@ -1225,6 +1227,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const pollForUpdates = async (): Promise<void> => {
 				try {
 					if (token.isCancellationRequested) {
+						complete();
+						return;
+					}
+
+					// Check for timeout
+					if (Date.now() - startTime > maxWaitTime) {
+						Logger.appendLine(`Session polling timed out after ${maxWaitTime / 1000} seconds`, CopilotRemoteAgentManager.ID);
+						stream.markdown(vscode.l10n.t('Session polling timed out. The session may still be running.'));
 						complete();
 						return;
 					}
@@ -1286,7 +1296,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					}
 				} catch (error) {
 					Logger.error(`Error polling for session updates: ${error}`, CopilotRemoteAgentManager.ID);
-					if (!token.isCancellationRequested) {
+					if (!token.isCancellationRequested && Date.now() - startTime <= maxWaitTime) {
 						setTimeout(pollForUpdates, pollingInterval);
 					} else {
 						reject(error);
