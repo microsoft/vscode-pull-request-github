@@ -21,6 +21,7 @@ const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilo
 
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
+	event_type: string;
 	pull_request?: {
 		title?: string;
 		body_placeholder?: string;

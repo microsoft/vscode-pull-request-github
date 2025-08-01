@@ -616,6 +616,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const problemStatement: string = `${prompt} ${problemContext ? `: ${problemContext}` : ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
+			event_type: 'visual_studio_code_remote_agent_tool_invoked',
 			pull_request: {
 				title,
 				body_placeholder: formatBodyPlaceholder(problemContext),
