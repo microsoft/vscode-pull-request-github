@@ -57,7 +57,7 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 	return (
 		<header className="session-header">
 			<div className='session-header-title'>
-				<h1>Coding Agent Session Log</h1>
+				<h1>Coding agent session log</h1>
 				<h2>{info.name}</h2>
 
 				{pullInfo && <>

@@ -183,7 +183,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 
 	if (canEdit) {
 		actions.unshift({
-			label: 'Cancel Coding Agent',
+			label: 'Cancel coding agent',
 			value: '',
 			action: cancel
 		});
