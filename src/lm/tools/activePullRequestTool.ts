@@ -34,7 +34,8 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
 		return {
-			invocationMessage: pullRequest ? vscode.l10n.t('Pull request "{0}"', pullRequest.title) : vscode.l10n.t('Active pull request'),
+			pastTenseMessage: pullRequest ? vscode.l10n.t('Read pull request "{0}"', pullRequest.title) : vscode.l10n.t('No active pull request'),
+			invocationMessage: pullRequest ? vscode.l10n.t('Reading pull request "{0}"', pullRequest.title) : vscode.l10n.t('Reading active pull request'),
 			confirmationMessages: { title: vscode.l10n.t('Active Pull Request'), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the active pull request?') },
 		};
 	}
@@ -108,7 +109,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		return copilotSteps;
 	}
 
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, token: vscode.CancellationToken): Promise<vscode.ExtendedLanguageModelToolResult | undefined> {
 		let pullRequest = this._findActivePullRequest();
 
 		if (!pullRequest) {
@@ -160,8 +161,9 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 			})
 		};
 
-		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);
-
+		const result = new vscode.ExtendedLanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);
+		result.toolResultDetails = [vscode.Uri.parse(pullRequest.html_url)];
+		return result;
 	}
 
 }
