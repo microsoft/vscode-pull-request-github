@@ -4154,5 +4154,8 @@
 		"vscode-tas-client": "^0.1.84",
 		"vsls": "^0.3.967"
 	},
+	"resolutions": {
+		"string_decoder": "^1.3.0"
+	},
 	"license": "MIT"
 }
