@@ -73,7 +73,7 @@
 			{
 				"type": "copilot-swe-agent",
 				"name": "copilot",
-				"displayName": "GitHub Copilot Coding Agent",
+				"displayName": "GitHub Copilot coding agent",
 				"description": "Chat session for GitHub Copilot coding agent",
 				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled'"
 			}
