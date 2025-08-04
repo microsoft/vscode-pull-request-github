@@ -130,7 +130,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
-		const completionItems: Map<string, IssueCompletionItem> = new Map();
+		const completionItems: IssueCompletionItem[] = [];
+		const seenIssues: Set<string> = new Set();
 		let repo: PullRequestDefaults | undefined;
 		let uri: vscode.Uri | undefined;
 		if (document.languageId === 'scminput') {
@@ -162,6 +163,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
 
+		// Process queries in order to maintain query priority
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
 			if ((issuesOrMilestones.issues ?? []).length === 0) {
@@ -171,20 +173,21 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 					continue;
 				}
-				completionItems.set(
-					getIssueNumberLabel(issue as IssueModel),
-					await this.completionItemFromIssue(repo, issue as IssueModel, range, document),
-				);
+				const issueKey = getIssueNumberLabel(issue as IssueModel);
+				// Only add the issue if we haven't seen it before (first query wins)
+				if (!seenIssues.has(issueKey)) {
+					seenIssues.add(issueKey);
+					completionItems.push(await this.completionItemFromIssue(repo, issue as IssueModel, range, document));
+				}
 			}
-
 		}
 		
 		// If no issues were found, show a configuration prompt
-		if (completionItems.size === 0) {
+		if (completionItems.length === 0) {
 			return [new ConfigureIssueQueriesCompletionItem()];
 		}
 		
-		return [...completionItems.values()];
+		return completionItems;
 	}
 
 	private async completionItemFromIssue(
