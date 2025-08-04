@@ -12,7 +12,7 @@ import { CommentReply, findActiveHandler, resolveCommentHandler } from './commen
 import { COPILOT_LOGINS } from './common/copilot';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { FILE_LIST_LAYOUT, NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
@@ -50,6 +50,7 @@ import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 // Modal dialog options for handling uncommitted changes during PR checkout
 const STASH_CHANGES = vscode.l10n.t('Stash changes');
 const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
+const DONT_SHOW_AGAIN = vscode.l10n.t('Don\'t show again');
 
 /**
  * Shows a modal dialog when there are uncommitted changes during PR checkout
@@ -57,6 +58,12 @@ const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
  * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
  */
 async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
+	// Check if user has disabled the warning
+	const neverShowWarning = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING, false);
+	if (neverShowWarning) {
+		return true; // Setting is enabled, proceed without showing dialog
+	}
+
 	// Filter out untracked files as they typically don't conflict with PR checkout
 	const trackedWorkingTreeChanges = repository.state.workingTreeChanges.filter(change => change.status !== Status.UNTRACKED);
 	const hasTrackedWorkingTreeChanges = trackedWorkingTreeChanges.length > 0;
@@ -74,10 +81,17 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 		},
 		STASH_CHANGES,
 		DISCARD_CHANGES,
+		DONT_SHOW_AGAIN,
 	);
 
 	if (!modalResult) {
 		return false; // User cancelled
+	}
+
+	if (modalResult === DONT_SHOW_AGAIN) {
+		// Update the setting to never show this dialog again
+		await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING, true, vscode.ConfigurationTarget.Global);
+		return true; // Proceed with checkout
 	}
 
 	try {
