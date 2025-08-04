@@ -11,7 +11,7 @@ import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { EXTENSION_ID } from '../constants';
-import { IAccount, ITeam, reviewerId } from '../github/interface';
+import { IAccount, isTeam, ITeam, reviewerId } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
 import Logger from './logger';
@@ -308,7 +308,14 @@ export namespace DataUri {
 					await doFetch();
 				} catch (e) {
 					// We retry once.
-					await doFetch();
+					try {
+						await doFetch();
+					} catch (retryError) {
+						// Log the error and return undefined instead of crashing
+						const userIdentifier = isTeam(user) ? `${user.org}/${user.slug}` : user.login || 'unknown';
+						Logger.error(`Failed to fetch avatar after retry for user ${userIdentifier}: ${retryError}`, 'avatarCirclesAsImageDataUris');
+						return undefined;
+					}
 				}
 			}
 			if (!innerImageContents) {
