@@ -273,10 +273,11 @@ function AddReviewSummaryComment() {
 	const { isAuthor } = pr;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
+	const [commentText, setCommentText] = useState('');
 
 	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
-		const { value } = comment.current!;
+		const value = commentText;
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
@@ -297,6 +298,13 @@ function AddReviewSummaryComment() {
 		}
 	};
 
+	const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+		setCommentText(event.target.value);
+	};
+
+	// Disable buttons when summary comment is empty AND there are no review comments
+	const shouldDisableButtons = !commentText.trim() && !pr.hasReviewDraft;
+
 	return (
 		<form>
 			<textarea
@@ -304,13 +312,15 @@ function AddReviewSummaryComment() {
 				ref={comment}
 				placeholder="Leave a review summary comment"
 				onKeyDown={onKeyDown}
+				onChange={onTextareaChange}
+				value={commentText}
 			></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
 					<button
 						id="request-changes"
 						className='secondary'
-						disabled={isBusy || pr.busy}
+						disabled={isBusy || pr.busy || shouldDisableButtons}
 						onClick={(event) => submitAction(event, ReviewType.RequestChanges)}
 					>
 						Request Changes
@@ -319,14 +329,14 @@ function AddReviewSummaryComment() {
 				{isAuthor ? null : (
 					<button
 						id="approve" className='secondary'
-						disabled={isBusy || pr.busy}
+						disabled={isBusy || pr.busy || shouldDisableButtons}
 						onClick={(event) => submitAction(event, ReviewType.Approve)}
 					>
 						Approve
 					</button>
 				)}
 				<button
-					disabled={isBusy || pr.busy}
+					disabled={isBusy || pr.busy || shouldDisableButtons}
 					onClick={(event) => submitAction(event, ReviewType.Comment)}
 				>Submit Review</button>
 			</div>
