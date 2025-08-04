@@ -294,3 +294,7 @@ textarea {
 .pre-review svg path {
 	fill: currentColor;
 }
+
+button.split-left {
+	display: block;
+}
