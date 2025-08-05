@@ -55,9 +55,10 @@ describe('DataUri.avatarCirclesAsImageDataUris', () => {
 			// This should not throw an error even with TLS issues
 			const results = await DataUri.avatarCirclesAsImageDataUris(mockContext, [testUser], 20, 20);
 
-			// Should return array with undefined for failed fetches
+			// Should return array with generic user icon for failed fetches (not undefined)
 			assert.strictEqual(results.length, 1);
-			assert.strictEqual(results[0], undefined);
+			assert.notStrictEqual(results[0], undefined);
+			assert.strictEqual(results[0]?.scheme, 'data');
 		} finally {
 			// Restore original functions
 			vscode.workspace.fs.readFile = originalReadFile;
