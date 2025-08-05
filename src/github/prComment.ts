@@ -380,8 +380,23 @@ ${args[3] ?? ''}
 				return match;
 			}
 
+			// Check if this permalink is inside a heading by looking at the line it's on
+			const beforeMatch = body.substring(0, index || 0);
+			const lineStart = beforeMatch.lastIndexOf('\n') + 1;
+			const currentLine = body.substring(lineStart, (body.indexOf('\n', index || 0) !== -1) ? body.indexOf('\n', index || 0) : body.length);
+			const isInHeading = /^\s*#{1,6}\s/.test(currentLine);
+
 			const startLine = parseInt(start);
 			const endLine = end ? parseInt(end) : startLine + 1;
+
+			// For headings, use a simple file:line format without the detailed code block
+			if (isInHeading) {
+				const fileName = path.basename(file);
+				const lineText = end ? `${startLine}-${endLine}` : `${startLine}`;
+				return `${fileName}:${lineText}`;
+			}
+
+			// For non-headings, use the existing detailed format
 			const lineContents = await githubRepository.getLines(sha, file, startLine, endLine);
 			if (!lineContents) {
 				return match;
