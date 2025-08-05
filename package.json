@@ -398,11 +398,6 @@
 					"type": "boolean",
 					"description": "%githubPullRequests.neverIgnoreDefaultBranch.description%"
 				},
-				"githubPullRequests.neverShowUncommittedChangesWarning": {
-					"type": "boolean",
-					"default": false,
-					"description": "%githubPullRequests.neverShowUncommittedChangesWarning.description%"
-				},
 				"githubPullRequests.overrideDefaultBranch": {
 					"type": "string",
 					"description": "%githubPullRequests.overrideDefaultBranch.description%"

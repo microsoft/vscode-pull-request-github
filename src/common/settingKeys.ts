@@ -32,7 +32,6 @@ export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
 export type PullPRBranchVariants = 'never' | 'pull' | 'pullAndMergeBase' | 'pullAndUpdateBase' | true | false;
 export const UPSTREAM_REMOTE = 'upstreamRemote';
-export const NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING = 'neverShowUncommittedChangesWarning';
 export const DEFAULT_CREATE_OPTION = 'defaultCreateOption';
 export const CREATE_BASE_BRANCH = 'createDefaultBaseBranch';
 

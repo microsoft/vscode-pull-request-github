@@ -12,7 +12,8 @@ import { CommentReply, findActiveHandler, resolveCommentHandler } from './commen
 import { COPILOT_LOGINS } from './common/copilot';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
-import { FILE_LIST_LAYOUT, NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import * as PersistentState from './common/persistentState';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
@@ -52,16 +53,19 @@ const STASH_CHANGES = vscode.l10n.t('Stash changes');
 const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
 const DONT_SHOW_AGAIN = vscode.l10n.t('Don\'t show again');
 
+// Constants for persistent state storage
+const UNCOMMITTED_CHANGES_SCOPE = vscode.l10n.t('uncommitted changes warning');
+const UNCOMMITTED_CHANGES_STORAGE_KEY = 'showWarning';
+
 /**
  * Shows a modal dialog when there are uncommitted changes during PR checkout
  * @param repository The git repository with uncommitted changes
  * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
  */
 async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
-	// Check if user has disabled the warning
-	const neverShowWarning = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING, false);
-	if (neverShowWarning) {
-		return true; // Setting is enabled, proceed without showing dialog
+	// Check if user has disabled the warning using persistent state
+	if (PersistentState.fetch(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY) === false) {
+		return true; // User has disabled warnings, proceed without showing dialog
 	}
 
 	// Filter out untracked files as they typically don't conflict with PR checkout
@@ -89,8 +93,8 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 	}
 
 	if (modalResult === DONT_SHOW_AGAIN) {
-		// Update the setting to never show this dialog again
-		await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(NEVER_SHOW_UNCOMMITTED_CHANGES_WARNING, true, vscode.ConfigurationTarget.Global);
+		// Store preference to never show this dialog again using persistent state
+		PersistentState.store(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY, false);
 		return true; // Proceed with checkout
 	}
 
