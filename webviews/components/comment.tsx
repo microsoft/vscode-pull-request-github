@@ -415,7 +415,12 @@ export function AddComment({
 			: commentMethods(isIssue);
 
 	// Disable buttons when summary comment is empty AND there are no review comments
-	const shouldDisableButtons = !pendingCommentText?.trim() && !hasReviewDraft;
+	// Note: Approve button is allowed even with empty content and no pending review
+	const shouldDisableNonApproveButtons = !pendingCommentText?.trim() && !hasReviewDraft;
+	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
+	
+	// For ContextDropdown, use disable condition based on the current selection
+	const shouldDisableDropdown = currentSelection === ReviewType.Approve ? shouldDisableApproveButton : shouldDisableNonApproveButtons;
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
@@ -467,7 +472,7 @@ export function AddComment({
 						return actions;
 					}}
 					optionsTitle='Submit pull request review'
-					disabled={isBusy || busy || shouldDisableButtons}
+					disabled={isBusy || busy || shouldDisableDropdown}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
 				/>
@@ -573,7 +578,12 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			: commentMethods(pr.isIssue);
 
 	// Disable buttons when summary comment is empty AND there are no review comments
-	const shouldDisableButtons = !pr.pendingCommentText?.trim() && !pr.hasReviewDraft;
+	// Note: Approve button is allowed even with empty content and no pending review
+	const shouldDisableNonApproveButtons = !pr.pendingCommentText?.trim() && !pr.hasReviewDraft;
+	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
+	
+	// For ContextDropdown, use disable condition based on the current selection
+	const shouldDisableDropdown = currentSelection === ReviewType.Approve ? shouldDisableApproveButton : shouldDisableNonApproveButtons;
 
 	return (
 		<span className="comment-form">
@@ -607,7 +617,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 						return actions;
 					}}
 					optionsTitle='Submit pull request review'
-					disabled={isBusy || pr.busy || shouldDisableButtons}
+					disabled={isBusy || pr.busy || shouldDisableDropdown}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
 				/>

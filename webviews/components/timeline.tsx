@@ -303,6 +303,7 @@ function AddReviewSummaryComment() {
 	};
 
 	// Disable buttons when summary comment is empty AND there are no review comments
+	// Note: Approve button is allowed even with empty content and no pending review
 	const shouldDisableButtons = !commentText.trim() && !pr.hasReviewDraft;
 
 	return (
@@ -329,7 +330,7 @@ function AddReviewSummaryComment() {
 				{isAuthor ? null : (
 					<button
 						id="approve" className='secondary'
-						disabled={isBusy || pr.busy || shouldDisableButtons}
+						disabled={isBusy || pr.busy}
 						onClick={(event) => submitAction(event, ReviewType.Approve)}
 					>
 						Approve
