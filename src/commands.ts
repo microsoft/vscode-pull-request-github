@@ -7,10 +7,11 @@
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Repository } from './api/api';
-import { GitErrorCodes } from './api/api1';
+import { GitErrorCodes, Status } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
+import * as PersistentState from './common/persistentState';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
@@ -52,6 +53,11 @@ import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 // Modal dialog options for handling uncommitted changes during PR checkout
 const STASH_CHANGES = vscode.l10n.t('Stash changes');
 const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
+const DONT_SHOW_AGAIN = vscode.l10n.t('Try to checkout anyway and don\'t show again');
+
+// Constants for persistent state storage
+const UNCOMMITTED_CHANGES_SCOPE = vscode.l10n.t('uncommitted changes warning');
+const UNCOMMITTED_CHANGES_STORAGE_KEY = 'showWarning';
 
 /**
  * Shows a modal dialog when there are uncommitted changes during PR checkout
@@ -59,32 +65,46 @@ const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
  * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
  */
 async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
-	const hasWorkingTreeChanges = repository.state.workingTreeChanges.length > 0;
+	// Check if user has disabled the warning using persistent state
+	if (PersistentState.fetch(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY) === false) {
+		return true; // User has disabled warnings, proceed without showing dialog
+	}
+
+	// Filter out untracked files as they typically don't conflict with PR checkout
+	const trackedWorkingTreeChanges = repository.state.workingTreeChanges.filter(change => change.status !== Status.UNTRACKED);
+	const hasTrackedWorkingTreeChanges = trackedWorkingTreeChanges.length > 0;
 	const hasIndexChanges = repository.state.indexChanges.length > 0;
 
-	if (!hasWorkingTreeChanges && !hasIndexChanges) {
-		return true; // No uncommitted changes, proceed
+	if (!hasTrackedWorkingTreeChanges && !hasIndexChanges) {
+		return true; // No tracked uncommitted changes, proceed
 	}
 
 	const modalResult = await vscode.window.showInformationMessage(
-		vscode.l10n.t('You have uncommitted changes that would be overwritten by checking out this pull request.'),
+		vscode.l10n.t('You have uncommitted changes that might be overwritten by checking out this pull request.'),
 		{
 			modal: true,
 			detail: vscode.l10n.t('Choose how to handle your uncommitted changes before checking out the pull request.'),
 		},
 		STASH_CHANGES,
 		DISCARD_CHANGES,
+		DONT_SHOW_AGAIN,
 	);
 
 	if (!modalResult) {
 		return false; // User cancelled
 	}
 
+	if (modalResult === DONT_SHOW_AGAIN) {
+		// Store preference to never show this dialog again using persistent state
+		PersistentState.store(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY, false);
+		return true; // Proceed with checkout
+	}
+
 	try {
 		if (modalResult === STASH_CHANGES) {
 			// Stash all changes (working tree changes + any unstaged changes)
 			const allChangedFiles = [
-				...repository.state.workingTreeChanges.map(change => change.uri.fsPath),
+				...trackedWorkingTreeChanges.map(change => change.uri.fsPath),
 				...repository.state.indexChanges.map(change => change.uri.fsPath),
 			];
 			if (allChangedFiles.length > 0) {
@@ -92,10 +112,10 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 				await vscode.commands.executeCommand('git.stash', repository);
 			}
 		} else if (modalResult === DISCARD_CHANGES) {
-			// Discard all working tree changes
-			const workingTreeFiles = repository.state.workingTreeChanges.map(change => change.uri.fsPath);
-			if (workingTreeFiles.length > 0) {
-				await repository.clean(workingTreeFiles);
+			// Discard all tracked working tree changes
+			const trackedWorkingTreeFiles = trackedWorkingTreeChanges.map(change => change.uri.fsPath);
+			if (trackedWorkingTreeFiles.length > 0) {
+				await repository.clean(trackedWorkingTreeFiles);
 			}
 		}
 		return true; // Successfully handled changes, proceed with checkout
