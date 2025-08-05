@@ -349,6 +349,7 @@ export function AddComment({
 	currentUserReviewState,
 	lastReviewType,
 	busy,
+	hasReviewDraft,
 }: PullRequest) {
 	const { updatePR, requestChanges, approve, close, openOnGitHub, submit } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
@@ -413,6 +414,9 @@ export function AddComment({
 			}
 			: commentMethods(isIssue);
 
+	// Disable buttons when summary comment is empty AND there are no review comments
+	const shouldDisableButtons = !pendingCommentText?.trim() && !hasReviewDraft;
+
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
 			<textarea
@@ -463,7 +467,7 @@ export function AddComment({
 						return actions;
 					}}
 					optionsTitle='Submit pull request review'
-					disabled={isBusy || busy}
+					disabled={isBusy || busy || shouldDisableButtons}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
 				/>
@@ -568,6 +572,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			}
 			: commentMethods(pr.isIssue);
 
+	// Disable buttons when summary comment is empty AND there are no review comments
+	const shouldDisableButtons = !pr.pendingCommentText?.trim() && !pr.hasReviewDraft;
+
 	return (
 		<span className="comment-form">
 			<textarea
@@ -600,7 +607,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 						return actions;
 					}}
 					optionsTitle='Submit pull request review'
-					disabled={isBusy || pr.busy}
+					disabled={isBusy || pr.busy || shouldDisableButtons}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
 				/>
