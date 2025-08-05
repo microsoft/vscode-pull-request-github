@@ -51,7 +51,7 @@ import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 // Modal dialog options for handling uncommitted changes during PR checkout
 const STASH_CHANGES = vscode.l10n.t('Stash changes');
 const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
-const DONT_SHOW_AGAIN = vscode.l10n.t('Don\'t show again');
+const DONT_SHOW_AGAIN = vscode.l10n.t('Try to checkout anyway and don\'t show again');
 
 // Constants for persistent state storage
 const UNCOMMITTED_CHANGES_SCOPE = vscode.l10n.t('uncommitted changes warning');
@@ -78,7 +78,7 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 	}
 
 	const modalResult = await vscode.window.showInformationMessage(
-		vscode.l10n.t('You have uncommitted changes that would be overwritten by checking out this pull request.'),
+		vscode.l10n.t('You have uncommitted changes that might be overwritten by checking out this pull request.'),
 		{
 			modal: true,
 			detail: vscode.l10n.t('Choose how to handle your uncommitted changes before checking out the pull request.'),
