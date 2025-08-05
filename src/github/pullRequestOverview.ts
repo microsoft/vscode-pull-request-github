@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { OpenCommitChangesArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
-import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -67,6 +67,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true
 	) {
+
+		/* __GDPR__
+			"pr.openDescription" : {
+				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+			}
+		*/
+		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue.author.login === COPILOT_LOGINS[1]) ? 'true' : 'false' });
+
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor

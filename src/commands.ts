@@ -157,10 +157,6 @@ export async function openDescription(
 	// Create and show a new webview
 	if (issue instanceof PullRequestModel) {
 		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue, undefined, preserveFocus);
-		/* __GDPR__
-			"pr.openDescription" : {}
-		*/
-		telemetry.sendTelemetryEvent('pr.openDescription');
 	} else {
 		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue);
 		/* __GDPR__
