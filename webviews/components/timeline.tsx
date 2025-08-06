@@ -270,7 +270,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 
 function AddReviewSummaryComment() {
 	const { requestChanges, approve, submit, pr } = useContext(PullRequestContext);
-	const { isAuthor } = pr;
+	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
 	const [commentText, setCommentText] = useState('');
