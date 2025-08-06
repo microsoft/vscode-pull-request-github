@@ -51,4 +51,67 @@ describe('utils', () => {
 			assert.strictEqual(utils.formatError(error), 'Cannot push to this repo');
 		});
 	});
+
+	describe('uniqBy', () => {
+		it('should remove duplicates based on key function', () => {
+			const arr = [
+				{ id: 1, name: 'Alice' },
+				{ id: 2, name: 'Bob' },
+				{ id: 1, name: 'Alice Clone' }, // duplicate id
+				{ id: 3, name: 'Charlie' }
+			];
+			const result = utils.uniqBy(arr, (item) => item.id.toString());
+			assert.strictEqual(result.length, 3);
+			assert.strictEqual(result[0].name, 'Alice');
+			assert.strictEqual(result[1].name, 'Bob');
+			assert.strictEqual(result[2].name, 'Charlie');
+		});
+
+		it('should handle empty arrays', () => {
+			const result = utils.uniqBy([], (item) => item.toString());
+			assert.strictEqual(result.length, 0);
+		});
+	});
+
+	describe('groupBy', () => {
+		it('should group items by key function', () => {
+			const arr = [
+				{ type: 'bug', title: 'Bug 1' },
+				{ type: 'feature', title: 'Feature 1' },
+				{ type: 'bug', title: 'Bug 2' },
+				{ type: 'docs', title: 'Doc 1' }
+			];
+			const result = utils.groupBy(arr, (item) => item.type);
+			
+			assert.strictEqual(Object.keys(result).length, 3);
+			assert.strictEqual(result.bug.length, 2);
+			assert.strictEqual(result.feature.length, 1);
+			assert.strictEqual(result.docs.length, 1);
+			assert.strictEqual(result.bug[0].title, 'Bug 1');
+			assert.strictEqual(result.bug[1].title, 'Bug 2');
+		});
+
+		it('should handle empty arrays', () => {
+			const result = utils.groupBy([], (item) => item.toString());
+			assert.deepStrictEqual(result, {});
+		});
+	});
+
+	describe('isDescendant', () => {
+		it('should detect descendant paths', () => {
+			assert.strictEqual(utils.isDescendant('/parent', '/parent/child', '/'), true);
+			assert.strictEqual(utils.isDescendant('/parent', '/parent/child/grandchild', '/'), true);
+			assert.strictEqual(utils.isDescendant('C:\\parent', 'C:\\parent\\child', '\\'), true);
+		});
+
+		it('should reject non-descendant paths', () => {
+			assert.strictEqual(utils.isDescendant('/parent', '/different', '/'), false);
+			assert.strictEqual(utils.isDescendant('/parent', '/parent-but-not-child', '/'), false);
+			assert.strictEqual(utils.isDescendant('/parent/child', '/parent', '/'), false); // child is not descendant of grandchild
+		});
+
+		it('should handle same paths', () => {
+			assert.strictEqual(utils.isDescendant('/same', '/same', '/'), false);
+		});
+	});
 });

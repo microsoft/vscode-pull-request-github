@@ -229,4 +229,79 @@ describe('diff hunk parsing', () => {
 			assert.strictEqual(modifiedContent, expectedModifiedContent);
 		});
 	});
+
+	describe('getGitChangeType', () => {
+		it('should handle all standard git change types', () => {
+			const { getGitChangeType } = require('../../common/diffHunk');
+			const { GitChangeType } = require('../../common/file');
+
+			assert.strictEqual(getGitChangeType('removed'), GitChangeType.DELETE);
+			assert.strictEqual(getGitChangeType('added'), GitChangeType.ADD);
+			assert.strictEqual(getGitChangeType('renamed'), GitChangeType.RENAME);
+			assert.strictEqual(getGitChangeType('modified'), GitChangeType.MODIFY);
+		});
+
+		it('should return UNKNOWN for unrecognized status', () => {
+			const { getGitChangeType } = require('../../common/diffHunk');
+			const { GitChangeType } = require('../../common/file');
+
+			assert.strictEqual(getGitChangeType('unknown_status'), GitChangeType.UNKNOWN);
+			assert.strictEqual(getGitChangeType(''), GitChangeType.UNKNOWN);
+			assert.strictEqual(getGitChangeType('ADDED'), GitChangeType.UNKNOWN); // case sensitive
+		});
+	});
+
+	describe('parseDiff edge cases', () => {
+		it('should handle empty file changes', async () => {
+			const { parseDiff } = require('../../common/diffHunk');
+			
+			const emptyFileChange = {
+				filename: 'empty.txt',
+				status: 'added',
+				additions: 0,
+				deletions: 0,
+				patch: null,
+				blob_url: 'https://example.com/blob'
+			};
+
+			const result = await parseDiff([emptyFileChange], 'abc123');
+			assert.strictEqual(result.length, 0); // Empty file adds should not create SlimFileChange
+		});
+
+		it('should handle file renames without patches', async () => {
+			const { parseDiff } = require('../../common/diffHunk');
+			
+			const renameChange = {
+				filename: 'new_name.txt',
+				previous_filename: 'old_name.txt',
+				status: 'renamed',
+				additions: 0,
+				deletions: 0,
+				patch: null,
+				blob_url: 'https://example.com/blob'
+			};
+
+			const result = await parseDiff([renameChange], 'abc123');
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0].fileName, 'new_name.txt');
+			assert.strictEqual(result[0].previousFileName, 'old_name.txt');
+		});
+
+		it('should handle binary file changes', async () => {
+			const { parseDiff } = require('../../common/diffHunk');
+			
+			const binaryChange = {
+				filename: 'image.png',
+				status: 'modified',
+				additions: 0,
+				deletions: 0,
+				patch: null, // Binary files typically have no patch
+				blob_url: 'https://example.com/blob'
+			};
+
+			const result = await parseDiff([binaryChange], 'abc123');
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0].fileName, 'image.png');
+		});
+	});
 });

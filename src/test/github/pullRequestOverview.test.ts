@@ -140,4 +140,90 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #2000');
 		});
 	});
+
+	describe('review operations', () => {
+		let prModel: PullRequestModel;
+
+		beforeEach(async () => {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			sinon.stub(prModel, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+		});
+
+		it('should have approve method', () => {
+			assert.strictEqual(typeof prModel.approve, 'function');
+		});
+
+		it('should have requestChanges method', () => {
+			assert.strictEqual(typeof prModel.requestChanges, 'function');
+		});
+
+		it('should have submitReview method', () => {
+			assert.strictEqual(typeof prModel.submitReview, 'function');
+		});
+	});
+
+	describe('PR state management', () => {
+		it('should refresh panel when refresh is called', () => {
+			const refreshSpy = sinon.spy();
+			
+			// Mock current panel
+			const mockPanel = {
+				refreshPanel: refreshSpy
+			};
+			
+			(PullRequestOverviewPanel as any).currentPanel = mockPanel;
+			
+			PullRequestOverviewPanel.refresh();
+			
+			assert.strictEqual(refreshSpy.callCount, 1);
+		});
+
+		it('should handle refresh when no current panel exists', () => {
+			(PullRequestOverviewPanel as any).currentPanel = undefined;
+			
+			// Should not throw an error
+			assert.doesNotThrow(() => {
+				PullRequestOverviewPanel.refresh();
+			});
+		});
+
+		it('should scroll to review when requested', () => {
+			const postMessageSpy = sinon.spy();
+			
+			// Mock current panel
+			const mockPanel = {
+				_postMessage: postMessageSpy
+			};
+			
+			(PullRequestOverviewPanel as any).currentPanel = mockPanel;
+			
+			PullRequestOverviewPanel.scrollToReview();
+			
+			assert.strictEqual(postMessageSpy.callCount, 1);
+			assert.deepStrictEqual(postMessageSpy.getCall(0).args[0], { command: 'pr.scrollToPendingReview' });
+		});
+
+		it('should return current pull request from panel', async () => {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			sinon.stub(prModel, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			
+			const panel = await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+			
+			const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+			assert.strictEqual(currentPR, prModel);
+		});
+
+		it('should return undefined when no current panel exists', () => {
+			(PullRequestOverviewPanel as any).currentPanel = undefined;
+			
+			const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+			assert.strictEqual(currentPR, undefined);
+		});
+	});
 });

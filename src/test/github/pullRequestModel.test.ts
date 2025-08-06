@@ -150,4 +150,77 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(onDidChangeReviewThreads.getCall(0).args[0]['removed'].length, 0);
 		});
 	});
+
+	describe('state management', () => {
+		it('should fire events when hasPendingReview changes', () => {
+			const pullRequest = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pullRequest, repo));
+
+			let eventFired = false;
+			model.onDidChangePendingReviewState(() => {
+				eventFired = true;
+			});
+
+			// Setting to same value should not fire event
+			model.hasPendingReview = false;
+			assert.strictEqual(eventFired, false);
+
+			// Setting to different value should fire event
+			model.hasPendingReview = true;
+			assert.strictEqual(eventFired, true);
+			assert.strictEqual(model.hasPendingReview, true);
+		});
+
+		it('should fire events when showChangesSinceReview changes', () => {
+			const pullRequest = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pullRequest, repo));
+
+			let eventFired = false;
+			model.onDidChangeChangesSinceReview(() => {
+				eventFired = true;
+			});
+
+			// Setting to same value should not fire event
+			model.showChangesSinceReview = false;
+			assert.strictEqual(eventFired, false);
+
+			// Setting to different value should fire event
+			model.showChangesSinceReview = true;
+			assert.strictEqual(eventFired, true);
+			assert.strictEqual(model.showChangesSinceReview, true);
+		});
+
+		it('should clear file changes cache when showChangesSinceReview changes', () => {
+			const pullRequest = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pullRequest, repo));
+
+			// Access _fileChanges to populate it (would normally happen through getFileChangesInfo)
+			const fileChanges = (model as any)._fileChanges;
+			fileChanges.set('test', 'some cached data');
+			assert.strictEqual(fileChanges.size, 1);
+
+			// Changing showChangesSinceReview should clear the cache
+			model.showChangesSinceReview = true;
+			assert.strictEqual(fileChanges.size, 0);
+		});
+
+		it('should properly update comments and fire change events', () => {
+			const pullRequest = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pullRequest, repo));
+
+			let changeEvent: any = null;
+			model.onDidChange((event) => {
+				changeEvent = event;
+			});
+
+			const testComments = [
+				{ id: 1, body: 'Test comment', user: { login: 'testuser' } }
+			] as any;
+
+			model.comments = testComments;
+			assert.strictEqual(model.comments.length, 1);
+			assert.strictEqual(model.comments[0].body, 'Test comment');
+			assert.strictEqual(changeEvent.comments, true);
+		});
+	});
 });

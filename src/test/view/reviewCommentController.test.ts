@@ -338,4 +338,30 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 1);
 		});
 	});
+
+	describe('error handling', () => {
+		it('should have createOrReplyComment method', () => {
+			const reviewModel = new ReviewModel();
+			const reviewCommentController = new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				reviewModel,
+				gitApiImpl,
+				telemetry
+			);
+
+			assert.strictEqual(typeof reviewCommentController.createOrReplyComment, 'function');
+		});
+
+		it('should handle comment thread creation', () => {
+			const fileName = 'test.js';
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+			const thread = createGHPRCommentThread('thread-1', uri);
+
+			assert.strictEqual(thread.uri.path, uri.path);
+			assert.strictEqual(thread.gitHubThreadId, 'thread-1');
+			assert.strictEqual(thread.comments.length, 0);
+		});
+	});
 });
