@@ -1205,6 +1205,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				isCompleted = true;
 				cancellationListener?.dispose();
 
+				await pullRequest.getFileChangesInfo();
 				const multiDiffPart = await this.getFileChangesMultiDiffPart(pullRequest);
 				if (multiDiffPart) {
 					stream.push(multiDiffPart);
