@@ -20,10 +20,12 @@ describe('Diff Parsing Comprehensive Tests', () => {
 					additions: 10,
 					deletions: 0,
 					changes: 10,
-					patch: `@@ -0,0 +1,3 @@
-+export function newFunction() {
-+  return 'Hello World';
-+}`,
+					patch: [
+						`@@ -0,0 +1,3 @@`,
+						`+export function newFunction() {`,
+						`+  return 'Hello World';`,
+						`+}`
+					].join('\n'),
 					blob_url: 'https://github.com/test/repo/blob/abc123/new-file.ts',
 					raw_url: 'https://github.com/test/repo/raw/abc123/new-file.ts',
 					contents_url: 'https://api.github.com/repos/test/repo/contents/new-file.ts',
@@ -37,12 +39,14 @@ describe('Diff Parsing Comprehensive Tests', () => {
 					additions: 2,
 					deletions: 1,
 					changes: 3,
-					patch: `@@ -1,3 +1,4 @@
- function existingFunction() {
--  return 'old value';
-+  return 'new value';
-+  console.log('added line');
- }`,
+					patch: [
+						`@@ -1,3 +1,4 @@`,
+						` function existingFunction() {`,
+						`-  return 'old value';`,
+						`+  return 'new value';`,
+						`+  console.log('added line');`,
+						` }`
+					].join('\n'),
 					blob_url: 'https://github.com/test/repo/blob/abc123/existing-file.ts',
 					raw_url: 'https://github.com/test/repo/raw/abc123/existing-file.ts',
 					contents_url: 'https://api.github.com/repos/test/repo/contents/existing-file.ts',
@@ -56,12 +60,14 @@ describe('Diff Parsing Comprehensive Tests', () => {
 					additions: 0,
 					deletions: 5,
 					changes: 5,
-					patch: `@@ -1,5 +0,0 @@
--function deletedFunction() {
--  return 'this will be deleted';
--}
--
--export { deletedFunction };`,
+					patch: [
+						`@@ -1,5 +0,0 @@`,
+						`-function deletedFunction() {`,
+						`-  return 'this will be deleted';`,
+						`-}`,
+						`-`,
+						`-export { deletedFunction };`
+					].join('\n'),
 					blob_url: 'https://github.com/test/repo/blob/abc123/deleted-file.ts',
 					raw_url: 'https://github.com/test/repo/raw/abc123/deleted-file.ts',
 					contents_url: 'https://api.github.com/repos/test/repo/contents/deleted-file.ts',
@@ -199,19 +205,21 @@ describe('Diff Parsing Comprehensive Tests', () => {
 					additions: 3,
 					deletions: 1,
 					changes: 4,
-					patch: `@@ -1,7 +1,9 @@
- import React from 'react';
- 
--export function OldComponent() {
-+export function NewComponent() {
-   return (
--    <div>Old Component</div>
-+    <div>New Component</div>
-+    <p>Additional content</p>
-   );
- }
-+
-+export default NewComponent;`,
+					patch: [
+						`@@ -1,7 +1,9 @@`,
+						` import React from 'react';`,
+						` `,
+						`-export function OldComponent() {`,
+						`+export function NewComponent() {`,
+						`   return (`,
+						`-    <div>Old Component</div>`,
+						`+    <div>New Component</div>`,
+						`+    <p>Additional content</p>`,
+						`   );`,
+						` }`,
+						`+`,
+						`+export default NewComponent;`
+					].join('\n'),
 					blob_url: 'https://github.com/test/repo/blob/abc123/src/components/NewComponent.tsx',
 					raw_url: 'https://github.com/test/repo/raw/abc123/src/components/NewComponent.tsx',
 					contents_url: 'https://api.github.com/repos/test/repo/contents/src/components/NewComponent.tsx',
