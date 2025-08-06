@@ -44,7 +44,7 @@ export function CommentView(commentProps: Props) {
 	const [bodyMd, setBodyMd] = useStateProp(body);
 	const [bodyHTMLState, setBodyHtml] = useStateProp(bodyHTML);
 	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
-	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
+	const currentDraft = pr?.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
 
@@ -55,7 +55,7 @@ export function CommentView(commentProps: Props) {
 				key={`editComment${id}`}
 				body={currentDraft || bodyMd}
 				onCancel={() => {
-					if (pr.pendingCommentDrafts) {
+					if (pr?.pendingCommentDrafts) {
 						delete pr.pendingCommentDrafts[id];
 					}
 					setEditMode(false);
@@ -114,7 +114,7 @@ export function CommentView(commentProps: Props) {
 				comment={comment as IComment}
 				bodyHTML={bodyHTMLState}
 				body={bodyMd}
-				canApplyPatch={pr.isCurrentlyCheckedOut}
+				canApplyPatch={!!pr?.isCurrentlyCheckedOut}
 				allowEmpty={!!commentProps.allowEmpty}
 				specialDisplayBodyPostfix={(comment as IComment).specialDisplayBodyPostfix}
 			/>
@@ -418,12 +418,9 @@ export function AddComment({
 	// Note: Approve button is allowed even with empty content and no pending review
 	const shouldDisableNonApproveButtons = !pendingCommentText?.trim() && !hasReviewDraft;
 	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
-	
-	// For ContextDropdown, use disable condition based on the current selection
-	const shouldDisableDropdown = currentSelection === ReviewType.Approve ? shouldDisableApproveButton : shouldDisableNonApproveButtons;
 
 	return (
-		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
+		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
 			<textarea
 				id="comment-textarea"
 				name="body"
@@ -454,25 +451,25 @@ export function AddComment({
 
 
 				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(availableActions, pendingCommentText)}
+					optionsContext={() => makeCommentMenuContext(availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
 					defaultAction={defaultSubmitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
 					allOptions={() => {
-						const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+						const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
 						if (availableActions.approve) {
-							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve) });
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
 						}
 						if (availableActions.comment) {
-							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment) });
+							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
 						}
 						if (availableActions.requestChanges) {
-							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges) });
+							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
 						}
 						return actions;
 					}}
 					optionsTitle='Submit pull request review'
-					disabled={isBusy || busy || shouldDisableDropdown}
+					disabled={isBusy || busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
 				/>
@@ -495,7 +492,7 @@ const COMMENT_METHODS = {
 	requestChanges: 'Request Changes',
 };
 
-const makeCommentMenuContext = (availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined) => {
+const makeCommentMenuContext = (availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
 	const createMenuContexts = {
 		'preventDefaultContextMenuItems': true,
 		'github:reviewCommentMenu': true,
@@ -509,10 +506,16 @@ const makeCommentMenuContext = (availableActions: { comment?: string, approve?: 
 	}
 	if (availableActions.comment) {
 		createMenuContexts['github:reviewCommentComment'] = true;
+		if (!shouldDisableNonApproveButtons) {
+			createMenuContexts['github:reviewCommentCommentEnabled'] = true;
+		}
 	}
 	if (availableActions.requestChanges) {
 		if (availableActions.requestChanges === COMMENT_METHODS.requestChanges) {
 			createMenuContexts['github:reviewCommentRequestChanges'] = true;
+			if (!shouldDisableNonApproveButtons) {
+				createMenuContexts['github:reviewRequestChangesEnabled'] = true;
+			}
 		} else {
 			createMenuContexts['github:reviewCommentRequestChangesOnDotCom'] = true;
 		}
@@ -581,9 +584,6 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	// Note: Approve button is allowed even with empty content and no pending review
 	const shouldDisableNonApproveButtons = !pr.pendingCommentText?.trim() && !pr.hasReviewDraft;
 	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
-	
-	// For ContextDropdown, use disable condition based on the current selection
-	const shouldDisableDropdown = currentSelection === ReviewType.Approve ? shouldDisableApproveButton : shouldDisableNonApproveButtons;
 
 	return (
 		<span className="comment-form">
@@ -599,25 +599,25 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			/>
 			<div className='comment-button'>
 				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(availableActions, pr.pendingCommentText)}
+					optionsContext={() => makeCommentMenuContext(availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}
 					defaultAction={defaultSubmitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
 					allOptions={() => {
-						const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+						const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
 						if (availableActions.approve) {
-							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve) });
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
 						}
 						if (availableActions.comment) {
-							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment) });
+							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
 						}
 						if (availableActions.requestChanges) {
-							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges) });
+							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
 						}
 						return actions;
 					}}
 					optionsTitle='Submit pull request review'
-					disabled={isBusy || pr.busy || shouldDisableDropdown}
+					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
 				/>

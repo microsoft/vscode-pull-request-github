@@ -1343,12 +1343,14 @@
 			{
 				"command": "review.comment",
 				"title": "%command.review.comment.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewCommentCommentEnabled"
 			},
 			{
 				"command": "review.requestChanges",
 				"title": "%command.review.requestChanges.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewRequestChangesEnabled"
 			},
 			{
 				"command": "review.approveOnDotCom",
@@ -1368,12 +1370,14 @@
 			{
 				"command": "review.commentDescription",
 				"title": "%command.review.comment.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewCommentCommentEnabled"
 			},
 			{
 				"command": "review.requestChangesDescription",
 				"title": "%command.review.requestChanges.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewRequestChangesEnabled"
 			},
 			{
 				"command": "review.approveOnDotComDescription",
