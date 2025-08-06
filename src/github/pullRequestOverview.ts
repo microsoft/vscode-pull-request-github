@@ -70,7 +70,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		/* __GDPR__
 			"pr.openDescription" : {
-				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
 		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue.author.login === COPILOT_LOGINS[1]) ? 'true' : 'false' });
