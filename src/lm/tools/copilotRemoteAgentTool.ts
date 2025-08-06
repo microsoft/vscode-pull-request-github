@@ -38,7 +38,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		}
 
 		const targetRepo = await this.manager.repoInfo();
-		const autoPushEnabled = this.manager.autoCommitAndPushEnabled();
+		const autoPushEnabled = this.manager.autoCommitAndPushEnabled;
 		const openPR = existingPullRequest || await this.getActivePullRequestWithSession(targetRepo);
 
 		/* __GDPR__

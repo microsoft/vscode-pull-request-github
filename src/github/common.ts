@@ -4,6 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
+import type { Uri } from 'vscode';
+import { Repository } from '../api/api';
+import { GitHubRemote } from '../common/remote';
+import { SessionInfo, SessionSetupStep } from './copilotApi';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 
 export namespace OctokitCommon {
 	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];
@@ -88,4 +94,71 @@ export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema)
 		...sharedSchema,
 		definitions: mergedDefinitions
 	};
+}
+
+type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: Uri; llmDetails: string };
+type RemoteAgentErrorResult = { error: string; state: 'error' };
+export type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
+
+export interface IAPISessionLogs {
+	readonly info: SessionInfo;
+	readonly logs: string;
+	readonly setupSteps: SessionSetupStep[] | undefined;
+}
+
+export interface ICopilotRemoteAgentCommandArgs {
+	userPrompt: string;
+	summary?: string;
+	source?: string;
+	followup?: string;
+	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
+}
+
+export interface ICopilotRemoteAgentCommandResponse {
+	uri: string;
+	title: string;
+	description: string;
+	author: string;
+	linkTag: string;
+}
+
+export interface AssistantDelta {
+	content?: string | undefined;
+	role: string;
+	tool_calls?: {
+		function: {
+			arguments: string;
+			name: string;
+		};
+		id: string;
+		type: string;
+		index: number;
+	}[] | undefined;
+}
+
+export interface Choice {
+	finish_reason: string;
+	delta: {
+		content?: string | undefined;
+		role: string;
+		tool_calls?: {
+			function: {
+				arguments: string;
+				name: string;
+			};
+			id: string;
+			type: string;
+			index: number;
+		}[] | undefined;
+	};
+}
+
+export interface RepoInfo {
+	owner: string;
+	repo: string;
+	baseRef: string;
+	remote: GitHubRemote;
+	repository: Repository;
+	ghRepository: GitHubRepository;
+	fm: FolderRepositoryManager;
 }
