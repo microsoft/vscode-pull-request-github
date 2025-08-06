@@ -404,7 +404,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const { webviewUri, link, number } = result;
 
-		this.telemetry.sendTelemetryEvent('remoteAgent.command', {
+		/* __GDPR__
+			"remoteAgent.command.success" : {
+				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"hasFollowup" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"outcome" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('remoteAgent.command.success', {
 			source: source || 'unknown',
 			hasFollowup: (!!followup).toString(),
 			outcome: 'success'
