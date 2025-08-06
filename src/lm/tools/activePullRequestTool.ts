@@ -27,7 +27,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	}
 
 	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
-		return !!pullRequest && this.copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequest.author.login);
+		return !!pullRequest && this.copilotRemoteAgentManager.enabled && COPILOT_LOGINS.includes(pullRequest.author.login);
 	}
 
 
