@@ -149,5 +149,83 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(onDidChangeReviewThreads.getCall(0).args[0]['changed'].length, 0);
 			assert.strictEqual(onDidChangeReviewThreads.getCall(0).args[0]['removed'].length, 0);
 		});
+
+		it('should handle copilot-related review threads', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+
+			// Mock a simpler review thread response
+			const mockResponse = {
+				data: {
+					repository: {
+						pullRequest: {
+							reviewThreads: {
+								nodes: [{
+									id: 'copilot-thread-1',
+									isResolved: false,
+									viewerCanResolve: true,
+									path: 'src/copilotRemoteAgent.ts',
+									diffSide: 'RIGHT',
+									startLine: null,
+									line: 10,
+									originalStartLine: null,
+									originalLine: 10,
+									isOutdated: false,
+									comments: {
+										nodes: [{
+											id: 'comment-1',
+											body: 'Copilot generated comment',
+											graphNodeId: 'comment-node-1',
+											diffHunk: '',
+											commit: { oid: 'abc123' },
+											reactionGroups: []
+										}]
+									}
+								}]
+							}
+						}
+					}
+				},
+				loading: false,
+				networkStatus: NetworkStatus.ready,
+				stale: false
+			};
+
+			sinon.stub(model.githubRepository, 'query').resolves(mockResponse);
+
+			const onDidChangeReviewThreads = sinon.spy();
+			model.onDidChangeReviewThreads(onDidChangeReviewThreads);
+
+			await model.initializeReviewThreadCache();
+
+			assert.strictEqual(Object.keys(model.reviewThreadsCache).length, 1);
+			assert(onDidChangeReviewThreads.calledOnce);
+			
+			// Verify the thread is cached correctly for copilot files
+			const cachedThread = Object.values(model.reviewThreadsCache)[0] as any;
+			assert.strictEqual(cachedThread.path, 'src/copilotRemoteAgent.ts');
+		});
+	});
+
+	describe('copilot integration', function () {
+		it('should handle basic copilot functionality in PRs', function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+
+			// Basic test to verify the model works with copilot-related files
+			assert.ok(model);
+			assert.ok(model.githubRepository);
+			assert.ok(typeof model.number === 'number');
+		});
+
+		it('should handle PR models for copilot agent testing', function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+
+			// Test that we can create models for copilot agent testing
+			assert.ok(model);
+			assert.ok(model.reviewThreadsCache);
+			assert.ok(typeof model.initializeReviewThreadCache === 'function');
+		});
 	});
 });

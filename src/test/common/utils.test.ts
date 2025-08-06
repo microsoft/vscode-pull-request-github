@@ -51,4 +51,40 @@ describe('utils', () => {
 			assert.strictEqual(utils.formatError(error), 'Cannot push to this repo');
 		});
 	});
+
+	describe('String and Config iterators (for session parsing context)', () => {
+		it('should handle config key iteration for copilot settings', () => {
+			const iterator = new utils.ConfigKeysIterator();
+			iterator.reset('githubPullRequests.codingAgent.enabled');
+			
+			let segments: string[] = [];
+			while (iterator.hasNext()) {
+				segments.push(iterator.value());
+				iterator.next();
+			}
+			if (!iterator.hasNext()) {
+				segments.push(iterator.value());
+			}
+
+			assert.ok(segments.length > 0);
+			assert.ok(segments.some(segment => segment.includes('githubPullRequests')));
+		});
+
+		it('should handle string iteration for tool names', () => {
+			const iterator = new utils.StringIterator();
+			iterator.reset('copilot-remote-agent');
+			
+			let chars: string[] = [];
+			while (iterator.hasNext()) {
+				chars.push(iterator.value());
+				iterator.next();
+			}
+			if (!iterator.hasNext()) {
+				chars.push(iterator.value());
+			}
+
+			assert.strictEqual(chars[0], 'c');
+			assert.strictEqual(chars.join(''), 'copilot-remote-agent');
+		});
+	});
 });

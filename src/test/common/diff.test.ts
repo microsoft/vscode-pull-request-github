@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import { parseDiffHunk, DiffHunk, getModifiedContentFromDiffHunk } from '../../common/diffHunk';
 import { DiffLine, DiffChangeType } from '../../common/diffHunk';
@@ -222,6 +227,34 @@ describe('diff hunk parsing', () => {
 			const lines = originalContent.split('\n');
 			lines.splice(11, 0, `import { promptCommand } from './promptCommandWithHistory';`);
 			lines.splice(20, 0, `			promptCommand`);
+
+			const expectedModifiedContent = lines.join('\n');
+
+			const modifiedContent = getModifiedContentFromDiffHunk(originalContent, patch);
+			assert.strictEqual(modifiedContent, expectedModifiedContent);
+		});
+
+		it('returns modified content for patch with session log related changes', () => {
+			const patch = [
+				`@@ -1,3 +1,5 @@`,
+				` import { parseSessionLogs } from './sessionParsing';`,
+				` `,
+				` export function processLogs(rawLogs: string) {`,
+				`+  const parsedLogs = parseSessionLogs(rawLogs);`,
+				`+  return parsedLogs.map(log => log.choices);`,
+				` }`
+			].join('\n');
+
+			const originalContent = [
+				`import { parseSessionLogs } from './sessionParsing';`,
+				``,
+				`export function processLogs(rawLogs: string) {`,
+				`}`
+			].join('\n');
+
+			const lines = originalContent.split('\n');
+			lines.splice(3, 0, `  const parsedLogs = parseSessionLogs(rawLogs);`);
+			lines.splice(4, 0, `  return parsedLogs.map(log => log.choices);`);
 
 			const expectedModifiedContent = lines.join('\n');
 
