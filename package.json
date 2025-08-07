@@ -1025,6 +1025,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.helloWorld",
+				"title": "Hello World",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.refreshList",
 				"title": "%command.pr.refreshList.title%",
 				"icon": "$(refresh)",

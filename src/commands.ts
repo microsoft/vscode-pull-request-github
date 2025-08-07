@@ -1045,6 +1045,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', async () => {
+			vscode.window.showInformationMessage('Hello World from GitHub Pull Request extension!');
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
 			for (const folderManager of reposManager.folderManagers) {
 				await folderManager.deleteLocalBranchesNRemotes();
