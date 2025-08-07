@@ -11,7 +11,7 @@ interface ContextDropdownProps {
 	defaultOptionLabel: () => string | React.ReactNode;
 	defaultOptionValue: () => string;
 	defaultAction: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
-	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[];
+	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void; optionDisabled?: boolean }[];
 	optionsTitle: string;
 	disabled?: boolean;
 	hasSingleAction?: boolean;
@@ -55,8 +55,8 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 	useWindowSize();
 
 	return <div className={`dropdown-container${spreadable ? ' spreadable' : ''}`} ref={divRef}>
-		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
-			return <button className='inlined-dropdown' key={value} title={label} disabled={disabled} onClick={action} value={value}>{label}</button>;
+		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action, optionDisabled }) => {
+			return <button className='inlined-dropdown' key={value} title={label} disabled={optionDisabled || disabled} onClick={action} value={value}>{label}</button>;
 		})
 			:
 			<div className='primary-split-button'>
