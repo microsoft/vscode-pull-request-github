@@ -178,6 +178,7 @@ const CACHED_TEMPLATE_BODY = 'templateBody';
 export class FolderRepositoryManager extends Disposable {
 	static ID = 'FolderRepositoryManager';
 
+	private _state: ReposManagerState = ReposManagerState.Initializing;
 	private _activePullRequest?: PullRequestModel;
 	private _activeIssue?: IssueModel;
 	private _githubRepositories: GitHubRepository[];
@@ -468,6 +469,17 @@ export class FolderRepositoryManager extends Disposable {
 		return isAuthenticated;
 	}
 
+	get state(): ReposManagerState {
+		return this._state;
+	}
+
+	private set state(state: ReposManagerState) {
+		if (state !== this._state) {
+			this._state = state;
+			this._onDidLoadRepositories.fire(state);
+		}
+	}
+
 	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
@@ -480,7 +492,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
 			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
 			if (areAllNeverGitHub) {
-				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
+				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
 			}
 		}
@@ -562,9 +574,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			this.getAssignableUsers(repositoriesAdded.length > 0);
 			if (isAuthenticated && activeRemotes.length) {
-				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
+				this.state = ReposManagerState.RepositoriesLoaded;
 			} else if (!isAuthenticated) {
-				this._onDidLoadRepositories.fire(ReposManagerState.NeedsAuthentication);
+				this.state = ReposManagerState.NeedsAuthentication;
 			}
 			if (!silent) {
 				this._onDidChangeRepositories.fire({ added: repositoriesAdded.length > 0 });
