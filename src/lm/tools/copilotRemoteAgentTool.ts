@@ -127,7 +127,10 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			};
 			const buffer: Buffer = Buffer.from(JSON.stringify(preferredRendering));
 			const data: Uint8Array = Uint8Array.from(buffer);
-			lmResult.push(new vscode.LanguageModelDataPart2(data, 'application/pull-request+json', [vscode.LanguageModelPartAudience.User]));
+
+			// API might not be available for tests, this guarantees we are still able to test
+			const userAudience = vscode.LanguageModelPartAudience.User;
+			lmResult.push(new vscode.LanguageModelDataPart2(data, 'application/pull-request+json', [userAudience]));
 		}
 
 		return new vscode.LanguageModelToolResult2(lmResult);
