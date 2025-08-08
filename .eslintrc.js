@@ -24,6 +24,12 @@ module.exports = {
 			rules: {
 				'rulesdir/public-methods-well-defined-types': 'error'
 			}
+		},
+		{
+			files: ['**/*.ts', '**/*.tsx'],
+			rules: {
+				'rulesdir/no-any-except-union-method-signature': 'error'
+			}
 		}
 	]
 };

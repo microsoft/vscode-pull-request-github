@@ -1061,8 +1061,8 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		let pagesFetched = 0;
-		const itemData: ItemsData = { hasMorePages: false, items: [], totalCount: 0 };
-		const addPage = (page: PullRequestData | undefined) => {
+		const itemData: ItemsData<T> = { hasMorePages: false, items: [], totalCount: 0 };
+		const addPage = (page: ItemsData<T> | undefined) => {
 			pagesFetched++;
 			if (page) {
 				itemData.items = itemData.items.concat(page.items);

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { SessionLinkInfo } from '../../src/common/timelineEvent';
+import { ThemeData } from '../../src/view/theme';
 import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
 
 export type PullInfo = SessionLinkInfo & {
@@ -12,7 +13,7 @@ export type PullInfo = SessionLinkInfo & {
 
 export interface InitMessage {
 	type: 'init';
-	themeData: any;
+	themeData: ThemeData;
 }
 
 export interface LoadedMessage {
@@ -37,7 +38,7 @@ export interface ResetMessage {
 
 export interface ChangeThemeMessage {
 	type: 'changeTheme';
-	themeData: any;
+	themeData: ThemeData;
 }
 
 export interface ErrorMessage {

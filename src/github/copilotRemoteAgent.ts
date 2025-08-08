@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
-import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -405,7 +405,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} else {
 			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
 			if (pr) {
-				vscode.window.showChatSession('copilot-swe-agent', `${pr.number}`, {});
+				vscode.window.showChatSession(COPILOT_SWE_AGENT, `${pr.number}`, {});
 			}
 		}
 
@@ -555,7 +555,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const runs = await pullRequest.githubRepository.getWorkflowRunsFromAction(pullRequest.createdAt);
 		const workflowRuns = runs.flatMap(run => run.workflow_runs);
 		const padawanRuns = workflowRuns
-			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
+			.filter(run => run.path && run.path.startsWith(`dynamic/${COPILOT_SWE_AGENT}`))
 			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
 
 		const session = padawanRuns.filter(s => !completedOnly || s.status === 'completed').at(sessionIndex);

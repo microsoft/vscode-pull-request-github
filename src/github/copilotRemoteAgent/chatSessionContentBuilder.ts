@@ -6,10 +6,11 @@
 import * as nodePath from 'path';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../../common/sessionParsing';
+import { COPILOT_SWE_AGENT } from '../../common/copilot';
 import Logger from '../../common/logger';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../../view/fileChangeModel';
-import { AssistantDelta, Choice } from '../common';
+import { AssistantDelta, Choice, ToolCall } from '../common';
 import { CopilotApi, SessionInfo } from '../copilotApi';
 import { PullRequestModel } from '../pullRequestModel';
 
@@ -43,7 +44,7 @@ export class ChatSessionContentBuilder {
 				sessionPrompt,
 				undefined, // command
 				[], // references
-				'copilot-swe-agent',
+				COPILOT_SWE_AGENT,
 				[], // toolReferences
 				[]
 			);
@@ -66,12 +67,12 @@ export class ChatSessionContentBuilder {
 			// For in-progress sessions without logs, create a placeholder response
 			const placeholderParts = [new vscode.ChatResponseProgressPart('Session is initializing...')];
 			const responseResult: vscode.ChatResult = {};
-			return new vscode.ChatResponseTurn2(placeholderParts, responseResult, 'copilot-swe-agent');
+			return new vscode.ChatResponseTurn2(placeholderParts, responseResult, COPILOT_SWE_AGENT);
 		} else {
 			// For completed sessions without logs, add an empty response to maintain pairing
 			const emptyParts = [new vscode.ChatResponseMarkdownPart('_No logs available for this session_')];
 			const responseResult: vscode.ChatResult = {};
-			return new vscode.ChatResponseTurn2(emptyParts, responseResult, 'copilot-swe-agent');
+			return new vscode.ChatResponseTurn2(emptyParts, responseResult, COPILOT_SWE_AGENT);
 		}
 	}
 
@@ -256,7 +257,7 @@ export class ChatSessionContentBuilder {
 
 			if (responseParts.length > 0) {
 				const responseResult: vscode.ChatResult = {};
-				return new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent');
+				return new vscode.ChatResponseTurn2(responseParts, responseResult, COPILOT_SWE_AGENT);
 			}
 
 			return undefined;
@@ -281,7 +282,7 @@ export class ChatSessionContentBuilder {
 				delta.tool_calls[0].function.name === 'run_custom_setup_step'
 			) {
 				const toolCall = delta.tool_calls[0];
-				let args: any = {};
+				let args: { name?: string } = {};
 				try {
 					args = JSON.parse(toolCall.function.arguments);
 				} catch {
@@ -328,7 +329,7 @@ export class ChatSessionContentBuilder {
 		return currentResponseContent;
 	}
 
-	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
+	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: ToolCall, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
 		if (!toolCall.function?.name || !toolCall.id) {
 			return undefined;
 		}

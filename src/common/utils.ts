@@ -135,11 +135,11 @@ export class UnreachableCaseError extends Error {
 }
 
 interface HookError extends Error {
-	errors: any;
+	errors: (string | { message: string })[];
 }
 
 function isHookError(e: Error): e is HookError {
-	return !!(e as any).errors;
+	return !!(e as Partial<HookError>).errors;
 }
 
 function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; status: string }[] } {
@@ -184,7 +184,7 @@ export function formatError(e: HookError | any): string {
 		return e.message;
 	} else if (isHookError(e) && e.errors) {
 		return e.errors
-			.map((error: any) => {
+			.map((error) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {
@@ -198,10 +198,6 @@ export function formatError(e: HookError | any): string {
 	}
 
 	return errorMessage;
-}
-
-export interface PromiseAdapter<T, U> {
-	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 // Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136

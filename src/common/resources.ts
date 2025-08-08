@@ -7,7 +7,18 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 export class Resource {
-	static icons: any;
+	static icons: {
+		reactions: {
+			THUMBS_UP: string;
+			THUMBS_DOWN: string;
+			CONFUSED: string;
+			EYES: string;
+			HEART: string;
+			HOORAY: string;
+			LAUGH: string;
+			ROCKET: string;
+		};
+	};
 
 	static initialize(context: vscode.ExtensionContext) {
 		Resource.icons = {
