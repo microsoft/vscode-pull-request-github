@@ -1863,4 +1863,14 @@ ${contents}
 			copilotRemoteAgentManager.refreshChatSessions();
 		})
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', async () => {
+			/* __GDPR__
+				"pr.helloWorld" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.helloWorld');
+			vscode.window.showInformationMessage(vscode.l10n.t('Hello World from GitHub Pull Requests extension!'));
+		})
+	);
 }
