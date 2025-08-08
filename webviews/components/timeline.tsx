@@ -424,8 +424,8 @@ const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent
 	const { actor } = event;
 	const assignees = (event as AssignEvent).assignees || [];
 	const unassignees = (event as UnassignEvent).unassignees || [];
-	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />));
-	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={a.id} for={a} />));
+	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={`${a.id}a`} for={a} />));
+	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={`${a.id}u`} for={a} />));
 
 	let message: JSX.Element;
 	if (assignees.length > 0 && unassignees.length > 0) {
