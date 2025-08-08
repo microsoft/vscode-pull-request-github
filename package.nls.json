@@ -107,7 +107,7 @@
 	"githubIssues.ignoreUserCompletionTrigger.description": "Languages that the '@' character should not be used to trigger user completion suggestions.",
 	"githubIssues.ignoreUserCompletionTrigger.items": "Language that user completions should not trigger on '@'.",
 	"githubIssues.issueBranchTitle.markdownDescription": {
-		"message": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseIssueTitle}` ",
+		"message": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replaced with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseIssueTitle}` ",
 		"comment": [
 			"{Locked='${...}'}",
 			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
