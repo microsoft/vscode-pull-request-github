@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
@@ -61,11 +62,11 @@ export class CopilotStateModel extends Disposable {
 			changedModels.push(pullRequestModel);
 			changedKeys.push(key);
 		}
-		if (this._isInitialized) {
-			changedKeys.forEach(key => this._showNotification.add(key));
-			this._onDidChangeNotifications.fire(changedModels);
-		}
 		if (changedModels.length > 0) {
+			if (this._isInitialized) {
+				changedKeys.forEach(key => this._showNotification.add(key));
+				this._onDidChangeNotifications.fire(changedModels);
+			}
 			this._onDidChangeStates.fire();
 		}
 	}
@@ -139,7 +140,11 @@ export class CopilotPRWatcher extends Disposable {
 	private _initialize() {
 		this._getStateChanges();
 		this._pollForChanges();
-		this._register(this._reposManager.onDidChangeAnyPullRequests(() => this._getStateChanges()));
+		this._register(this._reposManager.onDidChangeAnyPullRequests(e => {
+			if (e.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
+				debounce(this._getStateChanges, 50);
+			}
+		}));
 		this._register(PullRequestOverviewPanel.onVisible(e => this._model.clearNotification(e.remote.owner, e.remote.repositoryName, e.number)));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
