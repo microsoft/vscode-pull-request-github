@@ -176,6 +176,7 @@
 	"command.pull.request.category": "GitHub Pull Requests",
 	"command.githubpr.remoteAgent.title": "Remote agent integration",
 	"command.pr.create.title": "Create Pull Request",
+	"command.pr.helloWorld.title": "Hello World",
 	"command.pr.pick.title": "Checkout Pull Request",
 	"command.pr.openChanges.title": "Open Changes",
 	"command.pr.pickOnVscodeDev.title": "Checkout Pull Request on vscode.dev",

@@ -919,6 +919,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.helloWorld",
+				"title": "%command.pr.helloWorld.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.readyForReview",
 				"title": "%command.pr.readyForReview.title%",
 				"category": "%command.pull.request.category%"

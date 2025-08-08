@@ -405,6 +405,16 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', () => {
+			/* __GDPR__
+				"pr.helloWorld" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.helloWorld');
+			vscode.window.showInformationMessage(vscode.l10n.t('Hello World!'));
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
 			// if this is an image, encode it as a base64 data URI
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
