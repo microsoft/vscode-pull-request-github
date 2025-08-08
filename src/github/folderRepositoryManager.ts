@@ -236,38 +236,52 @@ export class FolderRepositoryManager extends Disposable {
 		public readonly themeWatcher: IThemeWatcher
 	) {
 		super();
+		Logger.debug(`Initializing FolderRepositoryManager for repository: ${this._repository.rootUri.fsPath}`, this.id);
 		this._githubRepositories = [];
 		this._githubManager = new GitHubManager();
 
 		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)) {
+					Logger.debug('Remotes configuration changed, updating repositories', this.id);
 					await this.updateRepositories();
 				}
 			}),
 		);
 
-		this._register(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+		this._register(_credentialStore.onDidInitialize(() => {
+			Logger.debug('Credential store initialized, updating repositories', this.id);
+			this.updateRepositories();
+		}));
 		this._register({ dispose: () => disposeAll(this._onDidChangePullRequestsEvents) });
 
 		this.cleanStoredRepoState();
+		Logger.debug('FolderRepositoryManager initialization complete', this.id);
 	}
 
 	private cleanStoredRepoState() {
+		Logger.debug('Cleaning stored repository state', this.id);
 		const deleteDate: number = new Date().valueOf() - 30 /*days*/ * 86400000 /*milliseconds in a day*/;
 		const reposState = this.context.globalState.get<ReposState>(REPO_KEYS);
 		if (reposState?.repos) {
 			let keysChanged = false;
+			let deletedCount = 0;
 			Object.keys(reposState.repos).forEach(repo => {
 				const repoState = reposState.repos[repo];
 				if ((repoState.stateModifiedTime ?? 0) < deleteDate) {
 					keysChanged = true;
+					deletedCount++;
 					delete reposState.repos[repo];
 				}
 			});
 			if (keysChanged) {
+				Logger.debug(`Cleaned ${deletedCount} expired repository states`, this.id);
 				this.context.globalState.update(REPO_KEYS, reposState);
+			} else {
+				Logger.debug('No expired repository states found to clean', this.id);
 			}
+		} else {
+			Logger.debug('No repository states found to clean', this.id);
 		}
 	}
 

@@ -205,6 +205,7 @@ export class CopilotApi {
 	}
 
 	public async getSessionInfo(sessionId: string): Promise<SessionInfo> {
+		Logger.debug(`Fetching session info for session: ${sessionId}`, CopilotApi.ID);
 		const response = await fetch(`https://api.githubcopilot.com/agents/sessions/${sessionId}`, {
 			method: 'GET',
 			headers: {
@@ -213,13 +214,16 @@ export class CopilotApi {
 			}
 		});
 		if (!response.ok) {
+			Logger.error(`Failed to fetch session info for ${sessionId}: ${response.status} ${response.statusText}`, CopilotApi.ID);
 			throw new Error(`Failed to fetch session: ${response.statusText}`);
 		}
 
+		Logger.debug(`Successfully fetched session info for ${sessionId}`, CopilotApi.ID);
 		return (await response.json()) as SessionInfo;
 	}
 
 	public async getLogsFromSession(sessionId: string): Promise<string> {
+		Logger.debug(`Fetching logs for session: ${sessionId}`, CopilotApi.ID);
 		const logsResponse = await fetch(`https://api.githubcopilot.com/agents/sessions/${sessionId}/logs`, {
 			method: 'GET',
 			headers: {
@@ -228,12 +232,17 @@ export class CopilotApi {
 			},
 		});
 		if (!logsResponse.ok) {
+			Logger.error(`Failed to fetch logs for session ${sessionId}: ${logsResponse.status} ${logsResponse.statusText}`, CopilotApi.ID);
 			throw new Error(`Failed to fetch logs: ${logsResponse.statusText}`);
 		}
-		return await logsResponse.text();
+
+		const logs = await logsResponse.text();
+		Logger.debug(`Successfully fetched ${logs.length} characters of logs for session ${sessionId}`, CopilotApi.ID);
+		return logs;
 	}
 
 	public async getJobBySessionId(owner: string, repo: string, sessionId: string): Promise<JobInfo | undefined> {
+		Logger.debug(`Fetching job info for session ${sessionId} in ${owner}/${repo}`, CopilotApi.ID);
 		try {
 			const response = await fetch(`${this.baseUrl}/agents/swe/v0/jobs/${owner}/${repo}/session/${sessionId}`, {
 				method: 'GET',
@@ -245,10 +254,11 @@ export class CopilotApi {
 				}
 			});
 			if (!response.ok) {
-				Logger.warn(`Failed to fetch job info for session ${sessionId}: ${response.statusText}`, CopilotApi.ID);
+				Logger.warn(`Failed to fetch job info for session ${sessionId}: ${response.status} ${response.statusText}`, CopilotApi.ID);
 				return undefined;
 			}
 			const data = await response.json() as JobInfo;
+			Logger.debug(`Successfully fetched job info for session ${sessionId}: status=${data.status}`, CopilotApi.ID);
 			return data;
 		} catch (error) {
 			Logger.warn(`Error fetching job info for session ${sessionId}: ${error}`, CopilotApi.ID);

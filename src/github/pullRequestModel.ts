@@ -167,14 +167,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	) {
 		super(telemetry, githubRepository, remote, item, true);
 
+		Logger.debug(`Initializing PullRequestModel for PR #${item.number}: ${item.title}`, PullRequestModel.ID);
 		this.isActive = !!isActive;
 
 		this._showChangesSinceReview = false;
 
 		this.update(item);
+		Logger.debug(`PullRequestModel initialization complete for PR #${item.number}`, PullRequestModel.ID);
 	}
 
 	public clear() {
+		Logger.debug(`Clearing PR #${this.number} data`, PullRequestModel.ID);
 		this.comments = [];
 		this._reviewThreadsCacheInitialized = false;
 		this._reviewThreadsCache = [];
@@ -325,6 +328,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param message Optional approval comment text.
 	 */
 	async approve(repository: Repository, message?: string): Promise<ReviewEvent> {
+		Logger.debug(`Starting approval process for PR #${this.number}`, PullRequestModel.ID);
 		// Check that the remote head of the PR branch matches the local head of the PR branch
 		let remoteHead: string | undefined;
 		let localHead: string | undefined;
@@ -333,27 +337,37 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			localHead = repository.state.HEAD?.commit;
 			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
 			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please pull the latest changes from the remote branch before approving.');
+			Logger.debug(`Active PR: Local head ${localHead}, remote head ${remoteHead}`, PullRequestModel.ID);
 		} else {
 			localHead = this.head?.sha;
 			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
 			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please refresh the pull request before approving.');
+			Logger.debug(`Inactive PR: Local head ${localHead}, remote head ${remoteHead}`, PullRequestModel.ID);
 		}
 
 		if (!remoteHead || remoteHead !== localHead) {
+			Logger.warn(`Head mismatch during approval: remote=${remoteHead}, local=${localHead}`, PullRequestModel.ID);
 			return Promise.reject(rejectMessage);
 		}
 
-		const action: Promise<ReviewEvent> = (await this.getPendingReviewId())
+		const pendingReviewId = await this.getPendingReviewId();
+		const action: Promise<ReviewEvent> = pendingReviewId
 			? this.submitReview(ReviewEventEnum.Approve, message)
 			: this.createReview(ReviewEventEnum.Approve, message);
 
+		Logger.debug(`Using ${pendingReviewId ? 'existing pending review' : 'new review'} for approval`, PullRequestModel.ID);
+
 		return action.then(x => {
+			Logger.debug(`Successfully approved PR #${this.number}`, PullRequestModel.ID);
 			/* __GDPR__
 				"pr.approve" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.approve');
 			this._onDidChange.fire({ comments: true, timeline: true });
 			return x;
+		}).catch(error => {
+			Logger.error(`Failed to approve PR #${this.number}: ${formatError(error)}`, PullRequestModel.ID);
+			throw error;
 		});
 	}
 
@@ -362,9 +376,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param message Optional comment text to leave with the review.
 	 */
 	async requestChanges(message?: string): Promise<ReviewEvent> {
-		const action: ReviewEvent = (await this.getPendingReviewId())
+		Logger.debug(`Starting request changes process for PR #${this.number}`, PullRequestModel.ID);
+
+		const pendingReviewId = await this.getPendingReviewId();
+		const action: ReviewEvent = pendingReviewId
 			? await this.submitReview(ReviewEventEnum.RequestChanges, message)
 			: await this.createReview(ReviewEventEnum.RequestChanges, message);
+
+		Logger.debug(`Using ${pendingReviewId ? 'existing pending review' : 'new review'} for requesting changes`, PullRequestModel.ID);
+		Logger.debug(`Successfully requested changes for PR #${this.number}`, PullRequestModel.ID);
 
 		/* __GDPR__
 			"pr.requestChanges" : {}
@@ -378,37 +398,46 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Close the pull request.
 	 */
 	override async close(): Promise<{ item: PullRequest; closedEvent: ClosedEvent }> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		const ret = await octokit.call(octokit.api.pulls.update, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: this.number,
-			state: 'closed',
-		});
+		Logger.debug(`Closing PR #${this.number}`, PullRequestModel.ID);
 
-		/* __GDPR__
-			"pr.close" : {}
-		*/
-		this._telemetry.sendTelemetryEvent('pr.close');
-		const user = await this.githubRepository.getAuthenticatedUser();
-		this.state = this.stateToStateEnum(ret.data.state);
+		try {
+			const { octokit, remote } = await this.githubRepository.ensure();
+			const ret = await octokit.call(octokit.api.pulls.update, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				pull_number: this.number,
+				state: 'closed',
+			});
 
-		// Fire the event with a delay as GitHub needs some time to propagate the changes, we want to make sure any listeners of the event will get the right info when they query
-		setTimeout(() => this._onDidChange.fire({ state: true }), 1500);
+			Logger.debug(`Successfully closed PR #${this.number}`, PullRequestModel.ID);
 
-		return {
-			item: convertRESTPullRequestToRawPullRequest(ret.data, this.githubRepository),
-			closedEvent: {
-				createdAt: ret.data.closed_at ?? '',
-				event: EventType.Closed,
-				id: `${ret.data.id}`,
-				actor: {
-					login: user.login,
-					avatarUrl: user.avatarUrl,
-					url: user.url
+			/* __GDPR__
+				"pr.close" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.close');
+			const user = await this.githubRepository.getAuthenticatedUser();
+			this.state = this.stateToStateEnum(ret.data.state);
+
+			// Fire the event with a delay as GitHub needs some time to propagate the changes, we want to make sure any listeners of the event will get the right info when they query
+			setTimeout(() => this._onDidChange.fire({ state: true }), 1500);
+
+			return {
+				item: convertRESTPullRequestToRawPullRequest(ret.data, this.githubRepository),
+				closedEvent: {
+					createdAt: ret.data.closed_at ?? '',
+					event: EventType.Closed,
+					id: `${ret.data.id}`,
+					actor: {
+						login: user.login,
+						avatarUrl: user.avatarUrl,
+						url: user.url
+					}
 				}
-			}
-		};
+			};
+		} catch (error) {
+			Logger.error(`Failed to close PR #${this.number}: ${formatError(error)}`, PullRequestModel.ID);
+			throw error;
+		}
 	}
 
 	/**

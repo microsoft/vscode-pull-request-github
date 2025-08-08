@@ -126,17 +126,22 @@ export class CredentialStore extends Disposable {
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
 	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
-		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
+		const providerSuffix = getGitHubSuffix(authProviderId);
+		Logger.debug(`Initializing GitHub${providerSuffix} authentication provider with scopes: ${scopes.join(', ')}`, CredentialStore.ID);
+
 		if (isEnterprise(authProviderId)) {
 			if (!hasEnterpriseUri()) {
-				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
+				Logger.warn(`GitHub Enterprise provider selected without URI`, CredentialStore.ID);
 				return { canceled: false };
 			}
+			Logger.debug(`Using GitHub Enterprise URI: ${getEnterpriseUri()}`, CredentialStore.ID);
 		}
 
 		if (getAuthSessionOptions.createIfNone === undefined && getAuthSessionOptions.forceNewSession === undefined) {
 			getAuthSessionOptions.createIfNone = false;
 		}
+
+		Logger.debug(`Authentication options: createIfNone=${!!getAuthSessionOptions.createIfNone}, forceNewSession=${!!getAuthSessionOptions.forceNewSession}, silent=${!!getAuthSessionOptions.silent}`, CredentialStore.ID);
 
 		let session: vscode.AuthenticationSession | undefined = undefined;
 		let isNew: boolean = false;
@@ -147,24 +152,30 @@ export class CredentialStore extends Disposable {
 		try {
 			// Set scopes before getting the session to prevent new session events from using the old scopes.
 			if (!isEnterprise(authProviderId)) {
+				Logger.debug(`Setting GitHub.com scopes to: ${scopes.join(', ')}`, CredentialStore.ID);
 				this._scopes = scopes;
 			} else {
+				Logger.debug(`Setting GitHub Enterprise scopes to: ${scopes.join(', ')}`, CredentialStore.ID);
 				this._scopesEnterprise = scopes;
 			}
 			const result = await this.getSession(authProviderId, getAuthSessionOptions, scopes, !!requireScopes);
 			usedScopes = result.scopes;
 			session = result.session;
 			isNew = result.isNew;
+			Logger.debug(`Authentication session obtained: isNew=${isNew}, sessionId=${session?.id}, scopes=${usedScopes?.join(', ')}`, CredentialStore.ID);
 		} catch (e) {
+			Logger.error(`Failed to get authentication session: ${e.message}`, CredentialStore.ID);
 			this._scopes = oldScopes;
 			this._scopesEnterprise = oldEnterpriseScopes;
 			const userCanceld = (e.message === 'User did not consent to login.');
 			if (userCanceld) {
+				Logger.debug('User cancelled authentication consent', CredentialStore.ID);
 				authResult.canceled = true;
 			}
 			if (getAuthSessionOptions.forceNewSession && userCanceld) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
 				// the user didn't consent to the login prompt.
+				Logger.debug('Continuing despite user cancellation during forced session', CredentialStore.ID);
 			} else {
 				throw e;
 			}
@@ -178,36 +189,40 @@ export class CredentialStore extends Disposable {
 			}
 			let github: GitHub | undefined;
 			try {
+				Logger.debug(`Creating hub for ${providerSuffix} with session ${session.id}`, CredentialStore.ID);
 				github = await this.createHub(session.accessToken, authProviderId);
+				Logger.debug(`Successfully created hub for ${providerSuffix}`, CredentialStore.ID);
 			} catch (e) {
 				if ((e.message === 'Bad credentials') && !getAuthSessionOptions.forceNewSession) {
-					Logger.debug(`Creating hub failed ${e.message}`, CredentialStore.ID);
+					Logger.warn(`Creating hub failed with bad credentials, retrying with force new session: ${e.message}`, CredentialStore.ID);
 					getAuthSessionOptions.forceNewSession = true;
 					getAuthSessionOptions.silent = false;
 					return this.initialize(authProviderId, getAuthSessionOptions, scopes, requireScopes);
 				} else {
 					// console.log because we need to see if we can learn more from the error object.
 					console.log(e);
-					Logger.error(`Creating hub failed ${e.message}`, CredentialStore.ID);
+					Logger.error(`Creating hub failed: ${e.message}`, CredentialStore.ID);
 					vscode.window.showErrorMessage(vscode.l10n.t('Unable to sign in with the provided credentials'));
 				}
 			}
 			if (!isEnterprise(authProviderId)) {
-				Logger.debug('Setting hub and scopes', CredentialStore.ID);
+				Logger.debug(`Setting GitHub.com hub and scopes: ${usedScopes?.join(', ')}`, CredentialStore.ID);
 				this._githubAPI = github;
 				this._scopes = usedScopes;
 			} else {
-				Logger.debug('Setting enterprise hub and scopes', CredentialStore.ID);
+				Logger.debug(`Setting GitHub Enterprise hub and scopes: ${usedScopes?.join(', ')}`, CredentialStore.ID);
 				this._githubEnterpriseAPI = github;
 				this._scopesEnterprise = usedScopes;
 			}
 			await this.saveScopesInState();
 
 			if (!this._isInitialized || (isNew && !this._isSamling)) {
+				Logger.debug(`Marking authentication as initialized. Was initialized: ${this._isInitialized}, Is new session: ${isNew}`, CredentialStore.ID);
 				this._isInitialized = true;
 				this._onDidInitialize.fire();
 			}
 			if (isNew) {
+				Logger.debug('New authentication session created, sending telemetry', CredentialStore.ID);
 				/* __GDPR__
 					"auth.session" : {}
 				*/
@@ -215,7 +230,7 @@ export class CredentialStore extends Disposable {
 			}
 			return authResult;
 		} else {
-			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, CredentialStore.ID);
+			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found`, CredentialStore.ID);
 			return authResult;
 		}
 	}

@@ -66,8 +66,12 @@ const UNCOMMITTED_CHANGES_STORAGE_KEY = 'showWarning';
  * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
  */
 async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
+	const componentId = 'HandleUncommittedChanges';
+	Logger.debug('Checking for uncommitted changes before PR checkout', componentId);
+
 	// Check if user has disabled the warning using persistent state
 	if (PersistentState.fetch(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY) === false) {
+		Logger.debug('User has disabled uncommitted changes warning, proceeding', componentId);
 		return true; // User has disabled warnings, proceed without showing dialog
 	}
 
@@ -76,7 +80,10 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 	const hasTrackedWorkingTreeChanges = trackedWorkingTreeChanges.length > 0;
 	const hasIndexChanges = repository.state.indexChanges.length > 0;
 
+	Logger.debug(`Found ${trackedWorkingTreeChanges.length} tracked working tree changes and ${repository.state.indexChanges.length} index changes`, componentId);
+
 	if (!hasTrackedWorkingTreeChanges && !hasIndexChanges) {
+		Logger.debug('No uncommitted changes found, proceeding with PR checkout', componentId);
 		return true; // No tracked uncommitted changes, proceed
 	}
 
@@ -91,18 +98,23 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 		DONT_SHOW_AGAIN,
 	);
 
+	Logger.debug(`User selected uncommitted changes handling option: ${modalResult || 'cancelled'}`, componentId);
+
 	if (!modalResult) {
+		Logger.debug('User cancelled uncommitted changes dialog', componentId);
 		return false; // User cancelled
 	}
 
 	if (modalResult === DONT_SHOW_AGAIN) {
 		// Store preference to never show this dialog again using persistent state
+		Logger.debug('User chose to disable uncommitted changes warning', componentId);
 		PersistentState.store(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY, false);
 		return true; // Proceed with checkout
 	}
 
 	try {
 		if (modalResult === STASH_CHANGES) {
+			Logger.debug('Attempting to stash uncommitted changes', componentId);
 			// Stash all changes (working tree changes + any unstaged changes)
 			const allChangedFiles = [
 				...trackedWorkingTreeChanges.map(change => change.uri.fsPath),
@@ -111,16 +123,20 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 			if (allChangedFiles.length > 0) {
 				await repository.add(allChangedFiles);
 				await vscode.commands.executeCommand('git.stash', repository);
+				Logger.debug(`Successfully stashed ${allChangedFiles.length} changed files`, componentId);
 			}
 		} else if (modalResult === DISCARD_CHANGES) {
+			Logger.debug('Attempting to discard uncommitted changes', componentId);
 			// Discard all tracked working tree changes
 			const trackedWorkingTreeFiles = trackedWorkingTreeChanges.map(change => change.uri.fsPath);
 			if (trackedWorkingTreeFiles.length > 0) {
 				await repository.clean(trackedWorkingTreeFiles);
+				Logger.debug(`Successfully discarded ${trackedWorkingTreeFiles.length} changed files`, componentId);
 			}
 		}
 		return true; // Successfully handled changes, proceed with checkout
 	} catch (error) {
+		Logger.error(`Failed to handle uncommitted changes: ${formatError(error)}`, componentId);
 		vscode.window.showErrorMessage(vscode.l10n.t('Failed to handle uncommitted changes: {0}', formatError(error)));
 		return false;
 	}
@@ -129,16 +145,21 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | TIssueModel): TIssueModel {
+	const componentId = 'EnsurePR';
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
+		Logger.debug('No PR argument provided, looking for active PR', componentId);
 		if (!folderRepoManager.activePullRequest) {
+			Logger.error('No active pull request found', componentId);
 			vscode.window.showErrorMessage(vscode.l10n.t('Unable to find current pull request.'));
 			throw new Error('Unable to find current pull request.');
 		}
-
+		Logger.debug(`Found active PR: #${folderRepoManager.activePullRequest.number}`, componentId);
 		return folderRepoManager.activePullRequest as unknown as TIssueModel;
 	} else {
-		return (pr instanceof PRNode ? pr.pullRequestModel : pr) as TIssueModel;
+		const result = (pr instanceof PRNode ? pr.pullRequestModel : pr) as TIssueModel;
+		Logger.debug(`Using provided PR: #${result.number}`, componentId);
+		return result;
 	}
 }
 
@@ -151,26 +172,40 @@ export async function openDescription(
 	preserveFocus: boolean = true,
 	notificationProvider?: NotificationProvider
 ) {
+	const componentId = 'OpenDescription';
 	const issue = ensurePR(folderManager, issueModel);
+
+	Logger.debug(`Opening description for ${issue instanceof PullRequestModel ? 'PR' : 'issue'} #${issue.number}`, componentId);
+
 	if (revealNode) {
+		Logger.debug('Revealing description node in tree view', componentId);
 		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	}
+
 	// Create and show a new webview
-	if (issue instanceof PullRequestModel) {
-		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue, undefined, preserveFocus);
-	} else {
-		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue);
-		/* __GDPR__
-			"issue.openDescription" : {}
-		*/
-		telemetry.sendTelemetryEvent('issue.openDescription');
+	try {
+		if (issue instanceof PullRequestModel) {
+			Logger.debug('Creating PR overview panel', componentId);
+			await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue, undefined, preserveFocus);
+		} else {
+			Logger.debug('Creating issue overview panel', componentId);
+			await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue);
+			/* __GDPR__
+				"issue.openDescription" : {}
+			*/
+			telemetry.sendTelemetryEvent('issue.openDescription');
+		}
+
+		if (notificationProvider?.hasNotification(issue)) {
+			Logger.debug('Marking notifications as read for issue/PR', componentId);
+			notificationProvider.markPrNotificationsAsRead(issue);
+		}
+
+		Logger.debug(`Successfully opened description for ${issue instanceof PullRequestModel ? 'PR' : 'issue'} #${issue.number}`, componentId);
+	} catch (error) {
+		Logger.error(`Failed to open description: ${formatError(error)}`, componentId);
+		throw error;
 	}
-
-	if (notificationProvider?.hasNotification(issue)) {
-		notificationProvider.markPrNotificationsAsRead(issue);
-	}
-
-
 }
 
 async function chooseItem<T>(
@@ -194,12 +229,21 @@ async function chooseItem<T>(
 }
 
 export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
+	const componentId = 'OpenPullRequestOnGitHub';
+	let url: string;
+
 	if (e instanceof PRNode || e instanceof RepositoryChangesNode) {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
+		url = e.pullRequestModel.html_url;
+		Logger.debug(`Opening PR #${e.pullRequestModel.number} on GitHub: ${url}`, componentId);
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(url));
 	} else if (isNotificationTreeItem(e)) {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
+		url = e.model.html_url;
+		Logger.debug(`Opening notification item on GitHub: ${url}`, componentId);
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(url));
 	} else {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
+		url = e.html_url;
+		Logger.debug(`Opening issue/PR #${e.number} on GitHub: ${url}`, componentId);
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(url));
 	}
 
 	/** __GDPR__
@@ -209,15 +253,28 @@ export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode 
 }
 
 export async function closeAllPrAndReviewEditors() {
+	const componentId = 'CloseAllPrAndReviewEditors';
+	Logger.debug('Starting to close all PR and review editors', componentId);
+
 	const tabs = vscode.window.tabGroups;
 	const editors = tabs.all.map(group => group.tabs).flat();
 
+	Logger.debug(`Found ${editors.length} total tabs to check`, componentId);
+
+	let closedCount = 0;
 	for (const tab of editors) {
 		const scheme = tab.input instanceof vscode.TabInputTextDiff ? tab.input.original.scheme : (tab.input instanceof vscode.TabInputText ? tab.input.uri.scheme : undefined);
 		if (scheme && (scheme === Schemes.Pr) || (scheme === Schemes.Review)) {
-			await tabs.close(tab);
+			try {
+				await tabs.close(tab);
+				closedCount++;
+			} catch (error) {
+				Logger.warn(`Failed to close tab with scheme ${scheme}: ${formatError(error)}`, componentId);
+			}
 		}
 	}
+
+	Logger.debug(`Successfully closed ${closedCount} PR/review editor tabs`, componentId);
 }
 
 function isChatSessionWithPR(value: any): value is ChatSessionWithPR {
@@ -234,14 +291,19 @@ export function registerCommands(
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 ) {
 	const logId = 'RegisterCommands';
+	Logger.debug('Starting to register extension commands', logId);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
 			async (e: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
+				Logger.debug('Executing pr.openPullRequestOnGitHub command', logId);
 				if (!e) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(folderManager => folderManager.activePullRequest!)
 						.filter(activePR => !!activePR);
+
+					Logger.debug(`Found ${activePullRequests.length} active pull requests`, logId);
 
 					if (activePullRequests.length >= 1) {
 						const result = await chooseItem<PullRequestModel>(
@@ -250,7 +312,11 @@ export function registerCommands(
 						);
 						if (result) {
 							openPullRequestOnGitHub(result, telemetry);
+						} else {
+							Logger.debug('User cancelled PR selection', logId);
 						}
+					} else {
+						Logger.warn('No active pull requests found to open on GitHub', logId);
 					}
 				} else {
 					openPullRequestOnGitHub(e, telemetry);
@@ -262,8 +328,11 @@ export function registerCommands(
 		vscode.commands.registerCommand(
 			'notification.openOnGitHub',
 			async (e: NotificationTreeItem | undefined) => {
+				Logger.debug('Executing notification.openOnGitHub command', logId);
 				if (e) {
 					openPullRequestOnGitHub(e, telemetry);
+				} else {
+					Logger.warn('No notification item provided to open on GitHub', logId);
 				}
 			},
 		),
@@ -273,11 +342,14 @@ export function registerCommands(
 		vscode.commands.registerCommand(
 			'pr.openAllDiffs',
 			async () => {
+				Logger.debug('Executing pr.openAllDiffs command', logId);
 				const activePullRequestsWithFolderManager = reposManager.folderManagers
 					.filter(folderManager => folderManager.activePullRequest)
 					.map(folderManager => {
 						return (({ activePr: folderManager.activePullRequest!, folderManager }));
 					});
+
+				Logger.debug(`Found ${activePullRequestsWithFolderManager.length} active PRs with folder managers`, logId);
 
 				const activePullRequestAndFolderManager = activePullRequestsWithFolderManager.length >= 1
 					? (
@@ -289,6 +361,7 @@ export function registerCommands(
 					: activePullRequestsWithFolderManager[0];
 
 				if (!activePullRequestAndFolderManager) {
+					Logger.warn('No active PR and folder manager found for opening all diffs', logId);
 					return;
 				}
 
@@ -296,11 +369,17 @@ export function registerCommands(
 				const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
 
 				if (!reviewManager) {
+					Logger.warn('No review manager found for folder manager', logId);
 					return;
 				}
 
+				const fileChangesCount = reviewManager.reviewModel.localFileChanges.length;
+				Logger.debug(`Opening ${fileChangesCount} diff files`, logId);
+
 				reviewManager.reviewModel.localFileChanges
 					.forEach(localFileChange => localFileChange.openDiff(folderManager, { preview: false }));
+
+				Logger.debug(`Successfully opened ${fileChangesCount} diff files`, logId);
 			}
 		),
 	);
