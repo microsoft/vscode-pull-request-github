@@ -950,6 +950,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.helloWorld",
+				"title": "%command.pr.helloWorld.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openOriginalFile",
 				"title": "%command.pr.openOriginalFile.title%",
 				"category": "%command.pull.request.category%"

@@ -188,6 +188,7 @@
 	"command.pr.refreshPullRequest.title": "Refresh Pull Request",
 	"command.pr.openFileOnGitHub.title": "Open File on GitHub",
 	"command.pr.copyCommitHash.title": "Copy Commit Hash",
+	"command.pr.helloWorld.title": "Hello World",
 	"command.pr.openOriginalFile.title": "Open Original File",
 	"command.pr.openModifiedFile.title": "Open Modified File",
 	"command.pr.openDiffView.title": "Open Diff View",
