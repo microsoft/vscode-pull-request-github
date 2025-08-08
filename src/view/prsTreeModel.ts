@@ -40,6 +40,7 @@ export class PrsTreeModel extends Disposable {
 
 	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>>> = new Map();
 	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
+	private _getPullRequestsForQueryLock: Promise<void> = Promise.resolve();
 
 	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager, private readonly _context: vscode.ExtensionContext) {
 		super();
@@ -238,26 +239,36 @@ export class PrsTreeModel extends Disposable {
 	}
 
 	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string): Promise<ItemsResponseResult<PullRequestModel>> {
-		const cache = this.getFolderCache(folderRepoManager);
-		if (!fetchNextPage && cache.has(query)) {
-			return cache.get(query)!;
+		let release: () => void;
+		const lock = new Promise<void>(resolve => { release = resolve; });
+		const prev = this._getPullRequestsForQueryLock;
+		this._getPullRequestsForQueryLock = prev.then(() => lock);
+		await prev;
+
+		try {
+			const cache = this.getFolderCache(folderRepoManager);
+			if (!fetchNextPage && cache.has(query)) {
+				return cache.get(query)!;
+			}
+
+			const prs = await folderRepoManager.getPullRequests(
+				PRType.Query,
+				{ fetchNextPage },
+				query,
+			);
+			cache.set(query, prs);
+
+			/* __GDPR__
+				"pr.expand.query" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.expand.query');
+			// Don't await this._getChecks. It fires an event that will be listened to.
+			this._getChecks(prs.items);
+			this.hasLoaded = true;
+			return prs;
+		} finally {
+			release!();
 		}
-
-		const prs = await folderRepoManager.getPullRequests(
-			PRType.Query,
-			{ fetchNextPage },
-			query,
-		);
-		cache.set(query, prs);
-
-		/* __GDPR__
-			"pr.expand.query" : {}
-		*/
-		this._telemetry.sendTelemetryEvent('pr.expand.query');
-		// Don't await this._getChecks. It fires an event that will be listened to.
-		this._getChecks(prs.items);
-		this.hasLoaded = true;
-		return prs;
 	}
 
 	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
