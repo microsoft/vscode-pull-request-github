@@ -156,12 +156,12 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		if (issue.titleHTML && this.titleHTML !== issue.titleHTML) {
 			this.titleHTML = issue.titleHTML;
 		}
+		if ((!this.bodyHTML || (issue.body !== this.body)) && this.bodyHTML !== issue.bodyHTML) {
+			this.bodyHTML = issue.bodyHTML;
+		}
 		if (this.body !== issue.body) {
 			changes.body = true;
 			this.body = issue.body;
-		}
-		if ((!this.bodyHTML || (issue.body !== this.body)) && this.bodyHTML !== issue.bodyHTML) {
-			this.bodyHTML = issue.bodyHTML;
 		}
 		if (this.milestone?.id !== issue.milestone?.id) {
 			changes.milestone = true;
