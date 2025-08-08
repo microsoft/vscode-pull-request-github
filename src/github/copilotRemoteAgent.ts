@@ -7,6 +7,7 @@ import * as nodePath from 'path';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
+import { CopilotRemoteAgentConfig } from '../common/config';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -20,7 +21,6 @@ import { IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCom
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
-import { CopilotRemoteAgentConfig } from './copilotRemoteAgent/config';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { CredentialStore } from './credentials';
 import { ReposManagerState } from './folderRepositoryManager';
@@ -54,7 +54,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
-	private readonly _config: CopilotRemoteAgentConfig;
 	private readonly gitOperationsManager: GitOperationsManager;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
@@ -92,7 +91,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		// Set initial context
 		this.updateAssignabilityContext();
-		this._config = new CopilotRemoteAgentConfig();
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -108,11 +106,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	public get enabled(): boolean {
-		return this._config.enabled;
+		return CopilotRemoteAgentConfig.getEnabled();
 	}
 
 	public get autoCommitAndPushEnabled(): boolean {
-		return this._config.autoCommitAndPushEnabled;
+		return CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled();
 	}
 
 	private _repoManagerInitializationPromise: Promise<void> | undefined;
@@ -162,7 +160,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	async isAvailable(): Promise<boolean> {
 		// Check if the manager is enabled, copilot API is available, and it's assignable
-		if (!this._config.enabled) {
+		if (!CopilotRemoteAgentConfig.getEnabled()) {
 			return false;
 		}
 
@@ -300,7 +298,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		let autoPushAndCommit = false;
 		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
 		const detail = vscode.l10n.t('Your chat context will be used to continue work in a new pull request.');
-		if (source !== 'prompt' && hasChanges && this._config.autoCommitAndPushEnabled) {
+		if (source !== 'prompt' && hasChanges && CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
 			// Pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
 				message,
@@ -331,7 +329,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (modalResult === PUSH_CHANGES) {
 				autoPushAndCommit = true;
 			}
-		} else if (this._config.promptForConfirmation) {
+		} else if (CopilotRemoteAgentConfig.getPromptForConfirmation()) {
 			// No pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
 				source !== 'prompt' ? message : vscode.l10n.t('Copilot coding agent will implement the specification outlined in this prompt file'),
@@ -348,7 +346,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			if (modalResult === CONTINUE_AND_DO_NOT_ASK_AGAIN) {
-				await this._config.disablePromptForConfirmation();
+				await CopilotRemoteAgentConfig.disablePromptForConfirmation();
 			}
 
 			if (modalResult === LEARN_MORE) {
@@ -442,7 +440,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		let ref = baseRef;
 		const hasChanges = autoPushAndCommit && (repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0);
 		if (hasChanges) {
-			if (!this._config.autoCommitAndPushEnabled) {
+			if (!CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
 			try {
@@ -455,7 +453,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const base_ref = hasChanges ? baseRef : ref;
 		try {
 			if (!(await ghRepository.hasBranch(base_ref))) {
-				if (!this._config.autoCommitAndPushEnabled) {
+				if (!CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
 					// We won't auto-push a branch if the user has disabled the setting
 					return { error: vscode.l10n.t('The branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
 				}
