@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
+import { ISSUES_SETTINGS_NAMESPACE, TREE_VIEW_ICON_MODE, TreeViewIconMode } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
@@ -59,6 +60,14 @@ export class IssuesTreeData
 				this._onDidChangeTreeData.fire();
 			}),
 		);
+
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration((e) => {
+				if (e.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${TREE_VIEW_ICON_MODE}`)) {
+					this._onDidChangeTreeData.fire();
+				}
+			}),
+		);
 	}
 
 	private getFolderRepoItem(element: FolderRepositoryManager): vscode.TreeItem {
@@ -77,10 +86,22 @@ export class IssuesTreeData
 
 	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
 		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
-		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0] ??
-			(element.isOpen
-				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+
+		const iconMode = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<TreeViewIconMode>(TREE_VIEW_ICON_MODE, 'author');
+		let iconPath: vscode.Uri | vscode.ThemeIcon = element.isOpen
+			? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+			: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+
+		if (iconMode === 'author') {
+			const authorAvatar = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0];
+			if (authorAvatar) {
+				iconPath = authorAvatar;
+			}
+		} else if (iconMode === 'generic') {
+			iconPath = new vscode.ThemeIcon('issues');
+		}
+
+		treeItem.iconPath = iconPath;
 
 		treeItem.command = {
 			command: 'issue.openDescription',
