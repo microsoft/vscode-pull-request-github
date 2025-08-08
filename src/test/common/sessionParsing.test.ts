@@ -11,6 +11,7 @@ import {
 	toFileLabel,
 	SessionResponseLogChunk
 } from '../../../common/sessionParsing';
+import { diffHeaders, diffNoAts, simpleDiff } from './fixtures/gitdiff/sessionParsing';
 
 describe('sessionParsing', function () {
 	describe('parseSessionLogs()', function () {
@@ -209,17 +210,7 @@ another non-data line`;
 
 	describe('parseDiff()', function () {
 		it('should parse diff content correctly', function () {
-			const diffContent = `diff --git a/src/file.ts b/src/file.ts
-index 1234567..abcdefg 100644
---- a/src/file.ts
-+++ b/src/file.ts
-@@ -1,4 +1,4 @@
- export function hello() {
--  console.log('hello');
-+  console.log('hello world');
- }`;
-
-			const result = parseDiff(diffContent);
+			const result = parseDiff(simpleDiff);
 
 			assert(result);
 			assert.strictEqual(result.fileA, '/src/file.ts');
@@ -229,16 +220,7 @@ index 1234567..abcdefg 100644
 		});
 
 		it('should extract file paths from diff headers', function () {
-			const diffContent = `diff --git a/package.json b/package.json
-index 1111111..2222222 100644
---- a/package.json
-+++ b/package.json
-@@ -1,5 +1,5 @@
- {
-   "name": "test"
- }`;
-
-			const result = parseDiff(diffContent);
+			const result = parseDiff(diffHeaders);
 
 			assert(result);
 			assert.strictEqual(result.fileA, '/package.json');
@@ -254,12 +236,7 @@ index 1111111..2222222 100644
 		});
 
 		it('should handle diffs without @@ lines', function () {
-			const diffContent = `diff --git a/file.txt b/file.txt
-index 1234567..abcdefg 100644
---- a/file.txt
-+++ b/file.txt`;
-
-			const result = parseDiff(diffContent);
+			const result = parseDiff(diffNoAts);
 
 			assert.strictEqual(result, undefined);
 		});
