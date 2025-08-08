@@ -21,7 +21,9 @@ export async function loadCurrentThemeData(): Promise<ThemeData> {
 export interface ThemeData {
 	type: string,
 	colors?: { [key: string]: string }
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	tokenColors: any[],
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	semanticTokenColors: any[]
 }
 

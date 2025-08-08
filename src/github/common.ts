@@ -84,6 +84,7 @@ export namespace OctokitCommon {
 	export type WorkflowJobs = Endpoints['GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs']['response']['data'];
 }
 
+// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 export type Schema = { [key: string]: any, definitions: any[]; };
 export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema) {
 	const sharedSchemaDefinitions = sharedSchema.definitions;
@@ -122,34 +123,28 @@ export interface ICopilotRemoteAgentCommandResponse {
 	linkTag: string;
 }
 
+export interface ToolCall {
+	function: {
+		arguments: string;
+		name: 'bash' | 'reply_to_comment' | (string & {});
+	};
+	id: string;
+	type: string;
+	index: number;
+}
+
 export interface AssistantDelta {
-	content?: string | undefined;
-	role: string;
-	tool_calls?: {
-		function: {
-			arguments: string;
-			name: string;
-		};
-		id: string;
-		type: string;
-		index: number;
-	}[] | undefined;
+	content?: string;
+	role: 'assistant' | (string & {});
+	tool_calls?: ToolCall[];
 }
 
 export interface Choice {
-	finish_reason: string;
+	finish_reason?: 'tool_calls' | (string & {});
 	delta: {
-		content?: string | undefined;
-		role: string;
-		tool_calls?: {
-			function: {
-				arguments: string;
-				name: string;
-			};
-			id: string;
-			type: string;
-			index: number;
-		}[] | undefined;
+		content?: string;
+		role: 'assistant' | (string & {});
+		tool_calls?: ToolCall[];
 	};
 }
 

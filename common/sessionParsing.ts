@@ -5,10 +5,10 @@
 
 export interface SessionResponseLogChunk {
 	choices: Array<{
-		finish_reason: string;
+		finish_reason?: 'tool_calls' | 'null' | (string & {});
 		delta: {
 			content?: string;
-			role: string;
+			role: 'assistant' | (string & {});
 			tool_calls?: Array<{
 				function: {
 					arguments: string;
@@ -37,7 +37,7 @@ export interface SessionResponseLogChunk {
 export interface ParsedToolCall {
 	type: 'str_replace_editor' | 'think' | 'bash' | 'report_progress' | 'unknown';
 	name: string;
-	args: any;
+	// args: any;
 	content: string;
 	command?: string; // For str_replace_editor
 }
@@ -127,7 +127,7 @@ export function parseToolCallDetails(
 	},
 	content: string
 ): ParsedToolCallDetails {
-	let args: any = {};
+	let args: { command?: string, path?: string, prDescription?: string, commitMessage?: string } = {};
 	try {
 		args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
 	} catch {

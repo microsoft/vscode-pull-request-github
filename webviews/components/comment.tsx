@@ -21,7 +21,7 @@ import { AuthorLink, Avatar } from './user';
 export type Props = {
 	headerInEditMode?: boolean;
 	isPRDescription?: boolean;
-	children?: any;
+	children?: React.ReactNode;
 	comment: IComment | ReviewEvent | PullRequest | CommentEvent;
 	allowEmpty?: boolean;
 };
@@ -126,10 +126,10 @@ export function CommentView(commentProps: Props) {
 type CommentBoxProps = {
 	for: IComment | ReviewEvent | PullRequest | CommentEvent;
 	header?: React.ReactChild;
-	onFocus?: any;
-	onMouseEnter?: any;
-	onMouseLeave?: any;
-	children?: any;
+	onFocus?: React.FocusEventHandler;
+	onMouseEnter?: React.MouseEventHandler;
+	onMouseLeave?: React.MouseEventHandler;
+	children?: React.ReactNode;
 };
 
 function isReviewEvent(comment: IComment | ReviewEvent | PullRequest | CommentEvent): comment is ReviewEvent {

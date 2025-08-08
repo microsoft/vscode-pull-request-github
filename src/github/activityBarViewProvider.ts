@@ -447,7 +447,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set PR ready for review. {0}', formatError(e)));
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 
@@ -482,7 +482,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 

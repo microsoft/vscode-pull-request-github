@@ -7,6 +7,7 @@ import fetch from 'cross-fetch';
 import JSZip from 'jszip';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { CredentialStore, GitHub } from './credentials';
@@ -193,7 +194,7 @@ export class CopilotApi {
 			Logger.error('Failed to get GitHub username from auth provider', CopilotApi.ID);
 			return [];
 		}
-		const query = `is:open author:copilot-swe-agent[bot] assignee:${username} is:pr repo:\${owner}/\${repository}`;
+		const query = `is:open author:${COPILOT_SWE_AGENT}[bot] assignee:${username} is:pr repo:\${owner}/\${repository}`;
 		const allItems = await Promise.all(
 			repositoriesManager.folderManagers.map(async fm => {
 				const result = await fm.getPullRequests(PRType.Query, undefined, query);
@@ -277,7 +278,7 @@ export interface SessionInfo {
 	agent_id: number;
 	logs: string;
 	logs_blob_id: string;
-	state: 'completed' | 'in_progress' | 'failed' | string;
+	state: 'completed' | 'in_progress' | 'failed' | (string & {});
 	owner_id: number;
 	repo_id: number;
 	resource_type: string;

@@ -10,6 +10,7 @@ import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
+import { COPILOT_SWE_AGENT } from './common/copilot';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
@@ -424,12 +425,12 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 		}();
 
 		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
-			'copilot-swe-agent',
+			COPILOT_SWE_AGENT,
 			provider
 		));
 
 		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
-			'copilot-swe-agent',
+			COPILOT_SWE_AGENT,
 			provider
 		));
 	}
