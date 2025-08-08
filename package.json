@@ -786,7 +786,7 @@
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(git-pull-request)",
+					"icon": "$(github-inverted)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
@@ -841,7 +841,7 @@
 					"id": "prStatus:github",
 					"name": "%view.pr.status.github.name%",
 					"when": "github:inReviewMode && !github:createPullRequest && !github:revertPullRequest",
-					"icon": "$(git-pull-request)",
+					"icon": "$(diff-multiple)",
 					"visibility": "visible",
 					"initialSize": 3
 				},
@@ -850,7 +850,7 @@
 					"type": "webview",
 					"name": "%view.github.active.pull.request.name%",
 					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && !github:revertPullRequest && github:activePRCount <= 1",
-					"icon": "$(git-pull-request)",
+					"icon": "$(code-review)",
 					"initialSize": 2
 				},
 				{
