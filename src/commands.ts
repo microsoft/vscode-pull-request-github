@@ -1053,6 +1053,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', async () => {
+			vscode.window.showInformationMessage('Hello World');
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
 			if (await reposManager.authenticate()) {
 				vscode.commands.executeCommand('pr.refreshList');

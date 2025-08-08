@@ -220,6 +220,7 @@
 	"command.pr.signin.title": "Sign in to GitHub",
 	"command.pr.signinenterprise.title": "Sign in to GitHub Enterprise",
 	"command.pr.deleteLocalBranchesNRemotes.title": "Delete local branches and remotes",
+	"command.pr.helloWorld.title": "Hello World",
 	"command.pr.createComment.title": "Add Review Comment",
 	"command.pr.createSingleComment.title": "Add Comment",
 	"command.pr.makeSuggestion.title": "Make Code Suggestion",
