@@ -110,7 +110,7 @@ export interface IAPISessionLogs {
 export interface ICopilotRemoteAgentCommandArgs {
 	userPrompt: string;
 	summary?: string;
-	source?: string;
+	source?: 'prompt' | (string & {});
 	followup?: string;
 	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
 }
