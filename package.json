@@ -1731,6 +1731,11 @@
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.helloWorld",
+				"title": "%command.pr.helloWorld.title%",
+				"category": "%command.pull.request.category%"
 			}
 		],
 		"viewsWelcome": [
