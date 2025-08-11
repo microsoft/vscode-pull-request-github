@@ -181,12 +181,12 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				}
 			}
 		}
-		
+
 		// If no issues were found, show a configuration prompt
 		if (completionItems.length === 0) {
 			return [new ConfigureIssueQueriesCompletionItem()];
 		}
-		
+
 		return completionItems;
 	}
 

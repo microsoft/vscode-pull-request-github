@@ -33,7 +33,7 @@ import {
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
@@ -315,7 +315,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			const users: IAccount[] = [];
 			const teams: ITeam[] = [];
 			for (const reviewer of reviewers) {
-				if (isTeam(reviewer)) {
+				if (isITeam(reviewer)) {
 					teams.push(reviewer);
 				} else {
 					users.push(reviewer);

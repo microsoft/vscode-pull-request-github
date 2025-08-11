@@ -48,7 +48,7 @@ describe('Issues utilities', function () {
 		const notIssue = '#a4';
 		const notIssueParsed = parseIssueExpressionOutput(notIssue.match(ISSUE_OR_URL_EXPRESSION));
 		assert.strictEqual(notIssueParsed, undefined);
-		
+
 		// Test PR URL parsing
 		const prUrl = 'https://github.com/microsoft/vscode/pull/123';
 		const prUrlParsed = parseIssueExpressionOutput(prUrl.match(ISSUE_OR_URL_EXPRESSION));
@@ -56,7 +56,7 @@ describe('Issues utilities', function () {
 		assert.strictEqual(prUrlParsed?.commentNumber, undefined);
 		assert.strictEqual(prUrlParsed?.name, 'vscode');
 		assert.strictEqual(prUrlParsed?.owner, 'microsoft');
-		
+
 		// Test HTTP PR URL (without S)
 		const prUrlHttp = 'http://github.com/owner/repo/pull/456';
 		const prUrlHttpParsed = parseIssueExpressionOutput(prUrlHttp.match(ISSUE_OR_URL_EXPRESSION));

@@ -13,7 +13,7 @@ import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isTeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -154,9 +154,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			}
 		}
 
-		if (targetReviewer && isTeam(targetReviewer.reviewer)) {
+		if (targetReviewer && isITeam(targetReviewer.reviewer)) {
 			teamReviewers.push(targetReviewer.reviewer);
-		} else if (targetReviewer && !isTeam(targetReviewer.reviewer)) {
+		} else if (targetReviewer && !isITeam(targetReviewer.reviewer)) {
 			userReviewers.push(targetReviewer.reviewer);
 		}
 

@@ -104,15 +104,16 @@ export interface MergeQueueEntry {
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
 	// We can literally get different login values for copilot depending on where it's coming from (already assignee vs suggested assingee)
-	return isTeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
+	return isITeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
+	return isITeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
-export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
-	return 'org' in reviewer;
+export function isITeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
+	const asITeam = reviewer as Partial<ITeam>;
+	return !!asITeam.org;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -120,10 +121,11 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
-export function isSuggestedReviewer(
+export function isISuggestedReviewer(
 	reviewer: IAccount | ISuggestedReviewer | ITeam
 ): reviewer is ISuggestedReviewer {
-	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
+	const asISuggestedReviewer = reviewer as Partial<ISuggestedReviewer>;
+	return !!asISuggestedReviewer.isAuthor && !!asISuggestedReviewer.isCommenter;
 }
 
 export interface IProject {

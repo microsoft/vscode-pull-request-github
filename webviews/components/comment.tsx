@@ -36,9 +36,10 @@ const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string
 export function CommentView(commentProps: Props) {
 	const { isPRDescription, children, comment, headerInEditMode } = commentProps;
 	const { bodyHTML, body } = comment;
-	const id = ('id' in comment) ? comment.id : -1;
-	const canEdit = ('canEdit' in comment) ? comment.canEdit : false;
-	const canDelete = ('canDelete' in comment) ? comment.canDelete : false;
+
+	const id = (comment as Partial<IComment | ReviewEvent | CommentEvent>).id ?? -1;
+	const canEdit: boolean = !!(comment as Partial<IComment | PullRequest | CommentEvent>).canEdit;
+	const canDelete: boolean = !!(comment as Partial<IComment | CommentEvent>).canDelete;
 
 	const pullRequestReviewId = (comment as IComment).pullRequestReviewId;
 	const [bodyMd, setBodyMd] = useStateProp(body);
@@ -151,10 +152,11 @@ const DESCRIPTORS = {
 const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
 
 function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const htmlUrl = ('htmlUrl' in comment) ? comment.htmlUrl : (comment as PullRequest).url;
+	const asNotPullRequest = comment as Partial<IComment | ReviewEvent | CommentEvent>;
+	const htmlUrl = asNotPullRequest.htmlUrl ?? (comment as PullRequest).url;
 	const isDraft = (isIComment(comment) && comment.isDraft) ?? (isReviewEvent(comment) && (comment.state?.toLocaleUpperCase() === 'PENDING'));
-	const author = ('user' in comment) ? comment.user! : (comment as PullRequest).author!;
-	const createdAt = ('createdAt' in comment) ? comment.createdAt : (comment as ReviewEvent).submittedAt;
+	const author = asNotPullRequest.user ?? (comment as PullRequest).author;
+	const createdAt = (comment as IComment | CommentEvent | PullRequest).createdAt ?? (comment as ReviewEvent).submittedAt;
 
 	return (
 		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>

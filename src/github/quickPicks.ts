@@ -14,7 +14,7 @@ import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { AccountType, IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { IssueModel } from './issueModel';
 import { DisplayLabel } from './views';
 
@@ -35,7 +35,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		const user = filteredUsers[i];
 
 		let detail: string | undefined;
-		if (isSuggestedReviewer(user)) {
+		if (isISuggestedReviewer(user)) {
 			detail = user.isAuthor && user.isCommenter
 				? vscode.l10n.t('Recently edited and reviewed changes to these files')
 				: user.isAuthor
@@ -46,7 +46,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		}
 
 		alreadyAssignedItems.push({
-			label: isTeam(user) ? `${user.org}/${user.slug}` : COPILOT_ACCOUNTS[user.login] ? COPILOT_ACCOUNTS[user.login].name : user.login,
+			label: isITeam(user) ? `${user.org}/${user.slug}` : COPILOT_ACCOUNTS[user.login] ? COPILOT_ACCOUNTS[user.login].name : user.login,
 			description: user.name,
 			user,
 			picked,
@@ -123,13 +123,13 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 }
 
 function userThemeIcon(user: IAccount | ITeam) {
-	return (isTeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
+	return (isITeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
 }
 
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
 ): Promise<(vscode.QuickPickItem & { user?: IAccount | ITeam })[]> {
-	existingReviewers = existingReviewers.filter(reviewer => isTeam(reviewer.reviewer) || (reviewer.reviewer.accountType !== AccountType.Bot));
+	existingReviewers = existingReviewers.filter(reviewer => isITeam(reviewer.reviewer) || (reviewer.reviewer.accountType !== AccountType.Bot));
 	if (!suggestedReviewers) {
 		return [];
 	}

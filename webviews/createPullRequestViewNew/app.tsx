@@ -6,7 +6,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParamsNew, RemoteInfo } from '../../common/views';
-import { isTeam, MergeMethod } from '../../src/github/interface';
+import { isITeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
@@ -275,7 +275,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isTeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
+												{isITeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
 											</span>
 										</li>)}
 								</ul>

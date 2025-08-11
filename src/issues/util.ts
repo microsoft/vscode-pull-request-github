@@ -182,11 +182,9 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 function extractContext(context: LinkContext): { fileUri: vscode.Uri | undefined, lineNumber: number | undefined } {
 	if (context instanceof vscode.Uri) {
 		return { fileUri: context, lineNumber: undefined };
-	} else if (context !== undefined && 'lineNumber' in context && 'uri' in context) {
-		return { fileUri: context.uri, lineNumber: context.lineNumber };
-	} else {
-		return { fileUri: undefined, lineNumber: undefined };
 	}
+	const asEditorLineNumberContext = context as Partial<EditorLineNumberContext> | undefined;
+	return { fileUri: asEditorLineNumberContext?.uri, lineNumber: asEditorLineNumberContext?.lineNumber };
 }
 
 function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {

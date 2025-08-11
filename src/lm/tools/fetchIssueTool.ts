@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
-import { isTeam } from '../../github/interface';
+import { isITeam } from '../../github/interface';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepoToolBase } from './toolsUtils';
 
@@ -59,7 +59,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body, author: c.author.login })) ?? [],
 			author: issueOrPullRequest.author?.login,
 			assignees: issueOrPullRequest.assignees?.map(a => a.login),
-			reviewers: issueOrPullRequest instanceof PullRequestModel ? issueOrPullRequest.reviewers?.map(r => isTeam(r) ? r.name : r.login).filter((login): login is string => !!login) : undefined
+			reviewers: issueOrPullRequest instanceof PullRequestModel ? issueOrPullRequest.reviewers?.map(r => isITeam(r) ? r.name : r.login).filter((login): login is string => !!login) : undefined
 		};
 		if (issueOrPullRequest instanceof PullRequestModel && issueOrPullRequest.isResolved()) {
 			const fileChanges = await issueOrPullRequest.getFileChangesInfo();
