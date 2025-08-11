@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { IMilestone, IProjectItem, reviewerId } from '../../src/github/interface';
@@ -11,7 +11,7 @@ import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
-import { closeIcon, copilotIcon, settingsIcon } from './icon';
+import { chevronRightIcon, closeIcon, copilotIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
@@ -56,7 +56,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					</div>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (
-							<Reviewer key={reviewerId(state.reviewer)} {...{reviewState: state}} />
+							<Reviewer key={reviewerId(state.reviewer)} {...{ reviewState: state }} />
 						))
 					) : (
 						<div className="section-placeholder">None yet</div>
@@ -120,7 +120,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				) : (
 					<div className="section-placeholder">
 						None yet
-						{pr.hasWritePermission ? (
+						{pr!.hasWritePermission ? (
 							<>
 								&mdash;
 								<a
@@ -155,7 +155,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{labels.length ? (
 					<div className="labels-list">
 						{labels.map(label => (
-							<Label key={label.name} {...label} canDelete={hasWritePermission} isDarkTheme={pr.isDarkTheme}>
+							<Label key={label.name} {...label} canDelete={hasWritePermission} isDarkTheme={pr!.isDarkTheme}>
 								{hasWritePermission ? (
 									<button className="icon-button" onClick={() => removeLabel(label.name)}>
 										{closeIcon}️
@@ -168,7 +168,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">None yet</div>
 				)}
 			</div>
-			{pr.isEnterprise ? null :
+			{pr!.isEnterprise ? null :
 				<div id="project" className="section">
 					<div className="section-header" onClick={updateProjects}>
 						<div className="section-title">Project</div>
@@ -214,12 +214,44 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 	);
 }
 
+export function CollapsibleSidebar(props: PullRequest) {
+	const [expanded, setExpanded] = useState(true);
+	const contentRef = useRef<HTMLDivElement>(null);
+
+	return (
+		<div className="collapsible-sidebar">
+			<div
+				className="collapsible-sidebar-header"
+				onClick={() => setExpanded(e => !e)}
+				tabIndex={0}
+				role="button"
+				aria-expanded={expanded}
+			>
+				<span
+					className={`collapsible-sidebar-twistie${expanded ? ' expanded' : ''}`}
+					aria-hidden="true"
+				>
+					{chevronRightIcon}
+				</span>
+				<span className="collapsible-sidebar-title">Sidebar</span>
+			</div>
+			<div
+				className="collapsible-sidebar-content"
+				ref={contentRef}
+				style={{ display: expanded ? 'block' : 'none' }}
+			>
+				<Sidebar {...props} />
+			</div>
+		</div>
+	);
+}
+
 function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 	const { removeMilestone, updatePR, pr } = useContext(PullRequestContext);
 	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
 		'--vscode-badge-foreground',
 	);
-	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr!.isDarkTheme, false);
 	const { canDelete, title } = milestone;
 	return (
 		<div className="labels-list">
@@ -253,7 +285,7 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
 		'--vscode-badge-foreground',
 	);
-	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr!.isDarkTheme, false);
 	const { canDelete } = project;
 	return (
 		<div className="labels-list">
@@ -271,7 +303,7 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 						className="icon-button"
 						onClick={async () => {
 							await removeProject(project);
-							updatePR({ projectItems: pr.projectItems?.filter(x => x.id !== project.id) });
+							updatePR({ projectItems: pr!.projectItems?.filter(x => x.id !== project.id) });
 						}}
 					>
 						{closeIcon}️

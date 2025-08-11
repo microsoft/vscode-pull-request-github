@@ -1221,7 +1221,7 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 925px) {
+@media (max-width: 768px) {
 	#app {
 		display: block;
 	}
@@ -1231,7 +1231,6 @@ code {
 		column-gap: 20px;
 		grid-template-columns: calc(50% - 10px) calc(50% - 10px);
 		padding: 0;
-		padding-bottom: 24px;
 	}
 
 	.section-content {
@@ -1472,4 +1471,45 @@ svg.octicon path {
 	overflow: visible !important;
 	vertical-align: text-bottom;
 	fill: currentColor;
+}
+
+.collapsible-sidebar {
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 4px;
+	margin-bottom: 16px;
+	/* Optional: max-width to match sidebar */
+}
+
+.collapsible-sidebar-header {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 4px 8px;
+	user-select: none;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	outline: none;
+}
+
+.collapsible-sidebar-header:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.collapsible-sidebar-twistie {
+	display: inline-block;
+	transition: transform 0.15s;
+	margin-right: 8px;
+	font-size: 14px;
+	transform: rotate(0deg);
+}
+
+.collapsible-sidebar-twistie.expanded {
+	transform: rotate(90deg);
+}
+
+.collapsible-sidebar-title {
+	font-size: 14px;
+}
+
+.collapsible-sidebar-content {
+	padding: 18px 22px;
 }
