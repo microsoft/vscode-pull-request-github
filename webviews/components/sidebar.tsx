@@ -14,6 +14,45 @@ import { AuthorLink, Avatar } from '../components/user';
 import { chevronRightIcon, closeIcon, copilotIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
+function Section({
+	id,
+	title,
+	hasWritePermission,
+	onHeaderClick,
+	children,
+	iconButtonGroup,
+}: {
+	id: string,
+	title: string,
+	hasWritePermission: boolean,
+	onHeaderClick?: (e?: React.MouseEvent) => void | Promise<void>,
+	children: React.ReactNode,
+	iconButtonGroup?: React.ReactNode,
+}) {
+	return (
+		<div id={id} className="section">
+			<div
+				className="section-header"
+				onClick={onHeaderClick}
+			>
+				<div className="section-title">{title}</div>
+				{hasWritePermission ? (
+					iconButtonGroup ? iconButtonGroup : (
+						<button
+							className="icon-button"
+							title={`Add ${title}`}
+							onClick={onHeaderClick}
+						>
+							{settingsIcon}
+						</button>
+					)
+				) : null}
+			</div>
+			{children}
+		</div>
+	);
+}
+
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
 	const {
 		addReviewers,
@@ -39,21 +78,16 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 
 	return (
 		<div id="sidebar">
-			{!isIssue ? (
-				<div id="reviewers" className="section">
-					<div className="section-header" onClick={async () => {
+			{!isIssue && (
+				<Section
+					id="reviewers"
+					title="Reviewers"
+					hasWritePermission={hasWritePermission}
+					onHeaderClick={async () => {
 						const newReviewers = await addReviewers();
 						updatePR({ reviewers: newReviewers.reviewers });
-					}}>
-						<div className="section-title">Reviewers</div>
-						{hasWritePermission ? (
-							<button
-								className="icon-button"
-								title="Add Reviewers">
-								{settingsIcon}
-							</button>
-						) : null}
-					</div>
+					}}
+				>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (
 							<Reviewer key={reviewerId(state.reviewer)} {...{ reviewState: state }} />
@@ -61,62 +95,60 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					) : (
 						<div className="section-placeholder">None yet</div>
 					)}
-				</div>
-			) : (
-				''
+				</Section>
 			)}
-			<div id="assignees" className="section">
-				<div
-					className="section-header"
-					onClick={async (e) => {
-						// Only prevent if the "Assign to Copilot" button is clicked (by id)
-						const target = e.target as HTMLElement;
-						if (target.closest('#assign-copilot-btn')) {
-							return;
-						}
-						const newAssignees = await addAssignees();
-						updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
-					}}
-				>
-					<div className="section-title">Assignees</div>
-					{hasWritePermission ?
-						(<div className="icon-button-group">
-							{shouldShowCopilotButton ? (
-								<button
-									id="assign-copilot-btn"
-									className="icon-button"
-									title="Assign for Copilot to work on"
-									disabled={assigningCopilot}
-									onClick={async () => {
-										setAssigningCopilot(true);
-										try {
-											const newAssignees = await addAssigneeCopilot();
-											updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
-										} finally {
-											setAssigningCopilot(false);
-										}
-									}}>
-									{copilotIcon}
-								</button>
-							) : null}
+
+			<Section
+				id="assignees"
+				title="Assignees"
+				hasWritePermission={hasWritePermission}
+				onHeaderClick={async (e) => {
+					const target = e?.target as HTMLElement;
+					if (target?.closest && target.closest('#assign-copilot-btn')) {
+						return;
+					}
+					const newAssignees = await addAssignees();
+					updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+				}}
+				iconButtonGroup={hasWritePermission && (
+					<div className="icon-button-group">
+						{shouldShowCopilotButton ? (
 							<button
+								id="assign-copilot-btn"
 								className="icon-button"
-								title="Add Assignees">
-								{settingsIcon}
+								title="Assign for Copilot to work on"
+								disabled={assigningCopilot}
+								onClick={async (e) => {
+									e.stopPropagation();
+									setAssigningCopilot(true);
+									try {
+										const newAssignees = await addAssigneeCopilot();
+										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+									} finally {
+										setAssigningCopilot(false);
+									}
+								}}>
+								{copilotIcon}
 							</button>
-						</div>) : null}
-				</div>
+						) : null}
+						<button
+							className="icon-button"
+							title="Add Assignees"
+						>
+							{settingsIcon}
+						</button>
+					</div>
+				)}
+			>
 				{assignees && assignees.length ? (
-					assignees.map((x, i) => {
-						return (
-							<div key={i} className="section-item reviewer">
-								<div className="avatar-with-author">
-									<Avatar for={x} />
-									<AuthorLink for={x} />
-								</div>
+					assignees.map((x, i) => (
+						<div key={i} className="section-item reviewer">
+							<div className="avatar-with-author">
+								<Avatar for={x} />
+								<AuthorLink for={x} />
 							</div>
-						);
-					})
+						</div>
+					))
 				) : (
 					<div className="section-placeholder">
 						None yet
@@ -136,22 +168,17 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						) : null}
 					</div>
 				)}
-			</div>
+			</Section>
 
-			<div id="labels" className="section">
-				<div className="section-header" onClick={async () => {
+			<Section
+				id="labels"
+				title="Labels"
+				hasWritePermission={hasWritePermission}
+				onHeaderClick={async () => {
 					const newLabels = await addLabels();
 					updatePR({ labels: newLabels.added });
-				}}>
-					<div className="section-title">Labels</div>
-					{hasWritePermission ? (
-						<button
-							className="icon-button"
-							title="Add Labels">
-							{settingsIcon}
-						</button>
-					) : null}
-				</div>
+				}}
+			>
 				{labels.length ? (
 					<div className="labels-list">
 						{labels.map(label => (
@@ -167,19 +194,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				) : (
 					<div className="section-placeholder">None yet</div>
 				)}
-			</div>
-			{pr!.isEnterprise ? null :
-				<div id="project" className="section">
-					<div className="section-header" onClick={updateProjects}>
-						<div className="section-title">Project</div>
-						{hasWritePermission ? (
-							<button
-								className="icon-button"
-								title="Add Project">
-								{settingsIcon}
-							</button>
-						) : null}
-					</div>
+			</Section>
+
+			{!pr!.isEnterprise && (
+				<Section
+					id="project"
+					title="Project"
+					hasWritePermission={hasWritePermission}
+					onHeaderClick={updateProjects}
+				>
 					{!projects ?
 						<a onClick={updateProjects}>Sign in with more permissions to see projects</a>
 						: (projects.length > 0)
@@ -188,28 +211,24 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 							)) :
 							<div className="section-placeholder">None yet</div>
 					}
-				</div>
-			}
-			<div id="milestone" className="section">
-				<div className="section-header" onClick={async () => {
+				</Section>
+			)}
+
+			<Section
+				id="milestone"
+				title="Milestone"
+				hasWritePermission={hasWritePermission}
+				onHeaderClick={async () => {
 					const newMilestone = await addMilestone();
 					updatePR({ milestone: newMilestone.added });
-				}}>
-					<div className="section-title">Milestone</div>
-					{hasWritePermission ? (
-						<button
-							className="icon-button"
-							title="Add Milestone">
-							{settingsIcon}
-						</button>
-					) : null}
-				</div>
+				}}
+			>
 				{milestone ? (
 					<Milestone key={milestone.title} {...milestone} canDelete={hasWritePermission} />
 				) : (
 					<div className="section-placeholder">No milestone</div>
 				)}
-			</div>
+			</Section>
 		</div>
 	);
 }
