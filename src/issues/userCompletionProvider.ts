@@ -96,7 +96,15 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			uri = getRootUriFromScmInputUri(document.uri);
 		} else if (document.uri.scheme === Schemes.Comment) {
 			const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-			uri = activeTab instanceof vscode.TabInputText ? activeTab.uri : (activeTab instanceof vscode.TabInputTextDiff ? activeTab.modified : undefined);
+			if (activeTab instanceof vscode.TabInputText) {
+				uri = activeTab.uri;
+			} else if (activeTab instanceof vscode.TabInputTextDiff) {
+				uri = activeTab.modified;
+			} else if ((activeTab as { textDiffs?: { modified: vscode.Uri, original: vscode.Uri }[] }).textDiffs) {
+				uri = (activeTab as { textDiffs: { modified: vscode.Uri, original: vscode.Uri }[] }).textDiffs[0].modified;
+			} else {
+				uri = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : undefined;
+			}
 		}
 
 		if (!uri) {
@@ -230,7 +238,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 					if (githubRepo) {
 						const pr = await githubRepo.getPullRequest(prNumber);
 						this.cachedForPrNumber = prNumber;
-						this.cachedPrTimelineEvents = await pr!.getTimelineEvents();
+						this.cachedPrTimelineEvents = await pr!.getTimelineEvents(pr!);
 					}
 
 					prRelatedusers = getRelatedUsersFromTimelineEvents(this.cachedPrTimelineEvents);

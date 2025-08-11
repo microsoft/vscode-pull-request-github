@@ -33,9 +33,11 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Review threads have changed, refreshing Files node`, PR_TREE);
 			this.refresh(this);
 		}));
-		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => {
-			Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
-			this.refresh(this);
+		this.childrenDisposables.push(_pullRequestModel.onDidChange(e => {
+			if (e.comments) {
+				Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
+				this.refresh(this);
+			}
 		}));
 	}
 
@@ -69,7 +71,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		dirNode.finalize();
 		if (dirNode.label === '') {
 			// nothing on the root changed, pull children to parent
-			this.directories = dirNode.children;
+			this.directories = dirNode._children;
 		} else {
 			this.directories = [dirNode];
 		}
@@ -82,7 +84,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			nodes = fileNodes;
 		}
 		Logger.appendLine(`Got all children for Files node`, PR_TREE);
-		this.children = nodes;
+		this._children = nodes;
 		return nodes;
 	}
 }

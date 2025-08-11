@@ -6,18 +6,19 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
-import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { MergeArguments, PullRequest, ReviewType } from './views';
+import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:activePullRequest';
@@ -79,7 +80,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
 
 		const result: Partial<PullRequest> = {
-			events: await this._item.getTimelineEvents(),
+			events: await this._item.getTimelineEvents(this._item),
 			mergeable: mergability,
 		};
 		await this.refresh();
@@ -188,7 +189,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			disposeAll(this._prDisposables);
 		}
 		this._prDisposables = [];
-		this._prDisposables.push(pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.onDidChange(() => this.updatePullRequest(pullRequestModel)));
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
@@ -213,13 +214,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				pullRequestModel.number,
 			),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			pullRequestModel.getTimelineEvents(),
+			pullRequestModel.getTimelineEvents(pullRequestModel),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
-			pullRequestModel.validateDraftMode()
+			pullRequestModel.validateDraftMode(),
+			ensureEmojis(this._folderRepositoryManager.context)
 		])
 			.then(result => {
 				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = result;
@@ -267,7 +269,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					createdAt: pullRequest.createdAt,
 					body: pullRequest.body,
 					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels,
+					labels: pullRequest.item.labels.map(label => ({ ...label, displayName: emojify(label.name) })),
 					author: {
 						login: pullRequest.author.login,
 						name: pullRequest.author.name,
@@ -337,7 +339,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private updateReviewers(review?: CommonReviewEvent): void {
+	private updateReviewers(review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === reviewerId(reviewer.reviewer),
@@ -353,7 +355,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -362,10 +364,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		try {
 			const review = await action(context.body);
 			this.updateReviewers(review);
-			const reviewMessage = {
+			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
-				event: review,
-				reviewers: this._existingReviewers
+				events: [],
+				reviewers: this._existingReviewers,
+				reviewedEvent: review,
 			};
 			await this._postMessage(reviewMessage);
 		} catch (e) {
@@ -375,21 +378,23 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
+			const reviewMessage: SubmitReviewReply = {
+				events: [],
+				reviewedEvent: review,
 				reviewers: this._existingReviewers,
-			});
+			};
+			this._replyMessage(message, reviewMessage);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+	private approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
@@ -401,7 +406,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
-	private requestChanges(body: string): Promise<CommonReviewEvent> {
+	private requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
@@ -413,8 +418,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
-	private submitReview(body: string): Promise<CommonReviewEvent> {
-		return this._item.submitReview(ReviewEvent.Comment, body);
+	private submitReview(body: string): Promise<ReviewEvent> {
+		return this._item.submitReview(ReviewEventEnum.Comment, body);
 	}
 
 	private submitReviewCommand(context: { body: string }) {
@@ -438,13 +443,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set PR ready for review. {0}', formatError(e)));
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 
@@ -479,7 +482,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 

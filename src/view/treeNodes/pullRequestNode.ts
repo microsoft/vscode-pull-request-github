@@ -5,16 +5,19 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
+import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
+import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../theme';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -51,12 +54,15 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		super(parent);
 		this.registerSinceReviewChange();
 		this.registerConfigurationChange();
-		this._register(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
 		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
-			if (e.new === this.pullRequestModel.number || e.old === this.pullRequestModel.number) {
+			if (e.new?.number === this.pullRequestModel.number || e.old?.number === this.pullRequestModel.number) {
 				this.refresh(this);
 			}
 		}));
+		this._register(this._folderReposManager.themeWatcher.onDidChangeTheme(() => {
+			this.refresh(this);
+		}));
+		this.resolvePRCommentController();
 	}
 
 	// #region Tree
@@ -95,7 +101,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				dirNode.finalize();
 				if (dirNode.label === '') {
 					// nothing on the root changed, pull children to parent
-					result.push(...dirNode.children);
+					result.push(...dirNode._children);
 				} else {
 					result.push(dirNode);
 				}
@@ -108,7 +114,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				this.reopenNewPrDiffs(this.pullRequestModel);
 			}
 
-			this.children = result;
+			this._children = result;
 
 			// Kick off review thread initialization but don't await it.
 			// Events will be fired later that will cause the tree to update when this is ready.
@@ -259,11 +265,43 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
+		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus(this.pullRequestModel);
+		const theme = this._folderReposManager.themeWatcher.themeData;
+		if (!theme || copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
+			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+				?? new vscode.ThemeIcon('github');
+		}
+		switch (copilotWorkingStatus) {
+			case CopilotWorkingStatus.InProgress:
+				return {
+					light: DataUri.copilotInProgressAsImageDataURI(getIconForeground(theme, 'light'), getListWarningForeground(theme, 'light')),
+					dark: DataUri.copilotInProgressAsImageDataURI(getIconForeground(theme, 'dark'), getListWarningForeground(theme, 'dark'))
+				};
+			case CopilotWorkingStatus.Done:
+				return {
+					light: DataUri.copilotSuccessAsImageDataURI(getIconForeground(theme, 'light'), getNotebookStatusSuccessIconForeground(theme, 'light')),
+					dark: DataUri.copilotSuccessAsImageDataURI(getIconForeground(theme, 'dark'), getNotebookStatusSuccessIconForeground(theme, 'dark'))
+				};
+			case CopilotWorkingStatus.Error:
+				return {
+					light: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'light'), getListErrorForeground(theme, 'light')),
+					dark: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'dark'), getListErrorForeground(theme, 'dark'))
+				};
+			default:
+				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+					?? new vscode.ThemeIcon('github');
+		}
+	}
+
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
-		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
+		let labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
+		if (COPILOT_ACCOUNTS[this.pullRequestModel.author.login]) {
+			labelTitle = labelTitle.replace('[WIP]', '');
+		}
 		const login = author.specialDisplayName ?? author.login;
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
@@ -298,8 +336,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
 				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
-			iconPath: (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-				?? new vscode.ThemeIcon('github'),
+			iconPath: await this._getIcon(),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},

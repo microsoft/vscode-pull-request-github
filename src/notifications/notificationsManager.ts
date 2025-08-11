@@ -11,7 +11,9 @@ import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
+import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem } from './notificationItem';
 import { NotificationsProvider } from './notificationsProvider';
 
@@ -41,7 +43,12 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 	get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
 
-	constructor(private readonly _notificationProvider: NotificationsProvider, private readonly _credentialStore: CredentialStore) {
+	constructor(
+		private readonly _notificationProvider: NotificationsProvider,
+		private readonly _credentialStore: CredentialStore,
+		private readonly _repositoriesManager: RepositoriesManager,
+		private readonly _context: vscode.ExtensionContext
+	) {
 		super();
 		this._register(this._onDidChangeTreeData);
 		this._register(this._onDidChangeNotifications);
@@ -71,6 +78,16 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			return this._resolveNotificationTreeItem(element);
 		}
 		return this._resolveLoadMoreNotificationsTreeItem();
+	}
+
+	async resolveTreeItem(
+		item: vscode.TreeItem,
+		element: NotificationTreeDataItem,
+	): Promise<vscode.TreeItem> {
+		if (isNotificationTreeItem(element)) {
+			item.tooltip = await this._notificationMarkdownHover(element);
+		}
+		return item;
 	}
 
 	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
@@ -118,6 +135,35 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		};
 		item.contextValue = 'loadMoreNotifications';
 		return item;
+	}
+
+	private async _notificationMarkdownHover(element: NotificationTreeItem): Promise<vscode.MarkdownString> {
+		const markdown = new vscode.MarkdownString(undefined, true);
+		markdown.supportHtml = true;
+
+		const notification = element.notification;
+		const model = element.model;
+
+		// Add notification-specific information
+		if (notification.subject.type === NotificationSubjectType.Issue) {
+			const issueModel = model as IssueModel;
+			const issueMarkdownContent = await issueMarkdown(issueModel, this._context, this._repositoriesManager);
+			return issueMarkdownContent;
+		} else if (notification.subject.type === NotificationSubjectType.PullRequest) {
+			const prModel = model as PullRequestModel;
+			const prMarkdownContent = await issueMarkdown(prModel, this._context, this._repositoriesManager);
+			return prMarkdownContent;
+		}
+
+		// Fallback for other types
+		const ownerName = `${notification.owner}/${notification.name}`;
+		markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName})  \n`);
+		markdown.appendMarkdown(`**${notification.subject.title}**  \n`);
+		markdown.appendMarkdown(`Type: ${notification.subject.type}  \n`);
+		markdown.appendMarkdown(`Updated: ${notification.updatedAd.toLocaleString()}  \n`);
+		markdown.appendMarkdown(`Reason: ${notification.reason}  \n`);
+
+		return markdown;
 	}
 
 	//#endregion
@@ -256,7 +302,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 		if (event.event === EventType.Committed) {
 			if (userCheck(event.author.login)) {
-				return new Date(event.authoredDate);
+				return new Date(event.committedDate);
 			}
 		} else if (event.event === EventType.Commented) {
 			if (userCheck(event.user?.login)) {
@@ -274,7 +320,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	public async markPullRequests(markAsDone: boolean = false): Promise<void> {
 		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest);
-		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents()));
+		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents(notification.model as PullRequestModel)));
 
 		const markPromises: Promise<void>[] = [];
 

@@ -7,6 +7,7 @@ import { basename } from 'path';
 import * as vscode from 'vscode';
 import { Remote } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -26,6 +27,7 @@ import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
+import { IssueOverviewPanel } from '../github/issueOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { chatCommand } from '../lm/utils';
@@ -1264,14 +1266,18 @@ ${options?.body ?? ''}\n
 			folderManager = await this.chooseRepo(vscode.l10n.t('Choose where to create the issue.'));
 		}
 
+		const assigneesWithoutCopilot = assignees?.filter(assignee => !COPILOT_ACCOUNTS[assignee]);
+		const copilotAssignee = !!assignees?.find(assignee => COPILOT_ACCOUNTS[assignee]);
+
 		return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating issue') }, async (progress) => {
 			if (!folderManager) {
 				return false;
 			}
+			const constFolderManager: FolderRepositoryManager = folderManager;
 			progress.report({ message: vscode.l10n.t('Verifying that issue data is valid...') });
 			try {
 				if (!origin) {
-					origin = await folderManager.getPullRequestDefaults();
+					origin = await constFolderManager.getPullRequestDefaults();
 				}
 			} catch (e) {
 				// There is no remote
@@ -1287,17 +1293,23 @@ ${options?.body ?? ''}\n
 				repo: origin.repo,
 				title,
 				body,
-				assignees,
+				assignees: assigneesWithoutCopilot,
 				labels,
 				milestone
 			};
 
-			if (!(await this.verifyLabels(folderManager, createParams))) {
+			if (!(await this.verifyLabels(constFolderManager, createParams))) {
 				return false;
 			}
 			progress.report({ message: vscode.l10n.t('Creating issue in {0}...', `${createParams.owner}/${createParams.repo}`) });
-			const issue = await folderManager.createIssue(createParams);
+			const issue = await constFolderManager.createIssue(createParams);
 			if (issue) {
+				if (copilotAssignee) {
+					const copilotUser = (await folderManager.getAssignableUsers())[issue.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
+					if (copilotUser) {
+						await issue.replaceAssignees([...(issue.assignees ?? []), copilotUser]);
+					}
+				}
 				if (projects) {
 					await issue.updateProjects(projects);
 				}
@@ -1312,14 +1324,14 @@ ${options?.body ?? ''}\n
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					const copyIssueUrl = vscode.l10n.t('Copy Issue Link');
-					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
+					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the editor to see it\'s full contents.' });
 					vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
 						switch (result) {
 							case copyIssueUrl:
 								await vscode.env.clipboard.writeText(issue.html_url);
 								break;
 							case openIssue:
-								await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
+								await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, constFolderManager, issue);
 								break;
 						}
 					});

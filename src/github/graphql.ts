@@ -40,9 +40,16 @@ export interface CrossReferencedEvent {
 	actor: Actor;
 	createdAt: string;
 	source: {
+		__typename: string;
 		number: number;
 		url: string;
 		title: string;
+		repository: {
+			name: string;
+			owner: {
+				login: string;
+			};
+		}
 	};
 	willCloseTarget: boolean;
 }
@@ -68,6 +75,7 @@ export interface AbbreviatedIssueComment {
 	reactions: {
 		totalCount: number;
 	};
+	reactionGroups: ReactionGroup[]
 	createdAt: string;
 }
 
@@ -179,13 +187,21 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
-		authoredDate: Date;
+		committedDate: Date;
 	};
 
 	url: string;
 }
 
 export interface AssignedEvent {
+	__typename: string;
+	id: number;
+	actor: Actor;
+	user: Account;
+	createdAt: string;
+}
+
+export interface UnassignedEvent {
 	__typename: string;
 	id: number;
 	actor: Actor;
@@ -214,6 +230,7 @@ export interface Review {
 	submittedAt: string;
 	updatedAt: string;
 	createdAt: string;
+	reactionGroups: ReactionGroup[];
 }
 
 export interface ReviewThread {
@@ -250,6 +267,48 @@ export interface TimelineEventsResponse {
 		};
 	} | null;
 	rateLimit: RateLimit;
+}
+
+export interface LatestCommit {
+	commit: {
+		committedDate: string;
+	}
+}
+
+export interface LatestReviewThread {
+	comments: {
+		nodes: {
+			createdAt: string;
+		}[];
+	}
+}
+
+export interface LatestUpdatesResponse {
+	repository: {
+		pullRequest: {
+			reactions: {
+				nodes: {
+					createdAt: string;
+				}[];
+			}
+			updatedAt: string;
+			comments: {
+				nodes: {
+					updatedAt: string;
+					reactions: {
+						nodes: {
+							createdAt: string;
+						}[];
+					}
+				}[];
+			}
+			timelineItems: {
+				nodes: ({
+					createdAt: string;
+				} | LatestCommit | LatestReviewThread)[];
+			}
+		}
+	}
 }
 
 export interface LatestReviewCommitResponse {
@@ -501,6 +560,13 @@ export interface UpdateIssueResponse {
 			bodyHTML: string;
 			title: string;
 			titleHTML: string;
+			milestone?: {
+				title: string;
+				dueOn?: string;
+				id: string;
+				createdAt: string;
+				number: number;
+			};
 		};
 	};
 }
@@ -519,7 +585,7 @@ export interface GetBranchResponse {
 			target: {
 				oid: string;
 			}
-		}
+		} | null;
 	} | null;
 }
 

@@ -257,7 +257,7 @@ export function main() {
 										<li>
 											<span title={assignee.name} aria-label={assignee.name}>
 												<Avatar for={assignee} link={false} />
-												{assignee.login}
+												{assignee.specialDisplayName ?? assignee.login}
 											</span>
 										</li>)}
 								</ul>
@@ -275,7 +275,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isITeam(reviewer) ? reviewer.slug : reviewer.login}
+												{isITeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
 											</span>
 										</li>)}
 								</ul>
@@ -359,6 +359,7 @@ export function main() {
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
+							spreadable={true}
 						/>
 
 					</div>

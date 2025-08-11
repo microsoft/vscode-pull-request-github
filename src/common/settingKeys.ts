@@ -54,7 +54,6 @@ export const ALLOW_FETCH = 'allowFetch';
 export const ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO = 'alwaysPromptForNewIssueRepo';
 export const EXPERIMENTAL_CHAT = 'experimental.chat';
 export const EXPERIMENTAL_USE_QUICK_CHAT = 'experimental.useQuickChat';
-export const EXPERIMENTAL_NOTIFICATIONS = 'experimental.notificationsView';
 export const EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE = 'experimental.notificationsViewPageSize';
 export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore';
 export const WEBVIEW_REFRESH_INTERVAL = 'webviewRefreshInterval';
@@ -81,3 +80,14 @@ export const OPEN_VIEW = 'openView';
 // Explorer
 export const EXPLORER = 'explorer';
 export const AUTO_REVEAL = 'autoReveal';
+
+// Workbench
+export const WORKBENCH = 'workbench';
+export const COLOR_THEME = 'colorTheme';
+
+// Coding Agent
+
+export const CODING_AGENT = `${PR_SETTINGS_NAMESPACE}.codingAgent`;
+export const CODING_AGENT_ENABLED = 'enabled';
+export const CODING_AGENT_AUTO_COMMIT_AND_PUSH = 'autoCommitAndPush';
+export const CODING_AGENT_PROMPT_FOR_CONFIRMATION = 'promptForConfirmation';

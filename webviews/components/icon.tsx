@@ -18,6 +18,7 @@ export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} cl
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
 export const chevronDownIcon = <Icon src={require('../../resources/icons/chevron_down.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/comment.svg')} />;
+export const quoteIcon = <Icon src={require('../../resources/icons/quote.svg')} />;
 export const commitIcon = <Icon src={require('../../resources/icons/commit_icon.svg')} />;
 export const copyIcon = <Icon src={require('../../resources/icons/copy.svg')} />;
 export const deleteIcon = <Icon src={require('../../resources/icons/delete.svg')} />;
@@ -46,3 +47,10 @@ export const stopCircleIcon = <Icon src={require('../../resources/icons/stop-cir
 export const issueIcon = <Icon src={require('../../resources/icons/issue.svg')} />;
 export const issueClosedIcon = <Icon src={require('../../resources/icons/issue_closed.svg')} />;
 export const copilotIcon = <Icon src={require('../../resources/icons/copilot.svg')} />;
+export const threeBars = <Icon src={require('../../resources/icons/three-bars.svg')} />;
+export const tasklistIcon = <Icon src={require('../../resources/icons/tasklist.svg')} />;
+export const errorIcon = <Icon src={require('../../resources/icons/error.svg')} />;
+export const loadingIcon = <Icon className='loading' src={require('../../resources/icons/loading.svg')} />;
+export const copilotSuccessIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-success.svg')} />;
+export const copilotErrorIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-error.svg')} />;
+export const copilotInProgressIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-in-progress.svg')} />;

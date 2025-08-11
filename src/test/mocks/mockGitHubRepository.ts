@@ -21,6 +21,8 @@ import { MockTelemetry } from './mockTelemetry';
 import { Uri } from 'vscode';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { mergeQuerySchemaWithShared } from '../../github/common';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { TimelineEvent } from '../../common/timelineEvent';
 const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 export class MockGitHubRepository extends GitHubRepository {

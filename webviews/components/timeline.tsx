@@ -10,6 +10,9 @@ import {
 	ClosedEvent,
 	CommentEvent,
 	CommitEvent,
+	CopilotFinishedErrorEvent,
+	CopilotFinishedEvent,
+	CopilotStartedEvent,
 	CrossReferencedEvent,
 	EventType,
 	HeadRefDeleteEvent,
@@ -17,28 +20,45 @@ import {
 	ReopenedEvent,
 	ReviewEvent,
 	TimelineEvent,
+	UnassignEvent,
 } from '../../src/common/timelineEvent';
 import { groupBy, UnreachableCaseError } from '../../src/common/utils';
+import { IAccount, IActor } from '../../src/github/interface';
 import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, mergeIcon, plusIcon } from './icon';
+import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
+function isAssignUnassignEvent(event: TimelineEvent | ConsolidatedAssignUnassignEvent): event is AssignEvent | UnassignEvent {
+	return event.event === EventType.Assigned || event.event === EventType.Unassigned;
+}
+
+interface ConsolidatedAssignUnassignEvent {
+	id: number;
+	event: EventType.Assigned | EventType.Unassigned;
+	assignees?: IAccount[];
+	unassignees?: IAccount[];
+	actor: IActor;
+	createdAt: string;
+}
+
 export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue: boolean }) => {
-	const consolidatedEvents: TimelineEvent[] = [];
+	const consolidatedEvents: (TimelineEvent | ConsolidatedAssignUnassignEvent)[] = [];
 	for (let i = 0; i < events.length; i++) {
-		if ((i > 0) && (events[i].event === EventType.Assigned) && (consolidatedEvents[consolidatedEvents.length - 1].event === EventType.Assigned)) {
-			const lastEvent = consolidatedEvents[consolidatedEvents.length - 1] as AssignEvent;
-			const newEvent = events[i] as AssignEvent;
-			if (new Date(lastEvent.createdAt).getTime() + (1000 * 60 * 10) > new Date(newEvent.createdAt).getTime()) { // within 10 minutes
-				if (lastEvent.assignees.every(a => a.id !== newEvent.assignees[0].id)) {
-					lastEvent.assignees = [...lastEvent.assignees, ...newEvent.assignees];
-				}
-				lastEvent.createdAt = newEvent.createdAt;
+		if ((i > 0) && isAssignUnassignEvent(events[i]) && isAssignUnassignEvent(consolidatedEvents[consolidatedEvents.length - 1])) {
+			const lastEvent = consolidatedEvents[consolidatedEvents.length - 1] as ConsolidatedAssignUnassignEvent;
+			const newEvent = events[i] as ConsolidatedAssignUnassignEvent;
+			if ((lastEvent.actor.login === newEvent.actor.login) && (new Date(lastEvent.createdAt).getTime() + (1000 * 60 * 10) > new Date(newEvent.createdAt).getTime())) { // within 10 minutes
+				const assignees = lastEvent.assignees || [];
+				const unassignees = lastEvent.unassignees || [];
+				const newAssignees = newEvent.assignees?.filter(a => !assignees.some(b => b.id === a.id)) ?? [];
+				const newUnassignees = newEvent.unassignees?.filter(a => !unassignees.some(b => b.id === a.id)) ?? [];
+				lastEvent.assignees = [...assignees, ...newAssignees];
+				lastEvent.unassignees = [...unassignees, ...newUnassignees];
 			} else {
 				consolidatedEvents.push(newEvent);
 			}
@@ -58,7 +78,9 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 			case EventType.Merged:
 				return <MergedEventView key={`merged${event.id}`} {...event} />;
 			case EventType.Assigned:
-				return <AssignEventView key={`assign${event.id}`} event={event} isIssue={isIssue} />;
+				return <AssignUnassignEventView key={`assign${event.id}`} event={event} />;
+			case EventType.Unassigned:
+				return <AssignUnassignEventView key={`unassign${event.id}`} event={event} />;
 			case EventType.HeadRefDeleted:
 				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
 			case EventType.CrossReferenced:
@@ -69,6 +91,12 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				return <ReopenedEventView key={`reopened${event.id}`} event={event} isIssue={isIssue} />;
 			case EventType.NewCommitsSinceReview:
 				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
+			case EventType.CopilotStarted:
+				return <CopilotStartedEventView key={`copilotStarted${event.id}`} {...event} />;
+			case EventType.CopilotFinished:
+				return <CopilotFinishedEventView key={`copilotFinished${event.id}`} {...event} />;
+			case EventType.CopilotFinishedError:
+				return <CopilotFinishedErrorEventView key={`copilotFinishedError${event.id}`} {...event} />;
 			default:
 				throw new UnreachableCaseError(event);
 		}
@@ -77,31 +105,67 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 
 export default Timeline;
 
-const CommitEventView = (event: CommitEvent) => (
-	<div className="comment-container commit">
-		<div className="commit-message">
-			{commitIcon}
-			{nbsp}
-			<div className="avatar-container">
-				<Avatar for={event.author} />
+const CommitEventView = (event: CommitEvent) => {
+	const context = useContext(PullRequestContext);
+	const [clickedElement, setClickedElement] = useState<'title' | 'sha' | undefined>(undefined);
+
+	const handleCommitClick = (e: React.MouseEvent, elementType: 'title' | 'sha') => {
+		e.preventDefault();
+		setClickedElement(elementType);
+		context.openCommitChanges(event.sha).finally(() => {
+			setClickedElement(undefined);
+		});
+	};
+
+	const isLoading = context.pr?.loadingCommit === event.sha;
+
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{commitIcon}
+				{nbsp}
+				<div className="avatar-container">
+					<Avatar for={event.author} />
+				</div>
+				<div className="message-container">
+					<a
+						className="message"
+						onClick={(e) => handleCommitClick(e, 'title')}
+						title={event.htmlUrl}
+					>
+						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+					</a>
+					{isLoading && clickedElement === 'title' && <span className="commit-spinner-inline">{loadingIcon}</span>}
+				</div>
 			</div>
-			<div className="message-container">
-				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
-					{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+			<div className="timeline-detail">
+				<a
+					className="sha"
+					onClick={(e) => handleCommitClick(e, 'sha')}
+					title={event.htmlUrl}
+				>
+					{isLoading && clickedElement === 'sha' && <span className="commit-spinner-before">{loadingIcon}</span>}
+					{event.sha.slice(0, 7)}
 				</a>
+				<Timestamp date={event.committedDate} />
 			</div>
 		</div>
-		<div className="timeline-detail">
-			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
-				{event.sha.slice(0, 7)}
-			</a>
-			<Timestamp date={event.authoredDate} />
-		</div>
-	</div>
-);
+	);
+};
 
 const NewCommitsSinceReviewEventView = () => {
-	const { gotoChangesSinceReview } = useContext(PullRequestContext);
+	const { gotoChangesSinceReview, pr } = useContext(PullRequestContext);
+	if (!pr.isCurrentlyCheckedOut) {
+		return null;
+	}
+
+	const [busy, setBusy] = useState(false);
+	const viewChanges = async () => {
+		setBusy(true);
+		await gotoChangesSinceReview();
+		setBusy(false);
+	};
+
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -112,7 +176,8 @@ const NewCommitsSinceReviewEventView = () => {
 			<button
 				aria-live="polite"
 				title="View the changes since your last review"
-				onClick={() => gotoChangesSinceReview()}
+				onClick={viewChanges}
+				disabled={busy}
 			>
 				View Changes
 			</button>
@@ -205,13 +270,14 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 
 function AddReviewSummaryComment() {
 	const { requestChanges, approve, submit, pr } = useContext(PullRequestContext);
-	const { isAuthor } = pr;
+	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
+	const [commentText, setCommentText] = useState('');
 
-	async function submitAction(event: React.MouseEvent, action: ReviewType): Promise<void> {
+	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
-		const { value } = comment.current!;
+		const value = commentText;
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
@@ -226,15 +292,36 @@ function AddReviewSummaryComment() {
 		setBusy(false);
 	}
 
+	const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+			submitAction(event, ReviewType.Comment);
+		}
+	};
+
+	const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+		setCommentText(event.target.value);
+	};
+
+	// Disable buttons when summary comment is empty AND there are no review comments
+	// Note: Approve button is allowed even with empty content and no pending review
+	const shouldDisableButtons = !commentText.trim() && !pr.hasReviewDraft;
+
 	return (
 		<form>
-			<textarea id='pending-review' ref={comment} placeholder="Leave a review summary comment"></textarea>
+			<textarea
+				id='pending-review'
+				ref={comment}
+				placeholder="Leave a review summary comment"
+				onKeyDown={onKeyDown}
+				onChange={onTextareaChange}
+				value={commentText}
+			></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
 					<button
 						id="request-changes"
 						className='secondary'
-						disabled={isBusy || pr.busy}
+						disabled={isBusy || pr.busy || shouldDisableButtons}
 						onClick={(event) => submitAction(event, ReviewType.RequestChanges)}
 					>
 						Request Changes
@@ -250,7 +337,7 @@ function AddReviewSummaryComment() {
 					</button>
 				)}
 				<button
-					disabled={isBusy || pr.busy}
+					disabled={isBusy || pr.busy || shouldDisableButtons}
 					onClick={(event) => submitAction(event, ReviewType.Comment)}
 				>Submit Review</button>
 			</div>
@@ -281,12 +368,12 @@ const MergedEventView = (event: MergedEvent) => {
 					into {event.mergeRef}
 					{nbsp}
 				</div>
-				<Timestamp href={event.url} date={event.createdAt} />
 			</div>
 			{pr.revertable ?
 				<div className="timeline-detail">
 					<button className='secondary' disabled={pr.busy} onClick={revert}>Revert</button>
 				</div> : null}
+			<Timestamp href={event.url} date={event.createdAt} />
 		</div>
 	);
 };
@@ -301,8 +388,8 @@ const HeadDeleteEventView = (event: HeadRefDeleteEvent) => (
 			<div className="message">
 				deleted the {event.headRef} branch{nbsp}
 			</div>
-			<Timestamp date={event.createdAt} />
 		</div>
+		<Timestamp date={event.createdAt} />
 	</div>
 );
 
@@ -316,7 +403,7 @@ const CrossReferencedEventView = (event: CrossReferencedEvent) => {
 				</div>
 				<AuthorLink for={event.actor} />
 				<div className="message">
-					linked <a href={source.url}>#{source.number}</a> {source.title}
+					linked <a href={source.extensionUrl}>#{source.number}</a> {source.title}
 					{nbsp}
 					{event.willCloseTarget ? 'which will close this issue' : ''}
 				</div>
@@ -333,9 +420,22 @@ function joinWithAnd(arr: JSX.Element[]): JSX.Element {
 	return <>{arr.slice(0, -1).map(item => <>{item}, </>)} and {arr[arr.length - 1]}</>;
 }
 
-const AssignEventView = ({ event, isIssue }: { event: AssignEvent, isIssue: boolean }) => {
-	const { actor, assignees } = event;
-	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />));
+const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent | ConsolidatedAssignUnassignEvent }) => {
+	const { actor } = event;
+	const assignees = (event as AssignEvent).assignees || [];
+	const unassignees = (event as UnassignEvent).unassignees || [];
+	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={`${a.id}a`} for={a} />));
+	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={`${a.id}u`} for={a} />));
+
+	let message: JSX.Element;
+	if (assignees.length > 0 && unassignees.length > 0) {
+		message = <>assigned {joinedAssignees} and unassigned {joinedUnassignees}</>;
+	} else if (assignees.length > 0) {
+		message = <>assigned {joinedAssignees}</>;
+	} else {
+		message = <>unassigned {joinedUnassignees}</>;
+	}
+
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -344,9 +444,7 @@ const AssignEventView = ({ event, isIssue }: { event: AssignEvent, isIssue: bool
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">
-					{isIssue
-						? <>assigned {joinedAssignees}</>
-						: <>assigned {joinedAssignees} to this pull request</>}
+					{message}
 				</div>
 			</div>
 			<Timestamp date={event.createdAt} />
@@ -380,6 +478,74 @@ const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: 
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">{isIssue ? 'reopened this issue' : 'reopened this pull request'}</div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotStartedEventView = (event: CopilotStartedEvent) => {
+	const { createdAt, onBehalfOf, sessionLink } = event;
+	const { openSessionLog } = useContext(PullRequestContext);
+
+	const handleSessionLogClick = (e: React.MouseEvent) => {
+		if (sessionLink) {
+			sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
+			openSessionLog(sessionLink);
+		}
+	};
+
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{threeBars}
+				{nbsp}
+				<div className="message">Copilot started work on behalf of <AuthorLink for={onBehalfOf} /></div>
+			</div>
+			{sessionLink ? (
+				<div className="timeline-detail">
+					<a onClick={handleSessionLogClick}><button className='secondary' title="View session log (Ctrl/Cmd+Click to open in second editor group)">View session</button></a>
+				</div>)
+				: null}
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotFinishedEventView = (event: CopilotFinishedEvent) => {
+	const { createdAt, onBehalfOf } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{tasklistIcon}
+				{nbsp}
+				<div className="message">Copilot finished work on behalf of <AuthorLink for={onBehalfOf} /></div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
+	const { createdAt, onBehalfOf } = event;
+	const { openSessionLog } = useContext(PullRequestContext);
+
+	const handleSessionLogClick = (e: React.MouseEvent) => {
+		event.sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
+		openSessionLog(event.sessionLink);
+	};
+
+	return (
+		<div className="comment-container commit">
+			<div className='timeline-with-detail'>
+				<div className='commit-message'>
+					{errorIcon}
+					{nbsp}
+					<div className="message">Copilot stopped work on behalf of <AuthorLink for={onBehalfOf} /> due to an error</div>
+				</div>
+				<div className="commit-message-detail">
+					<a onClick={handleSessionLogClick} title="View session log (Ctrl/Cmd+Click to open in second editor group)">Copilot has encountered an error. See logs for additional details.</a>
+				</div>
 			</div>
 			<Timestamp date={createdAt} />
 		</div>

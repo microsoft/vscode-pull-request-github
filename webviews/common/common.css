@@ -34,7 +34,7 @@ input[type='submit'] {
 	user-select: none;
 }
 
-button:not(.icon-button),
+button:not(.icon-button):not(.danger):not(.secondary),
 input[type='submit'] {
 	background-color: var(--vscode-button-background);
 }
@@ -45,6 +45,14 @@ input.select-left {
 
 button.select-right {
 	border-radius: 0 2px 2px 0;
+	width: 24px;
+	position: relative;
+}
+
+button.select-right span {
+	position: absolute;
+	top: 2px;
+	right: 4px;
 }
 
 button:focus,
@@ -125,7 +133,7 @@ input[type='checkbox'] {
 	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-svg path {
+svg path:first-of-type {
 	fill: var(--vscode-foreground);
 }
 
@@ -170,7 +178,7 @@ body img.avatar {
 .icon-button:focus,
 .section .icon-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: unset;
+	outline-offset: 1px;
 }
 
 .label .icon-button:hover,
@@ -351,20 +359,36 @@ button.split-left {
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+	display: flex;
 }
 
 .split {
-	width: 1px;
-	height: 100%;
 	background-color: var(--vscode-button-background);
-	opacity: 0.5;
+	border-top: 1px solid var(--vscode-button-border);
+	border-bottom: 1px solid var(--vscode-button-border);
+	padding: 4px 0;
+}
+
+.split .separator {
+	height: 100%;
+	width: 1px;
+	background-color: var(--vscode-button-separator);
+}
+
+.split.disabled {
+	opacity: 0.4;
+}
+
+.split.secondary {
+	background-color: var(--vscode-button-secondaryBackground);
+	border-top: 1px solid var(--vscode-button-secondaryBorder);
+	border-bottom: 1px solid var(--vscode-button-secondaryBorder);
 }
 
 button.split-right {
 	border-radius: 0 2px 2px 0;
 	cursor: pointer;
 	width: 24px;
-	height: 28px;
 	position: relative;
 }
 
@@ -375,13 +399,14 @@ button.split-right:disabled {
 button.split-right .icon {
 	pointer-events: none;
 	position: absolute;
-	top: 6px;
+	top: 4px;
 	right: 4px;
 }
 
 button.split-right .icon svg path {
 	fill: unset;
 }
+
 button.input-box {
 	display: block;
 	height: 24px;
@@ -412,9 +437,12 @@ button.input-box:focus {
 
 .dropdown-container {
 	display: flex;
-	flex-grow: 1;
 	min-width: 0;
 	margin: 0;
+}
+
+.dropdown-container.spreadable {
+	flex-grow: 1;
 	width: 100%;
 }
 
@@ -424,4 +452,38 @@ button.inlined-dropdown {
 	margin-right: 5px;
 	display: inline-block;
 	text-align: center;
+}
+
+.spinner {
+	margin-top: 5px;
+	margin-left: 5px;
+}
+
+.commit-spinner-inline {
+	margin-left: 8px;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	grid-column: none;
+}
+
+.commit-spinner-before {
+	margin-right: 6px;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+}
+
+.loading {
+	animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+	0% {
+		transform: rotate(0deg);
+	}
+
+	100% {
+		transform: rotate(360deg);
+	}
 }

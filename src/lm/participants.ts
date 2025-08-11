@@ -81,6 +81,7 @@ export class ChatParticipant extends Disposable {
 			family: 'gpt-4o'
 		});
 		const model = models[0];
+
 		const allTools = vscode.lm.tools.map((tool): vscode.LanguageModelChatTool => {
 			return {
 				name: tool.name,

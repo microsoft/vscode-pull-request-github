@@ -7,16 +7,20 @@ import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { PullRequestChangeEvent } from '../github/githubRepository';
 import { PRType } from '../github/interface';
 import { issueMarkdown } from '../github/markdownUtils';
 import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
@@ -30,7 +34,7 @@ import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
-	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
+	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode[] | TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> {
@@ -40,20 +44,29 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	get children() {
 		return this._children;
 	}
-	private _view: vscode.TreeView<TreeNode>;
+	private readonly _view: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
 	public notificationProvider: NotificationProvider;
 	public readonly prsTreeModel: PrsTreeModel;
+	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
+	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
 		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
-		this._register(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
-		this._register(new PRStatusDecorationProvider(this.prsTreeModel));
+		this._register(this.prsTreeModel.onDidChangeData(e => {
+			if (e instanceof FolderRepositoryManager) {
+				this.refreshRepo(e);
+			} else if (Array.isArray(e)) {
+				this.refreshPullRequests(e);
+			} else {
+				this.refresh(undefined, true);
+			}
+		}));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.refresh(undefined, true);
 		}));
@@ -66,6 +79,50 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+		}));
+
+		this._register(this._view.onDidChangeVisibility(e => {
+			if (e.visible) {
+				// Sync with currently active PR when view becomes visible
+				const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+				if (currentPR) {
+					this.syncWithActivePullRequest(currentPR);
+				}
+			}
+		}));
+
+		this._register({
+			dispose: () => {
+				if (this._notificationClearTimeout) {
+					clearTimeout(this._notificationClearTimeout);
+					this._notificationClearTimeout = undefined;
+				}
+			}
+		});
+
+		this._register(this._copilotManager.onDidChangeStates(() => {
+			this.refresh(undefined);
+		}));
+
+		this._register(this._copilotManager.onDidChangeNotifications(() => {
+			if (this._copilotManager.notificationsCount > 0) {
+				this._view.badge = {
+					tooltip: this._copilotManager.notificationsCount === 1 ? vscode.l10n.t('Coding agent has 1 pull request to view') : vscode.l10n.t('Coding agent has {0} pull requests to view', this._copilotManager.notificationsCount),
+					value: this._copilotManager.notificationsCount
+				};
+			} else {
+				this._view.badge = undefined;
+			}
+		}));
+
+		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh(undefined, true)));
+
+		// Listen for PR overview panel changes to sync the tree view
+		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
+			// Only sync if view is already visible (don't open the view)
+			if (this._view.visible) {
+				this.syncWithActivePullRequest(pullRequest);
+			}
 		}));
 
 		this._children = [];
@@ -135,6 +192,73 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return this._view.reveal(element, options);
 	}
 
+	/**
+	 * Sync the tree view with the currently active PR overview
+	 */
+	private async syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
+		const alreadySelected = this._view.selection.find(child => child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName));
+		if (alreadySelected) {
+			return;
+		}
+		try {
+			// Find the PR node in the tree and reveal it
+			const prNode = await this.findPRNode(pullRequest);
+			if (prNode) {
+				await this.reveal(prNode, { select: true, focus: false, expand: false });
+			}
+		} catch (error) {
+			// Silently ignore errors to avoid disrupting the user experience
+			Logger.warn(`Failed to sync tree view with active PR: ${error}`);
+		}
+	}
+
+	/**
+	 * Find a PR node in the tree structure
+	 */
+	private async findPRNode(pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		if (this._children.length === 0) {
+			await this.getChildren();
+		}
+
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const found = await this.findPRNodeInWorkspaceFolder(child, pullRequest);
+				if (found) return found;
+			} else if (child instanceof CategoryTreeNode) {
+				const found = await this.findPRNodeInCategory(child, pullRequest);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Search for PR node within a workspace folder node
+	 */
+	private async findPRNodeInWorkspaceFolder(workspaceNode: WorkspaceFolderNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		const children = await workspaceNode.getChildren(false);
+		for (const child of children) {
+			if (child instanceof CategoryTreeNode) {
+				const found = await this.findPRNodeInCategory(child, pullRequest);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Search for PR node within a category node
+	 */
+	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		const children = await categoryNode.getChildren(false);
+		for (const child of children) {
+			if (child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName)) {
+				return child;
+			}
+		}
+		return undefined;
+	}
+
 	initialize(reviewModels: ReviewModel[], credentialStore: CredentialStore) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
@@ -167,14 +291,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 	refresh(node?: TreeNode, reset?: boolean): void {
 		if (reset) {
-			this.prsTreeModel.clearCache();
+			this.prsTreeModel.clearCache(true);
 		}
 		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
 	}
 
 	private refreshRepo(manager: FolderRepositoryManager): void {
-		if (this._children.length === 0) {
-			return this.refresh();
+		if ((this._children.length === 0) || (this._children[0] instanceof CategoryTreeNode && this._children[0].folderRepoManager === manager)) {
+			return this.refresh(undefined, true);
 		}
 		if (this._children[0] instanceof WorkspaceFolderNode) {
 			const children: WorkspaceFolderNode[] = this._children as WorkspaceFolderNode[];
@@ -183,6 +307,73 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this._onDidChangeTreeData.fire(node);
 				return;
 			}
+		}
+	}
+
+	private refreshPullRequests(pullRequests: PullRequestChangeEvent[]): void {
+		if (!this._children?.length || !pullRequests?.length) {
+			return;
+		}
+		const prNodesToRefresh: TreeNode[] = [];
+		const prsWithStateChange = new Set();
+		const prNumbers = new Set();
+
+		for (const prChange of pullRequests) {
+			prNumbers.add(prChange.model.number);
+			if (prChange.event.state) {
+				prsWithStateChange.add(prChange.model.number);
+			}
+		}
+
+		const hasPRNode = (node: TreeNode) => {
+			const prNodes = node.children ?? [];
+			for (const prNode of prNodes) {
+				if (prNode instanceof PRNode && prsWithStateChange.has(prNode.pullRequestModel.number)) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		const categoriesToRefresh: Set<CategoryTreeNode> = new Set();
+		// First find the categories to refresh, since if we refresh a category we don't need to specifically refresh its children
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const categories = child.children ?? [];
+				for (const category of categories) {
+					if (category instanceof CategoryTreeNode && !categoriesToRefresh.has(category) && hasPRNode(category)) {
+						categoriesToRefresh.add(category);
+					}
+				}
+			} else if (child instanceof CategoryTreeNode && !categoriesToRefresh.has(child) && hasPRNode(child)) {
+				categoriesToRefresh.add(child);
+			}
+		}
+
+		// Yes, multiple PRs can exist in different repos with the same number, but at worst we'll refresh all the duplicate numbers, which shouldn't be many.
+		const collectPRNodes = (node: TreeNode) => {
+			const prNodes = node.children ?? [];
+			for (const prNode of prNodes) {
+				if (prNode instanceof PRNode && prNumbers.has(prNode.pullRequestModel.number)) {
+					prNodesToRefresh.push(prNode);
+				}
+			}
+		};
+
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const categories = child.children ?? [];
+				for (const category of categories) {
+					if (category instanceof CategoryTreeNode && !categoriesToRefresh.has(category)) {
+						collectPRNodes(category);
+					}
+				}
+			} else if (child instanceof CategoryTreeNode && !categoriesToRefresh.has(child)) {
+				collectPRNodes(child);
+			}
+		}
+		if (prNodesToRefresh.length || categoriesToRefresh.size > 0) {
+			this._onDidChangeTreeData.fire([...Array.from(categoriesToRefresh), ...prNodesToRefresh]);
 		}
 	}
 
@@ -255,13 +446,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 			let result: WorkspaceFolderNode[] | CategoryTreeNode[];
 			if (gitHubFolderManagers.length === 1) {
-				result = WorkspaceFolderNode.getCategoryTreeNodes(
+				result = await WorkspaceFolderNode.getCategoryTreeNodes(
 					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
 					this.notificationProvider,
 					this._context,
-					this.prsTreeModel
+					this.prsTreeModel,
+					this._copilotManager,
 				);
 			} else {
 				result = gitHubFolderManagers.map(
@@ -273,7 +465,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 							this._telemetry,
 							this.notificationProvider,
 							this._context,
-							this.prsTreeModel
+							this.prsTreeModel,
+							this._copilotManager
 						),
 				);
 			}

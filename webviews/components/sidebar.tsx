@@ -85,7 +85,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 								<button
 									id="assign-copilot-btn"
 									className="icon-button"
-									title="Assign to Copilot"
+									title="Assign for Copilot to work on"
 									disabled={assigningCopilot}
 									onClick={async () => {
 										setAssigningCopilot(true);
@@ -186,7 +186,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 							? projects.map(project => (
 								<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
 							)) :
-							<div className="section-placeholder">None Yet</div>
+							<div className="section-placeholder">None yet</div>
 					}
 				</div>
 			}

@@ -31,6 +31,8 @@ import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -40,11 +42,13 @@ describe('GitHub Pull Requests view', function () {
 	let credentialStore: CredentialStore;
 	let reposManager: RepositoriesManager;
 	let createPrHelper: CreatePullRequestHelper;
-
+	let copilotManager: CopilotRemoteAgentManager;
+	let mockThemeWatcher: MockThemeWatcher;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
 
@@ -53,8 +57,9 @@ describe('GitHub Pull Requests view', function () {
 			credentialStore,
 			telemetry,
 		);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 		credentialStore = new CredentialStore(telemetry, context);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
 		createPrHelper = new CreatePullRequestHelper();
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
@@ -101,7 +106,7 @@ describe('GitHub Pull Requests view', function () {
 	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 		provider.initialize([], credentialStore);
 
 		const rootNodes = await provider.getChildren();
@@ -111,7 +116,7 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await reposManager.folderManagers[0].updateRepositories();
 		provider.initialize([], credentialStore);
@@ -124,7 +129,7 @@ describe('GitHub Pull Requests view', function () {
 		assert(treeItems[treeItems.length - 1].collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
-			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],
+			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 		);
 	});
 
@@ -151,7 +156,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
+			const prItem0 = await parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
 			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
@@ -168,7 +173,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem1 = parseGraphQLPullRequest(pr1.repository.pullRequest, gitHubRepository);
+			const prItem1 = await parseGraphQLPullRequest(pr1.repository.pullRequest, gitHubRepository);
 			const pullRequest1 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();
@@ -181,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper);
+			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
 			reposManager.insertFolderManager(manager);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);

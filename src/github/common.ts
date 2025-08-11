@@ -4,6 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
+import type { Uri } from 'vscode';
+import { Repository } from '../api/api';
+import { GitHubRemote } from '../common/remote';
+import { SessionInfo, SessionSetupStep } from './copilotApi';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 
 export namespace OctokitCommon {
 	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];
@@ -71,8 +77,14 @@ export namespace OctokitCommon {
 	export type Commit = CompareCommits['commits'][0];
 	export type CommitFiles = CompareCommits['files']
 	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
+	export type ListEventsForTimelineResponse = Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/timeline']['response']['data'][0];
+	export type ListWorkflowRunsForRepo = Endpoints['GET /repos/{owner}/{repo}/actions/runs']['response']['data'];
+	export type WorkflowRun = Endpoints['GET /repos/{owner}/{repo}/actions/runs']['response']['data']['workflow_runs'][0];
+	export type WorkflowJob = Endpoints['GET /repos/{owner}/{repo}/actions/jobs/{job_id}']['response']['data'];
+	export type WorkflowJobs = Endpoints['GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs']['response']['data'];
 }
 
+// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 export type Schema = { [key: string]: any, definitions: any[]; };
 export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema) {
 	const sharedSchemaDefinitions = sharedSchema.definitions;
@@ -83,4 +95,65 @@ export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema)
 		...sharedSchema,
 		definitions: mergedDefinitions
 	};
+}
+
+type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: Uri; llmDetails: string };
+type RemoteAgentErrorResult = { error: string; state: 'error' };
+export type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
+
+export interface IAPISessionLogs {
+	readonly info: SessionInfo;
+	readonly logs: string;
+	readonly setupSteps: SessionSetupStep[] | undefined;
+}
+
+export interface ICopilotRemoteAgentCommandArgs {
+	userPrompt: string;
+	summary?: string;
+	source?: 'prompt' | (string & {});
+	followup?: string;
+	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
+}
+
+export interface ICopilotRemoteAgentCommandResponse {
+	uri: string;
+	title: string;
+	description: string;
+	author: string;
+	linkTag: string;
+}
+
+export interface ToolCall {
+	function: {
+		arguments: string;
+		name: 'bash' | 'reply_to_comment' | (string & {});
+	};
+	id: string;
+	type: string;
+	index: number;
+}
+
+export interface AssistantDelta {
+	content?: string;
+	role: 'assistant' | (string & {});
+	tool_calls?: ToolCall[];
+}
+
+export interface Choice {
+	finish_reason?: 'tool_calls' | (string & {});
+	delta: {
+		content?: string;
+		role: 'assistant' | (string & {});
+		tool_calls?: ToolCall[];
+	};
+}
+
+export interface RepoInfo {
+	owner: string;
+	repo: string;
+	baseRef: string;
+	remote: GitHubRemote;
+	repository: Repository;
+	ghRepository: GitHubRepository;
+	fm: FolderRepositoryManager;
 }

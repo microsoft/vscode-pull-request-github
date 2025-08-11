@@ -17,6 +17,7 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -68,6 +69,7 @@ async function getWebviewConfig(mode, env, entry) {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
+		new MonacoWebpackPlugin(),
 	];
 
 	return {
@@ -107,7 +109,7 @@ async function getWebviewConfig(mode, env, entry) {
 			rules: [
 				{
 					exclude: /node_modules/,
-					include: [basePath, path.join(__dirname, 'src')],
+					include: [basePath, path.join(__dirname, 'src'), path.join(__dirname, 'common')],
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
@@ -133,6 +135,10 @@ async function getWebviewConfig(mode, env, entry) {
 				{
 					test: /\.svg/,
 					use: ['svg-inline-loader'],
+				},
+				{
+					test: /\.ttf$/,
+					type: 'asset/resource'
 				},
 			],
 		},
@@ -182,7 +188,8 @@ async function getExtensionConfig(target, mode, env) {
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
 			},
-		})
+		}),
+		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
 	];
 
 	if (target === 'webworker') {
@@ -192,6 +199,9 @@ async function getExtensionConfig(target, mode, env) {
 				'node_modules',
 				'process',
 				'browser.js')
+		}));
+		plugins.push(new webpack.ProvidePlugin({
+			Buffer: ['buffer', 'Buffer']
 		}));
 	}
 
@@ -242,7 +252,7 @@ async function getExtensionConfig(target, mode, env) {
 			rules: [
 				{
 					exclude: /node_modules/,
-					include: path.join(__dirname, 'src'),
+					include: [path.join(__dirname, 'src'), path.join(__dirname, 'common')],
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
@@ -285,11 +295,7 @@ async function getExtensionConfig(target, mode, env) {
 					exclude: /node_modules/,
 					test: /\.(graphql|gql)$/,
 					loader: 'graphql-tag/loader',
-				},
-				// {
-				// 	test: /webview-*\.js/,
-				// 	use: 'raw-loader'
-				// },
+				}
 			],
 		},
 		resolve: {
@@ -343,6 +349,7 @@ async function getExtensionConfig(target, mode, env) {
 			'@opentelemetry/instrumentation': '@opentelemetry/instrumentation',
 			'@azure/opentelemetry-instrumentation-azure-sdk': '@azure/opentelemetry-instrumentation-azure-sdk',
 			'fs': 'fs',
+			'mocha': 'commonjs mocha',
 		},
 		plugins: plugins,
 		stats: {
@@ -353,7 +360,7 @@ async function getExtensionConfig(target, mode, env) {
 			errorsCount: true,
 			warningsCount: true,
 			timings: true,
-		},
+		}
 	};
 }
 
@@ -378,6 +385,7 @@ module.exports =
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
 				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
+				'webview-session-log-view': './webviews/sessionLogView/index.tsx',
 			}),
 		]);
 	};

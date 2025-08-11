@@ -12,6 +12,9 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"chatParticipantAdditions",
+		"chatParticipantPrivate",
+		"chatSessionsProvider",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -26,15 +29,18 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
+		"languageModelDataPart",
+		"languageModelToolResultAudience",
 		"quickDiffProvider",
+		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.110.0",
+	"version": "0.116.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.100.0"
+		"vscode": "^1.103.0"
 	},
 	"categories": [
 		"Other",
@@ -49,7 +55,9 @@
 		"onFileSystem:newIssue",
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
-		"onFileSystem:review"
+		"onFileSystem:githubcommit",
+		"onFileSystem:review",
+		"onWebviewPanel:pr.codingAgentSessionLogView"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -61,13 +69,33 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatSessions": [
+			{
+				"type": "copilot-swe-agent",
+				"name": "copilot",
+				"displayName": "GitHub Copilot coding agent",
+				"description": "Chat session for GitHub Copilot coding agent",
+				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled'"
+			}
+		],
+		"remoteCodingAgents": [
+			{
+				"id": "githubCodingAgent",
+				"command": "githubpr.remoteAgent",
+				"displayName": "GitHub Copilot coding agent",
+				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
+				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
+				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
+			}
+		],
 		"chatParticipants": [
 			{
 				"id": "githubpr",
 				"name": "githubpr",
 				"fullName": "GitHub Pull Requests",
 				"description": "Chat participant for GitHub Pull Requests extension",
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat",
+				"isSticky": true
 			}
 		],
 		"configuration": {
@@ -177,22 +205,34 @@
 								"type": "string",
 								"description": "%githubPullRequests.queries.query.description%"
 							}
+						},
+						"default": {
+							"label": "%githubPullRequests.queries.assignedToMe%",
+							"query": "repo:${owner}/${repository} is:open assignee:${user}"
 						}
 					},
 					"scope": "resource",
 					"markdownDescription": "%githubPullRequests.queries.markdownDescription%",
 					"default": [
 						{
+							"label": "%githubPullRequests.queries.copilotOnMyBehalf%",
+							"query": "repo:${owner}/${repository} is:open author:copilot involves:${user}"
+						},
+						{
+							"label": "Local Pull Request Branches",
+							"query": "default"
+						},
+						{
 							"label": "%githubPullRequests.queries.waitingForMyReview%",
 							"query": "repo:${owner}/${repository} is:open review-requested:${user}"
 						},
 						{
-							"label": "%githubPullRequests.queries.assignedToMe%",
-							"query": "repo:${owner}/${repository} is:open assignee:${user}"
-						},
-						{
 							"label": "%githubPullRequests.queries.createdByMe%",
 							"query": "repo:${owner}/${repository} is:open author:${user}"
+						},
+						{
+							"label": "All Open",
+							"query": "default"
 						}
 					]
 				},
@@ -451,7 +491,11 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
+					"enum": [
+						"repositoryDefault",
+						"createdFromBranch",
+						"auto"
+					],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
 						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
@@ -463,17 +507,49 @@
 				"githubPullRequests.experimental.chat": {
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
-					"default": false
+					"default": true
 				},
-				"githubPullRequests.experimental.notificationsView": {
+				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
-					"markdownDescription": "%githubPullRequests.experimental.notificationsView.description%",
-					"default": false
+					"default": true,
+					"markdownDescription": "%githubPullRequests.codingAgent.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.codingAgent.autoCommitAndPush": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%githubPullRequests.codingAgent.autoCommitAndPush.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.codingAgent.promptForConfirmation": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%githubPullRequests.codingAgent.promptForConfirmation.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.codingAgent.uiIntegration": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%githubPullRequests.codingAgent.uiIntegration.description%",
+					"tags": [
+						"experimental",
+						"onExP"
+					]
 				},
 				"githubPullRequests.experimental.notificationsMarkPullRequests": {
 					"type": "string",
 					"markdownDescription": "%githubPullRequests.experimental.notificationsMarkPullRequests.description%",
-					"enum": ["markAsDone", "markAsRead", "none"],
+					"enum": [
+						"markAsDone",
+						"markAsRead",
+						"none"
+					],
 					"default": "none"
 				},
 				"githubPullRequests.experimental.useQuickChat": {
@@ -582,7 +658,7 @@
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
-					"default": "${issueTitle} ${issueNumberLabel}",
+					"default": "${issueTitle}\nFixes ${issueNumberLabel}",
 					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
 				"githubIssues.workingIssueFormatScm": {
@@ -627,7 +703,9 @@
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
 							"query": "is:open assignee:${user} repo:${owner}/${repository}",
-							"groupBy": ["milestone"]
+							"groupBy": [
+								"milestone"
+							]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",
@@ -660,6 +738,12 @@
 						"overview",
 						"multiDiff",
 						false
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.focusedMode.firstDiff%",
+						"%githubPullRequests.focusedMode.overview%",
+						"%githubPullRequests.focusedMode.multiDiff%",
+						"%githubPullRequests.focusedMode.false%"
 					],
 					"default": "multiDiff",
 					"description": "%githubPullRequests.focusedMode.description%"
@@ -702,7 +786,7 @@
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(git-pull-request)",
+					"icon": "$(github-inverted)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
@@ -715,9 +799,10 @@
 				{
 					"id": "notifications:github",
 					"name": "%view.notifications.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && config.githubPullRequests.experimental.notificationsView && (remoteName != codespaces || !isWeb)",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && (remoteName != codespaces || !isWeb)",
 					"icon": "$(bell)",
-					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
+					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "github:conflictResolution",
@@ -732,6 +817,7 @@
 					"type": "webview",
 					"name": "%view.github.create.pull.request.name%",
 					"when": "github:createPullRequest || github:revertPullRequest",
+					"icon": "$(git-pull-request-create)",
 					"visibility": "visible",
 					"initialSize": 2
 				},
@@ -739,6 +825,7 @@
 					"id": "github:compareChangesFiles",
 					"name": "%view.github.compare.changes.name%",
 					"when": "github:createPullRequest",
+					"icon": "$(git-compare)",
 					"visibility": "visible",
 					"initialSize": 1
 				},
@@ -746,6 +833,7 @@
 					"id": "github:compareChangesCommits",
 					"name": "%view.github.compare.changesCommits.name%",
 					"when": "github:createPullRequest",
+					"icon": "$(git-compare)",
 					"visibility": "visible",
 					"initialSize": 1
 				},
@@ -753,7 +841,7 @@
 					"id": "prStatus:github",
 					"name": "%view.pr.status.github.name%",
 					"when": "github:inReviewMode && !github:createPullRequest && !github:revertPullRequest",
-					"icon": "$(git-pull-request)",
+					"icon": "$(diff-multiple)",
 					"visibility": "visible",
 					"initialSize": 3
 				},
@@ -762,16 +850,23 @@
 					"type": "webview",
 					"name": "%view.github.active.pull.request.name%",
 					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && !github:revertPullRequest && github:activePRCount <= 1",
+					"icon": "$(code-review)",
 					"initialSize": 2
 				},
 				{
 					"id": "github:activePullRequest:welcome",
 					"name": "%view.github.active.pull.request.welcome.name%",
-					"when": "!github:stateValidated && github:focusedReview"
+					"when": "!github:stateValidated && github:focusedReview",
+					"icon": "$(git-pull-request)"
 				}
 			]
 		},
 		"commands": [
+			{
+				"command": "githubpr.remoteAgent",
+				"title": "%command.githubpr.remoteAgent.title%",
+				"enablement": "config.githubPullRequests.codingAgent.enabled"
+			},
 			{
 				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
@@ -1216,6 +1311,21 @@
 				"icon": "$(eye)"
 			},
 			{
+				"command": "pr.checkoutFromDescription",
+				"title": "%command.pr.checkoutFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.checkoutOnVscodeDevFromDescription",
+				"title": "%command.pr.checkoutOnVscodeDevFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.openSessionLogFromDescription",
+				"title": "%command.pr.openSessionLogFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -1233,12 +1343,14 @@
 			{
 				"command": "review.comment",
 				"title": "%command.review.comment.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewCommentCommentEnabled"
 			},
 			{
 				"command": "review.requestChanges",
 				"title": "%command.review.requestChanges.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewRequestChangesEnabled"
 			},
 			{
 				"command": "review.approveOnDotCom",
@@ -1258,12 +1370,14 @@
 			{
 				"command": "review.commentDescription",
 				"title": "%command.review.comment.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewCommentCommentEnabled"
 			},
 			{
 				"command": "review.requestChangesDescription",
 				"title": "%command.review.requestChanges.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "github:reviewRequestChangesEnabled"
 			},
 			{
 				"command": "review.approveOnDotComDescription",
@@ -1340,6 +1454,11 @@
 			{
 				"command": "pr.copyVscodeDevPrLink",
 				"title": "%command.pr.copyVscodeDevPrLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "pr.copyPrLink",
+				"title": "%command.pr.copyPrLink.title%",
 				"category": "%command.issues.category%"
 			},
 			{
@@ -1601,6 +1720,17 @@
 				"title": "%command.notifications.configureNotificationsViewlet.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(gear)"
+			},
+			{
+				"command": "codingAgent.openSessionLog",
+				"title": "%command.codingAgent.openSessionLog.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.refreshChatSessions",
+				"title": "%command.pr.refreshChatSessions.title%",
+				"icon": "$(refresh)",
+				"category": "%command.pull.request.category%"
 			}
 		],
 		"viewsWelcome": [
@@ -1691,8 +1821,13 @@
 			},
 			{
 				"view": "notifications:github",
-				"when": "!github:notificationCount",
+				"when": "!github:notificationCount && workspaceFolderCount > 0",
 				"contents": "%welcome.github.notificationsLoading.contents%"
+			},
+			{
+				"view": "notifications:github",
+				"when": "workspaceFolderCount == 0",
+				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "notifications:github",
@@ -1732,6 +1867,10 @@
 					"when": "false"
 				},
 				{
+					"command": "githubpr.remoteAgent",
+					"when": "false"
+				},
+				{
 					"command": "pr.configureRemotes",
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
@@ -1741,6 +1880,10 @@
 				},
 				{
 					"command": "pr.pick",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutFromReadonlyFile",
 					"when": "false"
 				},
 				{
@@ -1857,6 +2000,18 @@
 				},
 				{
 					"command": "pr.toggleEditorCommentingOff",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
 					"when": "false"
 				},
 				{
@@ -2018,6 +2173,10 @@
 				{
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
+				},
+				{
+					"command": "pr.copyPrLink",
+					"when": "false"
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
@@ -2461,6 +2620,11 @@
 					"command": "notifications.refresh",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
 					"group": "navigation@1"
+				},
+				{
+					"command": "pr.refreshChatSessions",
+					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
+					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [
@@ -2521,7 +2685,7 @@
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /prStatus:github/ && viewItem =~ /(description)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "inline@0"
 				},
 				{
@@ -3179,6 +3343,34 @@
 				{
 					"command": "review.requestChangesOnDotComDescription",
 					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+				},
+				{
+					"command": "pr.copyPrLink",
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.openChanges",
+					"group": "checkout@0",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
+				}
+			],
+			"chat/chatSessions": [
+				{
+					"command": "pr.openDescription",
+					"when": "chatSessionType == copilot-swe-agent"
 				}
 			]
 		},
@@ -3276,6 +3468,37 @@
 			}
 		],
 		"languageModelTools": [
+			{
+				"name": "github-pull-request_copilot-coding-agent",
+				"displayName": "%languageModelTools.github-pull-request_copilot-coding-agent.displayName%",
+				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously. IMPORTANT: Use this tool LAST/FINAL when users mention '#github-pull-request_copilot-coding-agent' in their query. This indicates they want the task/job implemented by the remote coding agent after all other analysis, planning, and preparation is complete. Call this tool at the END to hand off the fully-scoped task to the asynchronous GitHub Copilot coding agent. The agent will create a new branch, implement the changes, and open a pull request. Always use this tool as the final step when the hashtag is mentioned, after completing any other necessary tools or analysis first.",
+				"when": "config.githubPullRequests.codingAgent.enabled",
+				"icon": "$(send-to-remote-agent)",
+				"canBeReferencedInPrompt": true,
+				"toolReferenceName": "copilotCodingAgent",
+				"userDescription": "%languageModelTools.github-pull-request_copilot-coding-agent.userDescription%",
+				"inputSchema": {
+					"type": "object",
+					"required": [
+						"title",
+						"body"
+					],
+					"properties": {
+						"title": {
+							"type": "string",
+							"description": "The title of the issue. Populate from chat context."
+						},
+						"body": {
+							"type": "string",
+							"description": "The body/description of the issue. Populate from chat context."
+						},
+						"existingPullRequest": {
+							"type": "number",
+							"description": "The number of an existing pull request related to the current coding agent task. Look in the chat history for this number.  In the chat it may look like 'Coding agent will continue work in #17...'. In this example, you should return '17'."
+						}
+					}
+				}
+			},
 			{
 				"name": "github-pull-request_issue_fetch",
 				"tags": [
@@ -3803,7 +4026,7 @@
 				],
 				"toolReferenceName": "activePullRequest",
 				"displayName": "%languageModelTools.github-pull-request_activePullRequest.displayName%",
-				"modelDescription": "Get information about the active or current GitHub pull request (PR). This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI. When asked about the active pull request, do this first!",
+				"modelDescription": "Get comprehensive information about the active or current GitHub pull request (PR). This includes the PR title, full description, list of changed files, review comments, PR state, and status checks/CI results. For PRs created by Copilot, it also includes the session logs which indicate the development process and decisions made by the coding agent. When asked about the active or current pull request, do this first! Use this tool for any request related to \"current changes,\" \"pull request details,\" \"what changed,\" \"PR status,\" or similar queries even if the user does not explicitly mention \"pull request.\"",
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_activePullRequest.description%",
@@ -3821,7 +4044,7 @@
 		"compile:test": "tsc -p tsconfig.test.json",
 		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
-		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
+		"lint": "eslint --fix --cache --config .eslintrc.js --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"package": "npx vsce package --yarn",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
@@ -3838,6 +4061,7 @@
 		"prepare": "husky install"
 	},
 	"devDependencies": {
+		"@shikijs/monaco": "^3.7.0",
 		"@types/chai": "^4.1.4",
 		"@types/glob": "7.1.3",
 		"@types/lru-cache": "^5.1.0",
@@ -3852,17 +4076,18 @@
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
-		"@vscode/test-electron": "^2.3.8",
-		"@vscode/test-web": "^0.0.29",
+		"@vscode/test-electron": "^2.5.2",
+		"@vscode/test-web": "^0.0.71",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
 		"constants-browserify": "^1.0.0",
 		"crypto-browserify": "3.12.0",
-		"css-loader": "5.1.3",
+		"css-loader": "7.1.2",
 		"esbuild-loader": "4.2.2",
 		"eslint": "7.22.0",
 		"eslint-cli": "1.1.1",
 		"eslint-plugin-import": "2.22.1",
+		"eslint-plugin-rulesdir": "^0.2.2",
 		"event-stream": "^4.0.1",
 		"fork-ts-checker-webpack-plugin": "6.1.1",
 		"glob": "7.1.6",
@@ -3879,21 +4104,21 @@
 		"mocha": "^9.0.1",
 		"mocha-junit-reporter": "1.23.0",
 		"mocha-multi-reporters": "1.1.7",
+		"monaco-editor-webpack-plugin": "^7.1.0",
 		"os-browserify": "^0.3.0",
 		"p-all": "^1.0.0",
 		"path-browserify": "1.0.1",
 		"process": "^0.11.10",
-		"raw-loader": "4.0.2",
 		"react-testing-library": "7.0.1",
 		"sinon": "9.0.0",
 		"source-map-support": "0.5.19",
 		"stream-browserify": "^3.0.0",
-		"style-loader": "2.0.0",
+		"style-loader": "4.0.0",
 		"svg-inline-loader": "^0.8.2",
 		"temp": "0.9.4",
 		"terser-webpack-plugin": "5.1.1",
 		"timers-browserify": "^2.0.12",
-		"ts-loader": "8.0.18",
+		"ts-loader": "9.5.2",
 		"tty": "1.0.1",
 		"typescript": "4.5.5",
 		"typescript-formatter": "^7.2.2",
@@ -3904,6 +4129,7 @@
 	"dependencies": {
 		"@octokit/rest": "20.1.2",
 		"@octokit/types": "13.8.0",
+		"@vscode/codicons": "^0.0.36",
 		"@vscode/extension-telemetry": "0.7.5",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
@@ -3914,17 +4140,26 @@
 		"debounce": "^1.2.1",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",
+		"jsonc-parser": "^3.3.1",
+		"jszip": "^3.10.1",
 		"lru-cache": "6.0.0",
+		"markdown-it": "^14.1.0",
 		"marked": "^4.0.10",
+		"monaco-editor": "^0.52.2",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
+		"shiki": "^3.7.0",
 		"ssh-config": "4.1.1",
 		"stream-http": "^3.2.0",
+		"temporal-polyfill": "^0.3.0",
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",
 		"vscode-tas-client": "^0.1.84",
 		"vsls": "^0.3.967"
+	},
+	"resolutions": {
+		"string_decoder": "^1.3.0"
 	},
 	"license": "MIT"
 }

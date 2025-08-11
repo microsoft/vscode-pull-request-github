@@ -8,18 +8,19 @@ import * as vscode from 'vscode';
 import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, Issue, ProjectItemsReply } from './views';
+import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -42,6 +43,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		issue: IssueModel,
 		toTheSide: Boolean = false,
 	) {
+		await ensureEmojis(folderRepositoryManager.context);
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
@@ -132,13 +134,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				}
 			}));
 
+		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
+			this.updateItem(this._item);
+		}));
+
 		this._register(this._panel.onDidChangeViewState(e => this.onDidChangeViewState(e)));
-		this.pollForUpdates();
+		this.lastRefreshTime = new Date();
+		this.pollForUpdates(true);
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`)) {
-				this.pollForUpdates();
+				this.pollForUpdates(this._panel.visible, true);
 			}
 		}));
+		this._register({ dispose: () => clearTimeout(this.timeout) });
 
 	}
 
@@ -148,27 +156,36 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	protected onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		if (e.webviewPanel.visible) {
-			this.pollForUpdates(true);
+			this.pollForUpdates(!!this._item, true);
 		}
 	}
 
 	private timeout: NodeJS.Timeout | undefined = undefined;
-	private pollForUpdates(refreshImmediately: boolean = false): void {
+	private lastRefreshTime: Date;
+	private pollForUpdates(isVisible: boolean, refreshImmediately: boolean = false): void {
 		clearTimeout(this.timeout);
+		const refresh = async () => {
+			const previousRefreshTime = this.lastRefreshTime;
+			this.lastRefreshTime = await this._item.getLastUpdateTime(previousRefreshTime);
+			if (this.lastRefreshTime.getTime() > previousRefreshTime.getTime()) {
+				return this.refreshPanel();
+			}
+		};
+
 		if (refreshImmediately) {
-			this.refreshPanel();
+			refresh();
 		}
-		const webview = vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
+		const webview = isVisible || vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
 		const timeoutDuration = 1000 * (webview ? this.getRefreshInterval() : (5 * 60));
 		this.timeout = setTimeout(async () => {
-			await this.refreshPanel();
-			this.pollForUpdates();
+			await refresh();
+			this.pollForUpdates(this._panel.visible);
 		}, timeoutDuration);
 	}
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			this.update(this._folderRepositoryManager, this._item);
+			await this.update(this._folderRepositoryManager, this._item);
 		}
 	}
 
@@ -176,10 +193,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, coAuthors: IAccount[], timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
+	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
+		const labels = issue.item.labels.map(label => ({
+			...label,
+			displayName: emojify(label.name)
+		}));
+
 		const context: Issue = {
+			owner: issue.remote.owner,
+			repo: issue.remote.repositoryName,
 			number: issue.number,
 			title: issue.title,
 			titleHTML: issue.titleHTML,
@@ -187,7 +211,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			createdAt: issue.createdAt,
 			body: issue.body,
 			bodyHTML: issue.bodyHTML,
-			labels: issue.item.labels,
+			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			events: timelineEvents,
@@ -202,13 +226,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
 			reactions: issue.item.reactions,
-			isAuthor: [issue.author, ...coAuthors].find(user => user.login === currentUser.login) !== undefined,
+			isAuthor: issue.author.login === currentUser.login,
 		};
 
 		return context;
 	}
 
-	public async updateIssue(issueModel: IssueModel): Promise<void> {
+	protected async updateItem(issueModel: TItem): Promise<void> {
 		try {
 			const [
 				issue,
@@ -223,7 +247,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.getIssueTimelineEvents(),
+				issueModel.getIssueTimelineEvents(issueModel),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -242,7 +266,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(currentUser, issue, [], timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
+				pullrequest: this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
 			});
 
 		} catch (e) {
@@ -250,15 +274,32 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel): Promise<void> {
-		this._folderRepositoryManager = foldersManager;
+	protected registerPrListeners() {
+		// none for issues
+	}
+
+	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
+		if (this._folderRepositoryManager !== foldersManager) {
+			this._folderRepositoryManager = foldersManager;
+			this.registerPrListeners();
+		}
+
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview();
-		return this.updateIssue(issueModel);
+		if (!this._item || (this._item.number !== issueModel.number) || !this._panel.webview.html) {
+			this._panel.webview.html = this.getHtmlForWebview();
+			this._postMessage({ command: 'pr.clear' });
+
+		}
+
+		if (progressLocation) {
+			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel));
+		} else {
+			return this.updateItem(issueModel);
+		}
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -320,14 +361,74 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	protected submitReviewMessage(message: IRequestMessage<string>) {
-		return this.createComment(message);
+	protected async submitReviewMessage(message: IRequestMessage<string>) {
+		const comment = await this._item.createIssueComment(message.args);
+		const commentedEvent: CommentEvent = {
+			...comment,
+			event: EventType.Commented
+		};
+		const allEvents = await this._getTimeline();
+		const reply: SubmitReviewReply = {
+			events: allEvents,
+			reviewedEvent: commentedEvent,
+		};
+		this.tryScheduleCopilotRefresh(comment.body);
+		return this._replyMessage(message, reply);
+	}
+
+	private _scheduledRefresh: Promise<void> | undefined;
+	protected async tryScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
+		if (!this._scheduledRefresh) {
+			this._scheduledRefresh = this.doScheduleCopilotRefresh(commentBody, reviewType)
+				.finally(() => {
+					this._scheduledRefresh = undefined;
+				});
+		}
+	}
+
+	private async doScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
+		if (!COPILOT_ACCOUNTS[this._item.author.login]) {
+			return;
+		}
+
+		if (!commentBody.includes('@copilot') && !commentBody.includes('@Copilot') && reviewType !== 'CHANGES_REQUESTED') {
+			return;
+		}
+
+		const initialTimeline = await this._getTimeline();
+		const delays = [250, 500, 1000, 2000];
+
+		for (const delay of delays) {
+			await new Promise(resolve => setTimeout(resolve, delay));
+			if (this._isDisposed) {
+				return;
+			}
+
+			try {
+				const currentTimeline = await this._getTimeline();
+
+				// Check if we have any new CopilotStarted events
+				if (currentTimeline.length > initialTimeline.length) {
+					// Found a new CopilotStarted event, refresh and stop
+					this.refreshPanel();
+					return;
+				}
+			} catch (error) {
+				// If timeline fetch fails, continue with the next retry
+				Logger.warn(`Failed to fetch timeline during Copilot refresh retry: ${error}`, IssueOverviewPanel.ID);
+			}
+		}
+
+		// If no new CopilotStarted events were found after all retries, still refresh once
+		if (!this._isDisposed) {
+			this.refreshPanel();
+		}
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
+		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
 		try {
-			let newLabels: ILabel[] = [];
+			let newLabels: DisplayLabel[] = [];
 
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
@@ -343,15 +444,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return quickPick.selectedItems;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
+			const labelsToAdd = await Promise.race<readonly (vscode.QuickPickItem & { name: string })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 			quickPick.enabled = false;
 
 			if (labelsToAdd) {
-				await this._item.setLabels(labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
-
-				this._item.item.labels = addedLabels;
+				await this._item.setLabels(labelsToAdd.map(r => r.name));
+				const addedLabels: DisplayLabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.name)!);
 
 				await this._replyMessage(message, {
 					added: addedLabels,
@@ -368,10 +467,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.removeLabel(message.args);
-
-			const index = this._item.item.labels.findIndex(label => label.name === message.args);
-			this._item.item.labels.splice(index, 1);
-
 			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
@@ -405,6 +500,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
+	protected _getTimeline(): Promise<TimelineEvent[]> {
+		return this._item.getIssueTimelineEvents(this._item);
+	}
+
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount }>();
 
@@ -428,7 +527,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				await this._item.replaceAssignees(newAssignees);
-				const events = await this._item.getIssueTimelineEvents();
+				const events = await this._getTimeline();
 				const reply: ChangeAssigneesReply = {
 					assignees: newAssignees,
 					events
@@ -495,7 +594,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._item.getIssueTimelineEvents();
+			const events = await this._getTimeline();
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -513,7 +612,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(copilotUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._item.getIssueTimelineEvents();
+			const events = await this._getTimeline();
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -586,18 +685,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			closeEvent: closeUpdate.closedEvent
 		};
 		this._replyMessage(message, result);
-	}
-
-	private createComment(message: IRequestMessage<string>) {
-		return this._item.createIssueComment(message.args).then(comment => {
-			const commentedEvent: CommentEvent = {
-				...comment,
-				event: EventType.Commented
-			};
-			return this._replyMessage(message, {
-				event: commentedEvent,
-			});
-		});
 	}
 
 	protected set _currentPanel(panel: IssueOverviewPanel | undefined) {

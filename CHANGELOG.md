@@ -1,5 +1,129 @@
 # Changelog
 
+## 0.116.0
+
+### Changes
+
+- `#copilotCodingAgent` renders the pull requests it creates as a PR card.
+
+![pull request card in chat](./documentation/changelog/0.116.0/pr-card-in-chat.png)
+
+- When checking out a Copilot-authored PR, the Chat view no longer opens.
+- You can dismiss the activity bar badge that indicates that Copilot has udpates to a PR by opening the PR description.
+- We've simplified the button bar on the pull request description.
+
+![simplified button bar in pull request header](./documentation/changelog/0.116.0/simplified-pr-header-buttons.png)
+
+![pull request copy actions moved to link context menu](./documentation/changelog/0.116.0/pr-header-copy-actions.png)
+
+- You can see a summary of the Copilot coding agent's status in the "Copilot on My Behalf" tree item
+
+![coding agent summary](./documentation/changelog/0.116.0/coding-agent-status.png)
+
+- The commit links in the pull request description will open in VS Code in the multidiff editor instead of going to GitHub.com.
+- The `[WIP]` prefix that Copilot adds to PR titles is no longer shown in the Pull Requests view.
+- Using `@githubpr` is now sticky and will be pre-populated into the chat input for subsequent messages.
+- Changes in a PR are pre-fetched when the PR description is opened.
+- Pull requested created by Copilot will have `@copilot` as placeholder text in comment inputs.
+- If your issue queries (setting `githubIssues.queries`) return no issues, a suggestion to configure your queries is offered.
+
+![suggestion in scm input to configure queries](./documentation/changelog/0.116.0/suggest-configure-queries.png)
+
+- The "Checkout Pull Request by Number" command will also accept a pull URL.
+
+### Fixes
+
+- Improve PR list view performance. https://github.com/microsoft/vscode-pull-request-github/issues/7141
+- "Cancel coding agent" could use status. https://github.com/microsoft/vscode-pull-request-github/issues/7451
+- Icon missing from the tools picker for coding agent. https://github.com/microsoft/vscode-pull-request-github/issues/7446
+- Copy GitHub Permalink doesn't work for GitHub Managed User (ghe.com). https://github.com/microsoft/vscode-pull-request-github/issues/7389
+- Closing a pull request doesn't remove it from the copilot on my behalf section. https://github.com/microsoft/vscode-pull-request-github/issues/7364
+- `@githubpr` doesn't know PR assignees. https://github.com/microsoft/vscode-pull-request-github/issues/7349
+- "Copilot on My Behalf" tooltip. https://github.com/microsoft/vscode-pull-request-github/issues/7276
+- Unassigning myself from a PR removes all comments from the PR editor. https://github.com/microsoft/vscode-pull-request-github/issues/7218
+- GitHub warning icons aren't well aligned in PR view. https://github.com/microsoft/vscode-pull-request-github/issues/7219
+- pr.openDescription command error. https://github.com/microsoft/vscode/issues/253900
+- Can't assign Copilot when creating new issue from GHPRI directly. https://github.com/microsoft/vscode-pull-request-github/issues/7033
+- Create PR shows error if there has been a previous PR on that branch. https://github.com/microsoft/vscode-pull-request-github/issues/7018
+- Changing around assignees for PRs causes timeline to hide until refresh. https://github.com/microsoft/vscode-pull-request-github/issues/7012
+- Can times in the timeline update periodically? https://github.com/microsoft/vscode-pull-request-github/issues/7006
+- Pull requests view should refresh if a new PR suddenly appears linked in an issue. https://github.com/microsoft/vscode-pull-request-github/issues/6898
+- Opening Issue editor should be instantaneous. https://github.com/microsoft/vscode-pull-request-github/issues/6863
+
+## 0.114.2
+
+### Fixes
+
+- Copilot never shows as assignee. https://github.com/microsoft/vscode-pull-request-github/issues/7324
+
+## 0.114.1
+
+### Fixes
+
+- Element with id Local Pull Request Branches is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/7264
+
+## 0.114.0
+
+### Changes
+
+- We have expanded the integration with GitHub's [Copilot coding agent](https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent) (enablement [instructions](https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent/enabling-copilot-coding-agent)). You can see the status of all your Coding Agent pull requests in the "Pull Requests" view, and you'll get a badge indicating when a pull request from the Coding Agent has changes.
+
+![Pull Requests view with Copilot status](./documentation/changelog/0.114.0/copilot-pr-status.png)
+
+- Links for viewing the Coding Agent session log now open within VS Code instead of opening in the browser.
+
+![Coding Agent Session Log](./documentation/changelog/0.114.0/session-log.png)
+
+- The `#activePullRequest` tool in Copilot chat now knows more about the active pull request: changes and Coding Agent session information. This tool is automatically attached to chat when opening a pull request created through the coding agent experience, so you can maintain the context and keep working on the pull request if needed to.
+
+- When checking out a pull request which doesn't have any diff from the parent branch, the pull request description will be opened, instead of the changes when `"githubPullRequests.focusedMode"` is set to `"multiDiff"` or `"firstDiff"`.
+
+- You can start a new Coding Agent session by invoking the `#copilotCodingAgent` tool in chat. This tool automatically pushes pending changes to a remote branch and initiates a coding agent session from that branch along with the user's instruction. **Experimental:** Deeper UI integration can be enabled with the `setting(githubPullRequests.codingAgent.uiIntegration)` setting.  Once enabled, a new **Delegate to coding agent** button appears in the Chat view for repositories that have the coding agent enabled.
+
+![Coding Agent Start](./documentation/changelog/0.114.0/coding-agent-start.png)
+
+### Fixes
+
+- Leaving a comment shows a pending comment box with an empty input. https://github.com/microsoft/vscode-pull-request-github/issues/7200
+- Lack of 👀 reaction in PR view is important for coding agent. https://github.com/microsoft/vscode-pull-request-github/issues/7213
+- Don't use comment icon to mean quote. https://github.com/microsoft/vscode-pull-request-github/issues/7185
+- PR view always expands and fetches "All Open". https://github.com/microsoft/vscode-pull-request-github/issues/7150
+- Expect option to Open issue in editor after creating new issue. https://github.com/microsoft/vscode-pull-request-github/issues/7034
+- Consider setting a default githubIssues.issueCompletionFormatScm. https://github.com/microsoft/vscode-pull-request-github/issues/7017
+- Times are inconsistent with .com. https://github.com/microsoft/vscode-pull-request-github/issues/7007
+- Padawan Start/Stop Events/Icons. https://github.com/microsoft/vscode-pull-request-github/issues/7004
+- Can't check out a local pull request branch. https://github.com/microsoft/vscode-pull-request-github/issues/6994
+- Unable to get the currently logged-in user. https://github.com/microsoft/vscode-pull-request-github/issues/6971
+- Stuck at creating fork. https://github.com/microsoft/vscode-pull-request-github/issues/6968
+
+**_Thank You_**
+
+* [@dyhagho (Dyhagho Briceño)](https://github.com/dyhagho): fix: Allow Github.com auth when `github-enterprise.uri` is set [PR #7002](https://github.com/microsoft/vscode-pull-request-github/pull/7002)
+
+## 0.112.0
+
+### Changes
+- Images in comments from private repositories are now shown in pull request file comments.
+- The "Notifications" view is now shown by default, collapsed.
+- Issue and pull request links in the timeline an in the issue/pull request body are now opened in VS Code, rather than going to the browser.
+- The "Assigned to Me" query in the "Pull Requests" view has been removed, and the "Local Pull Request Branches" and "All Open" queries can be removed using the setting `githubPullRequests.queries`. For repositories with Copilot, a "Copilot on My Behalf" query is added when the setting is unconfigured.
+- Unassigned events are now shown in the timeline.
+- Copilot "start working", "stop working", and "View Session" are now shown in the timeline.
+
+![Copilot start and stop working](./documentation/changelog/0.112.0/copilot-start-stop.png)
+
+### Fixes
+
+- Interference with interactive rebase. https://github.com/microsoft/vscode-pull-request-github/issues/4904
+- Closed PRs get associated with new branches of the same name. https://github.com/microsoft/vscode-pull-request-github/issues/6711
+- Fails to open PR's description in some repos on GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/6736
+- Support closing an issue. https://github.com/microsoft/vscode-pull-request-github/issues/6864
+- Pull request diff shows outdated diff. https://github.com/microsoft/vscode-pull-request-github/issues/6889
+
+**_Thank You_**
+
+* [@kabel (Kevin Abel)](https://github.com/kabel): Allow verified GitHub emails when none are private [PR #6921](https://github.com/microsoft/vscode-pull-request-github/pull/6921)
+
 ## 0.110.0
 
 ### Changes

@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URL } from 'url';
 import LRUCache from 'lru-cache';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
@@ -363,22 +362,9 @@ export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github
 	const enterpriseUri = getEnterpriseUri();
 	let fetchUrl = upstream.fetchUrl;
 	if (enterpriseUri && fetchUrl) {
-		// upstream's origin by https
-		if (fetchUrl.startsWith('https://') && !fetchUrl.startsWith('https://github.com/')) {
-			const host = new URL(fetchUrl).host;
-			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
-				resultHost = enterpriseUri.authority;
-			}
-		}
-		if (fetchUrl.startsWith('ssh://')) {
-			fetchUrl = fetchUrl.substr('ssh://'.length);
-		}
-		// upstream's origin by ssh
-		if ((fetchUrl.startsWith('git@') || fetchUrl.includes('@git')) && !fetchUrl.startsWith('git@github.com')) {
-			const host = fetchUrl.split('@')[1]?.split(':')[0];
-			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
-				resultHost = enterpriseUri.authority;
-			}
+		const protocol = new Protocol(fetchUrl);
+		if (protocol.host.startsWith(enterpriseUri.authority) || !protocol.host.includes('github.com')) {
+			resultHost = enterpriseUri.authority;
 		}
 	}
 	return `https://${resultHost}`;

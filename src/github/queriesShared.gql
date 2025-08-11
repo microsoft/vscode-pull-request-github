@@ -103,6 +103,7 @@ fragment Comment on IssueComment {
 	viewerCanUpdate
 	viewerCanReact
 	viewerCanDelete
+	...Reactable
 }
 
 fragment Commit on PullRequestCommit {
@@ -121,12 +122,26 @@ fragment Commit on PullRequestCommit {
 		}
 		oid
 		message
-		authoredDate
+		committedDate
 	}
 	url
 }
 
 fragment AssignedEvent on AssignedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	user {
+		...Node
+		...Actor
+		...User
+	}
+	createdAt
+}
+
+fragment UnassignedEvent on UnassignedEvent {
 	id
 	actor {
 		...Node
@@ -152,11 +167,23 @@ fragment CrossReferencedEvent on CrossReferencedEvent {
 			number
 			url
 			title
+			repository: baseRepository {
+				owner {
+					login
+				}
+				name
+			}
 		}
 		... on Issue {
 			number
 			url
 			title
+			repository {
+				owner {
+					login
+				}
+				name
+			}
 		}
 	}
 	willCloseTarget
@@ -197,6 +224,7 @@ fragment Review on PullRequestReview {
 	submittedAt
 	updatedAt
 	createdAt
+	...Reactable
 }
 
 fragment Reactable on Reactable {
@@ -276,6 +304,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...Review
 					...Commit
 					...AssignedEvent
+					...UnassignedEvent
 					...HeadRefDeleted
 					...CrossReferencedEvent
 					...ClosedEvent
@@ -297,9 +326,346 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					__typename
 					...Comment
 					...AssignedEvent
+					...UnassignedEvent
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query LatestUpdates($owner: String!, $name: String!, $number: Int!, $since: DateTime!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
+				nodes {
+					createdAt
+				}
+			}
+			updatedAt
+			comments(orderBy: {direction:DESC, field: UPDATED_AT}, first: 1) {
+				nodes {
+					updatedAt
+					reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
+						nodes {
+							createdAt
+						}
+					}
+				}
+			}
+			timelineItems(since: $since, first: 1) {
+				nodes {
+					... on AddedToMergeQueueEvent {
+						createdAt
+					}
+					... on AddedToProjectEvent {
+						createdAt
+					}
+					... on AssignedEvent {
+						createdAt
+					}
+					... on AutoMergeDisabledEvent {
+						createdAt
+					}
+					... on AutoMergeEnabledEvent {
+						createdAt
+					}
+					... on AutoRebaseEnabledEvent {
+						createdAt
+					}
+					... on AutoSquashEnabledEvent {
+						createdAt
+					}
+					... on AutomaticBaseChangeFailedEvent {
+						createdAt
+					}
+					... on AutomaticBaseChangeSucceededEvent {
+						createdAt
+					}
+					... on BaseRefChangedEvent {
+						createdAt
+					}
+					... on BaseRefDeletedEvent {
+						createdAt
+					}
+					... on BaseRefForcePushedEvent {
+						createdAt
+					}
+					... on ClosedEvent {
+						createdAt
+					}
+					... on CommentDeletedEvent {
+						createdAt
+					}
+					... on ConnectedEvent {
+						createdAt
+					}
+					... on ConvertToDraftEvent {
+						createdAt
+					}
+					... on ConvertedNoteToIssueEvent {
+						createdAt
+					}
+					... on ConvertedToDiscussionEvent {
+						createdAt
+					}
+					... on CrossReferencedEvent {
+						createdAt
+					}
+					... on DemilestonedEvent {
+						createdAt
+					}
+					... on DeployedEvent {
+						createdAt
+					}
+					... on DeploymentEnvironmentChangedEvent {
+						createdAt
+					}
+					... on DisconnectedEvent {
+						createdAt
+					}
+					... on HeadRefDeletedEvent {
+						createdAt
+					}
+					... on HeadRefForcePushedEvent {
+						createdAt
+					}
+					... on HeadRefRestoredEvent {
+						createdAt
+					}
+					... on IssueComment {
+						createdAt
+					}
+					... on IssueTypeAddedEvent {
+						createdAt
+					}
+					... on LabeledEvent {
+						createdAt
+					}
+					... on LockedEvent {
+						createdAt
+					}
+					... on MarkedAsDuplicateEvent {
+						createdAt
+					}
+					... on MentionedEvent {
+						createdAt
+					}
+					... on MergedEvent {
+						createdAt
+					}
+					... on MilestonedEvent {
+						createdAt
+					}
+					... on MovedColumnsInProjectEvent {
+						createdAt
+					}
+					... on PinnedEvent {
+						createdAt
+					}
+					... on PullRequestCommit {
+						commit {
+							committedDate
+						}
+					}
+					... on PullRequestReview {
+						createdAt
+					}
+					... on PullRequestReviewThread {
+						comments(last: 1) {
+							nodes {
+								createdAt
+							}
+						}
+					}
+					... on PullRequestRevisionMarker {
+						createdAt
+					}
+					... on ReadyForReviewEvent {
+						createdAt
+					}
+					... on ReferencedEvent {
+						createdAt
+					}
+					... on RemovedFromMergeQueueEvent {
+						createdAt
+					}
+					... on RemovedFromProjectEvent {
+						createdAt
+					}
+					... on RenamedTitleEvent {
+						createdAt
+					}
+					... on ReopenedEvent {
+						createdAt
+					}
+					... on ReviewDismissedEvent {
+						createdAt
+					}
+					... on ReviewRequestRemovedEvent {
+						createdAt
+					}
+					... on ReviewRequestedEvent {
+						createdAt
+					}
+					... on SubscribedEvent {
+						createdAt
+					}
+					... on TransferredEvent {
+						createdAt
+					}
+					... on UnassignedEvent {
+						createdAt
+					}
+					... on UnlabeledEvent {
+						createdAt
+					}
+					... on UnlockedEvent {
+						createdAt
+					}
+					... on UnmarkedAsDuplicateEvent {
+						createdAt
+					}
+					... on UnpinnedEvent {
+						createdAt
+					}
+					... on UnsubscribedEvent {
+						createdAt
+					}
+					... on UserBlockedEvent {
+						createdAt
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query LatestIssueUpdates($owner: String!, $name: String!, $number: Int!, $since: DateTime!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
+				nodes {
+					createdAt
+				}
+			}
+			updatedAt
+			comments(orderBy: {direction:DESC, field: UPDATED_AT}, first: 1) {
+				nodes {
+					updatedAt
+					reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
+						nodes {
+							createdAt
+						}
+					}
+				}
+			}
+			timelineItems(since: $since, first: 1) {
+				nodes {
+					... on AddedToProjectEvent {
+						createdAt
+					}
+					... on AssignedEvent {
+						createdAt
+					}
+					... on ClosedEvent {
+						createdAt
+					}
+					... on CommentDeletedEvent {
+						createdAt
+					}
+					... on ConnectedEvent {
+						createdAt
+					}
+					... on ConvertedNoteToIssueEvent {
+						createdAt
+					}
+					... on ConvertedToDiscussionEvent {
+						createdAt
+					}
+					... on CrossReferencedEvent {
+						createdAt
+					}
+					... on DemilestonedEvent {
+						createdAt
+					}
+					... on DisconnectedEvent {
+						createdAt
+					}
+					... on IssueComment {
+						createdAt
+					}
+					... on IssueTypeAddedEvent {
+						createdAt
+					}
+					... on LabeledEvent {
+						createdAt
+					}
+					... on LockedEvent {
+						createdAt
+					}
+					... on MarkedAsDuplicateEvent {
+						createdAt
+					}
+					... on MentionedEvent {
+						createdAt
+					}
+					... on MilestonedEvent {
+						createdAt
+					}
+					... on MovedColumnsInProjectEvent {
+						createdAt
+					}
+					... on PinnedEvent {
+						createdAt
+					}
+					... on ReferencedEvent {
+						createdAt
+					}
+					... on RemovedFromProjectEvent {
+						createdAt
+					}
+					... on RenamedTitleEvent {
+						createdAt
+					}
+					... on ReopenedEvent {
+						createdAt
+					}
+					... on SubscribedEvent {
+						createdAt
+					}
+					... on TransferredEvent {
+						createdAt
+					}
+					... on UnassignedEvent {
+						createdAt
+					}
+					... on UnlabeledEvent {
+						createdAt
+					}
+					... on UnlockedEvent {
+						createdAt
+					}
+					... on UnmarkedAsDuplicateEvent {
+						createdAt
+					}
+					... on UnpinnedEvent {
+						createdAt
+					}
+					... on UnsubscribedEvent {
+						createdAt
+					}
+					... on UserBlockedEvent {
+						createdAt
+					}
 				}
 			}
 		}
@@ -768,6 +1134,13 @@ mutation UpdateIssue($input: UpdateIssueInput!) {
 			bodyHTML
 			title
 			titleHTML
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
 		}
 	}
 }
@@ -779,6 +1152,13 @@ mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
 			bodyHTML
 			title
 			titleHTML
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
 		}
 	}
 }
@@ -1161,7 +1541,11 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 					...Review
 					...Commit
 					...AssignedEvent
+					...UnassignedEvent
 					...HeadRefDeleted
+					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}

@@ -16,7 +16,7 @@ export function main() {
 
 export function Root({ children }) {
 	const ctx = useContext(PullRequestContext);
-	const [pr, setPR] = useState<PullRequest>(ctx.pr);
+	const [pr, setPR] = useState<PullRequest | undefined>(ctx.pr);
 	useEffect(() => {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);

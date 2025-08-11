@@ -15,6 +15,7 @@ import { fromPRUri, fromRepoUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { PullRequestChangeEvent } from './githubRepository';
 import { IssueModel } from './issueModel';
 import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
@@ -45,6 +46,15 @@ export class RepositoriesManager extends Disposable {
 	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
 	readonly onDidLoadAnyRepositories = this._onDidLoadAnyRepositories.event;
 
+	private _onDidChangeAnyPullRequests = new vscode.EventEmitter<PullRequestChangeEvent[]>();
+	readonly onDidChangeAnyPullRequests = this._onDidChangeAnyPullRequests.event;
+
+	private _onDidAddPullRequest = new vscode.EventEmitter<IssueModel>();
+	readonly onDidAddPullRequest = this._onDidAddPullRequest.event;
+
+	private _onDidAddAnyGitHubRepository = new vscode.EventEmitter<FolderRepositoryManager>();
+	readonly onDidChangeAnyGitHubRepository = this._onDidAddAnyGitHubRepository.event;
+
 	private _state: ReposManagerState = ReposManagerState.Initializing;
 
 	constructor(
@@ -72,12 +82,15 @@ export class RepositoriesManager extends Disposable {
 
 	private registerFolderListeners(folderManager: FolderRepositoryManager) {
 		const disposables = [
-			folderManager.onDidLoadRepositories(state => {
-				this.state = state;
+			folderManager.onDidLoadRepositories(() => {
+				this.updateState();
 				this._onDidLoadAnyRepositories.fire();
 			}),
 			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount()),
-			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository))
+			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository)),
+			folderManager.onDidChangeAnyPullRequests(e => this._onDidChangeAnyPullRequests.fire(e)),
+			folderManager.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)),
+			folderManager.onDidChangeGithubRepositories(() => this._onDidAddAnyGitHubRepository.fire(folderManager)),
 		];
 		this._subs.set(folderManager, disposables);
 	}
@@ -179,11 +192,29 @@ export class RepositoriesManager extends Disposable {
 		return this._state;
 	}
 
-	set state(state: ReposManagerState) {
-		const stateChange = state !== this._state;
-		this._state = state;
+	private updateState(state?: ReposManagerState) {
+		let maxState = ReposManagerState.Initializing;
+		if (state) {
+			maxState = state;
+		} else {
+			// Get the most advanced state from all folder managers
+			const stateValue = (testState: ReposManagerState) => {
+				switch (testState) {
+					case ReposManagerState.Initializing: return 0;
+					case ReposManagerState.NeedsAuthentication: return 1;
+					case ReposManagerState.RepositoriesLoaded: return 2;
+				}
+			};
+			for (const folderManager of this._folderManagers) {
+				if (stateValue(folderManager.state) > stateValue(maxState)) {
+					maxState = folderManager.state;
+				}
+			}
+		}
+		const stateChange = maxState !== this._state;
+		this._state = maxState;
 		if (stateChange) {
-			vscode.commands.executeCommand('setContext', ReposManagerStateContext, state);
+			vscode.commands.executeCommand('setContext', ReposManagerStateContext, maxState);
 			this._onDidChangeState.fire();
 		}
 	}
@@ -194,7 +225,7 @@ export class RepositoriesManager extends Disposable {
 
 	async clearCredentialCache(): Promise<void> {
 		await this._credentialStore.reset();
-		this.state = ReposManagerState.Initializing;
+		this.updateState(ReposManagerState.Initializing);
 	}
 
 	async authenticate(enterprise?: boolean): Promise<boolean> {

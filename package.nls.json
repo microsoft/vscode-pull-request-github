@@ -13,17 +13,22 @@
 	"githubPullRequests.defaultCreateOption.createAutoMerge": "The pull request will be created with auto-merge enabled. The merge method selected will be the default for the repo or the value of `githubPullRequests.defaultMergeMethod` if set.",
 	"githubPullRequests.createDraft": "Whether the \"Draft\" checkbox will be checked by default when creating a pull request.",
 	"githubPullRequests.logLevel.description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request.",
-	"githubPullRequests.logLevel.markdownDeprecationMessage":{
+	"githubPullRequests.logLevel.markdownDeprecationMessage": {
 		"message": "Log level is now controlled by the [Developer: Set Log Level...](command:workbench.action.setLogLevel) command. You can set the log level for the current session and also the default log level from there.",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:workbench.action.setLogLevel)'}"
 		]
 	},
+	"githubPullRequests.codingAgent.description": "Enables integration with the asynchronous Copilot coding agent. The '#copilotCodingAgent' tool will be available in agent mode when this setting is enabled.",
+	"githubPullRequests.codingAgent.uiIntegration.description": "Enables UI integration within VS Code to create new coding agent sessions.",
+	"githubPullRequests.codingAgent.autoCommitAndPush.description": "Allow automatic git operations (commit, push) to be performed when starting a coding agent session",
+	"githubPullRequests.codingAgent.promptForConfirmation.description": "Prompt for confirmation before initiating a coding agent session from the UI integration.",
 	"githubPullRequests.remotes.markdownDescription": "List of remotes, by name, to fetch pull requests from.",
 	"githubPullRequests.queries.markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. All queries are made against **the currently opened repos**. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The following variables can be used: \n - `${user}` will resolve to the currently logged in user \n - `${owner}` will resolve to the owner of the current repository, ex. `microsoft` in `microsoft/vscode` \n - `${repository}` will resolve to the repository name, ex. `vscode` in `microsoft/vscode` \n - `${today-Nd}`, where `N` is the number of days ago, will resolve to a date, ex. `2025-01-04`. \n\n By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
 	"githubPullRequests.queries.label.description": "The label to display for the query in the Pull Requests tree",
 	"githubPullRequests.queries.query.description": "The query used for searching pull requests.",
+	"githubPullRequests.queries.copilotOnMyBehalf": "Copilot on My Behalf",
 	"githubPullRequests.queries.waitingForMyReview": "Waiting For My Review",
 	"githubPullRequests.queries.assignedToMe": "Assigned To Me",
 	"githubPullRequests.queries.createdByMe": "Created By Me",
@@ -102,7 +107,7 @@
 	"githubIssues.ignoreUserCompletionTrigger.description": "Languages that the '@' character should not be used to trigger user completion suggestions.",
 	"githubIssues.ignoreUserCompletionTrigger.items": "Language that user completions should not trigger on '@'.",
 	"githubIssues.issueBranchTitle.markdownDescription": {
-		"message": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseIssueTitle}` ",
+		"message": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replaced with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseIssueTitle}` ",
 		"comment": [
 			"{Locked='${...}'}",
 			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
@@ -141,6 +146,10 @@
 	"githubIssues.queries.default.recentIssues": "Recent Issues",
 	"githubIssues.assignWhenWorking.description": "Assigns the issue you're working on to you. Only applies when the issue you're working on is in a repo you currently have open.",
 	"githubPullRequests.focusedMode.description": "The layout to use when a pull request is checked out. Set to false to prevent layout changes.",
+	"githubPullRequests.focusedMode.firstDiff": "Show the first diff in the pull request. If there are no changes, show the overview.",
+	"githubPullRequests.focusedMode.overview": "Show the overview of the pull request.",
+	"githubPullRequests.focusedMode.multiDiff": "Show all diffs in the pull request. If there are no changes, show the overview.",
+	"githubPullRequests.focusedMode.false": "Do not change the layout.",
 	"githubPullRequests.showPullRequestNumberInTree.description": "Shows the pull request number in the tree view.",
 	"githubPullRequests.labelCreated.description": "Group of labels that you want to add to the pull request automatically. Labels that don't exist in the repository won't be added.",
 	"githubPullRequests.labelCreated.label.description": "Each string element is value of label that you want to add",
@@ -150,7 +159,7 @@
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
 	"view.pr.github.accessibilityHelpContent": {
-		"message":"Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List<keybinding:pr.refreshList>\n-GitHub Pull Requests: Focus on Issues View<keybinding:issues:github.focus> \n-GitHub Pull Requests: Focus on Pull Requests View<keybinding:pr:github.focus>\n-GitHub Issues: Copy GitHub Permalink<keybinding:issue.copyGithubPermalink>\n-GitHub Issues: Create an Issue<keybinding:issue.createIssueFromFile>\n-GitHub Pull Requests: Create Pull Request<keybinding:pr.create>",
+		"message": "Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List<keybinding:pr.refreshList>\n-GitHub Pull Requests: Focus on Issues View<keybinding:issues:github.focus> \n-GitHub Pull Requests: Focus on Pull Requests View<keybinding:pr:github.focus>\n-GitHub Issues: Copy GitHub Permalink<keybinding:issue.copyGithubPermalink>\n-GitHub Issues: Create an Issue<keybinding:issue.createIssueFromFile>\n-GitHub Pull Requests: Create Pull Request<keybinding:pr.create>",
 		"comment": [
 			"Do not translate the contents of (...) or <...> in the message. They are commands that will be replaced with the actual command name and keybinding."
 		]
@@ -165,6 +174,7 @@
 	"view.github.active.pull.request.name": "Review Pull Request",
 	"view.github.active.pull.request.welcome.name": "Active Pull Request",
 	"command.pull.request.category": "GitHub Pull Requests",
+	"command.githubpr.remoteAgent.title": "Remote agent integration",
 	"command.pr.create.title": "Create Pull Request",
 	"command.pr.pick.title": "Checkout Pull Request",
 	"command.pr.openChanges.title": "Open Changes",
@@ -201,6 +211,7 @@
 	"command.review.createSuggestionFromChange.title": "Convert to Pull Request Suggestion",
 	"command.review.copyPrLink.title": "Copy Pull Request Link",
 	"command.pr.refreshList.title": "Refresh Pull Requests List",
+	"command.pr.refreshChatSessions.title": "Refresh Chat Sessions",
 	"command.pr.setFileListLayoutAsTree.title": "View as Tree",
 	"command.pr.setFileListLayoutAsFlat.title": "View as List",
 	"command.pr.refreshChanges.title": "Refresh",
@@ -248,7 +259,8 @@
 	"command.issues.category": "GitHub Issues",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",
-	"command.pr.copyVscodeDevPrLink.title": "Copy vscode.dev Pull Request Link",
+	"command.pr.copyVscodeDevPrLink.title": "Copy vscode.dev Link",
+	"command.pr.copyPrLink.title": "Copy Link",
 	"command.pr.createPrMenuCreate.title": "Create",
 	"command.pr.createPrMenuDraft.title": "Create Draft",
 	"command.pr.createPrMenuSquash.title": "Create + Auto-Squash",
@@ -261,6 +273,9 @@
 	"command.pr.closeRelatedEditors.title": "Close All Pull Request Editors",
 	"command.pr.toggleEditorCommentingOn.title": "Toggle Editor Commenting On",
 	"command.pr.toggleEditorCommentingOff.title": "Toggle Editor Commenting Off",
+	"command.pr.checkoutFromDescription.title": "Checkout",
+	"command.pr.checkoutOnVscodeDevFromDescription.title": "Checkout on vscode.dev",
+	"command.pr.openSessionLogFromDescription.title": "View Session",
 	"command.issue.openDescription.title": "View Issue Description",
 	"command.issue.copyGithubDevLink.title": "Copy github.dev Link",
 	"command.issue.copyGithubPermalink.title": "Copy GitHub Permalink",
@@ -304,9 +319,10 @@
 	"command.notifications.markPullRequestsAsDone.title": "Mark Pull Requests as Done",
 	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
+	"command.codingAgent.openSessionLog.title": "Open Coding Agent Session Log",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:pr.signin)'}"
 		]
@@ -314,7 +330,7 @@
 	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload.",
 	"welcome.github.loginNoEnterprise.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signinNoEnterprise)",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:pr.signinNoEnterprise)'}"
 		]
@@ -329,7 +345,7 @@
 	"welcome.pr.github.uninitialized.contents": "Loading...",
 	"welcome.pr.github.noFolder.contents": {
 		"message": "You have not yet opened a folder.\n[Open Folder](command:workbench.action.files.openFolder)",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:workbench.action.files.openFolder)'}"
 		]
@@ -368,6 +384,7 @@
 	"languageModelTools.github-pull-request_doSearch.displayName": "Execute a GitHub search",
 	"languageModelTools.github-pull-request_renderIssues.displayName": "Render issue items in a markdown table",
 	"languageModelTools.github-pull-request_activePullRequest.displayName": "Active Pull Request",
-	"languageModelTools.github-pull-request_activePullRequest.description": "Get information about the active GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI."
-
+	"languageModelTools.github-pull-request_activePullRequest.description": "Get information about the active GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI.",
+	"languageModelTools.github-pull-request_copilot-coding-agent.displayName": "Copilot coding agent",
+	"languageModelTools.github-pull-request_copilot-coding-agent.userDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously. Launch an autonomous GitHub Copilot agent to work on coding tasks in the background. The agent will create a new branch, implement the requested changes, and open a pull request with the completed work."
 }

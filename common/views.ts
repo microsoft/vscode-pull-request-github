@@ -5,7 +5,7 @@
 
 import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
 import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
-import { PreReviewState } from '../src/github/views';
+import { DisplayLabel, PreReviewState } from '../src/github/views';
 
 export interface RemoteInfo {
 	owner: string;
@@ -108,7 +108,7 @@ export interface CreateParamsNew {
 	compareBranch?: string;
 	isDraftDefault: boolean;
 	isDraft?: boolean;
-	labels?: ILabel[];
+	labels?: DisplayLabel[];
 	projects?: IProject[];
 	assignees?: IAccount[];
 	reviewers?: (IAccount | ITeam)[];
@@ -173,6 +173,10 @@ export interface CloseResult {
 	state: GithubItemStateEnum;
 	commentEvent?: CommentEvent;
 	closeEvent: ClosedEvent;
+}
+
+export interface OpenCommitChangesArgs {
+	commitSha: string;
 }
 
 // #endregion

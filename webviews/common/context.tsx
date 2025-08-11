@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { CloseResult } from '../../common/views';
+import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
-import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
-import { ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest } from '../../src/github/views';
+import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
+import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
+import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
 export class PRContext {
 	constructor(
-		public pr: PullRequest = getState(),
-		public onchange: ((ctx: PullRequest) => void) | null = null,
+		public pr: PullRequest | undefined = getState(),
+		public onchange: ((ctx: PullRequest | undefined) => void) | null = null,
 		private _handler: MessageHandler | null = null,
 	) {
 		if (!_handler) {
@@ -33,9 +33,13 @@ export class PRContext {
 
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
+	public openChanges = (openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { openToTheSide } });
+
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
 	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });
+
+	public cancelCodingAgent = (event: TimelineEvent): Promise<CancelCodingAgentReply> => this.postMessage({ command: 'pr.cancel-coding-agent', args: event });
 
 	public exitReviewMode = async () => {
 		if (!this.pr) {
@@ -49,7 +53,17 @@ export class PRContext {
 
 	public gotoChangesSinceReview = () => this.postMessage({ command: 'pr.gotoChangesSinceReview' });
 
-	public refresh = () => this.postMessage({ command: 'pr.refresh' });
+	public refresh = async () =>{
+		if (this.pr) {
+			this.pr.busy = true;
+		}
+		this.updatePR(this.pr);
+		await this.postMessage({ command: 'pr.refresh' });
+		if (this.pr) {
+			this.pr.busy = false;
+		}
+		this.updatePR(this.pr);
+	};
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
@@ -89,6 +103,9 @@ export class PRContext {
 	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
 		const { pr } = this;
+		if (!pr) {
+			throw new Error('Unexpectedly no PR when trying to delete comment');
+		}
 		const { id, pullRequestReviewId } = args;
 		if (!pullRequestReviewId) {
 			this.updatePR({
@@ -106,11 +123,11 @@ export class PRContext {
 			console.error('No comments to delete for review:', pullRequestReviewId, review);
 			return;
 		}
-		this.pr.events.splice(index, 1, {
+		pr.events.splice(index, 1, {
 			...review,
 			comments: review.comments.filter(c => c.id !== id),
 		});
-		this.updatePR(this.pr);
+		this.updatePR(pr);
 	};
 
 	public editComment = (args: { comment: IComment; text: string }) =>
@@ -126,19 +143,29 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	public requestChanges = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }));
+	private async submitReviewCommand(command: string, body: string) {
+		try {
+			const result: SubmitReviewReply = await this.postMessage({ command, args: body });
+			return this.appendReview(result);
+		} catch (error) {
+			return this.updatePR({ busy: false });
+		}
+	}
 
-	public approve = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }));
+	public requestChanges = (body: string) => this.submitReviewCommand('pr.request-changes', body);
 
-	public submit = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }));
+	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
+
+	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
 
 	public close = async (body?: string) => {
+		const { pr } = this;
+		if (!pr) {
+			throw new Error('Unexpectedly no PR when trying to close');
+		}
 		try {
 			const result: CloseResult = await this.postMessage({ command: 'pr.close', args: body });
-			let events: TimelineEvent[] = [...this.pr.events];
+			let events: TimelineEvent[] = [...pr.events];
 			if (result.commentEvent) {
 				events.push(result.commentEvent);
 			}
@@ -156,8 +183,12 @@ export class PRContext {
 	};
 
 	public removeLabel = async (label: string) => {
+		const { pr } = this;
+		if (!pr) {
+			throw new Error('Unexpectedly no PR when trying to remove label');
+		}
 		await this.postMessage({ command: 'pr.remove-label', args: label });
-		const labels = this.pr.labels.filter(r => r.name !== label);
+		const labels = pr.labels.filter(r => r.name !== label);
 		this.updatePR({ labels });
 	};
 
@@ -165,25 +196,23 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ event, reviewers }: { event?: ReviewEvent | TimelineEvent, reviewers?: ReviewState[] }) {
-		const state = this.pr;
+	private appendReview(reply: SubmitReviewReply) {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no PR when trying to append review');
+		}
+		const { events, reviewers, reviewedEvent } = reply;
 		state.busy = false;
-		if (!event) {
+		if (!events) {
 			this.updatePR(state);
 			return;
 		}
-		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state?.toLowerCase() !== 'pending');
-		events.forEach(event => {
-			if (event.event === EventType.Reviewed) {
-				event.comments.forEach(c => (c.isDraft = false));
-			}
-		});
 		if (reviewers) {
 			state.reviewers = reviewers;
 		}
-		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), event];
-		if (event.event === EventType.Reviewed) {
-			state.currentUserReviewState = event.state;
+		state.events = events.length === 0 ? [...state.events, reviewedEvent] : events;
+		if (reviewedEvent.event === EventType.Reviewed) {
+			state.currentUserReviewState = reviewedEvent.state;
 		}
 		state.pendingCommentText = '';
 		state.pendingReviewType = undefined;
@@ -191,31 +220,43 @@ export class PRContext {
 	}
 
 	public reRequestReview = async (reviewerId: string) => {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no PR when trying to re-request review');
+		}
 		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerId });
-		const state = this.pr;
 		state.reviewers = reviewers;
 		this.updatePR(state);
 	}
 
 	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no PR when trying to update auto merge');
+		}
 		const response: { autoMerge: boolean, autoMergeMethod?: MergeMethod } = await this.postMessage({ command: 'pr.update-automerge', args: { autoMerge, autoMergeMethod } });
-		const state = this.pr;
 		state.autoMerge = response.autoMerge;
 		state.autoMergeMethod = response.autoMergeMethod;
 		this.updatePR(state);
 	}
 
 	public updateBranch = async () => {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no PR when trying to update branch');
+		}
 		const result: Partial<PullRequest> = await this.postMessage({ command: 'pr.update-branch' });
-		const state = this.pr;
 		state.events = result.events ?? state.events;
 		state.mergeable = result.mergeable ?? state.mergeable;
 		this.updatePR(state);
 	}
 
 	public dequeue = async () => {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no PR when trying to dequeue');
+		}
 		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
-		const state = this.pr;
 		if (isDequeued) {
 			state.mergeQueueEntry = undefined;
 		}
@@ -223,8 +264,11 @@ export class PRContext {
 	}
 
 	public enqueue = async () => {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no PR when trying to enqueue');
+		}
 		const result = await this.postMessage({ command: 'pr.enqueue' });
-		const state = this.pr;
 		if (result.mergeQueueEntry) {
 			state.mergeQueueEntry = result.mergeQueueEntry;
 		}
@@ -247,7 +291,19 @@ export class PRContext {
 		});
 	};
 
-	setPR = (pr: PullRequest) => {
+	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
+
+		public openCommitChanges = async (commitSha: string) => {
+		this.updatePR({ loadingCommit: commitSha });
+		try {
+			const args: OpenCommitChangesArgs = { commitSha };
+			await this.postMessage({ command: 'pr.openCommitChanges', args });
+		} finally {
+			this.updatePR({ loadingCommit: undefined });
+		}
+	};
+
+	setPR = (pr: PullRequest | undefined) => {
 		this.pr = pr;
 		setState(this.pr);
 		if (this.onchange) {
@@ -256,9 +312,9 @@ export class PRContext {
 		return this;
 	};
 
-	updatePR = (pr: Partial<PullRequest>) => {
+	updatePR = (pr: Partial<PullRequest> | undefined) => {
 		updateState(pr);
-		this.pr = { ...this.pr, ...pr };
+		this.pr = this.pr ? { ...this.pr, ...pr } : pr as PullRequest;
 		if (this.onchange) {
 			this.onchange(this.pr);
 		}
@@ -271,6 +327,9 @@ export class PRContext {
 
 	handleMessage = (message: any) => {
 		switch (message.command) {
+			case 'pr.clear':
+				this.setPR(undefined);
+				return;
 			case 'pr.initialize':
 				return this.setPR(message.pullrequest);
 			case 'update-state':

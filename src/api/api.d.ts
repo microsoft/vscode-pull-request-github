@@ -257,6 +257,18 @@ export interface ReviewerCommentsProvider {
 	provideReviewerComments(context: { repositoryRoot: string, commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }, token: CancellationToken): Promise<ReviewerComments>;
 }
 
+export interface RepositoryDescription {
+	owner: string;
+	repositoryName: string;
+	defaultBranch: string;
+	pullRequest?: {
+		title: string;
+		url: string;
+		number: number;
+		id: number;
+	};
+}
+
 export interface API {
 	/**
 	 * Register a [git provider](#IGit)
@@ -280,4 +292,13 @@ export interface API {
 	 * Register a PR reviewer comments provider.
 	 */
 	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): Disposable;
+
+	/**
+	 * Get the repository description for a given URI, where the URI is a subpath of one of the workspace folders.
+	 * This includes the owner, repository name, default branch,
+	 * and pull request information (if applicable).
+	 *
+	 * @returns A promise that resolves to a `RepositoryDescription` object or `undefined` if no repository is found.
+	 */
+	getRepositoryDescription(uri: vscode.Uri): Promise<RepositoryDescription | undefined>;
 }

@@ -66,6 +66,12 @@ textarea:focus,
 	transform: translate(-50%, -50%);
 }
 
+.loading-button {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 4px;
+}
+
 .comment-body li div {
 	display: inline;
 }
@@ -198,6 +204,11 @@ body .comment-container .review-comment-header {
 .comment-actions button svg {
 	margin-right: 0;
 	height: 14px;
+}
+
+.comment-actions .icon-button {
+	padding-left: 2px;
+	padding-top: 2px;
 }
 
 .status-scroll {
@@ -377,9 +388,12 @@ button.input-box {
 
 body .comment-container .review-comment-header>span,
 body .comment-container .review-comment-header>a,
-body .commit .commit-message>a,
 body .merged .merged-message>a {
 	margin-right: 6px;
+}
+
+body .commit .commit-message>a {
+	margin-right: 3px;
 }
 
 body .comment-container .review-comment-container .pending-label,
@@ -470,8 +484,14 @@ body button .icon {
 	margin-top: 18px;
 }
 
+.overview-title {
+	display: flex;
+	align-items: center;
+}
+
 .overview-title h2 {
 	font-size: 32px;
+	margin-right: 6px;
 }
 
 .overview-title textarea {
@@ -507,6 +527,7 @@ body button .icon {
 }
 
 .branch-tag {
+	margin-top: 3px;
 	padding: 2px 4px;
 	background: var(--vscode-editorInlayHint-background);
 	color: var(--vscode-editorInlayHint-foreground);
@@ -521,12 +542,23 @@ body button .icon {
 .button-group {
 	display: flex;
 	gap: 8px;
+	flex-wrap: wrap;
+	align-items: flex-start;
 }
 
-.small-button {
+small-button {
 	display: flex;
 	font-size: 11px;
 	padding: 0 5px;
+}
+
+.header-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.header-actions>div:first-of-type {
+	flex: 1;
 }
 
 :not(.status-item)>.small-button {
@@ -660,17 +692,34 @@ body button .icon {
 }
 
 .commit .commit-message,
+.commit .timeline-with-detail,
 .merged .merged-message {
-	display: flex;
 	align-items: center;
 	overflow: hidden;
 	flex-grow: 1;
+}
+
+.commit .commit-message,
+.merged .merged-message {
+	display: flex;
+}
+
+.commit .timeline-with-detail {
+	display: block;
+}
+
+.commit-message-detail {
+	margin-left: 20px;
 }
 
 .commit .commit-message .avatar-container,
 .merged .merged-message .avatar-container {
 	margin-right: 4px;
 	flex-shrink: 0;
+}
+
+.commit-message .icon {
+	padding-top: 2px;
 }
 
 .commit .avatar-container .avatar,
@@ -694,6 +743,10 @@ body button .icon {
 	white-space: nowrap;
 }
 
+.commit .commit-message a.message {
+	cursor: pointer;
+}
+
 .timeline-detail {
 	display: flex;
 	align-items: center;
@@ -704,6 +757,7 @@ body button .icon {
 	min-width: 50px;
 	font-family: var(--vscode-editor-font-family);
 	margin-bottom: -2px;
+	cursor: pointer;
 }
 
 .merged .merged-message .message,
@@ -810,7 +864,7 @@ textarea {
 .editing-form {
 	padding: 5px 0;
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	min-width: 300px;
 }
 
@@ -830,12 +884,11 @@ textarea {
 	flex-grow: unset;
 }
 
-.dropdown-container {
+:not(.button-group) .dropdown-container {
 	justify-content: right;
 }
 
-.form-actions {
-	display: flex;
+:not(.title-editing-form)>.form-actions {
 	justify-content: flex-end;
 	padding-top: 10px;
 }
@@ -973,13 +1026,14 @@ code {
 
 .timestamp,
 .timestamp:hover {
-	color: var(--vscode-descriptionForeground);;
+	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 }
 
 .timestamp {
 	overflow: hidden;
 	text-overflow: ellipsis;
+	padding-left: 8px;
 }
 
 /** Theming */
@@ -1175,7 +1229,7 @@ code {
 	#sidebar {
 		display: grid;
 		column-gap: 20px;
-		grid-template-columns: 50% 50%;
+		grid-template-columns: calc(50% - 10px) calc(50% - 10px);
 		padding: 0;
 		padding-bottom: 24px;
 	}
@@ -1217,6 +1271,10 @@ code {
 	display: flex;
 }
 
+.icon.copilot-icon {
+	margin-right: 6px;
+}
+
 .action-bar {
 	position: absolute;
 	display: flex;
@@ -1246,7 +1304,7 @@ code {
 }
 
 .title-editing-form>.form-actions {
-	margin-left: 0;
+	margin-left: 8px;
 }
 
 /* permalinks */
@@ -1347,4 +1405,71 @@ code {
 
 .blob-code-marker-deletion::before {
 	content: "- ";
+}
+
+.markdown-alert.markdown-alert-warning {
+	border-left: .25em solid var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-note {
+	border-left: .25em solid var(--vscode-editorInfo-foreground);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+	color: var(--vscode-editorInfo-foreground);
+}
+
+.markdown-alert.markdown-alert-tip {
+	border-left: .25em solid var(--vscode-testing-iconPassed);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+	color: var(--vscode-testing-iconPassed);
+}
+
+.markdown-alert.markdown-alert-important {
+	border-left: .25em solid var(--vscode-statusBar-debuggingBackground);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+	color: var(--vscode-statusBar-debuggingBackground);
+}
+
+.markdown-alert.markdown-alert-caution {
+	border-left: .25em solid var(--vscode-editorError-foreground);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+	color: var(--vscode-editorError-foreground);
+}
+
+.markdown-alert {
+	padding: .5rem .5rem;
+	margin-bottom: 1rem;
+	color: inherit;
+}
+
+.markdown-alert .markdown-alert-title {
+	display: flex;
+	align-items: center;
+	line-height: 1;
+}
+
+.markdown-alert-title svg {
+	padding-right: 3px;
+}
+
+.markdown-alert>:first-child {
+	margin-top: 0;
+}
+
+svg.octicon path {
+	display: inline-block;
+	overflow: visible !important;
+	vertical-align: text-bottom;
+	fill: currentColor;
 }

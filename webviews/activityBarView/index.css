@@ -104,7 +104,6 @@ form button {
 .select-control button,
 .branch-status-container button,
 input[type='submit'] {
-	min-height: 31px;
 	white-space: normal;
 }
 
@@ -185,37 +184,5 @@ button .icon svg {
 }
 
 button.split-left {
-	border-radius: 2px 0 0 2px;
-	flex-grow: 1;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-}
-
-
-.split {
-	width: 1px; height: 100%;
-	background-color: var(--vscode-button-background);
-	opacity: 0.5;
-}
-
-button.split-right {
-	border-radius: 0 2px 2px 0;
-	cursor: pointer;
-	width: 24px; height: 28px;
-	position: relative;
-}
-
-button.split-right:disabled {
-	cursor: default;
-}
-
-button.split-right .icon {
-	pointer-events: none;
-	position: absolute;
-	top: 6px; right: 4px;
-}
-
-button.split-right .icon svg path {
-	fill: unset;
+	display: block;
 }

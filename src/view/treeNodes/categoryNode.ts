@@ -6,7 +6,10 @@
 import * as vscode from 'vscode';
 import { AuthenticationError } from '../../common/authentication';
 import { ITelemetry } from '../../common/telemetry';
+import { COPILOT_QUERY, Schemes } from '../../common/uri';
 import { formatError } from '../../common/utils';
+import { isCopilotQuery } from '../../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
@@ -14,6 +17,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { IQueryInfo } from './workspaceFolderNode';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -101,26 +105,50 @@ interface PageInformation {
 	hasMorePages: boolean;
 }
 
+export namespace DefaultQueries {
+	export namespace Queries {
+		export const LOCAL = 'Local Pull Request Branches';
+		export const ALL = 'All Open';
+	}
+	export namespace Values {
+		export const DEFAULT = 'default';
+	}
+}
+
+export function isLocalQuery(queryInfo: IQueryInfo): boolean {
+	return queryInfo.label === DefaultQueries.Queries.LOCAL && queryInfo.query === DefaultQueries.Values.DEFAULT;
+}
+
+export function isAllQuery(queryInfo: IQueryInfo): boolean {
+	return queryInfo.label === DefaultQueries.Queries.ALL && queryInfo.query === DefaultQueries.Values.DEFAULT;
+}
+
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: Map<number, PullRequestModel>;
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
+	public resourceUri: vscode.Uri;
+	public tooltip?: string | vscode.MarkdownString | undefined;
+	readonly isCopilot: boolean;
 
 	constructor(
 		parent: TreeNodeParent,
-		private _folderRepoManager: FolderRepositoryManager,
+		readonly folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
 		private _notificationProvider: NotificationProvider,
 		private _prsTreeModel: PrsTreeModel,
+		private _copilotManager: CopilotRemoteAgentManager,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
 		super(parent);
 
 		this.prs = new Map();
+		this.isCopilot = !!_categoryQuery && isCopilotQuery(_categoryQuery);
+		const hasCopilotChanges = this.isCopilot && this._copilotManager.notificationsCount > 0;
 
 		switch (this.type) {
 			case PRType.All:
@@ -139,11 +167,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		if ((this._prsTreeModel.expandedQueries.size === 0) && (this.type === PRType.All)) {
+		this.resourceUri = vscode.Uri.parse(Schemes.PRQuery);
+
+		if (hasCopilotChanges) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+			this.resourceUri = COPILOT_QUERY;
+		} else if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		} else {
 			this.collapsibleState =
-				this._prsTreeModel.expandedQueries.has(this.id)
+				this._prsTreeModel.expandedQueries?.has(this.id)
 					? vscode.TreeItemCollapsibleState.Expanded
 					: vscode.TreeItemCollapsibleState.Collapsed;
 		}
@@ -151,15 +184,49 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this._categoryQuery) {
 			this.contextValue = 'query';
 		}
+
+		if (this.isCopilot) {
+			this.tooltip = vscode.l10n.t('Pull requests you asked the coding agent to create');
+		} else if (this.type === PRType.LocalPullRequest) {
+			this.tooltip = vscode.l10n.t('Pull requests for branches you have locally');
+		} else if (this.type === PRType.All) {
+			this.tooltip = vscode.l10n.t('All open pull requests in the current repository');
+		} else if (_categoryQuery) {
+			this.tooltip = new vscode.MarkdownString(vscode.l10n.t('Pull requests for query: `{0}`', _categoryQuery));
+		} else {
+			this.tooltip = this.label;
+		}
+
+		this.description = this._getDescription();
+	}
+
+	private _getDescription(): string | undefined {
+		if (!this.isCopilot) {
+			return undefined;
+		}
+		const counts = this._copilotManager.getCounts();
+		if (counts.total === 0) {
+			return undefined;
+		} else if (counts.error > 0) {
+			if (counts.inProgress > 0) {
+				return vscode.l10n.t('{0} in progress, {1} with errors', counts.inProgress, counts.error);
+			} else {
+				return vscode.l10n.t('{0} with errors', counts.error);
+			}
+		} else if (counts.inProgress > 0) {
+			return vscode.l10n.t('{0} in progress', counts.inProgress);
+		} else {
+			return vscode.l10n.t('done working on {0}', counts.total);
+		}
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel, retry: boolean = true): Promise<boolean> {
-		if (!this.children && retry) {
+		if (!this._children && retry) {
 			await this.getChildren();
 			retry = false;
 		}
-		if (this.children) {
-			for (const child of this.children) {
+		if (this._children) {
+			for (const child of this._children) {
 				if (child instanceof PRNode) {
 					if (child.pullRequestModel.equals(pullRequest)) {
 						this.reveal(child, { expand: true, select: true });
@@ -176,8 +243,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		return false;
 	}
 
-	override async getChildren(): Promise<TreeNode[]> {
-		await super.getChildren();
+	override async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
+		await super.getChildren(shouldDispose);
+		if (!shouldDispose && this._children) {
+			return this._children;
+		}
 		const isFirstLoad = !this._firstLoad;
 		if (isFirstLoad) {
 			this._firstLoad = this.doGetChildren();
@@ -199,7 +269,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this.type === PRType.LocalPullRequest) {
 			try {
 				this.prs.clear();
-				(await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items.forEach(item => this.prs.set(item.id, item));
+				(await this._prsTreeModel.getLocalPullRequests(this.folderRepoManager)).items.forEach(item => this.prs.set(item.id, item));
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
@@ -209,10 +279,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				let response: ItemsResponseResult<PullRequestModel>;
 				switch (this.type) {
 					case PRType.All:
-						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, fetchNextPage);
+						response = await this._prsTreeModel.getAllPullRequests(this.folderRepoManager, fetchNextPage);
 						break;
 					case PRType.Query:
-						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, fetchNextPage, this._categoryQuery!);
+						response = await this._prsTreeModel.getPullRequestsForQuery(this.folderRepoManager, fetchNextPage, this._categoryQuery!);
 						break;
 				}
 				if (!fetchNextPage) {
@@ -229,7 +299,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				}
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
 					if (action && action === actions[0]) {
-						this._folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+						this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
 					}
 				});
 				needLogin = e instanceof AuthenticationError;
@@ -238,7 +308,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this.prs.size > 0) {
 			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
-				prItem => new PRNode(this, this._folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
+				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
 			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
@@ -246,13 +316,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.TryOtherRemotes, this));
 			}
 
-			this.children = nodes;
+			this._children = nodes;
 			return nodes;
 		} else {
 			const category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
 			const result = [new PRCategoryActionNode(this, category)];
 
-			this.children = result;
+			this._children = result;
 			return result;
 		}
 	}

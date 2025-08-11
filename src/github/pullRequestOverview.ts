@@ -5,16 +5,20 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { OpenCommitChangesArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { SessionLogViewManager } from '../view/sessionLogView';
+import { getCopilotApi } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -25,15 +29,15 @@ import {
 	MergeMethodsAvailability,
 	PullRequestMergeability,
 	reviewerId,
-	ReviewEvent,
+	ReviewEventEnum,
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
-import { PullRequestModel } from './pullRequestModel';
+import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { CancelCodingAgentReply, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -41,6 +45,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
 	public static override currentPanel?: PullRequestOverviewPanel;
+
+	/**
+	 * Event emitter for when a PR overview becomes active
+	 */
+	private static _onVisible = new vscode.EventEmitter<PullRequestModel>();
+	public static readonly onVisible = PullRequestOverviewPanel._onVisible.event;
 
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
@@ -57,6 +67,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true
 	) {
+
+		/* __GDPR__
+			"pr.openDescription" : {
+				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue.author.login === COPILOT_LOGINS[1]) ? 'true' : 'false' });
+
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
@@ -97,6 +115,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	/**
+	 * Get the currently active pull request from the current panel
+	 */
+	public static getCurrentPullRequest(): PullRequestModel | undefined {
+		return this.currentPanel?._item;
+	}
+
 	protected constructor(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
@@ -118,9 +143,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				state: GithubItemStateEnum.Merged,
 			});
 		}));
-		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
-			this.updatePullRequest(this._item);
-		}));
 
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
@@ -133,7 +155,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 	}
 
-	registerPrListeners() {
+	protected override registerPrListeners() {
 		disposeAll(this._prListeners);
 		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
@@ -146,8 +168,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 
 		if (this._item) {
-			this._prListeners.push(this._item.onDidChangeComments(() => {
-				if (!this._isUpdating) {
+			this._prListeners.push(this._item.onDidChange(e => {
+				if (e.comments && !this._isUpdating) {
 					this.refreshPanel();
 				}
 			}));
@@ -157,6 +179,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onDidChangeViewState(e);
 		this.setVisibilityContext();
+
+		// If the panel becomes visible and we have an item, notify that this PR is active
+		if (this._panel.visible && this._item) {
+			PullRequestOverviewPanel._onVisible.fire(this._item);
+		}
 	}
 
 	private setVisibilityContext() {
@@ -186,7 +213,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.continueOnGitHub() && isCrossRepository;
 	}
 
-	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+	private preLoadInfoNotRequiredForOverview(pullRequest: PullRequestModel): void {
+		// Load some more info in the background, don't await.
+		pullRequest.getFileChangesInfo();
+	}
+
+	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
 		try {
 			const [
 				pullRequest,
@@ -203,14 +235,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isBranchUpToDateWithBase,
 				mergeability,
 				emailForCommit,
-				coAuthors
+				coAuthors,
+				hasReviewDraft
 			] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
 					pullRequestModel.number,
 				),
-				pullRequestModel.getTimelineEvents(),
+				pullRequestModel.getTimelineEvents(pullRequestModel),
 				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 				pullRequestModel.getStatusChecks(),
 				pullRequestModel.getReviewRequests(),
@@ -223,7 +256,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
 				pullRequestModel.getMergeability(),
 				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
-				pullRequestModel.getCoAuthors()
+				pullRequestModel.getCoAuthors(),
+				pullRequestModel.validateDraftMode(),
 			]);
 			if (!pullRequest) {
 				throw new Error(
@@ -247,7 +281,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const baseContext = this.getInitializeContext(currentUser, pullRequest, coAuthors, timelineEvents, repositoryAccess, viewerCanEdit, []);
+			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
+
+			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
@@ -266,6 +302,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isDraft: pullRequest.isDraft,
 				mergeMethodsAvailability,
 				defaultMergeMethod,
+				hasReviewDraft,
 				autoMerge: pullRequest.autoMerge,
 				allowAutoMerge: pullRequest.allowAutoMerge,
 				autoMergeMethod: pullRequest.autoMergeMethod,
@@ -276,7 +313,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isIssue: false,
 				emailForCommit,
 				currentUserReviewState: reviewState,
-				revertable: pullRequest.state === GithubItemStateEnum.Merged
+				revertable: pullRequest.state === GithubItemStateEnum.Merged,
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
 			};
 			this._postMessage({
 				command: 'pr.initialize',
@@ -294,21 +332,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	): Promise<void> {
+		const result = super.update(folderRepositoryManager, pullRequestModel, 'pr:github');
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
-			this._folderRepositoryManager = folderRepositoryManager;
 			this.registerPrListeners();
 		}
 
-		this._postMessage({
-			command: 'set-scroll',
-			scrollPosition: this._scrollPosition,
-		});
+		await result;
+		// Notify that this PR overview is now active
+		PullRequestOverviewPanel._onVisible.fire(pullRequestModel);
 
-		if (!this._item || (this._item.number !== pullRequestModel.number) || !this._panel.webview.html) {
-			this._panel.webview.html = this.getHtmlForWebview();
-		}
-
-		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updatePullRequest(pullRequestModel));
+		return result;
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -337,6 +370,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.open-changes':
+				return this.openChanges(message);
 			case 'pr.resolve-comment-thread':
 				return this.resolveCommentThread(message);
 			case 'pr.checkMergeability':
@@ -352,16 +387,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.update-branch':
 				return this.updateBranch(message);
 			case 'pr.gotoChangesSinceReview':
-				return this.gotoChangesSinceReview();
+				return this.gotoChangesSinceReview(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
 			case 'pr.revert':
 				return this.revert(message);
+			case 'pr.open-session-log':
+				return this.openSessionLog(message);
+			case 'pr.cancel-coding-agent':
+				return this.cancelCodingAgent(message);
+			case 'pr.openCommitChanges':
+				return this.openCommitChanges(message);
 		}
 	}
 
-	private gotoChangesSinceReview() {
-		this._item.showChangesSinceReview = true;
+	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
+		if (!this._item.showChangesSinceReview) {
+			this._item.showChangesSinceReview = true;
+		} else {
+			PullRequestModel.openChanges(this._folderRepositoryManager, this._item);
+		}
+		return this._replyMessage(message, {});
 	}
 
 	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
@@ -443,6 +489,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	protected override _getTimeline(): Promise<TimelineEvent[]> {
+		return this._item.getTimelineEvents(this._item);
+	}
+
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
@@ -450,6 +500,65 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (e) {
 			Logger.error(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
+	}
+
+	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
+		try {
+			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, message.args.link.openToTheSide ?? false);
+		} catch (e) {
+			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async cancelCodingAgent(message: IRequestMessage<TimelineEvent>): Promise<void> {
+		try {
+			let result = false;
+			if (message.args.event !== EventType.CopilotStarted) {
+				return this._replyMessage(message, { success: false, error: 'Invalid event type' });
+			} else {
+				const copilotApi = await getCopilotApi(this._folderRepositoryManager.credentialStore, this._telemetry, this._item.remote.authProviderId);
+				if (copilotApi) {
+					const session = (await copilotApi.getAllSessions(this._item.id))[0];
+					if (session.state !== 'completed') {
+						result = await this._item.githubRepository.cancelWorkflow(session.workflow_run_id);
+					}
+				}
+			}
+			// need to wait until we get the updated timeline events
+			let events: TimelineEvent[] = [];
+			if (result) {
+				do {
+					events = await this._getTimeline();
+				} while (copilotEventToStatus(mostRecentCopilotEvent(events)) !== CopilotPRStatus.Completed && await new Promise<boolean>(c => setTimeout(() => c(true), 2000)));
+			}
+			const reply: CancelCodingAgentReply = {
+				events
+			};
+			this._replyMessage(message, reply);
+		} catch (e) {
+			Logger.error(`Cancelling coding agent failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Cannot cancel coding agent'));
+			const reply: CancelCodingAgentReply = {
+				events: [],
+			};
+			this._replyMessage(message, reply);
+		}
+	}
+
+	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
+		try {
+			const { commitSha } = message.args;
+			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
+			this._replyMessage(message, {});
+		} catch (error) {
+			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
+		}
+	}
+
+	private async openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
+		const openToTheSide = message?.args?.openToTheSide || false;
+		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
 	}
 
 	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
@@ -460,7 +569,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			else {
 				await this._item.unresolveReviewThread(message.args.threadId);
 			}
-			const timelineEvents = await this._item.getTimelineEvents();
+			const timelineEvents = await this._getTimeline();
 			this._replyMessage(message, timelineEvents);
 		} catch (e) {
 			vscode.window.showErrorMessage(e);
@@ -503,7 +612,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 
@@ -529,13 +638,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 
@@ -552,7 +659,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private updateReviewers(review?: CommonReviewEvent): void {
+	private updateReviewers(review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === (reviewer.reviewer as IAccount).login,
@@ -568,7 +675,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -577,11 +684,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const review = await action(context.body);
 			this.updateReviewers(review);
-			const reviewMessage = {
+			const allEvents = await this._getTimeline();
+			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
-				event: review,
+				reviewedEvent: review,
+				events: allEvents,
 				reviewers: this._existingReviewers
 			};
+			this.tryScheduleCopilotRefresh(review.body, review.state);
 			await this._postMessage(reviewMessage);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
@@ -591,21 +701,25 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
+			const allEvents = await this._getTimeline();
+			const reply: SubmitReviewReply = {
+				reviewedEvent: review,
+				events: allEvents,
 				reviewers: this._existingReviewers,
-			});
+			};
+			this.tryScheduleCopilotRefresh(review.body, review.state);
+			this._replyMessage(message, reply);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+	private approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
@@ -617,7 +731,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
-	private requestChanges(body: string): Promise<CommonReviewEvent> {
+	private requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
@@ -629,8 +743,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
-	private submitReview(body: string): Promise<CommonReviewEvent> {
-		return this._item.submitReview(ReviewEvent.Comment, body);
+	private submitReview(body: string): Promise<ReviewEvent> {
+		return this._item.submitReview(ReviewEventEnum.Comment, body);
 	}
 
 	private submitReviewCommand(context: { body: string }) {
@@ -729,7 +843,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
 
 		const result: Partial<PullRequest> = {
-			events: await this._item.getTimelineEvents(),
+			events: await this._getTimeline(),
 			mergeable: mergability,
 		};
 		await this.refreshPanel();
@@ -748,6 +862,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	override dispose() {
 		super.dispose();
 		disposeAll(this._prListeners);
+	}
+
+	/**
+	 * Static dispose method to clean up static resources
+	 */
+	public static dispose() {
+		PullRequestOverviewPanel._onVisible.dispose();
 	}
 }
 

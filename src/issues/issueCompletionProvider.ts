@@ -10,6 +10,7 @@ import {
 	ISSUES_SETTINGS_NAMESPACE,
 } from '../common/settingKeys';
 import { fromNewIssueUri, Schemes } from '../common/uri';
+import { EXTENSION_ID } from '../constants';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -25,6 +26,20 @@ import {
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
 		super(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Issue);
+	}
+}
+
+class ConfigureIssueQueriesCompletionItem extends vscode.CompletionItem {
+	constructor() {
+		super(vscode.l10n.t('Configure issue queries...'), vscode.CompletionItemKind.Text);
+		this.detail = vscode.l10n.t('No issues found. Set up queries to see relevant issues.');
+		this.insertText = '';
+		this.command = {
+			command: 'workbench.action.openSettings',
+			title: vscode.l10n.t('Open Settings'),
+			arguments: [`@ext:${EXTENSION_ID} githubIssues.queries`]
+		};
+		this.sortText = '~'; // Sort to bottom of list
 	}
 }
 
@@ -115,7 +130,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
-		const completionItems: Map<string, IssueCompletionItem> = new Map();
+		const completionItems: IssueCompletionItem[] = [];
+		const seenIssues: Set<string> = new Set();
 		let repo: PullRequestDefaults | undefined;
 		let uri: vscode.Uri | undefined;
 		if (document.languageId === 'scminput') {
@@ -147,6 +163,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
 
+		// Process queries in order to maintain query priority
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
 			if ((issuesOrMilestones.issues ?? []).length === 0) {
@@ -156,14 +173,21 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 					continue;
 				}
-				completionItems.set(
-					getIssueNumberLabel(issue as IssueModel),
-					await this.completionItemFromIssue(repo, issue as IssueModel, range, document),
-				);
+				const issueKey = getIssueNumberLabel(issue as IssueModel);
+				// Only add the issue if we haven't seen it before (first query wins)
+				if (!seenIssues.has(issueKey)) {
+					seenIssues.add(issueKey);
+					completionItems.push(await this.completionItemFromIssue(repo, issue as IssueModel, range, document));
+				}
 			}
-
 		}
-		return [...completionItems.values()];
+
+		// If no issues were found, show a configuration prompt
+		if (completionItems.length === 0) {
+			return [new ConfigureIssueQueriesCompletionItem()];
+		}
+
+		return completionItems;
 	}
 
 	private async completionItemFromIssue(

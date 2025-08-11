@@ -31,9 +31,11 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Review threads have changed, refreshing Commits node`, PR_TREE);
 			this.refresh(this);
 		}));
-		this.childrenDisposables.push(this._pr.onDidChangeComments(() => {
-			Logger.appendLine(`Comments have changed, refreshing Commits node`, PR_TREE);
-			this.refresh(this);
+		this.childrenDisposables.push(this._pr.onDidChange(e => {
+			if (e.comments) {
+				Logger.appendLine(`Comments have changed, refreshing Commits node`, PR_TREE);
+				this.refresh(this);
+			}
 		}));
 	}
 
@@ -46,11 +48,11 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		try {
 			Logger.appendLine(`Getting children for Commits node`, PR_TREE);
 			const commits = await this._pr.getCommits();
-			this.children = commits.map(
+			this._children = commits.map(
 				(commit, index) => new CommitNode(this, this._folderRepoManager, this._pr, commit, (index === commits.length - 1) && (this._folderRepoManager.repository.state.HEAD?.commit === commit.sha)),
 			);
 			Logger.appendLine(`Got all children for Commits node`, PR_TREE);
-			return this.children;
+			return this._children;
 		} catch (e) {
 			return [];
 		}
