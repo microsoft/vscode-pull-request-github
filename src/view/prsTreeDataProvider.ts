@@ -250,6 +250,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	 * Search for PR node within a category node
 	 */
 	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		if (categoryNode.collapsibleState !== vscode.TreeItemCollapsibleState.Expanded) {
+			return;
+		}
 		const children = await categoryNode.getChildren(false);
 		for (const child of children) {
 			if (child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName)) {
