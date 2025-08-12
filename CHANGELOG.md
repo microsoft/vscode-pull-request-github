@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.116.1
+
+### Fixes
+
+- Closing a PR causes a flurry of search API calls. https://github.com/microsoft/vscode-pull-request-github/issues/7537
+- Opening a PR description can cause a flurry of GitHub search API calls. https://github.com/microsoft/vscode-pull-request-github/issues/7542
+
 ## 0.116.0
 
 ### Changes
