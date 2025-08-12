@@ -140,9 +140,10 @@ export class CopilotPRWatcher extends Disposable {
 	private _initialize() {
 		this._getStateChanges();
 		this._pollForChanges();
+		const updateState = debounce(() => this._getStateChanges(), 50);
 		this._register(this._reposManager.onDidChangeAnyPullRequests(e => {
 			if (e.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
-				debounce(this._getStateChanges, 50);
+				updateState();
 			}
 		}));
 		this._register(PullRequestOverviewPanel.onVisible(e => this._model.clearNotification(e.remote.owner, e.remote.repositoryName, e.number)));
