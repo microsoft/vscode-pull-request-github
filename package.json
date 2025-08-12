@@ -3370,7 +3370,8 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "inline"
 				}
 			]
 		},
