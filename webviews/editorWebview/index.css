@@ -1221,7 +1221,7 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 925px) {
+@media (max-width: 768px) {
 	#app {
 		display: block;
 	}
@@ -1231,7 +1231,6 @@ code {
 		column-gap: 20px;
 		grid-template-columns: calc(50% - 10px) calc(50% - 10px);
 		padding: 0;
-		padding-bottom: 24px;
 	}
 
 	.section-content {
@@ -1249,7 +1248,6 @@ code {
 	}
 
 	.section-header button {
-		margin-left: 8px;
 		display: flex;
 	}
 
@@ -1472,4 +1470,71 @@ svg.octicon path {
 	overflow: visible !important;
 	vertical-align: text-bottom;
 	fill: currentColor;
+}
+
+.collapsible-sidebar {
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 4px;
+	margin-bottom: 16px;
+}
+
+.collapsible-sidebar-header {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 4px 8px;
+	user-select: none;
+	outline: none;
+}
+
+.collapsible-sidebar-header:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.collapsible-sidebar-title {
+	font-size: 14px;
+}
+
+.collapsible-sidebar-content {
+	padding: 18px 22px;
+}
+
+.collapsed-label {
+	gap: 6px;
+	display: flex;
+	flex-direction: column;
+}
+
+.collapsed-section {
+	gap: 2px;
+	display: inline-flex;
+}
+
+.collapsed-section-label {
+	padding-right: 4px;
+}
+
+.collapsed-section .stacked-avatar {
+	position: absolute;
+}
+
+.collapsed-section .stacked-avatar {
+	top: -2px;
+}
+
+.stacked-pill {
+	border-radius: 20px;
+	padding: 0px 6px;
+	font-size: 12px;
+	margin-right: 2px;
+}
+
+.avatar-stack {
+	position: relative;
+}
+
+.collapsible-label-see-more {
+	padding-left: 8px;
+	padding-bottom: 4px;
+	display: block;
 }
