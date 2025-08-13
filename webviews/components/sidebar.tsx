@@ -6,7 +6,7 @@
 import React, { useContext, useRef, useState } from 'react';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IMilestone, IProjectItem, reviewerId } from '../../src/github/interface';
+import { IAccount, IMilestone, IProjectItem, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
@@ -252,7 +252,7 @@ export function CollapsibleSidebar(props: PullRequest) {
 				>
 					{chevronRightIcon}
 				</span>
-				<span className="collapsible-sidebar-title">Sidebar</span>
+				<span className="collapsible-sidebar-title">{expanded ? null : <CollapsedLabel {...props} />}</span>
 			</div>
 			<div
 				className="collapsible-sidebar-content"
@@ -262,6 +262,132 @@ export function CollapsibleSidebar(props: PullRequest) {
 				<Sidebar {...props} />
 			</div>
 		</div>
+	);
+}
+
+function CollapsedLabel(props: PullRequest) {
+	const { reviewers, assignees, labels, projectItems, milestone, isIssue } = props;
+
+	// Helper to render avatar stack
+	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
+		<span className="avatar-stack" style={{
+			width: `${Math.min(users.length, 10) * 10 + 10}px`
+		}}>
+			{users.slice(0, 10).map((u, i) => (
+				<span className='stacked-avatar' style={{
+					left: `${i * 10}px`,
+				}}>
+					<Avatar for={u} />
+				</span>
+			))}
+		</span>
+	);
+
+	// Helper to render label/project/milestone stack
+	const PillStack = ({ items, getKey, getColor, getText }: {
+		items: any[],
+		getKey: (item: any) => string,
+		getColor: (item: any) => { backgroundColor: string; textColor: string; borderColor: string },
+		getText: (item: any) => string
+	}) => {
+		return <span className="pill-stack">
+			{items.slice(0, 5).map((item, i) => {
+				const color = getColor(item);
+				const pill = (
+					<span
+						key={getKey(item)}
+						className="stacked-pill"
+						style={{
+							backgroundColor: color.backgroundColor,
+							color: color.textColor,
+							borderRadius: '20px',
+							left: `${(i * 20)}px`,
+						}}
+						title={getText(item)}
+					>
+						{getText(item)}
+					</span>
+				);
+				return pill;
+			})}
+		</span>;
+
+	};
+
+	// Collect non-empty sections in order, with custom rendering
+	const sections: { label: string; value: React.ReactNode }[] = [];
+
+	const reviewersWithAvatar = reviewers?.filter((r): r is ReviewState & { reviewer: { avatarUrl: string } } => !!r.reviewer.avatarUrl).map(r => ({ avatarUrl: r.reviewer.avatarUrl, name: reviewerLabel(r.reviewer) }));
+	if (!isIssue && reviewersWithAvatar && reviewersWithAvatar.length) {
+		sections.push({
+			label: 'Reviewers',
+			value: <AvatarStack users={reviewersWithAvatar} />
+		});
+	}
+
+	const assigneesWithAvatar = assignees?.filter((a): a is IAccount & { avatarUrl: string; login: string } => !!a.avatarUrl).map(a => ({ avatarUrl: a.avatarUrl, name: reviewerLabel(a) }));
+	if (assigneesWithAvatar && assigneesWithAvatar.length) {
+		sections.push({
+			label: 'Assignees',
+			value: <AvatarStack users={assigneesWithAvatar} />
+		});
+	}
+	if (labels && labels.length && sections.length < 2) {
+		sections.push({
+			label: 'Labels',
+			value: (
+				<PillStack
+					items={labels}
+					getKey={l => l.name}
+					getColor={l => gitHubLabelColor(l.color, props?.isDarkTheme, false)}
+					getText={l => l.name}
+				/>
+			)
+		});
+	}
+	if (projectItems && projectItems.length && sections.length < 2) {
+		sections.push({
+			label: 'Project',
+			value: (
+				<PillStack
+					items={projectItems}
+					getKey={p => p.project.title}
+					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
+					getText={p => p.project.title}
+				/>
+			)
+		});
+	}
+	if (milestone && sections.length < 2) {
+		sections.push({
+			label: 'Milestone',
+			value: (
+				<PillStack
+					items={[milestone]}
+					getKey={m => m.title}
+					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
+					getText={m => m.title}
+				/>
+			)
+		});
+	}
+
+	const hasMore = sections.length > 2;
+
+	if (!sections.length) {
+		return <span className="collapsed-label">{isIssue ? 'Assignees, Labels, Project, and Milestone' : 'Reviewers, Assignees, Labels, Project, and Milestone'}</span>;
+	}
+
+	return (
+		<span className="collapsed-label">
+			{sections.map((s, i) => (
+				<span className='collapsed-section' key={s.label}>
+					{s.label} {s.value}
+					{i < sections.length - 1 ? ' ' : ''}
+				</span>
+			))}
+			{hasMore ? ' …' : ''}
+		</span>
 	);
 }
 

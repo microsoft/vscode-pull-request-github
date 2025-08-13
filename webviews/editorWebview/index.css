@@ -1512,3 +1512,34 @@ svg.octicon path {
 .collapsible-sidebar-content {
 	padding: 18px 22px;
 }
+
+.collapsed-label {
+	gap: 6px;
+	display: flex;
+}
+
+.collapsed-section {
+	gap: 2px;
+	display: inline-flex;
+}
+
+.collapsed-section .stacked-avatar,
+.collapsed-section .stacked-pill {
+	position: absolute;
+}
+
+.collapsed-section .stacked-avatar {
+	top: -2px;
+}
+
+.stacked-pill {
+	border-radius: 20px;
+	padding: 0px 6px;
+	font-size: 12px;
+	top: 1px;
+}
+
+.avatar-stack,
+.pill-stack {
+	position: relative;
+}
