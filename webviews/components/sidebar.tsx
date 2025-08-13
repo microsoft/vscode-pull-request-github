@@ -11,7 +11,7 @@ import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
-import { chevronRightIcon, closeIcon, copilotIcon, settingsIcon } from './icon';
+import { closeIcon, copilotIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
 function Section({
