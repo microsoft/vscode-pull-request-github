@@ -9,6 +9,7 @@ import { parseSessionLogs, parseToolCallDetails } from '../../../common/sessionP
 import { COPILOT_SWE_AGENT } from '../../common/copilot';
 import Logger from '../../common/logger';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
+import { toOpenPullRequestWebviewUri } from '../../common/uri';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../../view/fileChangeModel';
 import { AssistantDelta, Choice, ToolCall } from '../common';
 import { CopilotApi, SessionInfo } from '../copilotApi';
@@ -53,6 +54,13 @@ export class ChatSessionContentBuilder {
 			// Create response turn
 			const responseHistory = await this.createResponseTurn(pullRequest, logs, session);
 			if (responseHistory) {
+				// if this is the first response, then also add the PR card
+				if (history.length === 1) {
+					const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
+					const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, pullRequest.body, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
+					const cardTurn = new vscode.ChatResponseTurn2([card], {}, COPILOT_SWE_AGENT);
+					history.push(cardTurn);
+				}
 				history.push(responseHistory);
 			}
 		}
