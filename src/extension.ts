@@ -25,6 +25,7 @@ import { createExperimentationService, ExperimentationTelemetry } from './experi
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
@@ -236,6 +237,8 @@ async function init(
 
 	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context, reposManager, telemetry, copilotRemoteAgentManager);
 	context.subscriptions.push(sessionLogViewManager);
+
+	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context.extensionUri, credentialStore));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
