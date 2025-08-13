@@ -234,7 +234,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 }
 
 export function CollapsibleSidebar(props: PullRequest) {
-	const [expanded, setExpanded] = useState(true);
+	const [expanded, setExpanded] = useState(false);
 	const contentRef = useRef<HTMLDivElement>(null);
 
 	return (
@@ -278,8 +278,7 @@ function CollapsedLabel(props: PullRequest) {
 		</span>
 	);
 
-	// Helper to render label/project/milestone stack
-	const PillStack = ({ items, getKey, getColor, getText }: {
+	const PillContainer = ({ items, getKey, getColor, getText }: {
 		items: any[],
 		getKey: (item: any) => string,
 		getColor: (item: any) => { backgroundColor: string; textColor: string; borderColor: string },
@@ -331,7 +330,7 @@ function CollapsedLabel(props: PullRequest) {
 		sections.push({
 			label: 'Labels',
 			value: (
-				<PillStack
+				<PillContainer
 					items={labels}
 					getKey={l => l.name}
 					getColor={l => gitHubLabelColor(l.color, props?.isDarkTheme, false)}
@@ -344,7 +343,7 @@ function CollapsedLabel(props: PullRequest) {
 		sections.push({
 			label: 'Project',
 			value: (
-				<PillStack
+				<PillContainer
 					items={projectItems}
 					getKey={p => p.project.title}
 					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
@@ -357,7 +356,7 @@ function CollapsedLabel(props: PullRequest) {
 		sections.push({
 			label: 'Milestone',
 			value: (
-				<PillStack
+				<PillContainer
 					items={[milestone]}
 					getKey={m => m.title}
 					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
@@ -375,7 +374,7 @@ function CollapsedLabel(props: PullRequest) {
 		<span className="collapsed-label">
 			{sections.map((s, i) => (
 				<span className='collapsed-section' key={s.label}>
-					{s.label} {s.value}
+					<span className='collapsed-section-label'>{s.label}</span> {s.value}
 					{i < sections.length - 1 ? ' ' : ''}
 				</span>
 			))}

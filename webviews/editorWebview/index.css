@@ -1515,6 +1515,10 @@ svg.octicon path {
 	display: inline-flex;
 }
 
+.collapsed-section-label {
+	padding-right: 4px;
+}
+
 .collapsed-section .stacked-avatar {
 	position: absolute;
 }
