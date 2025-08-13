@@ -10,33 +10,29 @@ import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { FetchIssueResult } from './fetchIssueTool';
 
-export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
-	public static readonly toolId = 'github-pull-request_activePullRequest';
+export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	constructor(
-		private readonly folderManagers: RepositoriesManager,
+		protected readonly folderManagers: RepositoriesManager,
 		private readonly copilotRemoteAgentManager: CopilotRemoteAgentManager
 	) { }
 
-	private _findActivePullRequest(): PullRequestModel | undefined {
-		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
-		return folderManager?.activePullRequest ?? PullRequestOverviewPanel.currentPanel?.getCurrentItem();
-	}
+	protected abstract _findActivePullRequest(): PullRequestModel | undefined;
+
+	protected abstract _confirmationTitle(): string;
 
 	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
 		return !!pullRequest && this.copilotRemoteAgentManager.enabled && COPILOT_LOGINS.includes(pullRequest.author.login);
 	}
-
 
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
 		return {
 			pastTenseMessage: pullRequest ? vscode.l10n.t('Read pull request "{0}"', pullRequest.title) : vscode.l10n.t('No active pull request'),
 			invocationMessage: pullRequest ? vscode.l10n.t('Reading pull request "{0}"', pullRequest.title) : vscode.l10n.t('Reading active pull request'),
-			confirmationMessages: { title: vscode.l10n.t('Active Pull Request'), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the active pull request?') },
+			confirmationMessages: { title: this._confirmationTitle(), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the active pull request?') },
 		};
 	}
 
@@ -166,4 +162,17 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		return result;
 	}
 
+}
+
+export class ActivePullRequestTool extends PullRequestTool {
+	public static readonly toolId = 'github-pull-request_activePullRequest';
+
+	protected _findActivePullRequest(): PullRequestModel | undefined {
+		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
+		return folderManager?.activePullRequest;
+	}
+
+	protected _confirmationTitle(): string {
+		return vscode.l10n.t('Active Pull Request');
+	}
 }

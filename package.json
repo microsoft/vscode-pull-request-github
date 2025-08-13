@@ -4027,10 +4027,24 @@
 				],
 				"toolReferenceName": "activePullRequest",
 				"displayName": "%languageModelTools.github-pull-request_activePullRequest.displayName%",
-				"modelDescription": "Get comprehensive information about the active or current GitHub pull request (PR). This includes the PR title, full description, list of changed files, review comments, PR state, and status checks/CI results. For PRs created by Copilot, it also includes the session logs which indicate the development process and decisions made by the coding agent. When asked about the active or current pull request, do this first! Use this tool for any request related to \"current changes,\" \"pull request details,\" \"what changed,\" \"PR status,\" or similar queries even if the user does not explicitly mention \"pull request.\"",
+				"modelDescription": "Get comprehensive information about the active GitHub pull request (PR). The active PR is the one that is currently checked out. This includes the PR title, full description, list of changed files, review comments, PR state, and status checks/CI results. For PRs created by Copilot, it also includes the session logs which indicate the development process and decisions made by the coding agent. When asked about the active or current pull request, do this first! Use this tool for any request related to \"current changes,\" \"pull request details,\" \"what changed,\" \"PR status,\" or similar queries even if the user does not explicitly mention \"pull request.\" When asked to use this tool, ALWAYS use it.",
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_activePullRequest.description%",
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_openPullRequest",
+				"tags": [
+					"github",
+					"pull request"
+				],
+				"toolReferenceName": "openPullRequest",
+				"displayName": "%languageModelTools.github-pull-request_openPullRequest.displayName%",
+				"modelDescription": "Get comprehensive information about the GitHub pull request (PR) which is currently visible, but not necessarily checked out. This includes the PR title, full description, list of changed files, review comments, PR state, and status checks/CI results. For PRs created by Copilot, it also includes the session logs which indicate the development process and decisions made by the coding agent. When asked about the currently open pull request, do this first! Use this tool for any request related to \"pull request details,\" \"what changed,\" \"PR status,\" or similar queries even if the user does not explicitly mention \"pull request.\" When asked to use this tool, ALWAYS use it.",
+				"icon": "$(git-pull-request)",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "%languageModelTools.github-pull-request_openPullRequest.description%",
 				"when": "config.githubPullRequests.experimental.chat"
 			}
 		]

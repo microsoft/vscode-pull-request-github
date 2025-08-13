@@ -385,6 +385,8 @@
 	"languageModelTools.github-pull-request_renderIssues.displayName": "Render issue items in a markdown table",
 	"languageModelTools.github-pull-request_activePullRequest.displayName": "Active Pull Request",
 	"languageModelTools.github-pull-request_activePullRequest.description": "Get information about the active GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI.",
+	"languageModelTools.github-pull-request_openPullRequest.displayName": "Open Pull Request",
+	"languageModelTools.github-pull-request_openPullRequest.description": "Get information about the open GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI.",
 	"languageModelTools.github-pull-request_copilot-coding-agent.displayName": "Copilot coding agent",
 	"languageModelTools.github-pull-request_copilot-coding-agent.userDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously. Launch an autonomous GitHub Copilot agent to work on coding tasks in the background. The agent will create a new branch, implement the requested changes, and open a pull request with the completed work."
 }

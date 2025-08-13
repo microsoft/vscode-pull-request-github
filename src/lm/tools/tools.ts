@@ -15,6 +15,7 @@ import { CopilotRemoteAgentTool } from './copilotRemoteAgentTool';
 import { DisplayIssuesTool } from './displayIssuesTool';
 import { FetchIssueTool } from './fetchIssueTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
+import { OpenPullRequestTool } from './openPullRequestTool';
 import { ConvertToSearchSyntaxTool, SearchTool } from './searchTools';
 import { SuggestFixTool } from './suggestFixTool';
 import { IssueSummarizationTool } from './summarizeIssueTool';
@@ -27,6 +28,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerCopilotAgentTools(context, copilotRemoteAgentManager, telemetry);
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager, copilotRemoteAgentManager)));
+	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager, copilotRemoteAgentManager)));
 }
 
 function registerFetchingTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
