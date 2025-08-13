@@ -1485,20 +1485,11 @@ svg.octicon path {
 	cursor: pointer;
 	padding: 4px 8px;
 	user-select: none;
-	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	outline: none;
 }
 
 .collapsible-sidebar-header:focus {
 	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.collapsible-sidebar-twistie {
-	display: inline-block;
-	transition: transform 0.15s;
-	margin-right: 8px;
-	font-size: 14px;
-	transform: rotate(0deg);
 }
 
 .collapsible-sidebar-twistie.expanded {
@@ -1516,6 +1507,7 @@ svg.octicon path {
 .collapsed-label {
 	gap: 6px;
 	display: flex;
+	flex-direction: column;
 }
 
 .collapsed-section {
@@ -1523,8 +1515,7 @@ svg.octicon path {
 	display: inline-flex;
 }
 
-.collapsed-section .stacked-avatar,
-.collapsed-section .stacked-pill {
+.collapsed-section .stacked-avatar {
 	position: absolute;
 }
 
@@ -1536,10 +1527,15 @@ svg.octicon path {
 	border-radius: 20px;
 	padding: 0px 6px;
 	font-size: 12px;
-	top: 1px;
+	margin-right: 2px;
 }
 
-.avatar-stack,
-.pill-stack {
+.avatar-stack {
 	position: relative;
+}
+
+.collapsible-label-see-more {
+	padding-left: 8px;
+	padding-bottom: 4px;
+	display: block;
 }

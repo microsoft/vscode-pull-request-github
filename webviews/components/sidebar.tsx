@@ -246,12 +246,6 @@ export function CollapsibleSidebar(props: PullRequest) {
 				role="button"
 				aria-expanded={expanded}
 			>
-				<span
-					className={`collapsible-sidebar-twistie${expanded ? ' expanded' : ''}`}
-					aria-hidden="true"
-				>
-					{chevronRightIcon}
-				</span>
 				<span className="collapsible-sidebar-title">{expanded ? null : <CollapsedLabel {...props} />}</span>
 			</div>
 			<div
@@ -261,6 +255,7 @@ export function CollapsibleSidebar(props: PullRequest) {
 			>
 				<Sidebar {...props} />
 			</div>
+			<a className='collapsible-label-see-more' onClick={() => setExpanded(e => !e)}>{expanded ? 'See less' : 'See more...'}</a>
 		</div>
 	);
 }
@@ -332,7 +327,7 @@ function CollapsedLabel(props: PullRequest) {
 			value: <AvatarStack users={assigneesWithAvatar} />
 		});
 	}
-	if (labels && labels.length && sections.length < 2) {
+	if (labels && labels.length) {
 		sections.push({
 			label: 'Labels',
 			value: (
@@ -345,7 +340,7 @@ function CollapsedLabel(props: PullRequest) {
 			)
 		});
 	}
-	if (projectItems && projectItems.length && sections.length < 2) {
+	if (projectItems && projectItems.length) {
 		sections.push({
 			label: 'Project',
 			value: (
@@ -358,7 +353,7 @@ function CollapsedLabel(props: PullRequest) {
 			)
 		});
 	}
-	if (milestone && sections.length < 2) {
+	if (milestone) {
 		sections.push({
 			label: 'Milestone',
 			value: (
@@ -372,8 +367,6 @@ function CollapsedLabel(props: PullRequest) {
 		});
 	}
 
-	const hasMore = sections.length > 2;
-
 	if (!sections.length) {
 		return <span className="collapsed-label">{isIssue ? 'Assignees, Labels, Project, and Milestone' : 'Reviewers, Assignees, Labels, Project, and Milestone'}</span>;
 	}
@@ -386,7 +379,6 @@ function CollapsedLabel(props: PullRequest) {
 					{i < sections.length - 1 ? ' ' : ''}
 				</span>
 			))}
-			{hasMore ? ' …' : ''}
 		</span>
 	);
 }
