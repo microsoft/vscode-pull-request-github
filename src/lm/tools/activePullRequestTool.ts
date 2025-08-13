@@ -21,6 +21,8 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 
 	protected abstract _findActivePullRequest(): PullRequestModel | undefined;
 
+	protected abstract _confirmationTitle(): string;
+
 	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
 		return !!pullRequest && this.copilotRemoteAgentManager.enabled && COPILOT_LOGINS.includes(pullRequest.author.login);
 	}
@@ -30,7 +32,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		return {
 			pastTenseMessage: pullRequest ? vscode.l10n.t('Read pull request "{0}"', pullRequest.title) : vscode.l10n.t('No active pull request'),
 			invocationMessage: pullRequest ? vscode.l10n.t('Reading pull request "{0}"', pullRequest.title) : vscode.l10n.t('Reading active pull request'),
-			confirmationMessages: { title: vscode.l10n.t('Active Pull Request'), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the active pull request?') },
+			confirmationMessages: { title: this._confirmationTitle(), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the active pull request?') },
 		};
 	}
 
@@ -168,5 +170,9 @@ export class ActivePullRequestTool extends PullRequestTool {
 	protected _findActivePullRequest(): PullRequestModel | undefined {
 		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
 		return folderManager?.activePullRequest;
+	}
+
+	protected _confirmationTitle(): string {
+		return vscode.l10n.t('Active Pull Request');
 	}
 }
