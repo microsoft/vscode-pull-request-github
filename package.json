@@ -57,7 +57,9 @@
 		"onFileSystem:githubpr",
 		"onFileSystem:githubcommit",
 		"onFileSystem:review",
-		"onWebviewPanel:pr.codingAgentSessionLogView"
+		"onWebviewPanel:pr.codingAgentSessionLogView",
+		"onWebviewPanel:IssueOverview",
+		"onWebviewPanel:PullRequestOverview"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",

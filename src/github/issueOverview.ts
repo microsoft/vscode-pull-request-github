@@ -29,7 +29,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	public static currentPanel?: IssueOverviewPanel;
 
-	private static readonly _viewType: string = 'IssueOverview';
+	public static readonly viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;
@@ -42,6 +42,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: IssueModel,
 		toTheSide: Boolean = false,
+		_preserveFocus: boolean = true,
+		existingPanel?: vscode.WebviewPanel
 	) {
 		await ensureEmojis(folderRepositoryManager.context);
 		const activeColumn = toTheSide
@@ -62,6 +64,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				activeColumn || vscode.ViewColumn.Active,
 				title,
 				folderRepositoryManager,
+				undefined,
+				existingPanel,
+				undefined
 			);
 		}
 
@@ -89,7 +94,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
-		private readonly type: string = IssueOverviewPanel._viewType,
+		private readonly type: string = IssueOverviewPanel.viewType,
+		existingPanel?: vscode.WebviewPanel,
 		iconSubpath?: {
 			light: string,
 			dark: string,
@@ -99,7 +105,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		this._folderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
-		this._panel = this._register(vscode.window.createWebviewPanel(type, title, column, {
+		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
 			retainContextWhenHidden: true,
