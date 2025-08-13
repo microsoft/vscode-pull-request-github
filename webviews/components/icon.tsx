@@ -17,7 +17,6 @@ export const checkIcon = <Icon src={require('../../resources/icons/check.svg')} 
 export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} className='skip' />;
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
 export const chevronDownIcon = <Icon src={require('../../resources/icons/chevron_down.svg')} />;
-export const chevronRightIcon = <Icon src={require('../../resources/icons/chevron_right.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/comment.svg')} />;
 export const quoteIcon = <Icon src={require('../../resources/icons/quote.svg')} />;
 export const commitIcon = <Icon src={require('../../resources/icons/commit_icon.svg')} />;

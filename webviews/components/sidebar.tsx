@@ -263,7 +263,6 @@ export function CollapsibleSidebar(props: PullRequest) {
 function CollapsedLabel(props: PullRequest) {
 	const { reviewers, assignees, labels, projectItems, milestone, isIssue } = props;
 
-	// Helper to render avatar stack
 	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
 		<span className="avatar-stack" style={{
 			width: `${Math.min(users.length, 10) * 10 + 10}px`
@@ -372,10 +371,9 @@ function CollapsedLabel(props: PullRequest) {
 
 	return (
 		<span className="collapsed-label">
-			{sections.map((s, i) => (
+			{sections.map((s) => (
 				<span className='collapsed-section' key={s.label}>
 					<span className='collapsed-section-label'>{s.label}</span> {s.value}
-					{i < sections.length - 1 ? ' ' : ''}
 				</span>
 			))}
 		</span>

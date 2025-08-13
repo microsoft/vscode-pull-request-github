@@ -1476,7 +1476,6 @@ svg.octicon path {
 	border: 1px solid var(--vscode-editorWidget-border);
 	border-radius: 4px;
 	margin-bottom: 16px;
-	/* Optional: max-width to match sidebar */
 }
 
 .collapsible-sidebar-header {
@@ -1490,10 +1489,6 @@ svg.octicon path {
 
 .collapsible-sidebar-header:focus {
 	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.collapsible-sidebar-twistie.expanded {
-	transform: rotate(90deg);
 }
 
 .collapsible-sidebar-title {
