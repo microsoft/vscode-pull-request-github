@@ -240,7 +240,7 @@ export function CollapsibleSidebar(props: PullRequest) {
 	return (
 		<div className="collapsible-sidebar">
 			<div
-				className="collapsible-sidebar-header"
+				className={`collapsible-sidebar-header ${expanded ? 'expanded' : ''}`}
 				onClick={() => setExpanded(e => !e)}
 				tabIndex={0}
 				role="button"
@@ -298,11 +298,13 @@ function CollapsedLabel(props: PullRequest) {
 
 				// Start with all items and reduce until they fit
 				let testCount = items.length;
+				let characterCount = items.reduce((acc, item) => acc + getText(item).length, 0);
 				while (testCount > 0) {
-					const testWidth = testCount * 50 + (testCount < items.length ? overflowTextWidth : 0);
+					const testWidth = ((characterCount * 6) + (14 * testCount)) + (testCount < items.length ? overflowTextWidth : 0);
 					if (testWidth <= containerWidth) {
 						break;
 					}
+					characterCount -= getText(items[testCount - 1]).length;
 					testCount--;
 				}
 
@@ -335,7 +337,7 @@ function CollapsedLabel(props: PullRequest) {
 				);
 			})}
 			{hiddenCount > 0 && (
-				<span className="pill-overflow">+{hiddenCount}</span>
+				<span className="pill-overflow">+{hiddenCount} more</span>
 			)}
 		</span>;
 	};
