@@ -240,7 +240,7 @@ export function CollapsibleSidebar(props: PullRequest) {
 	return (
 		<div className="collapsible-sidebar">
 			<div
-				className="collapsible-sidebar-header"
+				className={`collapsible-sidebar-header ${expanded ? 'expanded' : ''}`}
 				onClick={() => setExpanded(e => !e)}
 				tabIndex={0}
 				role="button"

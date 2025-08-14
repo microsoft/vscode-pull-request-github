@@ -608,11 +608,11 @@ small-button {
 }
 
 .section {
-	padding-bottom: 24px;
+	padding-bottom: 14px;
 	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 8px;
 }
 
 .section:last-of-type {
@@ -1487,9 +1487,13 @@ svg.octicon path {
 	display: flex;
 	align-items: center;
 	cursor: pointer;
-	padding: 16px 8px 7px;
+	padding: 16px 0px 7px;
 	user-select: none;
 	outline: none;
+}
+
+.collapsible-sidebar-header.expanded {
+	padding: 7px 0px;
 }
 
 .collapsible-sidebar-header:focus {
@@ -1497,12 +1501,12 @@ svg.octicon path {
 }
 
 .collapsible-sidebar-title {
-	font-size: 14px;
+	font-size: 13px;
 	width: 100%;
 }
 
 .collapsible-sidebar-content {
-	padding: 6px 22px;
+	padding-bottom: 6px;
 }
 
 .collapsed-label {
@@ -1587,7 +1591,6 @@ svg.octicon path {
 }
 
 .collapsible-label-see-more {
-	padding-left: 8px;
 	padding-bottom: 8px;
 	display: block;
 	font-size: 12px;
