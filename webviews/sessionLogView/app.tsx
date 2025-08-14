@@ -7,7 +7,7 @@ import { shikiToMonaco } from '@shikijs/monaco';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import { createHighlighter } from 'shiki';
-import { parseSessionLogs, SessionResponseLogChunk } from '../../common/sessionParsing';
+import { SessionResponseLogChunk } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import type * as messages from './messages';
 import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
@@ -49,7 +49,7 @@ export function App() {
 					setState({
 						state: 'ready',
 						info: message.info,
-						logs: parseSessionLogs(message.logs),
+						logs: message.logs,
 						pullInfo: message.pullInfo,
 						setupSteps: message.setupSteps
 					});
