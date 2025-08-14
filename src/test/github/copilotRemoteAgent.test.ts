@@ -62,7 +62,7 @@ describe('CopilotRemoteAgentManager', function () {
 
 		mockRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
-		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
+		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context);
 		Resource.initialize(context);
 	});
 
