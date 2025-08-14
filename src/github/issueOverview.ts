@@ -200,7 +200,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
-		const hasWritePermission = repositoryAccess!.hasWritePermission;
+		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const labels = issue.item.labels.map(label => ({
 			...label,

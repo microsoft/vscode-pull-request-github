@@ -32,8 +32,8 @@ function Section({
 	return (
 		<div id={id} className="section">
 			<div
-				className="section-header"
-				onClick={onHeaderClick}
+				className={`section-header ${hasWritePermission ? 'clickable' : ''}`}
+				onClick={hasWritePermission ? onHeaderClick : undefined}
 			>
 				<div className="section-title">{title}</div>
 				{hasWritePermission ? (
