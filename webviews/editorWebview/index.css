@@ -1222,6 +1222,11 @@ code {
 }
 
 @media (max-width: 768px) {
+	.title {
+		border-bottom: none;
+		padding-bottom: 0px;
+	}
+
 	#app {
 		display: block;
 	}
@@ -1473,8 +1478,8 @@ svg.octicon path {
 }
 
 .collapsible-sidebar {
-	border: 1px solid var(--vscode-editorWidget-border);
-	border-radius: 4px;
+	border-top: 1px solid var(--vscode-editorWidget-border);
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	margin-bottom: 16px;
 }
 
@@ -1482,7 +1487,7 @@ svg.octicon path {
 	display: flex;
 	align-items: center;
 	cursor: pointer;
-	padding: 4px 8px;
+	padding: 16px 8px 7px;
 	user-select: none;
 	outline: none;
 }
@@ -1493,25 +1498,73 @@ svg.octicon path {
 
 .collapsible-sidebar-title {
 	font-size: 14px;
+	width: 100%;
 }
 
 .collapsible-sidebar-content {
-	padding: 18px 22px;
+	padding: 6px 22px;
 }
 
 .collapsed-label {
 	gap: 6px;
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-gap: 6px 12px;
 }
 
 .collapsed-section {
 	gap: 2px;
 	display: inline-flex;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
 }
 
 .collapsed-section-label {
 	padding-right: 4px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.pill-container {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	flex: 1;
+	flex-wrap: nowrap;
+	overflow: hidden;
+}
+
+.pill-item {
+	flex-shrink: 0;
+	white-space: nowrap;
+	border-radius: 20px;
+	padding: 0px 6px;
+	font-size: 12px;
+	margin-right: 2px;
+}
+
+.pill-overflow {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	margin-left: 4px;
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.pill-stack {
+	position: relative;
+	display: inline-block;
+	min-height: 20px;
+	flex-shrink: 1;
+}
+
+.pill-overflow {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	margin-left: 4px;
+	flex-shrink: 0;
+	white-space: nowrap;
 }
 
 .collapsed-section .stacked-avatar {
@@ -1519,7 +1572,7 @@ svg.octicon path {
 }
 
 .collapsed-section .stacked-avatar {
-	top: -2px;
+	top: -10px;
 }
 
 .stacked-pill {
@@ -1535,6 +1588,7 @@ svg.octicon path {
 
 .collapsible-label-see-more {
 	padding-left: 8px;
-	padding-bottom: 4px;
+	padding-bottom: 8px;
 	display: block;
+	font-size: 12px;
 }
