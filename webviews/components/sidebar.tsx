@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { IAccount, IMilestone, IProjectItem, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
@@ -255,7 +255,7 @@ export function CollapsibleSidebar(props: PullRequest) {
 			>
 				<Sidebar {...props} />
 			</div>
-			<a className='collapsible-label-see-more' onClick={() => setExpanded(e => !e)}>{expanded ? 'See less' : 'See more...'}</a>
+			<a className='collapsible-label-see-more' onClick={() => setExpanded(e => !e)}>{expanded ? 'See less' : 'See more'}</a>
 		</div>
 	);
 }
@@ -283,28 +283,61 @@ function CollapsedLabel(props: PullRequest) {
 		getColor: (item: any) => { backgroundColor: string; textColor: string; borderColor: string },
 		getText: (item: any) => string
 	}) => {
-		return <span className="pill-stack">
-			{items.slice(0, 5).map((item, i) => {
+		const containerRef = useRef<HTMLSpanElement>(null);
+		const [visibleCount, setVisibleCount] = useState(items.length);
+
+		useEffect(() => {
+			if (!containerRef.current || items.length === 0) return;
+
+			const resizeObserver = new ResizeObserver(() => {
+				const container = containerRef.current;
+				if (!container) return;
+
+				const containerWidth = container.offsetWidth;
+				const overflowTextWidth = 60; // "+N more" text width estimate
+
+				// Start with all items and reduce until they fit
+				let testCount = items.length;
+				while (testCount > 0) {
+					const testWidth = testCount * 50 + (testCount < items.length ? overflowTextWidth : 0);
+					if (testWidth <= containerWidth) {
+						break;
+					}
+					testCount--;
+				}
+
+				setVisibleCount(Math.max(1, testCount));
+			});
+
+			resizeObserver.observe(containerRef.current);
+			return () => resizeObserver.disconnect();
+		}, [items.length]);
+
+		const visibleItems = items.slice(0, visibleCount);
+		const hiddenCount = items.length - visibleCount;
+
+		return <span className="pill-container" ref={containerRef}>
+			{visibleItems.map((item) => {
 				const color = getColor(item);
-				const pill = (
+				return (
 					<span
 						key={getKey(item)}
-						className="stacked-pill"
+						className="pill-item"
 						style={{
 							backgroundColor: color.backgroundColor,
 							color: color.textColor,
 							borderRadius: '20px',
-							left: `${(i * 20)}px`,
 						}}
 						title={getText(item)}
 					>
 						{getText(item)}
 					</span>
 				);
-				return pill;
 			})}
+			{hiddenCount > 0 && (
+				<span className="pill-overflow">+{hiddenCount}</span>
+			)}
 		</span>;
-
 	};
 
 	// Collect non-empty sections in order, with custom rendering
