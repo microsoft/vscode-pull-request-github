@@ -18,6 +18,26 @@ import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReview
 import { IssueModel } from './issueModel';
 import { DisplayLabel } from './views';
 
+export async function chooseItem<T>(
+	itemsToChooseFrom: T[],
+	propertyGetter: (itemValue: T) => string,
+	options?: vscode.QuickPickOptions,
+): Promise<T | undefined> {
+	if (itemsToChooseFrom.length === 1) {
+		return itemsToChooseFrom[0];
+	}
+	interface Item extends vscode.QuickPickItem {
+		itemValue: T;
+	}
+	const items: Item[] = itemsToChooseFrom.map(currentItem => {
+		return {
+			label: propertyGetter(currentItem),
+			itemValue: currentItem,
+		};
+	});
+	return (await vscode.window.showQuickPick(items, options))?.itemValue;
+}
+
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
 	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
 	// Address skip list before first await

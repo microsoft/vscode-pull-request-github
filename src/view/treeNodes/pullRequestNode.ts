@@ -265,7 +265,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
-	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus(this.pullRequestModel);
 		const theme = this._folderReposManager.themeWatcher.themeData;
 		if (!theme || copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {

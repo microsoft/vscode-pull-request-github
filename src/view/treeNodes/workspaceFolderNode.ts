@@ -24,7 +24,7 @@ export interface IQueryInfo {
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	protected override _children: CategoryTreeNode[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: { light: vscode.Uri; dark: vscode.Uri };
 
 	constructor(
 		parent: TreeNodeParent,
