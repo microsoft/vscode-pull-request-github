@@ -16,6 +16,7 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
+import { dateFromNow } from '../common/utils';
 import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../view/theme';
 import { IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
@@ -26,6 +27,7 @@ import { CredentialStore } from './credentials';
 import { ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum } from './interface';
+import { issueMarkdown } from './markdownUtils';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
@@ -56,7 +58,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private readonly gitOperationsManager: GitOperationsManager;
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry, private context: vscode.ExtensionContext) {
 		super();
 		this.gitOperationsManager = new GitOperationsManager(CopilotRemoteAgentManager.ID);
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
@@ -658,11 +660,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 					});
 					this._register(disposable);
 				}
+				const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
 				return {
 					id: `${session.number}`,
 					label: session.title || `Session ${session.number}`,
 					iconPath: this.getIconForSession(status),
-					pullRequest: session
+					description: `${dateFromNow(session.createdAt)}`,
+					pullRequest: session,
+					tooltip,
 				};
 			}));
 		} catch (error) {
