@@ -687,7 +687,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
 			return await Promise.all(codingAgentPRs.map(async session => {
-				const timeline = await session.getTimelineEvents(session);
+				const timeline = await session.getCopilotTimelineEvents(session);
 				const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
 				if (status !== CopilotPRStatus.Completed && status !== CopilotPRStatus.Failed) {
 					const disposable = session.onDidChange(() => {
