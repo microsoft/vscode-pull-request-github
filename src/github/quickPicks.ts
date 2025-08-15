@@ -23,6 +23,9 @@ export async function chooseItem<T>(
 	propertyGetter: (itemValue: T) => string,
 	options?: vscode.QuickPickOptions,
 ): Promise<T | undefined> {
+	if (itemsToChooseFrom.length === 0) {
+		return undefined;
+	}
 	if (itemsToChooseFrom.length === 1) {
 		return itemsToChooseFrom[0];
 	}
