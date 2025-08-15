@@ -836,9 +836,9 @@
   integrity sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==
 
 "@types/vscode@1.103.0":
-  version "1.102.0"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.102.0.tgz#186dd6d4755807754a18ca869384c93b821039f2"
-  integrity sha512-V9sFXmcXz03FtYTSUsYsu5K0Q9wH9w9V25slddcxrh5JgORD14LpnOA7ov0L9ALi+6HrTjskLJ/tY5zeRF3TFA==
+  version "1.103.0"
+  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.103.0.tgz#4a0d9777d952992c9ebdbe8dad067032d2fbc1fb"
+  integrity sha512-o4hanZAQdNfsKecexq9L3eHICd0AAvdbLk6hA60UzGXbGH/q8b/9xv2RgR7vV3ZcHuyKVq7b37IGd/+gM4Tu+Q==
 
 "@types/webpack-env@^1.16.0":
   version "1.16.2"
