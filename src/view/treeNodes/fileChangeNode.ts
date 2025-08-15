@@ -68,7 +68,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?:
 		| string
 		| vscode.Uri
-		| { light: string | vscode.Uri; dark: string | vscode.Uri }
+		| { light: vscode.Uri; dark: vscode.Uri }
 		| vscode.ThemeIcon;
 	public fileChangeResourceUri: vscode.Uri;
 	public contextValue: string;

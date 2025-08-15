@@ -30,6 +30,7 @@ import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
+import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { CodingAgentContext, OverviewContext } from './github/views';
@@ -171,26 +172,6 @@ export async function openDescription(
 	}
 
 
-}
-
-async function chooseItem<T>(
-	activePullRequests: T[],
-	propertyGetter: (itemValue: T) => string,
-	options?: vscode.QuickPickOptions,
-): Promise<T | undefined> {
-	if (activePullRequests.length === 1) {
-		return activePullRequests[0];
-	}
-	interface Item extends vscode.QuickPickItem {
-		itemValue: T;
-	}
-	const items: Item[] = activePullRequests.map(currentItem => {
-		return {
-			label: propertyGetter(currentItem),
-			itemValue: currentItem,
-		};
-	});
-	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
 export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {

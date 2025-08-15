@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nodePath from 'path';
+import * as pathLib from 'path';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
@@ -24,11 +24,12 @@ import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { CredentialStore } from './credentials';
-import { ReposManagerState } from './folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum } from './interface';
 import { issueMarkdown } from './markdownUtils';
 import { PullRequestModel } from './pullRequestModel';
+import { chooseItem } from './quickPicks';
 import { RepositoriesManager } from './repositoriesManager';
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
@@ -166,6 +167,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return false;
 		}
 
+		if (!this.credentialStore.isAnyAuthenticated()) {
+			// If not signed in, then we optimistically say it's available.
+			return true;
+		}
+
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
 			return false;
@@ -189,14 +195,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	async repoInfo(): Promise<RepoInfo | undefined> {
-		if (!this.repositoriesManager.folderManagers.length) {
-			return;
-		}
-		const fm = this.repositoriesManager.folderManagers[0];
+	private chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
+		return chooseItem<FolderRepositoryManager>(
+			this.repositoriesManager.folderManagers,
+			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
+		);
+	}
+
+	async repoInfo(fm?: FolderRepositoryManager): Promise<RepoInfo | undefined> {
+		fm = fm || (await this.chooseFolderManager());
 		const repository = fm?.repository;
 		const ghRepository = fm?.gitHubRepositories.find(repo => repo.remote instanceof GitHubRemote) as GitHubRepository | undefined;
-		if (!repository || !ghRepository) {
+		if (!fm || !repository || !ghRepository) {
 			return;
 		}
 
@@ -246,11 +256,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
+	private async tryAcquireAuth(): Promise<FolderRepositoryManager | undefined> {
+		if (this.credentialStore.isAnyAuthenticated()) {
+			return undefined;
+		}
+
+		const result = await this.credentialStore.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
+
+		/* __GDPR__
+			"remoteAgent.command.auth" : {
+				"succeeded" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
+			succeeded: result.canceled ? 'false' : 'true'
+		});
+
+		if (result.canceled) {
+			return undefined;
+		}
+		// Wait for repos to update
+		const fm = await this.chooseFolderManager();
+		await fm?.updateRepositories();
+		return fm;
+	}
+
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | ICopilotRemoteAgentCommandResponse | undefined> {
 		if (!args) {
 			return;
 		}
 		const { userPrompt, summary, source, followup, _version } = args;
+		const fm = await this.tryAcquireAuth();
 
 		/* __GDPR__
 			"remoteAgent.command.args" : {
@@ -273,7 +309,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 
-		const repoInfo = await this.repoInfo();
+		const repoInfo = await this.repoInfo(fm);
 		if (!repoInfo) {
 			/* __GDPR__
 				"remoteAgent.command.result" : {
@@ -1062,7 +1098,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (toolDetails.toolSpecificData) {
 				if ('command' in toolDetails.toolSpecificData) {
 					if ((toolDetails.toolSpecificData.command === 'view' || toolDetails.toolSpecificData.command === 'edit') && toolDetails.toolSpecificData.fileLabel) {
-						const uri = vscode.Uri.file(nodePath.join(pullRequest.githubRepository.rootUri.fsPath, toolDetails.toolSpecificData.fileLabel));
+						const uri = vscode.Uri.file(pathLib.join(pullRequest.githubRepository.rootUri.fsPath, toolDetails.toolSpecificData.fileLabel));
 						toolPart.invocationMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);
 						toolPart.invocationMessage.supportHtml = true;
 						toolPart.pastTenseMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);
