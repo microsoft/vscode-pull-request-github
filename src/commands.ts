@@ -946,6 +946,41 @@ export function registerCommands(
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 	}
 
+	async function closeChatSessionPullRequest(argument: ChatSessionWithPR) {
+		const pr = argument.pullRequest;
+		if (!pr) {
+			Logger.warn(`No pull request found in chat session`, logId);
+			return;
+		}
+		pr.close();
+		copilotRemoteAgentManager.refreshChatSessions();
+	}
+
+	async function cancelCodingAgent(argument: ChatSessionWithPR) {
+		const pr = argument.pullRequest;
+		if (!pr) {
+			Logger.warn(`No pull request found in chat session`, logId);
+			return;
+		}
+
+		copilotRemoteAgentManager.cancelMostRecentChatSession(pr);
+		// TODO: show a progress icon until the cancelation is finished
+	}
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.closeChatSessionPullRequest',
+			closeChatSessionPullRequest
+		)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.cancelCodingAgent',
+			cancelCodingAgent
+		)
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',

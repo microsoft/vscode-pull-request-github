@@ -321,6 +321,8 @@
 	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"command.codingAgent.openSessionLog.title": "Open Coding Agent Session Log",
+	"command.pr.closeChatSessionPullRequest.title": "Close Pull Request",
+	"command.pr.cancelCodingAgent.title": "Cancel Coding Agent",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment": [
