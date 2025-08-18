@@ -30,6 +30,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title, existingPullRequest } = options.input;
+		const folderManager = existingPullRequest ? undefined : await this.manager.tryAcquireAuth();
 
 		// Check if the coding agent is available (enabled and assignable)
 		const isAvailable = await this.manager.isAvailable();
@@ -37,7 +38,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			throw new Error(vscode.l10n.t('Copilot coding agent is not available for this repository. Make sure the agent is enabled and assignable to this repository.'));
 		}
 
-		const targetRepo = await this.manager.repoInfo();
+		const targetRepo = await this.manager.repoInfo(folderManager);
 		const autoPushEnabled = this.manager.autoCommitAndPushEnabled;
 		const openPR = existingPullRequest || await this.getActivePullRequestWithSession(targetRepo);
 
@@ -67,7 +68,9 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		const title = options.input.title;
 		const body = options.input.body || '';
 		const existingPullRequest = options.input.existingPullRequest || '';
-		const targetRepo = await this.manager.repoInfo();
+		const folderManager = existingPullRequest ? undefined : await this.manager.tryAcquireAuth();
+
+		const targetRepo = await this.manager.repoInfo(folderManager);
 		if (!targetRepo) {
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(vscode.l10n.t('No repository information found. Please open a workspace with a Git repository.'))

@@ -263,9 +263,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private async tryAcquireAuth(): Promise<FolderRepositoryManager | undefined> {
+	async tryAcquireAuth(): Promise<FolderRepositoryManager | undefined> {
 		if (this.credentialStore.isAnyAuthenticated()) {
-			return undefined;
+			return this.chooseFolderManager();
 		}
 
 		const result = await this.credentialStore.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
@@ -294,6 +294,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		const { userPrompt, summary, source, followup, _version } = args;
 		const fm = await this.tryAcquireAuth();
+		if (!fm) {
+			return;
+		}
 
 		/* __GDPR__
 			"remoteAgent.command.args" : {
