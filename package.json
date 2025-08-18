@@ -1738,6 +1738,16 @@
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.closeChatSessionPullRequest",
+				"title": "%command.pr.closeChatSessionPullRequest.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.cancelCodingAgent",
+				"title": "%command.pr.cancelCodingAgent.title%",
+				"category": "%command.pull.request.category%"
 			}
 		],
 		"viewsWelcome": [
@@ -3379,6 +3389,16 @@
 					"command": "pr.openDescription",
 					"when": "chatSessionType == copilot-swe-agent",
 					"group": "inline"
+				},
+				{
+					"command": "pr.closeChatSessionPullRequest",
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "context"
+				},
+				{
+					"command": "pr.cancelCodingAgent",
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "context"
 				}
 			]
 		},
