@@ -29,6 +29,7 @@ import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum } from './interface';
 import { issueMarkdown } from './markdownUtils';
 import { PullRequestModel } from './pullRequestModel';
+import { chooseItem } from './quickPicks';
 import { RepositoriesManager } from './repositoriesManager';
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
@@ -201,6 +202,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this.repositoriesManager.folderManagers[0];
 	}
 
+	private chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
+		return chooseItem<FolderRepositoryManager>(
+			this.repositoriesManager.folderManagers,
+			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
+		);
+	}
+
 	async repoInfo(fm?: FolderRepositoryManager): Promise<RepoInfo | undefined> {
 		fm = fm || this.firstFolderManager();
 		const repository = fm?.repository;
@@ -275,7 +283,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return undefined;
 		}
 		// Wait for repos to update
-		const fm = this.firstFolderManager();
+		const fm = await this.chooseFolderManager();
 		await fm?.updateRepositories();
 		return fm;
 	}
