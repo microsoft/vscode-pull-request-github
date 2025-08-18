@@ -12,11 +12,12 @@ import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
 import { COPILOT_SWE_AGENT } from './common/copilot';
 import { commands } from './common/executeCommands';
+import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
@@ -185,6 +186,14 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`, ACTIVATION);
 				return;
 			}
+
+			// Check if submodules should be ignored
+			const ignoreSubmodules = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(IGNORE_SUBMODULES, false);
+			if (ignoreSubmodules && isSubmodule(repo, git)) {
+				Logger.appendLine(`Repo ${repo.rootUri} is a submodule and will be ignored due to ${IGNORE_SUBMODULES} setting.`, ACTIVATION);
+				return;
+			}
+
 			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper, themeWatcher);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
