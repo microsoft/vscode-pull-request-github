@@ -350,6 +350,3 @@ src/constants.insiders.ts
 
 .eslintcache
 *.tsbuildinfo
-
-# Manual test files
-MANUAL_TEST_*.md
