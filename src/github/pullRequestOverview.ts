@@ -41,6 +41,7 @@ import { CancelCodingAgentReply, MergeArguments, MergeResult, PullRequest, Revie
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
+	public static override readonly viewType = PULL_REQUEST_OVERVIEW_VIEW_TYPE;
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
@@ -65,7 +66,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: PullRequestModel,
 		toTheSide: boolean = false,
-		preserveFocus: boolean = true
+		preserveFocus: boolean = true,
+		existingPanel?: vscode.WebviewPanel
 	) {
 
 		/* __GDPR__
@@ -92,7 +94,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				extensionUri,
 				activeColumn || vscode.ViewColumn.Active,
 				title,
-				folderRepositoryManager
+				folderRepositoryManager,
+				existingPanel
 			);
 		}
 
@@ -128,8 +131,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
+		existingPanel?: vscode.WebviewPanel
 	) {
-		super(telemetry, extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE, {
+		super(telemetry, extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel.viewType, existingPanel, {
 			light: 'resources/icons/pr_webview.svg',
 			dark: 'resources/icons/dark/pr_webview.svg'
 		});

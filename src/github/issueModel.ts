@@ -533,6 +533,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 				}
 				issueModel.timelineEvents = allEvents;
 			}
+			Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - exit`, GitHubRepository.ID);
 			return timelineEvents;
 		} catch (e) {
 			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);

@@ -170,12 +170,15 @@ body img.avatar {
 }
 
 .icon-button:hover,
+.title .icon-button:hover,
+.title .icon-button:focus,
 .section .icon-button:hover,
 .section .icon-button:focus {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .icon-button:focus,
+.title .icon-button:focus,
 .section .icon-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 1px;

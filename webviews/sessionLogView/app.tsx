@@ -85,7 +85,7 @@ export function App() {
 				<p>Failed to load session logs</p>
 				{state.url && (
 					<p>
-						<a href={state.url}>Try viewing logs in your browser</a>.
+						<a href={state.url}>Try viewing logs in your browser</a>. {/* CodeQL [SM01507] The url is a GitHub workflow run. */}
 					</p>
 				)}
 			</div>
