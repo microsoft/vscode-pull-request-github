@@ -410,6 +410,11 @@
 					},
 					"description": "%githubPullRequests.ignoredPullRequestBranches.description%"
 				},
+				"githubPullRequests.ignoreSubmodules": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.ignoreSubmodules.description%"
+				},
 				"githubPullRequests.neverIgnoreDefaultBranch": {
 					"type": "boolean",
 					"description": "%githubPullRequests.neverIgnoreDefaultBranch.description%"

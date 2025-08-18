@@ -16,7 +16,7 @@ import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
@@ -57,6 +57,32 @@ const ingestionKey = '0c6ae279ed8443289764825290e4f9e2-1a736e7c-1324-4338-be46-f
 let telemetry: ExperimentationTelemetry;
 
 const ACTIVATION = 'Activation';
+
+/**
+ * Determines if a repository is a submodule by checking if its path
+ * appears in any other repository's submodules list.
+ */
+function isSubmodule(repo: Repository, git: GitApiImpl): boolean {
+	const repoPath = repo.rootUri.fsPath;
+
+	// Check all other repositories to see if this repo is listed as a submodule
+	for (const otherRepo of git.repositories) {
+		if (otherRepo.rootUri.toString() === repo.rootUri.toString()) {
+			continue; // Skip self
+		}
+
+		// Check if this repo's path appears in the other repo's submodules
+		for (const submodule of otherRepo.state.submodules) {
+			// The submodule path is relative to the parent repo, so we need to resolve it
+			const submodulePath = vscode.Uri.joinPath(otherRepo.rootUri, submodule.path).fsPath;
+			if (submodulePath === repoPath) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
 
 async function init(
 	context: vscode.ExtensionContext,
@@ -185,6 +211,14 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`, ACTIVATION);
 				return;
 			}
+
+			// Check if submodules should be ignored
+			const ignoreSubmodules = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(IGNORE_SUBMODULES, false);
+			if (ignoreSubmodules && isSubmodule(repo, git)) {
+				Logger.appendLine(`Repo ${repo.rootUri} is a submodule and will be ignored due to ${IGNORE_SUBMODULES} setting.`, ACTIVATION);
+				return;
+			}
+
 			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper, themeWatcher);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
