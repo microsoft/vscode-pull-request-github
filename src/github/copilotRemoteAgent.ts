@@ -432,7 +432,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			outcome: 'success'
 		});
 
-		this._onDidChangeChatSessions.fire();
 		const viewLocationSetting = vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation');
 		const pr = await (async () => {
 			const capi = await this.copilotApi;
@@ -696,13 +695,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return await Promise.all(codingAgentPRs.map(async session => {
 				const timeline = await session.getCopilotTimelineEvents(session);
 				const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
-				if (status !== CopilotPRStatus.Completed && status !== CopilotPRStatus.Failed) {
-					const disposable = session.onDidChange(() => {
-						this._onDidChangeChatSessions.fire();
-						disposable.dispose(); // Clean up listener after firing
-					});
-					this._register(disposable);
-				}
 				const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
 				return {
 					id: `${session.number}`,
@@ -897,6 +889,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return new Promise<void>((resolve, reject) => {
 			let cancellationListener: vscode.Disposable | undefined;
 			let isCompleted = false;
+			let previous_state: SessionInfo['state'] | undefined;
 
 			const complete = async () => {
 				if (isCompleted) {
@@ -948,6 +941,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 					// Get session logs
 					const logs = await capi.getLogsFromSession(sessionId);
 
+					if (previous_state !== sessionInfo.state) {
+						this.refreshChatSessions();
+					}
+					previous_state = sessionInfo.state;
 					// Check if session is still in progress
 					if (sessionInfo.state !== 'in_progress') {
 						if (logs.length > lastProcessedLength) {
