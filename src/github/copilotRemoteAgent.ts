@@ -195,6 +195,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
+	private firstFolderManager(): FolderRepositoryManager | undefined {
+		if (!this.repositoriesManager.folderManagers.length) {
+			return;
+		}
+		return this.repositoriesManager.folderManagers[0];
+	}
+
 	private chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
 		return chooseItem<FolderRepositoryManager>(
 			this.repositoriesManager.folderManagers,
@@ -203,7 +210,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async repoInfo(fm?: FolderRepositoryManager): Promise<RepoInfo | undefined> {
-		fm = fm || (await this.chooseFolderManager());
+		fm = fm || this.firstFolderManager();
 		const repository = fm?.repository;
 		const ghRepository = fm?.gitHubRepositories.find(repo => repo.remote instanceof GitHubRemote) as GitHubRepository | undefined;
 		if (!fm || !repository || !ghRepository) {
