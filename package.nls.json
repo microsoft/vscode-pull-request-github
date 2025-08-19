@@ -378,6 +378,20 @@
 	"welcome.issues.github.noFolder.contents": "You have not yet opened a folder.",
 	"welcome.issues.github.noRepo.contents": "No git repositories found",
 	"welcome.github.activePullRequest.contents": "Loading...",
+	"welcome.chat.sessions.copilot-swe-agent.login.contents": {
+		"message": "Sign in to get started with Copilot coding agent\n[Sign in](command:pr.signin)",
+		"comment": [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:pr.signin)'}"
+		]
+	},
+	"welcome.chat.sessions.copilot-swe-agent.startSession.contents": {
+		"message": "No Copilot coding agent sessions\n[Start a coding session](command:workbench.action.chat.open?%7B%22query%22%3A%22%23copilotCodingAgent%20%22%2C%22isPartialQuery%22%3Atrue%7D)",
+		"comment": [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:workbench.action.chat.open?%7B%22query%22%3A%22%23copilotCodingAgent%20%22%2C%22isPartialQuery%22%3Atrue%7D)'}"
+		]
+	},
 	"languageModelTools.github-pull-request_issue_fetch.displayName": "Get a GitHub Issue or PR",
 	"languageModelTools.github-pull-request_issue_summarize.displayName": "Summarize a GitHub Issue or PR",
 	"languageModelTools.github-pull-request_notification_fetch.displayName": "Get a GitHub Notification",
