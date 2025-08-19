@@ -1850,6 +1850,16 @@
 				"view": "notifications:github",
 				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == -1",
 				"contents": "%welcome.github.notifications.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes",
+				"contents": "%welcome.chat.sessions.copilot-swe-agent.login.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "ReposManagerStateContext != NeedsAuthentication && github:hasGitHubRemotes",
+				"contents": "%welcome.chat.sessions.copilot-swe-agent.startSession.contents%"
 			}
 		],
 		"keybindings": [
