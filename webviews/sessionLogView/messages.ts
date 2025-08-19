@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SessionResponseLogChunk } from '../../common/sessionParsing';
 import { SessionLinkInfo } from '../../src/common/timelineEvent';
 import { ThemeData } from '../../src/view/theme';
 import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
@@ -20,7 +21,7 @@ export interface LoadedMessage {
 	type: 'loaded';
 	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
-	logs: string;
+	logs: readonly SessionResponseLogChunk[];
 	setupSteps: SessionSetupStepResponse[] | undefined;
 }
 
@@ -28,7 +29,7 @@ export interface UpdateMessage {
 	type: 'update';
 	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
-	logs: string;
+	logs: readonly SessionResponseLogChunk[];
 	setupSteps: SessionSetupStepResponse[] | undefined;
 }
 
