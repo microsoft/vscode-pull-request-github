@@ -1738,6 +1738,16 @@
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.closeChatSessionPullRequest",
+				"title": "%command.pr.closeChatSessionPullRequest.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.cancelCodingAgent",
+				"title": "%command.pr.cancelCodingAgent.title%",
+				"category": "%command.pull.request.category%"
 			}
 		],
 		"viewsWelcome": [
@@ -1840,6 +1850,16 @@
 				"view": "notifications:github",
 				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == -1",
 				"contents": "%welcome.github.notifications.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes",
+				"contents": "%welcome.chat.sessions.copilot-swe-agent.login.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "ReposManagerStateContext != NeedsAuthentication && github:hasGitHubRemotes",
+				"contents": "%welcome.chat.sessions.copilot-swe-agent.startSession.contents%"
 			}
 		],
 		"keybindings": [
@@ -3379,6 +3399,16 @@
 					"command": "pr.openDescription",
 					"when": "chatSessionType == copilot-swe-agent",
 					"group": "inline"
+				},
+				{
+					"command": "pr.closeChatSessionPullRequest",
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "context"
+				},
+				{
+					"command": "pr.cancelCodingAgent",
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "context"
 				}
 			]
 		},

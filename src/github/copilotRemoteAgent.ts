@@ -263,7 +263,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private async tryAcquireAuth(): Promise<FolderRepositoryManager | undefined> {
+	async tryAcquireAuth(): Promise<FolderRepositoryManager | undefined> {
 		if (this.credentialStore.isAnyAuthenticated()) {
 			return this.chooseFolderManager();
 		}
@@ -1253,5 +1253,28 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	public refreshChatSessions(): void {
 		this._onDidChangeChatSessions.fire();
+	}
+
+	public async cancelMostRecentChatSession(pullRequest: PullRequestModel): Promise<void> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			Logger.warn(`No Copilot API instance found`);
+			return;
+		}
+
+		const folderManager = this.repositoriesManager.getManagerForIssueModel(pullRequest) ?? this.repositoriesManager.folderManagers[0];
+		if (!folderManager) {
+			Logger.warn(`No folder manager found for pull request`);
+			return;
+		}
+
+		const sessions = await capi.getAllSessions(pullRequest.id);
+		if (sessions.length > 0) {
+			const mostRecentSession = sessions[sessions.length - 1];
+			const folder = folderManager.gitHubRepositories.find(repo => repo.remote.remoteName === pullRequest.remote.remoteName);
+			folder?.cancelWorkflow(mostRecentSession.workflow_run_id);
+		} else {
+			Logger.warn(`No active chat session found for pull request ${pullRequest.id}`);
+		}
 	}
 }
