@@ -38,7 +38,7 @@ function getIconMarkdown(issue: IssueModel) {
 			return `<span style="color:#22863a;">$(issues)</span>`;
 		}
 		case GithubItemStateEnum.Closed: {
-			return `<span style="color:#cb2431;">$(issue-closed)</span>`;
+			return `<span style="color:#6f42c1;">$(issue-closed)</span>`;
 		}
 	}
 }

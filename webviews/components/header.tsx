@@ -325,7 +325,9 @@ export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue:
 	} else if (state === GithubItemStateEnum.Open) {
 		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: open };
 	} else {
-		return { text: 'Closed', color: 'closed', icon: closed };
+		// Use different colors for closed issues vs closed PRs
+		const closedColor = isIssue ? 'issue-closed' : 'closed';
+		return { text: 'Closed', color: closedColor, icon: closed };
 	}
 }
 
