@@ -10,6 +10,7 @@ import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
@@ -119,6 +120,10 @@ export class CredentialStore extends Disposable {
 	private setScopesFromState() {
 		this._scopes = this.context.globalState.get(LAST_USED_SCOPES_GITHUB_KEY, SCOPES_OLD);
 		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES_OLD);
+	}
+
+	get scopes() {
+		return this._scopes;
 	}
 
 	private async saveScopesInState() {
@@ -285,6 +290,33 @@ export class CredentialStore extends Disposable {
 			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
 		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
+	}
+
+	async tryPromptForCopilotAuth(): Promise<boolean> {
+		if (this.isAnyAuthenticated()) {
+			return true;
+		}
+
+		const chatSetupResult = await commands.executeCommand(commands.CHAT_SETUP_ACTION_ID, 'agent', { additionalScopes: this.scopes });
+		if (!chatSetupResult) {
+			return false;
+		}
+
+		const result = await this.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
+
+		/* __GDPR__
+			"remoteAgent.command.auth" : {
+				"succeeded" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
+			succeeded: result.canceled ? 'false' : 'true'
+		});
+
+		if (result.canceled) {
+			return false;
+		}
+		return true;
 	}
 
 	public areScopesExtra(authProviderId: AuthProvider): boolean {

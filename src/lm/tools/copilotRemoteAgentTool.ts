@@ -30,7 +30,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title, existingPullRequest } = options.input;
-		const folderManager = existingPullRequest ? undefined : await this.manager.tryAcquireAuth();
+		const folderManager = existingPullRequest ? undefined : await this.manager.tryPromptForAuthAndRepo();
 
 		// Check if the coding agent is available (enabled and assignable)
 		const isAvailable = await this.manager.isAvailable();
@@ -68,7 +68,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		const title = options.input.title;
 		const body = options.input.body || '';
 		const existingPullRequest = options.input.existingPullRequest || '';
-		const folderManager = existingPullRequest ? undefined : await this.manager.tryAcquireAuth();
+		const folderManager = existingPullRequest ? undefined : await this.manager.tryPromptForAuthAndRepo();
 
 		const targetRepo = await this.manager.repoInfo(folderManager);
 		if (!targetRepo) {

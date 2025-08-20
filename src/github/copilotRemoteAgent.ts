@@ -263,28 +263,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	async tryAcquireAuth(): Promise<FolderRepositoryManager | undefined> {
-		if (this.credentialStore.isAnyAuthenticated()) {
-			return this.chooseFolderManager();
-		}
-
-		const chatSetupResult = await commands.executeCommand(commands.CHAT_SETUP_ACTION_ID);
-		if (!chatSetupResult) {
-			return undefined;
-		}
-
-		const result = await this.credentialStore.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
-
-		/* __GDPR__
-			"remoteAgent.command.auth" : {
-				"succeeded" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		this.telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
-			succeeded: result.canceled ? 'false' : 'true'
-		});
-
-		if (result.canceled) {
+	async tryPromptForAuthAndRepo(): Promise<FolderRepositoryManager | undefined> {
+		const authResult = await this.credentialStore.tryPromptForCopilotAuth();
+		if (!authResult) {
 			return undefined;
 		}
 		// Wait for repos to update
@@ -298,7 +279,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		const { userPrompt, summary, source, followup, _version } = args;
-		const fm = await this.tryAcquireAuth();
+		const fm = await this.tryPromptForAuthAndRepo();
 		if (!fm) {
 			return;
 		}
