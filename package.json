@@ -3426,8 +3426,8 @@
 			{
 				"id": "issues.closed",
 				"defaults": {
-					"dark": "#cb2431",
-					"light": "#cb2431",
+					"dark": "pullRequests.merged",
+					"light": "pullRequests.merged",
 					"highContrast": "editor.foreground",
 					"highContrastLight": "editor.foreground"
 				},
@@ -3466,8 +3466,8 @@
 			{
 				"id": "pullRequests.closed",
 				"defaults": {
-					"dark": "issues.closed",
-					"light": "issues.closed",
+					"dark": "#cb2431",
+					"light": "#cb2431",
 					"highContrast": "editor.background",
 					"highContrastLight": "editor.background"
 				},

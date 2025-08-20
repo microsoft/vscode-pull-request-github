@@ -603,10 +603,6 @@ small-button {
 	background-color: var(--vscode-pullRequests-closed);
 }
 
-.status-badge-issue-closed {
-	background-color: var(--vscode-pullRequests-merged);
-}
-
 .status-badge-draft {
 	background-color: var(--vscode-pullRequests-draft);
 }
