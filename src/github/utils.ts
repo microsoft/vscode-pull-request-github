@@ -942,6 +942,7 @@ export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: 
 		url: issue.url,
 		number: issue.number,
 		state: issue.state,
+		stateReason: issue.stateReason,
 		body: issue.body,
 		bodyHTML: await transformHtmlUrlsToExtensionUrls(issue.bodyHTML, githubRepository),
 		title: issue.title,

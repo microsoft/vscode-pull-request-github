@@ -39,7 +39,7 @@ function getIconMarkdown(issue: IssueModel) {
 		}
 		case GithubItemStateEnum.Closed: {
 			// Use grey for issues closed as "not planned", purple for "completed"
-			const color = issue.stateReason === 'NOT_PLANNED' ? '#6a737d' : '#8957e5';
+			const color = issue.stateReason !== 'COMPLETED' ? '#6a737d' : '#8957e5';
 			return `<span style="color:${color};">$(issue-closed)</span>`;
 		}
 	}

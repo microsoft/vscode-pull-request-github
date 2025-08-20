@@ -189,13 +189,15 @@ export interface Reaction {
 	reactors: readonly string[];
 }
 
+export type StateReason = 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
+
 export interface Issue {
 	id: number;
 	graphNodeId: string;
 	url: string;
 	number: number;
 	state: string;
-	stateReason?: string;
+	stateReason?: StateReason;
 	body: string;
 	bodyHTML?: string;
 	title: string;

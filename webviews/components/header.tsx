@@ -6,7 +6,7 @@
 import React, { useContext, useState } from 'react';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { GithubItemStateEnum } from '../../src/github/interface';
+import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
 import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
@@ -317,7 +317,7 @@ const CheckoutButton = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranc
 	/>;
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason?: string) {
+export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason: StateReason) {
 	const closed = isIssue ? issueClosedIcon : prClosedIcon;
 	const open = isIssue ? issueIcon : prOpenIcon;
 
@@ -326,15 +326,11 @@ export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue:
 	} else if (state === GithubItemStateEnum.Open) {
 		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: open };
 	} else {
-		// Use different colors for closed issues vs closed PRs
+		let closedColor: string = 'closed';
 		if (isIssue) {
-			// For issues, use grey for "not planned" and purple for "completed"
-			const closedColor = stateReason === 'NOT_PLANNED' ? 'draft' : 'merged';
-			return { text: 'Closed', color: closedColor, icon: closed };
-		} else {
-			// For PRs, always use red for closed
-			return { text: 'Closed', color: 'closed', icon: closed };
+			closedColor = stateReason !== 'COMPLETED' ? 'draft' : 'merged';
 		}
+		return { text: 'Closed', color: closedColor, icon: closed };
 	}
 }
 

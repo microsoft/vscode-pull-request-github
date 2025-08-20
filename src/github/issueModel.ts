@@ -23,7 +23,7 @@ import {
 	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason } from './interface';
 import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
 
 export interface IssueChangeEvent {
@@ -52,7 +52,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	public titleHTML: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
-	public stateReason?: string;
+	public stateReason?: StateReason;
 	public author: IAccount;
 	public assignees?: IAccount[];
 	public createdAt: string;
@@ -176,7 +176,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			changes.state = true;
 			this.state = newState;
 		}
-		if (this.stateReason !== issue.stateReason) {
+		if ((this.stateReason !== issue.stateReason) && issue.stateReason) {
 			changes.state = true;
 			this.stateReason = issue.stateReason;
 		}

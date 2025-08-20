@@ -638,6 +638,7 @@ export interface Issue {
 	number: number;
 	url: string;
 	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
+	stateReason?: 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
 	body: string;
 	bodyHTML: string;
 	title: string;
