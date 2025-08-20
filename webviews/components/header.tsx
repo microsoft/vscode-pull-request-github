@@ -17,7 +17,6 @@ import { AuthorLink, Avatar } from './user';
 export function Header({
 	canEdit,
 	state,
-	stateReason,
 	head,
 	base,
 	title,
@@ -32,7 +31,8 @@ export function Header({
 	events,
 	owner,
 	repo,
-	busy
+	busy,
+	stateReason
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
@@ -52,7 +52,7 @@ export function Header({
 				owner={owner}
 				repo={repo}
 			/>
-			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />
+			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />
 			<div className="header-actions">
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
@@ -211,8 +211,8 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	/>;
 }
 
-function Subtitle({ state, isDraft, isIssue, author, base, head, codingAgentEvent }) {
-	const { text, color, icon } = getStatus(state, isDraft, isIssue);
+function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent }) {
+	const { text, color, icon } = getStatus(state, isDraft, isIssue, stateReason);
 	const copilotStatus = copilotEventToStatus(codingAgentEvent);
 	let copilotStatusIcon: JSX.Element | undefined;
 	if (copilotStatus === CopilotPRStatus.Started) {
