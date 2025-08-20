@@ -220,6 +220,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			labels: labels,
 			author: issue.author,
 			state: issue.state,
+			stateReason: issue.stateReason,
 			events: timelineEvents,
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,

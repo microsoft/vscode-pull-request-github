@@ -64,6 +64,7 @@ fragment IssueBase on Issue {
 	number
 	url
 	state
+	stateReason
 	body
 	bodyHTML
 	title
