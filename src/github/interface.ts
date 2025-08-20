@@ -195,6 +195,7 @@ export interface Issue {
 	url: string;
 	number: number;
 	state: string;
+	stateReason?: string;
 	body: string;
 	bodyHTML?: string;
 	title: string;

@@ -42,6 +42,7 @@ export interface Issue {
 	bodyHTML?: string;
 	author: IAccount;
 	state: GithubItemStateEnum; // TODO: don't allow merged
+	stateReason?: string;
 	events: TimelineEvent[];
 	labels: DisplayLabel[];
 	assignees: IAccount[];

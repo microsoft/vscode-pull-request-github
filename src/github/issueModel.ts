@@ -52,6 +52,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	public titleHTML: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
+	public stateReason?: string;
 	public author: IAccount;
 	public assignees?: IAccount[];
 	public createdAt: string;
@@ -174,6 +175,10 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		if (this.state !== newState) {
 			changes.state = true;
 			this.state = newState;
+		}
+		if (this.stateReason !== issue.stateReason) {
+			changes.state = true;
+			this.stateReason = issue.stateReason;
 		}
 		if (issue.assignees && (issue.assignees.length !== (this.assignees?.length ?? 0) || issue.assignees.some(assignee => this.assignees?.every(a => a.id !== assignee.id)))) {
 			changes.assignees = true;

@@ -17,6 +17,7 @@ import { AuthorLink, Avatar } from './user';
 export function Header({
 	canEdit,
 	state,
+	stateReason,
 	head,
 	base,
 	title,
@@ -316,7 +317,7 @@ const CheckoutButton = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranc
 	/>;
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean) {
+export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason?: string) {
 	const closed = isIssue ? issueClosedIcon : prClosedIcon;
 	const open = isIssue ? issueIcon : prOpenIcon;
 
@@ -326,8 +327,14 @@ export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue:
 		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: open };
 	} else {
 		// Use different colors for closed issues vs closed PRs
-		const closedColor = isIssue ? 'merged' : 'closed';
-		return { text: 'Closed', color: closedColor, icon: closed };
+		if (isIssue) {
+			// For issues, use grey for "not planned" and purple for "completed"
+			const closedColor = stateReason === 'NOT_PLANNED' ? 'draft' : 'merged';
+			return { text: 'Closed', color: closedColor, icon: closed };
+		} else {
+			// For PRs, always use red for closed
+			return { text: 'Closed', color: 'closed', icon: closed };
+		}
 	}
 }
 
