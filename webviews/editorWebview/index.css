@@ -50,7 +50,7 @@ textarea:focus,
 .title {
 	display: flex;
 	align-items: flex-start;
-	margin: 20px 0;
+	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
@@ -555,6 +555,7 @@ small-button {
 .header-actions {
 	display: flex;
 	gap: 8px;
+	padding-top: 4px;
 }
 
 .header-actions>div:first-of-type {
@@ -608,7 +609,7 @@ small-button {
 }
 
 .section {
-	padding-bottom: 14px;
+	padding-bottom: 16px;
 	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	display: flex;
 	flex-direction: column;
@@ -1237,6 +1238,7 @@ code {
 	#sidebar {
 		display: grid;
 		column-gap: 20px;
+		row-gap: 12px;
 		grid-template-columns: calc(50% - 10px) calc(50% - 10px);
 		padding: 0;
 	}
@@ -1483,20 +1485,20 @@ svg.octicon path {
 .collapsible-sidebar {
 	border-top: 1px solid var(--vscode-editorWidget-border);
 	border-bottom: 1px solid var(--vscode-editorWidget-border);
-	margin-bottom: 16px;
+	margin-bottom: 24px;
 }
 
 .collapsible-sidebar-header {
 	display: flex;
 	align-items: center;
 	cursor: pointer;
-	padding: 16px 0px 7px;
+	padding: 16px 0px 8px;
 	user-select: none;
 	outline: none;
 }
 
 .collapsible-sidebar-header.expanded {
-	padding: 7px 0px;
+	padding: 8px 0px;
 }
 
 .collapsible-sidebar-header:focus {
@@ -1509,18 +1511,18 @@ svg.octicon path {
 }
 
 .collapsible-sidebar-content {
-	padding-bottom: 6px;
+	padding-bottom: 16px;
 }
 
 .collapsed-label {
-	gap: 6px;
+	gap: 8px;
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	grid-gap: 6px 12px;
+	grid-gap: 8px 20px;
 }
 
 .collapsed-section {
-	gap: 2px;
+	gap: 8px;
 	display: inline-flex;
 	align-items: center;
 	min-width: 0;
@@ -1547,8 +1549,6 @@ svg.octicon path {
 	flex-shrink: 0;
 	white-space: nowrap;
 	border-radius: 20px;
-	padding: 0px 6px;
-	font-size: 13px;
 	margin-right: 2px;
 }
 
@@ -1570,7 +1570,8 @@ svg.octicon path {
 }
 
 .collapsible-label-see-more {
-	padding-bottom: 8px;
+	padding-bottom: 16px;
 	display: block;
-	font-size: 12px;
+	font-size: 13px;
+	cursor: pointer;
 }
