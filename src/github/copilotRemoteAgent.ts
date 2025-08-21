@@ -666,6 +666,40 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this._stateModel.getCounts();
 	}
 
+	public async provideNewChatSessionItem(options: { prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, _token: vscode.CancellationToken): Promise<ChatSessionWithPR> {
+		const { prompt } = options;
+		if (!prompt) {
+			throw new Error(`Prompt is expected to provide a new chat session item`);
+		}
+		const result = await this.invokeRemoteAgent(
+			prompt,
+			prompt,
+			false,
+		);
+		if (result.state !== 'success') {
+			Logger.error(`Failed to provide new chat session item: ${result.error}`, CopilotRemoteAgentManager.ID);
+			throw new Error(`Failed to provide new chat session item: ${result.error}`);
+		}
+
+		const { number } = result;
+
+		const session = await this.findPullRequestById(number, true);
+		if (!session) {
+			throw new Error(`Failed to find session for pull request: ${number}`);
+		}
+		const timeline = await session.getCopilotTimelineEvents(session);
+		const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
+		const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
+		return {
+			id: `${session.number}`,
+			label: session.title || `Session ${session.number}`,
+			iconPath: this.getIconForSession(status),
+			description: `${dateFromNow(session.createdAt)}`,
+			pullRequest: session,
+			tooltip,
+		};
+	}
+
 	public async provideChatSessions(token: vscode.CancellationToken): Promise<ChatSessionWithPR[]> {
 		try {
 			const capi = await this.copilotApi;
@@ -699,8 +733,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		return [];
 	}
-
-
 
 	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
 		try {
