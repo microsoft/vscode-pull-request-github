@@ -50,7 +50,7 @@ textarea:focus,
 .title {
 	display: flex;
 	align-items: flex-start;
-	margin: 20px 0;
+	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
@@ -1485,7 +1485,7 @@ svg.octicon path {
 .collapsible-sidebar {
 	border-top: 1px solid var(--vscode-editorWidget-border);
 	border-bottom: 1px solid var(--vscode-editorWidget-border);
-	margin-bottom: 16px;
+	margin-bottom: 24px;
 }
 
 .collapsible-sidebar-header {
@@ -1549,8 +1549,6 @@ svg.octicon path {
 	flex-shrink: 0;
 	white-space: nowrap;
 	border-radius: 20px;
-	padding: 0px 6px;
-	font-size: 13px;
 	margin-right: 2px;
 }
 

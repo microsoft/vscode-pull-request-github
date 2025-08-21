@@ -324,7 +324,7 @@ function CollapsedLabel(props: PullRequest) {
 				return (
 					<span
 						key={getKey(item)}
-						className="pill-item"
+						className="pill-item label"
 						style={{
 							backgroundColor: color.backgroundColor,
 							color: color.textColor,
