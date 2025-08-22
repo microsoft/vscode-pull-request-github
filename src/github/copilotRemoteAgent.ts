@@ -8,7 +8,7 @@ import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -18,7 +18,7 @@ import { ITelemetry } from '../common/telemetry';
 import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { dateFromNow } from '../common/utils';
 import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../view/theme';
-import { IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { copilotEventToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
@@ -688,7 +688,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			throw new Error(`Failed to find session for pull request: ${number}`);
 		}
 		const timeline = await session.getCopilotTimelineEvents(session);
-		const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
+		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
 		const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
 		return {
 			id: `${session.number}`,
@@ -697,6 +697,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			description: `${dateFromNow(session.createdAt)}`,
 			pullRequest: session,
 			tooltip,
+			status,
 		};
 	}
 
@@ -717,7 +718,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
 			return await Promise.all(codingAgentPRs.map(async session => {
 				const timeline = await session.getCopilotTimelineEvents(session);
-				const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
+				const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
 				const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
 				return {
 					id: `${session.number}`,
@@ -726,6 +727,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					description: `${dateFromNow(session.createdAt)}`,
 					pullRequest: session,
 					tooltip,
+					status,
 				};
 			}));
 		} catch (error) {
@@ -1225,15 +1227,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private getIconForSession(status: CopilotPRStatus): vscode.Uri | vscode.ThemeIcon {
+	private getIconForSession(status: vscode.ChatSessionStatus): vscode.Uri | vscode.ThemeIcon {
 		// Use the same icons as webview components for consistency
 		const themeData = this.repositoriesManager.folderManagers[0]?.themeWatcher?.themeData;
 		if (!themeData) {
 			// Fallback to theme icons if no theme data available
 			switch (status) {
-				case CopilotPRStatus.Completed:
+				case vscode.ChatSessionStatus.Completed:
 					return new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));
-				case CopilotPRStatus.Failed:
+				case vscode.ChatSessionStatus.Failed:
 					return new vscode.ThemeIcon('close', new vscode.ThemeColor('testing.iconFailed'));
 				default:
 					return new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
@@ -1246,12 +1248,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const themeKind = isDark ? 'dark' : 'light';
 
 		switch (status) {
-			case CopilotPRStatus.Completed:
+			case vscode.ChatSessionStatus.Completed:
 				return DataUri.copilotSuccessAsImageDataURI(
 					getIconForeground(themeData, themeKind),
 					getNotebookStatusSuccessIconForeground(themeData, themeKind)
 				);
-			case CopilotPRStatus.Failed:
+			case vscode.ChatSessionStatus.Failed:
 				return DataUri.copilotErrorAsImageDataURI(
 					getIconForeground(themeData, themeKind),
 					getListErrorForeground(themeData, themeKind)
