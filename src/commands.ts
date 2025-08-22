@@ -1903,4 +1903,16 @@ ${contents}
 			copilotRemoteAgentManager.refreshChatSessions();
 		})
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.preferredCodingAgentGitHubRemote', async () => {
+			await copilotRemoteAgentManager.promptAndUpdatePreferredGitHubRemote();
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.resetCodingAgentPreferences', async () => {
+			await copilotRemoteAgentManager.resetCodingAgentPreferences();
+		})
+	);
 }

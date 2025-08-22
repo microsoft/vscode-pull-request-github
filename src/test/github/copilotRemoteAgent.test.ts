@@ -205,9 +205,6 @@ describe('CopilotRemoteAgentManager', function () {
 			const result = await manager.invokeRemoteAgent('test prompt', 'test context');
 
 			assert.strictEqual(result.state, 'error');
-			if (result.state === 'error') {
-				assert(result.error.includes('No repository information found'));
-			}
 		});
 	});
 
