@@ -3415,7 +3415,7 @@
 			"chat/multiDiff/context": [
 				{
 					"command": "pr.checkoutFromDescription",
-					"when": "true"
+					"when": "chatSessionType == copilot-swe-agent"
 				}
 			]
 		},
