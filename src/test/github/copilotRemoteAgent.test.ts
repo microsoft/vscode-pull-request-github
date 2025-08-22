@@ -388,4 +388,35 @@ describe('CopilotRemoteAgentManager', function () {
 			assert(endTime - startTime < 100);
 		});
 	});
+
+	describe('badge notification functionality', function () {
+		it('should expose onDidChangeSessionBadges event', function () {
+			assert.strictEqual(typeof manager.onDidChangeSessionBadges, 'function');
+		});
+
+		it('should track unviewed completed sessions', function () {
+			// Initially no unviewed sessions
+			assert.strictEqual(manager.getUnviewedSessionCount(), 0);
+			assert.strictEqual(manager.hasUnviewedCompletion('123'), false);
+		});
+
+		it('should mark sessions as viewed', function () {
+			// Mark a session as viewed (this should not throw even if session doesn't exist)
+			manager.markSessionAsViewed('123');
+			assert.strictEqual(manager.hasUnviewedCompletion('123'), false);
+		});
+
+		it('should handle badge state changes', function () {
+			let eventFired = false;
+			const disposable = manager.onDidChangeSessionBadges(() => {
+				eventFired = true;
+			});
+
+			// Marking a non-existent session as viewed should not fire event
+			manager.markSessionAsViewed('non-existent');
+			assert.strictEqual(eventFired, false);
+
+			disposable.dispose();
+		});
+	});
 });

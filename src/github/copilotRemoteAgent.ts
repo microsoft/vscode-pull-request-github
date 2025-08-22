@@ -56,6 +56,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
 	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
+	
+	// Track sessions with new completions for badge notification
+	private readonly _unviewedCompletedSessions = new Set<string>();
+	private readonly _onDidChangeSessionBadges = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeSessionBadges = this._onDidChangeSessionBadges.event;
 
 	private readonly gitOperationsManager: GitOperationsManager;
 
@@ -94,6 +99,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		// Set initial context
 		this.updateAssignabilityContext();
+
+		// Initialize badge state management
+		this.loadViewedSessions();
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -668,6 +676,105 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this._stateModel.getCounts();
 	}
 
+	// Badge state management methods
+	markSessionAsViewed(sessionId: string): void {
+		if (this._unviewedCompletedSessions.has(sessionId)) {
+			this._unviewedCompletedSessions.delete(sessionId);
+			this.addSessionToViewedList(sessionId);
+			this._onDidChangeSessionBadges.fire();
+		}
+	}
+
+	private async addSessionToViewedList(sessionId: string): Promise<void> {
+		try {
+			const currentViewed = this.context.globalState.get<string[]>('copilot.viewedSessions', []);
+			const timestamp = Date.now().toString();
+			const sessionEntry = `${sessionId}|${timestamp}`;
+			
+			if (!currentViewed.some(entry => entry.startsWith(`${sessionId}|`))) {
+				const updatedViewed = [...currentViewed, sessionEntry];
+				await this.context.globalState.update('copilot.viewedSessions', updatedViewed);
+			}
+		} catch (error) {
+			Logger.error(`Failed to add session to viewed list: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+	}
+
+	hasUnviewedCompletion(sessionId: string): boolean {
+		return this._unviewedCompletedSessions.has(sessionId);
+	}
+
+	getUnviewedSessionCount(): number {
+		return this._unviewedCompletedSessions.size;
+	}
+
+	private async loadViewedSessions(): Promise<void> {
+		try {
+			const viewedSessions = this.context.globalState.get<string[]>('copilot.viewedSessions', []);
+			// Clean up old entries (older than 30 days)
+			const deleteDate = Date.now() - (30 * 24 * 60 * 60 * 1000);
+			const validSessions = viewedSessions.filter(entry => {
+				try {
+					const [, timestamp] = entry.split('|');
+					const entryTime = parseInt(timestamp || '0', 10);
+					return entryTime > deleteDate;
+				} catch {
+					return false;
+				}
+			});
+
+			// Save cleaned up sessions
+			if (validSessions.length !== viewedSessions.length) {
+				await this.context.globalState.update('copilot.viewedSessions', validSessions);
+			}
+
+			// Initialize unviewed sessions by checking current sessions against viewed ones
+			await this.updateUnviewedSessionsFromCurrentState();
+		} catch (error) {
+			Logger.error(`Failed to load viewed sessions: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+	}
+
+	private async updateUnviewedSessionsFromCurrentState(): Promise<void> {
+		try {
+			const viewedSessions = this.context.globalState.get<string[]>('copilot.viewedSessions', []);
+			const viewedSessionIds = new Set(viewedSessions.map(entry => entry.split('|')[0]));
+
+			// Get current coding agent sessions
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return;
+			}
+
+			await this.waitRepoManagerInitialization();
+			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+
+			// Check which completed sessions haven't been viewed
+			const updatedUnviewed = new Set<string>();
+			for (const session of codingAgentPRs) {
+				const timeline = await session.getCopilotTimelineEvents(session);
+				const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
+				const sessionId = session.number.toString();
+
+				if (status === vscode.ChatSessionStatus.Completed && !viewedSessionIds.has(sessionId)) {
+					updatedUnviewed.add(sessionId);
+				}
+			}
+
+			// Update unviewed sessions if changed
+			const hasChanges = updatedUnviewed.size !== this._unviewedCompletedSessions.size ||
+				![...updatedUnviewed].every(id => this._unviewedCompletedSessions.has(id));
+
+			if (hasChanges) {
+				this._unviewedCompletedSessions.clear();
+				updatedUnviewed.forEach(id => this._unviewedCompletedSessions.add(id));
+				this._onDidChangeSessionBadges.fire();
+			}
+		} catch (error) {
+			Logger.error(`Failed to update unviewed sessions: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+	}
+
 	public async provideNewChatSessionItem(options: { prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, _token: vscode.CancellationToken): Promise<ChatSessionWithPR> {
 		const { prompt } = options;
 		if (!prompt) {
@@ -722,14 +829,23 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const timeline = await session.getCopilotTimelineEvents(session);
 				const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
 				const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
+				const sessionId = session.number.toString();
+
+				// Badge logic: show badge for completed sessions that haven't been viewed
+				const hasNewCompletions = status === vscode.ChatSessionStatus.Completed && 
+					this.hasUnviewedCompletion(sessionId);
+
 				return {
-					id: `${session.number}`,
+					id: sessionId,
 					label: session.title || `Session ${session.number}`,
 					iconPath: this.getIconForSession(status),
 					description: `${dateFromNow(session.createdAt)}`,
 					pullRequest: session,
 					tooltip,
 					status,
+					// Badge properties for notification
+					badge: hasNewCompletions ? '●' : undefined,
+					badgeTooltip: hasNewCompletions ? vscode.l10n.t('Session completed - click to view results') : undefined
 				};
 			}));
 		} catch (error) {
@@ -750,6 +866,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 				Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
+
+			// Mark this session as viewed when user opens it
+			this.markSessionAsViewed(id);
 
 			await this.waitRepoManagerInitialization();
 
@@ -1270,6 +1389,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	public refreshChatSessions(): void {
 		this._onDidChangeChatSessions.fire();
+		// Update badge state when sessions are refreshed
+		this.updateUnviewedSessionsFromCurrentState();
 	}
 
 	public async cancelMostRecentChatSession(pullRequest: PullRequestModel): Promise<void> {
