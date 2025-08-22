@@ -395,6 +395,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			autoPushAndCommit,
 		);
 
+		this.refreshChatSessions();
+
 		if (result.state !== 'success') {
 			/* __GDPR__
 				"remoteAgent.command.result" : {
