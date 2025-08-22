@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
-import type { Uri } from 'vscode';
+import { ChatSessionStatus, Uri } from 'vscode';
 import { Repository } from '../api/api';
 import { GitHubRemote } from '../common/remote';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { SessionInfo, SessionSetupStep } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -156,4 +157,21 @@ export interface RepoInfo {
 	repository: Repository;
 	ghRepository: GitHubRepository;
 	fm: FolderRepositoryManager;
+}
+
+export function copilotEventToSessionStatus(event: TimelineEvent | undefined): ChatSessionStatus {
+	if (!event) {
+		return ChatSessionStatus.InProgress;
+	}
+
+	switch (event.event) {
+		case EventType.CopilotStarted:
+			return ChatSessionStatus.InProgress;
+		case EventType.CopilotFinished:
+			return ChatSessionStatus.Completed;
+		case EventType.CopilotFinishedError:
+			return ChatSessionStatus.Failed;
+		default:
+			return ChatSessionStatus.InProgress;
+	}
 }
