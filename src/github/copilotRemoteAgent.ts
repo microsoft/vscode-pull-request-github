@@ -44,6 +44,8 @@ const COPILOT = '@copilot';
 
 const body_suffix = vscode.l10n.t('Created from VS Code via the [GitHub Pull Request](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension.');
 
+const PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY = 'PREFERRED_GITHUB_CODING_AGENT_REMOTE';
+
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
 
@@ -209,6 +211,47 @@ export class CopilotRemoteAgentManager extends Disposable {
 		);
 	}
 
+	public async resetCodingAgentPreferences() {
+		await this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, undefined);
+	}
+
+	public async promptAndUpdatePreferredGitHubRemote(skipIfValueAlreadyCached = false): Promise<GitHubRemote | undefined> {
+		if (skipIfValueAlreadyCached) {
+			const cachedValue = await this.context.workspaceState.get(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY);
+			if (cachedValue) {
+				return;
+			}
+		}
+
+		const fm = this.firstFolderManager();
+		if (!fm) {
+			return;
+		}
+
+		const ghRemotes = await fm.getAllGitHubRemotes();
+		Logger.trace(`There are ${ghRemotes.length} GitHub remotes available to select from`, CopilotRemoteAgentManager.ID);
+		if (!ghRemotes || ghRemotes.length === 0) {
+			return;
+		}
+
+		const result = await chooseItem<GitHubRemote>(
+			ghRemotes,
+			itemValue => `${itemValue.remoteName} (${itemValue.owner}/${itemValue.repositoryName})`,
+			{
+				title: vscode.l10n.t('Set the GitHub remote to target when creating a coding agent session'),
+			}
+		);
+
+		if (!result) {
+			Logger.warn('No coding agent GitHub remote selected. Clearing preferences.', CopilotRemoteAgentManager.ID);
+			return;
+		}
+
+		Logger.appendLine(`Updated '${result.remoteName}' as preferred coding agent remote`, CopilotRemoteAgentManager.ID);
+		await this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, result.remoteName);
+		return result;
+	}
+
 	async repoInfo(fm?: FolderRepositoryManager): Promise<RepoInfo | undefined> {
 		fm = fm || this.firstFolderManager();
 		const repository = fm?.repository;
@@ -216,16 +259,24 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!fm || !repository || !ghRepository) {
 			return;
 		}
-
 		const baseRef = repository.state.HEAD?.name; // TODO: Consider edge cases
+		const preferredRemoteName = this.context.workspaceState.get(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY);
 		const ghRemotes = await fm.getGitHubRemotes();
 		if (!ghRemotes || ghRemotes.length === 0) {
 			return;
 		}
 
 		const remote =
-			ghRemotes.find(remote => remote.remoteName === 'origin')
-			|| ghRemotes[0]; // Fallback to the first remote
+			preferredRemoteName
+				? ghRemotes.find(remote => remote.remoteName === preferredRemoteName) // Cached preferred value
+				: (ghRemotes.find(remote => remote.remoteName === 'origin') || ghRemotes[0]); // Fallback to the first remote
+
+		if (!remote) {
+			Logger.error(`no valid remotes for coding agent`, CopilotRemoteAgentManager.ID);
+			// Clear preference, something is wrong
+			this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, undefined);
+			return;
+		}
 
 		// Extract repo data from target remote
 		const { owner, repositoryName: repo } = remote;
@@ -458,6 +509,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
 			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
+		}
+
+		if (!await this.promptAndUpdatePreferredGitHubRemote(true)) {
+			return { error: vscode.l10n.t('Cancelled setting preferred GitHub remote'), state: 'error' };
 		}
 
 		const repoInfo = await this.repoInfo();

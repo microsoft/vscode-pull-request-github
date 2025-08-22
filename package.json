@@ -1741,6 +1741,17 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.preferredCodingAgentGitHubRemote",
+				"title": "%command.pr.preferredCodingAgentGitHubRemote.title%",
+				"icon": "$(gear)",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.resetCodingAgentPreferences",
+				"title": "%command.pr.resetCodingAgentPreferences.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.closeChatSessionPullRequest",
 				"title": "%command.pr.closeChatSessionPullRequest.title%",
 				"category": "%command.pull.request.category%"
@@ -2651,6 +2662,11 @@
 				},
 				{
 					"command": "pr.refreshChatSessions",
+					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.preferredCodingAgentGitHubRemote",
 					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
 					"group": "navigation@1"
 				}
