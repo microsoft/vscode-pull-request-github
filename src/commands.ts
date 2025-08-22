@@ -651,11 +651,27 @@ export function registerCommands(
 		return { folderManager, pr };
 	};
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (context: OverviewContext | undefined) => {
-		if (!context) {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
-		const resolved = await resolvePr(context);
+
+		if ('path' in ctx) {
+			const { path } = ctx;
+			const prNumber = Number(Buffer.from(path.substring(1), 'base64').toString('utf8'));
+			if (Number.isNaN(prNumber)) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
+			}
+			const folderManager = reposManager.folderManagers[0];
+			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
+			if (!pullRequest) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
+			}
+
+			return switchToPr(folderManager, pullRequest, folderManager.repository, true);
+		}
+
+		const resolved = await resolvePr(ctx);
 		if (!resolved) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}

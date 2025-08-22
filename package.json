@@ -1320,7 +1320,8 @@
 			{
 				"command": "pr.checkoutFromDescription",
 				"title": "%command.pr.checkoutFromDescription.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-compare)"
 			},
 			{
 				"command": "pr.checkoutOnVscodeDevFromDescription",
@@ -3409,6 +3410,12 @@
 					"command": "pr.cancelCodingAgent",
 					"when": "chatSessionType == copilot-swe-agent",
 					"group": "context"
+				}
+			],
+			"chat/multiDiff/context": [
+				{
+					"command": "pr.checkoutFromDescription",
+					"when": "true"
 				}
 			]
 		},
