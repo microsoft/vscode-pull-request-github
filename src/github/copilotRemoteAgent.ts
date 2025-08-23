@@ -1285,41 +1285,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	private getIconForSession(status: vscode.ChatSessionStatus): vscode.Uri | vscode.ThemeIcon {
-		// Use the same icons as webview components for consistency
-		const themeData = this.repositoriesManager.folderManagers[0]?.themeWatcher?.themeData;
-		if (!themeData) {
-			// Fallback to theme icons if no theme data available
-			switch (status) {
-				case vscode.ChatSessionStatus.Completed:
-					return new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));
-				case vscode.ChatSessionStatus.Failed:
-					return new vscode.ThemeIcon('close', new vscode.ThemeColor('testing.iconFailed'));
-				default:
-					return new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
-			}
-		}
-
-		// Use the same SVG icons as webview components with theme-appropriate colors
-		const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
-			vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
-		const themeKind = isDark ? 'dark' : 'light';
-
+		// Fallback to theme icons if no theme data available
 		switch (status) {
 			case vscode.ChatSessionStatus.Completed:
-				return DataUri.copilotSuccessAsImageDataURI(
-					getIconForeground(themeData, themeKind),
-					getNotebookStatusSuccessIconForeground(themeData, themeKind)
-				);
+				return new vscode.ThemeIcon('issues', new vscode.ThemeColor('testing.iconPassed'));
 			case vscode.ChatSessionStatus.Failed:
-				return DataUri.copilotErrorAsImageDataURI(
-					getIconForeground(themeData, themeKind),
-					getListErrorForeground(themeData, themeKind)
-				);
+				return new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
 			default:
-				return DataUri.copilotInProgressAsImageDataURI(
-					getIconForeground(themeData, themeKind),
-					getListWarningForeground(themeData, themeKind)
-				);
+				return new vscode.ThemeIcon('issue-reopened', new vscode.ThemeColor('editorLink.activeForeground'));
 		}
 	}
 
