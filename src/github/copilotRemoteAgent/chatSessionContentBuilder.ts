@@ -5,7 +5,7 @@
 
 import * as nodePath from 'path';
 import vscode from 'vscode';
-import { parseSessionLogs, parseToolCallDetails } from '../../../common/sessionParsing';
+import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../../common/sessionParsing';
 import { COPILOT_SWE_AGENT } from '../../common/copilot';
 import Logger from '../../common/logger';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -369,7 +369,7 @@ export class ChatSessionContentBuilder {
 				toolPart.originMessage = new vscode.MarkdownString(toolDetails.originMessage);
 			}
 			if (toolDetails.toolSpecificData) {
-				if ('command' in toolDetails.toolSpecificData) {
+				if (StrReplaceEditorToolData.is(toolDetails.toolSpecificData)) {
 					if ((toolDetails.toolSpecificData.command === 'view' || toolDetails.toolSpecificData.command === 'edit') && toolDetails.toolSpecificData.fileLabel) {
 						const uri = vscode.Uri.file(nodePath.join(pullRequest.githubRepository.rootUri.fsPath, toolDetails.toolSpecificData.fileLabel));
 						toolPart.invocationMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);

@@ -122,6 +122,7 @@ class LiveShareRepositoryProxyHandler {
 	constructor() { }
 
 	get(obj: any, prop: any) {
+		// eslint-disable-next-line no-restricted-syntax
 		if (prop in obj) {
 			return obj[prop];
 		}

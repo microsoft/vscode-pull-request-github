@@ -651,12 +651,17 @@ export function registerCommands(
 		return { folderManager, pr };
 	};
 
+	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
+		const contextAsPath: Partial<{ path: string }> = (ctx as { path: string });
+		return !!contextAsPath.path;
+	}
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
-		if ('path' in ctx) {
+		if (contextHasPath(ctx)) {
 			const { path } = ctx;
 			const prNumber = Number(Buffer.from(path.substring(1), 'base64').toString('utf8'));
 			if (Number.isNaN(prNumber)) {

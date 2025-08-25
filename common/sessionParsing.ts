@@ -64,6 +64,12 @@ export interface StrReplaceEditorToolData {
 	parsedContent?: { content: string; fileA: string | undefined; fileB: string | undefined; };
 }
 
+export namespace StrReplaceEditorToolData {
+	export function is(value: any): value is StrReplaceEditorToolData {
+		return value && (typeof value.command === 'string');
+	}
+}
+
 export interface BashToolData {
 	commandLine: {
 		original: string;
