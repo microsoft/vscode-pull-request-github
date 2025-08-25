@@ -6,6 +6,7 @@ import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
 import { ChatSessionStatus, Uri } from 'vscode';
 import { Repository } from '../api/api';
+import { CopilotPRStatus } from '../common/copilot';
 import { GitHubRemote } from '../common/remote';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { SessionInfo, SessionSetupStep } from './copilotApi';
@@ -170,6 +171,19 @@ export function copilotEventToSessionStatus(event: TimelineEvent | undefined): C
 		case EventType.CopilotFinished:
 			return ChatSessionStatus.Completed;
 		case EventType.CopilotFinishedError:
+			return ChatSessionStatus.Failed;
+		default:
+			return ChatSessionStatus.InProgress;
+	}
+}
+
+export function copilotPRStatusToSessionStatus(event: CopilotPRStatus): ChatSessionStatus {
+	switch (event) {
+		case CopilotPRStatus.Started:
+			return ChatSessionStatus.InProgress;
+		case CopilotPRStatus.Completed:
+			return ChatSessionStatus.Completed;
+		case CopilotPRStatus.Failed:
 			return ChatSessionStatus.Failed;
 		default:
 			return ChatSessionStatus.InProgress;
