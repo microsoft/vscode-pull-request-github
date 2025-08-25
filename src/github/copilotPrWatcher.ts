@@ -166,7 +166,15 @@ export class CopilotPRWatcher extends Disposable {
 				this._pollForChanges();
 			}
 		}));
-		this._register({ dispose: () => this._timeout && clearTimeout(this._timeout) });
+		this._register(vscode.window.onDidChangeWindowState(e => {
+			if (e.active || e.focused) {
+				// If we are becoming active/focused, and it's been more than the poll interval since the last poll, poll now
+				if (Date.now() - this._lastPollTime > this._pollInterval) {
+					this._pollForChanges();
+				}
+			}
+		}));
+		this._register({ dispose: () => this._pollTimeout && clearTimeout(this._pollTimeout) });
 	}
 
 	private _queriesIncludeCopilot(): string | undefined {
@@ -174,14 +182,27 @@ export class CopilotPRWatcher extends Disposable {
 		return queries.find(query => isCopilotQuery(query.query))?.query;
 	}
 
-	private _timeout: NodeJS.Timeout | undefined;
+	private get _pollInterval(): number {
+		if (vscode.window.state.active || vscode.window.state.focused) {
+			return 60 * 1000 * 2; // Poll every 2 minutes
+		}
+		return 60 * 1000 * 5; // Poll every 5 minutes
+	}
+
+	private _pollTimeout: NodeJS.Timeout | undefined;
+	private _lastPollTime = 0;
 	private async _pollForChanges(): Promise<void> {
+		if (this._pollTimeout) {
+			clearTimeout(this._pollTimeout);
+			this._pollTimeout = undefined;
+		}
+		this._lastPollTime = Date.now();
 		const shouldContinue = await this._getStateChanges();
 
 		if (shouldContinue) {
-			this._timeout = setTimeout(() => {
+			this._pollTimeout = setTimeout(() => {
 				this._pollForChanges();
-			}, 60 * 1000); // Poll every minute
+			}, this._pollInterval);
 		}
 	}
 
