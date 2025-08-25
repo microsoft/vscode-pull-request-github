@@ -18,7 +18,7 @@ import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/setti
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { dateFromNow } from '../common/utils';
-import { copilotEventToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
@@ -72,7 +72,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		this._stateModel = new CopilotStateModel();
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
-		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
+		this._register(this._stateModel.onDidChangeStates(() => {
+			this._onDidChangeStates.fire();
+			this._onDidChangeChatSessions.fire();
+		}));
 		this._register(this._stateModel.onDidChangeNotifications(items => this._onDidChangeNotifications.fire(items)));
 
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
@@ -774,17 +777,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			await this.waitRepoManagerInitialization();
 
-			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-			return await Promise.all(codingAgentPRs.map(async session => {
-				const timeline = await session.getCopilotTimelineEvents(session);
-				const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
-				const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
+			const codingAgentPRs = this._stateModel.all;
+			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
+				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
+				const pullRequest = prAndStatus.item;
+				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 				return {
-					id: `${session.number}`,
-					label: session.title || `Session ${session.number}`,
+					id: `${pullRequest.number}`,
+					label: pullRequest.title || `Session ${pullRequest.number}`,
 					iconPath: this.getIconForSession(status),
-					description: `${dateFromNow(session.createdAt)}`,
-					pullRequest: session,
+					description: `${dateFromNow(pullRequest.createdAt)}`,
+					pullRequest: pullRequest,
 					tooltip,
 					status,
 				};
