@@ -428,6 +428,9 @@ export class FolderRepositoryManager extends Disposable {
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 			Logger.appendLine(`Found GitHub remote for folder ${this.repository.rootUri.fsPath}`, this.id);
+			if (this._allGitHubRemotes.length > 1) {
+				await vscode.commands.executeCommand('setContext', 'github:hasMultipleGitHubRemotes', true);
+			}
 		} else {
 			Logger.appendLine(`No GitHub remotes found for folder ${this.repository.rootUri.fsPath}`, this.id);
 		}
