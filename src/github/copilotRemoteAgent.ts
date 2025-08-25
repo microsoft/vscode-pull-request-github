@@ -5,7 +5,7 @@
 
 import * as pathLib from 'path';
 import vscode from 'vscode';
-import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
+import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
 import { COPILOT_LOGINS, COPILOT_SWE_AGENT, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -15,9 +15,8 @@ import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
+import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { dateFromNow } from '../common/utils';
-import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../view/theme';
 import { copilotEventToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
@@ -1180,7 +1179,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				toolPart.originMessage = new vscode.MarkdownString(toolDetails.originMessage);
 			}
 			if (toolDetails.toolSpecificData) {
-				if ('command' in toolDetails.toolSpecificData) {
+				if (StrReplaceEditorToolData.is(toolDetails.toolSpecificData)) {
 					if ((toolDetails.toolSpecificData.command === 'view' || toolDetails.toolSpecificData.command === 'edit') && toolDetails.toolSpecificData.fileLabel) {
 						const uri = vscode.Uri.file(pathLib.join(pullRequest.githubRepository.rootUri.fsPath, toolDetails.toolSpecificData.fileLabel));
 						toolPart.invocationMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);

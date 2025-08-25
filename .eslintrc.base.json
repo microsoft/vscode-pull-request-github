@@ -66,6 +66,13 @@
 		"no-useless-return": "off",
 		"no-var": "error",
 		"no-with": "error",
+		"no-restricted-syntax": [
+			"error",
+			{
+				"selector": "BinaryExpression[operator='in']",
+				"message": "Avoid using the 'in' operator for type checks."
+			}
+		],
 		"object-shorthand": "off",
 		"one-var": "off", // TODO@eamodio revisit
 		// "one-var": ["error", "never"],
@@ -230,7 +237,7 @@
 		"@typescript-eslint/no-unsafe-member-access": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unsafe-return": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
-		"@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+		"@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
 		// "@typescript-eslint/no-unused-vars": [
 		// 	"warn",
 		// 	{
