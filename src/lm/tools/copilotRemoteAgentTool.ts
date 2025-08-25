@@ -3,13 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
+import * as marked from 'marked';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { ITelemetry } from '../../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../../common/uri';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { PlainTextRenderer } from '../../github/markdownUtils';
 
 export interface CopilotRemoteAgentToolParameters {
 	// The LLM is inconsistent in providing repo information.
@@ -121,10 +122,11 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		let lmResult: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [new vscode.LanguageModelTextPart(result.llmDetails)];
 		const pr = await targetRepo.fm.resolvePullRequest(targetRepo.owner, targetRepo.repo, result.number);
 		if (pr) {
+			const plaintextBody = marked.parse(pr.body, { renderer: new PlainTextRenderer(), }).trim();
 			const preferredRendering = {
 				uri: (await toOpenPullRequestWebviewUri({ owner: pr.githubRepository.remote.owner, repo: pr.githubRepository.remote.repositoryName, pullRequestNumber: pr.number })).toString(),
 				title: pr.title,
-				description: pr.body,
+				description: plaintextBody,
 				author: COPILOT_ACCOUNTS[pr.author.login].name,
 				linkTag: `#${pr.number}`
 			};

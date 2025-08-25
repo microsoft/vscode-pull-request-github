@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nodePath from 'path';
+import * as marked from 'marked';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../../common/sessionParsing';
 import { COPILOT_SWE_AGENT } from '../../common/copilot';
@@ -13,6 +14,7 @@ import { toOpenPullRequestWebviewUri } from '../../common/uri';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../../view/fileChangeModel';
 import { AssistantDelta, Choice, ToolCall } from '../common';
 import { CopilotApi, SessionInfo } from '../copilotApi';
+import { PlainTextRenderer } from '../markdownUtils';
 import { PullRequestModel } from '../pullRequestModel';
 
 export class ChatSessionContentBuilder {
@@ -57,7 +59,9 @@ export class ChatSessionContentBuilder {
 				// if this is the first response, then also add the PR card
 				if (history.length === 1) {
 					const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-					const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, pullRequest.body, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
+					const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(), }).trim();
+
+					const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, plaintextBody, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
 					const cardTurn = new vscode.ChatResponseTurn2([card], {}, COPILOT_SWE_AGENT);
 					history.push(cardTurn);
 				}

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as pathLib from 'path';
+import * as marked from 'marked';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
@@ -27,7 +28,7 @@ import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum } from './interface';
-import { issueMarkdown } from './markdownUtils';
+import { issueMarkdown, PlainTextRenderer } from './markdownUtils';
 import { PullRequestModel } from './pullRequestModel';
 import { chooseItem } from './quickPicks';
 import { RepositoriesManager } from './repositoriesManager';
@@ -494,10 +495,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		if (pr && (_version && _version === 2)) { /* version 2 means caller knows how to render this */
+			const plaintextBody = marked.parse(pr.body, { renderer: new PlainTextRenderer(), }).trim();
+
 			return {
 				uri: webviewUri.toString(),
 				title: pr.title,
-				description: pr.body,
+				description: plaintextBody,
 				author: COPILOT_ACCOUNTS[pr.author.login].name,
 				linkTag: `#${pr.number}`
 			};
