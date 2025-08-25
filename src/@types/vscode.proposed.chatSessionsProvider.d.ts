@@ -100,11 +100,11 @@ declare module 'vscode' {
 		 */
 		timing?: {
 			/**
-			 * Session start time.
+			 * Session start timestamp in milliseconds elapsed since January 1, 1970 00:00:00 UTC.
 			 */
 			startTime: number;
 			/**
-			 * Session end time.
+			 * Session end timestamp in milliseconds elapsed since January 1, 1970 00:00:00 UTC.
 			 */
 			endTime?: number;
 		};
