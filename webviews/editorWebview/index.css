@@ -1550,6 +1550,7 @@ svg.octicon path {
 	white-space: nowrap;
 	border-radius: 20px;
 	margin-right: 2px;
+	border-style: none;
 }
 
 .pill-overflow {
