@@ -94,6 +94,16 @@ declare module 'vscode' {
 		 * The tooltip text when you hover over this item.
 		 */
 		tooltip?: string | MarkdownString;
+
+		/**
+		 * A badge to show additional information about the session.
+		 */
+		badge?: string;
+
+		/**
+		 * The tooltip text when you hover over the badge.
+		 */
+		badgeTooltip?: string;
 	}
 
 	export interface ChatSession {
