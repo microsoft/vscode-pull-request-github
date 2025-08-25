@@ -1744,6 +1744,7 @@
 				"command": "pr.preferredCodingAgentGitHubRemote",
 				"title": "%command.pr.preferredCodingAgentGitHubRemote.title%",
 				"icon": "$(gear)",
+				"enablement": "github:hasMultipleGitHubRemotes",
 				"category": "%command.pull.request.category%"
 			},
 			{
