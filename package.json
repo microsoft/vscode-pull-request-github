@@ -2667,7 +2667,7 @@
 				},
 				{
 					"command": "pr.preferredCodingAgentGitHubRemote",
-					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
+					"when": "github:hasMultipleGitHubRemotes && view == workbench.view.chat.sessions.copilot-swe-agent",
 					"group": "navigation@1"
 				}
 			],
