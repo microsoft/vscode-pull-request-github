@@ -448,8 +448,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			autoPushAndCommit,
 		);
 
-		this.refreshChatSessions();
-
 		if (result.state !== 'success') {
 			/* __GDPR__
 				"remoteAgent.command.result" : {
@@ -977,7 +975,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return new Promise<void>((resolve, reject) => {
 			let cancellationListener: vscode.Disposable | undefined;
 			let isCompleted = false;
-			let previous_state: SessionInfo['state'] | undefined;
 
 			const complete = async () => {
 				if (isCompleted) {
@@ -1029,10 +1026,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					// Get session logs
 					const logs = await capi.getLogsFromSession(sessionId);
 
-					if (previous_state !== sessionInfo.state) {
-						this.refreshChatSessions();
-					}
-					previous_state = sessionInfo.state;
 					// Check if session is still in progress
 					if (sessionInfo.state !== 'in_progress') {
 						if (logs.length > lastProcessedLength) {
@@ -1305,7 +1298,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	public refreshChatSessions(): void {
-		this._onDidChangeChatSessions.fire();
+		this._stateModel.clear();
 	}
 
 	public async cancelMostRecentChatSession(pullRequest: PullRequestModel): Promise<void> {
