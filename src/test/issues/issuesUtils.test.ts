@@ -7,6 +7,13 @@ import { default as assert } from 'assert';
 import { parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION } from '../../github/utils';
 
 describe('Issues utilities', function () {
+	it('test', function () {
+		// Basic test for issue parsing functionality
+		const issueText = '#123';
+		const result = parseIssueExpressionOutput(issueText.match(ISSUE_OR_URL_EXPRESSION));
+		assert.strictEqual(result?.issueNumber, 123);
+	});
+
 	it('regular expressions', async function () {
 		const issueNumber = '#1234';
 		const issueNumberParsed = parseIssueExpressionOutput(issueNumber.match(ISSUE_OR_URL_EXPRESSION));
