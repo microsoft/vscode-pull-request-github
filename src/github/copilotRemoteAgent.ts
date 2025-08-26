@@ -920,7 +920,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					stream.push(new vscode.ChatResponseProgressPart(vscode.l10n.t('Cancelled starting coding agent session.')));
 					return {};
 				}
-				stream.markdown('Pong!');
 				return {};
 			},
 			activeResponseCallback: undefined,
