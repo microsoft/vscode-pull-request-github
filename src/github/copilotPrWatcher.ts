@@ -10,10 +10,10 @@ import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common
 import { Disposable } from '../common/lifecycle';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { PRType } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { RepositoriesManager } from './repositoriesManager';
-import { variableSubstitution } from './utils';
 
 export function isCopilotQuery(query: string): boolean {
 	const lowerQuery = query.toLowerCase();
@@ -260,25 +260,29 @@ export class CopilotPRWatcher extends Disposable {
 				const changes: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[] = [];
 				for (const folderManager of this._reposManager.folderManagers) {
 					initialized++;
-					for (const githubRepository of folderManager.gitHubRepositories) {
-						const prs = await folderManager.getPullRequestsForCategory(githubRepository, await variableSubstitution(query, undefined, await folderManager.getPullRequestDefaults(), await this._getCurrentUser(folderManager)));
-						for (const pr of prs?.items ?? []) {
-							unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
-							const copilotEvents = await pr.getCopilotTimelineEvents(pr);
-							let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
-							if (latestEvent === CopilotPRStatus.None) {
-								if (!COPILOT_ACCOUNTS[pr.author.login]) {
-									continue;
-								}
-								latestEvent = CopilotPRStatus.Started;
+					const items: PullRequestModel[] = [];
+					let hasMore = true;
+					do {
+						const prs = await folderManager.getPullRequests(PRType.Query, { fetchOnePagePerRepo: true, fetchNextPage: true }, query);
+						items.push(...prs.items);
+						hasMore = prs.hasMorePages;
+					} while (hasMore);
+
+					for (const pr of items) {
+						unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
+						const copilotEvents = await pr.getCopilotTimelineEvents(pr);
+						let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
+						if (latestEvent === CopilotPRStatus.None) {
+							if (!COPILOT_ACCOUNTS[pr.author.login]) {
+								continue;
 							}
-							const lastStatus = this._model.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
-							if (latestEvent !== lastStatus) {
-								changes.push({ pullRequestModel: pr, status: latestEvent });
-							}
+							latestEvent = CopilotPRStatus.Started;
+						}
+						const lastStatus = this._model.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
+						if (latestEvent !== lastStatus) {
+							changes.push({ pullRequestModel: pr, status: latestEvent });
 						}
 					}
-
 				}
 				for (const key of unseenKeys) {
 					this._model.deleteKey(key);
