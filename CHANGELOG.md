@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.116.2
+
+### Fixes
+
+- Reduce Padawan polling. https://github.com/microsoft/vscode-pull-request-github/issues/7653
+
 ## 0.116.1
 
 ### Fixes
