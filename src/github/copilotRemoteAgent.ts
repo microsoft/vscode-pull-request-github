@@ -59,7 +59,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
 	private readonly gitOperationsManager: GitOperationsManager;
-	private ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map(); // TODO: Clean these up
+	private readonly ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map(); // TODO: Clean these up
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry, private context: vscode.ExtensionContext) {
 		super();
@@ -826,7 +826,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return this.createEmptySession(); // TODO:
+			return this.createEmptySession(); // TODO: Explain how to enroll repo in coding agent, etc..?
 		}
 		const { repo, owner } = repoInfo;
 
