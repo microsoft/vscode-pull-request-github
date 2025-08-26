@@ -974,14 +974,12 @@ export function registerCommands(
 			return;
 		}
 
-		// Find the folder manager for this pull request
 		const folderManager = reposManager.getManagerForRepository(pr.githubRepository.remote.owner, pr.githubRepository.remote.repositoryName);
 		if (!folderManager) {
 			Logger.warn(`No folder manager found for pull request ${pr.number}`, logId);
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for pull request #{0}', pr.number.toString()));
 		}
 
-		// Use the existing switchToPr function to handle the checkout
 		return switchToPr(folderManager, pr, folderManager.repository, false);
 	}
 
