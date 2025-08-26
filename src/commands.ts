@@ -967,6 +967,24 @@ export function registerCommands(
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 	}
 
+	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR) {
+		const pr = argument.pullRequest;
+		if (!pr) {
+			Logger.warn(`No pull request found in chat session`, logId);
+			return;
+		}
+
+		// Find the folder manager for this pull request
+		const folderManager = reposManager.getManagerForRepository(pr.githubRepository.remote.owner, pr.githubRepository.remote.repositoryName);
+		if (!folderManager) {
+			Logger.warn(`No folder manager found for pull request ${pr.number}`, logId);
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for pull request #{0}', pr.number.toString()));
+		}
+
+		// Use the existing switchToPr function to handle the checkout
+		return switchToPr(folderManager, pr, folderManager.repository, false);
+	}
+
 	async function closeChatSessionPullRequest(argument: ChatSessionWithPR) {
 		const pr = argument.pullRequest;
 		if (!pr) {
@@ -987,6 +1005,13 @@ export function registerCommands(
 		copilotRemoteAgentManager.cancelMostRecentChatSession(pr);
 		// TODO: show a progress icon until the cancelation is finished
 	}
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.checkoutChatSessionPullRequest',
+			checkoutChatSessionPullRequest
+		)
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(

@@ -1753,6 +1753,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.checkoutChatSessionPullRequest",
+				"title": "%command.pr.checkoutChatSessionPullRequest.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.closeChatSessionPullRequest",
 				"title": "%command.pr.closeChatSessionPullRequest.title%",
 				"category": "%command.pull.request.category%"
@@ -3417,6 +3422,11 @@
 					"command": "pr.openDescription",
 					"when": "chatSessionType == copilot-swe-agent",
 					"group": "inline"
+				},
+				{
+					"command": "pr.checkoutChatSessionPullRequest",
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "context"
 				},
 				{
 					"command": "pr.closeChatSessionPullRequest",
