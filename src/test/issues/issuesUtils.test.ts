@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION } from '../../github/utils';
+import * as vscode from 'vscode';
+import { parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION, threadRange } from '../../github/utils';
 
 describe('Issues utilities', function () {
 	it('regular expressions', async function () {
@@ -64,5 +65,35 @@ describe('Issues utilities', function () {
 		assert.strictEqual(prUrlHttpParsed?.commentNumber, undefined);
 		assert.strictEqual(prUrlHttpParsed?.name, 'repo');
 		assert.strictEqual(prUrlHttpParsed?.owner, 'owner');
+	});
+
+	it('threadRange utility', function () {
+		// Test same line with default end character
+		const singleLineRange = threadRange(5, 5);
+		assert.strictEqual(singleLineRange.start.line, 5);
+		assert.strictEqual(singleLineRange.start.character, 0);
+		assert.strictEqual(singleLineRange.end.line, 5);
+		assert.strictEqual(singleLineRange.end.character, 0);
+
+		// Test different lines without end character (should default to 300)
+		const multiLineRange = threadRange(5, 10);
+		assert.strictEqual(multiLineRange.start.line, 5);
+		assert.strictEqual(multiLineRange.start.character, 0);
+		assert.strictEqual(multiLineRange.end.line, 10);
+		assert.strictEqual(multiLineRange.end.character, 300);
+
+		// Test different lines with specific end character
+		const multiLineRangeWithChar = threadRange(5, 10, 25);
+		assert.strictEqual(multiLineRangeWithChar.start.line, 5);
+		assert.strictEqual(multiLineRangeWithChar.start.character, 0);
+		assert.strictEqual(multiLineRangeWithChar.end.line, 10);
+		assert.strictEqual(multiLineRangeWithChar.end.character, 25);
+
+		// Test same line with specific end character
+		const singleLineRangeWithChar = threadRange(3, 3, 15);
+		assert.strictEqual(singleLineRangeWithChar.start.line, 3);
+		assert.strictEqual(singleLineRangeWithChar.start.character, 0);
+		assert.strictEqual(singleLineRangeWithChar.end.line, 3);
+		assert.strictEqual(singleLineRangeWithChar.end.character, 15);
 	});
 });
