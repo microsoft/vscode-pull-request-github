@@ -1923,7 +1923,6 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.helloWorld', async () => {
-			Logger.appendLine('Hello World command executed', logId);
 			vscode.window.showInformationMessage('Hello World!');
 		})
 	);
