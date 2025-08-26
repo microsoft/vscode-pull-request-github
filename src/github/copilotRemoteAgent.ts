@@ -217,7 +217,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		await this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, undefined);
 	}
 
-	public async promptAndUpdatePreferredGitHubRemote(skipIfValueAlreadyCached = false): Promise<GitHubRemote | undefined> {
+	public async promptAndUpdatePreferredGitHubRemote(skipIfValueAlreadyCached = false): Promise<void> {
 		if (skipIfValueAlreadyCached) {
 			const cachedValue = await this.context.workspaceState.get(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY);
 			if (cachedValue) {
@@ -232,7 +232,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const ghRemotes = await fm.getAllGitHubRemotes();
 		Logger.trace(`There are ${ghRemotes.length} GitHub remotes available to select from`, CopilotRemoteAgentManager.ID);
-		if (!ghRemotes || ghRemotes.length === 0) {
+		if (!ghRemotes || ghRemotes.length <= 1) {
+			Logger.trace('No need to select a coding agent GitHub remote, skipping prompt', CopilotRemoteAgentManager.ID);
 			return;
 		}
 
@@ -251,7 +252,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		Logger.appendLine(`Updated '${result.remoteName}' as preferred coding agent remote`, CopilotRemoteAgentManager.ID);
 		await this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, result.remoteName);
-		return result;
 	}
 
 	async repoInfo(fm?: FolderRepositoryManager): Promise<RepoInfo | undefined> {
@@ -517,9 +517,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
 		}
 
-		if (!await this.promptAndUpdatePreferredGitHubRemote(true)) {
-			return { error: vscode.l10n.t('Cancelled setting preferred GitHub remote'), state: 'error' };
-		}
+		await this.promptAndUpdatePreferredGitHubRemote(true);
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
