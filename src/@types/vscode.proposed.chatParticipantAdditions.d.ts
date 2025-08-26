@@ -164,10 +164,10 @@ declare module 'vscode' {
 	/**
 	 * A specialized progress part for displaying thinking/reasoning steps.
 	 */
-	export class ChatResponseThinkingProgressPart {
-		value: string | string[];
+	export class ChatResponseThinkingProgressPart extends ChatResponseProgressPart {
+		value: string;
 		id?: string;
-		metadata?: { readonly [key: string]: any };
+		metadata?: string;
 		task?: (progress: Progress<LanguageModelThinkingPart>) => Thenable<string | void>;
 
 		/**
@@ -175,7 +175,7 @@ declare module 'vscode' {
 		 * @param value An initial progress message
 		 * @param task A task that will emit thinking parts during its execution
 		 */
-		constructor(value: string | string[], id?: string, metadata?: { readonly [key: string]: any }, task?: (progress: Progress<LanguageModelThinkingPart>) => Thenable<string | void>);
+		constructor(value: string, id?: string, metadata?: string, task?: (progress: Progress<LanguageModelThinkingPart>) => Thenable<string | void>);
 	}
 
 	export class ChatResponseReferencePart2 {
@@ -328,18 +328,18 @@ declare module 'vscode' {
 	}
 
 	export type ThinkingDelta = {
-		text?: string | string[];
+		text?: string;
 		id: string;
-		metadata?: { readonly [key: string]: any };
+		metadata?: string;
 	} | {
-		text?: string | string[];
+		text?: string;
 		id?: string;
-		metadata: { readonly [key: string]: any };
+		metadata: string;
 	} |
 	{
-		text: string | string[];
+		text: string;
 		id?: string;
-		metadata?: { readonly [key: string]: any };
+		metadata?: string;
 	};
 
 	export enum ChatResponseClearToPreviousToolInvocationReason {
