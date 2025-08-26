@@ -44,6 +44,11 @@ export interface ChatSessionWithPR extends vscode.ChatSessionItem {
 	pullRequest: PullRequestModel;
 }
 
+export interface ChatSessionFromSummarizedChat extends vscode.ChatSessionItem {
+	prompt: string;
+	summary?: string;
+}
+
 export class CopilotApi {
 	protected static readonly ID = 'copilotApi';
 

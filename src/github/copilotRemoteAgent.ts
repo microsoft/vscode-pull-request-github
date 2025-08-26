@@ -19,7 +19,7 @@ import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { dateFromNow } from '../common/utils';
 import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
+import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
@@ -60,6 +60,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
 	private readonly gitOperationsManager: GitOperationsManager;
+	private ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map(); // TODO: Clean these up
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry, private context: vscode.ExtensionContext) {
 		super();
@@ -728,11 +729,28 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this._stateModel.getCounts();
 	}
 
-	public async provideNewChatSessionItem(options: { prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, _token: vscode.CancellationToken): Promise<ChatSessionWithPR> {
+	public async provideNewChatSessionItem(options: { prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, _token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
 		const { prompt } = options;
 		if (!prompt) {
 			throw new Error(`Prompt is expected to provide a new chat session item`);
 		}
+
+		const { source, summary } = options.metadata || {};
+
+		// Ephemeral session for new session creation flow
+		if (source === 'chatExecuteActions') {
+			const id = `new-${Date.now()}`;
+			const val = {
+				id,
+				label: vscode.l10n.t('New coding agent session'),
+				iconPath: new vscode.ThemeIcon('plus'),
+				prompt,
+				summary,
+			};
+			this.ephemeralChatSessions.set(id, val);
+			return val;
+		}
+
 		const result = await this.invokeRemoteAgent(
 			prompt,
 			prompt,
@@ -798,6 +816,91 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return [];
 	}
 
+
+	private async newSessionFlowFromPrompt(id: string): Promise<vscode.ChatSession> {
+		const session = this.ephemeralChatSessions.get(id);
+		if (!session) {
+			return this.createEmptySession();
+		}
+
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return this.createEmptySession(); // TODO:
+		}
+		const { repo, owner } = repoInfo;
+
+		// Remove from ephemeral sessions
+		this.ephemeralChatSessions.delete(id);
+
+		// Create a placeholder session that will invoke the remote agent when confirmed
+
+		const { prompt } = session;
+		const sessionRequest = new vscode.ChatRequestTurn2(
+			prompt,
+			undefined,
+			[],
+			COPILOT_SWE_AGENT,
+			[],
+			[]
+		);
+
+		const placeholderParts = [
+			new vscode.ChatResponseProgressPart(vscode.l10n.t('Starting coding agent session...')),
+			new vscode.ChatResponseConfirmationPart(
+				vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', `${owner}/${repo}`),
+				vscode.l10n.t('Your chat context will be used to continue work in a new pull request.'),
+				'begin',
+				['Continue', 'Cancel']
+			)
+		];
+		const placeholderTurn = new vscode.ChatResponseTurn2(placeholderParts, {}, COPILOT_SWE_AGENT);
+
+		const parseConfirmationData = (data: any[] | undefined): string[] => {
+			if (!Array.isArray(data)) {
+				return [];
+			}
+			return data
+				.map(item => {
+					const state = item && typeof item.state === 'string' ? item.state : undefined;
+					return state;
+				})
+				.filter((s): s is string => typeof s === 'string');
+		};
+
+		return {
+			history: [sessionRequest, placeholderTurn],
+			requestHandler: async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
+				if (token.isCancellationRequested) {
+					return {};
+				}
+				if (request.acceptedConfirmationData) {
+					const states = parseConfirmationData(request.acceptedConfirmationData);
+					for (const state of states) {
+						switch (state) {
+							case 'begin':
+								await this.invokeRemoteAgent(
+									prompt,
+									prompt,
+									false,
+								);
+								return {};
+							default:
+								Logger.error(`Unknown confirmation state: ${state}`, CopilotRemoteAgentManager.ID);
+								return {};
+						}
+					}
+				}
+				if (request.rejectedConfirmationData) {
+					stream.push(new vscode.ChatResponseProgressPart(vscode.l10n.t('Cancelled starting coding agent session.')));
+					return {};
+				}
+				stream.markdown('Pong!');
+				return {};
+			},
+			activeResponseCallback: undefined,
+		};
+	}
+
 	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
 		try {
 			const capi = await this.copilotApi;
@@ -805,13 +908,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return this.createEmptySession();
 			}
 
+			await this.waitRepoManagerInitialization();
+
+			if (id.startsWith('new')) {
+				return await this.newSessionFlowFromPrompt(id);
+			}
+
 			const pullRequestNumber = parseInt(id);
 			if (isNaN(pullRequestNumber)) {
 				Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
-
-			await this.waitRepoManagerInitialization();
 
 			const pullRequest = await this.findPullRequestById(pullRequestNumber, true);
 			if (!pullRequest) {
