@@ -788,6 +788,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					pullRequest: pullRequest,
 					tooltip,
 					status,
+					description: `PR #${pullRequest.number} • +300/-50`,
 					timing: {
 						startTime: timestampNumber
 					}
