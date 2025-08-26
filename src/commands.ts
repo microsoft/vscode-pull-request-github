@@ -1920,4 +1920,10 @@ ${contents}
 			await copilotRemoteAgentManager.resetCodingAgentPreferences();
 		})
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', async () => {
+			vscode.window.showInformationMessage('Hello World!');
+		})
+	);
 }
