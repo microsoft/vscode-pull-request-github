@@ -850,24 +850,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			new vscode.ChatResponseConfirmationPart(
 				vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', `${owner}/${repo}`),
 				vscode.l10n.t('Your chat context will be used to continue work in a new pull request.'),
-				'begin',
+				'invoke', // Next state
 				['Continue', 'Cancel']
 			)
 		];
+
 		const placeholderTurn = new vscode.ChatResponseTurn2(placeholderParts, {}, COPILOT_SWE_AGENT);
-
-		const parseConfirmationData = (data: any[] | undefined): string[] => {
-			if (!Array.isArray(data)) {
-				return [];
-			}
-			return data
-				.map(item => {
-					const state = item && typeof item.state === 'string' ? item.state : undefined;
-					return state;
-				})
-				.filter((s): s is string => typeof s === 'string');
-		};
-
 		return {
 			history: [sessionRequest, placeholderTurn],
 			requestHandler: async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
@@ -875,18 +863,55 @@ export class CopilotRemoteAgentManager extends Disposable {
 					return {};
 				}
 				if (request.acceptedConfirmationData) {
-					const states = parseConfirmationData(request.acceptedConfirmationData);
-					for (const state of states) {
+					if (!Array.isArray(request.acceptedConfirmationData)) {
+						Logger.error(`Invalid confirmation data: ${request.acceptedConfirmationData}`, CopilotRemoteAgentManager.ID);
+						return {};
+					}
+					const states = request.acceptedConfirmationData as string[];
+					while (states.length) {
+						const state = states.shift();
+						if (!state) {
+							continue;
+						}
 						switch (state) {
-							case 'begin':
-								await this.invokeRemoteAgent(
+							case 'invoke':
+								// TODO: Refactor of invokeRemoteAgent needed to extract all user prompts
+								//       Move any user action to a state in this state machine.
+								stream.progress('Delegating to coding agent');
+								const result = await this.invokeRemoteAgent(
 									prompt,
 									prompt,
 									false,
 								);
+								if (result.state !== 'success') {
+									stream.warning(`Could not create coding agent session: ${result.error}`);
+									return {};
+								}
+
+								const pullRequest = await this.findPullRequestById(result.number, true);
+								if (!pullRequest) {
+									stream.warning(`Could not find coding agent session.`);
+									return {};
+								}
+								const capi = await this.copilotApi;
+								if (!capi) {
+									stream.warning(vscode.l10n.t('Could not initialize Copilot API.'));
+									return {};
+								}
+								// Poll for the new session
+								const sessions = await capi.getAllSessions(pullRequest.id);
+								const newSession = sessions.find(s => s.state === 'in_progress' || s.state === 'queued');
+								if (!newSession) {
+									stream.warning(vscode.l10n.t('Could not find coding agent session in progress.'));
+									return {};
+								}
+								stream.markdown(vscode.l10n.t('Coding agent is now working on your request...'));
+								stream.markdown('\n\n');
+								await this.streamSessionLogs(stream, pullRequest, newSession.id, token);
 								return {};
 							default:
 								Logger.error(`Unknown confirmation state: ${state}`, CopilotRemoteAgentManager.ID);
+								stream.markdown('error!');
 								return {};
 						}
 					}
