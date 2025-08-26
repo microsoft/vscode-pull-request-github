@@ -17,7 +17,6 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { dateFromNow } from '../common/utils';
 import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
@@ -219,7 +218,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		await this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, undefined);
 	}
 
-	public async promptAndUpdatePreferredGitHubRemote(skipIfValueAlreadyCached = false): Promise<GitHubRemote | undefined> {
+	public async promptAndUpdatePreferredGitHubRemote(skipIfValueAlreadyCached = false): Promise<void> {
 		if (skipIfValueAlreadyCached) {
 			const cachedValue = await this.context.workspaceState.get(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY);
 			if (cachedValue) {
@@ -234,7 +233,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const ghRemotes = await fm.getAllGitHubRemotes();
 		Logger.trace(`There are ${ghRemotes.length} GitHub remotes available to select from`, CopilotRemoteAgentManager.ID);
-		if (!ghRemotes || ghRemotes.length === 0) {
+		if (!ghRemotes || ghRemotes.length <= 1) {
+			Logger.trace('No need to select a coding agent GitHub remote, skipping prompt', CopilotRemoteAgentManager.ID);
 			return;
 		}
 
@@ -253,7 +253,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		Logger.appendLine(`Updated '${result.remoteName}' as preferred coding agent remote`, CopilotRemoteAgentManager.ID);
 		await this.context.workspaceState.update(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY, result.remoteName);
-		return result;
 	}
 
 	async repoInfo(fm?: FolderRepositoryManager): Promise<RepoInfo | undefined> {
@@ -450,8 +449,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			autoPushAndCommit,
 		);
 
-		this.refreshChatSessions();
-
 		if (result.state !== 'success') {
 			/* __GDPR__
 				"remoteAgent.command.result" : {
@@ -519,9 +516,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
 		}
 
-		if (!await this.promptAndUpdatePreferredGitHubRemote(true)) {
-			return { error: vscode.l10n.t('Cancelled setting preferred GitHub remote'), state: 'error' };
-		}
+		await this.promptAndUpdatePreferredGitHubRemote(true);
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
@@ -770,14 +765,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const timeline = await session.getCopilotTimelineEvents(session);
 		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
 		const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
+		const timestampNumber = new Date(session.createdAt).getTime();
 		return {
 			id: `${session.number}`,
 			label: session.title || `Session ${session.number}`,
 			iconPath: this.getIconForSession(status),
-			description: `${dateFromNow(session.createdAt)}`,
 			pullRequest: session,
 			tooltip,
 			status,
+			timing: {
+				startTime: timestampNumber
+			}
 		};
 	}
 
@@ -797,6 +795,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			const codingAgentPRs = this._stateModel.all;
 			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
+				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
 				const pullRequest = prAndStatus.item;
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
@@ -804,10 +803,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
 					iconPath: this.getIconForSession(status),
-					description: `${dateFromNow(pullRequest.createdAt)}`,
 					pullRequest: pullRequest,
 					tooltip,
 					status,
+					timing: {
+						startTime: timestampNumber
+					}
 				};
 			}));
 		} catch (error) {
@@ -1081,7 +1082,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return new Promise<void>((resolve, reject) => {
 			let cancellationListener: vscode.Disposable | undefined;
 			let isCompleted = false;
-			let previous_state: SessionInfo['state'] | undefined;
 
 			const complete = async () => {
 				if (isCompleted) {
@@ -1133,10 +1133,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					// Get session logs
 					const logs = await capi.getLogsFromSession(sessionId);
 
-					if (previous_state !== sessionInfo.state) {
-						this.refreshChatSessions();
-					}
-					previous_state = sessionInfo.state;
 					// Check if session is still in progress
 					if (sessionInfo.state !== 'in_progress') {
 						if (logs.length > lastProcessedLength) {
@@ -1409,7 +1405,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	public refreshChatSessions(): void {
-		this._onDidChangeChatSessions.fire();
+		this._stateModel.clear();
 	}
 
 	public async cancelMostRecentChatSession(pullRequest: PullRequestModel): Promise<void> {

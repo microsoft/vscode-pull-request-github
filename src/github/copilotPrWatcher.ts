@@ -10,10 +10,10 @@ import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common
 import { Disposable } from '../common/lifecycle';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { PRType } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { RepositoriesManager } from './repositoriesManager';
-import { variableSubstitution } from './utils';
 
 export function isCopilotQuery(query: string): boolean {
 	const lowerQuery = query.toLowerCase();
@@ -28,6 +28,12 @@ export class CopilotStateModel extends Disposable {
 	readonly onDidChangeStates = this._onDidChangeStates.event;
 	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<PullRequestModel[]>());
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
+	private readonly _onRefresh = this._register(new vscode.EventEmitter<void>());
+	readonly onRefresh = this._onRefresh.event;
+
+	clear(): void {
+		this._onRefresh.fire();
+	}
 
 	makeKey(owner: string, repo: string, prNumber: number): string {
 		return `${owner}/${repo}#${prNumber}`;
@@ -37,6 +43,7 @@ export class CopilotStateModel extends Disposable {
 		const key = this.makeKey(owner, repo, prNumber);
 		this.deleteKey(key);
 	}
+
 	deleteKey(key: string): void {
 		if (this._states.has(key)) {
 			this._states.delete(key);
@@ -139,6 +146,7 @@ export class CopilotPRWatcher extends Disposable {
 		} else {
 			this._initialize();
 		}
+		this._register(this._model.onRefresh(() => this._getStateChanges()));
 	}
 
 	private _initialize() {
@@ -251,14 +259,16 @@ export class CopilotPRWatcher extends Disposable {
 
 				const changes: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[] = [];
 				for (const folderManager of this._reposManager.folderManagers) {
-					// It doesn't matter which repo we use since the query will specify the owner/repo.
-					const githubRepository = folderManager.gitHubRepositories[0];
-					if (!githubRepository) {
-						continue;
-					}
 					initialized++;
-					const prs = await folderManager.getPullRequestsForCategory(githubRepository, await variableSubstitution(query, undefined, await folderManager.getPullRequestDefaults(), await this._getCurrentUser(folderManager)));
-					for (const pr of prs?.items ?? []) {
+					const items: PullRequestModel[] = [];
+					let hasMore = true;
+					do {
+						const prs = await folderManager.getPullRequests(PRType.Query, { fetchOnePagePerRepo: true, fetchNextPage: true }, query);
+						items.push(...prs.items);
+						hasMore = prs.hasMorePages;
+					} while (hasMore);
+
+					for (const pr of items) {
 						unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
 						const copilotEvents = await pr.getCopilotTimelineEvents(pr);
 						let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
@@ -273,10 +283,9 @@ export class CopilotPRWatcher extends Disposable {
 							changes.push({ pullRequestModel: pr, status: latestEvent });
 						}
 					}
-
-					for (const key of unseenKeys) {
-						this._model.deleteKey(key);
-					}
+				}
+				for (const key of unseenKeys) {
+					this._model.deleteKey(key);
 				}
 				this._model.set(changes);
 				if (!this._model.isInitialized) {

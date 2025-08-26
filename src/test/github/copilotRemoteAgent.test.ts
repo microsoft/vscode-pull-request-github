@@ -329,20 +329,6 @@ describe('CopilotRemoteAgentManager', function () {
 		});
 	});
 
-	describe('refreshChatSessions()', function () {
-		it('should fire change event', function () {
-			let eventFired = false;
-			const disposable = manager.onDidChangeChatSessions(() => {
-				eventFired = true;
-			});
-
-			manager.refreshChatSessions();
-
-			assert.strictEqual(eventFired, true);
-			disposable.dispose();
-		});
-	});
-
 	describe('event handlers', function () {
 		it('should expose onDidChangeStates event', function () {
 			assert.strictEqual(typeof manager.onDidChangeStates, 'function');
