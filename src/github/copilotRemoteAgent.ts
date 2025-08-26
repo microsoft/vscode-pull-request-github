@@ -17,7 +17,6 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { dateFromNow } from '../common/utils';
 import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
@@ -750,14 +749,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const timeline = await session.getCopilotTimelineEvents(session);
 		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
 		const tooltip = await issueMarkdown(session, this.context, this.repositoriesManager);
+		const timestampNumber = new Date(session.createdAt).getTime();
 		return {
 			id: `${session.number}`,
 			label: session.title || `Session ${session.number}`,
 			iconPath: this.getIconForSession(status),
-			description: `${dateFromNow(session.createdAt)}`,
 			pullRequest: session,
 			tooltip,
 			status,
+			timing: {
+				startTime: timestampNumber
+			}
 		};
 	}
 
@@ -777,6 +779,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			const codingAgentPRs = this._stateModel.all;
 			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
+				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
 				const pullRequest = prAndStatus.item;
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
@@ -784,10 +787,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
 					iconPath: this.getIconForSession(status),
-					description: `${dateFromNow(pullRequest.createdAt)}`,
 					pullRequest: pullRequest,
 					tooltip,
 					status,
+					timing: {
+						startTime: timestampNumber
+					}
 				};
 			}));
 		} catch (error) {
