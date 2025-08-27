@@ -38,6 +38,7 @@ export interface RemoteAgentJobResponse {
 		html_url: string;
 		number: number;
 	}
+	session_id: string;
 }
 
 export interface ChatSessionWithPR extends vscode.ChatSessionItem {
@@ -47,6 +48,9 @@ export interface ChatSessionWithPR extends vscode.ChatSessionItem {
 export interface ChatSessionFromSummarizedChat extends vscode.ChatSessionItem {
 	prompt: string;
 	summary?: string;
+	// Cache
+	pullRequest?: PullRequestModel;
+	sessionInfo?: SessionInfo;
 }
 
 export class CopilotApi {
@@ -156,6 +160,9 @@ export class CopilotApi {
 		}
 		if (typeof data.pull_request.number !== 'number') {
 			throw new Error('Invalid pull_request.number in response');
+		}
+		if (typeof data.session_id !== 'string') {
+			throw new Error('Invalid session_id in response');
 		}
 	}
 
