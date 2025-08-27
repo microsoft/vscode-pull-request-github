@@ -7,7 +7,7 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../common/comment';
-import { COPILOT_LOGINS } from '../common/copilot';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -163,7 +163,7 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
 
 	// Remove the swe agent as it can't do reviews
-	const assignableUsersForRemote = allAssignableUsers[remoteName].filter(user => user.login !== COPILOT_LOGINS[1]);
+	const assignableUsersForRemote = allAssignableUsers[remoteName].filter(user => user.login !== COPILOT_SWE_AGENT);
 	if (assignableUsersForRemote) {
 		assignableUsers.push(...assignableUsersForRemote);
 	}
