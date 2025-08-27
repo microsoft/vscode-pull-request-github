@@ -451,7 +451,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);
-	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refresh(undefined, true)));
+	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refreshAll(true)));
 	Logger.appendLine('Looking for git repository', ACTIVATION);
 	const repositories = apiImpl.repositories;
 	Logger.appendLine(`Found ${repositories.length} repositories during activation`, ACTIVATION);
