@@ -15,7 +15,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 
 	constructor(
 		context: vscode.ExtensionContext,
-		private copilotRemoteAgentManager?: CopilotRemoteAgentManager
+		private copilotRemoteAgentManager: CopilotRemoteAgentManager
 	) {
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(() => {
