@@ -122,7 +122,7 @@ export interface Account extends Actor {
 
 export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
 	const asAccount = x as Partial<Account>;
-	return !!asAccount && !!asAccount?.name && !!asAccount?.email;
+	return !!asAccount && !!asAccount?.name && (asAccount?.email !== undefined);
 }
 
 export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
