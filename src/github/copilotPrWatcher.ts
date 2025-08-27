@@ -155,7 +155,7 @@ export class CopilotPRWatcher extends Disposable {
 		const updateFullState = debounce(() => this._getStateChanges(), 50);
 		this._register(this._reposManager.onDidChangeAnyPullRequests(e => {
 			if (e.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
-				if (e.some(pr => this._model.get(pr.model.remote.owner, pr.model.remote.repositoryName, pr.model.number) === CopilotPRStatus.None)) {
+				if (this._model.isInitialized && e.some(pr => this._model.get(pr.model.remote.owner, pr.model.remote.repositoryName, pr.model.number) === CopilotPRStatus.None)) {
 					// A PR we don't know about was updated
 					updateFullState();
 				} else {
