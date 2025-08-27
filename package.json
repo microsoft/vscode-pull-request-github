@@ -4213,8 +4213,8 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
-		"@octokit/rest": "20.1.2",
-		"@octokit/types": "13.8.0",
+		"@octokit/rest": "22.0.0",
+		"@octokit/types": "14.1.0",
 		"@vscode/codicons": "^0.0.36",
 		"@vscode/extension-telemetry": "0.7.5",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",

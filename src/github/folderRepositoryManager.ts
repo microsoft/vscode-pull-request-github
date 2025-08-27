@@ -1193,6 +1193,7 @@ export class FolderRepositoryManager extends Disposable {
 			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
 				q: getPRFetchQuery(user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
+				advanced_search: 'true',
 				page: page || 1,
 			});
 
