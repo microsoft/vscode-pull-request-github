@@ -263,7 +263,7 @@ export class CopilotPRWatcher extends Disposable {
 					const items: PullRequestModel[] = [];
 					let hasMore = true;
 					do {
-						const prs = await folderManager.getPullRequests(PRType.Query, { fetchOnePagePerRepo: true, fetchNextPage: !hasMore }, query);
+						const prs = await folderManager.getPullRequests(PRType.Query, { fetchOnePagePerRepo: true, fetchNextPage: true }, query);
 						items.push(...prs.items);
 						hasMore = prs.hasMorePages;
 					} while (hasMore);
