@@ -1461,8 +1461,6 @@ ${contents}
 						reviewManager.repository.pull(false),
 						reviewManager.updateComments()
 					]);
-					PullRequestOverviewPanel.refresh();
-					reviewManager.changesInPrDataProvider.refresh();
 				});
 			});
 		}),
@@ -1488,7 +1486,6 @@ ${contents}
 			}
 
 			PullRequestOverviewPanel.refresh();
-			tree.refresh(prNode);
 		}),
 	);
 
