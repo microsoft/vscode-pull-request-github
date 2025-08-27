@@ -1460,6 +1460,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.startCodingAgentFromTodo",
+				"title": "%command.issue.startCodingAgentFromTodo.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "pr.copyVscodeDevPrLink",
 				"title": "%command.pr.copyVscodeDevPrLink.title%",
 				"category": "%command.issues.category%"

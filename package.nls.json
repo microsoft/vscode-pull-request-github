@@ -260,6 +260,7 @@
 	"command.issues.category": "GitHub Issues",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",
+	"command.issue.startCodingAgentFromTodo.title": "Start Coding Agent Session",
 	"command.pr.copyVscodeDevPrLink.title": "Copy vscode.dev Link",
 	"command.pr.copyPrLink.title": "Copy Link",
 	"command.pr.createPrMenuCreate.title": "Create",
