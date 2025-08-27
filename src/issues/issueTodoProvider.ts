@@ -6,13 +6,17 @@
 import * as vscode from 'vscode';
 import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 import { MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
 
-	constructor(context: vscode.ExtensionContext) {
+	constructor(
+		context: vscode.ExtensionContext,
+		private copilotRemoteAgentManager?: CopilotRemoteAgentManager
+	) {
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(() => {
 				this.updateTriggers();
@@ -45,21 +49,37 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 				const match = truncatedLine.match(this.expression);
 				const search = match?.index ?? -1;
 				if (search >= 0 && match) {
-					const codeAction: vscode.CodeAction = new vscode.CodeAction(
+					// Create GitHub Issue action
+					const createIssueAction: vscode.CodeAction = new vscode.CodeAction(
 						vscode.l10n.t('Create GitHub Issue'),
 						vscode.CodeActionKind.QuickFix,
 					);
-					codeAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
+					createIssueAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
 					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
 					const insertIndex =
 						search +
 						(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
-					codeAction.command = {
+					createIssueAction.command = {
 						title: vscode.l10n.t('Create GitHub Issue'),
 						command: 'issue.createIssueFromSelection',
 						arguments: [{ document, lineNumber, line, insertIndex, range }],
 					};
-					codeActions.push(codeAction);
+					codeActions.push(createIssueAction);
+
+					// Start Coding Agent Session action (if copilot manager is available)
+					if (this.copilotRemoteAgentManager) {
+						const startAgentAction: vscode.CodeAction = new vscode.CodeAction(
+							vscode.l10n.t('Start Coding Agent Session'),
+							vscode.CodeActionKind.QuickFix,
+						);
+						startAgentAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
+						startAgentAction.command = {
+							title: vscode.l10n.t('Start Coding Agent Session'),
+							command: 'issue.startCodingAgentFromTodo',
+							arguments: [{ document, lineNumber, line, insertIndex, range }],
+						};
+						codeActions.push(startAgentAction);
+					}
 					break;
 				}
 			}
