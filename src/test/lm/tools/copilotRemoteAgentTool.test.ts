@@ -285,7 +285,8 @@ describe('CopilotRemoteAgentTool', function () {
 				number: 789,
 				link: 'https://github.com/test/test-repo/pull/789',
 				webviewUri: vscode.Uri.parse('https://example.com'),
-				llmDetails: 'Agent created PR successfully'
+				llmDetails: 'Agent created PR successfully',
+				sessionId: '123-456'
 			};
 
 			mockManager.invokeRemoteAgent.resolves(successResult);
