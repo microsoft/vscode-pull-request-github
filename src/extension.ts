@@ -445,7 +445,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
 			COPILOT_SWE_AGENT,
-			provider
+			provider,
+			{ supportsInterruptions: true, }
 		));
 	}
 
