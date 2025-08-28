@@ -2058,6 +2058,14 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.applyChangesFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutChatSessionPullRequest",
+					"when": "false"
+				},
+				{
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"when": "false"
 				},
