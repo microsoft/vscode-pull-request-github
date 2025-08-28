@@ -390,7 +390,7 @@
 		]
 	},
 	"welcome.chat.sessions.copilot-swe-agent.startSession.contents": {
-		"message": "No Copilot coding agent sessions\n[Start a coding session](command:workbench.action.chat.open?%7B%22query%22%3A%22%23copilotCodingAgent%20%22%2C%22isPartialQuery%22%3Atrue%7D)",
+		"message": "No Copilot coding agent sessions\n[Start a coding session](command:workbench.action.chat.openNewSessionEditor.copilot-swe-agent)",
 		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:workbench.action.chat.open?%7B%22query%22%3A%22%23copilotCodingAgent%20%22%2C%22isPartialQuery%22%3Atrue%7D)'}"
