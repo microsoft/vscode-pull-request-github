@@ -1324,6 +1324,12 @@
 				"icon": "$(git-compare)"
 			},
 			{
+				"command": "pr.applyChangesFromDescription",
+				"title": "%command.pr.applyChangesFromDescription.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-stash-apply)"
+			},
+			{
 				"command": "pr.checkoutOnVscodeDevFromDescription",
 				"title": "%command.pr.checkoutOnVscodeDevFromDescription.title%",
 				"category": "%command.pull.request.category%"
@@ -3442,6 +3448,10 @@
 			"chat/multiDiff/context": [
 				{
 					"command": "pr.checkoutFromDescription",
+					"when": "chatSessionType == copilot-swe-agent"
+				},
+				{
+					"command": "pr.applyChangesFromDescription",
 					"when": "chatSessionType == copilot-swe-agent"
 				}
 			]

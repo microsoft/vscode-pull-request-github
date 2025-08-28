@@ -651,6 +651,63 @@ export function registerCommands(
 		return { folderManager, pr };
 	};
 
+	const applyPullRequestChanges = async (folderManager: FolderRepositoryManager, pullRequest: PullRequestModel): Promise<void> => {
+		let patch: string | undefined;
+		try {
+			patch = await pullRequest.getPatch();
+
+			if (!patch.trim()) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No patch data available for pull request #{0}', pullRequest.number.toString()));
+				return;
+			}
+
+			const tempFilePath = pathLib.join(
+				folderManager.repository.rootUri.fsPath,
+				'.git',
+				`pr-${pullRequest.number}.patch`,
+			);
+			const encoder = new TextEncoder();
+			const tempUri = vscode.Uri.file(tempFilePath);
+
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t('Applying changes from PR #{0}', pullRequest.number.toString()),
+					cancellable: false
+				},
+				async (task) => {
+					await vscode.workspace.fs.writeFile(tempUri, encoder.encode(patch));
+					try {
+						await folderManager.repository.apply(tempFilePath, false);
+						task.report({ message: vscode.l10n.t('Successfully applied changes from pull request #{0}', pullRequest.number.toString()), increment: 100 });
+					} finally {
+						await vscode.workspace.fs.delete(tempUri);
+					}
+				}
+			);
+
+		} catch (error) {
+			const errorMessage = formatError(error);
+			Logger.error(`Failed to apply PR changes: ${errorMessage}`, 'Commands');
+
+			const copyGitApply = vscode.l10n.t('Copy git apply');
+			const result = await vscode.window.showErrorMessage(
+				vscode.l10n.t('Failed to apply changes from pull request: {0}', errorMessage),
+				copyGitApply
+			);
+
+			if (result === copyGitApply) {
+				if (patch) {
+					const gitApplyCommand = `git apply --3way <<'EOF'\n${patch}\nEOF`;
+					await vscode.env.clipboard.writeText(gitApplyCommand);
+					vscode.window.showInformationMessage(vscode.l10n.t('Git apply command copied to clipboard'));
+				} else {
+					vscode.window.showErrorMessage(vscode.l10n.t('Unable to copy git apply command - patch content is not available'));
+				}
+			}
+		}
+	};
+
 	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
 		const contextAsPath: Partial<{ path: string }> = (ctx as { path: string });
 		return !!contextAsPath.path;
@@ -681,6 +738,34 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
+
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
+		}
+
+		if (contextHasPath(ctx)) {
+			const { path } = ctx;
+			const prNumber = Number(Buffer.from(path.substring(1), 'base64').toString('utf8'));
+			if (Number.isNaN(prNumber)) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
+			}
+			const folderManager = reposManager.folderManagers[0];
+			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
+			if (!pullRequest) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
+			}
+
+			return applyPullRequestChanges(folderManager, pullRequest);
+		}
+
+		const resolved = await resolvePr(ctx);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for applying changes.'));
+		}
+		return applyPullRequestChanges(resolved.folderManager, resolved.pr);
 
 	}));
 
