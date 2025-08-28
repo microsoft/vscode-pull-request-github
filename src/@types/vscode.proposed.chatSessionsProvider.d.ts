@@ -111,6 +111,7 @@ declare module 'vscode' {
 	}
 
 	export interface ChatSession {
+
 		/**
 		 * The full history of the session
 		 *
@@ -170,14 +171,7 @@ declare module 'vscode' {
 		 *
 		 * @returns A disposable that unregisters the provider when disposed.
 		 */
-		export function registerChatSessionContentProvider(chatSessionType: string, provider: ChatSessionContentProvider, capabilities?: ChatSessionCapabilities): Disposable;
-	}
-
-	export interface ChatSessionCapabilities {
-		/**
-		 * Whether sessions can be interrupted and resumed without side-effects.
-		 */
-		supportsInterruptions?: boolean;
+		export function registerChatSessionContentProvider(chatSessionType: string, provider: ChatSessionContentProvider): Disposable;
 	}
 
 	export interface ChatSessionShowOptions {
