@@ -770,7 +770,7 @@ export function registerCommands(
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | undefined) => {
+		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | ChatSessionWithPR | undefined) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -783,6 +783,8 @@ export function registerCommands(
 				pullRequestModel = pr.pullRequestModel;
 			} else if (pr instanceof PullRequestModel) {
 				pullRequestModel = pr;
+			} else if (isChatSessionWithPR(pr)) {
+				pullRequestModel = pr.pullRequest;
 			} else {
 				const resolved = await resolvePr(pr as OverviewContext);
 				pullRequestModel = resolved?.pr;
