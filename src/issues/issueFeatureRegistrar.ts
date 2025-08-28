@@ -510,7 +510,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				} else {
 					const pullRequestModel = issue.pullRequestModel;
 					const remote = pullRequestModel.githubRepository.remote;
-					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize PR {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
+					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
 				}
 			}),
 		);
