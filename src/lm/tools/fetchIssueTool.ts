@@ -44,12 +44,12 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const issueNumber = options.input.issueNumber;
 		if (!issueNumber) {
-			throw new Error('No issue/PR number provided.');
+			throw new Error('No issue/pull-request number provided.');
 		}
 		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
 		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, issueNumber);
 		if (!issueOrPullRequest) {
-			throw new Error(`No issue or PR found for ${owner}/${name}/${issueNumber}. Make sure the issue or PR exists.`);
+			throw new Error(`No issue or pull request found for ${owner}/${name}/${issueNumber}. Make sure the issue or pull request exists.`);
 		}
 		const result: FetchIssueResult = {
 			owner,

@@ -792,7 +792,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 		const timestampNumber = new Date(pullRequest.createdAt).getTime();
 		const defaultBranch = await pullRequest.githubRepository.getDefaultBranch();
-		const description = pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}` : `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+		const description = pullRequest.base.ref === defaultBranch ? `pull request #${pullRequest.number}` : `pull request #${pullRequest.number} → ${pullRequest.base.ref}`;
 		return {
 			id: `${pullRequest.number}`,
 			label: pullRequest.title || `Session ${pullRequest.number}`,
@@ -828,7 +828,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const pullRequest = prAndStatus.item;
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 				const defaultBranch = await pullRequest.githubRepository.getDefaultBranch();
-				const description = pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}` : `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+				const description = pullRequest.base.ref === defaultBranch ? `pull request #${pullRequest.number}` : `pull request #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,

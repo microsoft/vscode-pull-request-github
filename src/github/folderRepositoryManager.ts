@@ -1705,8 +1705,8 @@ export class FolderRepositoryManager extends Disposable {
 			if (workingDirectorySHA !== mergingPRSHA) {
 				// We are looking at different commit than what will be merged
 				const { ahead } = this.repository.state.HEAD!;
-				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
-				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this PR branch.\n\nWould you like to proceed anyway?');
+				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
 				if (ahead &&
 					(await vscode.window.showWarningMessage(
 						ahead > 1 ? pluralMessage : singularMessage,
@@ -1725,7 +1725,7 @@ export class FolderRepositoryManager extends Disposable {
 				// We have made changes to the PR that are not committed
 				if (
 					(await vscode.window.showWarningMessage(
-						vscode.l10n.t('You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?'),
+						vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
 						{ modal: true },
 						vscode.l10n.t('Yes'),
 					)) === undefined

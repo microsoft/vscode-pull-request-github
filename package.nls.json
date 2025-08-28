@@ -57,13 +57,13 @@
 			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
 		]
 	},
-	"githubPullRequests.pushBranch.description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote.",
-	"githubPullRequests.pushBranch.prompt": "Prompt to push the branch when creating a PR and the \"from\" branch is not available on the remote.",
-	"githubPullRequests.pushBranch.always": "Always push the branch when creating a PR and the \"from\" branch is not available on the remote.",
-	"githubPullRequests.pullBranch.description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected when the PR is manually refreshed and during periodic background updates.",
-	"githubPullRequests.pullBranch.prompt": "Prompt to pull a PR branch when changes are detected in the PR.",
-	"githubPullRequests.pullBranch.never": "Never pull a PR branch when changes are detected in the PR.",
-	"githubPullRequests.pullBranch.always": "Always pull a PR branch when changes are detected in the PR. When `\"git.autoStash\": true` this will instead `prompt` to prevent unexpected file changes.",
+	"githubPullRequests.pushBranch.description": "Push the \"from\" branch when creating a pull request and the \"from\" branch is not available on the remote.",
+	"githubPullRequests.pushBranch.prompt": "Prompt to push the branch when creating a pull request and the \"from\" branch is not available on the remote.",
+	"githubPullRequests.pushBranch.always": "Always push the branch when creating a pull request and the \"from\" branch is not available on the remote.",
+	"githubPullRequests.pullBranch.description": "Pull changes from the remote when a pull request branch is checked out locally. Changes are detected when the pull request is manually refreshed and during periodic background updates.",
+	"githubPullRequests.pullBranch.prompt": "Prompt to pull a pull request branch when changes are detected in the pull request.",
+	"githubPullRequests.pullBranch.never": "Never pull a pull request branch when changes are detected in the pull request.",
+	"githubPullRequests.pullBranch.always": "Always pull a pull request branch when changes are detected in the pull request. When `\"git.autoStash\": true` this will instead `prompt` to prevent unexpected file changes.",
 	"githubPullRequests.allowFetch.description": "Allows `git fetch` to be run for checked-out pull request branches when checking for updates to the pull request.",
 	"githubPullRequests.ignoredPullRequestBranches.description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches.",
 	"githubPullRequests.ignoredPullRequestBranches.items": "Branch name",
@@ -396,8 +396,8 @@
 			"{Locked='](command:workbench.action.chat.open?%7B%22query%22%3A%22%23copilotCodingAgent%20%22%2C%22isPartialQuery%22%3Atrue%7D)'}"
 		]
 	},
-	"languageModelTools.github-pull-request_issue_fetch.displayName": "Get a GitHub Issue or PR",
-	"languageModelTools.github-pull-request_issue_summarize.displayName": "Summarize a GitHub Issue or PR",
+	"languageModelTools.github-pull-request_issue_fetch.displayName": "Get a GitHub Issue or pull request",
+	"languageModelTools.github-pull-request_issue_summarize.displayName": "Summarize a GitHub Issue or pull request",
 	"languageModelTools.github-pull-request_notification_fetch.displayName": "Get a GitHub Notification",
 	"languageModelTools.github-pull-request_notification_summarize.displayName": "Summarize a GitHub Notification",
 	"languageModelTools.github-pull-request_suggest-fix.displayName": "Suggest a Fix for a GitHub Issue",

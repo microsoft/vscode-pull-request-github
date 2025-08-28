@@ -57,7 +57,7 @@ async function openDiffCommand(
 	return {
 		command: 'vscode.diff',
 		arguments: [parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts],
-		title: 'Open Changed File in PR',
+		title: 'Open Changed File in pull request',
 	};
 }
 

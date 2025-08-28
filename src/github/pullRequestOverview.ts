@@ -604,7 +604,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				vscode.commands.executeCommand('pr.refreshList');
 
 				if (!result.merged) {
-					vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
+					vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
 				}
 
 				const mergeResult: MergeResult = {
@@ -645,7 +645,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._replyMessage(message, result);
 			})
 			.catch(e => {
-				vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
+				vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
 				this._throwError(message, '');
 			});
 	}
