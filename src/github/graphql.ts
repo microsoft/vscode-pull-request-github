@@ -720,6 +720,8 @@ export interface PullRequest extends Issue {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
+	additions?: number;
+	deletions?: number;
 }
 
 export enum DefaultCommitTitle {

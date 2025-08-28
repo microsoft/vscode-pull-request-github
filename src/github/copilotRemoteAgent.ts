@@ -827,8 +827,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
 				const pullRequest = prAndStatus.item;
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
-				const defaultBranch = await pullRequest.githubRepository.getDefaultBranch();
-				const description = pullRequest.base.ref === defaultBranch ? `pull request #${pullRequest.number}` : `pull request #${pullRequest.number} → ${pullRequest.base.ref}`;
+
+				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
+				const description = new vscode.MarkdownString(`PR [#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
@@ -839,7 +840,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 					status,
 					timing: {
 						startTime: timestampNumber
-					}
+					},
+					statistics: pullRequest.item.additions !== undefined && pullRequest.item.deletions !== undefined && (pullRequest.item.additions > 0 || pullRequest.item.deletions > 0) ? {
+						insertions: pullRequest.item.additions,
+						deletions: pullRequest.item.deletions
+					} : undefined
 				};
 			}));
 		} catch (error) {
