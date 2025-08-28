@@ -275,6 +275,7 @@
 	"command.pr.toggleEditorCommentingOn.title": "Toggle Editor Commenting On",
 	"command.pr.toggleEditorCommentingOff.title": "Toggle Editor Commenting Off",
 	"command.pr.checkoutFromDescription.title": "Checkout",
+	"command.pr.applyChangesFromDescription.title": "Apply Changes",
 	"command.pr.checkoutOnVscodeDevFromDescription.title": "Checkout on vscode.dev",
 	"command.pr.openSessionLogFromDescription.title": "View Session",
 	"command.issue.openDescription.title": "View Issue Description",
