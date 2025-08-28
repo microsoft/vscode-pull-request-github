@@ -3433,7 +3433,7 @@
 			],
 			"chat/chatSessions": [
 				{
-					"command": "pr.openDescription",
+					"command": "pr.openChanges",
 					"when": "chatSessionType == copilot-swe-agent",
 					"group": "inline"
 				},
