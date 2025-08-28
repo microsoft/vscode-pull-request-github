@@ -249,6 +249,8 @@ fragment PullRequestFragment on PullRequest {
 			...Node
 		}
 	}
+	additions
+	deletions
 }
 
 query Issue($owner: String!, $name: String!, $number: Int!) {

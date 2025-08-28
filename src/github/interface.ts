@@ -238,6 +238,8 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	hasComments?: boolean;
+	additions?: number;
+	deletions?: number;
 }
 
 export enum NotificationSubjectType {
