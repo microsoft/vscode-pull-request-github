@@ -672,7 +672,7 @@ export function registerCommands(
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('Applying changes from PR #{0}', pullRequest.number.toString()),
+					title: vscode.l10n.t('Applying changes from pull request #{0}', pullRequest.number.toString()),
 					cancellable: false
 				},
 				async (task) => {

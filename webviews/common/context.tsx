@@ -104,7 +104,7 @@ export class PRContext {
 		await this.postMessage({ command: 'pr.delete-comment', args });
 		const { pr } = this;
 		if (!pr) {
-			throw new Error('Unexpectedly no PR when trying to delete comment');
+			throw new Error('Unexpectedly no pull request when trying to delete comment');
 		}
 		const { id, pullRequestReviewId } = args;
 		if (!pullRequestReviewId) {
@@ -161,7 +161,7 @@ export class PRContext {
 	public close = async (body?: string) => {
 		const { pr } = this;
 		if (!pr) {
-			throw new Error('Unexpectedly no PR when trying to close');
+			throw new Error('Unexpectedly no pull request when trying to close');
 		}
 		try {
 			const result: CloseResult = await this.postMessage({ command: 'pr.close', args: body });
@@ -185,7 +185,7 @@ export class PRContext {
 	public removeLabel = async (label: string) => {
 		const { pr } = this;
 		if (!pr) {
-			throw new Error('Unexpectedly no PR when trying to remove label');
+			throw new Error('Unexpectedly no pull request when trying to remove label');
 		}
 		await this.postMessage({ command: 'pr.remove-label', args: label });
 		const labels = pr.labels.filter(r => r.name !== label);
@@ -199,7 +199,7 @@ export class PRContext {
 	private appendReview(reply: SubmitReviewReply) {
 		const { pr: state } = this;
 		if (!state) {
-			throw new Error('Unexpectedly no PR when trying to append review');
+			throw new Error('Unexpectedly no pull request when trying to append review');
 		}
 		const { events, reviewers, reviewedEvent } = reply;
 		state.busy = false;
@@ -222,7 +222,7 @@ export class PRContext {
 	public reRequestReview = async (reviewerId: string) => {
 		const { pr: state } = this;
 		if (!state) {
-			throw new Error('Unexpectedly no PR when trying to re-request review');
+			throw new Error('Unexpectedly no pull request when trying to re-request review');
 		}
 		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerId });
 		state.reviewers = reviewers;
@@ -232,7 +232,7 @@ export class PRContext {
 	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
 		const { pr: state } = this;
 		if (!state) {
-			throw new Error('Unexpectedly no PR when trying to update auto merge');
+			throw new Error('Unexpectedly no pull request when trying to update auto merge');
 		}
 		const response: { autoMerge: boolean, autoMergeMethod?: MergeMethod } = await this.postMessage({ command: 'pr.update-automerge', args: { autoMerge, autoMergeMethod } });
 		state.autoMerge = response.autoMerge;
@@ -243,7 +243,7 @@ export class PRContext {
 	public updateBranch = async () => {
 		const { pr: state } = this;
 		if (!state) {
-			throw new Error('Unexpectedly no PR when trying to update branch');
+			throw new Error('Unexpectedly no pull request when trying to update branch');
 		}
 		const result: Partial<PullRequest> = await this.postMessage({ command: 'pr.update-branch' });
 		state.events = result.events ?? state.events;
@@ -254,7 +254,7 @@ export class PRContext {
 	public dequeue = async () => {
 		const { pr: state } = this;
 		if (!state) {
-			throw new Error('Unexpectedly no PR when trying to dequeue');
+			throw new Error('Unexpectedly no pull request when trying to dequeue');
 		}
 		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
 		if (isDequeued) {
@@ -266,7 +266,7 @@ export class PRContext {
 	public enqueue = async () => {
 		const { pr: state } = this;
 		if (!state) {
-			throw new Error('Unexpectedly no PR when trying to enqueue');
+			throw new Error('Unexpectedly no pull request when trying to enqueue');
 		}
 		const result = await this.postMessage({ command: 'pr.enqueue' });
 		if (result.mergeQueueEntry) {
