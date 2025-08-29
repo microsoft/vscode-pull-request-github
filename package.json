@@ -2361,6 +2361,10 @@
 					"when": "false"
 				},
 				{
+					"command": "issue.assignToCodingAgent",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyIssueNumber",
 					"when": "false"
 				},

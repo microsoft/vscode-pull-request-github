@@ -1522,17 +1522,28 @@ ${options?.body ?? ''}\n
 			return;
 		}
 
-		// Create a prompt for the coding agent based on the issue
-		const prompt = vscode.l10n.t('Work on GitHub issue #{0}: {1}', issueModel.number, issueModel.title);
-
-		// Start the coding agent session
 		try {
-			await this.copilotRemoteAgentManager.commandImpl({
-				userPrompt: prompt,
-				source: 'issue'
-			});
+			// Get the folder manager for this issue
+			const folderManager = this.manager.getManagerForIssueModel(issueModel);
+			if (!folderManager) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to find repository for issue #{0}', issueModel.number));
+				return;
+			}
+
+			// Get assignable users and find the copilot user
+			const assignableUsers = await folderManager.getAssignableUsers();
+			const copilotUser = assignableUsers[issueModel.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
+			
+			if (!copilotUser) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Copilot coding agent is not available for assignment in this repository'));
+				return;
+			}
+
+			// Assign the issue to the copilot user
+			await issueModel.replaceAssignees([...(issueModel.assignees ?? []), copilotUser]);
+			vscode.window.showInformationMessage(vscode.l10n.t('Issue #{0} has been assigned to Copilot coding agent', issueModel.number));
 		} catch (error) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to assign issue to coding agent: {0}', error.message));
 		}
 	}
 }
