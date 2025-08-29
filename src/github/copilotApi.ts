@@ -83,6 +83,7 @@ export class CopilotApi {
 		const repoSlug = `${owner}/${name}`;
 		const apiUrl = `/agents/swe/v0/jobs/${repoSlug}`;
 		let status: number | undefined;
+		Logger.trace(`postRemoteAgentJob: Posting job to ${apiUrl} with payload: ${JSON.stringify(payload)}`, CopilotApi.ID);
 		try {
 			const response = await this.makeApiCall(apiUrl, {
 				method: 'POST',
