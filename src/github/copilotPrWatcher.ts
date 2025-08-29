@@ -20,9 +20,14 @@ export function isCopilotQuery(query: string): boolean {
 	return COPILOT_LOGINS.some(login => lowerQuery.includes(`author:${login.toLowerCase()}`));
 }
 
+export interface CodingAgentPRAndStatus {
+	item: PullRequestModel;
+	status: CopilotPRStatus;
+}
+
 export class CopilotStateModel extends Disposable {
 	private _isInitialized = false;
-	private readonly _states: Map<string, { item: PullRequestModel, status: CopilotPRStatus }> = new Map();
+	private readonly _states: Map<string, CodingAgentPRAndStatus> = new Map();
 	private readonly _showNotification: Set<string> = new Set();
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeStates = this._onDidChangeStates.event;
@@ -129,7 +134,7 @@ export class CopilotStateModel extends Disposable {
 		};
 	}
 
-	get all(): { item: PullRequestModel, status: CopilotPRStatus }[] {
+	get all(): CodingAgentPRAndStatus[] {
 		return Array.from(this._states.values());
 	}
 }

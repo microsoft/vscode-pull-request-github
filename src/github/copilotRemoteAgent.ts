@@ -9,7 +9,7 @@ import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -19,7 +19,7 @@ import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
-import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
+import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { CredentialStore } from './credentials';
@@ -60,6 +60,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private readonly gitOperationsManager: GitOperationsManager;
 	private readonly ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map();
+
+	private codingAgentPRsPromise: Promise<{
+		item: PullRequestModel;
+		status: CopilotPRStatus;
+	}[]> | undefined;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry, private context: vscode.ExtensionContext) {
 		super();
@@ -821,7 +826,27 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			await this.waitRepoManagerInitialization();
 
-			const codingAgentPRs = this._stateModel.all;
+			let codingAgentPRs: CodingAgentPRAndStatus[] = [];
+			if (this._stateModel.isInitialized) {
+				codingAgentPRs = this._stateModel.all;
+			} else {
+				this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<CodingAgentPRAndStatus[]>(async (resolve) => {
+					try {
+						const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+						const prAndStatus = await Promise.all(sessions.map(async pr => {
+							const timeline = await pr.getCopilotTimelineEvents(pr);
+							const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
+							return { item: pr, status };
+						}));
+
+						resolve(prAndStatus);
+					} catch (error) {
+						Logger.error(`Failed to fetch coding agent PRs: ${error}`, CopilotRemoteAgentManager.ID);
+						resolve([]);
+					}
+				});
+				codingAgentPRs = await this.codingAgentPRsPromise;
+			}
 			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
 				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
@@ -974,7 +999,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return this.createEmptySession();
 			}
 
+			// Parallelize independent operations
+			const timelineEvents = pullRequest.getTimelineEvents(pullRequest);
+			const changeModels = this.getChangeModels(pullRequest);
 			const sessions = await capi.getAllSessions(pullRequest.id);
+
 			if (!sessions || sessions.length === 0) {
 				Logger.warn(`No sessions found for pull request ${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
@@ -984,15 +1013,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 				Logger.error(`getAllSessions returned non-array: ${typeof sessions}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
-			const contentBuilder = new ChatSessionContentBuilder(CopilotRemoteAgentManager.ID, COPILOT, () => this.getChangeModels(pullRequest));
-			const history = await contentBuilder.buildSessionHistory(sessions, pullRequest, capi);
-			const activeResponseCallback = this.findActiveResponseCallback(sessions, pullRequest);
-			const requestHandler = this.createRequestHandlerIfNeeded(pullRequest);
 
+			// Create content builder with pre-fetched change models
+			const contentBuilder = new ChatSessionContentBuilder(CopilotRemoteAgentManager.ID, COPILOT, changeModels);
+
+			// Parallelize operations that don't depend on each other
+			const history = await contentBuilder.buildSessionHistory(sessions, pullRequest, capi, timelineEvents);
 			return {
 				history,
-				activeResponseCallback,
-				requestHandler
+				activeResponseCallback: this.findActiveResponseCallback(sessions, pullRequest),
+				requestHandler: this.createRequestHandlerIfNeeded(pullRequest)
 			};
 		} catch (error) {
 			Logger.error(`Failed to provide chat session content: ${error}`, CopilotRemoteAgentManager.ID);
