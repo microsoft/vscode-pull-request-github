@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { COPILOT_LOGINS } from '../../common/copilot';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
+import { CommentEvent, EventType, ReviewEvent } from '../../common/timelineEvent';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -118,6 +119,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		}
 
 		const status = await pullRequest.getStatusChecks();
+		const timeline = pullRequest.timelineEvents.length > 0 ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
 		const pullRequestInfo = {
 			title: pullRequest.title,
 			body: pullRequest.body,
@@ -129,6 +131,13 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 					body: comment.body,
 					commentState: comment.isResolved ? 'resolved' : 'unresolved',
 					file: comment.path
+				};
+			}),
+			timelineComments: timeline.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented).map(event => {
+				return {
+					author: event.user?.login,
+					body: event.body,
+					commentType: event.event === EventType.Reviewed ? event.state : 'COMMENTED',
 				};
 			}),
 			state: pullRequest.state,
