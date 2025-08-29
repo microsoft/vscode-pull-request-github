@@ -719,9 +719,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
 	 */
-	async getTimelineEvents(pullRequestModel: PullRequestModel): Promise<TimelineEvent[]> {
+	async getTimelineEvents(): Promise<TimelineEvent[]> {
 		const getTimelineEvents = async () => {
-			Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - enter`, PullRequestModel.ID);
+			Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
 			try {
 				const { data } = await query<TimelineEventsResponse>({
@@ -729,7 +729,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
-						number: pullRequestModel.number,
+						number: this.number,
 					},
 				});
 
@@ -748,17 +748,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			getTimelineEvents(),
 			this.getViewerLatestReviewCommit(),
 			(await this.githubRepository.getAuthenticatedUser()).login,
-			pullRequestModel.getReviewThreads()
+			this.getReviewThreads()
 		]);
 
 
 		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel, true), this.githubRepository);
+		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(this, true), this.githubRepository);
 
 		this.addReviewTimelineEventComments(events, reviewThreads);
-		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, pullRequestModel.head);
-		Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - done`, PullRequestModel.ID);
-		pullRequestModel.timelineEvents = events;
+		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
+		Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
+		this.timelineEvents = events;
 		return events;
 	}
 

@@ -34,7 +34,7 @@ export class ChatSessionContentBuilder {
 		);
 
 		const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
-		const timelineEvents = await pullRequest.getTimelineEvents(pullRequest);
+		const timelineEvents = await pullRequest.getTimelineEvents();
 
 		Logger.appendLine(`Found ${timelineEvents.length} timeline events`, this.loggerId);
 
