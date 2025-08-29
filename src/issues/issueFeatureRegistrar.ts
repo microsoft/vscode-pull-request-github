@@ -157,6 +157,19 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
+				'issue.assignToCodingAgent',
+				(issueModel: any) => {
+					/* __GDPR__
+				"issue.assignToCodingAgent" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
+					return this.assignToCodingAgent(issueModel);
+				},
+				this,
+			),
+		);
+		this._register(
+			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
@@ -1493,6 +1506,30 @@ ${options?.body ?? ''}\n
 			await this.copilotRemoteAgentManager.commandImpl({
 				userPrompt: prompt,
 				source: 'todo'
+			});
+		} catch (error) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
+		}
+	}
+
+	async assignToCodingAgent(issueModel: any) {
+		if (!issueModel) {
+			return;
+		}
+
+		// Check if the issue model is an IssueModel
+		if (!(issueModel instanceof IssueModel)) {
+			return;
+		}
+
+		// Create a prompt for the coding agent based on the issue
+		const prompt = vscode.l10n.t('Work on GitHub issue #{0}: {1}', issueModel.number, issueModel.title);
+
+		// Start the coding agent session
+		try {
+			await this.copilotRemoteAgentManager.commandImpl({
+				userPrompt: prompt,
+				source: 'issue'
 			});
 		} catch (error) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
