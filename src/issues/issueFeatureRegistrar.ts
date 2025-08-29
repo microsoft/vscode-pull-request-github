@@ -24,6 +24,7 @@ import { ITelemetry } from '../common/telemetry';
 import { fromRepoUri, RepoUriParams, Schemes, toNewIssueUri } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
 import { OctokitCommon } from '../github/common';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -91,6 +92,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		private reviewsManager: ReviewsManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
+		private copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	) {
 		super();
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
@@ -136,6 +138,19 @@ export class IssueFeatureRegistrar extends Disposable {
 			*/
 					this.telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
 					return this.createTodoIssueClipboard();
+				},
+				this,
+			),
+		);
+		this._register(
+			vscode.commands.registerCommand(
+				'issue.startCodingAgentFromTodo',
+				(todoInfo?: { document: vscode.TextDocument; lineNumber: number; line: string; insertIndex: number; range: vscode.Range }) => {
+					/* __GDPR__
+				"issue.startCodingAgentFromTodo" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.startCodingAgentFromTodo');
+					return this.startCodingAgentFromTodo(todoInfo);
 				},
 				this,
 			),
@@ -548,7 +563,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
 			this._register(
-				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context, this.copilotRemoteAgentManager), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
 		});
 	}
@@ -1452,5 +1467,35 @@ ${options?.body ?? ''}\n
 			return vscode.env.openExternal(vscode.Uri.parse(withPermalinks[0].permalink));
 		}
 		return undefined;
+	}
+
+	async startCodingAgentFromTodo(todoInfo?: { document: vscode.TextDocument; lineNumber: number; line: string; insertIndex: number; range: vscode.Range }) {
+		if (!todoInfo) {
+			return;
+		}
+		
+		const { document, line, insertIndex } = todoInfo;
+		
+		// Extract the TODO text after the trigger word
+		const todoText = line.substring(insertIndex).trim();
+		
+		if (!todoText) {
+			vscode.window.showWarningMessage(vscode.l10n.t('No task description found in TODO comment'));
+			return;
+		}
+
+		// Create a prompt for the coding agent
+		const relativePath = vscode.workspace.asRelativePath(document.uri);
+		const prompt = vscode.l10n.t('Work on TODO: {0} (from {1})', todoText, relativePath);
+
+		// Start the coding agent session
+		try {
+			await this.copilotRemoteAgentManager.commandImpl({
+				userPrompt: prompt,
+				source: 'todo'
+			});
+		} catch (error) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
+		}
 	}
 }
