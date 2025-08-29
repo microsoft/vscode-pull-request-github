@@ -55,24 +55,36 @@ export async function convertIssueReferencesToLinks(text: string, pullInfo: Pull
 		return text;
 	}
 
-	// Use a simple approach to find and replace issue references
-	return text.replace(ISSUE_OR_URL_EXPRESSION, (match) => {
-		const parsed = parseIssueExpressionOutput(match.match(ISSUE_OR_URL_EXPRESSION));
-		if (!parsed) {
-			return match;
+	// Use a more sophisticated approach similar to findAndModifyString in markdownUtils.ts
+	let searchResult = text.search(ISSUE_OR_URL_EXPRESSION);
+	let position = 0;
+	while (searchResult >= 0 && searchResult < text.length) {
+		let newBodyFirstPart: string | undefined;
+		if (searchResult === 0 || text.charAt(searchResult - 1) !== '&') {
+			const match = text.substring(searchResult).match(ISSUE_OR_URL_EXPRESSION);
+			if (match) {
+				const parsed = parseIssueExpressionOutput(match);
+				if (parsed) {
+					// If no owner/name specified, use the current repository context
+					if (!parsed.owner || !parsed.name) {
+						parsed.owner = pullInfo.owner;
+						parsed.name = pullInfo.repo;
+					}
+
+					const issueNumberLabel = getIssueNumberLabelFromParsed(parsed);
+
+					// Create GitHub URL for the issue/PR
+					const githubUrl = `https://${pullInfo.host || 'github.com'}/${parsed.owner}/${parsed.name}/issues/${parsed.issueNumber}`;
+
+					const transformed = `[${issueNumberLabel}](${githubUrl})`;
+					newBodyFirstPart = text.slice(0, searchResult) + transformed;
+					text = newBodyFirstPart + text.slice(searchResult + match[0].length);
+				}
+			}
 		}
-
-		// If no owner/name specified, use the current repository context
-		if (!parsed.owner || !parsed.name) {
-			parsed.owner = pullInfo.owner;
-			parsed.name = pullInfo.repo;
-		}
-
-		const issueNumberLabel = getIssueNumberLabelFromParsed(parsed);
-
-		// Create GitHub URL for the issue/PR
-		const githubUrl = `https://${pullInfo.host || 'github.com'}/${parsed.owner}/${parsed.name}/issues/${parsed.issueNumber}`;
-
-		return `[${issueNumberLabel}](${githubUrl})`;
-	});
+		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
+		const newSearchResult = text.substring(position).search(ISSUE_OR_URL_EXPRESSION);
+		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
+	}
+	return text;
 }
