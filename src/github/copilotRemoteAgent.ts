@@ -533,20 +533,20 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// We only create a new branch and commit if there are staged or working changes.
 		// This could be improved if we add lower-level APIs to our git extension (e.g. in-memory temp git index).
 
-		let ref = baseRef;
+		const base_ref = baseRef; // This is the ref the PR will merge into
+		let head_ref: string | undefined; // This is the ref coding agent starts work from (omitted unless we push local changes)
 		const hasChanges = autoPushAndCommit && (repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0);
 		if (hasChanges) {
 			if (!CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
 			try {
-				await this.gitOperationsManager.commitAndPushChanges(repoInfo);
+				head_ref = await this.gitOperationsManager.commitAndPushChanges(repoInfo);
 			} catch (error) {
 				return { error: error.message, state: 'error' };
 			}
 		}
 
-		const base_ref = hasChanges ? baseRef : ref;
 		try {
 			if (!(await ghRepository.hasBranch(base_ref))) {
 				if (!CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
@@ -582,7 +582,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				body_placeholder: formatBodyPlaceholder(problemContext || prompt),
 				base_ref,
 				body_suffix,
-				...(hasChanges && { head_ref: ref })
+				...(head_ref && { head_ref })
 			}
 		};
 
@@ -596,7 +596,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				number: pull_request.number,
 				link: pull_request.html_url,
 				webviewUri,
-				llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString,
+				llmDetails: head_ref ? `Local pending changes have been pushed to branch '${head_ref}'. ${prLlmString}` : prLlmString,
 				sessionId: session_id
 			};
 		} catch (error) {
@@ -854,7 +854,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-				const description = new vscode.MarkdownString(`PR [#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,

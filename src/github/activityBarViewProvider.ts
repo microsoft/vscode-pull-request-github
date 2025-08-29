@@ -80,7 +80,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
 
 		const result: Partial<PullRequest> = {
-			events: await this._item.getTimelineEvents(this._item),
+			events: await this._item.getTimelineEvents(),
 			mergeable: mergability,
 		};
 		await this.refresh();
@@ -214,7 +214,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				pullRequestModel.number,
 			),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			pullRequestModel.getTimelineEvents(pullRequestModel),
+			pullRequestModel.getTimelineEvents(),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),

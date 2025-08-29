@@ -309,7 +309,7 @@ export class ChatSessionContentBuilder {
 			if (
 				choice.finish_reason === 'tool_calls' &&
 				delta.tool_calls?.length &&
-				delta.tool_calls[0].function.name === 'run_custom_setup_step'
+				(delta.tool_calls[0].function.name === 'run_custom_setup_step' || delta.tool_calls[0].function.name === 'run_setup')
 			) {
 				const toolCall = delta.tool_calls[0];
 				let args: { name?: string } = {};
