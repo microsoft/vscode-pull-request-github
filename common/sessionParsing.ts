@@ -204,6 +204,19 @@ export function parseToolCallDetails(
 				} : undefined
 			};
 		}
+	} else if (name === 'view') {
+		const filePath = args.path;
+		const fileLabel = filePath && toFileLabel(filePath);
+		return {
+			toolName: fileLabel === '' ? 'Read repository' : 'Read',
+			invocationMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
+			pastTenseMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
+			toolSpecificData: fileLabel ? {
+				command: 'view',
+				filePath: filePath,
+				fileLabel: fileLabel
+			} : undefined
+		};
 	} else if (name === 'think') {
 		return {
 			toolName: 'Thought',
