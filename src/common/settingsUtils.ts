@@ -5,6 +5,7 @@
 
 'use strict';
 import * as vscode from 'vscode';
+import { chatCommand } from '../lm/utils';
 import { PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
 
 export function getReviewMode(): { merged: boolean, closed: boolean } {
@@ -53,7 +54,12 @@ export function editQuery(namespace: string, queryName: string) {
 	const inputBox = vscode.window.createQuickPick();
 	inputBox.title = vscode.l10n.t('Edit Query "{0}"', queryName ?? '');
 	inputBox.value = queryValue ?? '';
-	inputBox.items = [{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true }, { iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true }, { iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true }];
+	inputBox.items = [
+		{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true }, 
+		{ iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true }, 
+		{ iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true },
+		{ iconPath: new vscode.ThemeIcon('copilot'), label: vscode.l10n.t('Edit with Copilot'), alwaysShow: true }
+	];
 	inputBox.activeItems = [];
 	inputBox.selectedItems = [];
 	inputBox.onDidAccept(async () => {
@@ -80,6 +86,8 @@ export function editQuery(namespace: string, queryName: string) {
 			addNewQuery(config, inspect, inputBox.value);
 		} else if (inputBox.selectedItems[0] === inputBox.items[2]) {
 			openSettingsAtQuery(config, inspect, queryName);
+		} else if (inputBox.selectedItems[0] === inputBox.items[3]) {
+			await openCopilotForQuery(queryName, inputBox.value);
 		}
 		inputBox.dispose();
 	});
@@ -151,4 +159,32 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 			editor.selection = new vscode.Selection(position, position);
 		}
 	}
+}
+
+async function openCopilotForQuery(queryName: string, currentQuery: string) {
+	// Open chat with context about the current query
+	const chatMessage = `I need help editing this GitHub query:
+
+**Query Name:** ${queryName}
+**Current Query:** \`${currentQuery}\`
+
+Please help me improve or modify this query. You can:
+- Explain what the current query does
+- Suggest improvements for better results  
+- Help convert natural language requirements to GitHub search syntax
+- Fix any syntax issues
+
+What would you like to do with this query?`;
+
+	// Copy the chat message to clipboard so user can paste it
+	await vscode.env.clipboard.writeText(chatMessage);
+	
+	// Open the appropriate chat command
+	const command = chatCommand();
+	await vscode.commands.executeCommand(command);
+	
+	// Show a message to the user about the clipboard
+	vscode.window.showInformationMessage(
+		vscode.l10n.t('Query context copied to clipboard. Paste it in the chat to get help with your query.')
+	);
 }
