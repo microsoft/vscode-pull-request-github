@@ -829,7 +829,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-				const description = new vscode.MarkdownString(`PR [#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
