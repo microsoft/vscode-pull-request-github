@@ -162,29 +162,10 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 }
 
 async function openCopilotForQuery(queryName: string, currentQuery: string) {
-	// Open chat with context about the current query
-	const chatMessage = `I need help editing this GitHub query:
-
-**Query Name:** ${queryName}
-**Current Query:** \`${currentQuery}\`
-
-Please help me improve or modify this query. You can:
-- Explain what the current query does
-- Suggest improvements for better results  
-- Help convert natural language requirements to GitHub search syntax
-- Fix any syntax issues
-
-What would you like to do with this query?`;
-
-	// Copy the chat message to clipboard so user can paste it
-	await vscode.env.clipboard.writeText(chatMessage);
+	// Create a chat query that leverages the @githubpr participant and existing tools
+	const chatMessage = vscode.l10n.t('@githubpr Help me improve this GitHub search query: "{0}". The current query is: {1}. Please explain what it does and suggest improvements or help convert natural language requirements to GitHub search syntax.', queryName, currentQuery);
 	
-	// Open the appropriate chat command
+	// Open chat with the query pre-populated
 	const command = chatCommand();
-	await vscode.commands.executeCommand(command);
-	
-	// Show a message to the user about the clipboard
-	vscode.window.showInformationMessage(
-		vscode.l10n.t('Query context copied to clipboard. Paste it in the chat to get help with your query.')
-	);
+	await vscode.commands.executeCommand(command, chatMessage);
 }
