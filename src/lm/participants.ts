@@ -81,7 +81,7 @@ export class ChatParticipant extends Disposable {
 		}
 
 		const folderManager = folderManagers[0];
-		
+
 		// Try to use the active pull request as context
 		const activePullRequest = folderManager.activePullRequest;
 		if (activePullRequest) {
