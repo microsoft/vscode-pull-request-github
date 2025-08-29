@@ -1486,12 +1486,12 @@ ${options?.body ?? ''}\n
 		if (!todoInfo) {
 			return;
 		}
-		
+
 		const { document, line, insertIndex } = todoInfo;
-		
+
 		// Extract the TODO text after the trigger word
 		const todoText = line.substring(insertIndex).trim();
-		
+
 		if (!todoText) {
 			vscode.window.showWarningMessage(vscode.l10n.t('No task description found in TODO comment'));
 			return;
