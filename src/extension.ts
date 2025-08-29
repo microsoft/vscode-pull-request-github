@@ -267,7 +267,7 @@ async function init(
 function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager, telemetry: ExperimentationTelemetry) {
 	const createParticipant = () => {
 		const chatParticipantState = new ChatParticipantState();
-		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
+		context.subscriptions.push(new ChatParticipant(context, chatParticipantState, reposManager));
 		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager, telemetry);
 	};
 

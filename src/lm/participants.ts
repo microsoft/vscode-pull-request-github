@@ -7,6 +7,8 @@
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
+import { findLinksInIssue } from '../github/markdownUtils';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
@@ -57,7 +59,7 @@ export class ChatParticipantState {
 
 export class ChatParticipant extends Disposable {
 
-	constructor(context: vscode.ExtensionContext, private readonly state: ChatParticipantState) {
+	constructor(context: vscode.ExtensionContext, private readonly state: ChatParticipantState, private readonly repositoriesManager: RepositoriesManager) {
 		super();
 		const ghprChatParticipant = this._register(vscode.chat.createChatParticipant('githubpr', (
 			request: vscode.ChatRequest,
@@ -66,6 +68,41 @@ export class ChatParticipant extends Disposable {
 			token: vscode.CancellationToken
 		) => this.handleParticipantRequest(request, context, stream, token)));
 		ghprChatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources/icons/github_logo.png');
+	}
+
+	/**
+	 * Process text to convert issue references to clickable links
+	 */
+	private async processIssueReferences(text: string): Promise<string> {
+		// Get the first folder manager (active workspace)
+		const folderManagers = this.repositoriesManager.folderManagers;
+		if (folderManagers.length === 0) {
+			return text;
+		}
+
+		const folderManager = folderManagers[0];
+		
+		// Try to use the active pull request as context
+		const activePullRequest = folderManager.activePullRequest;
+		if (activePullRequest) {
+			return await findLinksInIssue(text, activePullRequest);
+		}
+
+		// If no active PR, try to get the first repository
+		const repositories = folderManager.gitHubRepositories;
+		if (repositories.length > 0) {
+			const repo = repositories[0];
+			// Create a minimal issue-like object for the findLinksInIssue function
+			const mockIssue = {
+				remote: {
+					owner: repo.remote.owner,
+					repositoryName: repo.remote.repositoryName
+				}
+			};
+			return await findLinksInIssue(text, mockIssue as any);
+		}
+
+		return text;
 	}
 
 	async handleParticipantRequest(
@@ -123,7 +160,9 @@ export class ChatParticipant extends Disposable {
 			for await (const part of response.stream) {
 
 				if (part instanceof vscode.LanguageModelTextPart) {
-					stream.markdown(part.value);
+					// Process issue references before streaming
+					const processedText = await this.processIssueReferences(part.value);
+					stream.markdown(processedText);
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
 
 					const tool = vscode.lm.tools.find(tool => tool.name === part.name);
@@ -168,7 +207,10 @@ export class ChatParticipant extends Disposable {
 						}
 
 						if (part.value === TOOL_MARKDOWN_RESULT) {
-							const markdown = new vscode.MarkdownString((toolCallResult.content[++i] as vscode.LanguageModelTextPart).value);
+							const markdownText = (toolCallResult.content[++i] as vscode.LanguageModelTextPart).value;
+							// Process issue references in tool markdown results
+							const processedMarkdown = await this.processIssueReferences(markdownText);
+							const markdown = new vscode.MarkdownString(processedMarkdown);
 							markdown.supportHtml = true;
 							stream.markdown(markdown);
 							shownToUser = true;

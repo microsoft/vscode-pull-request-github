@@ -13,7 +13,6 @@ import { parseDiff, SessionResponseLogChunk, toFileLabel } from '../../common/se
 import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
-import { convertIssueReferencesToLinks } from './issueLinker';
 import { PullInfo } from './messages';
 import { type SessionInfo, type SessionSetupStepResponse } from './sessionsApi';
 
@@ -31,7 +30,7 @@ export const SessionView: React.FC<SessionViewProps> = (props) => {
 			{props.logs.length === 0 && props.setupSteps && props.setupSteps.length > 0 && (
 				<SetupStageLog setupSteps={props.setupSteps} />
 			)}
-			<SessionLog logs={props.logs} pullInfo={props.pullInfo} />
+			<SessionLog logs={props.logs} />
 			{props.info.state === 'in_progress' && !(props.logs.length === 0 && props.setupSteps && props.setupSteps.length > 0) && (
 				<div className="session-in-progress-indicator">
 					<span className="icon"><i className="codicon codicon-loading"></i></span>
@@ -103,10 +102,9 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 // Session Log component
 interface SessionLogProps {
 	readonly logs: readonly SessionResponseLogChunk[];
-	readonly pullInfo: PullInfo | undefined;
 }
 
-const SessionLog: React.FC<SessionLogProps> = ({ logs, pullInfo }) => {
+const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 	const components = logs.flatMap(x => x.choices).map((choice, index) => {
 		if (!choice.delta.content) {
 			return;
@@ -131,7 +129,6 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs, pullInfo }) => {
 					<MarkdownContent
 						key={`markdown-${index}`}
 						content={choice.delta.content}
-						pullInfo={pullInfo}
 					/>
 				);
 			}
@@ -227,10 +224,9 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs, pullInfo }) => {
 // Custom component for rendering markdown content
 interface MarkdownContentProps {
 	content: string;
-	pullInfo: PullInfo | undefined;
 }
 
-const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, pullInfo }) => {
+const MarkdownContent: React.FC<MarkdownContentProps> = ({ content }) => {
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const md = React.useMemo(() => {
 		const mdInstance = new MarkdownIt();
@@ -249,36 +245,27 @@ const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, pullInfo }) 
 	React.useEffect(() => {
 		if (!containerRef.current) return;
 
-		// Process issue references and convert to clickable links
-		const processContent = async () => {
-			const processedContent = await convertIssueReferencesToLinks(content, pullInfo);
-			
-			// Render markdown
-			if (containerRef.current) {
-				containerRef.current.innerHTML = md.render(processedContent);
+		// Render markdown
+		containerRef.current.innerHTML = md.render(content);
 
-				// Find all code blocks and render them using CodeView
-				const codeBlocks = containerRef.current.querySelectorAll('.markdown-code-block');
-				codeBlocks.forEach((block) => {
-					const code = decodeURIComponent(block.getAttribute('data-code') || '');
-					const lang = block.getAttribute('data-lang') || 'plaintext';
+		// Find all code blocks and render them using CodeView
+		const codeBlocks = containerRef.current.querySelectorAll('.markdown-code-block');
+		codeBlocks.forEach((block) => {
+			const code = decodeURIComponent(block.getAttribute('data-code') || '');
+			const lang = block.getAttribute('data-lang') || 'plaintext';
 
-					const codeViewElement = document.createElement('div');
-					block.replaceWith(codeViewElement);
+			const codeViewElement = document.createElement('div');
+			block.replaceWith(codeViewElement);
 
-					ReactDOM.render(
-						<CodeView
-							label="Code Block"
-							content={{ value: code, lang }}
-						/>,
-						codeViewElement
-					);
-				});
-			}
-		};
-
-		processContent();
-	}, [content, pullInfo, md]);
+			ReactDOM.render(
+				<CodeView
+					label="Code Block"
+					content={{ value: code, lang }}
+				/>,
+				codeViewElement
+			);
+		});
+	}, [content]);
 
 	return <div className="markdown-content" ref={containerRef} />;
 };
