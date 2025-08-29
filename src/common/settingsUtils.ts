@@ -5,7 +5,7 @@
 
 'use strict';
 import * as vscode from 'vscode';
-import { chatCommand } from '../lm/utils';
+import { commands } from './executeCommands';
 import { PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
 
 export function getReviewMode(): { merged: boolean, closed: boolean } {
@@ -55,8 +55,8 @@ export function editQuery(namespace: string, queryName: string) {
 	inputBox.title = vscode.l10n.t('Edit Query "{0}"', queryName ?? '');
 	inputBox.value = queryValue ?? '';
 	inputBox.items = [
-		{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true }, 
-		{ iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true }, 
+		{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true },
+		{ iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true },
 		{ iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true },
 		{ iconPath: new vscode.ThemeIcon('copilot'), label: vscode.l10n.t('Edit with Copilot'), alwaysShow: true }
 	];
@@ -82,14 +82,18 @@ export function editQuery(namespace: string, queryName: string) {
 				newValue.find((query) => query.label === queryName)!.query = newQuery;
 				await config.update(QUERIES, newValue, target);
 			}
+			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[1]) {
 			addNewQuery(config, inspect, inputBox.value);
+			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[2]) {
 			openSettingsAtQuery(config, inspect, queryName);
+			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[3]) {
-			await openCopilotForQuery(queryName, inputBox.value);
+			inputBox.ignoreFocusOut = true;
+			await openCopilotForQuery(inputBox.value);
+			inputBox.busy = false;
 		}
-		inputBox.dispose();
 	});
 	inputBox.onDidHide(() => inputBox.dispose());
 	inputBox.show();
@@ -161,11 +165,9 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 	}
 }
 
-async function openCopilotForQuery(queryName: string, currentQuery: string) {
-	// Create a chat query that leverages the @githubpr participant and existing tools
-	const chatMessage = vscode.l10n.t('@githubpr Help me improve this GitHub search query: "{0}". The current query is: {1}. Please explain what it does and suggest improvements or help convert natural language requirements to GitHub search syntax.', queryName, currentQuery);
-	
+async function openCopilotForQuery(currentQuery: string) {
+	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: "{0}". Modify it so that it ', currentQuery);
+
 	// Open chat with the query pre-populated
-	const command = chatCommand();
-	await vscode.commands.executeCommand(command, chatMessage);
+	await vscode.commands.executeCommand(commands.OPEN_CHAT, { query: chatMessage, isPartialQuery: true });
 }
