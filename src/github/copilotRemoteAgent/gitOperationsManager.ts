@@ -21,8 +21,8 @@ export class GitOperationsManager {
 
 			await this.performCommit(asyncBranch, repository, commitMessage);
 			await repository.push(remote.remoteName, asyncBranch, true);
-
 			this.showBranchSwitchNotification(repository, baseRef, asyncBranch);
+			return asyncBranch; // This is the new head ref
 		} catch (error) {
 			await this.rollbackToOriginalBranch(repository, baseRef);
 			Logger.error(`Failed to auto-commit and push pending changes: ${error}`, this.loggerID);
