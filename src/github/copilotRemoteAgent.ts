@@ -1000,7 +1000,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			// Parallelize independent operations
-			const timelineEvents = pullRequest.getTimelineEvents(pullRequest);
+			const timelineEvents = pullRequest.getTimelineEvents();
 			const changeModels = this.getChangeModels(pullRequest);
 			const sessions = await capi.getAllSessions(pullRequest.id);
 
