@@ -1533,7 +1533,7 @@ ${options?.body ?? ''}\n
 			// Get assignable users and find the copilot user
 			const assignableUsers = await folderManager.getAssignableUsers();
 			const copilotUser = assignableUsers[issueModel.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
-			
+
 			if (!copilotUser) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Copilot coding agent is not available for assignment in this repository'));
 				return;

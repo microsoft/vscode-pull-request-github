@@ -21,43 +21,60 @@ export class ChatSessionContentBuilder {
 	constructor(
 		private loggerId: string,
 		private readonly handler: string,
-		private getChangeModels: () => Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]>
+		private getChangeModels: Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]>
 	) { }
 
 	public async buildSessionHistory(
 		sessions: SessionInfo[],
 		pullRequest: PullRequestModel,
-		capi: CopilotApi
+		capi: CopilotApi,
+		timelineEventsPromise: Promise<TimelineEvent[]>
 	): Promise<Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2>> {
 		const sortedSessions = sessions.slice().sort((a, b) =>
 			new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
 		);
 
+		// Process all sessions concurrently while maintaining order
+		const sessionResults = await Promise.all(
+			sortedSessions.map(async (session, sessionIndex) => {
+				const firstHistoryEntry = async () => {
+					const sessionPrompt = await this.determineSessionPrompt(session, sessionIndex, pullRequest, timelineEventsPromise, capi);
+
+					// Create request turn for this session
+					const sessionRequest = new vscode.ChatRequestTurn2(
+						sessionPrompt,
+						undefined, // command
+						[], // references
+						COPILOT_SWE_AGENT,
+						[], // toolReferences
+						[]
+					);
+					return sessionRequest;
+				};
+				const secondHistoryEntry = async () => {
+					const logs = await capi.getLogsFromSession(session.id);
+					// Create response turn
+					const responseHistory = await this.createResponseTurn(pullRequest, logs, session);
+					return responseHistory;
+				};
+				const [first, second] = await Promise.all([
+					firstHistoryEntry(),
+					secondHistoryEntry(),
+				]);
+
+				return { first, second, sessionIndex };
+			})
+		);
+
 		const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
-		const timelineEvents = await pullRequest.getTimelineEvents();
 
-		Logger.appendLine(`Found ${timelineEvents.length} timeline events`, this.loggerId);
+		// Build history array in the correct order
+		for (const { first, second, sessionIndex } of sessionResults) {
+			history.push(first);
 
-		for (const [sessionIndex, session] of sortedSessions.entries()) {
-			const logs = await capi.getLogsFromSession(session.id);
-			const sessionPrompt = await this.determineSessionPrompt(session, sessionIndex, pullRequest, timelineEvents, capi);
-
-			// Create request turn for this session
-			const sessionRequest = new vscode.ChatRequestTurn2(
-				sessionPrompt,
-				undefined, // command
-				[], // references
-				COPILOT_SWE_AGENT,
-				[], // toolReferences
-				[]
-			);
-			history.push(sessionRequest);
-
-			// Create response turn
-			const responseHistory = await this.createResponseTurn(pullRequest, logs, session);
-			if (responseHistory) {
+			if (second) {
 				// if this is the first response, then also add the PR card
-				if (history.length === 1) {
+				if (sessionIndex === 0) {
 					const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
 					const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(), }).trim();
 
@@ -65,10 +82,9 @@ export class ChatSessionContentBuilder {
 					const cardTurn = new vscode.ChatResponseTurn2([card], {}, COPILOT_SWE_AGENT);
 					history.push(cardTurn);
 				}
-				history.push(responseHistory);
+				history.push(second);
 			}
 		}
-
 		return history;
 	}
 
@@ -92,7 +108,7 @@ export class ChatSessionContentBuilder {
 		session: SessionInfo,
 		sessionIndex: number,
 		pullRequest: PullRequestModel,
-		timelineEvents: readonly TimelineEvent[],
+		timelineEventsPromise: Promise<TimelineEvent[]>,
 		capi: CopilotApi
 	): Promise<string> {
 		let sessionPrompt = session.name || `Session ${sessionIndex + 1} (ID: ${session.id})`;
@@ -100,7 +116,7 @@ export class ChatSessionContentBuilder {
 		if (sessionIndex === 0) {
 			sessionPrompt = await this.getInitialSessionPrompt(session, pullRequest, capi, sessionPrompt);
 		} else {
-			sessionPrompt = await this.getFollowUpSessionPrompt(sessionIndex, timelineEvents, sessionPrompt);
+			sessionPrompt = await this.getFollowUpSessionPrompt(sessionIndex, timelineEventsPromise, sessionPrompt);
 		}
 
 		// TODO: @rebornix, remove @copilot prefix from session prompt for now
@@ -110,9 +126,11 @@ export class ChatSessionContentBuilder {
 
 	private async getFollowUpSessionPrompt(
 		sessionIndex: number,
-		timelineEvents: readonly TimelineEvent[],
+		timelineEventsPromise: Promise<TimelineEvent[]>,
 		defaultPrompt: string
 	): Promise<string> {
+		const timelineEvents = await timelineEventsPromise;
+		Logger.appendLine(`Found ${timelineEvents.length} timeline events`, this.loggerId);
 		const copilotStartedEvents = timelineEvents
 			.filter((event): event is CopilotStartedEvent => event.event === EventType.CopilotStarted)
 			.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -395,7 +413,7 @@ export class ChatSessionContentBuilder {
 
 	private async getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
 		try {
-			const changeModels = await this.getChangeModels();
+			const changeModels = await this.getChangeModels;
 
 			if (changeModels.length === 0) {
 				return undefined;
