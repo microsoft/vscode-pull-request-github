@@ -106,7 +106,7 @@ async function findAndModifyString(
 	return text;
 }
 
-function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
+export function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
 	return findAndModifyString(body, ISSUE_OR_URL_EXPRESSION, async (match: RegExpMatchArray) => {
 		const tryParse = parseIssueExpressionOutput(match);
 		if (tryParse) {
