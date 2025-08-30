@@ -335,11 +335,12 @@ export class ChatSessionContentBuilder {
 				// Skip if content is empty (running state)
 			} else {
 				if (delta.content) {
-					if (!delta.content.startsWith('<pr_title>')) {
+					if (!delta.content.startsWith('<pr_title>') && !delta.content.startsWith('<error>')) {
 						currentResponseContent += delta.content;
 					}
 				}
 
+				const isError = delta.content?.startsWith('<error>');
 				if (delta.tool_calls) {
 					// Add any accumulated content as markdown first
 					if (currentResponseContent.trim()) {
@@ -352,6 +353,15 @@ export class ChatSessionContentBuilder {
 						if (toolPart) {
 							responseParts.push(toolPart);
 						}
+					}
+
+					if (isError) {
+						const toolPart = new vscode.ChatToolInvocationPart('Command', 'command');
+						// Remove <error> at the start and </error> at the end
+						const cleaned = (delta.content ?? '').replace(/^\s*<error>\s*/i, '').replace(/\s*<\/error>\s*$/i, '');
+						toolPart.invocationMessage = cleaned;
+						toolPart.isError = true;
+						responseParts.push(toolPart);
 					}
 				}
 			}
