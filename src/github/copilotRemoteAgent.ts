@@ -1082,8 +1082,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 					const delta = choice.delta;
 
 					if (delta.role === 'assistant') {
-						// Handle special case for run_custom_setup_step
-						if (choice.finish_reason === 'tool_calls' && delta.tool_calls?.length && delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+						// Handle special case for run_custom_setup_step/run_setup
+						if (choice.finish_reason === 'tool_calls' && delta.tool_calls?.length && (delta.tool_calls[0].function.name === 'run_custom_setup_step' || delta.tool_calls[0].function.name === 'run_setup')) {
 							const toolCall = delta.tool_calls[0];
 							let args: any = {};
 							try {
