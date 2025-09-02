@@ -237,6 +237,34 @@ export function parseToolCallDetails(
 				} : undefined
 			};
 		}
+	} else if (name === 'str_replace') {
+		const filePath = args.path;
+		const fileLabel = filePath && toFileLabel(filePath);
+
+		return {
+			toolName: 'Edit',
+			invocationMessage: fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`,
+			pastTenseMessage: fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`,
+			toolSpecificData: fileLabel ? {
+				command: 'str_replace',
+				filePath: filePath,
+				fileLabel: fileLabel,
+			} : undefined
+		}
+	} else if (name === 'create') {
+		const filePath = args.path;
+		const fileLabel = filePath && toFileLabel(filePath);
+
+		return {
+			toolName: 'Create',
+			invocationMessage: fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`,
+			pastTenseMessage: fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`,
+			toolSpecificData: fileLabel ? {
+				command: 'create',
+				filePath: filePath,
+				fileLabel: fileLabel,
+			} : undefined
+		}
 	} else if (name === 'view') {
 		const filePath = args.path;
 		const fileLabel = filePath && toFileLabel(filePath);
