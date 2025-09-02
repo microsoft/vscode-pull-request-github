@@ -325,7 +325,7 @@
 	"command.codingAgent.openSessionLog.title": "Open Coding Agent Session Log",
 	"command.pr.checkoutChatSessionPullRequest.title": "Checkout Pull Request",
 	"command.pr.closeChatSessionPullRequest.title": "Close Pull Request",
-	"command.pr.preferredCodingAgentGitHubRemote.title": "Set Preferred GitHub Remote for Coding Agent Sessions",
+	"command.pr.preferredCodingAgentGitHubRemote.title": "Target GitHub remote for new coding agent sessions",
 	"command.pr.resetCodingAgentPreferences.title": "Reset Coding Agent Workspace Preferences",
 	"command.pr.cancelCodingAgent.title": "Cancel Coding Agent",
 	"welcome.github.login.contents": {
