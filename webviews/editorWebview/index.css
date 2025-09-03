@@ -1536,6 +1536,10 @@ svg.octicon path {
 	flex-shrink: 0;
 }
 
+.collapsed-section-count {
+	color: var(--vscode-descriptionForeground);
+}
+
 .pill-container {
 	display: flex;
 	align-items: center;
