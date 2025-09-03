@@ -282,9 +282,10 @@ export function parseToolCallDetails(
 			} : undefined
 		};
 	} else if (name === 'think') {
+		const thought = (args as unknown as { thought?: string }).thought || content || 'Thought';
 		return {
-			toolName: 'Thought',
-			invocationMessage: content || 'Thought',
+			toolName: 'think',
+			invocationMessage: thought,
 		};
 	} else if (name === 'report_progress') {
 		const details: ParsedToolCallDetails = {

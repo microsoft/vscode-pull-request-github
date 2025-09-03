@@ -301,7 +301,7 @@ export class ChatSessionContentBuilder {
 		delta: AssistantDelta,
 		choice: Choice,
 		pullRequest: PullRequestModel,
-		responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart>,
+		responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart | vscode.ChatResponseThinkingProgressPart>,
 		currentResponseContent: string,
 	): string {
 		if (delta.role === 'assistant') {
@@ -369,7 +369,7 @@ export class ChatSessionContentBuilder {
 		return currentResponseContent;
 	}
 
-	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: ToolCall, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
+	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: ToolCall, deltaContent: string = ''): vscode.ChatToolInvocationPart | vscode.ChatResponseThinkingProgressPart | undefined {
 		if (!toolCall.function?.name || !toolCall.id) {
 			return undefined;
 		}
@@ -387,6 +387,10 @@ export class ChatSessionContentBuilder {
 		try {
 			const toolDetails = parseToolCallDetails(toolCall, deltaContent);
 			toolPart.toolName = toolDetails.toolName;
+
+			if (toolPart.toolName === 'think') {
+				return new vscode.ChatResponseThinkingProgressPart(toolDetails.invocationMessage);
+			}
 
 			if (toolCall.function.name === 'bash') {
 				toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);
