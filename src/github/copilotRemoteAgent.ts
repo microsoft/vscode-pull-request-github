@@ -1333,7 +1333,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
+	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | vscode.ChatResponseThinkingProgressPart | undefined {
 		if (!toolCall.function?.name || !toolCall.id) {
 			return undefined;
 		}
@@ -1351,6 +1351,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 		try {
 			const toolDetails = parseToolCallDetails(toolCall, deltaContent);
 			toolPart.toolName = toolDetails.toolName;
+
+			if (toolCall.toolName === 'think') {
+				return new vscode.ChatResponseThinkingProgressPart(toolCall.invocationMessage);
+			}
 
 			if (toolCall.function.name === 'bash') {
 				toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);

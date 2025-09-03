@@ -134,7 +134,7 @@ another non-data line`;
 
 			const result = parseToolCallDetails(toolCall, 'I need to analyze this code');
 
-			assert.strictEqual(result.toolName, 'Thought');
+			assert.strictEqual(result.toolName, 'think');
 			assert.strictEqual(result.invocationMessage, 'I need to analyze this code');
 		});
 
