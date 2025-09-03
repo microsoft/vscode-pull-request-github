@@ -262,9 +262,20 @@ export function CollapsibleSidebar(props: PullRequest) {
 
 function CollapsedLabel(props: PullRequest) {
 	const { reviewers, assignees, labels, projectItems, milestone, isIssue } = props;
+	const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+	useEffect(() => {
+		const checkViewportWidth = () => {
+			setIsNarrowViewport(window.innerWidth <= 350);
+		};
+
+		checkViewportWidth();
+		window.addEventListener('resize', checkViewportWidth);
+		return () => window.removeEventListener('resize', checkViewportWidth);
+	}, []);
 
 	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
-		<span className="avatar-stack" style={{
+		<span className="avatar-stack hello" style={{
 			width: `${Math.min(users.length, 10) * 10 + 10}px`
 		}}>
 			{users.slice(0, 10).map((u, i) => (
@@ -343,13 +354,14 @@ function CollapsedLabel(props: PullRequest) {
 	};
 
 	// Collect non-empty sections in order, with custom rendering
-	const sections: { label: string; value: React.ReactNode }[] = [];
+	const sections: { label: string; value: React.ReactNode; count: number }[] = [];
 
 	const reviewersWithAvatar = reviewers?.filter((r): r is ReviewState & { reviewer: { avatarUrl: string } } => !!r.reviewer.avatarUrl).map(r => ({ avatarUrl: r.reviewer.avatarUrl, name: reviewerLabel(r.reviewer) }));
 	if (!isIssue && reviewersWithAvatar && reviewersWithAvatar.length) {
 		sections.push({
 			label: 'Reviewers',
-			value: <AvatarStack users={reviewersWithAvatar} />
+			value: <AvatarStack users={reviewersWithAvatar} />,
+			count: reviewersWithAvatar.length
 		});
 	}
 
@@ -357,7 +369,8 @@ function CollapsedLabel(props: PullRequest) {
 	if (assigneesWithAvatar && assigneesWithAvatar.length) {
 		sections.push({
 			label: 'Assignees',
-			value: <AvatarStack users={assigneesWithAvatar} />
+			value: <AvatarStack users={assigneesWithAvatar} />,
+			count: assigneesWithAvatar.length
 		});
 	}
 	if (labels && labels.length) {
@@ -370,7 +383,8 @@ function CollapsedLabel(props: PullRequest) {
 					getColor={l => gitHubLabelColor(l.color, props?.isDarkTheme, false)}
 					getText={l => l.name}
 				/>
-			)
+			),
+			count: labels.length
 		});
 	}
 	if (projectItems && projectItems.length) {
@@ -383,7 +397,8 @@ function CollapsedLabel(props: PullRequest) {
 					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
 					getText={p => p.project.title}
 				/>
-			)
+			),
+			count: projectItems.length
 		});
 	}
 	if (milestone) {
@@ -396,7 +411,8 @@ function CollapsedLabel(props: PullRequest) {
 					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
 					getText={m => m.title}
 				/>
-			)
+			),
+			count: 1
 		});
 	}
 
@@ -408,7 +424,14 @@ function CollapsedLabel(props: PullRequest) {
 		<span className="collapsed-label">
 			{sections.map((s) => (
 				<span className='collapsed-section' key={s.label}>
-					<span className='collapsed-section-label'>{s.label}</span> {s.value}
+					<span className='collapsed-section-label'>{s.label}</span>
+					{isNarrowViewport ? (
+						<span className="collapsed-section-count">
+							{s.count}
+						</span>
+					) : (
+						s.value
+					)}
 				</span>
 			))}
 		</span>
