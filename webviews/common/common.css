@@ -250,6 +250,9 @@ body img.avatar {
 .author-link {
 	font-weight: 600;
 	color: var(--vscode-editor-foreground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .status-item button {
