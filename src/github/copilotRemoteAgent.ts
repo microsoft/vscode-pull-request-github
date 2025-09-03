@@ -786,6 +786,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const prompt = options.prompt;
 		const { source, summary } = options.metadata || {};
 
+		/* __GDPR__
+			"copilot.remoteagent.editor.invoke" : {}
+		*/
+		this.telemetry.sendTelemetryEvent('copilot.remoteagent.editor.invoke', {});
+
 		// Ephemeral session for new session creation flow
 		if (source === 'chatExecuteActions') {
 			const id = `new-${Date.now()}`;
