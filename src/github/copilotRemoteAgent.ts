@@ -775,10 +775,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return parts.join('\n');
 	}
 
-	cleanPrompt(prompt: string): string {
-		// Remove #file:xxxx from the prompt
-		return prompt.replace(/#file:\S+/g, '').trim();
-	}
+
 
 	public async provideNewChatSessionItem(options: { request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
 		const { request, history } = options;
@@ -786,7 +783,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			throw new Error(`Prompt is expected to provide a new chat session item`);
 		}
 
-		const prompt = this.cleanPrompt(options.prompt);
+		const prompt = options.prompt;
 		const { source, summary } = options.metadata || {};
 
 		// Ephemeral session for new session creation flow
