@@ -2546,6 +2546,10 @@
 				{
 					"command": "review.copyPrLink",
 					"when": "github:inReviewMode"
+				},
+				{
+					"command": "pr.preferredCodingAgentGitHubRemote",
+					"when": "false"
 				}
 			],
 			"view/title": [

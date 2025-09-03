@@ -238,7 +238,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const ghRemotes = await fm.getAllGitHubRemotes();
 		Logger.trace(`There are ${ghRemotes.length} GitHub remotes available to select from`, CopilotRemoteAgentManager.ID);
+
 		if (!ghRemotes || ghRemotes.length <= 1) {
+			// Unexpected if we reach here, command should be hidden.
 			Logger.trace('No need to select a coding agent GitHub remote, skipping prompt', CopilotRemoteAgentManager.ID);
 			return;
 		}
@@ -247,12 +249,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 			ghRemotes,
 			itemValue => `${itemValue.remoteName} (${itemValue.owner}/${itemValue.repositoryName})`,
 			{
-				title: vscode.l10n.t('Set the GitHub remote to target when creating a coding agent session'),
+				title: vscode.l10n.t('Coding agent will create pull requests against the selected remote.'),
 			}
 		);
 
 		if (!result) {
-			Logger.warn('No coding agent GitHub remote selected. Clearing preferences.', CopilotRemoteAgentManager.ID);
+			Logger.warn('No coding agent GitHub remote selected.', CopilotRemoteAgentManager.ID);
+			Logger.warn(`Keeping previous value of: ${this.context.workspaceState.get<string>(PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY)}`, CopilotRemoteAgentManager.ID);
 			return;
 		}
 
