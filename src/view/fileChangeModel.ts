@@ -75,9 +75,9 @@ export abstract class FileChangeModel {
 			for (const hunk of diffHunks) {
 				for (const line of hunk.diffLines) {
 					if (line.type === DiffChangeType.Add) {
-						added++;
+						++added;
 					} else if (line.type === DiffChangeType.Delete) {
-						removed++;
+						++removed;
 					}
 				}
 			}
