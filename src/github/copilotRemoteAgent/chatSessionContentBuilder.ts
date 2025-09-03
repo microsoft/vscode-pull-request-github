@@ -440,10 +440,13 @@ export class ChatSessionContentBuilder {
 
 			const diffEntries: vscode.ChatResponseDiffEntry[] = [];
 			for (const changeModel of changeModels) {
+				const { added, removed } = await changeModel.calculateChangedLinesCount();
 				diffEntries.push({
 					originalUri: changeModel.parentFilePath,
 					modifiedUri: changeModel.filePath,
-					goToFileUri: changeModel.filePath
+					goToFileUri: changeModel.filePath,
+					added,
+					removed,
 				});
 			}
 
