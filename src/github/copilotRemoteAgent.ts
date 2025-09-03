@@ -5,7 +5,7 @@
 
 import * as pathLib from 'path';
 import * as marked from 'marked';
-import vscode from 'vscode';
+import vscode, { ChatPromptReference } from 'vscode';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
@@ -746,11 +746,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return fullText;
 	}
 
-	public async provideNewChatSessionItem(options: { prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
-		const { prompt, history } = options;
+	extractFileReferences(references: readonly ChatPromptReference[] | undefined): string | undefined {
+		if (!references || references.length === 0) {
+			return;
+		}
+		// 'file:///Users/jospicer/dev/joshbot/.github/workflows/build-vsix.yml'  -> '.github/workflows/build-vsix.yml'
+		const parts: string[] = [];
+		for (const ref of references) {
+			if (ref.value instanceof vscode.Uri && ref.value.scheme === 'file') { // TODO: Add support for more kinds of references
+				const workspaceFolder = vscode.workspace.getWorkspaceFolder(ref.value);
+				if (workspaceFolder) {
+					const relativePath = pathLib.relative(workspaceFolder.uri.fsPath, ref.value.fsPath);
+					parts.push(` - ${relativePath}`);
+				}
+			}
+		}
+
+		if (!parts.length) {
+			return;
+		}
+
+		parts.unshift('The user has attached the following files as relevant context:');
+		return parts.join('\n');
+	}
+
+	public async provideNewChatSessionItem(options: { request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
+		const { request, prompt, history } = options;
 		if (!prompt) {
 			throw new Error(`Prompt is expected to provide a new chat session item`);
 		}
+
+
 
 		const { source, summary } = options.metadata || {};
 
@@ -770,7 +796,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const result = await this.invokeRemoteAgent(
 			prompt,
-			(await this.extractHistory(history)),
+			[
+				this.extractFileReferences(request.references),
+				await this.extractHistory(history)
+			].join('\n\n').trim(),
 			false,
 		);
 		if (result.state !== 'success') {

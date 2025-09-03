@@ -433,7 +433,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
 			};
 			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
-			provideNewChatSessionItem = async (options: { prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<vscode.ChatSessionItem> => {
+			provideNewChatSessionItem = async (options: { request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<vscode.ChatSessionItem> => {
 				return await copilotRemoteAgentManager.provideNewChatSessionItem(options, token);
 			};
 		}();
