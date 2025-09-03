@@ -230,6 +230,11 @@ export class ChatSessionContentBuilder {
 				const titleMatch = jobInfo.problem_statement.match(/TITLE: \s*(.*)/i);
 				if (titleMatch && titleMatch[1]) {
 					prompt = titleMatch[1].trim();
+				} else {
+					const split = jobInfo.problem_statement.split('\n');
+					if (split.length > 0) {
+						prompt = split[0].trim();
+					}
 				}
 				Logger.appendLine(`Session 0: Found problem_statement from Jobs API: ${prompt}`, this.loggerId);
 				return prompt;
