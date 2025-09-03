@@ -2699,7 +2699,7 @@
 				{
 					"command": "pr.preferredCodingAgentGitHubRemote",
 					"when": "github:hasMultipleGitHubRemotes && view == workbench.view.chat.sessions.copilot-swe-agent",
-					"group": "navigation@1"
+					"group": "overflow@1"
 				}
 			],
 			"view/item/context": [
