@@ -295,13 +295,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async addFollowUpToExistingPR(pullRequestNumber: number, userPrompt: string, summary?: string): Promise<string | undefined> {
-		const repoInfo = await this.repoInfo();
-		if (!repoInfo) {
-			return;
-		}
 		try {
-			const ghRepo = repoInfo.ghRepository;
-			const pr = await ghRepo.getPullRequest(pullRequestNumber);
+			const pr = await this.findPullRequestById(pullRequestNumber, true);
 			if (!pr) {
 				Logger.error(`Could not find pull request #${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
 				return;
@@ -1332,7 +1327,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				diffEntries.push({
 					originalUri: changeModel.parentFilePath,
 					modifiedUri: changeModel.filePath,
-					goToFileUri: changeModel.filePath
+					goToFileUri: changeModel.filePath,
 				});
 			}
 
@@ -1360,7 +1355,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 						}
 					} catch (error) {
 						// Continue to next repository if this one doesn't have the PR
-						Logger.debug(`PR ${number} not found in ${githubRepo.remote.owner}/${githubRepo.remote.repositoryName}: ${error}`, CopilotRemoteAgentManager.ID);
+						Logger.debug(`PR ${number} not found in ${githubRepo.remote.owner}/${githubRepo.remote.repositoryName} (remote=${githubRepo.remote.url}): ${error}`, CopilotRemoteAgentManager.ID);
 					}
 				}
 			}
