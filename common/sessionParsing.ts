@@ -62,6 +62,7 @@ export interface StrReplaceEditorToolData {
 	filePath?: string;
 	fileLabel?: string;
 	parsedContent?: { content: string; fileA: string | undefined; fileB: string | undefined; };
+	viewRange?: { start: number, end: number }
 }
 
 export namespace StrReplaceEditorToolData {
@@ -110,6 +111,32 @@ export function parseDiff(content: string): { content: string; fileA: string | u
 	};
 }
 
+export function parseRange(view_range: unknown): { start: number, end: number } | undefined {
+	if (!view_range) {
+		return undefined;
+	}
+
+	if (!Array.isArray(view_range)) {
+		return undefined;
+	}
+
+	if (view_range.length !== 2) {
+		return undefined;
+	}
+
+	const start = view_range[0];
+	const end = view_range[1];
+
+	if (typeof start !== 'number' || typeof end !== 'number') {
+		return undefined;
+	}
+
+	return {
+		start,
+		end
+	};
+}
+
 
 
 /**
@@ -133,7 +160,7 @@ export function parseToolCallDetails(
 	},
 	content: string
 ): ParsedToolCallDetails {
-	let args: { command?: string, path?: string, prDescription?: string, commitMessage?: string } = {};
+	let args: { command?: string, path?: string, prDescription?: string, commitMessage?: string, view_range?: unknown } = {};
 	try {
 		args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
 	} catch {
@@ -145,18 +172,20 @@ export function parseToolCallDetails(
 	if (name === 'str_replace_editor') {
 		if (args.command === 'view') {
 			const parsedContent = parseDiff(content);
+			const parsedRange = parseRange(args.view_range);
 			if (parsedContent) {
 				const file = parsedContent.fileA ?? parsedContent.fileB;
 				const fileLabel = file && toFileLabel(file);
 				return {
 					toolName: fileLabel === '' ? 'Read repository' : 'Read',
-					invocationMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
-					pastTenseMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
+					invocationMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
+					pastTenseMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
 					toolSpecificData: fileLabel ? {
 						command: 'view',
 						filePath: file,
 						fileLabel: fileLabel,
-						parsedContent: parsedContent
+						parsedContent: parsedContent,
+						viewRange: parsedRange
 					} : undefined
 				};
 			} else {
@@ -167,9 +196,9 @@ export function parseToolCallDetails(
 					fileLabel = filePath;
 
 					return {
-						toolName: fileLabel ? `Read ${fileLabel}` : 'Read repository',
-						invocationMessage: fileLabel ? `Read ${fileLabel}` : 'Read repository',
-						pastTenseMessage: fileLabel ? `Read ${fileLabel}` : 'Read repository',
+						toolName: fileLabel ? (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
+						invocationMessage: fileLabel ? (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
+						pastTenseMessage: fileLabel ? (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
 					};
 				} else if (fileLabel === '') {
 					return {
@@ -180,12 +209,13 @@ export function parseToolCallDetails(
 				} else {
 					return {
 						toolName: `Read`,
-						invocationMessage: `Read ${fileLabel}`,
-						pastTenseMessage: `Read ${fileLabel}`,
+						invocationMessage: (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')),
+						pastTenseMessage: (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')),
 						toolSpecificData: {
 							command: 'view',
 							filePath: filePath,
-							fileLabel: fileLabel
+							fileLabel: fileLabel,
+							viewRange: parsedRange
 						}
 					};
 				}
@@ -193,28 +223,62 @@ export function parseToolCallDetails(
 		} else {
 			const filePath = args.path;
 			const fileLabel = filePath && toFileLabel(filePath);
+			const parsedRange = parseRange(args.view_range);
+
 			return {
 				toolName: 'Edit',
-				invocationMessage: fileLabel ? `Edit [](${fileLabel})` : 'Edit',
-				pastTenseMessage: fileLabel ? `Edit [](${fileLabel})` : 'Edit',
+				invocationMessage: fileLabel ? (`Edit [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Edit',
+				pastTenseMessage: fileLabel ? (`Edit [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Edit',
 				toolSpecificData: fileLabel ? {
 					command: args.command || 'edit',
 					filePath: filePath,
-					fileLabel: fileLabel
+					fileLabel: fileLabel,
+					viewRange: parsedRange
 				} : undefined
 			};
+		}
+	} else if (name === 'str_replace') {
+		const filePath = args.path;
+		const fileLabel = filePath && toFileLabel(filePath);
+
+		return {
+			toolName: 'Edit',
+			invocationMessage: fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`,
+			pastTenseMessage: fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`,
+			toolSpecificData: fileLabel ? {
+				command: 'str_replace',
+				filePath: filePath,
+				fileLabel: fileLabel,
+			} : undefined
+		}
+	} else if (name === 'create') {
+		const filePath = args.path;
+		const fileLabel = filePath && toFileLabel(filePath);
+
+		return {
+			toolName: 'Create',
+			invocationMessage: fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`,
+			pastTenseMessage: fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`,
+			toolSpecificData: fileLabel ? {
+				command: 'create',
+				filePath: filePath,
+				fileLabel: fileLabel,
+			} : undefined
 		}
 	} else if (name === 'view') {
 		const filePath = args.path;
 		const fileLabel = filePath && toFileLabel(filePath);
+		const parsedRange = parseRange(args.view_range);
+
 		return {
 			toolName: fileLabel === '' ? 'Read repository' : 'Read',
-			invocationMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
-			pastTenseMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
+			invocationMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
+			pastTenseMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
 			toolSpecificData: fileLabel ? {
 				command: 'view',
 				filePath: filePath,
-				fileLabel: fileLabel
+				fileLabel: fileLabel,
+				viewRange: parsedRange
 			} : undefined
 		};
 	} else if (name === 'think') {
@@ -250,6 +314,16 @@ export function parseToolCallDetails(
 			details.toolSpecificData = bashToolData;
 		}
 		return details;
+	} else if (name === 'read_bash') {
+		return {
+			toolName: 'read_bash',
+			invocationMessage: 'Read logs from Bash session'
+		}
+	} else if (name === 'stop_bash') {
+		return {
+			toolName: 'stop_bash',
+			invocationMessage: 'Stop Bash session'
+		}
 	} else {
 		// Unknown tool type
 		return {
