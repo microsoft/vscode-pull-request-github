@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ViewedState } from '../common/comment';
-import { DiffHunk, parsePatch } from '../common/diffHunk';
+import { DiffChangeType, DiffHunk, parsePatch } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SimpleFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
@@ -64,6 +64,28 @@ export abstract class FileChangeModel {
 			}
 		}
 		return diffHunks;
+	}
+
+	public async calculateChangedLinesCount(): Promise<{ added: number; removed: number }> {
+		try {
+			const diffHunks = await this.diffHunks();
+			let added = 0;
+			let removed = 0;
+
+			for (const hunk of diffHunks) {
+				for (const line of hunk.diffLines) {
+					if (line.type === DiffChangeType.Add) {
+						added++;
+					} else if (line.type === DiffChangeType.Delete) {
+						removed++;
+					}
+				}
+			}
+			return { added, removed };
+		} catch (error) {
+			Logger.warn(`Failed to calculate added/removed lines for ${this.fileName}: ${error}`, FileChangeModel.ID);
+			return { added: 0, removed: 0 };
+		}
 	}
 
 	constructor(public readonly pullRequest: PullRequestModel,
