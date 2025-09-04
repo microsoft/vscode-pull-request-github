@@ -42,4 +42,48 @@ describe('IssueTodoProvider', function () {
 		assert.strictEqual(createIssueAction?.command?.command, 'issue.createIssueFromSelection');
 		assert.strictEqual(startAgentAction?.command?.command, 'issue.startCodingAgentFromTodo');
 	});
+
+	it('should provide code lens for TODO comments when CopilotRemoteAgentManager is available', async function () {
+		const mockContext = {
+			subscriptions: []
+		} as any as vscode.ExtensionContext;
+
+		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
+
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+
+		// Create a mock document with TODO comment
+		const document = {
+			lineAt: (line: number) => ({ text: line === 1 ? '  // TODO: Fix this' : 'function test() {' }),
+			lineCount: 4
+		} as vscode.TextDocument;
+
+		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
+
+		assert.strictEqual(codeLenses.length, 1);
+
+		const codeLens = codeLenses[0];
+		assert.ok(codeLens.command, 'Code lens should have a command');
+		assert.strictEqual(codeLens.command.title, 'Start Coding Agent Session');
+		assert.strictEqual(codeLens.command.command, 'issue.startCodingAgentFromTodo');
+		assert.strictEqual(codeLens.range.start.line, 1);
+	});
+
+	it('should not provide code lens when CopilotRemoteAgentManager is not available', async function () {
+		const mockContext = {
+			subscriptions: []
+		} as any as vscode.ExtensionContext;
+
+		const provider = new IssueTodoProvider(mockContext, undefined);
+
+		// Create a mock document with TODO comment
+		const document = {
+			lineAt: (line: number) => ({ text: line === 1 ? '  // TODO: Fix this' : 'function test() {' }),
+			lineCount: 4
+		} as vscode.TextDocument;
+
+		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
+
+		assert.strictEqual(codeLenses.length, 0, 'Should not provide code lens when CopilotRemoteAgentManager is not available');
+	});
 });

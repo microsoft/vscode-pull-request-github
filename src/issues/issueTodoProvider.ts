@@ -10,7 +10,7 @@ import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 import { MAX_LINE_LENGTH } from './util';
 
-export class IssueTodoProvider implements vscode.CodeActionProvider {
+export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.CodeLensProvider {
 	private expression: RegExp | undefined;
 
 	constructor(
@@ -86,5 +86,53 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 			lineNumber++;
 		} while (range.end.line >= lineNumber);
 		return codeActions;
+	}
+
+	async provideCodeLenses(
+		document: vscode.TextDocument,
+		_token: vscode.CancellationToken,
+	): Promise<vscode.CodeLens[]> {
+		if (this.expression === undefined) {
+			return [];
+		}
+
+		const codeLenses: vscode.CodeLens[] = [];
+		for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
+			const line = document.lineAt(lineNumber).text;
+			const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
+			const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
+
+			if (!matches) {
+				const match = truncatedLine.match(this.expression);
+				const search = match?.index ?? -1;
+				if (search >= 0 && match) {
+					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
+					const insertIndex =
+						search +
+						(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
+
+					const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
+
+					// Only show "Start Coding Agent Session" code lens if copilot manager is available
+					if (this.copilotRemoteAgentManager) {
+						const startAgentCodeLens = new vscode.CodeLens(range, {
+							title: vscode.l10n.t('Start Coding Agent Session'),
+							command: 'issue.startCodingAgentFromTodo',
+							arguments: [{ document, lineNumber, line, insertIndex, range }],
+						});
+						codeLenses.push(startAgentCodeLens);
+					}
+				}
+			}
+		}
+		return codeLenses;
+	}
+
+	resolveCodeLens(
+		codeLens: vscode.CodeLens,
+		_token: vscode.CancellationToken,
+	): vscode.ProviderResult<vscode.CodeLens> {
+		// Code lens is already resolved in provideCodeLenses
+		return codeLens;
 	}
 }
