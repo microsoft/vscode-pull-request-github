@@ -862,6 +862,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			let codingAgentPRs: CodingAgentPRAndStatus[] = [];
 			if (this._stateModel.isInitialized) {
 				codingAgentPRs = this._stateModel.all;
+				Logger.debug(`Fetched PRs from state model: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
 			} else {
 				this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<CodingAgentPRAndStatus[]>(async (resolve) => {
 					try {
@@ -879,6 +880,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					}
 				});
 				codingAgentPRs = await this.codingAgentPRsPromise;
+				Logger.debug(`Fetched PRs from API: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
 			}
 			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
 				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
@@ -907,6 +909,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}));
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
+		} finally {
+			this.codingAgentPRsPromise = undefined;
 		}
 		return [];
 	}

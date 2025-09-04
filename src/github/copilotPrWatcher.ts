@@ -8,6 +8,7 @@ import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PRType } from './interface';
@@ -26,6 +27,7 @@ export interface CodingAgentPRAndStatus {
 }
 
 export class CopilotStateModel extends Disposable {
+	public static ID = 'CopilotStateModel';
 	private _isInitialized = false;
 	private readonly _states: Map<string, CodingAgentPRAndStatus> = new Map();
 	private readonly _showNotification: Set<string> = new Set();
@@ -295,6 +297,7 @@ export class CopilotPRWatcher extends Disposable {
 				this._model.set(changes);
 				if (!this._model.isInitialized) {
 					if ((initialized === this._reposManager.folderManagers.length) && (this._reposManager.folderManagers.length > 0)) {
+						Logger.debug(`Copilot PR state initialized with ${this._model.keys().length} PRs`, CopilotStateModel.ID);
 						this._model.setInitialized();
 					}
 					return true;
