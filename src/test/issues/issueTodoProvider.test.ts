@@ -34,10 +34,10 @@ describe('IssueTodoProvider', function () {
 
 		// Find the actions
 		const createIssueAction = actions.find(a => a.title === 'Create GitHub Issue');
-		const startAgentAction = actions.find(a => a.title === 'Start Coding Agent Session');
+		const startAgentAction = actions.find(a => a.title === 'Delegate to coding agent');
 
 		assert.ok(createIssueAction, 'Should have Create GitHub Issue action');
-		assert.ok(startAgentAction, 'Should have Start Coding Agent Session action');
+		assert.ok(startAgentAction, 'Should have Delegate to coding agent action');
 
 		assert.strictEqual(createIssueAction?.command?.command, 'issue.createIssueFromSelection');
 		assert.strictEqual(startAgentAction?.command?.command, 'issue.startCodingAgentFromTodo');
