@@ -69,12 +69,12 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 					// Start Coding Agent Session action (if copilot manager is available)
 					if (this.copilotRemoteAgentManager) {
 						const startAgentAction: vscode.CodeAction = new vscode.CodeAction(
-							vscode.l10n.t('Start Coding Agent Session'),
+							vscode.l10n.t('Delegate to coding agent'),
 							vscode.CodeActionKind.QuickFix,
 						);
 						startAgentAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
 						startAgentAction.command = {
-							title: vscode.l10n.t('Start Coding Agent Session'),
+							title: vscode.l10n.t('Delegate to coding agent'),
 							command: 'issue.startCodingAgentFromTodo',
 							arguments: [{ document, lineNumber, line, insertIndex, range }],
 						};
