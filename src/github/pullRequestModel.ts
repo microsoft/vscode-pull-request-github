@@ -1530,6 +1530,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		if (!this.base) {
 			Logger.appendLine('No base branch found for PR, fetching it now', PullRequestModel.ID);
+			Logger.trace(`Fetching from ${remote.owner}/${remote.repositoryName}. PR #${this.number}`, PullRequestModel.ID);
 			const info = await octokit.call(octokit.api.pulls.get, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
