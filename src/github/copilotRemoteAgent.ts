@@ -1306,6 +1306,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private async getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
 		try {
 			const changeModels = await this.getChangeModels(pullRequest);
+			Logger.warn('No file changes found for pull request, not showing diff.', CopilotRemoteAgentManager.ID);
 			if (changeModels.length === 0) {
 				return undefined;
 			}
@@ -1313,6 +1314,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const diffEntries: vscode.ChatResponseDiffEntry[] = [];
 			for (const changeModel of changeModels) {
 				const { added, removed } = await changeModel.calculateChangedLinesCount();
+				Logger.trace(`DiffEntry -> original='${changeModel.parentFilePath}' modified='${changeModel.filePath}' (+${added} -${removed})`, CopilotRemoteAgentManager.ID);
 				diffEntries.push({
 					originalUri: changeModel.parentFilePath,
 					modifiedUri: changeModel.filePath,
