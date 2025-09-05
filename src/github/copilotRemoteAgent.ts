@@ -1194,7 +1194,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const pollingInterval = 3000; // 3 seconds
 
 		return new Promise<void>((resolve, reject) => {
-			let cancellationListener: vscode.Disposable | undefined;
 			let isCompleted = false;
 
 			const complete = async () => {
@@ -1202,7 +1201,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					return;
 				}
 				isCompleted = true;
-				cancellationListener?.dispose();
 
 				await pullRequest.getFileChangesInfo();
 				const multiDiffPart = await this.getFileChangesMultiDiffPart(pullRequest);
@@ -1212,23 +1210,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 				resolve();
 			};
-
-			cancellationListener = token.onCancellationRequested(async () => {
-				if (isCompleted) {
-					return;
-				}
-
-				try {
-					const sessionInfo = await capi.getSessionInfo(sessionId);
-					if (sessionInfo && sessionInfo.state !== 'completed' && sessionInfo.workflow_run_id) {
-						await pullRequest.githubRepository.cancelWorkflow(sessionInfo.workflow_run_id);
-						stream.markdown(vscode.l10n.t('Session has been cancelled.'));
-						complete();
-					}
-				} catch (error) {
-					Logger.error(`Error while trying to cancel session ${sessionId} workflow: ${error}`, CopilotRemoteAgentManager.ID);
-				}
-			});
 
 			const pollForUpdates = async (): Promise<void> => {
 				try {
