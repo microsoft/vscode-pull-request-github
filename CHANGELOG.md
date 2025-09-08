@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.118.0
+
+### Changes
+
+- There's a new code action "Delegate to coding agent" which shows on `TODO` comments. The "to do" keywords are configurable using the existing setting ``.
+
+![Todo comment with "delegate to coding agent" action](./documentation/changelog/0.118.0/delegate-to-coding-agent-action.png)
+
+- More of the new Copilot coding agent user entry points prompt for sign in if you aren't already signed in to GitHub (GitHub Copilot Coding Agent view in Chat Sessions, `#copilotCodingAgent` tool,  "Delegate to coding agent" button).
+- Some of the individual extension views used the same icon, making it difficult to distinguish between them if you drag them into their own view container. To solve this, several views use a new icon: "Pull Requests" uses `github-inverted`, "Active Pull Request" tree view uses `diff-multiple`, "Active Pull Request" webview view uses `code-review`.
+- The "sidebar" content (reviewers, assignees, labels, etc.) in the pull request description webview have always moved above the pull request body when the webview width is narrow. Now, it also collapses into a compact, readonly view, which can be expanded to make modifications.
+
+![Collapsed sidbar content on a narrow view](./documentation/changelog/0.118.0/collapsed-sidbar-content.png)
+
+- Pull request and issue webviews restore after reload.
+- The new `#openPullRequest` tool in Copilot Chat lets you reference the pull request currently open in a webview. The `#activePullRequest` tool continues to reference the pull request currently checked out.
+- The "Edit Query" command in the "Pull Requests" view has an option to edit the query with Copilot.
+- Setting `"githubPullRequests.ignoreSubmodules": true` will cause the extension to ignore submodules when looking for pull requests.
+- In the "Issues" view, you can right click on an issue and "Assign to Coding Agent".
+
+### Fixes
+
+- Only update coding agent PRs when view is open. https://github.com/microsoft/vscode-pull-request-github/issues/7643
+- Chat participant not honoring selected tools and thinks they are all selected. https://github.com/microsoft/vscode-pull-request-github/issues/7637
+- Red "closed" on closed issues is confusing. https://github.com/microsoft/vscode-pull-request-github/issues/7628
+- github-pull-request_activePullRequest returns empty comments array. https://github.com/microsoft/vscode-pull-request-github/issues/7601
+- Allows me to believe I assigned an issue on a repo where I lack that permission. https://github.com/microsoft/vscode-pull-request-github/issues/7534
+- clicked comment with no contents gave weird state. https://github.com/microsoft/vscode-pull-request-github/issues/7476
+- In GH PR review page, headers have redundant url content. https://github.com/microsoft/vscode-pull-request-github/issues/7509
+- Spurious error when checking out a PR with untracked files. https://github.com/microsoft/vscode-pull-request-github/issues/7294
+
+**_Thank You_**
+
+* [@krassowski (Michał Krassowski)](https://github.com/krassowski): Fix typo "will be replace" → "will be replaced" [PR #7540](https://github.com/microsoft/vscode-pull-request-github/pull/7540)
+
 ## 0.116.1
 
 ### Fixes
