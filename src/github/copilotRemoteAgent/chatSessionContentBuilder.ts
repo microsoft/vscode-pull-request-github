@@ -76,7 +76,7 @@ export class ChatSessionContentBuilder {
 				// if this is the first response, then also add the PR card
 				if (sessionIndex === 0) {
 					const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-					const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(), }).trim();
+					const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(), smartypants: true }).trim();
 
 					const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, plaintextBody, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
 					const cardTurn = new vscode.ChatResponseTurn2([card], {}, COPILOT_SWE_AGENT);

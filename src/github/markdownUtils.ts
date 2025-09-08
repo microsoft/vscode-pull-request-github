@@ -175,6 +175,7 @@ export async function issueMarkdown(
 	const title = marked
 		.parse(titleWithDraft, {
 			renderer: new PlainTextRenderer(),
+			smartypants: true,
 		})
 		.trim();
 	markdown.appendMarkdown(
@@ -182,6 +183,7 @@ export async function issueMarkdown(
 	);
 	let body = marked.parse(issue.body, {
 		renderer: new PlainTextRenderer(),
+		smartypants: true,
 	});
 	markdown.appendMarkdown('  \n');
 	body = body.length > ISSUE_BODY_LENGTH ? body.substr(0, ISSUE_BODY_LENGTH) + '...' : body;
@@ -215,7 +217,7 @@ export async function issueMarkdown(
 					comment.body.length > ISSUE_BODY_LENGTH
 						? comment.body.substr(0, ISSUE_BODY_LENGTH) + '...'
 						: comment.body,
-					{ renderer: new PlainTextRenderer() },
+					{ renderer: new PlainTextRenderer(), smartypants: true },
 				);
 				commentText = await findLinksInIssue(commentText, issue);
 				markdown.appendMarkdown(commentText);
