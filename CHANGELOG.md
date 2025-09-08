@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixes
+
+- Refactor timeline event polling to use timeout-based approach for Copilot sessions. Prevents indefinite waiting by enforcing appropriate timeouts (1 minute for timeline events, 1 hour for coding sessions) to improve user experience.
+
 ## 0.114.2
 
 ### Fixes
