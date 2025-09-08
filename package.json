@@ -1887,6 +1887,21 @@
 			},
 			{
 				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "workspaceFolderCount == 0",
+				"contents": "%welcome.pr.github.noFolder.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0",
+				"contents": "%welcome.pr.github.noRepo.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
+				"when": "git.state == initialized && workspaceFolderCount > 0 && (git.parentRepositoryCount > 0 || gitOpenRepositoryCount > 0) && !github:hasGitHubRemotes",
+				"contents": "%welcome.chat.sessions.copilot-swe-agent.noGitHub.contents%"
+			},
+			{
+				"view": "workbench.view.chat.sessions.copilot-swe-agent",
 				"when": "ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes",
 				"contents": "%welcome.chat.sessions.copilot-swe-agent.login.contents%"
 			},

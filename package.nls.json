@@ -397,6 +397,7 @@
 			"{Locked='](command:workbench.action.chat.open?%7B%22query%22%3A%22%23copilotCodingAgent%20%22%2C%22isPartialQuery%22%3Atrue%7D)'}"
 		]
 	},
+	"welcome.chat.sessions.copilot-swe-agent.noGitHub.contents": "Clone or open a GitHub repository to get started",
 	"languageModelTools.github-pull-request_issue_fetch.displayName": "Get a GitHub Issue or pull request",
 	"languageModelTools.github-pull-request_issue_summarize.displayName": "Summarize a GitHub Issue or pull request",
 	"languageModelTools.github-pull-request_notification_fetch.displayName": "Get a GitHub Notification",
