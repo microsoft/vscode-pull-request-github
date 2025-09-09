@@ -470,6 +470,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const result = await this.invokeRemoteAgent(
 			userPrompt,
 			summary,
+			undefined,
 			autoPushAndCommit,
 		);
 
@@ -534,7 +535,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
 	}
 
-	async invokeRemoteAgent(prompt: string, problemContext?: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
+	async invokeRemoteAgent(prompt: string, problemContext?: string, token?: vscode.CancellationToken, autoPushAndCommit = true): Promise<RemoteAgentResult> {
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
 			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
@@ -610,6 +611,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
+
+			await this.waitForQueuedToInProgress(session_id, token);
 			return {
 				state: 'success',
 				number: pull_request.number,
@@ -830,6 +833,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				this.extractFileReferences(request.references),
 				await this.extractHistory(history)
 			].join('\n\n').trim(),
+			token,
 			false,
 		);
 		if (result.state !== 'success') {
@@ -837,14 +841,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			throw new Error(`Failed to provide new chat session item: ${result.error}`);
 		}
 
-		const { number, sessionId } = result;
+		const { number } = result;
 
 		const pullRequest = await this.findPullRequestById(number, true);
 		if (!pullRequest) {
 			throw new Error(`Failed to find session for pull request: ${number}`);
 		}
-
-		await this.waitForQueuedToInProgress(sessionId, token);
 
 		const timeline = await pullRequest.getCopilotTimelineEvents(pullRequest);
 		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
@@ -993,6 +995,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 								const result = await this.invokeRemoteAgent(
 									prompt,
 									summary || prompt,
+									undefined,
 									false,
 								);
 								this.ephemeralChatSessions.delete(id); // TODO: Better state management
@@ -1504,7 +1507,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async waitForQueuedToInProgress(
 		sessionId: string,
-		token: vscode.CancellationToken
+		token?: vscode.CancellationToken
 	): Promise<SessionInfo | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
@@ -1521,7 +1524,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		Logger.appendLine(`Session ${sessionInfo.id} is queued, waiting to start...`, CopilotRemoteAgentManager.ID);
-		while (Date.now() - startTime < maxWaitTime && !token.isCancellationRequested) {
+		while (Date.now() - startTime < maxWaitTime && (!token || !token.isCancellationRequested)) {
 			const sessionInfo = await capi.getSessionInfo(sessionId);
 			if (sessionInfo?.state === 'in_progress') {
 				Logger.appendLine(`Session ${sessionInfo.id} now in progress.`, CopilotRemoteAgentManager.ID);
