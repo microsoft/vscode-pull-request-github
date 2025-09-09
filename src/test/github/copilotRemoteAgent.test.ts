@@ -189,7 +189,7 @@ describe('CopilotRemoteAgentManager', function () {
 
 	describe('invokeRemoteAgent()', function () {
 		it('should return error when copilot API is not available', async function () {
-			const result = await manager.invokeRemoteAgent('test prompt', 'test context', undefined);
+			const result = await manager.invokeRemoteAgent('test prompt', 'test context');
 
 			assert.strictEqual(result.state, 'error');
 			if (result.state === 'error') {
@@ -202,7 +202,7 @@ describe('CopilotRemoteAgentManager', function () {
 			sinon.stub(manager as any, '_copilotApiPromise').value(Promise.resolve({} as any));
 			sinon.stub(manager, 'repoInfo').resolves(undefined);
 
-			const result = await manager.invokeRemoteAgent('test prompt', 'test context', undefined);
+			const result = await manager.invokeRemoteAgent('test prompt', 'test context');
 
 			assert.strictEqual(result.state, 'error');
 		});

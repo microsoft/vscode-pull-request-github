@@ -21,9 +21,13 @@ export class MockExtensionContext implements ExtensionContext {
 		store(key: string, value: string): Thenable<void> {
 			throw new Error('Method not implemented.');
 		}
+		keys(): Thenable<string[]> {
+			throw new Error('Method not implemented.');
+		}
 		delete(key: string): Thenable<void> {
 			throw new Error('Method not implemented.');
 		}
+
 		onDidChange!: Event<SecretStorageChangeEvent>;
 	})();
 	subscriptions: { dispose(): any }[] = [];
