@@ -5,7 +5,7 @@
 
 import * as pathLib from 'path';
 import * as marked from 'marked';
-import vscode, { ChatPromptReference } from 'vscode';
+import vscode, { CancellationTokenSource, ChatPromptReference } from 'vscode';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
@@ -610,6 +610,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
+
+			await this.waitForQueuedToInProgress(session_id, new CancellationTokenSource().token);
 			return {
 				state: 'success',
 				number: pull_request.number,
@@ -796,7 +798,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 
 
-	public async provideNewChatSessionItem(options: { request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
+	public async provideNewChatSessionItem(options: { request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, _token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
 		const { request, history } = options;
 		if (!options.prompt) {
 			throw new Error(`Prompt is expected to provide a new chat session item`);
@@ -837,14 +839,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			throw new Error(`Failed to provide new chat session item: ${result.error}`);
 		}
 
-		const { number, sessionId } = result;
+		const { number } = result;
 
 		const pullRequest = await this.findPullRequestById(number, true);
 		if (!pullRequest) {
 			throw new Error(`Failed to find session for pull request: ${number}`);
 		}
-
-		await this.waitForQueuedToInProgress(sessionId, token);
 
 		const timeline = await pullRequest.getCopilotTimelineEvents(pullRequest);
 		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
