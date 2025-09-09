@@ -68,7 +68,6 @@ async function getWebviewConfig(mode, env, entry) {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
-		new MonacoWebpackPlugin(),
 	];
 
 	return {

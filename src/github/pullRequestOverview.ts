@@ -18,6 +18,7 @@ import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../commo
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { getCopilotApi } from './copilotApi';
+import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -37,7 +38,6 @@ import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
-import { SessionIdForPr } from './copilotRemoteAgent';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
