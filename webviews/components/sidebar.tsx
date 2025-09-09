@@ -275,7 +275,7 @@ function CollapsedLabel(props: PullRequest) {
 	}, []);
 
 	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
-		<span className="avatar-stack hello" style={{
+		<span className="avatar-stack" style={{
 			width: `${Math.min(users.length, 10) * 10 + 10}px`
 		}}>
 			{users.slice(0, 10).map((u, i) => (
