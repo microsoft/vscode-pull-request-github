@@ -122,7 +122,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		let lmResult: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [new vscode.LanguageModelTextPart(result.llmDetails)];
 		const pr = await targetRepo.fm.resolvePullRequest(targetRepo.owner, targetRepo.repo, result.number);
 		if (pr) {
-			const plaintextBody = marked.parse(pr.body, { renderer: new PlainTextRenderer(), }).trim();
+			const plaintextBody = marked.parse(pr.body, { renderer: new PlainTextRenderer(), smartypants: true }).trim();
 			const preferredRendering = {
 				uri: (await toOpenPullRequestWebviewUri({ owner: pr.githubRepository.remote.owner, repo: pr.githubRepository.remote.repositoryName, pullRequestNumber: pr.number })).toString(),
 				title: pr.title,
