@@ -17,7 +17,6 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -385,7 +384,6 @@ module.exports =
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
 				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
-				'webview-session-log-view': './webviews/sessionLogView/index.tsx',
 			}),
 		]);
 	};

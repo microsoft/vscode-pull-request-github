@@ -45,6 +45,27 @@ const body_suffix = vscode.l10n.t('Created from VS Code via the [GitHub Pull Req
 
 const PREFERRED_GITHUB_CODING_AGENT_REMOTE_WORKSPACE_KEY = 'PREFERRED_GITHUB_CODING_AGENT_REMOTE';
 
+
+export namespace SessionIdForPr {
+
+	const prefix = 'pull-session-by-index';
+
+	export function getId(prNumber: number, sessionIndex: number): string {
+		return `${prefix}-${prNumber}-${sessionIndex}`;
+	}
+
+	export function parse(id: string): { prNumber: number; sessionIndex: number } | undefined {
+		const match = id.match(new RegExp(`^${prefix}-(\\d+)-(\\d+)$`));
+		if (match) {
+			return {
+				prNumber: parseInt(match[1], 10),
+				sessionIndex: parseInt(match[2], 10)
+			};
+		}
+		return undefined;
+	}
+}
+
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
 
@@ -1024,10 +1045,21 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return await this.newSessionFlowFromPrompt(id);
 			}
 
-			const pullRequestNumber = parseInt(id);
-			if (isNaN(pullRequestNumber)) {
-				Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
-				return this.createEmptySession();
+			let pullRequestNumber: number | undefined;
+			let sessionIndex: number | undefined;
+
+			const indexedSessionId = SessionIdForPr.parse(id);
+			if (indexedSessionId) {
+				pullRequestNumber = indexedSessionId.prNumber;
+				sessionIndex = indexedSessionId.sessionIndex;
+			}
+
+			if (typeof pullRequestNumber === 'undefined') {
+				pullRequestNumber = parseInt(id);
+				if (isNaN(pullRequestNumber)) {
+					Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
+					return this.createEmptySession();
+				}
 			}
 
 			const pullRequest = await this.findPullRequestById(pullRequestNumber, true);
@@ -1039,7 +1071,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			// Parallelize independent operations
 			const timelineEvents = pullRequest.getTimelineEvents();
 			const changeModels = this.getChangeModels(pullRequest);
-			const sessions = await capi.getAllSessions(pullRequest.id);
+			let sessions = await capi.getAllSessions(pullRequest.id);
 
 			if (!sessions || sessions.length === 0) {
 				Logger.warn(`No sessions found for pull request ${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
@@ -1049,6 +1081,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (!Array.isArray(sessions)) {
 				Logger.error(`getAllSessions returned non-array: ${typeof sessions}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
+			}
+
+			if (typeof sessionIndex === 'number') {
+				const target = sessions.at(sessionIndex);
+				if (!target) {
+					Logger.error(`Session not found: ${sessionIndex}`, CopilotRemoteAgentManager.ID);
+					return this.createEmptySession();
+				}
+
+				sessions = [target];
 			}
 
 			// Create content builder with pre-fetched change models

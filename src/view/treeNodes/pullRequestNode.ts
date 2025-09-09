@@ -11,6 +11,7 @@ import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { NotificationProvider } from '../../github/notifications';
@@ -49,7 +50,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
-		private _notificationProvider: NotificationProvider
+		private _notificationProvider: NotificationProvider,
+		private _codingAgentManager: CopilotRemoteAgentManager,
 	) {
 		super(parent);
 		this.registerSinceReviewChange();

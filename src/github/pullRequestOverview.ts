@@ -17,7 +17,6 @@ import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { SessionLogViewManager } from '../view/sessionLogView';
 import { getCopilotApi } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
@@ -38,6 +37,7 @@ import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { SessionIdForPr } from './copilotRemoteAgent';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -508,7 +508,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, message.args.link.openToTheSide ?? false);
+			return vscode.window.showChatSession(COPILOT_SWE_AGENT, SessionIdForPr.getId(this._item.number, message.args.link.sessionIndex), {});
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
