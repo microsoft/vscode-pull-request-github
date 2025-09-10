@@ -91,7 +91,7 @@ export function editQuery(namespace: string, queryName: string) {
 			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[3]) {
 			inputBox.ignoreFocusOut = true;
-			await openCopilotForQuery(inputBox.value);
+			await openCopilotForQuery(inputBox.value, namespace, queryName);
 			inputBox.busy = false;
 		}
 	});
@@ -165,8 +165,8 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 	}
 }
 
-async function openCopilotForQuery(currentQuery: string) {
-	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: \n```\n{0}\n```\nOutput only one, minimally modified query in a codeblock.\nModify it so that it ', currentQuery);
+async function openCopilotForQuery(currentQuery: string, namespace: string, queryName: string) {
+	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query for "{0}": \n```\n{1}\n```\n\nPlease modify the query as needed and then use the update_query tool to save the changes automatically. The namespace is "{2}" and the query name is "{3}".', queryName, currentQuery, namespace, queryName);
 
 	// Open chat with the query pre-populated
 	await vscode.commands.executeCommand(commands.OPEN_CHAT, { query: chatMessage, isPartialQuery: true });
