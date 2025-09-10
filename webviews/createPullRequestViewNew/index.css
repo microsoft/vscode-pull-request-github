@@ -87,7 +87,8 @@ button.input-box {
 /* Title, Description */
 
 #title {
-	padding-right: 23px;
+	padding-right: 24px;
+	text-overflow: ellipsis;
 }
 
 .group-title {
