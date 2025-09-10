@@ -44,6 +44,7 @@ describe('GitHub Pull Requests view', function () {
 	let createPrHelper: CreatePullRequestHelper;
 	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
+	let gitAPI: GitApiImpl;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -58,7 +59,8 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 		);
 		credentialStore = new CredentialStore(telemetry, context);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context);
+		gitAPI = new GitApiImpl(reposManager);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI);
 		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
 		createPrHelper = new CreatePullRequestHelper();
 
