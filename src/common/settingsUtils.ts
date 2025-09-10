@@ -166,7 +166,7 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 }
 
 async function openCopilotForQuery(currentQuery: string) {
-	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: "{0}". Modify it so that it ', currentQuery);
+	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: \n```\n{0}\n```\nModify it so that it ', currentQuery);
 
 	// Open chat with the query pre-populated
 	await vscode.commands.executeCommand(commands.OPEN_CHAT, { query: chatMessage, isPartialQuery: true });
