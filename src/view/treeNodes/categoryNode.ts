@@ -196,8 +196,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			this.tooltip = this.label;
 		}
-
-		this.description = this._getDescription();
 	}
 
 	private _getDescription(): string | undefined {
@@ -328,6 +326,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	getTreeItem(): vscode.TreeItem {
+		this.description = this._getDescription();
 		return this;
 	}
 }
