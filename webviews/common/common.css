@@ -455,9 +455,13 @@ button.input-box:focus {
 button.inlined-dropdown {
 	width: 100%;
 	max-width: 150px;
-	margin-right: 5px;
+	margin-right: 8px;
 	display: inline-block;
 	text-align: center;
+}
+
+button.inlined-dropdown:last-child {
+	margin-right: 0;
 }
 
 .spinner {
