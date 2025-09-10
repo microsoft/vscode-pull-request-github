@@ -7,6 +7,7 @@ import * as pathLib from 'path';
 import * as marked from 'marked';
 import vscode, { ChatPromptReference } from 'vscode';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
+import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
 import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -30,6 +31,7 @@ import { issueMarkdown, PlainTextRenderer } from './markdownUtils';
 import { PullRequestModel } from './pullRequestModel';
 import { chooseItem } from './quickPicks';
 import { RepositoriesManager } from './repositoriesManager';
+import { getRepositoryForFile } from './utils';
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
 // Without Pending Changes
@@ -87,7 +89,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		status: CopilotPRStatus;
 	}[]> | undefined;
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry, private context: vscode.ExtensionContext) {
+	constructor(
+		private credentialStore: CredentialStore,
+		public repositoriesManager: RepositoriesManager,
+		private telemetry: ITelemetry,
+		private context: vscode.ExtensionContext,
+		private gitAPI: GitApiImpl,
+	) {
 		super();
 		this.gitOperationsManager = new GitOperationsManager(CopilotRemoteAgentManager.ID);
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
@@ -773,7 +781,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return fullText;
 	}
 
-	extractFileReferences(references: readonly ChatPromptReference[] | undefined): string | undefined {
+	private extractFileReferences(references: readonly ChatPromptReference[] | undefined): string | undefined {
 		if (!references || references.length === 0) {
 			return;
 		}
@@ -781,9 +789,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const parts: string[] = [];
 		for (const ref of references) {
 			if (ref.value instanceof vscode.Uri && ref.value.scheme === 'file') { // TODO: Add support for more kinds of references
-				const workspaceFolder = vscode.workspace.getWorkspaceFolder(ref.value);
-				if (workspaceFolder) {
-					const relativePath = pathLib.relative(workspaceFolder.uri.fsPath, ref.value.fsPath);
+				const repositoryForFile = getRepositoryForFile(this.gitAPI, ref.value);
+				if (repositoryForFile) {
+					const relativePath = pathLib.relative(repositoryForFile.rootUri.fsPath, ref.value.fsPath);
 					parts.push(` - ${relativePath}`);
 				}
 			}

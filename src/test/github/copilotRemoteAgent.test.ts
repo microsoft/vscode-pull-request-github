@@ -20,6 +20,7 @@ import { Protocol } from '../../common/protocol';
 import { GitHubServerType } from '../../common/authentication';
 import { ReposManagerState } from '../../github/folderRepositoryManager';
 import { CopilotPRStatus } from '../../common/copilot';
+import { GitApiImpl } from '../../api/api1';
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -32,6 +33,7 @@ describe('CopilotRemoteAgentManager', function () {
 	let reposManager: RepositoriesManager;
 	let context: MockExtensionContext;
 	let mockRepo: MockGitHubRepository;
+	let gitAPIImp: GitApiImpl;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -62,7 +64,9 @@ describe('CopilotRemoteAgentManager', function () {
 
 		mockRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
-		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context);
+		gitAPIImp = new GitApiImpl(reposManager);
+
+		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp);
 		Resource.initialize(context);
 	});
 
