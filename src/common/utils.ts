@@ -10,7 +10,54 @@ import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
 import { combinedDisposable } from './lifecycle';
-// TODO: localization for webview needed
+
+export interface LocalizedRelativeTimeConfig {
+	future: string;
+	past: string;
+	s: string;
+	m: string;
+	mm: string;
+	h: string;
+	hh: string;
+	d: string;
+	dd: string;
+	w: string;
+	ww: string;
+	M: string;
+	MM: string;
+	y: string;
+	yy: string;
+}
+
+export function createLocalizedRelativeTimeConfig(): LocalizedRelativeTimeConfig | null {
+	// This function will be called from the extension context where vscode.l10n is available
+	// For now, return null when not in extension context (e.g., in webview)
+	try {
+		// Import vscode dynamically to avoid issues in webview context
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		const vscode = require('vscode');
+
+		return {
+			future: vscode.l10n.t('relativeTime.future'),
+			past: vscode.l10n.t('relativeTime.past'),
+			s: vscode.l10n.t('relativeTime.seconds'),
+			m: vscode.l10n.t('relativeTime.minute'),
+			mm: vscode.l10n.t('relativeTime.minutes'),
+			h: vscode.l10n.t('relativeTime.hour'),
+			hh: vscode.l10n.t('relativeTime.hours'),
+			d: vscode.l10n.t('relativeTime.day'),
+			dd: vscode.l10n.t('relativeTime.days'),
+			w: vscode.l10n.t('relativeTime.week'),
+			ww: vscode.l10n.t('relativeTime.weeks'),
+			M: vscode.l10n.t('relativeTime.month'),
+			MM: vscode.l10n.t('relativeTime.months'),
+			y: vscode.l10n.t('relativeTime.year'),
+			yy: vscode.l10n.t('relativeTime.years'),
+		};
+	} catch {
+		return null;
+	}
+}
 
 dayjs.extend(relativeTime.default, {
 	thresholds: [
@@ -30,26 +77,67 @@ dayjs.extend(relativeTime.default, {
 	],
 });
 
+// Store the localized config globally for use in dateFromNow
+let localizedConfig: LocalizedRelativeTimeConfig | null = null;
+
+export function setLocalizedRelativeTimeConfig(config: LocalizedRelativeTimeConfig | null) {
+	localizedConfig = config;
+
+	// Apply the configuration to dayjs
+	dayjs.extend(updateLocale.default);
+
+	if (config) {
+		// Use localized strings
+		dayjs.updateLocale('en', {
+			relativeTime: {
+				future: config.future,
+				past: config.past,
+				s: config.s,
+				m: config.m,
+				mm: config.mm,
+				h: config.h,
+				hh: config.hh,
+				d: config.d,
+				dd: config.dd,
+				w: config.w,
+				ww: config.ww,
+				M: config.M,
+				MM: config.MM,
+				y: config.y,
+				yy: config.yy,
+			},
+		});
+	} else {
+		// Fall back to default English strings
+		dayjs.updateLocale('en', {
+			relativeTime: {
+				future: 'in %s',
+				past: '%s ago',
+				s: 'seconds',
+				m: 'a minute',
+				mm: '%d minutes',
+				h: 'an hour',
+				hh: '%d hours',
+				d: 'a day',
+				dd: '%d days',
+				w: 'a week',
+				ww: '%d weeks',
+				M: 'a month',
+				MM: '%d months',
+				y: 'a year',
+				yy: '%d years',
+			},
+		});
+	}
+}
+
+export function getLocalizedRelativeTimeConfig(): LocalizedRelativeTimeConfig | null {
+	return localizedConfig;
+}
+
+// Initialize with default configuration
 dayjs.extend(updateLocale.default);
-dayjs.updateLocale('en', {
-	relativeTime: {
-		future: 'in %s',
-		past: '%s ago',
-		s: 'seconds',
-		m: 'a minute',
-		mm: '%d minutes',
-		h: 'an hour',
-		hh: '%d hours',
-		d: 'a day',
-		dd: '%d days',
-		w: 'a week',
-		ww: '%d weeks',
-		M: 'a month',
-		MM: '%d months',
-		y: 'a year',
-		yy: '%d years',
-	},
-});
+setLocalizedRelativeTimeConfig(createLocalizedRelativeTimeConfig());
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);

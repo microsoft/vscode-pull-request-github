@@ -7,6 +7,7 @@ import { createContext } from 'react';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
+import { setLocalizedRelativeTimeConfig } from '../../src/common/utils';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
@@ -306,6 +307,12 @@ export class PRContext {
 	setPR = (pr: PullRequest | undefined) => {
 		this.pr = pr;
 		setState(this.pr);
+		
+		// Configure localized relative time formatting if available
+		if (pr?.relativeTimeConfig) {
+			setLocalizedRelativeTimeConfig(pr.relativeTimeConfig);
+		}
+		
 		if (this.onchange) {
 			this.onchange(this.pr);
 		}

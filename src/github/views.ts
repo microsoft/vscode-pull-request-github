@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
+import { LocalizedRelativeTimeConfig } from '../common/utils';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -68,6 +69,7 @@ export interface Issue {
 	canAssignCopilot: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
+	relativeTimeConfig?: LocalizedRelativeTimeConfig | null;
 }
 
 export interface PullRequest extends Issue {

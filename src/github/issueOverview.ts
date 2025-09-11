@@ -13,7 +13,7 @@ import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
-import { asPromise, formatError } from '../common/utils';
+import { asPromise, createLocalizedRelativeTimeConfig, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
@@ -234,6 +234,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
 			reactions: issue.item.reactions,
 			isAuthor: issue.author.login === currentUser.login,
+			relativeTimeConfig: createLocalizedRelativeTimeConfig(),
 		};
 
 		return context;
