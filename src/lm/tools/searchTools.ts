@@ -82,7 +82,7 @@ export class ConvertToSearchSyntaxTool extends RepoToolBase<ConvertToQuerySyntax
 	public static readonly toolId = 'github-pull-request_formSearchQuery';
 	static ID = 'ConvertToSearchSyntaxTool';
 
-	private async fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
+	private async _fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
 		const remote = folderRepoManager.activePullRequest?.remote ?? folderRepoManager.activeIssue?.remote ?? (await folderRepoManager.getPullRequestDefaultRepo()).remote;
 
 		return `Instructions:
@@ -109,7 +109,7 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 `;
 	}
 
-	private async labelsAssistantPrompt(folderRepoManager: FolderRepositoryManager, labels: ILabel[]): Promise<string> {
+	private async _labelsAssistantPrompt(folderRepoManager: FolderRepositoryManager, labels: ILabel[]): Promise<string> {
 		// It seems that AND and OR aren't supported in GraphQL, so we can't use them in the query
 		// Here's the prompt in case we switch to REST:
 		// - Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
@@ -128,7 +128,7 @@ ${JSON.stringify(labels.filter(label => !label.name.includes('required') && !lab
 `;
 	}
 
-	private freeFormAssistantPrompt(): string {
+	private _freeFormAssistantPrompt(): string {
 		return `Instructions:
 You are getting ready to make a GitHub search query. Given a natural language query, you should find any key words that might be good for searching:
 - Only include a max of 1 key word that is relevant to the search query.
@@ -142,21 +142,21 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 `;
 	}
 
-	private freeFormUserPrompt(labels: string[], originalUserPrompt: string): string {
+	private _freeFormUserPrompt(labels: string[], originalUserPrompt: string): string {
 		return `I've already included the following labels: [${labels.join(', ')}]. The best search keywords in "${originalUserPrompt}" are:`;
 	}
 
-	private labelsUserPrompt(originalUserPrompt: string): string {
+	private _labelsUserPrompt(originalUserPrompt: string): string {
 		return `The following labels are most appropriate for "${originalUserPrompt}":`;
 	}
 
-	private fullQueryUserPrompt(originalUserPrompt: string): string {
+	private _fullQueryUserPrompt(originalUserPrompt: string): string {
 		originalUserPrompt = originalUserPrompt.replace(/\b(me|my)\b/, (value) => value.toUpperCase());
 		const date = new Date();
 		return `Pretend today's date is ${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}, but only include it if needed. How should this be converted to a GitHub issue search query? ${originalUserPrompt}`;
 	}
 
-	private validateSpecificQueryPart(property: ValidatableProperty | string, value: string): boolean {
+	private _validateSpecificQueryPart(property: ValidatableProperty | string, value: string): boolean {
 		switch (property) {
 			case ValidatableProperty.is:
 				return value === 'issue' || value === 'pr' || value === 'draft' || value === 'public' || value === 'private' || value === 'locked' || value === 'unlocked';
@@ -181,7 +181,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		}
 	}
 
-	private validateLabelsList(labelsList: string, allLabels: ILabel[]): string[] {
+	private _validateLabelsList(labelsList: string, allLabels: ILabel[]): string[] {
 		// I wrote everything for AND and OR, but it isn't supported with GraphQL.
 		// Leaving it in for now in case we switch to REST.
 		const isAndOrOr = (labelOrOperator: string) => {
@@ -218,7 +218,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return goodLabels;
 	}
 
-	private validateFreeForm(baseQuery: string, labels: string[], freeForm: string) {
+	private _validateFreeForm(baseQuery: string, labels: string[], freeForm: string) {
 		// Currently, we only allow the free form to return one keyword
 		freeForm = freeForm.trim();
 		// useless strings to search for
@@ -240,7 +240,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return freeForm;
 	}
 
-	private validateQuery(query: string, labels: string[], freeForm: string) {
+	private _validateQuery(query: string, labels: string[], freeForm: string) {
 		let reformedQuery = '';
 		const queryParts = query.split(MATCH_UNQUOTED_SPACES);
 		// Only keep property:value pairs and '-', no reform allowed here.
@@ -273,7 +273,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return reformedQuery.trim();
 	}
 
-	private postProcess(queryPart: string, freeForm: string, labels: string[]): ConvertToQuerySyntaxResult | undefined {
+	private _postProcess(queryPart: string, freeForm: string, labels: string[]): ConvertToQuerySyntaxResult | undefined {
 		const query = this.findQuery(queryPart);
 		if (!query) {
 			return;
@@ -283,7 +283,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return fixedRepo;
 	}
 
-	private fixRepo(query: string): ConvertToQuerySyntaxResult {
+	private _fixRepo(query: string): ConvertToQuerySyntaxResult {
 		const repoRegex = /repo:([^ ]+)/;
 		const orgRegex = /org:([^ ]+)/;
 		const repoMatch = query.match(repoRegex);
@@ -315,7 +315,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		};
 	}
 
-	private findQuery(result: string): string | undefined {
+	private _findQuery(result: string): string | undefined {
 		// if there's a code block, then that's all we take
 		if (result.includes('```')) {
 			const start = result.indexOf('```');
@@ -335,21 +335,21 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		}
 	}
 
-	private async generateLabelQuery(folderManager: FolderRepositoryManager, labels: ILabel[], chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
+	private async _generateLabelQuery(folderManager: FolderRepositoryManager, labels: ILabel[], chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
 		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.labelsAssistantPrompt(folderManager, labels))];
 		messages.push(vscode.LanguageModelChatMessage.User(this.labelsUserPrompt(naturalLanguageString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		return concatAsyncIterable(response.text);
 	}
 
-	private async generateFreeFormQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, labels: string[], token: vscode.CancellationToken): Promise<string> {
+	private async _generateFreeFormQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, labels: string[], token: vscode.CancellationToken): Promise<string> {
 		const messages = [vscode.LanguageModelChatMessage.Assistant(this.freeFormAssistantPrompt())];
 		messages.push(vscode.LanguageModelChatMessage.User(this.freeFormUserPrompt(labels, naturalLanguageString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		return concatAsyncIterable(response.text);
 	}
 
-	private async generateQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
+	private async _generateQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
 		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.fullQueryAssistantPrompt(folderManager))];
 		messages.push(vscode.LanguageModelChatMessage.User(this.fullQueryUserPrompt(naturalLanguageString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
@@ -433,7 +433,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	static ID = 'SearchTool';
 
 
-	private toGitHubUrl(query: string) {
+	private _toGitHubUrl(query: string) {
 		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
 	}
 

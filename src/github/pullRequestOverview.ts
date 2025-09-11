@@ -190,7 +190,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private setVisibilityContext() {
+	private _setVisibilityContext() {
 		return commands.setContext(contexts.PULL_REQUEST_DESCRIPTION_VISIBLE, this._panel.visible);
 	}
 
@@ -199,13 +199,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * @param reviewers All the reviewers who have been requested to review the current PR
 	 * @param pullRequestModel Model of the PR
 	 */
-	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+	private _getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
 		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
 		return review?.state;
 	}
 
-	private isUpdateBranchWithGitHubEnabled(): boolean {
+	private _isUpdateBranchWithGitHubEnabled(): boolean {
 		return this._item.isActive || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get('experimentalUpdateBranchWithGitHub', false);
 	}
 
@@ -217,7 +217,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.continueOnGitHub() && isCrossRepository;
 	}
 
-	private preLoadInfoNotRequiredForOverview(pullRequest: PullRequestModel): void {
+	private _preLoadInfoNotRequiredForOverview(pullRequest: PullRequestModel): void {
 		// Load some more info in the background, don't await.
 		pullRequest.getFileChangesInfo();
 	}
@@ -405,7 +405,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
+	private _gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
 		if (!this._item.showChangesSinceReview) {
 			this._item.showChangesSinceReview = true;
 		} else {
@@ -414,7 +414,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this._replyMessage(message, {});
 	}
 
-	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
+	private async _changeReviewers(message: IRequestMessage<void>): Promise<void> {
 		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
 			user?: IAccount | ITeam | undefined;
 		}> | undefined;
@@ -473,7 +473,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
+	private async _applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
@@ -497,7 +497,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this._item.getTimelineEvents();
 	}
 
-	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
+	private async _openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
 			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
@@ -506,7 +506,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
+	private async _openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
 			return vscode.window.showChatSession(COPILOT_SWE_AGENT, SessionIdForPr.getId(this._item.number, message.args.link.sessionIndex), {});
 		} catch (e) {
@@ -514,7 +514,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async cancelCodingAgent(message: IRequestMessage<TimelineEvent>): Promise<void> {
+	private async _cancelCodingAgent(message: IRequestMessage<TimelineEvent>): Promise<void> {
 		try {
 			let result = false;
 			if (message.args.event !== EventType.CopilotStarted) {
@@ -549,7 +549,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
+	private async _openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
 			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
@@ -560,12 +560,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
+	private async _openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
 		const openToTheSide = message?.args?.openToTheSide || false;
 		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
 	}
 
-	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
+	private async _resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
 		try {
 			if (message.args.toResolve) {
 				await this._item.resolveReviewThread(message.args.threadId);
@@ -581,7 +581,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private checkoutPullRequest(message: IRequestMessage<any>): void {
+	private _checkoutPullRequest(message: IRequestMessage<any>): void {
 		vscode.commands.executeCommand('pr.pick', this._item).then(
 			() => {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
@@ -594,7 +594,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		);
 	}
 
-	private mergePullRequest(
+	private _mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
 	): void {
 		const { title, description, method, email } = message.args;
@@ -620,7 +620,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 	}
 
-	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
+	private async _changeEmail(message: IRequestMessage<string>): Promise<void> {
 		const email = await pickEmail(this._item.githubRepository, message.args);
 		if (email) {
 			this._folderRepositoryManager.saveLastUsedEmail(email);
@@ -628,7 +628,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this._replyMessage(message, email ?? message.args);
 	}
 
-	private async deleteBranch(message: IRequestMessage<any>) {
+	private async _deleteBranch(message: IRequestMessage<any>) {
 		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
 		if (result.isReply) {
 			this._replyMessage(message, result.message);
@@ -638,7 +638,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private setReadyForReview(message: IRequestMessage<{}>): void {
+	private _setReadyForReview(message: IRequestMessage<{}>): void {
 		this._item
 			.setReadyForReview()
 			.then(result => {
@@ -650,7 +650,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 	}
 
-	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
+	private async _checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
 			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
@@ -663,7 +663,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private updateReviewers(review?: ReviewEvent): void {
+	private _updateReviewers(review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === (reviewer.reviewer as IAccount).login,
@@ -679,7 +679,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
+	private async _doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -705,7 +705,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
+	private async _doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
@@ -723,35 +723,35 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<ReviewEvent> {
+	private _approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
-	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
+	private _approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
 		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
 	}
 
-	private approvePullRequestCommand(context: { body: string }): Promise<void> {
+	private _approvePullRequestCommand(context: { body: string }): Promise<void> {
 		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
-	private requestChanges(body: string): Promise<ReviewEvent> {
+	private _requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
-	private requestChangesCommand(context: { body: string }): Promise<void> {
+	private _requestChangesCommand(context: { body: string }): Promise<void> {
 		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
 	}
 
-	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
+	private _requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
 		return this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
-	private submitReview(body: string): Promise<ReviewEvent> {
+	private _submitReview(body: string): Promise<ReviewEvent> {
 		return this._item.submitReview(ReviewEventEnum.Comment, body);
 	}
 
-	private submitReviewCommand(context: { body: string }) {
+	private _submitReviewCommand(context: { body: string }) {
 		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
@@ -759,7 +759,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewMessage(message, (body) => this.submitReview(body));
 	}
 
-	private reRequestReview(message: IRequestMessage<string>): void {
+	private _reRequestReview(message: IRequestMessage<string>): void {
 		let targetReviewer: ReviewState | undefined;
 		const userReviewers: IAccount[] = [];
 		const teamReviewers: ITeam[] = [];
@@ -789,14 +789,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 	}
 
-	private async revert(message: IRequestMessage<string>): Promise<void> {
+	private async _revert(message: IRequestMessage<string>): Promise<void> {
 		await this._folderRepositoryManager.createPullRequestHelper.revert(this._telemetry, this._extensionUri, this._folderRepositoryManager, this._item, async (pullRequest) => {
 			const result: Partial<PullRequest> = { revertable: !pullRequest };
 			return this._replyMessage(message, result);
 		});
 	}
 
-	private async updateAutoMerge(message: IRequestMessage<{ autoMerge?: boolean, autoMergeMethod: MergeMethod }>): Promise<void> {
+	private async _updateAutoMerge(message: IRequestMessage<{ autoMerge?: boolean, autoMergeMethod: MergeMethod }>): Promise<void> {
 		let replyMessage: { autoMerge: boolean, autoMergeMethod?: MergeMethod };
 		if (!message.args.autoMerge && !this._item.autoMerge) {
 			replyMessage = { autoMerge: false };
@@ -813,17 +813,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._replyMessage(message, replyMessage);
 	}
 
-	private async dequeue(message: IRequestMessage<void>): Promise<void> {
+	private async _dequeue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.dequeuePullRequest();
 		this._replyMessage(message, result);
 	}
 
-	private async enqueue(message: IRequestMessage<void>): Promise<void> {
+	private async _enqueue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.enqueuePullRequest();
 		this._replyMessage(message, { mergeQueueEntry: result });
 	}
 
-	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
+	private async _updateBranch(message: IRequestMessage<string>): Promise<void> {
 		if (!this.isUpdateBranchWithGitHubEnabled()) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch must be checked out to be updated.'), { modal: true });
 			return this._replyMessage(message, {});

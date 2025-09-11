@@ -98,7 +98,7 @@ export class GitHubContentProvider extends ChangesContentProvider implements vsc
 		super();
 	}
 
-	private gitHubRepositoryForOwner(owner?: string): GitHubRepository | undefined {
+	private _gitHubRepositoryForOwner(owner?: string): GitHubRepository | undefined {
 		if (!owner) {
 			return this._gitHubRepositories[0];
 		}

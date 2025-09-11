@@ -23,11 +23,11 @@ interface RestResponse {
 }
 
 export class RateLogger {
-	private bulkhead: BulkheadPolicy = bulkhead(140);
-	private static ID = 'RateLimit';
-	private hasLoggedLowRateLimit: boolean = false;
+	private _bulkhead: BulkheadPolicy = bulkhead(140);
+	private static _ID = 'RateLimit';
+	private _hasLoggedLowRateLimit: boolean = false;
 
-	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) { }
+	constructor(private readonly _telemetry, private readonly _errorOnFlood) { }
 
 	public logAndLimit<T extends Promise<any>>(info: string | undefined, apiRequest: () => T): T | undefined {
 		if (this.bulkhead.executionSlots === 0) {

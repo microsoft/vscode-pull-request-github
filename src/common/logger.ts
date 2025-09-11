@@ -32,7 +32,7 @@ class Log extends Disposable {
 		this._activePerfMarkers.delete(marker);
 	}
 
-	private logString(message: string | Error | Stringish | Object, component?: string): string {
+	private _logString(message: string | Error | Stringish | Object, component?: string): string {
 		let logMessage: string;
 		if (typeof message !== 'string') {
 			const asString = message as Partial<Stringish>;
@@ -50,23 +50,23 @@ class Log extends Disposable {
 	}
 
 	public trace(message: string | Error | Stringish | Object, component: string) {
-		this._outputChannel.trace(this.logString(message, component));
+		this._outputChannel.trace(this._logString(message, component));
 	}
 
 	public debug(message: string | Error | Stringish | Object, component: string) {
-		this._outputChannel.debug(this.logString(message, component));
+		this._outputChannel.debug(this._logString(message, component));
 	}
 
 	public appendLine(message: string | Error | Stringish | Object, component: string) {
-		this._outputChannel.info(this.logString(message, component));
+		this._outputChannel.info(this._logString(message, component));
 	}
 
 	public warn(message: string | Error | Stringish | Object, component?: string) {
-		this._outputChannel.warn(this.logString(message, component));
+		this._outputChannel.warn(this._logString(message, component));
 	}
 
 	public error(message: string | Error | Stringish | Object, component: string) {
-		this._outputChannel.error(this.logString(message, component));
+		this._outputChannel.error(this._logString(message, component));
 	}
 }
 

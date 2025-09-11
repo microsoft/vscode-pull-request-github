@@ -195,7 +195,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	/**
 	 * Sync the tree view with the currently active PR overview
 	 */
-	private async syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
+	private async _syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
 		const alreadySelected = this._view.selection.find(child => child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName));
 		if (alreadySelected) {
 			return;
@@ -215,7 +215,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	/**
 	 * Find a PR node in the tree structure
 	 */
-	private async findPRNode(pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+	private async _findPRNode(pullRequest: PullRequestModel): Promise<PRNode | undefined> {
 		if (this._children.length === 0) {
 			await this.getChildren();
 		}
@@ -235,7 +235,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	/**
 	 * Search for PR node within a workspace folder node
 	 */
-	private async findPRNodeInWorkspaceFolder(workspaceNode: WorkspaceFolderNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+	private async _findPRNodeInWorkspaceFolder(workspaceNode: WorkspaceFolderNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
 		const children = await workspaceNode.getChildren(false);
 		for (const child of children) {
 			if (child instanceof CategoryTreeNode) {
@@ -249,7 +249,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	/**
 	 * Search for PR node within a category node
 	 */
-	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+	private async _findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
 		if (categoryNode.collapsibleState !== vscode.TreeItemCollapsibleState.Expanded) {
 			return;
 		}
@@ -284,7 +284,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this.refreshAll();
 	}
 
-	private async initializeCategories() {
+	private async _initializeCategories() {
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
 				this.refreshAll();
@@ -297,13 +297,13 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._onDidChangeTreeData.fire();
 	}
 
-	private tryReset(reset: boolean) {
+	private _tryReset(reset: boolean) {
 		if (reset) {
 			this.prsTreeModel.clearCache(true);
 		}
 	}
 
-	private refreshAllQueryResults(reset?: boolean) {
+	private _refreshAllQueryResults(reset?: boolean) {
 		this.tryReset(!!reset);
 
 		if (!this._children || this._children.length === 0) {
@@ -318,7 +318,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this.refreshQueryResultsForFolder();
 	}
 
-	private refreshQueryResultsForFolder(manager?: WorkspaceFolderNode, reset?: boolean) {
+	private _refreshQueryResultsForFolder(manager?: WorkspaceFolderNode, reset?: boolean) {
 		if (!manager && this._children[0] instanceof WorkspaceFolderNode) {
 			// Not permitted. There're multiple folder nodes, therefore must specify which one to refresh
 			throw new Error('Must specify a folder node to refresh when there are multiple folder nodes');
@@ -339,7 +339,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return this._onDidChangeTreeData.fire(node);
 	}
 
-	private refreshRepo(manager: FolderRepositoryManager): void {
+	private _refreshRepo(manager: FolderRepositoryManager): void {
 		if ((this._children.length === 0) || (this._children[0] instanceof CategoryTreeNode && this._children[0].folderRepoManager === manager)) {
 			return this.refreshQueryResultsForFolder(undefined, true);
 		}
@@ -353,7 +353,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 	}
 
-	private refreshPullRequests(pullRequests: PullRequestChangeEvent[]): void {
+	private _refreshPullRequests(pullRequests: PullRequestChangeEvent[]): void {
 		if (!this._children?.length || !pullRequests?.length) {
 			return;
 		}
@@ -434,7 +434,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return item;
 	}
 
-	private async needsRemotes() {
+	private async _needsRemotes() {
 		if (this._reposManager?.state === ReposManagerState.NeedsAuthentication) {
 			return [];
 		}

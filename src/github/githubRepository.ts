@@ -230,7 +230,7 @@ export class GitHubRepository extends Disposable {
 		return this.hub && this.hub.octokit;
 	}
 
-	private get id(): string {
+	private get _id(): string {
 		return `${GitHubRepository.ID}+${this._id}`;
 	}
 
@@ -261,7 +261,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	private async codespacesTokenError<T>(action: QueryOptions | MutationOptions<T>) {
+	private async _codespacesTokenError<T>(action: QueryOptions | MutationOptions<T>) {
 		if (isInCodespaces() && (await this._metadata)?.fork) {
 			// :( https://github.com/microsoft/vscode-pull-request-github/issues/5325#issuecomment-1798243852
 			/* __GDPR__
@@ -360,7 +360,7 @@ export class GitHubRepository extends Disposable {
 		return this._queriesSchema;
 	}
 
-	private async getMetadataForRepo(owner: string, repo: string): Promise<IMetadata> {
+	private async _getMetadataForRepo(owner: string, repo: string): Promise<IMetadata> {
 		if (this._metadata && this.remote.owner === owner && this.remote.repositoryName === repo) {
 			Logger.debug(`Using cached metadata for repo ${owner}/${repo}`, this.id);
 			return this._metadata;

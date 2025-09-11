@@ -21,12 +21,12 @@ import { StateManager } from './stateManager';
 import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
-	private static readonly ID: string = 'UserCompletionProvider';
+	private static readonly _ID: string = 'UserCompletionProvider';
 	private _gitBlameCache: { [key: string]: string } = {};
 
 	constructor(
-		private stateManager: StateManager,
-		private manager: RepositoriesManager,
+		private _stateManager,
+		private _manager,
 		_context: vscode.ExtensionContext,
 	) { }
 
@@ -137,7 +137,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		return completionItems;
 	}
 
-	private isCodeownersFiles(uri: vscode.Uri): boolean {
+	private _isCodeownersFiles(uri: vscode.Uri): boolean {
 		const repositoryManager = this.manager.getManagerForFile(uri);
 		if (!repositoryManager || !isDescendant(repositoryManager.repository.rootUri.fsPath, uri.fsPath)) {
 			return false;
@@ -164,10 +164,10 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		return item;
 	}
 
-	private cachedPrUsers: UserCompletion[] = [];
-	private cachedPrTimelineEvents: TimelineEvent[] = [];
-	private cachedForPrNumber: number | undefined;
-	private async getCommentSpecificSuggestions(
+	private _cachedPrUsers: UserCompletion[] = [];
+	private _cachedPrTimelineEvents: TimelineEvent[] = [];
+	private _cachedForPrNumber: number | undefined;
+	private async _getCommentSpecificSuggestions(
 		alreadyIncludedUsers: Map<string, IAccount>,
 		document: vscode.TextDocument,
 		position: vscode.Position) {

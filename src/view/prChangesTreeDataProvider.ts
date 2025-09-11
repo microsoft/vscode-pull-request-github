@@ -61,7 +61,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 		this._onDidChangeTreeData.fire(treeNode);
 	}
 
-	private updateViewTitle(): void {
+	private _updateViewTitle(): void {
 		let pullRequestNumber: number | undefined;
 		if (this._pullRequestManagerMap.size === 1) {
 			const pullRequestIterator = this._pullRequestManagerMap.values().next();
@@ -110,7 +110,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 		}
 	}
 
-	private async setReviewModeContexts() {
+	private async _setReviewModeContexts() {
 		await commands.setContext(contexts.IN_REVIEW_MODE, this._pullRequestManagerMap.size > 0);
 
 		const rootUrisNotInReviewMode: vscode.Uri[] = [];
@@ -163,7 +163,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 		return this._children;
 	}
 
-	private sortMap() {
+	private _sortMap() {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		const compareFolders = (a: vscode.Uri, b: vscode.Uri) => {
 			const aFolder = a.fsPath.toLowerCase();

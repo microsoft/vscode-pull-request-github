@@ -253,7 +253,7 @@ export class FolderRepositoryManager extends Disposable {
 		this.cleanStoredRepoState();
 	}
 
-	private cleanStoredRepoState() {
+	private _cleanStoredRepoState() {
 		const deleteDate: number = new Date().valueOf() - 30 /*days*/ * 86400000 /*milliseconds in a day*/;
 		const reposState = this.context.globalState.get<ReposState>(REPO_KEYS);
 		if (reposState?.repos) {
@@ -271,7 +271,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private get id(): string {
+	private get _id(): string {
 		return `${FolderRepositoryManager.ID}+${this._id}`;
 	}
 
@@ -403,7 +403,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private clearFileViewedContext() {
+	private _clearFileViewedContext() {
 		commands.setContext(contexts.VIEWED_FILES, []);
 		commands.setContext(contexts.UNVIEWED_FILES, []);
 	}
@@ -421,7 +421,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async getActiveRemotes(): Promise<GitHubRemote[]> {
+	private async _getActiveRemotes(): Promise<GitHubRemote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
@@ -447,7 +447,7 @@ export class FolderRepositoryManager extends Disposable {
 		return this._updatingRepositories;
 	}
 
-	private checkForAuthMatch(activeRemotes: GitHubRemote[]): boolean {
+	private _checkForAuthMatch(activeRemotes: GitHubRemote[]): boolean {
 		// Check that our auth matches the remote.
 		let dotComCount = 0;
 		let enterpriseCount = 0;
@@ -476,14 +476,14 @@ export class FolderRepositoryManager extends Disposable {
 		return this._state;
 	}
 
-	private set state(state: ReposManagerState) {
+	private set _state(state: ReposManagerState) {
 		if (state !== this._state) {
 			this._state = state;
 			this._onDidLoadRepositories.fire(state);
 		}
 	}
 
-	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
+	private async _doUpdateRepositories(silent: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
 
@@ -492,7 +492,7 @@ export class FolderRepositoryManager extends Disposable {
 
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
-		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
+		if (this._credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
 			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
 			if (areAllNeverGitHub) {
 				this.state = ReposManagerState.RepositoriesLoaded;
@@ -588,7 +588,7 @@ export class FolderRepositoryManager extends Disposable {
 		});
 	}
 
-	private async checkIfMissingUpstream(): Promise<boolean> {
+	private async _checkIfMissingUpstream(): Promise<boolean> {
 		try {
 			const origin = await this.getOrigin();
 			const metadata = await origin.getMetadata();
@@ -647,7 +647,7 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
+	private async _getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
 		Logger.appendLine(`Trying to use globalState for ${userKind}.`, this.id);
 
 		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
@@ -691,7 +691,7 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
+	private async _saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
 		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
 		await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
@@ -700,7 +700,7 @@ export class FolderRepositoryManager extends Disposable {
 		}));
 	}
 
-	private createFetchMentionableUsersPromise(): Promise<{ [key: string]: IAccount[] }> {
+	private _createFetchMentionableUsersPromise(): Promise<{ [key: string]: IAccount[] }> {
 		const cache: { [key: string]: IAccount[] } = {};
 		return new Promise<{ [key: string]: IAccount[] }>(resolve => {
 			const promises = this._githubRepositories.map(async githubRepository => {
@@ -820,7 +820,7 @@ export class FolderRepositoryManager extends Disposable {
 		return this._fetchTeamReviewersPromise;
 	}
 
-	private createFetchOrgProjectsPromise(): Promise<{ [key: string]: IProject[] }> {
+	private _createFetchOrgProjectsPromise(): Promise<{ [key: string]: IProject[] }> {
 		const cache: { [key: string]: IProject[] } = {};
 		return new Promise<{ [key: string]: IProject[] }>(async resolve => {
 			// Keep track of the org teams we have already gotten so we don't make duplicate calls
@@ -1032,7 +1032,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	// Keep track of how many pages we've fetched for each query, so when we reload we pull the same ones.
-	private totalFetchedPages = new Map<string, number>();
+	private _totalFetchedPages = new Map<string, number>();
 
 	/**
 	 * This method works in three different ways:
@@ -1045,7 +1045,7 @@ export class FolderRepositoryManager extends Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	private async fetchPagedData<T>(
+	private async _fetchPagedData<T>(
 		options: IPullRequestsPagingOptions = { fetchNextPage: false },
 		queryId: string,
 		pagedDataType: PagedDataType = PagedDataType.PullRequest,
@@ -1291,13 +1291,13 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async getRepoForIssue(parsedIssue: Issue): Promise<GitHubRepository> {
+	private async _getRepoForIssue(parsedIssue: Issue): Promise<GitHubRepository> {
 		const remote = new Remote(
 			parsedIssue.repositoryName!,
 			parsedIssue.repositoryUrl!,
 			new Protocol(parsedIssue.repositoryUrl!),
 		);
-		return this.createGitHubRepository(remote, this.credentialStore, true, true);
+		return this.createGitHubRepository(remote, this._credentialStore, true, true);
 
 	}
 
@@ -1365,7 +1365,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async getPullRequestTemplateWithCache(owner: string): Promise<string | undefined> {
+	private async _getPullRequestTemplateWithCache(owner: string): Promise<string | undefined> {
 		const cacheLocation = `${CACHED_TEMPLATE_BODY}+${this.repository.rootUri.toString()}`;
 
 		const findTemplate = this.getPullRequestTemplate(owner).then((template) => {
@@ -1389,7 +1389,7 @@ export class FolderRepositoryManager extends Disposable {
 		return findTemplate;
 	}
 
-	private async getOwnerPullRequestTemplate(owner: string): Promise<string | undefined> {
+	private async _getOwnerPullRequestTemplate(owner: string): Promise<string | undefined> {
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, '.github');
 		if (!githubRepository) {
 			return undefined;
@@ -1400,7 +1400,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async getPullRequestTemplate(owner: string): Promise<string | undefined> {
+	private async _getPullRequestTemplate(owner: string): Promise<string | undefined> {
 		const repository = this.gitHubRepositories.find(repo => repo.remote.owner === owner);
 		if (!repository) {
 			return;
@@ -1782,7 +1782,7 @@ export class FolderRepositoryManager extends Disposable {
 		await pullRequest.githubRepository.deleteBranch(pullRequest);
 	}
 
-	private async getBranchDeletionItems() {
+	private async _getBranchDeletionItems() {
 		interface BranchDeletionMetadata extends PullRequestMetadata {
 			isOpen?: boolean;
 		}
@@ -1936,7 +1936,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async getDeleatableRemotes(nonExistantBranches?: Set<string>) {
+	private async _getDeleatableRemotes(nonExistantBranches?: Set<string>) {
 		const newConfigs = await this.repository.getConfigs();
 		const remoteInfos: Map<
 			string,
@@ -1987,7 +1987,7 @@ export class FolderRepositoryManager extends Disposable {
 		return remoteInfos;
 	}
 
-	private async getRemoteDeletionItems(nonExistantBranches: Set<string>) {
+	private async _getRemoteDeletionItems(nonExistantBranches: Set<string>) {
 		// check if there are remotes that should be cleaned
 		const remoteInfos = await this.getDeleatableRemotes(nonExistantBranches);
 		const remoteItems: (vscode.QuickPickItem & { remote: string })[] = [];
@@ -2011,7 +2011,7 @@ export class FolderRepositoryManager extends Disposable {
 		return remoteItems;
 	}
 
-	private async deleteBranches(picks: readonly vscode.QuickPickItem[], nonExistantBranches: Set<string>, progress: vscode.Progress<{ message?: string; increment?: number; }>, totalBranches: number, deletedBranches: number, needsRetry?: vscode.QuickPickItem[]) {
+	private async _deleteBranches(picks: readonly vscode.QuickPickItem[], nonExistantBranches: Set<string>, progress: vscode.Progress<{ message?: string; increment?: number; }>, totalBranches: number, deletedBranches: number, needsRetry?: vscode.QuickPickItem[]) {
 		const reportProgress = () => {
 			deletedBranches++;
 			progress.report({ message: vscode.l10n.t('Deleted {0} of {1} branches', deletedBranches, totalBranches) });
@@ -2190,7 +2190,7 @@ export class FolderRepositoryManager extends Disposable {
 
 	//#region Git related APIs
 
-	private async resolveItem(owner: string, repositoryName: string): Promise<GitHubRepository | undefined> {
+	private async _resolveItem(owner: string, repositoryName: string): Promise<GitHubRepository | undefined> {
 		let githubRepo = this._githubRepositories.find(repo => {
 			const ret =
 				repo.remote.owner.toLowerCase() === owner.toLowerCase() &&
@@ -2288,7 +2288,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (!headGitHubRepo && this.gitHubRepositories.length > 0) {
 			const remote = parseRemote(protocol.repositoryName, remoteUrl, protocol);
 			if (remote) {
-				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
+				headGitHubRepo = await this.createGitHubRepository(remote, this._credentialStore, true, true);
 			}
 		}
 		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
@@ -2323,14 +2323,14 @@ export class FolderRepositoryManager extends Disposable {
 			const protocol = new Protocol(remoteUrl ?? '');
 			const remote = parseRemote(remoteName, remoteUrl, protocol);
 			if (remote) {
-				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
+				headGitHubRepo = await this.createGitHubRepository(remote, this._credentialStore, true, true);
 			}
 		}
 
 		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
 	}
 
-	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string): Promise<
+	private async _doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		if (!headGitHubRepo || !upstreamBranchName) {
@@ -2532,7 +2532,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async pullBranchConfiguration(): Promise<'never' | 'prompt' | 'always'> {
+	private async _pullBranchConfiguration(): Promise<'never' | 'prompt' | 'always'> {
 		const neverShowPullNotification = this.context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
 		if (neverShowPullNotification) {
 			this.context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
@@ -2541,13 +2541,13 @@ export class FolderRepositoryManager extends Disposable {
 		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt');
 	}
 
-	private async pullBranch(branch: Branch) {
+	private async _pullBranch(branch: Branch) {
 		if (this._repository.state.HEAD?.name === branch.name) {
 			await this._repository.pull();
 		}
 	}
 
-	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
+	private async _promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
 		if (!this._updateMessageShown || autoStashSetting) {
 			// When the PR is from Copilot, we only want to show the notification when Copilot is done working
 			const copilotStatus = await pr.copilotWorkingStatus(pr);
@@ -2638,14 +2638,14 @@ export class FolderRepositoryManager extends Disposable {
 		);
 	}
 
-	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
+	private async _createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
 		const repoId = this._id + (this._githubRepositories.length * 0.1);
 		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
 
-	private removeGitHubRepository(remote: Remote) {
+	private _removeGitHubRepository(remote: Remote) {
 		const index = this._githubRepositories.findIndex(
 			r =>
 				(r.remote.owner.toLowerCase() === remote.owner.toLowerCase())
@@ -2806,7 +2806,7 @@ export class FolderRepositoryManager extends Disposable {
 	public async publishBranch(pushRemote: Remote, branchName: string): Promise<GitHubRemote | undefined> {
 		const githubRepo = await this.createGitHubRepository(
 			pushRemote,
-			this.credentialStore,
+			this._credentialStore,
 		);
 		const permission = await githubRepo.getViewerPermission();
 		let selectedRemote: GitHubRemote | undefined;
@@ -2867,7 +2867,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async getPreferredEmail(pullRequest: PullRequestModel): Promise<string | undefined> {
-		const isEmu = await this.credentialStore.getIsEmu(pullRequest.remote.authProviderId);
+		const isEmu = await this._credentialStore.getIsEmu(pullRequest.remote.authProviderId);
 		if (isEmu) {
 			return undefined;
 		}

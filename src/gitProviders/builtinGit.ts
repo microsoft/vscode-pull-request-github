@@ -29,7 +29,7 @@ export class BuiltinGitProvider extends Disposable implements IGit {
 
 	private readonly _gitAPI: GitAPI;
 
-	private constructor(extension: vscode.Extension<GitExtension>) {
+	private _constructor(extension: vscode.Extension<GitExtension>) {
 		super();
 		const gitExtension = extension.exports;
 

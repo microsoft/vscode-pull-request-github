@@ -131,7 +131,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
-	private initializeWhenVisibleDisposable: vscode.Disposable | undefined;
+	private _initializeWhenVisibleDisposable: vscode.Disposable | undefined;
 	public async initializeParams(reset: boolean = false): Promise<void> {
 		if (this._view?.visible === false && this.initializeWhenVisibleDisposable === undefined) {
 			this.initializeWhenVisibleDisposable = this._view?.onDidChangeVisibility(() => {
@@ -150,7 +150,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	private _alreadyInitializing: Promise<CreateParamsNew> | undefined;
-	private async initializeParamsPromise(): Promise<CreateParamsNew> {
+	private async _initializeParamsPromise(): Promise<CreateParamsNew> {
 		if (!this._alreadyInitializing) {
 			this._alreadyInitializing = this.doInitializeParams();
 			this._alreadyInitializing.then(() => {
@@ -259,7 +259,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return params;
 	}
 
-	private async doInitializeParams(): Promise<CreateParamsNew> {
+	private async _doInitializeParams(): Promise<CreateParamsNew> {
 		const params = await this.getCreateParams();
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, BaseCreatePullRequestViewProvider.ID);
@@ -271,7 +271,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return params;
 	}
 
-	private async autoAssign(pr: PullRequestModel): Promise<void> {
+	private async _autoAssign(pr: PullRequestModel): Promise<void> {
 		const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string | undefined>(ASSIGN_TO);
 		if (!configuration) {
 			return;
@@ -290,19 +290,19 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	private async enableAutoMerge(pr: PullRequestModel, autoMerge: boolean, automergeMethod: MergeMethod | undefined): Promise<void> {
+	private async _enableAutoMerge(pr: PullRequestModel, autoMerge: boolean, automergeMethod: MergeMethod | undefined): Promise<void> {
 		if (autoMerge && automergeMethod) {
 			return pr.enableAutoMerge(automergeMethod);
 		}
 	}
 
-	private async setLabels(pr: PullRequestModel, labels: ILabel[]): Promise<void> {
+	private async _setLabels(pr: PullRequestModel, labels: ILabel[]): Promise<void> {
 		if (labels.length > 0) {
 			await pr.setLabels(labels.map(label => label.name));
 		}
 	}
 
-	private async setAssignees(pr: PullRequestModel, assignees: IAccount[]): Promise<void> {
+	private async _setAssignees(pr: PullRequestModel, assignees: IAccount[]): Promise<void> {
 		if (assignees.length) {
 			await pr.replaceAssignees(assignees);
 		} else {
@@ -310,7 +310,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	private async setReviewers(pr: PullRequestModel, reviewers: (IAccount | ITeam)[]): Promise<void> {
+	private async _setReviewers(pr: PullRequestModel, reviewers: (IAccount | ITeam)[]): Promise<void> {
 		if (reviewers.length) {
 			const users: IAccount[] = [];
 			const teams: ITeam[] = [];
@@ -325,27 +325,27 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	private setMilestone(pr: PullRequestModel, milestone: IMilestone | undefined) {
+	private _setMilestone(pr: PullRequestModel, milestone: IMilestone | undefined) {
 		if (milestone) {
 			return pr.updateMilestone(milestone.id);
 		}
 	}
 
-	private setProjects(pr: PullRequestModel, projects: IProject[]) {
+	private _setProjects(pr: PullRequestModel, projects: IProject[]) {
 		if (projects.length) {
 			return pr.updateProjects(projects);
 		}
 	}
 
-	private async getBaseRemote(): Promise<GitHubRemote> {
+	private async _getBaseRemote(): Promise<GitHubRemote> {
 		return (await this._folderRepositoryManager.getGitHubRemotes()).find(remote => compareIgnoreCase(remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(remote.repositoryName, this.model.repositoryName) === 0)!;
 	}
 
-	private getBaseGitHubRepo(): GitHubRepository | undefined {
+	private _getBaseGitHubRepo(): GitHubRepository | undefined {
 		return this._folderRepositoryManager.gitHubRepositories.find(repo => compareIgnoreCase(repo.remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0);
 	}
 
-	private milestone: IMilestone | undefined;
+	private _milestone: IMilestone | undefined;
 	public async addMilestone(): Promise<void> {
 		const remote = await this.getBaseRemote();
 		const repo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.remoteName === remote.remoteName)!;
@@ -359,7 +359,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		});
 	}
 
-	private reviewers: (IAccount | ITeam)[] = [];
+	private _reviewers: (IAccount | ITeam)[] = [];
 	public async addReviewers(): Promise<void> {
 		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
 			user?: IAccount | ITeam | undefined;
@@ -393,7 +393,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	private assignees: IAccount[] = [];
+	private _assignees: IAccount[] = [];
 	public async addAssignees(): Promise<void> {
 		const remote = await this.getBaseRemote();
 		const currentRepo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === remote.owner && repo.remote.repositoryName === remote.repositoryName);
@@ -415,7 +415,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			});
 		}
 	}
-	private projects: IProject[] = [];
+	private _projects: IProject[] = [];
 	public async addProjects(): Promise<void> {
 		const githubRepo = this.getBaseGitHubRepo();
 		if (!githubRepo) {
@@ -433,7 +433,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		});
 	}
 
-	private labels: DisplayLabel[] = [];
+	private _labels: DisplayLabel[] = [];
 	public async addLabels(): Promise<void> {
 		let newLabels: DisplayLabel[] = [];
 
@@ -455,7 +455,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	private async removeLabel(message: IRequestMessage<{ label: ILabel }>,): Promise<void> {
+	private async _removeLabel(message: IRequestMessage<{ label: ILabel }>,): Promise<void> {
 		const { label } = message.args;
 		if (!label)
 			return;
@@ -496,7 +496,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			this.setProjects(createdPR, message.args.projects)]);
 	}
 
-	private async cancel(message: IRequestMessage<CreatePullRequestNew>) {
+	private async _cancel(message: IRequestMessage<CreatePullRequestNew>) {
 		this._onDone.fire(undefined);
 		// Re-fetch the automerge info so that it's updated for next time.
 		await this.getMergeConfiguration(message.args.owner, message.args.repo, true);
@@ -622,7 +622,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}));
 	}
 
-	private async existingPRMessage(): Promise<string | undefined> {
+	private async _existingPRMessage(): Promise<string | undefined> {
 		const [existingPR, hasUpstream] = await Promise.all([PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch), this.model.getCompareHasUpstream()]);
 		if (!existingPR || !hasUpstream) {
 			return undefined;
@@ -665,7 +665,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		super.show();
 	}
 
-	private async getTotalGitHubCommits(compareBranch: Branch, baseBranchName: string): Promise<{ commit: { message: string }; parents: { sha: string }[] }[] | undefined> {
+	private async _getTotalGitHubCommits(compareBranch: Branch, baseBranchName: string): Promise<{ commit: { message: string }; parents: { sha: string }[] }[] | undefined> {
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
 
 		if (compareBranch.upstream) {
@@ -760,7 +760,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return { title, description };
 	}
 
-	private async getPullRequestTemplate(): Promise<string | undefined> {
+	private async _getPullRequestTemplate(): Promise<string | undefined> {
 		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
 	}
 
@@ -802,7 +802,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 
-	private async remotePicks(isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo })[]> {
+	private async _remotePicks(isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo })[]> {
 		const remotes = isBase ? await this._folderRepositoryManager.getActiveGitHubRemotes(await this._folderRepositoryManager.getGitHubRemotes()) : this._folderRepositoryManager.gitHubRepositories.map(repo => repo.remote);
 		return remotes.map(remote => {
 			return {
@@ -816,7 +816,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		});
 	}
 
-	private async branchPicks(githubRepository: GitHubRepository, changeRepoMessage: string, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
+	private async _branchPicks(githubRepository: GitHubRepository, changeRepoMessage: string, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
 		let branches: (string | Ref)[];
 		if (isBase) {
 			// For the base, we only want to show branches from GitHub.
@@ -850,7 +850,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return branchPicks;
 	}
 
-	private async processRemoteAndBranchResult(githubRepository: GitHubRepository, result: { remote: RemoteInfo, branch: string }, isBase: boolean) {
+	private async _processRemoteAndBranchResult(githubRepository: GitHubRepository, result: { remote: RemoteInfo, branch: string }, isBase: boolean) {
 		const [defaultBranch, viewerPermission] = await Promise.all([githubRepository.getDefaultBranch(), githubRepository.getViewerPermission()]);
 
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
@@ -911,7 +911,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return chooseResult;
 	}
 
-	private async changeRemoteAndBranch(message: IRequestMessage<ChooseRemoteAndBranchArgs>, isBase: boolean): Promise<void> {
+	private async _changeRemoteAndBranch(message: IRequestMessage<ChooseRemoteAndBranchArgs>, isBase: boolean): Promise<void> {
 		this.cancelGenerateTitleAndDescription();
 		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })>();
 		let githubRepository = this._folderRepositoryManager.findRepo(
@@ -970,7 +970,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return this._replyMessage(message, chooseResult);
 	}
 
-	private async findIssueContext(commits: string[]): Promise<{ content: string, reference: string }[] | undefined> {
+	private async _findIssueContext(commits: string[]): Promise<{ content: string, reference: string }[] | undefined> {
 		const issues: Promise<{ content: string, reference: string } | undefined>[] = [];
 		for (const commit of commits) {
 			const tryParse = parseIssueExpressionOutput(commit.match(ISSUE_OR_URL_EXPRESSION));
@@ -994,7 +994,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return undefined;
 	}
 
-	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
+	private async _getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
 		let commitMessages: string[];
 		let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[] | undefined;
 		if (await this.model.getCompareHasUpstream()) {
@@ -1023,8 +1023,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return { commitMessages, patches: filteredPatches };
 	}
 
-	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
-	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
+	private _lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
+	private async _getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
@@ -1050,8 +1050,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		});
 	}
 
-	private generatingCancellationToken: vscode.CancellationTokenSource | undefined;
-	private async generateTitleAndDescription(message: IRequestMessage<TitleAndDescriptionArgs>): Promise<void> {
+	private _generatingCancellationToken: vscode.CancellationTokenSource | undefined;
+	private async _generateTitleAndDescription(message: IRequestMessage<TitleAndDescriptionArgs>): Promise<void> {
 		if (this.generatingCancellationToken) {
 			this.generatingCancellationToken.cancel();
 		}
@@ -1071,13 +1071,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return this._replyMessage(message, { title: generated?.title, description: generated?.description });
 	}
 
-	private async cancelGenerateTitleAndDescription(): Promise<void> {
+	private async _cancelGenerateTitleAndDescription(): Promise<void> {
 		if (this.generatingCancellationToken) {
 			this.generatingCancellationToken.cancel();
 		}
 	}
 
-	private async getPreReviewFromProvider(token: vscode.CancellationToken): Promise<PreReviewState | undefined> {
+	private async _getPreReviewFromProvider(token: vscode.CancellationToken): Promise<PreReviewState | undefined> {
 		const preReviewer = this._folderRepositoryManager.getAutoReviewer();
 		if (!preReviewer) {
 			return;
@@ -1091,8 +1091,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		this._postMessage({ command: 'reviewing', params: { reviewing: true } });
 	}
 
-	private reviewingCancellationToken: vscode.CancellationTokenSource | undefined;
-	private async preReview(message: IRequestMessage<any>): Promise<void> {
+	private _reviewingCancellationToken: vscode.CancellationTokenSource | undefined;
+	private async _preReview(message: IRequestMessage<any>): Promise<void> {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			await commands.setContext('pr:preReviewing', true);
 
@@ -1111,13 +1111,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		});
 	}
 
-	private async cancelPreReview(): Promise<void> {
+	private async _cancelPreReview(): Promise<void> {
 		if (this.reviewingCancellationToken) {
 			this.reviewingCancellationToken.cancel();
 		}
 	}
 
-	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
+	private async _pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
 		let createdPushRemote: GitHubRemote | undefined;
 		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
 			if (!localRemote.pushUrl) {
@@ -1141,7 +1141,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}
 	}
 
-	private checkGeneratedTitleAndDescription(title: string, description: string) {
+	private _checkGeneratedTitleAndDescription(title: string, description: string) {
 		if (!this.lastGeneratedTitleAndDescription) {
 			return;
 		}
@@ -1161,7 +1161,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	 *
 	 * @returns true if the PR should be created immediately after
 	 */
-	private async checkForChanges(): Promise<boolean> {
+	private async _checkForChanges(): Promise<boolean> {
 		if (await this.model.filesHaveChanges()) {
 			const apply = vscode.l10n.t('Commit');
 			const deleteChanges = vscode.l10n.t('Delete my changes');
@@ -1295,7 +1295,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		});
 	}
 
-	private async changeBranch(newBranch: string, isBase: boolean): Promise<{ title: string, description: string }> {
+	private async _changeBranch(newBranch: string, isBase: boolean): Promise<{ title: string, description: string }> {
 		let compareBranch: Branch | undefined;
 		if (isBase) {
 			this.model.baseBranch = newBranch;

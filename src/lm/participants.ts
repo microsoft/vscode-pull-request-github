@@ -57,7 +57,7 @@ export class ChatParticipantState {
 
 export class ChatParticipant extends Disposable {
 
-	constructor(context: vscode.ExtensionContext, private readonly state: ChatParticipantState) {
+	constructor(context: vscode.ExtensionContext, private readonly _state) {
 		super();
 		const ghprChatParticipant = this._register(vscode.chat.createChatParticipant('githubpr', (
 			request: vscode.ChatRequest,
@@ -200,7 +200,7 @@ export class ChatParticipant extends Disposable {
 		this.addButtons(stream, commands);
 	}
 
-	private addButtons(stream: vscode.ChatResponseStream, commands: vscode.Command[]) {
+	private _addButtons(stream: vscode.ChatResponseStream, commands: vscode.Command[]) {
 		for (const command of commands) {
 			stream.button(command);
 		}

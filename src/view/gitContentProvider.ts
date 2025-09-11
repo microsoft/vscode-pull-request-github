@@ -18,14 +18,14 @@ import { ReviewManager } from './reviewManager';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
-	private static readonly ID = 'GitContentFileSystemProvider';
+	private static readonly _ID = 'GitContentFileSystemProvider';
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore, private readonly getReviewManagers: () => ReviewManager[]) {
+	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore, private readonly _getReviewManagers) {
 		super(gitAPI, credentialStore);
 	}
 
-	private getChangeModelForFileAndFilesArray(file: vscode.Uri, getFiles: (manager: ReviewManager) => (GitFileChangeNode | RemoteFileChangeNode)[]) {
+	private _getChangeModelForFileAndFilesArray(file: vscode.Uri, getFiles: (manager: ReviewManager) => (GitFileChangeNode | RemoteFileChangeNode)[]) {
 		for (const manager of this.getReviewManagers()) {
 			const files = getFiles(manager);
 			for (const change of files) {
@@ -36,15 +36,15 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 		}
 	}
 
-	private getChangeModelForFile(file: vscode.Uri): GitFileChangeModel | undefined {
+	private _getChangeModelForFile(file: vscode.Uri): GitFileChangeModel | undefined {
 		return this.getChangeModelForFileAndFilesArray(file, manager => manager.reviewModel.localFileChanges) as GitFileChangeModel;
 	}
 
-	private getOutdatedChangeModelForFile(file: vscode.Uri) {
+	private _getOutdatedChangeModelForFile(file: vscode.Uri) {
 		return this.getChangeModelForFileAndFilesArray(file, manager => manager.reviewModel.obsoleteFileChanges);
 	}
 
-	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
+	private async _getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
 		await this.waitForAuth();
 		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
 			await this.waitForRepos(4000);

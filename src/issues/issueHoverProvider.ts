@@ -17,10 +17,10 @@ import {
 
 export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(
-		private manager: RepositoriesManager,
-		private stateManager: StateManager,
-		private context: vscode.ExtensionContext,
-		private telemetry: ITelemetry,
+		private _manager,
+		private _stateManager,
+		private _context,
+		private _telemetry,
 	) { }
 
 	async provideHover(
@@ -60,7 +60,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 		}
 	}
 
-	private async createHover(
+	private async _createHover(
 		folderManager: FolderRepositoryManager,
 		value: string,
 		parsed: ParsedIssue,

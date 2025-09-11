@@ -360,7 +360,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		this._onDidChange.fire({ projects: true });
 	}
 
-	private async doRemoveProjects(projectItems: IProjectItem[]): Promise<boolean> {
+	private async _doRemoveProjects(projectItems: IProjectItem[]): Promise<boolean> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 
 		try {
@@ -382,7 +382,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		}
 	}
 
-	private async addProjects(projects: IProject[]): Promise<void> {
+	private async _addProjects(projects: IProject[]): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 
 		try {
@@ -621,7 +621,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		Logger.debug(`Replace assignees of issue #${this.number} - done`, IssueModel.ID);
 	}
 
-	private async addAssignees(assigneesToAdd: string[]): Promise<void> {
+	private async _addAssignees(assigneesToAdd: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.addAssignees, {
 			owner: remote.owner,
@@ -631,7 +631,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		});
 	}
 
-	private async deleteAssignees(assignees: string[]): Promise<void> {
+	private async _deleteAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.removeAssignees, {
 			owner: remote.owner,

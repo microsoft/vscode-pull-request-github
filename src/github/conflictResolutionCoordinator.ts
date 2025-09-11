@@ -74,7 +74,7 @@ class MergeOutputProvider extends Disposable implements vscode.FileSystemProvide
 		throw new Error('Method not implemented.');
 	}
 
-	private updateFile(file: string, contents: Uint8Array): void {
+	private _updateFile(file: string, contents: Uint8Array): void {
 		this._mergedFiles.set(file, contents);
 		this._modifiedTimes.set(file, new Date().getTime());
 	}
@@ -102,7 +102,7 @@ export class ConflictResolutionCoordinator extends Disposable {
 		this._mergeOutputProvider = this._register(new MergeOutputProvider(this._conflictResolutionModel));
 	}
 
-	private async openConflict(conflict: Conflict) {
+	private async _openConflict(conflict: Conflict) {
 		const prHeadUri = this._conflictResolutionModel.prHeadUri(conflict);
 		const baseUri = this._conflictResolutionModel.baseUri(conflict);
 
@@ -123,7 +123,7 @@ export class ConflictResolutionCoordinator extends Disposable {
 		);
 	}
 
-	private register(): void {
+	private _register(): void {
 		this._register(vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, new GitHubContentProvider(this._githubRepositories), { isReadonly: true }));
 		this._register(vscode.workspace.registerFileSystemProvider(this._conflictResolutionModel.mergeScheme, this._mergeOutputProvider));
 		this._register(vscode.commands.registerCommand('pr.resolveConflict', (conflict: Conflict) => {
@@ -145,7 +145,7 @@ export class ConflictResolutionCoordinator extends Disposable {
 		this._register(new ConflictResolutionTreeView(this._conflictResolutionModel));
 	}
 
-	private async acceptMerge(uri: vscode.Uri | unknown): Promise<void> {
+	private async _acceptMerge(uri: vscode.Uri | unknown): Promise<void> {
 		if (!(uri instanceof vscode.Uri)) {
 			return;
 		}

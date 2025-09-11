@@ -11,11 +11,11 @@ import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 import { MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
-	private expression: RegExp | undefined;
+	private _expression: RegExp | undefined;
 
 	constructor(
 		context: vscode.ExtensionContext,
-		private copilotRemoteAgentManager: CopilotRemoteAgentManager
+		private _copilotRemoteAgentManager
 	) {
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(() => {
@@ -25,7 +25,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 		this.updateTriggers();
 	}
 
-	private updateTriggers() {
+	private _updateTriggers() {
 		const triggers = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_ISSUE_TRIGGERS, []);
 		this.expression = triggers.length > 0 ? new RegExp(triggers.map(trigger => escapeRegExp(trigger)).join('|')) : undefined;
 	}

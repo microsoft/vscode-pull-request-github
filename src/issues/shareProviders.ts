@@ -51,7 +51,7 @@ abstract class AbstractShareProvider extends Disposable implements vscode.ShareP
 		this.unregister();
 	}
 
-	private async initialize() {
+	private async _initialize() {
 		if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
 			this.register();
 		}
@@ -69,7 +69,7 @@ abstract class AbstractShareProvider extends Disposable implements vscode.ShareP
 		}));
 	}
 
-	private async hasGitHubRepositories() {
+	private async _hasGitHubRepositories() {
 		for (const folderManager of this.repositoryManager.folderManagers) {
 			if ((await folderManager.computeAllGitHubRemotes()).length) {
 				return true;
@@ -78,7 +78,7 @@ abstract class AbstractShareProvider extends Disposable implements vscode.ShareP
 		}
 	}
 
-	private register() {
+	private _register() {
 		if (this.shareProviderRegistrations) {
 			return;
 		}
@@ -86,7 +86,7 @@ abstract class AbstractShareProvider extends Disposable implements vscode.ShareP
 		this.shareProviderRegistrations = supportedSchemes.map((scheme) => vscode.window.registerShareProvider({ scheme }, this));
 	}
 
-	private unregister() {
+	private _unregister() {
 		if (this.shareProviderRegistrations) {
 			disposeAll(this.shareProviderRegistrations);
 			this.shareProviderRegistrations = undefined;
@@ -201,7 +201,7 @@ export class GitHubPermalinkShareProvider extends AbstractShareProvider implemen
 }
 
 export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShareProvider {
-	private static ID = 'GitHubPermalinkAsMarkdownShareProvider';
+	private static _ID = 'GitHubPermalinkAsMarkdownShareProvider';
 
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
 		super(repositoryManager, gitApi, 'githubComPermalinkAsMarkdown', vscode.l10n.t('Copy GitHub Permalink as Markdown'), 12);
@@ -217,7 +217,7 @@ export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShare
 		}
 	}
 
-	private async getMarkdownLinkText(item: vscode.ShareableItem): Promise<string | undefined> {
+	private async _getMarkdownLinkText(item: vscode.ShareableItem): Promise<string | undefined> {
 		const fileName = pathLib.basename(item.resourceUri.path);
 
 		if (item.selection) {

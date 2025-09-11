@@ -29,17 +29,17 @@ Here are the possible columns:
 
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 	public static readonly toolId = 'github-pull-request_renderIssues';
-	private static ID = 'DisplayIssuesTool';
-	constructor(private readonly context: vscode.ExtensionContext, chatParticipantState: ChatParticipantState) {
+	private static _ID = 'DisplayIssuesTool';
+	constructor(private readonly _context, chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
 
-	private assistantPrompt(issues: IssueSearchResultItem[]): string {
+	private _assistantPrompt(issues: IssueSearchResultItem[]): string {
 		const possibleColumns = Object.keys(issues[0]);
 		return `${LLM_FIND_IMPORTANT_COLUMNS_INSTRUCTIONS}\n${possibleColumns.map(column => `- ${column}`).join('\n')}\nHere's the data you have about the issues:\n`;
 	}
 
-	private postProcess(proposedColumns: string, issues: IssueSearchResultItem[]): IssueColumn[] {
+	private _postProcess(proposedColumns: string, issues: IssueSearchResultItem[]): IssueColumn[] {
 		const lines = proposedColumns.split('\n');
 		const possibleColumns = Object.keys(issues[0]);
 		const finalColumns: IssueColumn[] = [];
@@ -64,7 +64,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return finalColumns;
 	}
 
-	private async getImportantColumns(issueItemsInfo: vscode.LanguageModelTextPart | undefined, issues: IssueSearchResultItem[], token: vscode.CancellationToken): Promise<IssueColumn[]> {
+	private async _getImportantColumns(issueItemsInfo: vscode.LanguageModelTextPart | undefined, issues: IssueSearchResultItem[], token: vscode.CancellationToken): Promise<IssueColumn[]> {
 		if (!issueItemsInfo) {
 			return ['number', 'title', 'state'];
 		}
@@ -93,11 +93,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return result;
 	}
 
-	private renderUser(account: IssueSearchResultAccount) {
+	private _renderUser(account: IssueSearchResultAccount) {
 		return `[@${reviewerLabel(account)}](${account.url})`;
 	}
 
-	private issueToRow(issue: IssueSearchResultItem, importantColumns: IssueColumn[]): string {
+	private _issueToRow(issue: IssueSearchResultItem, importantColumns: IssueColumn[]): string {
 		return `| ${importantColumns.map(column => {
 			switch (column) {
 				case 'number':
@@ -121,7 +121,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join(' | ')} |`;
 	}
 
-	private foundIssuesCount(params: DisplayIssuesParameters): number {
+	private _foundIssuesCount(params: DisplayIssuesParameters): number {
 		return params.totalIssues !== undefined ? params.totalIssues : (params.arrayOfIssues?.length ?? 0);
 	}
 

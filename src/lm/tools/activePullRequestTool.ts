@@ -17,14 +17,14 @@ import { FetchIssueResult } from './fetchIssueTool';
 export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	constructor(
 		protected readonly folderManagers: RepositoriesManager,
-		private readonly copilotRemoteAgentManager: CopilotRemoteAgentManager
+		private readonly _copilotRemoteAgentManager
 	) { }
 
 	protected abstract _findActivePullRequest(): PullRequestModel | undefined;
 
 	protected abstract _confirmationTitle(): string;
 
-	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
+	private _shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
 		return !!pullRequest && this.copilotRemoteAgentManager.enabled && COPILOT_LOGINS.includes(pullRequest.author.login);
 	}
 
@@ -37,7 +37,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		};
 	}
 
-	private parseCopilotEventStream(logsResponseText: string): string[] {
+	private _parseCopilotEventStream(logsResponseText: string): string[] {
 		const result: string[] = [];
 		logsResponseText
 			.split('\n')

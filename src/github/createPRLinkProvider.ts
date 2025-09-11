@@ -14,11 +14,11 @@ interface GitHubCreateTerminalLink extends vscode.TerminalLink {
 
 export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkProvider {
 	constructor(
-		private readonly reviewManager: ReviewManager,
-		private readonly folderRepositoryManager: FolderRepositoryManager,
+		private readonly _reviewManager,
+		private readonly _folderRepositoryManager,
 	) { }
 
-	private static getSettingsValue() {
+	private static _getSettingsValue() {
 		return vscode.workspace
 			.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<'vscode' | 'github' | undefined>(TERMINAL_LINK_HANDLER);
@@ -72,7 +72,7 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 		return [];
 	}
 
-	private openLink(link: GitHubCreateTerminalLink) {
+	private _openLink(link: GitHubCreateTerminalLink) {
 		return vscode.env.openExternal(vscode.Uri.parse(link.url));
 	}
 

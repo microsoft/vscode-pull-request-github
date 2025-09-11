@@ -57,21 +57,21 @@ export class CopilotApi {
 	protected static readonly ID = 'copilotApi';
 
 	constructor(
-		private octokit: LoggingOctokit,
-		private token: string,
-		private credentialStore: CredentialStore,
-		private telemetry: ITelemetry
+		private _octokit,
+		private _token,
+		private _credentialStore,
+		private _telemetry
 	) { }
 
-	private get baseUrl(): string {
+	private get _baseUrl(): string {
 		return 'https://api.githubcopilot.com';
 	}
 
-	private async makeApiCallFullUrl(url: string, init: RequestInit): Promise<Response> {
+	private async _makeApiCallFullUrl(url: string, init: RequestInit): Promise<Response> {
 		const apiCall = () => fetch(url, init);
 		return this.octokit.call(apiCall);
 	}
-	private async makeApiCall(api: string, init: RequestInit): Promise<Response> {
+	private async _makeApiCall(api: string, init: RequestInit): Promise<Response> {
 		return this.makeApiCallFullUrl(`${this.baseUrl}${api}`, init);
 	}
 
@@ -127,7 +127,7 @@ export class CopilotApi {
 	}
 
 	// https://github.com/github/sweagentd/blob/371ea6db280b9aecf790ccc20660e39a7ecb8d1c/internal/api/jobapi/handler.go#L110-L120
-	private async formatRemoteAgentJobError(status: number, repoSlug: string, response: Response): Promise<string> {
+	private async _formatRemoteAgentJobError(status: number, repoSlug: string, response: Response): Promise<string> {
 		Logger.error(`Error in remote agent job: ${await response.text()}`, CopilotApi.ID);
 		switch (status) {
 			case 400:
@@ -149,7 +149,7 @@ export class CopilotApi {
 		}
 	}
 
-	private validateRemoteAgentJobResponse(data: any): asserts data is RemoteAgentJobResponse {
+	private _validateRemoteAgentJobResponse(data: any): asserts data is RemoteAgentJobResponse {
 		if (!data || typeof data !== 'object') {
 			throw new Error('Invalid response from coding agent');
 		}
@@ -277,17 +277,17 @@ export class CopilotApi {
 		}
 	}
 
-	private getHub(): GitHub | undefined {
+	private _getHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
-		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+		if (this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			authProvider = AuthProvider.githubEnterprise;
-		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
+		} else if (this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			authProvider = AuthProvider.github;
 		} else {
 			return;
 		}
 
-		return this.credentialStore.getHub(authProvider);
+		return this._credentialStore.getHub(authProvider);
 	}
 }
 

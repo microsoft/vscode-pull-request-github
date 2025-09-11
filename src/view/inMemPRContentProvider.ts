@@ -20,7 +20,7 @@ import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string | Uint8Array> } = {};
 
-	constructor(private reposManagers: RepositoriesManager, gitAPI: GitApiImpl, credentialStore: CredentialStore) {
+	constructor(private _reposManagers, gitAPI: GitApiImpl, credentialStore: CredentialStore) {
 		super(gitAPI, credentialStore);
 	}
 
@@ -37,7 +37,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		};
 	}
 
-	private resolveChanges(rawChanges: (SlimFileChange | InMemFileChange)[], pr: PullRequestModel,
+	private _resolveChanges(rawChanges: (SlimFileChange | InMemFileChange)[], pr: PullRequestModel,
 		folderRepositoryManager: FolderRepositoryManager,
 		mergeBase: string): (RemoteFileChangeModel | InMemFileChangeModel)[] {
 		const isCurrentPR = pr.equals(folderRepositoryManager.activePullRequest);
@@ -52,7 +52,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		});
 	}
 
-	private waitForGitHubRepos(folderRepositoryManager: FolderRepositoryManager, milliseconds: number) {
+	private _waitForGitHubRepos(folderRepositoryManager: FolderRepositoryManager, milliseconds: number) {
 		return new Promise<void>(resolve => {
 			const timeout = setTimeout(() => {
 				disposable.dispose();
@@ -68,7 +68,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		});
 	}
 
-	private async tryRegisterNewProvider(uri: vscode.Uri, prUriParams: PRUriParams) {
+	private async _tryRegisterNewProvider(uri: vscode.Uri, prUriParams: PRUriParams) {
 		await this.waitForAuth();
 		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
 			await this.waitForRepos(4000);
@@ -115,7 +115,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		});
 	}
 
-	private async readFileWithProvider(uri: vscode.Uri, prNumber: number): Promise<Uint8Array | undefined> {
+	private async _readFileWithProvider(uri: vscode.Uri, prNumber: number): Promise<Uint8Array | undefined> {
 		const provider = this._prFileChangeContentProviders[prNumber];
 		if (provider) {
 			const content = await provider(uri);

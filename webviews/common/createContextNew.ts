@@ -229,7 +229,7 @@ export class CreatePRContextNew {
 		return isValid;
 	};
 
-	private copyParams(): CreatePullRequestNew {
+	private _copyParams(): CreatePullRequestNew {
 		return {
 			title: this.createParams.pendingTitle!,
 			body: this.createParams.pendingDescription!,

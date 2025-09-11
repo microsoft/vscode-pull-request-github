@@ -11,7 +11,7 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 
 export class GitHubCommitFileSystemProvider extends RepositoryFileSystemProvider {
-	constructor(private readonly repos: RepositoriesManager, gitAPI: GitApiImpl, credentialStore: CredentialStore) {
+	constructor(private readonly _repos, gitAPI: GitApiImpl, credentialStore: CredentialStore) {
 		super(gitAPI, credentialStore);
 	}
 

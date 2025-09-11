@@ -17,7 +17,7 @@ export enum ProtocolType {
 }
 
 export class Protocol {
-	private static readonly ID = 'Protocol';
+	private static readonly _ID = 'Protocol';
 	public type: ProtocolType = ProtocolType.OTHER;
 	public host: string = '';
 
@@ -31,14 +31,14 @@ export class Protocol {
 
 	public readonly url: vscode.Uri;
 	constructor(uriString: string) {
-		if (this.parseSshProtocol(uriString)) {
+		if (this._parseSshProtocol(uriString)) {
 			this.url = vscode.Uri.from({ scheme: 'ssh', authority: this.host, path: `/${this.nameWithOwner}` });
 			return;
 		}
 
 		try {
 			this.url = vscode.Uri.parse(uriString);
-			this.type = this.getType(this.url.scheme);
+			this.type = this._getType(this.url.scheme);
 
 			this.host = this.getHostName(this.url.authority);
 			if (this.host) {
@@ -53,7 +53,7 @@ export class Protocol {
 		}
 	}
 
-	private getType(scheme: string): ProtocolType {
+	private _getType(scheme: string): ProtocolType {
 		switch (scheme) {
 			case 'file':
 				return ProtocolType.Local;
@@ -69,7 +69,7 @@ export class Protocol {
 		}
 	}
 
-	private parseSshProtocol(uriString: string): boolean {
+	private _parseSshProtocol(uriString: string): boolean {
 		const sshConfig = resolve(uriString);
 		if (!sshConfig) {
 			return false;

@@ -102,7 +102,7 @@ Body: ${comment.body}
 		return new vscode.LanguageModelToolResult(content);
 	}
 
-	private summarizeInstructions(owner: string, repo: string): string {
+	private _summarizeInstructions(owner: string, repo: string): string {
 		return `
 You are an AI assistant who is very proficient in summarizing notification threads.
 You will be given information relative to a notification thread : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.

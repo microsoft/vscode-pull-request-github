@@ -34,14 +34,14 @@ interface Contact {
  * A contact service provider for liveshare that would suggest contacts based on the pull request manager
  */
 export class GitHubContactServiceProvider implements ContactServiceProvider {
-	private readonly onNotifiedEmitter = new vscode.EventEmitter<NotifyContactServiceEventArgs>();
+	private readonly _onNotifiedEmitter = new vscode.EventEmitter<NotifyContactServiceEventArgs>();
 
-	public onNotified: vscode.Event<NotifyContactServiceEventArgs> = this.onNotifiedEmitter.event;
+	public onNotified: vscode.Event<NotifyContactServiceEventArgs> = this._onNotifiedEmitter.event;
 
-	constructor(private readonly pullRequestManager: RepositoriesManager) {
+	constructor(private readonly _pullRequestManager) {
 		pullRequestManager.folderManagers.forEach(folderManager => {
 			folderManager.onDidChangeAssignableUsers(e => {
-				this.notifySuggestedAccounts(e);
+				this._notifySuggestedAccounts(e);
 			});
 		});
 	}
@@ -68,7 +68,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 
 				// if we get initialized and users are available on the pr manager
 				const allAssignableUsers: Map<string, IAccount> = new Map();
-				for (const pullRequestManager of this.pullRequestManager.folderManagers) {
+				for (const pullRequestManager of this._pullRequestManager.folderManagers) {
 					const batch = pullRequestManager.getAllAssignableUsers();
 					if (!batch) {
 						continue;
@@ -80,7 +80,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 					}
 				}
 				if (allAssignableUsers.size > 0) {
-					this.notifySuggestedAccounts(Array.from(allAssignableUsers.values()));
+					this._notifySuggestedAccounts(Array.from(allAssignableUsers.values()));
 				}
 
 				break;
@@ -91,10 +91,10 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		return result;
 	}
 
-	private async notifySuggestedAccounts(accounts: IAccount[]) {
+	private async _notifySuggestedAccounts(accounts: IAccount[]) {
 		let currentLoginUser: string | undefined;
 		try {
-			currentLoginUser = await this.getCurrentUserLogin();
+			currentLoginUser = await this._getCurrentUserLogin();
 		} catch (e) {
 			// If there are no GitHub repositories at the time of the above call, then we can get an error here.
 			// Since we don't care about the error and are just trying to notify accounts and not responding to user action,
@@ -103,7 +103,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		if (currentLoginUser) {
 			// Note: only suggest if the current user is part of the aggregated mentionable users
 			if (accounts.findIndex(u => u.login === currentLoginUser) !== -1) {
-				this.notifySuggestedUsers(
+				this._notifySuggestedUsers(
 					accounts
 						.filter(u => u.email)
 						.map(u => {
@@ -119,11 +119,11 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		}
 	}
 
-	private async getCurrentUserLogin(): Promise<string | undefined> {
-		if (this.pullRequestManager.folderManagers.length === 0) {
+	private async _getCurrentUserLogin(): Promise<string | undefined> {
+		if (this._pullRequestManager.folderManagers.length === 0) {
 			return undefined;
 		}
-		const origin = await this.pullRequestManager.folderManagers[0]?.getOrigin();
+		const origin = await this._pullRequestManager.folderManagers[0]?.getOrigin();
 		if (origin) {
 			const currentUser = origin.hub.currentUser ? await origin.hub.currentUser : undefined;
 			if (currentUser) {
@@ -132,14 +132,14 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		}
 	}
 
-	private notify(type: string, body: { contacts: Contact[]; exclusive?: boolean }) {
-		this.onNotifiedEmitter.fire({
+	private _notify(type: string, body: { contacts: Contact[]; exclusive?: boolean }) {
+		this._onNotifiedEmitter.fire({
 			type,
 			body,
 		});
 	}
 
-	private notifySuggestedUsers(contacts: Contact[], exclusive?: boolean) {
+	private _notifySuggestedUsers(contacts: Contact[], exclusive?: boolean) {
 		this.notify('suggestedUsers', {
 			contacts,
 			exclusive,

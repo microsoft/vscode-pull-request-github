@@ -30,9 +30,9 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		parent: TreeNodeParent,
 		uri: vscode.Uri,
 		public readonly folderManager: FolderRepositoryManager,
-		private telemetry: ITelemetry,
-		private notificationProvider: NotificationProvider,
-		private context: vscode.ExtensionContext,
+		private _telemetry,
+		private _notificationProvider,
+		private _context,
 		private readonly _prsTreeModel: PrsTreeModel,
 		private readonly _copilotMananger: CopilotRemoteAgentManager
 	) {
@@ -53,7 +53,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return false;
 	}
 
-	private static async getQueries(folderManager: FolderRepositoryManager): Promise<IQueryInfo[]> {
+	private static async _getQueries(folderManager: FolderRepositoryManager): Promise<IQueryInfo[]> {
 		const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE, folderManager.repository.rootUri);
 		const queries = (configuration.get<IQueryInfo[]>(QUERIES) ?? []);
 		return queries;

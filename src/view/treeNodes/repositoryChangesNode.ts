@@ -24,7 +24,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 	public tooltip: string;
 	public iconPath: vscode.ThemeIcon | vscode.Uri | undefined;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-	private isLocal: boolean;
+	private _isLocal: boolean;
 	public readonly repository: Repository;
 
 	constructor(
@@ -77,7 +77,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		}));
 	}
 
-	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
+	private _revealActiveEditorInTree(activeEditorUri: string | undefined): void {
 		if (this.parent.view.visible && activeEditorUri) {
 			const matchingFile = this._reviewModel.localFileChanges.find(change => change.changeModel.filePath.toString() === activeEditorUri);
 			if (matchingFile) {
@@ -101,7 +101,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		return this._children;
 	}
 
-	private setLabel() {
+	private _setLabel() {
 		this.label = this.pullRequestModel.title;
 		if (this.label.length > 50) {
 			this.tooltip = this.label;

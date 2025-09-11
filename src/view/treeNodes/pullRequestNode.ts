@@ -177,7 +177,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		}
 	}
 
-	private async resolvePRCommentController(): Promise<void> {
+	private async _resolvePRCommentController(): Promise<void> {
 		// If the current branch is this PR's branch, then we can rely on the review comment controller instead.
 		if (this.pullRequestModel.equals(this._folderReposManager.activePullRequest)) {
 			return;
@@ -200,7 +200,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		this.registerListeners();
 	}
 
-	private registerListeners(): void {
+	private _registerListeners(): void {
 		this._register(this.pullRequestModel.onDidChangePendingReviewState(async newDraftMode => {
 			if (!newDraftMode) {
 				(await this.getFileChanges()).forEach(fileChange => {
@@ -220,7 +220,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		return this._fileChanges;
 	}
 
-	private async resolveFileChangeNodes(): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
+	private async _resolveFileChangeNodes(): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
 		if (!this.pullRequestModel.isResolved()) {
 			return [];
 		}
@@ -368,7 +368,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	// #region Document Content Provider
-	private async provideDocumentContent(uri: vscode.Uri): Promise<string | Uint8Array> {
+	private async _provideDocumentContent(uri: vscode.Uri): Promise<string | Uint8Array> {
 		const params = fromPRUri(uri);
 		if (!params) {
 			return '';

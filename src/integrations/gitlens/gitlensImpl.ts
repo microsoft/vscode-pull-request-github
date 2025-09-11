@@ -16,7 +16,7 @@ export class GitLensIntegration extends Disposable {
 		this.onExtensionsChanged();
 	}
 
-	private register(api: GitLensApi | undefined) {
+	private _register(api: GitLensApi | undefined) {
 		if (!api) {
 			return;
 		}
@@ -40,7 +40,7 @@ export class GitLensIntegration extends Disposable {
 		);
 	}
 
-	private async onExtensionsChanged() {
+	private async _onExtensionsChanged() {
 		const extension =
 			vscode.extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens') ??
 			vscode.extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens-insiders');

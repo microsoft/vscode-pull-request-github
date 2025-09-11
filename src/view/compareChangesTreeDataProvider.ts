@@ -75,7 +75,7 @@ class GitHubCommitNode extends TreeNode {
 		});
 	}
 
-	constructor(parent: TreeNodeParent, private readonly model: CreatePullRequestDataModel, private readonly commit: OctokitCommon.CompareCommits['commits'][0], private readonly parentRef) {
+	constructor(parent: TreeNodeParent, private readonly _model, private readonly _commit, private readonly _parentRef) {
 		super(parent);
 	}
 }
@@ -108,13 +108,13 @@ class GitCommitNode extends TreeNode {
 		});
 	}
 
-	constructor(parent: TreeNodeParent, private readonly commit: Commit, private readonly folderRepoManager: FolderRepositoryManager, private readonly parentRef) {
+	constructor(parent: TreeNodeParent, private readonly _commit, private readonly _folderRepoManager, private readonly _parentRef) {
 		super(parent);
 	}
 }
 
 abstract class CompareChangesTreeProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
-	private static readonly ID = 'CompareChangesTreeProvider';
+	private static readonly _ID = 'CompareChangesTreeProvider';
 	private _view: vscode.TreeView<TreeNode>;
 	private _children: TreeNode[] | undefined;
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -210,7 +210,7 @@ abstract class CompareChangesTreeProvider extends Disposable implements vscode.T
 class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 	constructor(
 		model: CreatePullRequestDataModel,
-		private folderRepoManager: FolderRepositoryManager,
+		private _folderRepoManager,
 	) {
 		super(model);
 	}
@@ -237,7 +237,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 		}
 	}
 
-	private async getGitFileChildren(diff: Change[]) {
+	private async _getGitFileChildren(diff: Change[]) {
 		return diff.map(change => {
 			const filename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.uri.path);
 			const previousFilename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.originalUri.path);
@@ -253,7 +253,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 		});
 	}
 
-	private addReviewMessage(markdown?: vscode.MarkdownString): vscode.MarkdownString | undefined {
+	private _addReviewMessage(markdown?: vscode.MarkdownString): vscode.MarkdownString | undefined {
 		const preReviewer = this.folderRepoManager.getAutoReviewer();
 		if (!preReviewer) {
 			return markdown;
@@ -295,7 +295,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 class CompareChangesCommitsTreeProvider extends CompareChangesTreeProvider {
 	constructor(
 		model: CreatePullRequestDataModel,
-		private readonly folderRepoManager: FolderRepositoryManager
+		private readonly _folderRepoManager
 	) {
 		super(model);
 	}
@@ -342,7 +342,7 @@ export class CompareChanges extends Disposable {
 
 	constructor(
 		folderRepoManager: FolderRepositoryManager,
-		private model: CreatePullRequestDataModel
+		private _model
 	) {
 		super();
 		this._filesDataProvider = this._register(new CompareChangesFilesTreeProvider(model, folderRepoManager));
@@ -363,7 +363,7 @@ export class CompareChanges extends Disposable {
 		this.model.compareOwner = owner;
 	}
 
-	private initialize() {
+	private _initialize() {
 		if (!this.model.gitHubRepository) {
 			return;
 		}

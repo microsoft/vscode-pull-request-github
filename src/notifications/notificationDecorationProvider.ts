@@ -26,7 +26,7 @@ export class NotificationsDecorationProvider extends Disposable implements vscod
 		}));
 	}
 
-	private settingValue(): boolean {
+	private _settingValue(): boolean {
 		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(EXPERIMENTAL_NOTIFICATIONS_SCORE, false);
 	}
 

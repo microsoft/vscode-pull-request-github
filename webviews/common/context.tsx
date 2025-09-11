@@ -143,7 +143,7 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	private async submitReviewCommand(command: string, body: string) {
+	private async _submitReviewCommand(command: string, body: string) {
 		try {
 			const result: SubmitReviewReply = await this.postMessage({ command, args: body });
 			return this.appendReview(result);
@@ -196,7 +196,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview(reply: SubmitReviewReply) {
+	private _appendReview(reply: SubmitReviewReply) {
 		const { pr: state } = this;
 		if (!state) {
 			throw new Error('Unexpectedly no pull request when trying to append review');

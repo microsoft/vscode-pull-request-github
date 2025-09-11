@@ -11,7 +11,7 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { shouldShowHover, USER_EXPRESSION } from './util';
 
 export class UserHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) { }
+	constructor(private _manager, private _telemetry) { }
 
 	async provideHover(
 		document: vscode.TextDocument,
@@ -58,7 +58,7 @@ export class UserHoverProvider implements vscode.HoverProvider {
 		}
 	}
 
-	private async createHover(
+	private async _createHover(
 		uri: vscode.Uri,
 		username: string,
 		range: vscode.Range,

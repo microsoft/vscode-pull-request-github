@@ -48,8 +48,8 @@ export interface SuggestionInformation {
 }
 
 export class ReviewCommentController extends CommentControllerBase implements CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
-	private static readonly ID = 'ReviewCommentController';
-	private static readonly PREFIX = 'github-review';
+	private static readonly _ID = 'ReviewCommentController';
+	private static readonly _PREFIX = 'github-review';
 	private _commentHandlerId: string;
 
 	// Note: marked as protected so that tests can verify caches have been updated correctly without breaking type safety
@@ -101,7 +101,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	 * @param thread The comment thread information from GitHub.
 	 * @returns A GHPRCommentThread that has been created on an editor.
 	 */
-	private async createOutdatedCommentThread(path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
+	private async _createOutdatedCommentThread(path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
 		const commit = thread.comments[0].originalCommitId!;
 		const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, path));
 		const reviewUri = toReviewUri(
@@ -126,7 +126,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	 * @param thread The comment thread information from GitHub.
 	 * @returns A GHPRCommentThread that has been created on an editor.
 	 */
-	private async createWorkspaceCommentThread(
+	private async _createWorkspaceCommentThread(
 		uri: vscode.Uri,
 		path: string,
 		thread: IReviewThread,
@@ -159,7 +159,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	 * @param thread The comment thread information from GitHub.
 	 * @returns A GHPRCommentThread that has been created on an editor.
 	 */
-	private async createReviewCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
+	private async _createReviewCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
 		if (!this._folderRepoManager.activePullRequest?.mergeBase) {
 			throw new Error('Cannot create review comment thread without an active pull request base.');
 		}
@@ -177,7 +177,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
-	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
+	private async _doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
 		// First clean up all the old comments.
 		for (const key in this._workspaceFileChangeCommentThreads) {
 			disposeAll(this._workspaceFileChangeCommentThreads[key]);
@@ -230,7 +230,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	/**
 	 * Causes pre-fetching of commenting ranges to occur for all files in the active PR
 	 */
-	private updateResourcesWithCommentingRanges(): void {
+	private _updateResourcesWithCommentingRanges(): void {
 		// only prefetch for small PRs
 		if (this._folderRepoManager.activePullRequest && this._folderRepoManager.activePullRequest.fileChanges.size < 30) {
 			for (const [file, change] of (this._folderRepoManager.activePullRequest?.fileChanges.entries() ?? [])) {
@@ -243,7 +243,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 	}
 
-	private async initializeCommentThreads(): Promise<void> {
+	private async _initializeCommentThreads(): Promise<void> {
 		const activePullRequest = this._folderRepoManager.activePullRequest;
 		if (!activePullRequest || !activePullRequest.isResolved()) {
 			return;
@@ -251,7 +251,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		return this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
 	}
 
-	private async registerListeners(): Promise<void> {
+	private async _registerListeners(): Promise<void> {
 		const activePullRequest = this._folderRepoManager.activePullRequest;
 		if (!activePullRequest) {
 			return;
@@ -447,7 +447,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		updateThreads(this._workspaceFileChangeCommentThreads, workspaceFileReviewThreads);
 	}
 
-	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {
+	private _visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {
 		a = a.filter(ed => ed.document.uri.scheme !== 'comment');
 		b = b.filter(ed => ed.document.uri.scheme !== 'comment');
 
@@ -557,7 +557,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 	// #endregion
 
-	private async getContentDiff(uri: vscode.Uri, fileName: string, retry: boolean = true): Promise<string> {
+	private async _getContentDiff(uri: vscode.Uri, fileName: string, retry: boolean = true): Promise<string> {
 		const matchedEditor = vscode.window.visibleTextEditors.find(
 			editor => editor.document.uri.toString() === uri.toString(),
 		);
@@ -608,7 +608,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 	}
 
-	private findMatchedFileChangeForReviewDiffView(
+	private _findMatchedFileChangeForReviewDiffView(
 		fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		uri: vscode.Uri,
 	): GitFileChangeNode | undefined {
@@ -657,7 +657,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	// #endregion
 
 	// #region Review
-	private getCommentSide(thread: GHPRCommentThread): DiffSide {
+	private _getCommentSide(thread: GHPRCommentThread): DiffSide {
 		if (thread.uri.scheme === Schemes.Review) {
 			const query = fromReviewUri(thread.uri.query);
 			return query.base ? DiffSide.LEFT : DiffSide.RIGHT;
@@ -727,19 +727,19 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	}
 
 	// #endregion
-	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
+	private async _optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
 		const currentUser = await this._folderRepoManager.getCurrentUser();
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
 	}
 
-	private updateCommentThreadComments(thread: GHPRCommentThread, newComments: (GHPRComment | TemporaryComment)[]) {
+	private _updateCommentThreadComments(thread: GHPRCommentThread, newComments: (GHPRComment | TemporaryComment)[]) {
 		thread.comments = newComments;
 		updateCommentThreadLabel(thread);
 	}
 
-	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
+	private async _optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
 		const currentUser = await this._folderRepoManager.getCurrentUser();
 		const temporaryComment = new TemporaryComment(
 			thread,
@@ -868,7 +868,7 @@ ${suggestionInformation.suggestionContent}
 		);
 	}
 
-	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+	private async _createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
 		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment on resolve without an active pull request.');
 		}
