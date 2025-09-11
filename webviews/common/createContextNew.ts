@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { RemoteInfo } from '../../common/types';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
-import { compareIgnoreCase } from '../../src/common/utils';
+import { compareIgnoreCase, setLocalizedRelativeTimeConfig } from '../../src/common/utils';
 import { PreReviewState } from '../../src/github/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
@@ -314,6 +314,11 @@ export class CreatePRContextNew {
 				} else {
 					message.params.autoMerge = this.createParams.autoMerge;
 					message.params.autoMergeMethod = this.createParams.autoMergeMethod;
+				}
+
+				// Configure localized relative time formatting if available
+				if (message.params.relativeTimeConfig) {
+					setLocalizedRelativeTimeConfig(message.params.relativeTimeConfig);
 				}
 
 				this.updateState(message.params);

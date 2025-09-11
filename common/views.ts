@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
+import { LocalizedRelativeTimeConfig } from '../src/common/utils';
 import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 import { DisplayLabel, PreReviewState } from '../src/github/views';
 import { RemoteInfo } from './types';
@@ -42,6 +43,7 @@ export interface CreateParams {
 	allowAutoMerge?: boolean;
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
+	relativeTimeConfig?: LocalizedRelativeTimeConfig | null;
 }
 
 export interface ScrollPosition {
@@ -130,6 +132,7 @@ export interface CreateParamsNew {
 
 	creating: boolean;
 	reviewing: boolean;
+	relativeTimeConfig?: LocalizedRelativeTimeConfig | null;
 }
 
 export interface ChooseRemoteAndBranchArgs {

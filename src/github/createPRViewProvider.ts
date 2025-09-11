@@ -23,7 +23,7 @@ import {
 	PUSH_BRANCH
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
+import { asPromise, compareIgnoreCase, createLocalizedRelativeTimeConfig, formatError, promiseWithTimeout } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
@@ -254,7 +254,8 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			initializeWithGeneratedTitleAndDescription: useCopilot,
 			preReviewState: PreReviewState.None,
 			preReviewer: preReviewer?.title,
-			reviewing: false
+			reviewing: false,
+			relativeTimeConfig: createLocalizedRelativeTimeConfig(),
 		};
 
 		return params;
