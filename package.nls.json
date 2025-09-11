@@ -67,7 +67,7 @@
 	"githubPullRequests.allowFetch.description": "Allows `git fetch` to be run for checked-out pull request branches when checking for updates to the pull request.",
 	"githubPullRequests.ignoredPullRequestBranches.description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches.",
 	"githubPullRequests.ignoredPullRequestBranches.items": "Branch name",
-	"githubPullRequests.ignoreSubmodules.description": "Prevents repositories that are submodules from being managed by the GitHub Pull Requests extension. Changes require a reload to apply.",
+	"githubPullRequests.ignoreSubmodules.description": "Prevents repositories that are submodules from being managed by the GitHub Pull Requests extension. A window reload is required for changes to this setting to take effect.",
 	"githubPullRequests.neverIgnoreDefaultBranch.description": "Never offer to ignore a pull request associated with the default branch of a repository.",
 	"githubPullRequests.overrideDefaultBranch.description": "The default branch for a repository is set on github.com. With this setting, you can override that default with another branch.",
 	"githubPullRequests.postCreate.description": "The action to take after creating a pull request.",
