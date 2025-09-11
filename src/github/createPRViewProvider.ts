@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, TitleAndDescriptionArgs } from '../../common/views';
+import { RemoteInfo } from '../../common/types';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';

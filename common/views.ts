@@ -6,11 +6,7 @@
 import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
 import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 import { DisplayLabel, PreReviewState } from '../src/github/views';
-
-export interface RemoteInfo {
-	owner: string;
-	repositoryName: string;
-}
+import { RemoteInfo } from './types';
 
 export interface CreateParams {
 	availableBaseRemotes: RemoteInfo[];
