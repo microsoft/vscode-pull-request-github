@@ -5,7 +5,8 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParamsNew, RemoteInfo } from '../../common/views';
+import { RemoteInfo } from '../../common/types';
+import { CreateParamsNew } from '../../common/views';
 import { isITeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';

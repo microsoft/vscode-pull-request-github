@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
+import { RemoteInfo } from '../../common/types';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
 import { PreReviewState } from '../../src/github/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
