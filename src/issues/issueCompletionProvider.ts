@@ -45,9 +45,9 @@ class ConfigureIssueQueriesCompletionItem extends vscode.CompletionItem {
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(
-		private stateManager: StateManager,
-		private repositoriesManager: RepositoriesManager,
-		private context: vscode.ExtensionContext,
+		private _stateManager,
+		private _repositoriesManager,
+		private _context,
 	) { }
 
 	async provideCompletionItems(
@@ -156,7 +156,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 		let folderManager: FolderRepositoryManager | undefined;
 		try {
-			folderManager = this.repositoriesManager.getManagerForFile(uri);
+			folderManager = this._repositoriesManager.getManagerForFile(uri);
 			repo = await folderManager?.getPullRequestDefaults();
 		} catch (e) {
 			// leave repo undefined
@@ -190,7 +190,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		return completionItems;
 	}
 
-	private async completionItemFromIssue(
+	private async _completionItemFromIssue(
 		repo: PullRequestDefaults | undefined,
 		issue: IssueModel,
 		range: vscode.Range,
@@ -224,7 +224,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		_token: vscode.CancellationToken,
 	): Promise<vscode.CompletionItem> {
 		if (item instanceof IssueCompletionItem) {
-			item.documentation = await issueMarkdown(item.issue, this.context, this.repositoriesManager);
+			item.documentation = await issueMarkdown(item.issue, this.context, this._repositoriesManager);
 			item.command = {
 				command: 'issues.issueCompletion',
 				title: vscode.l10n.t('Issue Completion Choose,'),

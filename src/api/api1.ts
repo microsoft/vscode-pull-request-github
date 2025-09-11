@@ -80,7 +80,7 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	private _providers = new Map<number, IGit>();
 
 	public constructor(
-		private readonly repositoriesManager: RepositoriesManager) {
+		private readonly _repositoriesManager) {
 		super();
 	}
 
@@ -228,7 +228,7 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	}
 
 	async getRepositoryDescription(uri: vscode.Uri) {
-		const folderManagerForRepo = this.repositoriesManager.getManagerForFile(uri);
+		const folderManagerForRepo = this._repositoriesManager.getManagerForFile(uri);
 
 		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
 			const repositoryMetadata = await folderManagerForRepo.gitHubRepositories[0].getMetadata();

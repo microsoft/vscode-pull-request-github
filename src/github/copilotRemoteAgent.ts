@@ -81,38 +81,38 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
-	private readonly gitOperationsManager: GitOperationsManager;
-	private readonly ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map();
+	private readonly _gitOperationsManager: GitOperationsManager;
+	private readonly _ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map();
 
-	private codingAgentPRsPromise: Promise<{
+	private _codingAgentPRsPromise: Promise<{
 		item: PullRequestModel;
 		status: CopilotPRStatus;
 	}[]> | undefined;
 
 	constructor(
-		private credentialStore: CredentialStore,
+		private _credentialStore,
 		public repositoriesManager: RepositoriesManager,
-		private telemetry: ITelemetry,
-		private context: vscode.ExtensionContext,
-		private gitAPI: GitApiImpl,
+		private _telemetry,
+		private _context,
+		private _gitAPI,
 	) {
 		super();
 		this.gitOperationsManager = new GitOperationsManager(CopilotRemoteAgentManager.ID);
-		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
+		this._register(this._credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
 				this._copilotApiPromise = undefined; // Invalidate cached session
 			}
 		}));
 
 		this._stateModel = new CopilotStateModel();
-		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
+		this._register(new CopilotPRWatcher(this._repositoriesManager, this._stateModel));
 		this._register(this._stateModel.onDidChangeStates(() => {
 			this._onDidChangeStates.fire();
 			this._onDidChangeChatSessions.fire();
 		}));
 		this._register(this._stateModel.onDidChangeNotifications(items => this._onDidChangeNotifications.fire(items)));
 
-		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
+		this._register(this._repositoriesManager.onDidChangeFolderRepositories((event) => {
 			if (event.added) {
 				this._register(event.added.onDidChangeAssignableUsers(() => {
 					this.updateAssignabilityContext();
@@ -120,7 +120,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 			this.updateAssignabilityContext();
 		}));
-		this.repositoriesManager.folderManagers.forEach(manager => {
+		this._repositoriesManager.folderManagers.forEach(manager => {
 			this._register(manager.onDidChangeAssignableUsers(() => {
 				this.updateAssignabilityContext();
 			}));
@@ -136,15 +136,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
-	private get copilotApi(): Promise<CopilotApi | undefined> {
+	private get _copilotApi(): Promise<CopilotApi | undefined> {
 		if (!this._copilotApiPromise) {
 			this._copilotApiPromise = this.initializeCopilotApi();
 		}
 		return this._copilotApiPromise;
 	}
 
-	private async initializeCopilotApi(): Promise<CopilotApi | undefined> {
-		return await getCopilotApi(this.credentialStore, this.telemetry);
+	private async _initializeCopilotApi(): Promise<CopilotApi | undefined> {
+		return await getCopilotApi(this._credentialStore, this.telemetry);
 	}
 
 	public get enabled(): boolean {
@@ -156,15 +156,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	private _repoManagerInitializationPromise: Promise<void> | undefined;
-	private async waitRepoManagerInitialization() {
-		if (this.repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this.repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+	private async _waitRepoManagerInitialization() {
+		if (this._repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this._repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
 			return;
 		}
 
 		if (!this._repoManagerInitializationPromise) {
 			this._repoManagerInitializationPromise = new Promise((resolve) => {
-				const disposable = this.repositoriesManager.onDidChangeState(() => {
-					if (this.repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this.repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+				const disposable = this._repositoriesManager.onDidChangeState(() => {
+					if (this._repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this._repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
 						disposable.dispose();
 						resolve();
 					}
@@ -206,7 +206,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return false;
 		}
 
-		if (!this.credentialStore.isAnyAuthenticated()) {
+		if (!this._credentialStore.isAnyAuthenticated()) {
 			// If not signed in, then we optimistically say it's available.
 			return true;
 		}
@@ -224,7 +224,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await this.isAssignable();
 	}
 
-	private async updateAssignabilityContext(): Promise<void> {
+	private async _updateAssignabilityContext(): Promise<void> {
 		try {
 			const available = await this.isAvailable();
 			commands.setContext('copilotCodingAgentAssignable', available);
@@ -234,16 +234,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private firstFolderManager(): FolderRepositoryManager | undefined {
-		if (!this.repositoriesManager.folderManagers.length) {
+	private _firstFolderManager(): FolderRepositoryManager | undefined {
+		if (!this._repositoriesManager.folderManagers.length) {
 			return;
 		}
-		return this.repositoriesManager.folderManagers[0];
+		return this._repositoriesManager.folderManagers[0];
 	}
 
-	private chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
+	private _chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
 		return chooseItem<FolderRepositoryManager>(
-			this.repositoriesManager.folderManagers,
+			this._repositoriesManager.folderManagers,
 			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
 		);
 	}
@@ -350,7 +350,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async tryPromptForAuthAndRepo(): Promise<FolderRepositoryManager | undefined> {
-		const authResult = await this.credentialStore.tryPromptForCopilotAuth();
+		const authResult = await this._credentialStore.tryPromptForCopilotAuth();
 		if (!authResult) {
 			return undefined;
 		}
@@ -514,7 +514,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (!capi) {
 				return;
 			}
-			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			const sessions = await capi.getAllCodingAgentPRs(this._repositoriesManager);
 			return sessions.find(session => session.number === number);
 		})();
 
@@ -733,7 +733,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return sessions.html_url;
 	}
 
-	private getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
+	private _getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
 		return runs
 			.slice()
 			.sort((a, b) => {
@@ -781,7 +781,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return fullText;
 	}
 
-	private extractFileReferences(references: readonly ChatPromptReference[] | undefined): string | undefined {
+	private _extractFileReferences(references: readonly ChatPromptReference[] | undefined): string | undefined {
 		if (!references || references.length === 0) {
 			return;
 		}
@@ -858,7 +858,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const timeline = await pullRequest.getCopilotTimelineEvents(pullRequest);
 		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
-		const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
+		const tooltip = await issueMarkdown(pullRequest, this.context, this._repositoriesManager);
 		const timestampNumber = new Date(pullRequest.createdAt).getTime();
 		const defaultBranch = await pullRequest.githubRepository.getDefaultBranch();
 		const description = pullRequest.base.ref === defaultBranch ? `pull request #${pullRequest.number}` : `pull request #${pullRequest.number} → ${pullRequest.base.ref}`;
@@ -897,7 +897,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			} else {
 				this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<CodingAgentPRAndStatus[]>(async (resolve) => {
 					try {
-						const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+						const sessions = await capi.getAllCodingAgentPRs(this._repositoriesManager);
 						const prAndStatus = await Promise.all(sessions.map(async pr => {
 							const timeline = await pr.getCopilotTimelineEvents(pr);
 							const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
@@ -917,7 +917,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
 				const pullRequest = prAndStatus.item;
-				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
+				const tooltip = await issueMarkdown(pullRequest, this.context, this._repositoriesManager);
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
 				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
@@ -946,7 +946,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return [];
 	}
 
-	private async newSessionFlowFromPrompt(id: string): Promise<vscode.ChatSession> {
+	private async _newSessionFlowFromPrompt(id: string): Promise<vscode.ChatSession> {
 		const chatSession = this.ephemeralChatSessions.get(id);
 		if (!chatSession) {
 			return this.createEmptySession();
@@ -1120,7 +1120,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private findActiveResponseCallback(
+	private _findActiveResponseCallback(
 		sessions: SessionInfo[],
 		pullRequest: PullRequestModel
 	): ((stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void>) | undefined {
@@ -1136,27 +1136,27 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private createRequestHandlerIfNeeded(pullRequest: PullRequestModel): vscode.ChatRequestHandler | undefined {
+	private _createRequestHandlerIfNeeded(pullRequest: PullRequestModel): vscode.ChatRequestHandler | undefined {
 		return (pullRequest.state === GithubItemStateEnum.Open)
 			? this.createRequestHandler(pullRequest)
 			: undefined;
 	}
 
-	private createEmptySession(): vscode.ChatSession {
+	private _createEmptySession(): vscode.ChatSession {
 		return {
 			history: [],
 			requestHandler: undefined
 		};
 	}
 
-	private createActiveResponseCallback(pullRequest: PullRequestModel, sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
+	private _createActiveResponseCallback(pullRequest: PullRequestModel, sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
 		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
 			// Use the shared streaming logic
 			return this.streamSessionLogs(stream, pullRequest, sessionId, token);
 		};
 	}
 
-	private async streamNewLogContent(pullRequest: PullRequestModel, stream: vscode.ChatResponseStream, newLogContent: string): Promise<{ hasStreamedContent: boolean; hasSetupStepProgress: boolean }> {
+	private async _streamNewLogContent(pullRequest: PullRequestModel, stream: vscode.ChatResponseStream, newLogContent: string): Promise<{ hasStreamedContent: boolean; hasSetupStepProgress: boolean }> {
 		try {
 			if (!newLogContent.trim()) {
 				return { hasStreamedContent: false, hasSetupStepProgress: false };
@@ -1235,7 +1235,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private async streamSessionLogs(stream: vscode.ChatResponseStream, pullRequest: PullRequestModel, sessionId: string, token: vscode.CancellationToken): Promise<void> {
+	private async _streamSessionLogs(stream: vscode.ChatResponseStream, pullRequest: PullRequestModel, sessionId: string, token: vscode.CancellationToken): Promise<void> {
 		const capi = await this.copilotApi;
 		if (!capi || token.isCancellationRequested) {
 			return;
@@ -1341,7 +1341,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		});
 	}
 
-	private async getChangeModels(pullRequest: PullRequestModel) {
+	private async _getChangeModels(pullRequest: PullRequestModel) {
 		try {
 			const repoInfo = await this.repoInfo();
 			if (!repoInfo) {
@@ -1356,7 +1356,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private async getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
+	private async _getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
 		try {
 			const changeModels = await this.getChangeModels(pullRequest);
 			Logger.warn('No file changes found for pull request, not showing diff.', CopilotRemoteAgentManager.ID);
@@ -1385,8 +1385,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private async findPullRequestById(number: number, fetch: boolean): Promise<PullRequestModel | undefined> {
-		for (const folderManager of this.repositoriesManager.folderManagers) {
+	private async _findPullRequestById(number: number, fetch: boolean): Promise<PullRequestModel | undefined> {
+		for (const folderManager of this._repositoriesManager.folderManagers) {
 			for (const githubRepo of folderManager.gitHubRepositories) {
 				const pullRequest = githubRepo.pullRequestModels.find(pr => pr.number === number);
 				if (pullRequest) {
@@ -1409,7 +1409,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | vscode.ChatResponseThinkingProgressPart | undefined {
+	private _createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | vscode.ChatResponseThinkingProgressPart | undefined {
 		if (!toolCall.function?.name || !toolCall.id) {
 			return undefined;
 		}
@@ -1465,7 +1465,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return toolPart;
 	}
 
-	private createRequestHandler(pullRequest: PullRequestModel): vscode.ChatRequestHandler {
+	private _createRequestHandler(pullRequest: PullRequestModel): vscode.ChatRequestHandler {
 		return async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
 			try {
 				if (token.isCancellationRequested) {
@@ -1513,7 +1513,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	private async waitForQueuedToInProgress(
+	private async _waitForQueuedToInProgress(
 		sessionId: string,
 		token?: vscode.CancellationToken
 	): Promise<SessionInfo | undefined> {
@@ -1542,7 +1542,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private async waitForNewSession(
+	private async _waitForNewSession(
 		pullRequest: PullRequestModel,
 		stream: vscode.ChatResponseStream,
 		token: vscode.CancellationToken
@@ -1578,7 +1578,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private getIconForSession(status: vscode.ChatSessionStatus): vscode.Uri | vscode.ThemeIcon {
+	private _getIconForSession(status: vscode.ChatSessionStatus): vscode.Uri | vscode.ThemeIcon {
 		// Fallback to theme icons if no theme data available
 		switch (status) {
 			case vscode.ChatSessionStatus.Completed:
@@ -1601,7 +1601,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 
-		const folderManager = this.repositoriesManager.getManagerForIssueModel(pullRequest) ?? this.repositoriesManager.folderManagers[0];
+		const folderManager = this._repositoriesManager.getManagerForIssueModel(pullRequest) ?? this._repositoriesManager.folderManagers[0];
 		if (!folderManager) {
 			Logger.warn(`No folder manager found for pull request`);
 			return;

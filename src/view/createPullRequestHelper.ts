@@ -26,13 +26,13 @@ export class CreatePullRequestHelper extends Disposable {
 		super();
 	}
 
-	private async setActiveContext(value: boolean) {
+	private async _setActiveContext(value: boolean) {
 		if (this._activeContext) {
 			await commands.setContext(this._activeContext, value);
 		}
 	}
 
-	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
+	private _registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
 		addDisposable(
 			this._createPRViewProvider!.onDone(async createdPR => {
 				await CreatePullRequestViewProvider.withProgress(async () => {
@@ -146,7 +146,7 @@ export class CreatePullRequestHelper extends Disposable {
 		return !!this._createPRViewProvider;
 	}
 
-	private async ensureDefaultsAreLocal(
+	private async _ensureDefaultsAreLocal(
 		folderRepoManager: FolderRepositoryManager,
 		defaults: PullRequestDefaults,
 	): Promise<PullRequestDefaults> {
@@ -274,7 +274,7 @@ export class CreatePullRequestHelper extends Disposable {
 		createViewProvider.show(branch);
 	}
 
-	private reset() {
+	private _reset() {
 		this.setActiveContext(false);
 		disposeAll(this._currentDisposables);
 		this._createPRViewProvider = undefined;

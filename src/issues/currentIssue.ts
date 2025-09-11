@@ -24,23 +24,23 @@ import { IssueState, StateManager } from './stateManager';
 
 export class CurrentIssue extends Disposable {
 	private _branchName: string | undefined;
-	private user: string | undefined;
-	private repo: Repository | undefined;
+	private _user: string | undefined;
+	private _repo: Repository | undefined;
 	private _repoDefaults: PullRequestDefaults | undefined;
 	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
 	public readonly onDidChangeCurrentIssueState: vscode.Event<void> = this._onDidChangeCurrentIssueState.event;
 	constructor(
-		private issueModel: IssueModel,
+		private _issueModel,
 		public readonly manager: FolderRepositoryManager,
-		private stateManager: StateManager,
+		private _stateManager,
 		remote?: Remote,
-		private shouldPromptForBranch?: boolean,
+		private _shouldPromptForBranch,
 	) {
 		super();
 		this.setRepo(remote ?? this.issueModel.githubRepository.remote);
 	}
 
-	private setRepo(repoRemote: Remote) {
+	private _setRepo(repoRemote: Remote) {
 		for (let i = 0; i < this.stateManager.gitAPI.repositories.length; i++) {
 			const repo = this.stateManager.gitAPI.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
@@ -118,11 +118,11 @@ export class CurrentIssue extends Disposable {
 		this.dispose();
 	}
 
-	private getBasicBranchName(user: string): string {
+	private _getBasicBranchName(user: string): string {
 		return `${user}/issue${this.issueModel.number}`;
 	}
 
-	private async getBranch(branch: string): Promise<Branch | undefined> {
+	private async _getBranch(branch: string): Promise<Branch | undefined> {
 		try {
 			return await this.manager.repository.getBranch(branch);
 		} catch (e) {
@@ -131,7 +131,7 @@ export class CurrentIssue extends Disposable {
 		return undefined;
 	}
 
-	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
+	private async _createOrCheckoutBranch(branch: string): Promise<boolean> {
 		try {
 			if (await this.getBranch(branch)) {
 				await this.manager.repository.checkout(branch);
@@ -149,21 +149,21 @@ export class CurrentIssue extends Disposable {
 		}
 	}
 
-	private async getUser(): Promise<string> {
+	private async _getUser(): Promise<string> {
 		if (!this.user) {
 			this.user = (await this.issueModel.githubRepository.getAuthenticatedUser()).login;
 		}
 		return this.user;
 	}
 
-	private async getBranchTitle(): Promise<string> {
+	private async _getBranchTitle(): Promise<string> {
 		return (
 			vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(ISSUE_BRANCH_TITLE) ??
 			this.getBasicBranchName(await this.getUser())
 		);
 	}
 
-	private validateBranchName(branch: string): string | undefined {
+	private _validateBranchName(branch: string): string | undefined {
 		const VALID_BRANCH_CHARACTERS = /[^ \\@\~\^\?\*\[]+/;
 		const match = branch.match(VALID_BRANCH_CHARACTERS);
 		if (match && match.length > 0 && match[0] !== branch) {
@@ -172,7 +172,7 @@ export class CurrentIssue extends Disposable {
 		return undefined;
 	}
 
-	private showBranchNameError(error: string) {
+	private _showBranchNameError(error: string) {
 		const editSetting = `Edit Setting`;
 		vscode.window.showErrorMessage(error, editSetting).then(result => {
 			if (result === editSetting) {
@@ -184,7 +184,7 @@ export class CurrentIssue extends Disposable {
 		});
 	}
 
-	private async offerNewBranch(branch: Branch, branchNameConfig: string, branchNameMatch: RegExpMatchArray | null | undefined): Promise<string> {
+	private async _offerNewBranch(branch: Branch, branchNameConfig: string, branchNameMatch: RegExpMatchArray | null | undefined): Promise<string> {
 		// Check if this branch has a merged PR associated with it.
 		// If so, offer to create a new branch.
 		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch, branch.upstream?.remote, branch.upstream?.name);
@@ -204,7 +204,7 @@ export class CurrentIssue extends Disposable {
 		return branchNameConfig;
 	}
 
-	private async createIssueBranch(silent: boolean): Promise<boolean> {
+	private async _createIssueBranch(silent: boolean): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch
 			? 'prompt'
 			: vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
@@ -264,7 +264,7 @@ export class CurrentIssue extends Disposable {
 		return undefined;
 	}
 
-	private async setCommitMessageAndGitEvent() {
+	private async _setCommitMessageAndGitEvent() {
 		const message = await this.getCommitMessage();
 		if (this.repo && message) {
 			this.repo.inputBox.value = message;

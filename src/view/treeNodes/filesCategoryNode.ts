@@ -15,7 +15,7 @@ import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public override readonly label: string = vscode.l10n.t('Files');
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	private directories: TreeNode[] = [];
+	private _directories: TreeNode[] = [];
 
 	constructor(
 		parent: TreeNodeParent,

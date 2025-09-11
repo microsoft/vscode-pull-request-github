@@ -158,7 +158,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 
 	constructor(
-		private readonly credentialStore: CredentialStore,
+		private readonly _credentialStore,
 		telemetry: ITelemetry,
 		githubRepository: GitHubRepository,
 		remote: Remote,
@@ -416,7 +416,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param event The type of review to create, an approval, request for changes, or comment.
 	 * @param message The summary comment text.
 	 */
-	private async createReview(event: ReviewEventEnum, message?: string): Promise<ReviewEvent> {
+	private async _createReview(event: ReviewEventEnum, message?: string): Promise<ReviewEvent> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
 		const { data } = await octokit.call(octokit.api.pulls.createReview, {
@@ -710,7 +710,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return inDraftMode;
 	}
 
-	private async updateDraftModeContext() {
+	private async _updateDraftModeContext() {
 		if (this.isActive) {
 			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', this.hasPendingReview);
 		}
@@ -762,7 +762,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return events;
 	}
 
-	private addReviewTimelineEventComments(events: TimelineEvent[], reviewThreads: IReviewThread[]): void {
+	private _addReviewTimelineEventComments(events: TimelineEvent[], reviewThreads: IReviewThread[]): void {
 		interface CommentNode extends IComment {
 			childComments?: CommentNode[];
 		}
@@ -903,7 +903,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async getFileContent(owner: string, sha: string, file: string): Promise<string | undefined> {
+	private async _getFileContent(owner: string, sha: string, file: string): Promise<string | undefined> {
 		Logger.debug(`Fetch file content - enter`, GitHubRepository.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
 		const { data } = await query<FileContentResponse>({
@@ -938,7 +938,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return compareData?.data?.files?.filter<IRawFileChange>((change): change is IRawFileChange => change !== undefined) ?? [];
 	}
 
-	private async getUpdateBranchFiles(baseCommitSha: string, headTreeSha: string, model: ConflictResolutionModel): Promise<IGitTreeItem[]> {
+	private async _getUpdateBranchFiles(baseCommitSha: string, headTreeSha: string, model: ConflictResolutionModel): Promise<IGitTreeItem[]> {
 		if (this.item.mergeable === PullRequestMergeability.Conflict && (!model.resolvedConflicts || model.resolvedConflicts.size === 0)) {
 			throw new Error('Pull Request has conflicts but no resolutions were provided.');
 		}
@@ -1071,7 +1071,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { remote, query, schema } = await githubRepository.ensure();
 
 		const { data } = await query<GetReviewRequestsResponse>({
-			query: this.credentialStore.isAuthenticatedWithAdditionalScopes(githubRepository.remote.authProviderId) ? schema.GetReviewRequestsAdditionalScopes : schema.GetReviewRequests,
+			query: this._credentialStore.isAuthenticatedWithAdditionalScopes(githubRepository.remote.authProviderId) ? schema.GetReviewRequestsAdditionalScopes : schema.GetReviewRequests,
 			variables: {
 				number: this.number,
 				owner: remote.owner,
@@ -1142,7 +1142,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._onDidChange.fire({ reviewers: true });
 	}
 
-	private diffThreads(oldReviewThreads: IReviewThread[], newReviewThreads: IReviewThread[]): void {
+	private _diffThreads(oldReviewThreads: IReviewThread[], newReviewThreads: IReviewThread[]): void {
 		const added: IReviewThread[] = [];
 		const changed: IReviewThread[] = [];
 		const removed: IReviewThread[] = [];
@@ -1184,7 +1184,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 	}
 
-	private setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
+	private _setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
 		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository));
 		const oldReviewThreads = this._reviewThreadsCache;
 		this._reviewThreadsCache = reviewThreads;
@@ -1192,7 +1192,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return reviewThreads;
 	}
 
-	private async getRawReviewComments(): Promise<ReviewThread[]> {
+	private async _getRawReviewComments(): Promise<ReviewThread[]> {
 		Logger.debug(`Fetching review comments for PR #${this.number} - enter`, PullRequestModel.ID);
 
 		const { remote, query, schema } = await this.githubRepository.ensure();
@@ -1522,7 +1522,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * List the changed files in a pull request.
 	 */
-	private async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
+	private async _getRawFileChangesInfo(): Promise<IRawFileChange[]> {
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.number} - enter`, PullRequestModel.ID);
 
 		const githubRepository = this.githubRepository;
@@ -1607,7 +1607,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
 			// hard code the users for selfhost purposes
-			const { data } = /*(schema.PullRequestMergeabilityMergeRequirements && ((await this.credentialStore.getCurrentUser(this.remote.authProviderId))?.login === 'alexr00')) ? await query<PullRequestMergabilityResponse>({
+			const { data } = /*(schema.PullRequestMergeabilityMergeRequirements && ((await this._credentialStore.getCurrentUser(this.remote.authProviderId))?.login === 'alexr00')) ? await query<PullRequestMergabilityResponse>({
 				query: schema.PullRequestMergeabilityMergeRequirements,
 				variables: {
 					owner: remote.owner,
@@ -1683,7 +1683,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private updateCommentReactions(graphNodeId: string, reactionGroups: ReactionGroup[]) {
+	private _updateCommentReactions(graphNodeId: string, reactionGroups: ReactionGroup[]) {
 		const reviewThread = this._reviewThreadsCache.find(thread =>
 			thread.comments.some(c => c.graphNodeId === graphNodeId),
 		);
@@ -1751,7 +1751,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return data;
 	}
 
-	private undoOptimisticResolveState(oldThread: IReviewThread | undefined) {
+	private _undoOptimisticResolveState(oldThread: IReviewThread | undefined) {
 		if (oldThread) {
 			oldThread.isResolved = !oldThread.isResolved;
 			oldThread.viewerCanResolve = !oldThread.viewerCanResolve;
@@ -1983,8 +1983,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private markFilesInProgressRefCount: Map<string, number> = new Map();
-	private updateMarkFilesInProgressRefCount(filePathOrSubpaths: string[], direction: 'increment' | 'decrement'): string[] {
+	private _markFilesInProgressRefCount: Map<string, number> = new Map();
+	private _updateMarkFilesInProgressRefCount(filePathOrSubpaths: string[], direction: 'increment' | 'decrement'): string[] {
 		const completed: string[] = [];
 		for (const f of filePathOrSubpaths) {
 			let count = this.markFilesInProgressRefCount.get(f) || 0;
@@ -2059,7 +2059,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this.markFiles(Array.from(this.fileChanges.keys()), true, 'unviewed');
 	}
 
-	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
+	private _setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
 		const uri = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath);
 		const filePath = (this.githubRepository.rootUri.scheme === Schemes.VscodeVfs) ? uri.path : uri.fsPath;
 		switch (viewedState) {

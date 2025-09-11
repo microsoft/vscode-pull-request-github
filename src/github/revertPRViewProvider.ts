@@ -24,7 +24,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequestDefaults: PullRequestDefaults,
-		private readonly pullRequest: PullRequestModel
+		private readonly _pullRequest
 	) {
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, folderRepositoryManager.repository.state.HEAD?.name ?? pullRequest.base.name);
 	}
@@ -56,7 +56,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return params;
 	}
 
-	private openAssociatedPullRequest() {
+	private _openAssociatedPullRequest() {
 		return openDescription(this.telemetry, this.pullRequest, undefined, this._folderRepositoryManager, false, true);
 	}
 

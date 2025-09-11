@@ -258,7 +258,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	private _firstLoad: Promise<TreeNode[]> | undefined;
-	private async doGetChildren(): Promise<TreeNode[]> {
+	private async _doGetChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;

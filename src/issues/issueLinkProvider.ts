@@ -27,7 +27,7 @@ class IssueDocumentLink extends vscode.DocumentLink {
 }
 
 export class IssueLinkProvider implements vscode.DocumentLinkProvider {
-	constructor(private manager: RepositoriesManager, private stateManager: StateManager) { }
+	constructor(private _manager, private _stateManager) { }
 
 	async provideDocumentLinks(
 		document: vscode.TextDocument,

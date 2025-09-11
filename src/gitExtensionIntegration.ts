@@ -37,24 +37,24 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	readonly icon = 'github';
 	readonly supportsQuery = true;
 
-	private userReposCache: RemoteSource[] = [];
+	private _userReposCache: RemoteSource[] = [];
 
-	constructor(private readonly credentialStore: CredentialStore, private readonly authProviderId: AuthProvider = AuthProvider.github) {
+	constructor(private readonly _credentialStore, private readonly authProviderId: AuthProvider = AuthProvider.github) {
 		if (isEnterprise(authProviderId)) {
 			this.name = 'GitHub Enterprise';
 		}
 	}
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
-		const hub = await this.credentialStore.getHubOrLogin(this.authProviderId);
+		const hub = await this._credentialStore.getHubOrLogin(this.authProviderId);
 
 		if (!hub) {
 			throw new Error('Could not fetch repositories from GitHub.');
 		}
 
 		const [fromUser, fromQuery] = await Promise.all([
-			this.getUserRemoteSources(hub, query),
-			this.getQueryRemoteSources(hub, query),
+			this._getUserRemoteSources(hub, query),
+			this._getQueryRemoteSources(hub, query),
 		]);
 
 		const userRepos = new Set(fromUser.map(r => r.name));
@@ -62,16 +62,16 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 		return [...fromUser, ...fromQuery.filter(r => !userRepos.has(r.name))];
 	}
 
-	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
+	private async _getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
 			const res = await hub.octokit.call(hub.octokit.api.repos.listForAuthenticatedUser, { sort: 'pushed', per_page: 100 });
-			this.userReposCache = res.data.map(asRemoteSource);
+			this._userReposCache = res.data.map(asRemoteSource);
 		}
 
-		return this.userReposCache;
+		return this._userReposCache;
 	}
 
-	private async getQueryRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
+	private async _getQueryRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
 			return [];
 		}

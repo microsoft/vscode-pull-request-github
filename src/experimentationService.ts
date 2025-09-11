@@ -20,20 +20,20 @@ import { Disposable } from './common/lifecycle';
 */
 
 export class ExperimentationTelemetry extends Disposable implements IExperimentationTelemetry {
-	private sharedProperties: Record<string, string> = {};
+	private _sharedProperties: Record<string, string> = {};
 
-	constructor(private baseReporter: TelemetryReporter | undefined) {
+	constructor(private _baseReporter) {
 		super();
-		if (baseReporter) {
-			this._register(baseReporter);
+		if (this._baseReporter) {
+			this._register(this._baseReporter);
 		}
 	}
 
 	sendTelemetryEvent(eventName: string, properties?: Record<string, string>, measurements?: Record<string, number>) {
-		this.baseReporter?.sendTelemetryEvent(
+		this._baseReporter?.sendTelemetryEvent(
 			eventName,
 			{
-				...this.sharedProperties,
+				...this._sharedProperties,
 				...properties,
 			},
 			measurements,
@@ -45,14 +45,14 @@ export class ExperimentationTelemetry extends Disposable implements IExperimenta
 		properties?: Record<string, string>,
 		_measurements?: Record<string, number>,
 	) {
-		this.baseReporter?.sendTelemetryErrorEvent(eventName, {
-			...this.sharedProperties,
+		this._baseReporter?.sendTelemetryErrorEvent(eventName, {
+			...this._sharedProperties,
 			...properties,
 		});
 	}
 
 	setSharedProperty(name: string, value: string): void {
-		this.sharedProperties[name] = value;
+		this._sharedProperties[name] = value;
 	}
 
 	postEvent(eventName: string, props: Map<string, string>): void {

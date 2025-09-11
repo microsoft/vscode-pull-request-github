@@ -10,37 +10,37 @@ let tempState: TemporaryState | undefined;
 
 export class TemporaryState extends vscode.Disposable {
 	static readonly ID = 'TemporaryState';
-	private readonly SUBPATH = 'temp';
-	private readonly disposables: vscode.Disposable[] = [];
-	private readonly persistInSessionDisposables: vscode.Disposable[] = [];
+	private readonly _SUBPATH = 'temp';
+	private readonly _disposables: vscode.Disposable[] = [];
+	private readonly _persistInSessionDisposables: vscode.Disposable[] = [];
 
 	constructor(private readonly _storageUri: vscode.Uri) {
-		super(() => disposeAll(this.disposables));
+		super(() => disposeAll(this._disposables));
 	}
 
-	private get path(): vscode.Uri {
-		return vscode.Uri.joinPath(this._storageUri, this.SUBPATH);
+	private get _path(): vscode.Uri {
+		return vscode.Uri.joinPath(this._storageUri, this._SUBPATH);
 	}
 
 	override dispose() {
-		disposeAll(this.disposables);
-		disposeAll(this.persistInSessionDisposables);
+		disposeAll(this._disposables);
+		disposeAll(this._persistInSessionDisposables);
 	}
 
-	private addDisposable(disposable: vscode.Disposable, persistInSession: boolean) {
+	private _addDisposable(disposable: vscode.Disposable, persistInSession: boolean) {
 		if (persistInSession) {
-			this.persistInSessionDisposables.push(disposable);
+			this._persistInSessionDisposables.push(disposable);
 		} else {
-			if (this.disposables.length > 30) {
-				const oldDisposable = this.disposables.shift();
+			if (this._disposables.length > 30) {
+				const oldDisposable = this._disposables.shift();
 				oldDisposable?.dispose();
 			}
-			this.disposables.push(disposable);
+			this._disposables.push(disposable);
 		}
 	}
 
-	private async writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean): Promise<vscode.Uri> {
-		let filePath: vscode.Uri = this.path;
+	private async _writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean): Promise<vscode.Uri> {
+		let filePath: vscode.Uri = this._path;
 		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
 			? vscode.workspace.workspaceFolders[0].name : undefined;
 
@@ -64,12 +64,12 @@ export class TemporaryState extends vscode.Disposable {
 				}
 			}
 		};
-		this.addDisposable(dispose, persistInSession);
+		this._addDisposable(dispose, persistInSession);
 		return file;
 	}
 
-	private async readState(subpath: string, filename: string): Promise<Uint8Array> {
-		let filePath: vscode.Uri = this.path;
+	private async _readState(subpath: string, filename: string): Promise<Uint8Array> {
+		let filePath: vscode.Uri = this._path;
 		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
 			? vscode.workspace.workspaceFolders[0].name : undefined;
 
@@ -85,12 +85,12 @@ export class TemporaryState extends vscode.Disposable {
 		if (context.globalStorageUri && !tempState) {
 			tempState = new TemporaryState(context.globalStorageUri);
 			try {
-				await vscode.workspace.fs.delete(tempState.path, { recursive: true });
+				await vscode.workspace.fs.delete(tempState._path, { recursive: true });
 			} catch (e) {
 				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
 			}
 			try {
-				await vscode.workspace.fs.createDirectory(tempState.path);
+				await vscode.workspace.fs.createDirectory(tempState._path);
 			} catch (e) {
 				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
 			}
@@ -104,7 +104,7 @@ export class TemporaryState extends vscode.Disposable {
 			return;
 		}
 
-		return tempState.writeState(subpath, filename, contents, persistInSession);
+		return tempState._writeState(subpath, filename, contents, persistInSession);
 	}
 
 	static async read(subpath: string, filename: string): Promise<Uint8Array | undefined> {
@@ -112,6 +112,6 @@ export class TemporaryState extends vscode.Disposable {
 			return;
 		}
 
-		return tempState.readState(subpath, filename);
+		return tempState._readState(subpath, filename);
 	}
 }

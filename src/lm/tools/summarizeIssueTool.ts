@@ -71,7 +71,7 @@ Body: ${comment.body}
 		}
 	}
 
-	private summarizeInstructions(repo: string, owner: string): string {
+	private _summarizeInstructions(repo: string, owner: string): string {
 		return `
 You are an AI assistant who is very proficient in summarizing issues and pull requests (PRs).
 You will be given information relative to an issue or PR : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.

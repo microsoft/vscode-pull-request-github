@@ -39,9 +39,9 @@ export class IssuesTreeData
 	> = this._onDidChangeTreeData.event;
 
 	constructor(
-		private stateManager: StateManager,
-		private manager: RepositoriesManager,
-		private context: vscode.ExtensionContext,
+		private _stateManager,
+		private _manager,
+		private _context,
 	) {
 		context.subscriptions.push(
 			this.manager.onDidChangeState(() => {
@@ -61,21 +61,21 @@ export class IssuesTreeData
 		);
 	}
 
-	private getFolderRepoItem(element: FolderRepositoryManager): vscode.TreeItem {
+	private _getFolderRepoItem(element: FolderRepositoryManager): vscode.TreeItem {
 		return new vscode.TreeItem(path.basename(element.repository.rootUri.fsPath), getQueryExpandState(this.context, element, vscode.TreeItemCollapsibleState.Expanded));
 	}
 
-	private getQueryItem(element: QueryNode): vscode.TreeItem {
+	private _getQueryItem(element: QueryNode): vscode.TreeItem {
 		const item = new vscode.TreeItem(element.queryLabel, getQueryExpandState(this.context, element, element.isFirst ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed));
 		item.contextValue = 'query';
 		return item;
 	}
 
-	private getIssueGroupItem(element: IssueGroupNode): vscode.TreeItem {
+	private _getIssueGroupItem(element: IssueGroupNode): vscode.TreeItem {
 		return new vscode.TreeItem(element.group, getQueryExpandState(this.context, element, element.isInFirstQuery ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed));
 	}
 
-	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
+	private async _getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
 		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
 		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0] ??
 			(element.isOpen
@@ -147,7 +147,7 @@ export class IssuesTreeData
 		}
 	}
 
-	private getRootChildren(): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	private _getRootChildren(): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
 		// If there's only one folder manager go straight to the query nodes
 		if (this.manager.folderManagers.length === 1) {
 			return this.getRepoChildren(this.manager.folderManagers[0]);
@@ -158,7 +158,7 @@ export class IssuesTreeData
 		}
 	}
 
-	private getRepoChildren(folderManager: FolderRepositoryManager): QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	private _getRepoChildren(folderManager: FolderRepositoryManager): QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
 		const issueCollection = this.stateManager.getIssueCollection(folderManager.repository.rootUri);
 		const queryLabels = Array.from(issueCollection.keys());
 		if (queryLabels.length === 1) {
@@ -170,7 +170,7 @@ export class IssuesTreeData
 		});
 	}
 
-	private async getQueryNodeChildren(queryNode: QueryNode): Promise<IssueItem[] | IssueGroupNode[]> {
+	private async _getQueryNodeChildren(queryNode: QueryNode): Promise<IssueItem[] | IssueGroupNode[]> {
 		const issueCollection = this.stateManager.getIssueCollection(queryNode.repoRootUri);
 		const issueQueryResult = await issueCollection.get(queryNode.queryLabel);
 		if (!issueQueryResult) {
@@ -179,7 +179,7 @@ export class IssuesTreeData
 		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues ?? []);
 	}
 
-	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], indexInGroupByOrder: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
+	private _getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], indexInGroupByOrder: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
 		if (groupByOrder.length <= indexInGroupByOrder) {
 			return issues;
 		}
@@ -202,7 +202,7 @@ export class IssuesTreeData
 		return nodes;
 	}
 
-	private async getIssueGroupChildren(issueGroupNode: IssueGroupNode): Promise<IssueItem[] | IssueGroupNode[]> {
+	private async _getIssueGroupChildren(issueGroupNode: IssueGroupNode): Promise<IssueItem[] | IssueGroupNode[]> {
 		return this.getIssueGroupsForGroupIndex(issueGroupNode.repoRootUri, issueGroupNode.queryLabel, issueGroupNode.isInFirstQuery, issueGroupNode.groupByOrder, issueGroupNode.groupLevel + 1, issueGroupNode.issuesInGroup);
 	}
 

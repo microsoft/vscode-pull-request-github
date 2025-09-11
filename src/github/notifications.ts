@@ -43,7 +43,7 @@ export class Notification {
 }
 
 export class NotificationProvider extends Disposable {
-	private static ID = 'NotificationProvider';
+	private static _ID = 'NotificationProvider';
 	private readonly _gitHubPrsTree: PullRequestsTreeDataProvider;
 	private readonly _credentialStore: CredentialStore;
 	private _authProvider: AuthProvider | undefined;
@@ -99,14 +99,14 @@ export class NotificationProvider extends Disposable {
 		}));
 	}
 
-	private static isPRNotificationsOn() {
+	private static _isPRNotificationsOn() {
 		return (
 			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(NOTIFICATION_SETTING) ===
 			'pullRequests'
 		);
 	}
 
-	private registerAuthProvider(credentialStore: CredentialStore) {
+	private _registerAuthProvider(credentialStore: CredentialStore) {
 		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider.githubEnterprise;
 		} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
@@ -124,7 +124,7 @@ export class NotificationProvider extends Disposable {
 		}));
 	}
 
-	private getPrIdentifier(pullRequest: IssueModel | OctokitResponse<any>['data']): string {
+	private _getPrIdentifier(pullRequest: IssueModel | OctokitResponse<any>['data']): string {
 		if (pullRequest instanceof IssueModel) {
 			return `${pullRequest.remote.url}:${pullRequest.number}`;
 		}
@@ -143,7 +143,7 @@ export class NotificationProvider extends Disposable {
 		return prNotifications !== undefined && prNotifications.length > 0;
 	}
 
-	private updateViewBadge() {
+	private _updateViewBadge() {
 		const treeView = this._gitHubPrsTree.view;
 		const singularMessage = vscode.l10n.t('1 notification');
 		const pluralMessage = vscode.l10n.t('{0} notifications', this._notifications.size);
@@ -153,7 +153,7 @@ export class NotificationProvider extends Disposable {
 		} : undefined;
 	}
 
-	private adaptPRNotifications(node: TreeNode | TreeNode[] | void) {
+	private _adaptPRNotifications(node: TreeNode | TreeNode[] | void) {
 		if (this._pollingHandler === undefined) {
 			this.startPolling();
 		}
@@ -215,7 +215,7 @@ export class NotificationProvider extends Disposable {
 		this.checkNotificationSetting();
 	}
 
-	private checkNotificationSetting() {
+	private _checkNotificationSetting() {
 		const notificationsTurnedOn = NotificationProvider.isPRNotificationsOn();
 		if (notificationsTurnedOn && this._pollingHandler === null) {
 			this.startPolling();
@@ -232,7 +232,7 @@ export class NotificationProvider extends Disposable {
 		}
 	}
 
-	private uriFromNotifications(): vscode.Uri[] {
+	private _uriFromNotifications(): vscode.Uri[] {
 		const notificationUris: vscode.Uri[] = [];
 		for (const [identifier, prNotifications] of this._notifications.entries()) {
 			if (prNotifications.length) {
@@ -242,13 +242,13 @@ export class NotificationProvider extends Disposable {
 		return notificationUris;
 	}
 
-	private getGitHub(): GitHub | undefined {
+	private _getGitHub(): GitHub | undefined {
 		return (this._authProvider !== undefined) ?
 			this._credentialStore.getHub(this._authProvider) :
 			undefined;
 	}
 
-	private async getNotifications() {
+	private async _getNotifications() {
 		const gitHub = this.getGitHub();
 		if (gitHub === undefined)
 			return undefined;
@@ -256,7 +256,7 @@ export class NotificationProvider extends Disposable {
 		return { data: data, headers: headers };
 	}
 
-	private async markNotificationThreadAsRead(thredId) {
+	private async _markNotificationThreadAsRead(thredId) {
 		const github = this.getGitHub();
 		if (!github) {
 			return;
@@ -281,7 +281,7 @@ export class NotificationProvider extends Disposable {
 		}
 	}
 
-	private async pollForNewNotifications() {
+	private async _pollForNewNotifications() {
 		const response = await this.getNotifications();
 		if (response === undefined) {
 			return;
@@ -380,7 +380,7 @@ export class NotificationProvider extends Disposable {
 		this._onDidChangeNotifications.fire(prNodesToUpdate);
 	}
 
-	private startPolling() {
+	private _startPolling() {
 		this.pollForNewNotifications();
 		this._pollingHandler = setInterval(
 			function (notificationProvider: NotificationProvider) {

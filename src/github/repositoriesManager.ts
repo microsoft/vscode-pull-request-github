@@ -66,7 +66,7 @@ export class RepositoriesManager extends Disposable {
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 	}
 
-	private updateActiveReviewCount() {
+	private _updateActiveReviewCount() {
 		let count = 0;
 		for (const folderManager of this._folderManagers) {
 			if (folderManager.activePullRequest) {
@@ -80,7 +80,7 @@ export class RepositoriesManager extends Disposable {
 		return this._folderManagers;
 	}
 
-	private registerFolderListeners(folderManager: FolderRepositoryManager) {
+	private _registerFolderListeners(folderManager: FolderRepositoryManager) {
 		const disposables = [
 			folderManager.onDidLoadRepositories(() => {
 				this.updateState();
@@ -192,7 +192,7 @@ export class RepositoriesManager extends Disposable {
 		return this._state;
 	}
 
-	private updateState(state?: ReposManagerState) {
+	private _updateState(state?: ReposManagerState) {
 		let maxState = ReposManagerState.Initializing;
 		if (state) {
 			maxState = state;

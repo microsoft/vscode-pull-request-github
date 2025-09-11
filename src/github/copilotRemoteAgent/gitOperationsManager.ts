@@ -9,7 +9,7 @@ import Logger from '../../common/logger';
 import { RepoInfo } from '../common';
 
 export class GitOperationsManager {
-	constructor(private loggerID: string) { }
+	constructor(private _loggerID) { }
 
 	async commitAndPushChanges(repoInfo: RepoInfo) {
 		const { repository, remote, baseRef } = repoInfo;
@@ -30,7 +30,7 @@ export class GitOperationsManager {
 		}
 	}
 
-	private async performCommit(asyncBranch: string, repository: Repository, commitMessage: string): Promise<void> {
+	private async _performCommit(asyncBranch: string, repository: Repository, commitMessage: string): Promise<void> {
 		try {
 			await repository.commit(commitMessage, { all: true });
 
@@ -46,7 +46,7 @@ export class GitOperationsManager {
 		}
 	}
 
-	private async handleInteractiveCommit(repository: Repository): Promise<boolean> {
+	private async _handleInteractiveCommit(repository: Repository): Promise<boolean> {
 		const COMMIT_YOUR_CHANGES = vscode.l10n.t('Commit your changes to continue coding agent session. Close integrated terminal to cancel.');
 
 		return vscode.window.withProgress({
@@ -115,7 +115,7 @@ export class GitOperationsManager {
 		});
 	}
 
-	private showBranchSwitchNotification(repository: Repository, baseRef: string, newRef: string): void {
+	private _showBranchSwitchNotification(repository: Repository, baseRef: string, newRef: string): void {
 		if (repository.state.HEAD?.name !== baseRef) {
 			const SWAP_BACK_TO_ORIGINAL_BRANCH = vscode.l10n.t(`Swap back to '{0}'`, baseRef);
 			vscode.window.showInformationMessage(
@@ -129,7 +129,7 @@ export class GitOperationsManager {
 		}
 	}
 
-	private async rollbackToOriginalBranch(repository: Repository, baseRef: string): Promise<void> {
+	private async _rollbackToOriginalBranch(repository: Repository, baseRef: string): Promise<void> {
 		if (repository.state.HEAD?.name !== baseRef) {
 			try {
 				await repository.checkout(baseRef);

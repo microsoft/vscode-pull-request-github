@@ -279,11 +279,11 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	private static buildPullRequestMetadata(pullRequest: PullRequestModel) {
+	private static _buildPullRequestMetadata(pullRequest: PullRequestModel) {
 		return `${pullRequest.base.repositoryCloneUrl.owner}#${pullRequest.base.repositoryCloneUrl.repositoryName}#${pullRequest.number}`;
 	}
 
-	private static buildBaseBranchMetadata(owner: string, repository: string, baseBranch: string) {
+	private static _buildBaseBranchMetadata(owner: string, repository: string, baseBranch: string) {
 		return `${owner}#${repository}#${baseBranch}`;
 	}
 
@@ -302,7 +302,7 @@ export class PullRequestGitHelper {
 		return undefined;
 	}
 
-	private static getMetadataKeyForBranch(branchName: string): string {
+	private static _getMetadataKeyForBranch(branchName: string): string {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
 	}
 

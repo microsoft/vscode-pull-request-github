@@ -161,7 +161,7 @@ export class TemporaryComment extends CommentBase {
 
 	constructor(
 		parent: GHPRCommentThread,
-		private input: string,
+		private _input,
 		isDraft: boolean,
 		currentUser: IAccount,
 		originalComment?: GHPRComment,
@@ -211,7 +211,7 @@ const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
 
 export class GHPRComment extends CommentBase {
-	private static ID = 'GHPRComment';
+	private static _ID = 'GHPRComment';
 	public commentId: string;
 	public timestamp: Date;
 
@@ -221,10 +221,10 @@ export class GHPRComment extends CommentBase {
 	public rawComment: IComment;
 
 	private _rawBody: string | vscode.MarkdownString;
-	private replacedBody: string;
-	private githubRepository: GitHubRepository | undefined;
+	private _replacedBody: string;
+	private _githubRepository: GitHubRepository | undefined;
 
-	constructor(private readonly context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, githubRepositories?: GitHubRepository[]) {
+	constructor(private readonly _context, comment: IComment, parent: GHPRCommentThread, githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
 		this.originalAuthor = {
@@ -320,7 +320,7 @@ export class GHPRComment extends CommentBase {
 		}
 	}
 
-	private refresh() {
+	private _refresh() {
 		// Self assign the comments to trigger an update of the comments in VS Code now that we have replaced the body.
 		// eslint-disable-next-line no-self-assign
 		this.parent.comments = this.parent.comments;
@@ -338,13 +338,13 @@ export class GHPRComment extends CommentBase {
 		return this.commentId;
 	}
 
-	private replaceImg(body: string) {
+	private _replaceImg(body: string) {
 		return body.replace(IMG_EXPRESSION, (_substring, _1, _2, _3, { src }) => {
 			return `![image](${src})`;
 		});
 	}
 
-	private replaceSuggestion(body: string) {
+	private _replaceSuggestion(body: string) {
 		return body.replace(new RegExp(SUGGESTION_EXPRESSION, 'g'), (_substring: string, ...args: any[]) => {
 			return `***
 Suggested change:
@@ -355,7 +355,7 @@ ${args[3] ?? ''}
 		});
 	}
 
-	private async createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
+	private async _createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
 		const localFile = vscode.Uri.joinPath(rootUri, fileSubPath);
 		try {
 			const stat = await vscode.workspace.fs.stat(localFile);
@@ -367,7 +367,7 @@ ${args[3] ?? ''}
 		}
 	}
 
-	private async replacePermalink(body: string): Promise<string> {
+	private async _replacePermalink(body: string): Promise<string> {
 		const githubRepository = this.githubRepository;
 		if (!githubRepository) {
 			return body;
@@ -400,7 +400,7 @@ ${lineContents}
 		});
 	}
 
-	private replaceImages(body: string): string {
+	private _replaceImages(body: string): string {
 		const html = this.rawComment.bodyHTML;
 		if (!html) {
 			return body;
@@ -409,18 +409,18 @@ ${lineContents}
 		return replaceImages(body, html, this.githubRepository?.remote.host);
 	}
 
-	private replaceNewlines(body: string) {
+	private _replaceNewlines(body: string) {
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
 
-	private postpendSpecialAuthorComment(body: string) {
+	private _postpendSpecialAuthorComment(body: string) {
 		if (!this.rawComment.specialDisplayBodyPostfix) {
 			return body;
 		}
 		return `${body}  \n\n_${this.rawComment.specialDisplayBodyPostfix}_`;
 	}
 
-	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
+	private async _replaceBody(body: string | vscode.MarkdownString): Promise<string> {
 		const emojiPromise = ensureEmojis(this.context);
 		Logger.trace('Replace comment body', GHPRComment.ID);
 		if (body instanceof vscode.MarkdownString) {

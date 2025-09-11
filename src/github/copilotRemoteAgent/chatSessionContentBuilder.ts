@@ -19,9 +19,9 @@ import { PullRequestModel } from '../pullRequestModel';
 
 export class ChatSessionContentBuilder {
 	constructor(
-		private loggerId: string,
-		private readonly handler: string,
-		private getChangeModels: Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]>
+		private _loggerId,
+		private readonly _handler,
+		private _getChangeModels
 	) { }
 
 	public async buildSessionHistory(
@@ -88,7 +88,7 @@ export class ChatSessionContentBuilder {
 		return history;
 	}
 
-	private async createResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
+	private async _createResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		if (logs.trim().length > 0) {
 			return await this.parseSessionLogsIntoResponseTurn(pullRequest, logs, session);
 		} else if (session.state === 'in_progress') {
@@ -104,7 +104,7 @@ export class ChatSessionContentBuilder {
 		}
 	}
 
-	private async determineSessionPrompt(
+	private async _determineSessionPrompt(
 		session: SessionInfo,
 		sessionIndex: number,
 		pullRequest: PullRequestModel,
@@ -124,7 +124,7 @@ export class ChatSessionContentBuilder {
 		return sessionPrompt;
 	}
 
-	private async getFollowUpSessionPrompt(
+	private async _getFollowUpSessionPrompt(
 		sessionIndex: number,
 		timelineEventsPromise: Promise<TimelineEvent[]>,
 		defaultPrompt: string
@@ -164,14 +164,14 @@ export class ChatSessionContentBuilder {
 		}
 	}
 
-	private getPreviousSessionEndTime(sessionIndex: number, copilotFinishedEvents: CopilotFinishedEvent[]): number {
+	private _getPreviousSessionEndTime(sessionIndex: number, copilotFinishedEvents: CopilotFinishedEvent[]): number {
 		if (sessionIndex > 0 && copilotFinishedEvents[sessionIndex - 1]) {
 			return new Date(copilotFinishedEvents[sessionIndex - 1].createdAt).getTime();
 		}
 		return 0;
 	}
 
-	private findRelevantTimelineEvents(
+	private _findRelevantTimelineEvents(
 		timelineEvents: readonly TimelineEvent[],
 		previousSessionEndTime: number,
 		currentSessionStartTime: number
@@ -213,7 +213,7 @@ export class ChatSessionContentBuilder {
 			});
 	}
 
-	private extractPromptFromEvent(event: TimelineEvent): string {
+	private _extractPromptFromEvent(event: TimelineEvent): string {
 		let body = '';
 		if (event.event === EventType.Commented) {
 			body = (event as CommentEvent).body;
@@ -231,7 +231,7 @@ export class ChatSessionContentBuilder {
 		return body.trim();
 	}
 
-	private async getInitialSessionPrompt(
+	private async _getInitialSessionPrompt(
 		session: SessionInfo,
 		pullRequest: PullRequestModel,
 		capi: CopilotApi,
@@ -263,7 +263,7 @@ export class ChatSessionContentBuilder {
 		return defaultPrompt;
 	}
 
-	private async parseSessionLogsIntoResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
+	private async _parseSessionLogsIntoResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		try {
 			const logChunks = parseSessionLogs(logs);
 			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart> = [];
@@ -302,7 +302,7 @@ export class ChatSessionContentBuilder {
 		}
 	}
 
-	private processAssistantDelta(
+	private _processAssistantDelta(
 		delta: AssistantDelta,
 		choice: Choice,
 		pullRequest: PullRequestModel,
@@ -374,7 +374,7 @@ export class ChatSessionContentBuilder {
 		return currentResponseContent;
 	}
 
-	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: ToolCall, deltaContent: string = ''): vscode.ChatToolInvocationPart | vscode.ChatResponseThinkingProgressPart | undefined {
+	private _createToolInvocationPart(pullRequest: PullRequestModel, toolCall: ToolCall, deltaContent: string = ''): vscode.ChatToolInvocationPart | vscode.ChatResponseThinkingProgressPart | undefined {
 		if (!toolCall.function?.name || !toolCall.id) {
 			return undefined;
 		}
@@ -430,7 +430,7 @@ export class ChatSessionContentBuilder {
 		return toolPart;
 	}
 
-	private async getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
+	private async _getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
 		try {
 			const changeModels = await this.getChangeModels;
 

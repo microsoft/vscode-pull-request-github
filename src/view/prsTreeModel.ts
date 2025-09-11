@@ -131,7 +131,7 @@ export class PrsTreeModel extends Disposable {
 		return this._hasLoaded;
 	}
 
-	private set hasLoaded(value: boolean) {
+	private set _hasLoaded(value: boolean) {
 		this._hasLoaded = value;
 		this._onLoaded.fire();
 	}
@@ -207,7 +207,7 @@ export class PrsTreeModel extends Disposable {
 		this._onDidChangePrStatus.fire(changedStatuses);
 	}
 
-	private getFolderCache(folderRepoManager: FolderRepositoryManager): Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>> {
+	private _getFolderCache(folderRepoManager: FolderRepositoryManager): Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>> {
 		let cache = this._cachedPRs.get(folderRepoManager);
 		if (!cache) {
 			cache = new Map();
@@ -293,7 +293,7 @@ export class PrsTreeModel extends Disposable {
 		return prs;
 	}
 
-	private clearQueriesContainingPullRequests(pullRequests: PullRequestChangeEvent[]): void {
+	private _clearQueriesContainingPullRequests(pullRequests: PullRequestChangeEvent[]): void {
 		const withStateChange = pullRequests.filter(prChange => prChange.event.state);
 		if (!withStateChange || withStateChange.length === 0) {
 			return;

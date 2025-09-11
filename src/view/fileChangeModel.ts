@@ -13,7 +13,7 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 
 export abstract class FileChangeModel {
-	private static readonly ID = 'FileChangeModel';
+	private static readonly _ID = 'FileChangeModel';
 	protected _filePath: vscode.Uri;
 	get filePath(): vscode.Uri {
 		return this._filePath;

@@ -43,10 +43,10 @@ export abstract class RepositoryFileSystemProvider extends ReadonlyFileSystemPro
 	}
 
 	protected async waitForAuth(): Promise<void> {
-		if (this.credentialStore.isAnyAuthenticated()) {
+		if (this._credentialStore.isAnyAuthenticated()) {
 			return;
 		}
-		return new Promise(resolve => this.credentialStore.onDidGetSession(() => resolve()));
+		return new Promise(resolve => this._credentialStore.onDidGetSession(() => resolve()));
 	}
 
 	protected async waitForAnyGitHubRepos(reposManager: RepositoriesManager): Promise<void> {

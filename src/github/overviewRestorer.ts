@@ -16,7 +16,7 @@ import { RepositoriesManager } from './repositoriesManager';
 import { PullRequest } from './views';
 
 export class OverviewRestorer extends Disposable implements vscode.WebviewPanelSerializer {
-	private static ID = 'OverviewRestorer';
+	private static _ID = 'OverviewRestorer';
 
 	constructor(private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry,

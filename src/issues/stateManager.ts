@@ -80,8 +80,8 @@ export class StateManager {
 
 	private _onDidChangeCurrentIssue: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
-	private initializePromise: Promise<void> | undefined;
-	private statusBarItem?: vscode.StatusBarItem;
+	private _initializePromise: Promise<void> | undefined;
+	private _statusBarItem?: vscode.StatusBarItem;
 
 	getIssueCollection(uri: vscode.Uri): Map<string, Promise<IssueQueryResult>> {
 		let collection = this._singleRepoStates.get(uri.path)?.issueCollection;
@@ -95,11 +95,11 @@ export class StateManager {
 
 	constructor(
 		readonly gitAPI: GitApiImpl,
-		private manager: RepositoriesManager,
-		private context: vscode.ExtensionContext,
+		private _manager,
+		private _context,
 	) { }
 
-	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
+	private _getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
 		let state = this._singleRepoStates.get(uri.path);
 		if (state) {
 			return state;
@@ -144,7 +144,7 @@ export class StateManager {
 		return this.initializePromise;
 	}
 
-	private registerRepositoryChangeEvent() {
+	private _registerRepositoryChangeEvent() {
 		async function updateRepository(that: StateManager, repository: Repository) {
 			const state = that.getOrCreateSingleRepoState(repository.rootUri);
 			// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
@@ -201,7 +201,7 @@ export class StateManager {
 		}
 	}
 
-	private async doInitialize() {
+	private async _doInitialize() {
 		this.cleanIssueState();
 		this._queries = vscode.workspace
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
@@ -254,7 +254,7 @@ export class StateManager {
 		}
 	}
 
-	private cleanIssueState() {
+	private _cleanIssueState() {
 		const stateString: string | undefined = this.context.workspaceState.get(ISSUES_KEY);
 		const state: IssuesState = stateString ? JSON.parse(stateString) : { issues: [], branches: [] };
 		const deleteDate: number = new Date().valueOf() - 30 /*days*/ * 86400000 /*milliseconds in a day*/;
@@ -268,7 +268,7 @@ export class StateManager {
 		}
 	}
 
-	private async getUsers(uri: vscode.Uri): Promise<Map<string, IAccount>> {
+	private async _getUsers(uri: vscode.Uri): Promise<Map<string, IAccount>> {
 		await this.initializePromise;
 		const assignableUsers = await this.manager.getManagerForFile(uri)?.getAssignableUsers();
 		const userMap: Map<string, IAccount> = new Map();
@@ -291,15 +291,15 @@ export class StateManager {
 		return state.userMap;
 	}
 
-	private async getCurrentUser(authProviderId: AuthProvider): Promise<string | undefined> {
+	private async _getCurrentUser(authProviderId: AuthProvider): Promise<string | undefined> {
 		return (await this.manager.credentialStore.getCurrentUser(authProviderId))?.login;
 	}
 
-	private async setAllIssueData() {
+	private async _setAllIssueData() {
 		return Promise.all(this.manager.folderManagers.map(folderManager => this.setIssueData(folderManager)));
 	}
 
-	private async setIssueData(folderManager: FolderRepositoryManager) {
+	private async _setIssueData(folderManager: FolderRepositoryManager) {
 		const singleRepoState = this.getOrCreateSingleRepoState(folderManager.repository.rootUri, folderManager);
 		singleRepoState.issueCollection.clear();
 		const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
@@ -328,7 +328,7 @@ export class StateManager {
 		singleRepoState.lastBranch = folderManager.repository.state.HEAD?.name;
 	}
 
-	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
+	private _setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
 			const issues = await folderManager.getIssues(query);
 			this._onDidChangeIssueData.fire();
@@ -342,7 +342,7 @@ export class StateManager {
 		});
 	}
 
-	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string, silent: boolean = false) {
+	private async _setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string, silent: boolean = false) {
 		const createBranchConfig = vscode.workspace
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
 			.get<string>(USE_BRANCH_FOR_ISSUES);
@@ -401,7 +401,7 @@ export class StateManager {
 		return this._singleRepoStates.get(uri.path)?.maxIssueNumber ?? 0;
 	}
 
-	private isSettingIssue: boolean = false;
+	private _isSettingIssue: boolean = false;
 	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined, checkoutDefaultBranch: boolean, silent: boolean = false) {
 		if (this.isSettingIssue && issue === undefined) {
 			return;
@@ -437,7 +437,7 @@ export class StateManager {
 		}
 	}
 
-	private updateStatusBar() {
+	private _updateStatusBar() {
 		const currentIssues = this.currentIssues();
 		const shouldShowStatusBarItem = currentIssues.length > 0;
 		if (!shouldShowStatusBarItem) {
@@ -461,7 +461,7 @@ export class StateManager {
 		statusBarItem.show();
 	}
 
-	private getSavedState(): IssuesState {
+	private _getSavedState(): IssuesState {
 		const stateString: string | undefined = this.context.workspaceState.get(ISSUES_KEY);
 		return stateString ? JSON.parse(stateString) : { issues: Object.create(null), branches: Object.create(null) };
 	}

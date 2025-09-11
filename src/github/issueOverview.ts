@@ -156,7 +156,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	}
 
-	private getRefreshInterval(): number {
+	private _getRefreshInterval(): number {
 		return vscode.workspace.getConfiguration().get<number>(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`) || 60;
 	}
 
@@ -166,9 +166,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private timeout: NodeJS.Timeout | undefined = undefined;
-	private lastRefreshTime: Date;
-	private pollForUpdates(isVisible: boolean, refreshImmediately: boolean = false): void {
+	private _timeout: NodeJS.Timeout | undefined = undefined;
+	private _lastRefreshTime: Date;
+	private _pollForUpdates(isVisible: boolean, refreshImmediately: boolean = false): void {
 		clearTimeout(this.timeout);
 		const refresh = async () => {
 			const previousRefreshTime = this.lastRefreshTime;
@@ -393,7 +393,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private async doScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
+	private async _doScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
 		if (!COPILOT_ACCOUNTS[this._item.author.login]) {
 			return;
 		}
@@ -432,7 +432,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private async addLabels(message: IRequestMessage<void>): Promise<void> {
+	private async _addLabels(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
 		try {
 			let newLabels: DisplayLabel[] = [];
@@ -471,7 +471,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
+	private async _removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.removeLabel(message.args);
 			this._replyMessage(message, {});
@@ -480,11 +480,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private webviewDebug(message: IRequestMessage<string>): void {
+	private _webviewDebug(message: IRequestMessage<string>): void {
 		Logger.debug(message.args, IssueOverviewPanel.ID);
 	}
 
-	private editDescription(message: IRequestMessage<{ text: string }>) {
+	private _editDescription(message: IRequestMessage<{ text: string }>) {
 		this._item
 			.edit({ body: message.args.text })
 			.then(result => {
@@ -495,7 +495,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
 			});
 	}
-	private editTitle(message: IRequestMessage<{ text: string }>) {
+	private _editTitle(message: IRequestMessage<{ text: string }>) {
 		return this._item
 			.edit({ title: message.args.text })
 			.then(result => {
@@ -511,7 +511,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._item.getIssueTimelineEvents(this._item);
 	}
 
-	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
+	private async _changeAssignees(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount }>();
 
 		try {
@@ -550,11 +550,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 
-	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
+	private async _addMilestone(message: IRequestMessage<void>): Promise<void> {
 		return getMilestoneFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.milestone, (milestone) => this.updateMilestone(milestone, message));
 	}
 
-	private async updateMilestone(milestone: IMilestone | undefined, message: IRequestMessage<void>) {
+	private async _updateMilestone(milestone: IMilestone | undefined, message: IRequestMessage<void>) {
 		if (!milestone) {
 			return this.removeMilestone(message);
 		}
@@ -564,7 +564,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		});
 	}
 
-	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {
+	private async _removeMilestone(message: IRequestMessage<void>): Promise<void> {
 		try {
 			await this._item.updateMilestone('null');
 			this._replyMessage(message, {});
@@ -573,11 +573,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private async changeProjects(message: IRequestMessage<void>): Promise<void> {
+	private async _changeProjects(message: IRequestMessage<void>): Promise<void> {
 		return getProjectFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.item.projectItems?.map(item => item.project), (project) => this.updateProjects(project, message));
 	}
 
-	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
+	private async _updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
 		let newProjects: IProjectItem[] = [];
 		if (projects) {
 			newProjects = (await this._item.updateProjects(projects)) ?? [];
@@ -588,12 +588,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._replyMessage(message, projectItemsReply);
 	}
 
-	private async removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
+	private async _removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
 		await this._item.removeProjects([message.args]);
 		return this._replyMessage(message, {});
 	}
 
-	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
+	private async _addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const currentUser = await this._folderRepositoryManager.getCurrentUser();
 			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
@@ -612,7 +612,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private async addAssigneeCopilot(message: IRequestMessage<void>): Promise<void> {
+	private async _addAssigneeCopilot(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const copilotUser = (await this._folderRepositoryManager.getAssignableUsers())[this._item.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
 			if (copilotUser) {
@@ -630,11 +630,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	private async copyItemLink(): Promise<void> {
+	private async _copyItemLink(): Promise<void> {
 		return vscode.env.clipboard.writeText(this._item.html_url);
 	}
 
-	private async copyVscodeDevLink(): Promise<void> {
+	private async _copyVscodeDevLink(): Promise<void> {
 		return vscode.env.clipboard.writeText(vscodeDevPrLink(this._item));
 	}
 
@@ -642,7 +642,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._item.editIssueComment(comment, text);
 	}
 
-	private editComment(message: IRequestMessage<{ comment: IComment; text: string }>) {
+	private _editComment(message: IRequestMessage<{ comment: IComment; text: string }>) {
 		this.editCommentPromise(message.args.comment, message.args.text)
 			.then(result => {
 				this._replyMessage(message, {
@@ -660,7 +660,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._item.deleteIssueComment(comment.id.toString());
 	}
 
-	private deleteComment(message: IRequestMessage<IComment>) {
+	private _deleteComment(message: IRequestMessage<IComment>) {
 		vscode.window
 			.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, 'Delete')
 			.then(value => {

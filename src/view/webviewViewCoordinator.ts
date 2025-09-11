@@ -29,7 +29,7 @@ export class WebviewViewCoordinator extends Disposable {
 		this._webviewViewProvider = undefined;
 	}
 
-	private create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
+	private _create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
 		this._webviewViewProvider = addDisposable(new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, reviewManager, pullRequestModel), this._currentDisposables);
 		addDisposable(vscode.window.registerWebviewViewProvider(
 			this._webviewViewProvider.viewType,
@@ -48,7 +48,7 @@ export class WebviewViewCoordinator extends Disposable {
 		this.updatePullRequest();
 	}
 
-	private updatePullRequest() {
+	private _updatePullRequest() {
 		const pullRequestModel = Array.from(this._pullRequestModel.keys())[0];
 		if (!pullRequestModel) {
 			this.reset();

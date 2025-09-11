@@ -27,7 +27,7 @@ export interface CopilotRemoteAgentToolParameters {
 export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotRemoteAgentToolParameters> {
 	public static readonly toolId = 'github-pull-request_copilot-coding-agent';
 
-	constructor(private manager: CopilotRemoteAgentManager, private telemetry: ITelemetry) { }
+	constructor(private _manager, private _telemetry) { }
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title, existingPullRequest } = options.input;
@@ -141,7 +141,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		return new vscode.LanguageModelToolResult2(lmResult);
 	}
 
-	private async getActivePullRequestWithSession(repoInfo: { repo: string; owner: string; fm: FolderRepositoryManager } | undefined): Promise<number | undefined> {
+	private async _getActivePullRequestWithSession(repoInfo: { repo: string; owner: string; fm: FolderRepositoryManager } | undefined): Promise<number | undefined> {
 		if (!repoInfo) {
 			return;
 		}

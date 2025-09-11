@@ -29,7 +29,8 @@ module.exports = {
 			files: ['**/*.ts', '**/*.tsx'],
 			rules: {
 				'rulesdir/no-any-except-union-method-signature': 'error',
-				'rulesdir/no-pr-in-user-strings': 'error'
+				'rulesdir/no-pr-in-user-strings': 'error',
+				'rulesdir/private-members-underscore': 'error'
 			}
 		}
 	]

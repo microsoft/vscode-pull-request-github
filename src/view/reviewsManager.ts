@@ -44,7 +44,7 @@ export class ReviewsManager extends Disposable {
 		return this._reviewManagers;
 	}
 
-	private registerListeners(): void {
+	private _registerListeners(): void {
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
 				if (this._prFileChangesProvider) {

@@ -73,11 +73,11 @@ import {
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
 export class IssueFeatureRegistrar extends Disposable {
-	private static readonly ID = 'IssueFeatureRegistrar';
+	private static readonly _ID = 'IssueFeatureRegistrar';
 	private _stateManager: StateManager;
 	private _newIssueCache: NewIssueCache;
 
-	private createIssueInfo:
+	private _createIssueInfo:
 		| {
 			document: vscode.TextDocument;
 			newIssue: NewIssue | undefined;
@@ -87,12 +87,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		| undefined;
 
 	constructor(
-		private gitAPI: GitApiImpl,
-		private manager: RepositoriesManager,
-		private reviewsManager: ReviewsManager,
-		private context: vscode.ExtensionContext,
-		private telemetry: ITelemetry,
-		private copilotRemoteAgentManager: CopilotRemoteAgentManager,
+		private _gitAPI,
+		private _manager,
+		private _reviewsManager,
+		private _context,
+		private _telemetry,
+		private _copilotRemoteAgentManager,
 	) {
 		super();
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
@@ -581,7 +581,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		});
 	}
 
-	private documentFilters: Array<vscode.DocumentFilter | string> = [
+	private _documentFilters: Array<vscode.DocumentFilter | string> = [
 		{ language: 'php' },
 		{ language: 'powershell' },
 		{ language: 'jade' },
@@ -636,7 +636,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		{ language: 'yml' },
 		'*',
 	];
-	private registerCompletionProviders() {
+	private _registerCompletionProviders() {
 		const providers: {
 			provider: typeof IssueCompletionProvider | typeof UserCompletionProvider;
 			trigger: string;
@@ -867,7 +867,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		}
 	}
 
-	private async statusBarActions(currentIssue: CurrentIssue) {
+	private async _statusBarActions(currentIssue: CurrentIssue) {
 		const openIssueText: string = vscode.l10n.t('{0} Open #{1} {2}', '$(globe)', currentIssue.issue.number, currentIssue.issue.title);
 		const pullRequestText: string = vscode.l10n.t({ message: '{0} Create pull request for #{1} (pushes branch)', args: ['$(git-pull-request)', currentIssue.issue.number], comment: ['The first placeholder is an icon and shouldn\'t be localized', 'The second placeholder is the ID number of a GitHub Issue.'] });
 		let defaults: PullRequestDefaults | undefined;
@@ -923,7 +923,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		}
 	}
 
-	private stringToUint8Array(input: string): Uint8Array {
+	private _stringToUint8Array(input: string): Uint8Array {
 		const encoder = new TextEncoder();
 		return encoder.encode(input);
 	}
@@ -946,7 +946,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		return this.createTodoIssue(undefined, await vscode.env.clipboard.readText());
 	}
 
-	private async createTodoIssueBody(newIssue?: NewIssue, issueBody?: string): Promise<string | undefined> {
+	private async _createTodoIssueBody(newIssue?: NewIssue, issueBody?: string): Promise<string | undefined> {
 		if (issueBody || newIssue?.document.isUntitled) {
 			return issueBody;
 		}
@@ -1033,7 +1033,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		return undefined;
 	}
 
-	private async makeNewIssueFile(
+	private async _makeNewIssueFile(
 		originUri: vscode.Uri,
 		options?: NewIssueFileOptions
 	) {
@@ -1128,7 +1128,7 @@ ${options?.body ?? ''}\n
 		});
 	}
 
-	private async verifyLabels(
+	private async _verifyLabels(
 		folderManager: FolderRepositoryManager,
 		createParams: OctokitCommon.IssuesCreateParams,
 	): Promise<boolean> {
@@ -1176,7 +1176,7 @@ ${options?.body ?? ''}\n
 		return true;
 	}
 
-	private async chooseRepo(prompt: string): Promise<FolderRepositoryManager | undefined> {
+	private async _chooseRepo(prompt: string): Promise<FolderRepositoryManager | undefined> {
 		interface RepoChoice extends vscode.QuickPickItem {
 			repo: FolderRepositoryManager;
 		}
@@ -1202,7 +1202,7 @@ ${options?.body ?? ''}\n
 		return choice?.repo;
 	}
 
-	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
+	private async _chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
 			return { title: undefined, body: undefined };
@@ -1245,7 +1245,7 @@ ${options?.body ?? ''}\n
 		return selectedTemplate?.template;
 	}
 
-	private getDataFromTemplate(template: string): IssueTemplate {
+	private _getDataFromTemplate(template: string): IssueTemplate {
 		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
@@ -1253,7 +1253,7 @@ ${options?.body ?? ''}\n
 		return { title, name, about, body };
 	}
 
-	private async doCreateIssue(
+	private async _doCreateIssue(
 		document: vscode.TextDocument | undefined,
 		newIssue: NewIssue | undefined,
 		title: string,
@@ -1371,7 +1371,7 @@ ${options?.body ?? ''}\n
 		});
 	}
 
-	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, context?: LinkContext[]): Promise<PermalinkInfo[]> {
+	private async _getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, context?: LinkContext[]): Promise<PermalinkInfo[]> {
 		const links = await createGithubPermalink(repositoriesManager, this.gitAPI, includeRange, includeFile, undefined, context);
 		const firstError = links.find(link => link.error);
 		if (firstError) {
@@ -1380,7 +1380,7 @@ ${options?.body ?? ''}\n
 		return links;
 	}
 
-	private async getHeadLinkWithError(context?: vscode.Uri[], includeRange?: boolean): Promise<PermalinkInfo[]> {
+	private async _getHeadLinkWithError(context?: vscode.Uri[], includeRange?: boolean): Promise<PermalinkInfo[]> {
 		const links = await createGitHubLink(this.manager, context, includeRange);
 		if (links.length > 0) {
 			const firstError = links.find(link => link.error);
@@ -1391,7 +1391,7 @@ ${options?.body ?? ''}\n
 		return links;
 	}
 
-	private async getContextualizedLink(file: vscode.Uri, link: string): Promise<string> {
+	private async _getContextualizedLink(file: vscode.Uri, link: string): Promise<string> {
 		let uri: vscode.Uri;
 		try {
 			uri = await vscode.env.asExternalUri(file);
@@ -1408,7 +1408,7 @@ ${options?.body ?? ''}\n
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
-	private async permalinkInfoToClipboardText(links: PermalinkInfo[], shouldContextualize: boolean = false): Promise<string | undefined> {
+	private async _permalinkInfoToClipboardText(links: PermalinkInfo[], shouldContextualize: boolean = false): Promise<string | undefined> {
 		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
 		if (withPermalinks.length !== 0) {
 			const contextualizedLinks = await Promise.all(withPermalinks.map(async link => (shouldContextualize && link.originalFile) ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink));
@@ -1435,7 +1435,7 @@ ${options?.body ?? ''}\n
 		}
 	}
 
-	private getMarkdownLinkText(): string | undefined {
+	private _getMarkdownLinkText(): string | undefined {
 		if (!vscode.window.activeTextEditor) {
 			return undefined;
 		}

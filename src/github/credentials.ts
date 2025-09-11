@@ -50,7 +50,7 @@ interface AuthResult {
 }
 
 export class CredentialStore extends Disposable {
-	private static readonly ID = 'Authentication';
+	private static readonly _ID = 'Authentication';
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
@@ -71,14 +71,14 @@ export class CredentialStore extends Disposable {
 	private _onDidUpgradeSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
+	constructor(private readonly _telemetry: ITelemetry, private readonly _context) {
 		super();
 		this.setScopesFromState();
 
 		this._register(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
 	}
 
-	private async handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
+	private async _handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
 		const currentProvider = (e.provider.id === AuthProvider.github && this._githubAPI) ? AuthProvider.github : ((e.provider.id === AuthProvider.githubEnterprise && this._githubEnterpriseAPI) ? AuthProvider.githubEnterprise : undefined);
 		if ((this._githubAPI || this._githubEnterpriseAPI) && !currentProvider) {
 			return;
@@ -113,11 +113,11 @@ export class CredentialStore extends Disposable {
 		}
 	}
 
-	private allScopesIncluded(actualScopes: string[], requiredScopes: string[]) {
+	private _allScopesIncluded(actualScopes: string[], requiredScopes: string[]) {
 		return requiredScopes.every(scope => actualScopes.includes(scope));
 	}
 
-	private setScopesFromState() {
+	private _setScopesFromState() {
 		this._scopes = this.context.globalState.get(LAST_USED_SCOPES_GITHUB_KEY, SCOPES_OLD);
 		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES_OLD);
 	}
@@ -126,11 +126,11 @@ export class CredentialStore extends Disposable {
 		return this._scopes;
 	}
 
-	private async saveScopesInState() {
+	private async _saveScopesInState() {
 		await this.context.globalState.update(LAST_USED_SCOPES_GITHUB_KEY, this._scopes);
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
-	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
+	private async _initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
 		if (isEnterprise(authProviderId)) {
 			if (!hasEnterpriseUri()) {
@@ -225,7 +225,7 @@ export class CredentialStore extends Disposable {
 		}
 	}
 
-	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
+	private async _doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
 		let enterprise: AuthResult | undefined;
 		const initializeEnterprise = async () => {
 			enterprise = await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
@@ -439,7 +439,7 @@ export class CredentialStore extends Disposable {
 		return (octokit && github?.currentUser)!;
 	}
 
-	private setCurrentUser(github: GitHub): void {
+	private _setCurrentUser(github: GitHub): void {
 		const getUser: ReturnType<typeof github.octokit.api.users.getAuthenticated> = new Promise((resolve, reject) => {
 			Logger.debug('Getting current user', CredentialStore.ID);
 			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
@@ -454,7 +454,7 @@ export class CredentialStore extends Disposable {
 		github.isEmu = getUser.then(result => result.data.plan?.name === 'emu_user');
 	}
 
-	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
+	private async _getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
 		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await this.findExistingScopes(authProviderId);
 		if (existingSession?.session) {
 			return { session: existingSession.session, isNew: false, scopes: existingSession.scopes };
@@ -464,7 +464,7 @@ export class CredentialStore extends Disposable {
 		return { session, isNew: !!session, scopes: requireScopes ? scopes : SCOPES_OLD };
 	}
 
-	private async findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {
+	private async _findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {
 		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
 		for (const scopes of scopesInPreferenceOrder) {
 			const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
@@ -474,7 +474,7 @@ export class CredentialStore extends Disposable {
 		}
 	}
 
-	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
+	private async _createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
 		let enterpriseServerUri: vscode.Uri | undefined;
 		Logger.appendLine(`Creating hub for ${isEnterprise(authProviderId) ? 'enterprise' : '.com'}`, CredentialStore.ID);

@@ -20,7 +20,7 @@ export interface CreateModelChangeEvent {
 }
 
 export class CreatePullRequestDataModel extends Disposable {
-	private static ID = 'CreatePullRequestDataModel';
+	private static _ID = 'CreatePullRequestDataModel';
 	private _baseOwner: string;
 	private _baseBranch: string;
 	private _compareOwner: string;
@@ -41,7 +41,7 @@ export class CreatePullRequestDataModel extends Disposable {
 	private _gitHubcontentProvider: GitHubContentProvider;
 	private _gitcontentProvider: GitContentProvider;
 
-	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string) {
+	constructor(private readonly _folderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string) {
 		super();
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
@@ -67,7 +67,7 @@ export class CreatePullRequestDataModel extends Disposable {
 		return this._gitcontentProvider;
 	}
 
-	private get baseRemoteName(): string {
+	private get _baseRemoteName(): string {
 		const findValue = `/${this._baseOwner.toLowerCase()}/`;
 		return this.folderRepositoryManager.repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase().includes(findValue))?.name ?? 'origin';
 	}
@@ -111,7 +111,7 @@ export class CreatePullRequestDataModel extends Disposable {
 		}
 	}
 
-	private async getContentProvider(): Promise<ChangesContentProvider> {
+	private async _getContentProvider(): Promise<ChangesContentProvider> {
 		if (await this.getCompareHasUpstream()) {
 			return this.gitHubContentProvider;
 		} else {
@@ -152,7 +152,7 @@ export class CreatePullRequestDataModel extends Disposable {
 		}
 	}
 
-	private async updateHasUpstream(branch: string): Promise<boolean> {
+	private async _updateHasUpstream(branch: string): Promise<boolean> {
 		const compareBranch = await this.folderRepositoryManager.repository.getBranch(branch);
 		this._compareHasUpstream = !!compareBranch.upstream;
 		// Check that the upstream head matches the local head
@@ -172,7 +172,7 @@ export class CreatePullRequestDataModel extends Disposable {
 		return this._compareGitHubRepository;
 	}
 
-	private update(changeEvent: CreateModelChangeEvent) {
+	private _update(changeEvent: CreateModelChangeEvent) {
 		this._gitLog = undefined;
 		this._gitFiles = undefined;
 		this._gitHubLog = undefined;

@@ -162,17 +162,17 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.checkboxState = viewed === ViewedState.VIEWED ?
 			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark File as Unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
 			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark File as Viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
-		this.pullRequestManager.setFileViewedContext();
+		this._pullRequestManager.setFileViewedContext();
 	}
 
 	public async markFileAsViewed(fromCheckboxChanged: boolean = true) {
 		await this.pullRequest.markFiles([this.fileName], !fromCheckboxChanged, 'viewed');
-		this.pullRequestManager.setFileViewedContext();
+		this._pullRequestManager.setFileViewedContext();
 	}
 
 	public async unmarkFileAsViewed(fromCheckboxChanged: boolean = true) {
 		await this.pullRequest.markFiles([this.fileName], !fromCheckboxChanged, 'unviewed');
-		this.pullRequestManager.setFileViewedContext();
+		this._pullRequestManager.setFileViewedContext();
 	}
 
 	override updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
@@ -259,7 +259,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
  */
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		private readonly folderRepositoryManager: FolderRepositoryManager,
+		private readonly _folderRepositoryManager,
 		parent: TreeNodeParent,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		changeModel: InMemFileChangeModel
@@ -295,7 +295,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		pullRequestManager: FolderRepositoryManager,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		changeModel: GitFileChangeModel,
-		private isCurrent?: boolean,
+		private _isCurrent,
 		private _comments?: IComment[]
 	) {
 		super(parent, pullRequestManager, pullRequest, changeModel);
@@ -320,7 +320,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		this._useViewChangesCommand = true;
 	}
 
-	private async alternateCommand(): Promise<vscode.Command> {
+	private async _alternateCommand(): Promise<vscode.Command> {
 		if (this.status === GitChangeType.DELETE || this.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
 			const emptyFileUri = this.changeModel.parentFilePath.with({
@@ -356,7 +356,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		// If the commit is the most recent/current commit, then we just use the current file for the right.
 		// This is so that comments display properly.
 		if (this.isCurrent) {
-			currentFilePath = this.pullRequestManager.repository.rootUri.with({ path: path.posix.join(query.rootPath, query.path) });
+			currentFilePath = this._pullRequestManager.repository.rootUri.with({ path: path.posix.join(query.rootPath, query.path) });
 		}
 
 		const options: vscode.TextDocumentShowOptions = {};
@@ -387,10 +387,10 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		if (this._useViewChangesCommand) {
 			this.command = await this.alternateCommand();
 		} else {
-			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
+			const openDiff = vscode.workspace.getConfiguration(GIT, this._pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
 			if (openDiff && this.status !== GitChangeType.ADD) {
 				this.command = await openDiffCommand(
-					this.pullRequestManager,
+					this._pullRequestManager,
 					this.changeModel.parentFilePath,
 					this.changeModel.filePath,
 					this.opts,

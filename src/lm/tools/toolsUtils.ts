@@ -50,12 +50,12 @@ export async function concatAsyncIterable(asyncIterable: AsyncIterable<string>):
 }
 
 export abstract class RepoToolBase<T> extends ToolBase<T> {
-	constructor(private readonly credentialStore: CredentialStore, private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+	constructor(private readonly _credentialStore, private readonly _repositoriesManager, chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
 
 	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
-		if (!this.credentialStore.isAnyAuthenticated()) {
+		if (!this._credentialStore.isAnyAuthenticated()) {
 			throw new AuthenticationError();
 		}
 
@@ -66,11 +66,11 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 		if (options.owner && options.name && !options.owner.includes('owner') && !options.name.includes('name')) {
 			owner = options.owner;
 			name = options.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.owner, options.name);
+			folderManager = this._repositoriesManager.getManagerForRepository(options.owner, options.name);
 		}
 
-		if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
+		if (!folderManager && this._repositoriesManager.folderManagers.length > 0) {
+			folderManager = this._repositoriesManager.folderManagers[0];
 			if (owner && name) {
 				await folderManager.createGitHubRepositoryFromOwnerName(owner, name);
 			} else {
@@ -93,11 +93,11 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 
 	protected getGitHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
-		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+		if (this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			authProvider = AuthProvider.githubEnterprise;
-		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
+		} else if (this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			authProvider = AuthProvider.github;
 		}
-		return (authProvider !== undefined) ? this.credentialStore.getHub(authProvider) : undefined;
+		return (authProvider !== undefined) ? this._credentialStore.getHub(authProvider) : undefined;
 	}
 }

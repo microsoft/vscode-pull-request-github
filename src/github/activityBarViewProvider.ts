@@ -61,7 +61,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this.updatePullRequest(this._item);
 	}
 
-	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
+	private async _updateBranch(message: IRequestMessage<string>): Promise<void> {
 		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return this._replyMessage(message, {});
@@ -126,7 +126,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
+	private async _checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
 			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
@@ -140,7 +140,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private reRequestReview(message: IRequestMessage<string>): void {
+	private _reRequestReview(message: IRequestMessage<string>): void {
 		let targetReviewer: ReviewState | undefined;
 		const userReviewers: IAccount[] = [];
 		const teamReviewers: ITeam[] = [];
@@ -177,14 +177,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+	private _getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
 		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
 		return review?.state;
 	}
 
 	private _prDisposables: vscode.Disposable[] | undefined = undefined;
-	private registerPrSpecificListeners(pullRequestModel: PullRequestModel) {
+	private _registerPrSpecificListeners(pullRequestModel: PullRequestModel) {
 		if (this._prDisposables !== undefined) {
 			disposeAll(this._prDisposables);
 		}
@@ -317,7 +317,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			});
 	}
 
-	private close(message: IRequestMessage<string>): void {
+	private _close(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<IComment>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
@@ -327,11 +327,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private create() {
+	private _create() {
 		this._reviewManager.createPullRequest();
 	}
 
-	private createComment(message: IRequestMessage<string>) {
+	private _createComment(message: IRequestMessage<string>) {
 		this._item.createIssueComment(message.args).then(comment => {
 			this._replyMessage(message, {
 				value: comment,
@@ -339,7 +339,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private updateReviewers(review?: ReviewEvent): void {
+	private _updateReviewers(review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === reviewerId(reviewer.reviewer),
@@ -355,7 +355,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
+	private async _doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -378,7 +378,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
+	private async _doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
@@ -394,43 +394,43 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<ReviewEvent> {
+	private _approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
-	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
+	private _approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
 		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
 	}
 
-	private approvePullRequestCommand(context: { body: string }): Promise<void> {
+	private _approvePullRequestCommand(context: { body: string }): Promise<void> {
 		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
-	private requestChanges(body: string): Promise<ReviewEvent> {
+	private _requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
-	private requestChangesCommand(context: { body: string }): Promise<void> {
+	private _requestChangesCommand(context: { body: string }): Promise<void> {
 		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
 	}
 
-	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
+	private _requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
 		return this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
-	private submitReview(body: string): Promise<ReviewEvent> {
+	private _submitReview(body: string): Promise<ReviewEvent> {
 		return this._item.submitReview(ReviewEventEnum.Comment, body);
 	}
 
-	private submitReviewCommand(context: { body: string }) {
+	private _submitReviewCommand(context: { body: string }) {
 		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
-	private submitReviewMessage(message: IRequestMessage<string>) {
+	private _submitReviewMessage(message: IRequestMessage<string>) {
 		return this.doReviewMessage(message, (body) => this.submitReview(body));
 	}
 
-	private async deleteBranch(message: IRequestMessage<any>) {
+	private async _deleteBranch(message: IRequestMessage<any>) {
 		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
 		if (result.isReply) {
 			this._replyMessage(message, result.message);
@@ -439,7 +439,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
+	private _setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
 		this._item
 			.setReadyForReview()
 			.then(result => {
@@ -451,7 +451,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			});
 	}
 
-	private async mergePullRequest(
+	private async _mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
 		const { title, description, method } = message.args;

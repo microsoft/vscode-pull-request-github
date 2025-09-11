@@ -52,7 +52,7 @@ export class ConflictModel extends Disposable {
 		}
 	}
 
-	private async listenForCommit() {
+	private async _listenForCommit() {
 		let localDisposable: vscode.Disposable | undefined;
 		const result = await new Promise<boolean>(resolve => {
 			const startingCommit = this._repository.state.HEAD?.commit;
@@ -74,7 +74,7 @@ export class ConflictModel extends Disposable {
 		return this._repository.state.mergeChanges;
 	}
 
-	private async closeMergeEditors(): Promise<void> {
+	private async _closeMergeEditors(): Promise<void> {
 		for (const group of vscode.window.tabGroups.all) {
 			for (const tab of group.tabs) {
 				if (tab.input instanceof vscode.TabInputTextMerge) {
@@ -100,7 +100,7 @@ export class ConflictModel extends Disposable {
 		this._finishedCommit.fire(false);
 	}
 
-	private async first(): Promise<void> {
+	private async _first(): Promise<void> {
 		if (this.remainingConflicts.length === 0) {
 			return;
 		}

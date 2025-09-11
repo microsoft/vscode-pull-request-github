@@ -30,7 +30,7 @@ export class ThemeWatcher extends Disposable implements IThemeWatcher {
 		this.updateTheme();
 	}
 
-	private async updateTheme() {
+	private async _updateTheme() {
 		this._themeData = await loadCurrentThemeData();
 		this._onDidChangeTheme.fire(this._themeData);
 	}

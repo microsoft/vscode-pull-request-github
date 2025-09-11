@@ -25,14 +25,14 @@ export const PROJECTS = vscode.l10n.t('Projects:');
 const NEW_ISSUE_CACHE = 'newIssue.cache';
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
-	private content: Uint8Array | undefined;
-	private createTime: number = 0;
-	private modifiedTime: number = 0;
+	private _content: Uint8Array | undefined;
+	private _createTime: number = 0;
+	private _modifiedTime: number = 0;
 	private _onDidChangeFile: vscode.EventEmitter<vscode.FileChangeEvent[]> = new vscode.EventEmitter<
 		vscode.FileChangeEvent[]
 	>();
 
-	constructor(private readonly cache: NewIssueCache) { }
+	constructor(private readonly _cache) { }
 	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
 	watch(_uri: vscode.Uri, _options: { recursive: boolean; excludes: string[] }): vscode.Disposable {
 		const disposable = this.onDidChangeFile(e => {
@@ -84,7 +84,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 }
 
 export class NewIssueFileCompletionProvider implements vscode.CompletionItemProvider {
-	constructor(private manager: RepositoriesManager) { }
+	constructor(private _manager) { }
 
 	async provideCompletionItems(
 		document: vscode.TextDocument,
@@ -117,7 +117,7 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		}
 	}
 
-	private async provideLabelCompletionItems(folderManager: FolderRepositoryManager, defaults: PullRequestDefaults): Promise<vscode.CompletionItem[]> {
+	private async _provideLabelCompletionItems(folderManager: FolderRepositoryManager, defaults: PullRequestDefaults): Promise<vscode.CompletionItem[]> {
 		const labels = await folderManager.getLabels(undefined, defaults);
 		return labels.map(label => {
 			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Color);
@@ -127,7 +127,7 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		});
 	}
 
-	private async provideMilestoneCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
+	private async _provideMilestoneCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
 		const milestones = await (await folderManager.getPullRequestDefaultRepo())?.getMilestones() ?? [];
 		return milestones.map(milestone => {
 			const item = new vscode.CompletionItem(milestone.title, vscode.CompletionItemKind.Event);
@@ -136,7 +136,7 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		});
 	}
 
-	private async provideProjectCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
+	private async _provideProjectCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
 		const repo = await folderManager.getPullRequestDefaultRepo();
 		const projects = await folderManager.getAllProjects(repo) ?? [];
 		return projects.map(project => {
@@ -148,7 +148,7 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 }
 
 export class NewIssueCache {
-	constructor(private readonly context: vscode.ExtensionContext) {
+	constructor(private readonly _context) {
 		this.clear();
 	}
 

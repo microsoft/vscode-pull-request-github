@@ -22,8 +22,8 @@ export const vscode = acquireVsCodeApi();
 
 export class MessageHandler {
 	private _commandHandler: ((message: any) => void) | null;
-	private lastSentReq: number;
-	private pendingReplies: Record<string, { resolve: (value: any) => void; reject: (reason?: string) => void }>;
+	private _lastSentReq: number;
+	private _pendingReplies: Record<string, { resolve: (value: any) => void; reject: (reason?: string) => void }>;
 	constructor(commandHandler: any) {
 		this._commandHandler = commandHandler;
 		this.lastSentReq = 0;
@@ -50,7 +50,7 @@ export class MessageHandler {
 	}
 
 	// handle message should resolve promises
-	private handleMessage(event: any) {
+	private _handleMessage(event: any) {
 		const message: IReplyMessage = event.data; // The json data that the extension sent
 		if (message.seq) {
 			// this is a reply
