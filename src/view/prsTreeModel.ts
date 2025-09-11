@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../common/types';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
@@ -13,7 +14,7 @@ import { PullRequestChangeEvent } from '../github/githubRepository';
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { UnsatisfiedChecks } from '../github/utils';
+import { UnsatisfiedChecks, variableSubstitution } from '../github/utils';
 import { CategoryTreeNode } from './treeNodes/categoryNode';
 import { TreeNode } from './treeNodes/treeNode';
 
@@ -22,6 +23,12 @@ export const EXPANDED_QUERIES_STATE = 'expandedQueries';
 interface PRStatusChange {
 	pullRequest: PullRequestModel;
 	status: UnsatisfiedChecks;
+}
+
+interface CachedPRs {
+	clearRequested: boolean;
+	maxKnownPR: number | undefined; // used to determine if there have been new PRs created since last query
+	items: ItemsResponseResult<PullRequestModel>;
 }
 
 export class PrsTreeModel extends Disposable {
@@ -38,9 +45,10 @@ export class PrsTreeModel extends Disposable {
 	// Key is identifier from createPRNodeUri
 	private readonly _queriedPullRequests: Map<string, PRStatusChange> = new Map();
 
-	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>>> = new Map();
+	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, CachedPRs>> = new Map();
 	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private _getPullRequestsForQueryLock: Promise<void> = Promise.resolve();
+	private _sentNoRepoTelemetry: boolean = false;
 
 	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager, private readonly _context: vscode.ExtensionContext) {
 		super();
@@ -144,15 +152,19 @@ export class PrsTreeModel extends Disposable {
 		if (this._cachedPRs.size === 0) {
 			return;
 		}
-		this._cachedPRs.clear();
+
+		// Instead of clearing the entire cache, mark each cached query as requiring refresh.
+		for (const queries of this._cachedPRs.values()) {
+			for (const [, cachedPRs] of queries.entries()) {
+				if (cachedPRs) {
+					cachedPRs.clearRequested = true;
+				}
+			}
+		}
+
 		if (!silent) {
 			this._onDidChangeData.fire();
 		}
-	}
-
-	public clearRepo(folderRepoManager: FolderRepositoryManager) {
-		this._cachedPRs.delete(folderRepoManager);
-		this._onDidChangeData.fire(folderRepoManager);
 	}
 
 	private async _getChecks(pullRequests: PullRequestModel[]) {
@@ -207,7 +219,7 @@ export class PrsTreeModel extends Disposable {
 		this._onDidChangePrStatus.fire(changedStatuses);
 	}
 
-	private getFolderCache(folderRepoManager: FolderRepositoryManager): Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>> {
+	private getFolderCache(folderRepoManager: FolderRepositoryManager): Map<string | PRType.LocalPullRequest | PRType.All, CachedPRs> {
 		let cache = this._cachedPRs.get(folderRepoManager);
 		if (!cache) {
 			cache = new Map();
@@ -216,17 +228,22 @@ export class PrsTreeModel extends Disposable {
 		return cache;
 	}
 
-	async getLocalPullRequests(folderRepoManager: FolderRepositoryManager, update?: boolean) {
+	async getLocalPullRequests(folderRepoManager: FolderRepositoryManager, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
 		const cache = this.getFolderCache(folderRepoManager);
 		if (!update && cache.has(PRType.LocalPullRequest)) {
-			return cache.get(PRType.LocalPullRequest)!;
+			return cache.get(PRType.LocalPullRequest)!.items;
 		}
 
 		const useReviewConfiguration = getReviewMode();
 
 		const prs = (await folderRepoManager.getLocalPullRequests())
 			.filter(pr => pr.isOpen || (pr.isClosed && useReviewConfiguration.closed) || (pr.isMerged && useReviewConfiguration.merged));
-		cache.set(PRType.LocalPullRequest, { hasMorePages: false, hasUnsearchedRepositories: false, items: prs, totalCount: prs.length });
+		const toCache: CachedPRs = {
+			clearRequested: false,
+			maxKnownPR: undefined,
+			items: { hasMorePages: false, hasUnsearchedRepositories: false, items: prs, totalCount: prs.length }
+		};
+		cache.set(PRType.LocalPullRequest, toCache);
 
 		/* __GDPR__
 			"pr.expand.local" : {}
@@ -238,6 +255,62 @@ export class PrsTreeModel extends Disposable {
 		return { hasMorePages: false, hasUnsearchedRepositories: false, items: prs };
 	}
 
+	private async _extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string): Promise<RemoteInfo | undefined> {
+		if (!query) {
+			return undefined;
+		}
+
+		const defaults = await folderManager.getPullRequestDefaults();
+		const substituted = await variableSubstitution(query, undefined, defaults, (await folderManager.getCurrentUser()).login);
+
+		const repoRegex = /(?:^|\s)repo:(?:"?(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)"?)/i;
+		const repoMatch = repoRegex.exec(substituted);
+		if (repoMatch && repoMatch.groups) {
+			return { owner: repoMatch.groups.owner, repositoryName: repoMatch.groups.repo };
+		}
+
+		return undefined;
+	}
+
+	private async _testIfRefreshNeeded(cached: CachedPRs, query: string, folderManager: FolderRepositoryManager): Promise<boolean> {
+		if (!cached.clearRequested) {
+			return false;
+		}
+
+		const repoInfo = await this._extractRepoFromQuery(folderManager, query);
+		if (!repoInfo) {
+			// Query doesn't specify a repo or org, so always refresh
+			// Send telemetry once indicating we couldn't find a repo in the query.
+			if (!this._sentNoRepoTelemetry) {
+				/* __GDPR__
+					"pr.expand.noRepo" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.expand.noRepo');
+				this._sentNoRepoTelemetry = true;
+			}
+			return true;
+		}
+
+		const currentMax = await this._getMaxKnownPR(repoInfo);
+		if (currentMax !== cached.maxKnownPR) {
+			cached.maxKnownPR = currentMax;
+			return true;
+		}
+		return false;
+	}
+
+	private async _getMaxKnownPR(repoInfo: RemoteInfo): Promise<number | undefined> {
+		const manager = this._reposManager.getManagerForRepository(repoInfo.owner, repoInfo.repositoryName);
+		if (!manager) {
+			return;
+		}
+		const repo = manager.findExistingGitHubRepository({ owner: repoInfo.owner, repositoryName: repoInfo.repositoryName });
+		if (!repo) {
+			return;
+		}
+		return repo.getMaxPullRequest();
+	}
+
 	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string): Promise<ItemsResponseResult<PullRequestModel>> {
 		let release: () => void;
 		const lock = new Promise<void>(resolve => { release = resolve; });
@@ -246,9 +319,23 @@ export class PrsTreeModel extends Disposable {
 		await prev;
 
 		try {
+			let maxKnownPR: number | undefined;
 			const cache = this.getFolderCache(folderRepoManager);
 			if (!fetchNextPage && cache.has(query)) {
-				return cache.get(query)!;
+				const shouldRefresh = await this._testIfRefreshNeeded(cache.get(query)!, query, folderRepoManager);
+				const cachedPRs = cache.get(query)!;
+				maxKnownPR = cachedPRs.maxKnownPR;
+				if (!shouldRefresh) {
+					cachedPRs.clearRequested = false;
+					return cachedPRs.items;
+				}
+			}
+
+			if (!maxKnownPR) {
+				const repoInfo = await this._extractRepoFromQuery(folderRepoManager, query);
+				if (repoInfo) {
+					maxKnownPR = await this._getMaxKnownPR(repoInfo);
+				}
 			}
 
 			const prs = await folderRepoManager.getPullRequests(
@@ -256,7 +343,7 @@ export class PrsTreeModel extends Disposable {
 				{ fetchNextPage },
 				query,
 			);
-			cache.set(query, prs);
+			cache.set(query, { clearRequested: false, items: prs, maxKnownPR });
 
 			/* __GDPR__
 				"pr.expand.query" : {}
@@ -274,14 +361,14 @@ export class PrsTreeModel extends Disposable {
 	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
 		const cache = this.getFolderCache(folderRepoManager);
 		if (!update && cache.has(PRType.All) && !fetchNextPage) {
-			return cache.get(PRType.All)!;
+			return cache.get(PRType.All)!.items;
 		}
 
 		const prs = await folderRepoManager.getPullRequests(
 			PRType.All,
 			{ fetchNextPage }
 		);
-		cache.set(PRType.All, prs);
+		cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
 
 		/* __GDPR__
 			"pr.expand.all" : {}
@@ -299,15 +386,15 @@ export class PrsTreeModel extends Disposable {
 			return;
 		}
 		for (const [, queries] of this._cachedPRs.entries()) {
-			for (const [queryKey, itemsResult] of queries.entries()) {
-				if (!itemsResult || !itemsResult.items || itemsResult.items.length === 0) {
+			for (const [queryKey, cachedPRs] of queries.entries()) {
+				if (!cachedPRs || !cachedPRs.items.items || cachedPRs.items.items.length === 0) {
 					continue;
 				}
 				const hasPR = withStateChange.some(prChange =>
-					itemsResult.items.some(item => item === prChange.model)
+					cachedPRs.items.items.some(item => item === prChange.model)
 				);
 				if (hasPR) {
-					queries.delete(queryKey);
+					queries.get(queryKey)!.clearRequested = true;
 				}
 			}
 		}

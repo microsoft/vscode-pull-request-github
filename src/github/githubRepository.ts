@@ -834,27 +834,35 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getMaxIssue(): Promise<number | undefined> {
+	private async _getMaxItem(isIssue: boolean): Promise<number | undefined> {
 		try {
-			Logger.debug(`Fetch max issue - enter`, this.id);
+			Logger.debug(`Fetch max ${isIssue ? 'issue' : 'pull request'} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
 			const { data } = await query<MaxIssueResponse>({
-				query: schema.MaxIssue,
+				query: isIssue ? schema.MaxIssue : schema.MaxPullRequest,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
 				},
 			});
-			Logger.debug(`Fetch max issue - done`, this.id);
+			Logger.debug(`Fetch max ${isIssue ? 'issue' : 'pull request'} - done`, this.id);
 
 			if (data?.repository && data.repository.issues.edges.length === 1) {
 				return data.repository.issues.edges[0].node.number;
 			}
 			return;
 		} catch (e) {
-			Logger.error(`Unable to fetch issues with query: ${e}`, this.id);
+			Logger.error(`Unable to fetch ${isIssue ? 'issues' : 'pull requests'} with query: ${e}`, this.id);
 			return;
 		}
+	}
+
+	async getMaxIssue(): Promise<number | undefined> {
+		return this._getMaxItem(true);
+	}
+
+	async getMaxPullRequest(): Promise<number | undefined> {
+		return this._getMaxItem(false);
 	}
 
 	async getViewerPermission(): Promise<ViewerPermission> {

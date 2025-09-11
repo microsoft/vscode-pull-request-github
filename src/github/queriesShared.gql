@@ -1247,6 +1247,23 @@ query MaxIssue($owner: String!, $name: String!) {
 	}
 }
 
+query MaxPullRequest($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		issues: pullRequests(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
+			edges {
+				node {
+					... on PullRequest {
+						number
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!) {
 	repository(owner: $owner, name: $name) {
 		milestones(first: 100, orderBy: { direction: DESC, field: DUE_DATE }, states: $states) {
