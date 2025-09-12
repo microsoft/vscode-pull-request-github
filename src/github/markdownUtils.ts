@@ -237,6 +237,13 @@ export async function issueMarkdown(
 }
 
 export class PlainTextRenderer extends marked.Renderer {
+	private allowSimpleMarkdown: boolean;
+
+	constructor(allowSimpleMarkdown: boolean = false) {
+		super();
+		this.allowSimpleMarkdown = allowSimpleMarkdown;
+	}
+
 	override code(code: string, _infostring: string | undefined): string {
 		return code;
 	}
@@ -286,6 +293,9 @@ export class PlainTextRenderer extends marked.Renderer {
 		return text;
 	}
 	override codespan(code: string): string {
+		if (this.allowSimpleMarkdown) {
+			return `\`${code}\``;
+		}
 		return `\\\`${code}\\\``;
 	}
 	override br(): string {
