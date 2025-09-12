@@ -378,6 +378,23 @@ query GetSuggestedActors($owner: String!, $name: String!, $capabilities: [Reposi
 	}
 }
 
+query GetPullRequestGlobal($globalId: ID!) {
+	node(id: $globalId) {
+		... on PullRequest {
+			number
+			title
+			additions
+			deletions
+			headRepository {
+				owner {
+					login
+				}
+				name
+			}
+		}
+	}
+}
+
 mutation DequeuePullRequest($input: DequeuePullRequestInput!) {
 	dequeuePullRequest(input: $input) {
 		mergeQueueEntry {

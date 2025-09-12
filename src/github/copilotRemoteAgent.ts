@@ -9,7 +9,7 @@ import vscode, { ChatPromptReference } from 'vscode';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -17,9 +17,9 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
-import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
+import { copilotEventToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionPullRequestInfo, SessionSetupStep } from './copilotApi';
+import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { CredentialStore } from './credentials';
@@ -82,10 +82,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private readonly gitOperationsManager: GitOperationsManager;
 	private readonly ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map();
 
-	private codingAgentPRsPromise: Promise<{
-		item: PullRequestModel;
-		status: CopilotPRStatus;
-	}[]> | undefined;
+	private codingAgentPRsPromise: Promise<ChatSessionWithPR[]> | undefined;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry, private context: vscode.ExtensionContext) {
 		super();
@@ -868,7 +865,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	public async provideChatSessions(token: vscode.CancellationToken): Promise<ChatSessionWithPR[]> {
+	public async provideChatSessions(token: vscode.CancellationToken): Promise<vscode.ChatSessionItem[]> {
 		try {
 			const capi = await this.copilotApi;
 			if (!capi) {
@@ -882,54 +879,78 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			await this.waitRepoManagerInitialization();
 
-			let codingAgentPRs: CodingAgentPRAndStatus[] = [];
-			if (this._stateModel.isInitialized) {
-				codingAgentPRs = this._stateModel.all;
-				Logger.debug(`Fetched PRs from state model: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
-			} else {
-				this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<CodingAgentPRAndStatus[]>(async (resolve) => {
-					try {
-						const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-						const prAndStatus = await Promise.all(sessions.map(async pr => {
-							const timeline = await pr.getCopilotTimelineEvents(pr);
-							const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
-							return { item: pr, status };
-						}));
+			const currentRepositories = this.repositoriesManager.folderManagers.map(folder => folder.gitHubRepositories).flat();
 
-						resolve(prAndStatus);
-					} catch (error) {
-						Logger.error(`Failed to fetch coding agent PRs: ${error}`, CopilotRemoteAgentManager.ID);
-						resolve([]);
+			this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<vscode.ChatSessionItem[]>(async (resolve) => {
+				const sessions = await capi.getAllSessions(undefined);
+				const sessionMap = new Map<string, SessionInfo[]>();
+
+				for (const session of sessions) {
+					if (!session.resource_global_id) {
+						continue;
 					}
-				});
-				codingAgentPRs = await this.codingAgentPRsPromise;
-				Logger.debug(`Fetched PRs from API: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
-			}
-			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
-				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
-				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
-				const pullRequest = prAndStatus.item;
-				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
+					const existing = sessionMap.get(session.resource_global_id) || [];
+					existing.push(session);
+					existing.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+					sessionMap.set(session.resource_global_id, existing);
+				}
 
-				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
-				return {
-					id: `${pullRequest.number}`,
-					label: pullRequest.title || `Session ${pullRequest.number}`,
-					iconPath: this.getIconForSession(status),
-					pullRequest: pullRequest,
-					description: description,
-					tooltip,
-					status,
-					timing: {
-						startTime: timestampNumber
-					},
-					statistics: pullRequest.item.additions !== undefined && pullRequest.item.deletions !== undefined && (pullRequest.item.additions > 0 || pullRequest.item.deletions > 0) ? {
-						insertions: pullRequest.item.additions,
-						deletions: pullRequest.item.deletions
-					} : undefined
-				};
-			}));
+				const groupedSessions = Array.from(sessionMap.values()).sort((a, b) => {
+					const aFirstSession = a[0];
+					const bFirstSession = b[0];
+					return new Date(aFirstSession.created_at).getTime() - new Date(bFirstSession.created_at).getTime();
+				});
+
+				const filteredPRs = (await Promise.all(groupedSessions.map(async sessions => {
+					const initialSession = sessions[0];
+
+					const pullRequestInfo = await capi.getPullRequestFromSession(initialSession.resource_global_id);
+					if (!pullRequestInfo) {
+						return;
+					}
+
+					return {
+						id: initialSession.resource_global_id,
+						pullRequest: pullRequestInfo,
+						sessions
+					};
+				}))).filter(pr => {
+					if (!pr) {
+						return false;
+					}
+
+					// Filter out PRs that are not in the current repositories
+					const prRepo = currentRepositories.find(repo =>
+						repo.remote.owner === pr.pullRequest.headRepository.owner.login &&
+						repo.remote.repositoryName === pr.pullRequest.headRepository.name
+					);
+
+					if (!prRepo) {
+						return false;
+					}
+
+					return true;
+				}).map((pr: { id: string, pullRequest: SessionPullRequestInfo; sessions: SessionInfo[] }) => {
+					const { id, pullRequest, sessions } = pr;
+					const latestSession = sessions[sessions.length - 1];
+					const status = latestSession.state === 'completed' ? vscode.ChatSessionStatus.Completed : (latestSession.state === 'failed' ? vscode.ChatSessionStatus.Failed : vscode.ChatSessionStatus.InProgress);
+
+					return {
+						id: id,
+						label: pullRequest.title || `Session ${pullRequest.number}`,
+						status: status,
+						description: `${pullRequest.headRepository.owner.login}/${pullRequest.headRepository.name} #${pullRequest.number}`,
+						statistics: pullRequest.additions !== undefined && pullRequest.deletions !== undefined && (pullRequest.additions > 0 || pullRequest.deletions > 0) ? {
+							insertions: pullRequest.additions,
+							deletions: pullRequest.deletions
+						} : undefined
+					};
+				});
+
+				resolve(filteredPRs);
+			});
+
+			return this.codingAgentPRsPromise;
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
 		} finally {

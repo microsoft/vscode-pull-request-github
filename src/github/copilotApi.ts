@@ -12,8 +12,9 @@ import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { CredentialStore, GitHub } from './credentials';
 import { PRType } from './interface';
-import { LoggingOctokit } from './loggingOctokit';
+import { LoggingApolloClient, LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
+import defaultSchema from './queries.gql';
 import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
 
@@ -42,7 +43,7 @@ export interface RemoteAgentJobResponse {
 }
 
 export interface ChatSessionWithPR extends vscode.ChatSessionItem {
-	pullRequest: PullRequestModel;
+	pullRequest?: PullRequestModel;
 }
 
 export interface ChatSessionFromSummarizedChat extends vscode.ChatSessionItem {
@@ -58,6 +59,7 @@ export class CopilotApi {
 
 	constructor(
 		private octokit: LoggingOctokit,
+		private graphql: LoggingApolloClient,
 		private token: string,
 		private credentialStore: CredentialStore,
 		private telemetry: ITelemetry
@@ -208,6 +210,23 @@ export class CopilotApi {
 		return sessions.sessions;
 	}
 
+	public async getPullRequestFromSession(globalId): Promise<SessionPullRequestInfo | undefined> {
+		try {
+			const { data } = await this.graphql.query({
+				query: (defaultSchema as any).GetPullRequestGlobal,
+				variables: {
+					globalId: globalId
+				}
+			});
+
+			return data.node;
+		} catch (ex) {
+			console.log(ex);
+		}
+
+		return undefined;
+	}
+
 	public async getAllCodingAgentPRs(repositoriesManager: RepositoriesManager): Promise<PullRequestModel[]> {
 		const hub = this.getHub();
 		const username = (await hub?.currentUser)?.login;
@@ -311,6 +330,20 @@ export interface SessionInfo {
 	workflow_run_id: number;
 	premium_requests: number;
 	error: string | null;
+	resource_global_id?: string
+}
+
+export interface SessionPullRequestInfo {
+	number: number;
+	title: string;
+	additions: number;
+	deletions: number;
+	headRepository: {
+		owner: {
+			login: string;
+		};
+		name: string;
+	};
 }
 
 export interface SessionSetupStep {
@@ -363,5 +396,5 @@ export async function getCopilotApi(credentialStore: CredentialStore, telemetry:
 	}
 
 	const { token } = await github.octokit.api.auth() as { token: string };
-	return new CopilotApi(github.octokit, token, credentialStore, telemetry);
+	return new CopilotApi(github.octokit, github.graphql, token, credentialStore, telemetry);
 }
