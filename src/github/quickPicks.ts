@@ -7,7 +7,7 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../common/comment';
-import { COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -162,10 +162,26 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
 
-	// Remove the swe agent as it can't do reviews
-	const assignableUsersForRemote = allAssignableUsers[remoteName].filter(user => user.login !== COPILOT_SWE_AGENT);
+	// Remove the swe agent as it can't do reviews, but add the reviewer instead
+	const originalAssignableUsers = allAssignableUsers[remoteName] ?? [];
+	const hasCopilotSweAgent = originalAssignableUsers.some(user => user.login === COPILOT_SWE_AGENT);
+	const assignableUsersForRemote = originalAssignableUsers.filter(user => user.login !== COPILOT_SWE_AGENT);
+
 	if (assignableUsersForRemote) {
 		assignableUsers.push(...assignableUsersForRemote);
+	}
+
+	// If we removed the coding agent, add the Copilot reviewer instead
+	if (hasCopilotSweAgent) {
+		const copilotReviewer: IAccount = {
+			login: COPILOT_LOGINS[0], // copilot-pull-request-reviewer
+			id: '0',
+			url: '',
+			avatarUrl: '',
+			name: COPILOT_ACCOUNTS[COPILOT_LOGINS[0]]?.name ?? 'Copilot',
+			accountType: AccountType.User
+		};
+		assignableUsers.push(copilotReviewer);
 	}
 
 	// used to track logins that shouldn't be added to pick list
