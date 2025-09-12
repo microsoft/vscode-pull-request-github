@@ -131,9 +131,11 @@ function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, 
 	return (
 		<div className="button-group">
 			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
-			<button title="Copy pull request link" onClick={copyPrLink} className="secondary">
-				{copyIcon}
-			</button>
+			{!isIssue ? (
+				<button title="Copy link" onClick={copyPrLink} className="secondary">
+					{copyIcon}
+				</button>
+			) : null}
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
