@@ -528,7 +528,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		if (pr && (_version && _version === 2)) { /* version 2 means caller knows how to render this */
-			const plaintextBody = marked.parse(pr.body, { renderer: new PlainTextRenderer(), smartypants: true }).trim();
+			const plaintextBody = marked.parse(pr.body, { renderer: new PlainTextRenderer(true), smartypants: true }).trim();
 
 			return {
 				uri: webviewUri.toString(),
