@@ -886,7 +886,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const sessionMap = new Map<string, SessionInfo[]>();
 
 				for (const session of sessions) {
-					if (!session.resource_global_id) {
+					if (!session.resource_global_id || session.resource_state === 'closed' || session.resource_state === 'merged') {
 						continue;
 					}
 					const existing = sessionMap.get(session.resource_global_id) || [];
@@ -959,6 +959,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
 		} finally {
+			//todo, previously we set codingAgentPRsPromise to undefined here, but that caused issues with multiple simultaneous calls
 		}
 		return [];
 	}

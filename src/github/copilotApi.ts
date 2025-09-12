@@ -355,6 +355,7 @@ export interface SessionInfo {
 	premium_requests: number;
 	error: string | null;
 	resource_global_id?: string
+	resource_state: 'open' | 'closed' | 'draft' | 'merged';
 }
 
 export interface SessionPullRequestInfo {
