@@ -383,6 +383,7 @@ query GetPullRequestGlobal($globalId: ID!) {
 		... on PullRequest {
 			number
 			title
+			state
 			additions
 			deletions
 			headRepository {

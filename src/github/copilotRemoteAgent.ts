@@ -898,7 +898,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const groupedSessions = Array.from(sessionMap.values()).sort((a, b) => {
 					const aFirstSession = a[0];
 					const bFirstSession = b[0];
-					return new Date(aFirstSession.created_at).getTime() - new Date(bFirstSession.created_at).getTime();
+					return new Date(bFirstSession.created_at).getTime() - new Date(aFirstSession.created_at).getTime();
 				});
 
 				const filteredPRs = (await Promise.all(groupedSessions.map(async sessions => {
@@ -916,6 +916,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 					};
 				}))).filter(pr => {
 					if (!pr) {
+						return false;
+					}
+
+					if (pr.pullRequest.state !== 'OPEN') {
 						return false;
 					}
 
@@ -939,7 +943,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 						id: id,
 						label: pullRequest.title || `Session ${pullRequest.number}`,
 						status: status,
-						description: `${pullRequest.headRepository.owner.login}/${pullRequest.headRepository.name} #${pullRequest.number}`,
+						description: `#${pullRequest.number}`,
 						statistics: pullRequest.additions !== undefined && pullRequest.deletions !== undefined && (pullRequest.additions > 0 || pullRequest.deletions > 0) ? {
 							insertions: pullRequest.additions,
 							deletions: pullRequest.deletions

@@ -196,7 +196,7 @@ export class CopilotApi {
 		const response = await this.makeApiCall(
 			pullRequestId
 				? `/agents/sessions/resource/pull/${pullRequestId}`
-				: `/agents/sessions`,
+				: `/agents/sessions?page_size=100`,
 			{
 				headers: {
 					Authorization: `Bearer ${this.token}`,
@@ -336,6 +336,7 @@ export interface SessionInfo {
 export interface SessionPullRequestInfo {
 	number: number;
 	title: string;
+	state: 'OPEN' | 'CLOSED' | 'MERGED';
 	additions: number;
 	deletions: number;
 	headRepository: {
