@@ -287,15 +287,9 @@ export class PlainTextRenderer extends marked.Renderer {
 		return content;
 	}
 	override strong(text: string): string {
-		if (this.allowSimpleMarkdown) {
-			return `**${text}**`;
-		}
 		return text;
 	}
 	override em(text: string): string {
-		if (this.allowSimpleMarkdown) {
-			return `*${text}*`;
-		}
 		return text;
 	}
 	override codespan(code: string): string {
