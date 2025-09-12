@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { fromPRUri, fromReviewUri, Schemes } from '../../common/uri';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { PullRequestTool } from './activePullRequestTool';
@@ -18,33 +19,48 @@ export class OpenPullRequestTool extends PullRequestTool {
 			return panelPR;
 		}
 
-		// If no overview panel is open, check if there's an active PR (checked out locally)
-		// This covers the case where users are viewing PR diffs without the overview panel
-		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
-		return folderManager?.activePullRequest;
+		// Check if the active file is a diff view or multidiff view showing PR content
+		const activeEditor = vscode.window.activeTextEditor;
+		if (activeEditor?.document.uri) {
+			const uri = activeEditor.document.uri;
+
+			if (uri.scheme === Schemes.Pr) {
+				// This is a PR diff from GitHub
+				const prParams = fromPRUri(uri);
+				if (prParams) {
+					return this._findPullRequestByNumber(prParams.prNumber, prParams.remoteName);
+				}
+			} else if (uri.scheme === Schemes.Review) {
+				// This is a review diff from a checked out PR
+				const reviewParams = fromReviewUri(uri.query);
+				if (reviewParams) {
+					// For review scheme, find the active/checked out PR
+					const folderManager = this.folderManagers.folderManagers.find(manager => manager.activePullRequest);
+					return folderManager?.activePullRequest;
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	private _findPullRequestByNumber(prNumber: number, remoteName: string): PullRequestModel | undefined {
+		for (const manager of this.folderManagers.folderManagers) {
+			for (const repo of manager.gitHubRepositories) {
+				if (repo.remote.remoteName === remoteName) {
+					// Look for the PR in the repository's PR cache
+					for (const pr of repo.pullRequestModels) {
+						if (pr.number === prNumber) {
+							return pr;
+						}
+					}
+				}
+			}
+		}
+		return undefined;
 	}
 
 	protected _confirmationTitle(): string {
 		return vscode.l10n.t('Open Pull Request');
-	}
-
-	override async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
-		const pullRequest = this._findActivePullRequest();
-		return {
-			pastTenseMessage: pullRequest ? vscode.l10n.t('Read pull request "{0}"', pullRequest.title) : vscode.l10n.t('No open pull request'),
-			invocationMessage: pullRequest ? vscode.l10n.t('Reading pull request "{0}"', pullRequest.title) : vscode.l10n.t('Reading open pull request'),
-			confirmationMessages: { title: this._confirmationTitle(), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the open pull request?') },
-		};
-	}
-
-	override async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, token: vscode.CancellationToken): Promise<vscode.ExtendedLanguageModelToolResult | undefined> {
-		let pullRequest = this._findActivePullRequest();
-
-		if (!pullRequest) {
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('There is no open pull request')]);
-		}
-
-		// Delegate to the base class for the actual implementation
-		return super.invoke(options, token);
 	}
 }
