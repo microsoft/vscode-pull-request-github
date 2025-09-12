@@ -7,7 +7,7 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../common/comment';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID, COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -152,7 +152,6 @@ function userThemeIcon(user: IAccount | ITeam) {
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
 ): Promise<(vscode.QuickPickItem & { user?: IAccount | ITeam })[]> {
-	existingReviewers = existingReviewers.filter(reviewer => isITeam(reviewer.reviewer) || (reviewer.reviewer.accountType !== AccountType.Bot));
 	if (!suggestedReviewers) {
 		return [];
 	}
@@ -164,24 +163,17 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 
 	// Remove the swe agent as it can't do reviews, but add the reviewer instead
 	const originalAssignableUsers = allAssignableUsers[remoteName] ?? [];
-	const hasCopilotSweAgent = originalAssignableUsers.some(user => user.login === COPILOT_SWE_AGENT);
-	const assignableUsersForRemote = originalAssignableUsers.filter(user => user.login !== COPILOT_SWE_AGENT);
+	let hasCopilotSweAgent: boolean = false;
+	const assignableUsersForRemote = originalAssignableUsers.filter(user => {
+		if (user.login === COPILOT_SWE_AGENT) {
+			hasCopilotSweAgent = true;
+			return false;
+		}
+		return true;
+	});
 
 	if (assignableUsersForRemote) {
 		assignableUsers.push(...assignableUsersForRemote);
-	}
-
-	// If we removed the coding agent, add the Copilot reviewer instead
-	if (hasCopilotSweAgent) {
-		const copilotReviewer: IAccount = {
-			login: COPILOT_LOGINS[0], // copilot-pull-request-reviewer
-			id: '0',
-			url: '',
-			avatarUrl: '',
-			name: COPILOT_ACCOUNTS[COPILOT_LOGINS[0]]?.name ?? 'Copilot',
-			accountType: AccountType.User
-		};
-		assignableUsers.push(copilotReviewer);
 	}
 
 	// used to track logins that shouldn't be added to pick list
@@ -195,6 +187,19 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	// Start with all existing reviewers so they show at the top
 	if (existingReviewers.length) {
 		reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, existingReviewers.map(reviewer => reviewer.reviewer), true));
+	}
+
+	// If we removed the coding agent, add the Copilot reviewer instead
+	if (hasCopilotSweAgent && !existingReviewers.find(user => (user.reviewer as IAccount).login === COPILOT_REVIEWER)) {
+		const copilotReviewer: IAccount = {
+			login: COPILOT_REVIEWER,
+			id: COPILOT_REVIEWER_ID,
+			url: '',
+			avatarUrl: '',
+			name: COPILOT_ACCOUNTS[COPILOT_REVIEWER]?.name ?? 'Copilot',
+			accountType: AccountType.Bot
+		};
+		assignableUsers.push(copilotReviewer);
 	}
 
 	// Suggested reviewers
