@@ -1134,8 +1134,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			reviewers: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
-			team_reviewers: teamReviewers.map(t => t.id)
+			reviewers: reviewers.map(r => r.id),
+			team_reviewers: teamReviewers.map(t => t.id),
 		});
 
 		this.reviewers = this.reviewers?.filter(r => !reviewers.some(rr => rr.id === r.id) && !teamReviewers.some(t => t.id === r.id)) || [];

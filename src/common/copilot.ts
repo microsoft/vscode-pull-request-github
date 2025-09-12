@@ -6,9 +6,11 @@
 import { EventType, TimelineEvent } from './timelineEvent';
 
 export const COPILOT_SWE_AGENT = 'copilot-swe-agent';
+export const COPILOT_REVIEWER = 'copilot-pull-request-reviewer';
+export const COPILOT_REVIEWER_ID = 'BOT_kgDOCnlnWA';
 
 export const COPILOT_LOGINS = [
-	'copilot-pull-request-reviewer',
+	COPILOT_REVIEWER,
 	COPILOT_SWE_AGENT,
 	'Copilot'
 ];

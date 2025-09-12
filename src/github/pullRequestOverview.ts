@@ -424,8 +424,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.busy = false;
 			const acceptPromise: Promise<(IAccount | ITeam)[]> = asPromise<void>(quickPick.onDidAccept).then(() => {
 				const pickedReviewers: (IAccount | ITeam)[] | undefined = quickPick?.selectedItems.filter(item => item.user).map(item => item.user) as (IAccount | ITeam)[];
-				const botReviewers = this._existingReviewers.filter(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.accountType === 'Bot').map(reviewer => reviewer.reviewer);
-				return pickedReviewers.concat(botReviewers);
+				return pickedReviewers;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			const allReviewers = await Promise.race<(IAccount | ITeam)[] | void>([acceptPromise, hidePromise]);
