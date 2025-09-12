@@ -11,7 +11,7 @@ import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/gith
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -126,11 +126,14 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 }
 
 function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number, busy }) {
-	const { refresh } = useContext(PullRequestContext);
+	const { refresh, copyPrLink } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
 			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
+			<button title="Copy pull request link" onClick={copyPrLink} className="secondary">
+				{copyIcon}
+			</button>
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
