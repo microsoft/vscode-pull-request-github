@@ -87,7 +87,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		| undefined;
 
 	constructor(
-		private _gitAPI,
+		private __gitAPI,
 		private _manager,
 		private _reviewsManager,
 		private _context,
@@ -95,7 +95,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		private _copilotRemoteAgentManager,
 	) {
 		super();
-		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
+		this._stateManager = new StateManager(_gitAPI, this._manager, this._context);
 		this._newIssueCache = new NewIssueCache(context);
 	}
 
@@ -104,18 +104,18 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.languages.registerCompletionItemProvider(
 				{ scheme: Schemes.NewIssue },
-				new NewIssueFileCompletionProvider(this.manager),
+				new NewIssueFileCompletionProvider(this._manager),
 				' ',
 				',',
 			),
 		);
 		const view = vscode.window.createTreeView('issues:github', {
 			showCollapseAll: true,
-			treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context),
+			treeDataProvider: new IssuesTreeData(this._stateManager, this._manager, this._context),
 		});
 		this._register(view);
-		this._register(view.onDidCollapseElement(e => updateExpandedQueries(this.context, e.element, false)));
-		this._register(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
+		this._register(view.onDidCollapseElement(e => updateExpandedQueries(this._context, e.element, false)));
+		this._register(view.onDidExpandElement(e => updateExpandedQueries(this._context, e.element, true)));
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromSelection',
@@ -123,7 +123,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.createIssueFromSelection" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssueFromSelection');
+					this._telemetry.sendTelemetryEvent('issue.createIssueFromSelection');
 					return this.createTodoIssue(newIssue, issueBody);
 				},
 				this,
@@ -136,7 +136,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.createIssueFromClipboard" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
+					this._telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
 					return this.createTodoIssueClipboard();
 				},
 				this,
@@ -149,7 +149,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.startCodingAgentFromTodo" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startCodingAgentFromTodo');
+					this._telemetry.sendTelemetryEvent('issue.startCodingAgentFromTodo');
 					return this.startCodingAgentFromTodo(todoInfo);
 				},
 				this,
@@ -162,7 +162,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.assignToCodingAgent" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
+					this._telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
 					return this.assignToCodingAgent(issueModel);
 				},
 				this,
@@ -175,8 +175,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubPermalink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
-					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context]);
+					this._telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
+					return this.copyPermalink(this._manager, additional && additional.length > 0 ? additional : [context]);
 				},
 				this,
 			),
@@ -188,7 +188,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubHeadLink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLink');
+					this._telemetry.sendTelemetryEvent('issue.copyGithubHeadLink');
 					return this.copyHeadLink(additional && additional.length > 0 ? additional : [fileUri]);
 				},
 				this,
@@ -201,8 +201,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubPermalinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalinkWithoutRange');
-					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false);
+					this._telemetry.sendTelemetryEvent('issue.copyGithubPermalinkWithoutRange');
+					return this.copyPermalink(this._manager, additional && additional.length > 0 ? additional : [context], false);
 				},
 				this,
 			),
@@ -214,7 +214,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubHeadLinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLinkWithoutRange');
+					this._telemetry.sendTelemetryEvent('issue.copyGithubHeadLinkWithoutRange');
 					return this.copyHeadLink(additional && additional.length > 0 ? additional : [fileUri], false);
 				},
 				this,
@@ -227,8 +227,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubDevLinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLinkWithoutRange');
-					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false, true, true);
+					this._telemetry.sendTelemetryEvent('issue.copyGithubDevLinkWithoutRange');
+					return this.copyPermalink(this._manager, additional && additional.length > 0 ? additional : [context], false, true, true);
 				},
 				this,
 			),
@@ -240,8 +240,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubDevLink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLink');
-					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], true, true, true);
+					this._telemetry.sendTelemetryEvent('issue.copyGithubDevLink');
+					return this.copyPermalink(this._manager, additional && additional.length > 0 ? additional : [context], true, true, true);
 				},
 				this,
 			),
@@ -253,8 +253,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyGithubDevLinkFile" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLinkFile');
-					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false, true, true);
+					this._telemetry.sendTelemetryEvent('issue.copyGithubDevLinkFile');
+					return this.copyPermalink(this._manager, additional && additional.length > 0 ? additional : [context], false, true, true);
 				},
 				this,
 			),
@@ -266,8 +266,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalink');
-					return this.copyMarkdownPermalink(this.manager, additional && additional.length > 0 ? additional : [context]);
+					this._telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalink');
+					return this.copyMarkdownPermalink(this._manager, additional && additional.length > 0 ? additional : [context]);
 				},
 				this,
 			),
@@ -279,8 +279,8 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalinkWithoutRange');
-					return this.copyMarkdownPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false);
+					this._telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalinkWithoutRange');
+					return this.copyMarkdownPermalink(this._manager, additional && additional.length > 0 ? additional : [context], false);
 				},
 				this,
 			),
@@ -292,19 +292,19 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.openGithubPermalink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.openGithubPermalink');
-					return this.openPermalink(this.manager);
+					this._telemetry.sendTelemetryEvent('issue.openGithubPermalink');
+					return this.openPermalink(this._manager);
 				},
 				this,
 			),
 		);
-		this._register(new ShareProviderManager(this.manager, this.gitAPI));
+		this._register(new ShareProviderManager(this._manager, this._gitAPI));
 		this._register(
 			vscode.commands.registerCommand('issue.openIssue', (issueModel: any) => {
 				/* __GDPR__
 				"issue.openIssue" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.openIssue');
+				this._telemetry.sendTelemetryEvent('issue.openIssue');
 				return this.openIssue(issueModel);
 			}),
 		);
@@ -315,7 +315,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.startWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startWorking');
+					this._telemetry.sendTelemetryEvent('issue.startWorking');
 					return this.startWorking(issue);
 				},
 				this,
@@ -328,7 +328,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.startWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startWorking');
+					this._telemetry.sendTelemetryEvent('issue.startWorking');
 					return this.startWorking(issue);
 				},
 				this,
@@ -341,7 +341,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.continueWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.continueWorking');
+					this._telemetry.sendTelemetryEvent('issue.continueWorking');
 					return this.startWorking(issue);
 				},
 				this,
@@ -354,7 +354,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.startWorkingBranchPrompt" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startWorkingBranchPrompt');
+					this._telemetry.sendTelemetryEvent('issue.startWorkingBranchPrompt');
 					return this.startWorkingBranchPrompt(issueModel);
 				},
 				this,
@@ -367,7 +367,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.stopWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.stopWorking');
+					this._telemetry.sendTelemetryEvent('issue.stopWorking');
 					return this.stopWorking(issueModel);
 				},
 				this,
@@ -380,7 +380,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.stopWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.stopWorking');
+					this._telemetry.sendTelemetryEvent('issue.stopWorking');
 					return this.stopWorking(issueModel);
 				},
 				this,
@@ -393,7 +393,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.statusBar" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.statusBar');
+					this._telemetry.sendTelemetryEvent('issue.statusBar');
 					return this.statusBar();
 				},
 				this,
@@ -404,7 +404,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				/* __GDPR__
 				"issue.copyIssueNumber" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.copyIssueNumber');
+				this._telemetry.sendTelemetryEvent('issue.copyIssueNumber');
 				return this.copyIssueNumber(issueModel);
 			}),
 		);
@@ -413,7 +413,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				/* __GDPR__
 				"issue.copyIssueUrl" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.copyIssueUrl');
+				this._telemetry.sendTelemetryEvent('issue.copyIssueUrl');
 				return this.copyIssueUrl(issueModel);
 			}),
 		);
@@ -424,7 +424,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.refresh" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.refresh');
+					this._telemetry.sendTelemetryEvent('issue.refresh');
 					return this.refreshView();
 				},
 				this,
@@ -437,7 +437,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.suggestRefresh" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.suggestRefresh');
+					this._telemetry.sendTelemetryEvent('issue.suggestRefresh');
 					return this.suggestRefresh();
 				},
 				this,
@@ -450,7 +450,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.getCurrent" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.getCurrent');
+					this._telemetry.sendTelemetryEvent('issue.getCurrent');
 					return this.getCurrent();
 				},
 				this,
@@ -463,7 +463,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.editQuery" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.editQuery');
+					this._telemetry.sendTelemetryEvent('issue.editQuery');
 					return editQuery(ISSUES_SETTINGS_NAMESPACE, query.queryLabel);
 				},
 				this,
@@ -476,7 +476,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.createIssue" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssue');
+					this._telemetry.sendTelemetryEvent('issue.createIssue');
 					return this.createIssue();
 				},
 				this,
@@ -489,7 +489,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					/* __GDPR__
 				"issue.createIssueFromFile" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssueFromFile');
+					this._telemetry.sendTelemetryEvent('issue.createIssueFromFile');
 					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, true);
 					await this.createIssueFromFile();
 					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, false);
@@ -502,7 +502,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				/* __GDPR__
 				"issue.issueCompletion" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.issueCompletion');
+				this._telemetry.sendTelemetryEvent('issue.issueCompletion');
 			}),
 		);
 		this._register(
@@ -510,17 +510,17 @@ export class IssueFeatureRegistrar extends Disposable {
 				/* __GDPR__
 				"issue.userCompletion" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.userCompletion');
+				this._telemetry.sendTelemetryEvent('issue.userCompletion');
 			}),
 		);
 		this._register(
 			vscode.commands.registerCommand('issue.signinAndRefreshList', async () => {
-				return this.manager.authenticate();
+				return this._manager.authenticate();
 			}),
 		);
 		this._register(
 			vscode.commands.registerCommand('issue.goToLinkedCode', async (issueModel: any) => {
-				return openCodeLink(issueModel, this.manager);
+				return openCodeLink(issueModel, this._manager);
 			}),
 		);
 		const chatCommandID = chatCommand();
@@ -532,7 +532,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				/* __GDPR__
 				"issue.chatSummarizeIssue" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
+				this._telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
 				if (issue instanceof IssueModel) {
 					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
 				} else {
@@ -550,7 +550,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				/* __GDPR__
 				"issue.chatSuggestFix" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
+				this._telemetry.sendTelemetryEvent('issue.chatSuggestFix');
 				commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
 			}),
 		);
@@ -569,14 +569,14 @@ export class IssueFeatureRegistrar extends Disposable {
 			this._register(
 				vscode.languages.registerHoverProvider(
 					'*',
-					new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry),
+					new IssueHoverProvider(this._manager, this._stateManager, this._context, this._telemetry),
 				),
 			);
 			this._register(
-				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
+				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this._manager, this._telemetry)),
 			);
 			this._register(
-				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context, this.copilotRemoteAgentManager), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this._context, this.copilotRemoteAgentManager), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
 		});
 	}
@@ -661,7 +661,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				this._register(
 					(element.disposable = vscode.languages.registerCompletionItemProvider(
 						this.documentFilters,
-						new element.provider(this._stateManager, this.manager, this.context),
+						new element.provider(this._stateManager, this._manager, this._context),
 						element.trigger,
 					)),
 				);
@@ -681,7 +681,7 @@ export class IssueFeatureRegistrar extends Disposable {
 							this._register(
 								(element.disposable = vscode.languages.registerCompletionItemProvider(
 									this.documentFilters,
-									new element.provider(this._stateManager, this.manager, this.context),
+									new element.provider(this._stateManager, this._manager, this._context),
 									element.trigger,
 								)),
 							);
@@ -695,7 +695,7 @@ export class IssueFeatureRegistrar extends Disposable {
 
 	async createIssue() {
 		let uri = vscode.window.activeTextEditor?.document.uri;
-		let folderManager: FolderRepositoryManager | undefined = uri ? this.manager.getManagerForFile(uri) : undefined;
+		let folderManager: FolderRepositoryManager | undefined = uri ? this._manager.getManagerForFile(uri) : undefined;
 
 		const alwaysPrompt = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<boolean>(ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO);
 		if (!folderManager || alwaysPrompt) {
@@ -741,7 +741,7 @@ export class IssueFeatureRegistrar extends Disposable {
 	}
 
 	async createIssueFromFile() {
-		const metadata = await extractMetadataFromFile(this.manager);
+		const metadata = await extractMetadataFromFile(this._manager);
 		if (!metadata || !vscode.window.activeTextEditor) {
 			return;
 		}
@@ -829,11 +829,11 @@ export class IssueFeatureRegistrar extends Disposable {
 
 	async startWorking(issue: any) {
 		if (issue instanceof IssueModel) {
-			return this.doStartWorking(this.manager.getManagerForIssueModel(issue), issue);
+			return this.doStartWorking(this._manager.getManagerForIssueModel(issue), issue);
 		} else if (issue instanceof vscode.Uri) {
 			const match = issue.toString().match(ISSUE_OR_URL_EXPRESSION);
 			const parsed = parseIssueExpressionOutput(match);
-			const folderManager = this.manager.folderManagers.find(folderManager =>
+			const folderManager = this._manager.folderManagers.find(folderManager =>
 				folderManager.gitHubRepositories.find(repo => repo.remote.owner === parsed?.owner && repo.remote.repositoryName === parsed.name));
 			if (parsed && folderManager) {
 				const issueModel = await getIssue(this._stateManager, folderManager, issue.toString(), parsed);
@@ -848,11 +848,11 @@ export class IssueFeatureRegistrar extends Disposable {
 		if (!(issueModel instanceof IssueModel)) {
 			return;
 		}
-		this.doStartWorking(this.manager.getManagerForIssueModel(issueModel), issueModel, true);
+		this.doStartWorking(this._manager.getManagerForIssueModel(issueModel), issueModel, true);
 	}
 
 	async stopWorking(issueModel: any) {
-		let folderManager = this.manager.getManagerForIssueModel(issueModel);
+		let folderManager = this._manager.getManagerForIssueModel(issueModel);
 		if (!folderManager) {
 			folderManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to stop working on this issue in.'));
 			if (!folderManager) {
@@ -872,7 +872,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		const pullRequestText: string = vscode.l10n.t({ message: '{0} Create pull request for #{1} (pushes branch)', args: ['$(git-pull-request)', currentIssue.issue.number], comment: ['The first placeholder is an icon and shouldn\'t be localized', 'The second placeholder is the ID number of a GitHub Issue.'] });
 		let defaults: PullRequestDefaults | undefined;
 		try {
-			defaults = await currentIssue.manager.getPullRequestDefaults();
+			defaults = await currentIssue._manager.getPullRequestDefaults();
 		} catch (e) {
 			// leave defaults undefined
 		}
@@ -890,15 +890,15 @@ export class IssueFeatureRegistrar extends Disposable {
 			case pullRequestText: {
 				const reviewManager = ReviewManager.getReviewManagerForFolderManager(
 					this.reviewsManager.reviewManagers,
-					currentIssue.manager,
+					currentIssue._manager,
 				);
 				if (reviewManager) {
-					return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager);
+					return pushAndCreatePR(currentIssue._manager, reviewManager, this._stateManager);
 				}
 				break;
 			}
 			case stopWorkingText:
-				return this._stateManager.setCurrentIssue(currentIssue.manager, undefined, true);
+				return this._stateManager.setCurrentIssue(currentIssue._manager, undefined, true);
 		}
 	}
 
@@ -953,7 +953,7 @@ export class IssueFeatureRegistrar extends Disposable {
 
 		let contents = '';
 		if (newIssue) {
-			const folderRepoManager = this.manager.getManagerForFile(newIssue.document.uri);
+			const folderRepoManager = this._manager.getManagerForFile(newIssue.document.uri);
 			const changeAffectingFile = folderRepoManager?.repository?.state.workingTreeChanges.find(value => value.uri.toString() === newIssue.document.uri.toString());
 			if (changeAffectingFile) {
 				// The file we're creating the issue for has uncommitted changes.
@@ -967,7 +967,7 @@ export class IssueFeatureRegistrar extends Disposable {
 			}
 		}
 
-		contents += (await createSinglePermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
+		contents += (await createSinglePermalink(this._manager, this._gitAPI, true, true, newIssue)).permalink;
 		return contents;
 	}
 
@@ -1037,7 +1037,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		originUri: vscode.Uri,
 		options?: NewIssueFileOptions
 	) {
-		const folderManager = this.manager.getManagerForFile(originUri);
+		const folderManager = this._manager.getManagerForFile(originUri);
 		if (!folderManager) {
 			return;
 		}
@@ -1181,7 +1181,7 @@ ${options?.body ?? ''}\n
 			repo: FolderRepositoryManager;
 		}
 		const choices: RepoChoice[] = [];
-		for (const folderManager of this.manager.folderManagers) {
+		for (const folderManager of this._manager.folderManagers) {
 			try {
 				const defaults = await folderManager.getPullRequestDefaults();
 				choices.push({
@@ -1272,7 +1272,7 @@ ${options?.body ?? ''}\n
 			const repoUriParams = fromRepoUri(originUri);
 			if (repoUriParams) {
 				origin = { owner: repoUriParams.owner, repo: repoUriParams.repo, base: '' };
-				folderManager = this.manager.getManagerForFile(repoUriParams.repoRootUri);
+				folderManager = this._manager.getManagerForFile(repoUriParams.repoRootUri);
 			}
 			if (!folderManager) {
 				vscode.window.showErrorMessage(vscode.l10n.t(`Could not find the correct repository for the issue; see logs for more details.`));
@@ -1285,9 +1285,9 @@ ${options?.body ?? ''}\n
 			// We don't check for githubIssues.alwaysPromptForNewIssueRepo here because we're
 			// likely in this scenario due to making an issue from a file selection/etc.
 			if (document) {
-				folderManager = this.manager.getManagerForFile(document.uri);
+				folderManager = this._manager.getManagerForFile(document.uri);
 			} else if (originUri) {
-				folderManager = this.manager.getManagerForFile(originUri);
+				folderManager = this._manager.getManagerForFile(originUri);
 			}
 		}
 		if (!folderManager) {
@@ -1315,7 +1315,7 @@ ${options?.body ?? ''}\n
 			const body: string | undefined =
 				issueBody || newIssue?.document.isUntitled
 					? issueBody
-					: (await createSinglePermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
+					: (await createSinglePermalink(this._manager, this._gitAPI, true, true, newIssue)).permalink;
 			const createParams: OctokitCommon.IssuesCreateParams = {
 				owner: origin.owner,
 				repo: origin.repo,
@@ -1359,7 +1359,7 @@ ${options?.body ?? ''}\n
 								await vscode.env.clipboard.writeText(issue.html_url);
 								break;
 							case openIssue:
-								await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, constFolderManager, issue);
+								await IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, constFolderManager, issue);
 								break;
 						}
 					});
@@ -1371,8 +1371,8 @@ ${options?.body ?? ''}\n
 		});
 	}
 
-	private async _getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, context?: LinkContext[]): Promise<PermalinkInfo[]> {
-		const links = await createGithubPermalink(repositoriesManager, this.gitAPI, includeRange, includeFile, undefined, context);
+	private async _getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, _context?: LinkContext[]): Promise<PermalinkInfo[]> {
+		const links = await createGithubPermalink(repositoriesManager, this._gitAPI, includeRange, includeFile, undefined, _context);
 		const firstError = links.find(link => link.error);
 		if (firstError) {
 			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub permalink for the selection. {0}', firstError.error!));
@@ -1381,7 +1381,7 @@ ${options?.body ?? ''}\n
 	}
 
 	private async _getHeadLinkWithError(context?: vscode.Uri[], includeRange?: boolean): Promise<PermalinkInfo[]> {
-		const links = await createGitHubLink(this.manager, context, includeRange);
+		const links = await createGitHubLink(this._manager, _context, includeRange);
 		if (links.length > 0) {
 			const firstError = links.find(link => link.error);
 			if (firstError) {
@@ -1411,17 +1411,17 @@ ${options?.body ?? ''}\n
 	private async _permalinkInfoToClipboardText(links: PermalinkInfo[], shouldContextualize: boolean = false): Promise<string | undefined> {
 		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
 		if (withPermalinks.length !== 0) {
-			const contextualizedLinks = await Promise.all(withPermalinks.map(async link => (shouldContextualize && link.originalFile) ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink));
-			const clipboardText = contextualizedLinks.join('\n');
+			const _contextualizedLinks = await Promise.all(withPermalinks.map(async link => (shouldContextualize && link.originalFile) ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink));
+			const clipboardText = _contextualizedLinks.join('\n');
 			Logger.debug(`Will write ${clipboardText} to the clipboard`, PERMALINK_COMPONENT);
 			return clipboardText;
 		}
 		return undefined;
 	}
 
-	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext[], includeRange: boolean = true, includeFile: boolean = true, contextualizeLink: boolean = false) {
-		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, includeFile, context);
-		const clipboardText = await this.permalinkInfoToClipboardText(links, contextualizeLink);
+	async copyPermalink(repositoriesManager: RepositoriesManager, _context?: LinkContext[], includeRange: boolean = true, includeFile: boolean = true, _contextualizeLink: boolean = false) {
+		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, includeFile, _context);
+		const clipboardText = await this.permalinkInfoToClipboardText(links, _contextualizeLink);
 		if (clipboardText) {
 			return vscode.env.clipboard.writeText(clipboardText);
 		}
@@ -1457,8 +1457,8 @@ ${options?.body ?? ''}\n
 		return undefined;
 	}
 
-	async copyMarkdownPermalink(repositoriesManager: RepositoriesManager, context: LinkContext[], includeRange: boolean = true) {
-		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, true, context);
+	async copyMarkdownPermalink(repositoriesManager: RepositoriesManager, _context: LinkContext[], includeRange: boolean = true) {
+		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, true, _context);
 		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
 
 		if (withPermalinks.length === 1) {
@@ -1524,7 +1524,7 @@ ${options?.body ?? ''}\n
 
 		try {
 			// Get the folder manager for this issue
-			const folderManager = this.manager.getManagerForIssueModel(issueModel);
+			const folderManager = this._manager.getManagerForIssueModel(issueModel);
 			if (!folderManager) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Failed to find repository for issue #{0}', issueModel.number));
 				return;

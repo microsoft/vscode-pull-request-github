@@ -279,15 +279,15 @@ export class CopilotApi {
 
 	private _getHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
-		if (this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			authProvider = AuthProvider.githubEnterprise;
-		} else if (this._credentialStore.isAuthenticated(AuthProvider.github)) {
+		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
 			authProvider = AuthProvider.github;
 		} else {
 			return;
 		}
 
-		return this._credentialStore.getHub(authProvider);
+		return this.credentialStore.getHub(authProvider);
 	}
 }
 

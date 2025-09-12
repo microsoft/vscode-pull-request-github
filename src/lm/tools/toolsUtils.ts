@@ -55,7 +55,7 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 	}
 
 	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
-		if (!this._credentialStore.isAnyAuthenticated()) {
+		if (!this.credentialStore.isAnyAuthenticated()) {
 			throw new AuthenticationError();
 		}
 
@@ -93,11 +93,11 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 
 	protected getGitHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
-		if (this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			authProvider = AuthProvider.githubEnterprise;
-		} else if (this._credentialStore.isAuthenticated(AuthProvider.github)) {
+		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
 			authProvider = AuthProvider.github;
 		}
-		return (authProvider !== undefined) ? this._credentialStore.getHub(authProvider) : undefined;
+		return (authProvider !== undefined) ? this.credentialStore.getHub(authProvider) : undefined;
 	}
 }

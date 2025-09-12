@@ -98,7 +98,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	) {
 		super();
 		this.gitOperationsManager = new GitOperationsManager(CopilotRemoteAgentManager.ID);
-		this._register(this._credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
+		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
 				this._copilotApiPromise = undefined; // Invalidate cached session
 			}
@@ -144,7 +144,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	private async _initializeCopilotApi(): Promise<CopilotApi | undefined> {
-		return await getCopilotApi(this._credentialStore, this.telemetry);
+		return await getCopilotApi(this.credentialStore, this.telemetry);
 	}
 
 	public get enabled(): boolean {
@@ -206,7 +206,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return false;
 		}
 
-		if (!this._credentialStore.isAnyAuthenticated()) {
+		if (!this.credentialStore.isAnyAuthenticated()) {
 			// If not signed in, then we optimistically say it's available.
 			return true;
 		}
@@ -350,7 +350,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async tryPromptForAuthAndRepo(): Promise<FolderRepositoryManager | undefined> {
-		const authResult = await this._credentialStore.tryPromptForCopilotAuth();
+		const authResult = await this.credentialStore.tryPromptForCopilotAuth();
 		if (!authResult) {
 			return undefined;
 		}

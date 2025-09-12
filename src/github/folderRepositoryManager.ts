@@ -492,7 +492,7 @@ export class FolderRepositoryManager extends Disposable {
 
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
-		if (this._credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
+		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
 			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
 			if (areAllNeverGitHub) {
 				this.state = ReposManagerState.RepositoriesLoaded;
@@ -1297,7 +1297,7 @@ export class FolderRepositoryManager extends Disposable {
 			parsedIssue.repositoryUrl!,
 			new Protocol(parsedIssue.repositoryUrl!),
 		);
-		return this.createGitHubRepository(remote, this._credentialStore, true, true);
+		return this.createGitHubRepository(remote, this.credentialStore, true, true);
 
 	}
 
@@ -2288,7 +2288,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (!headGitHubRepo && this.gitHubRepositories.length > 0) {
 			const remote = parseRemote(protocol.repositoryName, remoteUrl, protocol);
 			if (remote) {
-				headGitHubRepo = await this.createGitHubRepository(remote, this._credentialStore, true, true);
+				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
 			}
 		}
 		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
@@ -2323,7 +2323,7 @@ export class FolderRepositoryManager extends Disposable {
 			const protocol = new Protocol(remoteUrl ?? '');
 			const remote = parseRemote(remoteName, remoteUrl, protocol);
 			if (remote) {
-				headGitHubRepo = await this.createGitHubRepository(remote, this._credentialStore, true, true);
+				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
 			}
 		}
 
@@ -2806,7 +2806,7 @@ export class FolderRepositoryManager extends Disposable {
 	public async publishBranch(pushRemote: Remote, branchName: string): Promise<GitHubRemote | undefined> {
 		const githubRepo = await this.createGitHubRepository(
 			pushRemote,
-			this._credentialStore,
+			this.credentialStore,
 		);
 		const permission = await githubRepo.getViewerPermission();
 		let selectedRemote: GitHubRemote | undefined;
@@ -2867,7 +2867,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async getPreferredEmail(pullRequest: PullRequestModel): Promise<string | undefined> {
-		const isEmu = await this._credentialStore.getIsEmu(pullRequest.remote.authProviderId);
+		const isEmu = await this.credentialStore.getIsEmu(pullRequest.remote.authProviderId);
 		if (isEmu) {
 			return undefined;
 		}

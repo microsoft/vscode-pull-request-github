@@ -41,7 +41,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		if (this.commit.author) {
 			const author: IAccount = { id: this.commit.author.node_id, login: this.commit.author.login, url: this.commit.author.url, avatarUrl: this.commit.author.avatar_url, accountType: this.commit.author.type as AccountType };
-			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [author], 16, 16))[0];
+			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [author], 16, 16))[0];
 		}
 		return this;
 	}
@@ -58,7 +58,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			const fileName = change.filename!;
 			const uri = reviewPath(fileName, this.commit.sha);
 			const changeModel = new GitFileChangeModel(
-				this._pullRequestManager,
+				this.pullRequestManager,
 				this.pullRequest,
 				{
 					status: getGitChangeType(change.status!),
@@ -72,7 +72,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 					this.commit.sha,
 					true,
 					{ base: false },
-					this._pullRequestManager.repository.rootUri,
+					this.pullRequestManager.repository.rootUri,
 				),
 				toReviewUri(
 					uri,
@@ -81,12 +81,12 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 					this.commit.sha,
 					true,
 					{ base: true },
-					this._pullRequestManager.repository.rootUri,
+					this.pullRequestManager.repository.rootUri,
 				),
 				this.commit.sha);
 			const fileChangeNode = new GitFileChangeNode(
 				this,
-				this._pullRequestManager,
+				this.pullRequestManager,
 				this.pullRequest as (PullRequestModel & IResolvedPullRequestModel),
 				changeModel,
 				this.isCurrent

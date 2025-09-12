@@ -24,8 +24,8 @@ export class ExperimentationTelemetry extends Disposable implements IExperimenta
 
 	constructor(private _baseReporter) {
 		super();
-		if (this._baseReporter) {
-			this._register(this._baseReporter);
+		if (baseReporter) {
+			this._register(baseReporter);
 		}
 	}
 
