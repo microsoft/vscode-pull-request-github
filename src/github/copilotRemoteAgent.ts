@@ -882,7 +882,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const currentRepositories = this.repositoriesManager.folderManagers.map(folder => folder.gitHubRepositories).flat();
 
 			this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<vscode.ChatSessionItem[]>(async (resolve) => {
-				const sessions = await capi.getAllSessions(undefined);
+				const sessions = await capi.getAllSessionsForAllRepositories();
 				const sessionMap = new Map<string, SessionInfo[]>();
 
 				for (const session of sessions) {
@@ -952,13 +952,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 				});
 
 				resolve(filteredPRs);
+				this.codingAgentPRsPromise = undefined;
 			});
 
 			return this.codingAgentPRsPromise;
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
 		} finally {
-			this.codingAgentPRsPromise = undefined;
 		}
 		return [];
 	}

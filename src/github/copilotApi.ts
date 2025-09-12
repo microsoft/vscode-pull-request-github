@@ -192,11 +192,9 @@ export class CopilotApi {
 		return copilotSteps;
 	}
 
-	public async getAllSessions(pullRequestId: number | undefined): Promise<SessionInfo[]> {
+	public async getAllSessions(pullRequestId: number): Promise<SessionInfo[]> {
 		const response = await this.makeApiCall(
-			pullRequestId
-				? `/agents/sessions/resource/pull/${pullRequestId}`
-				: `/agents/sessions?page_size=100`,
+			`/agents/sessions/resource/pull/${pullRequestId}`,
 			{
 				headers: {
 					Authorization: `Bearer ${this.token}`,
@@ -208,6 +206,32 @@ export class CopilotApi {
 		}
 		const sessions = await response.json();
 		return sessions.sessions;
+	}
+
+	public async getAllSessionsForAllRepositories(): Promise<SessionInfo[]> {
+		let hasNextPage = false;
+		const sessionInfos: SessionInfo[] = [];
+		const page_size = 20;
+		let page = 1;
+		do {
+			const response = await this.makeApiCall(
+				`/agents/sessions?page_size=${page_size}&page_number=${page}`,
+				{
+					headers: {
+						Authorization: `Bearer ${this.token}`,
+						Accept: 'application/json',
+					},
+				});
+			if (!response.ok) {
+				throw new Error(`Failed to fetch sessions: ${response.statusText}`);
+			}
+			const sessions = await response.json();
+			sessionInfos.push(...sessions.sessions);
+			hasNextPage = sessions.sessions.length === page_size;
+			page++;
+		} while (hasNextPage);
+
+		return sessionInfos;
 	}
 
 	public async getPullRequestFromSession(globalId): Promise<SessionPullRequestInfo | undefined> {
