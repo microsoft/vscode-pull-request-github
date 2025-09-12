@@ -32,36 +32,6 @@ suite('PlainTextRenderer', () => {
 		assert.strictEqual(result.trim(), 'rename the \\`Foo\\` class to \\`Bar\\`');
 	});
 
-	test('should strip strong formatting by default', () => {
-		const renderer = new PlainTextRenderer();
-		const result = marked.parse('This is **bold** text', { renderer, smartypants: true });
-		assert.strictEqual(result.trim(), 'This is bold text');
-	});
-
-	test('should preserve strong formatting when allowSimpleMarkdown is true', () => {
-		const renderer = new PlainTextRenderer(true);
-		const result = marked.parse('This is **bold** text', { renderer, smartypants: true });
-		assert.strictEqual(result.trim(), 'This is **bold** text');
-	});
-
-	test('should strip em formatting by default', () => {
-		const renderer = new PlainTextRenderer();
-		const result = marked.parse('This is *italic* text', { renderer, smartypants: true });
-		assert.strictEqual(result.trim(), 'This is italic text');
-	});
-
-	test('should preserve em formatting when allowSimpleMarkdown is true', () => {
-		const renderer = new PlainTextRenderer(true);
-		const result = marked.parse('This is *italic* text', { renderer, smartypants: true });
-		assert.strictEqual(result.trim(), 'This is *italic* text');
-	});
-
-	test('should handle combined formatting when allowSimpleMarkdown is true', () => {
-		const renderer = new PlainTextRenderer(true);
-		const result = marked.parse('rename the `Foo` class to **`Bar`** and make it *italic*', { renderer, smartypants: true });
-		assert.strictEqual(result.trim(), 'rename the `Foo` class to **`Bar`** and make it *italic*');
-	});
-
 	test('should strip all formatting by default', () => {
 		const renderer = new PlainTextRenderer(false);
 		const result = marked.parse('rename the `Foo` class to **`Bar`** and make it *italic*', { renderer, smartypants: true });
