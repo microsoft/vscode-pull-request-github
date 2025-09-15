@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.118.1
+
+### Fixes
+
+- _No logs available for this session_ race condition. https://github.com/microsoft/vscode-pull-request-github/issues/7783
+
 ## 0.118.0
 
 ### Changes
