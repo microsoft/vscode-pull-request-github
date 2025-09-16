@@ -135,7 +135,9 @@ function Dashboard() {
 			case '0':
 				return 'Failed';
 			case '1':
-				return 'Completed';
+				return 'Ready for review';
+			case 'completed':
+				return 'Ready for review';
 			case '2':
 				return 'In Progress';
 			default:
