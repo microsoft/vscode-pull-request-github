@@ -44,7 +44,9 @@ export function main() {
 
 function Dashboard() {
 	const [data, setData] = useState<DashboardData | null>(null);
-	const [loading, setLoading] = useState(true);
+	const [issuesLoading, setIssuesLoading] = useState(true);
+	const [sessionsLoading, setSessionsLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [chatInput, setChatInput] = useState('');
 
 	useEffect(() => {
@@ -54,12 +56,12 @@ function Dashboard() {
 			switch (message.command) {
 				case 'update-dashboard':
 					setData(message.data);
-					setLoading(false);
+					setIssuesLoading(false);
+					setSessionsLoading(false);
+					setRefreshing(false);
 					break;
 			}
-		};
-
-		window.addEventListener('message', messageListener);
+		}; window.addEventListener('message', messageListener);
 
 		// Request initial data
 		vscode.postMessage({ command: 'ready' });
@@ -72,7 +74,9 @@ function Dashboard() {
 	}, []);
 
 	const handleRefresh = () => {
-		setLoading(true);
+		setRefreshing(true);
+		setIssuesLoading(true);
+		setSessionsLoading(true);
 		vscode.postMessage({ command: 'refresh-dashboard' });
 	};
 
@@ -145,20 +149,17 @@ function Dashboard() {
 		}
 	};
 
-	if (loading) {
-		return (
-			<div className="dashboard-container">
-				<div className="loading-indicator">Loading dashboard...</div>
-			</div>
-		);
-	}
-
 	return (
 		<div className="dashboard-container">
 			<div className="dashboard-header">
 				<h1 className="dashboard-title">My Tasks</h1>
-				<button className="refresh-button" onClick={handleRefresh}>
-					Refresh
+				<button className="refresh-button" onClick={handleRefresh} disabled={refreshing}>
+					{refreshing ? <>
+						{/* allow-any-unicode-next-line */}
+						<span className="refresh-spinner">⟳</span>
+					</> : (
+						'Refresh'
+					)}
 				</button>
 			</div>
 
@@ -169,7 +170,7 @@ function Dashboard() {
 
 					{/* Chat Input Section */}
 					<div className="chat-section">
-						<div className="chat-input-container">
+						<div className="chat-input-wrapper">
 							<textarea
 								className="chat-input"
 								placeholder="Start working on a new task..."
@@ -182,11 +183,13 @@ function Dashboard() {
 								}}
 							/>
 							<button
-								className="send-button"
+								className="send-button-inline"
 								onClick={handleSendChat}
 								disabled={!chatInput.trim()}
+								title="Send message (Ctrl+Enter)"
 							>
-								Send
+								{/* allow-any-unicode-next-line */}
+								<span className="send-icon">➤</span>
 							</button>
 						</div>
 						<p style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
@@ -195,8 +198,19 @@ function Dashboard() {
 					</div>
 
 					<h3 className="column-header" style={{ marginTop: '24px' }}>September 2025 Issues</h3>
+					{!issuesLoading && (
+						<div className="section-count">
+							{data?.milestoneIssues?.length || 0} issue{(data?.milestoneIssues?.length || 0) !== 1 ? 's' : ''}
+						</div>
+					)}
 					<div className="column-content">
-						{!data?.milestoneIssues?.length ? (
+						{issuesLoading ? (
+							<div className="section-loading">
+								{/* allow-any-unicode-next-line */}
+								<span className="section-spinner">⟳</span>
+								<span>Loading issues...</span>
+							</div>
+						) : !data?.milestoneIssues?.length ? (
 							<div className="empty-state">
 								No issues found for September 2025 milestone
 							</div>
@@ -237,8 +251,19 @@ function Dashboard() {
 				{/* Right Column: Active tasks */}
 				<div className="dashboard-column">
 					<h2 className="column-header">Active tasks</h2>
+					{!sessionsLoading && (
+						<div className="section-count">
+							{data?.activeSessions?.length || 0} task{(data?.activeSessions?.length || 0) !== 1 ? 's' : ''}
+						</div>
+					)}
 					<div className="column-content">
-						{!data?.activeSessions?.length ? (
+						{sessionsLoading ? (
+							<div className="section-loading">
+								{/* allow-any-unicode-next-line */}
+								<span className="section-spinner">⟳</span>
+								<span>Loading sessions...</span>
+							</div>
+						) : !data?.activeSessions?.length ? (
 							<div className="empty-state">
 								No active sessions found
 							</div>
@@ -281,6 +306,6 @@ function Dashboard() {
 					</div>
 				</div>
 			</div>
-		</div>
+		</div >
 	);
 }
