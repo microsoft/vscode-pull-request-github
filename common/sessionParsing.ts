@@ -192,15 +192,7 @@ export function parseToolCallDetails(
 				const filePath = args.path;
 				let fileLabel = filePath ? toFileLabel(filePath) : undefined;
 
-				if (fileLabel === undefined) {
-					fileLabel = filePath;
-
-					return {
-						toolName: fileLabel ? (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-						invocationMessage: fileLabel ? (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-						pastTenseMessage: fileLabel ? (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-					};
-				} else if (fileLabel === '') {
+				if (fileLabel === undefined || fileLabel === '') {
 					return {
 						toolName: 'Read repository',
 						invocationMessage: 'Read repository',
@@ -250,7 +242,7 @@ export function parseToolCallDetails(
 				filePath: filePath,
 				fileLabel: fileLabel,
 			} : undefined
-		}
+		};
 	} else if (name === 'create') {
 		const filePath = args.path;
 		const fileLabel = filePath && toFileLabel(filePath);
@@ -264,7 +256,7 @@ export function parseToolCallDetails(
 				filePath: filePath,
 				fileLabel: fileLabel,
 			} : undefined
-		}
+		};
 	} else if (name === 'view') {
 		const filePath = args.path;
 		const fileLabel = filePath && toFileLabel(filePath);
@@ -319,12 +311,12 @@ export function parseToolCallDetails(
 		return {
 			toolName: 'read_bash',
 			invocationMessage: 'Read logs from Bash session'
-		}
+		};
 	} else if (name === 'stop_bash') {
 		return {
 			toolName: 'stop_bash',
 			invocationMessage: 'Stop Bash session'
-		}
+		};
 	} else {
 		// Unknown tool type
 		return {
