@@ -11,7 +11,7 @@ import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/gith
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -70,7 +70,7 @@ export function Header({
 }
 
 function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }) {
-	const { setTitle } = useContext(PullRequestContext);
+	const { setTitle, copyPrLink } = useContext(PullRequestContext);
 
 	const titleForm = (
 		<form
@@ -118,6 +118,9 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 					{editIcon}
 				</button>
 				: null}
+			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
+				{copyIcon}
+			</button>
 		</div>
 	);
 
