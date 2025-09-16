@@ -444,6 +444,19 @@
 						"%githubPullRequests.postCreate.checkoutDefaultBranchAndCopy%"
 					]
 				},
+				"githubPullRequests.postDone": {
+					"type": "string",
+					"enum": [
+						"checkoutDefaultBranch",
+						"checkoutDefaultBranchAndPull"
+					],
+					"description": "%githubPullRequests.postDone.description%",
+					"default": "checkoutDefaultBranch",
+					"enumDescriptions": [
+						"%githubPullRequests.postDone.checkoutDefaultBranch%",
+						"%githubPullRequests.postDone.checkoutDefaultBranchAndPull%"
+					]
+				},
 				"githubPullRequests.defaultCommentType": {
 					"type": "string",
 					"enum": [

@@ -22,6 +22,7 @@ import {
 	AUTO_STASH,
 	DEFAULT_MERGE_METHOD,
 	GIT,
+	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
 	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
@@ -2463,6 +2464,31 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async checkoutDefaultBranch(branch: string): Promise<void> {
+		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'checkoutDefaultBranch' | 'checkoutDefaultBranchAndPull'>(POST_DONE, 'checkoutDefaultBranch');
+
+		if (postDoneAction === 'checkoutDefaultBranchAndPull') {
+			await this.checkoutDefaultBranchAndPull(branch);
+		} else {
+			await this.checkoutDefaultBranchOnly(branch);
+		}
+	}
+
+	public async checkoutDefaultBranchAndPull(branch: string): Promise<void> {
+		await this.checkoutDefaultBranchOnly(branch);
+		// After checking out, pull the latest changes if the branch has an upstream
+		try {
+			const branchObj = await this.repository.getBranch(branch);
+			if (branchObj.upstream) {
+				Logger.debug(`Pulling latest changes for branch ${branch}`, this.id);
+				await this.repository.pull();
+			}
+		} catch (e) {
+			Logger.warn(`Failed to pull latest changes for branch ${branch}: ${e}`, this.id);
+			// Don't throw error - checkout succeeded, pull failure is non-critical
+		}
+	}
+
+	private async checkoutDefaultBranchOnly(branch: string): Promise<void> {
 		let branchObj: Branch | undefined;
 		try {
 			branchObj = await this.repository.getBranch(branch);
