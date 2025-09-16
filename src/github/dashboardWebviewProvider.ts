@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { ComplexityService } from '../issues/complexityService';
 import { ChatSessionWithPR } from './copilotApi';
 import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -39,6 +40,7 @@ export interface IssueData {
 	url: string;
 	createdAt: string;
 	updatedAt: string;
+	complexity?: number;
 }
 
 export class DashboardWebviewProvider extends WebviewBase {
@@ -47,6 +49,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 	public static currentPanel?: DashboardWebviewProvider;
 
 	protected readonly _panel: vscode.WebviewPanel;
+	private readonly _complexityService: ComplexityService;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -59,6 +62,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 		super();
 		this._panel = panel;
 		this._webview = panel.webview;
+		this._complexityService = new ComplexityService();
 		super.initialize();
 
 		// Set webview options
@@ -206,14 +210,29 @@ export class DashboardWebviewProvider extends WebviewBase {
 				return [];
 			}
 
-			return searchResult.items.map(issue => this.convertIssueToData(issue));
+			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
 		} catch (error) {
 			Logger.debug(`Failed to get issues for milestone ${milestoneTitle}: ${error}`, DashboardWebviewProvider.ID);
 			return [];
 		}
 	}
 
-	private convertIssueToData(issue: IssueModel): IssueData {
+	private async convertIssueToData(issue: IssueModel): Promise<IssueData> {
+		let complexity: number | undefined;
+
+		// Check if complexity is already calculated (from IssueItem)
+		if ((issue as any).complexity?.score) {
+			complexity = (issue as any).complexity.score;
+		} else {
+			// Calculate complexity on demand
+			try {
+				const complexityResult = await this._complexityService.calculateComplexity(issue);
+				complexity = complexityResult.score;
+			} catch (error) {
+				Logger.debug(`Failed to calculate complexity for issue #${issue.number}: ${error}`, DashboardWebviewProvider.ID);
+			}
+		}
+
 		return {
 			number: issue.number,
 			title: issue.title,
@@ -222,7 +241,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 			state: issue.state,
 			url: issue.html_url,
 			createdAt: issue.createdAt,
-			updatedAt: issue.updatedAt
+			updatedAt: issue.updatedAt,
+			complexity
 		};
 	}
 
@@ -282,10 +302,32 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 
 		try {
+			// Try to find the issue in the current repositories
+			const urlMatch = issueUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/);
+			if (urlMatch) {
+				const [, owner, repo, issueNumberStr] = urlMatch;
+				const issueNumber = parseInt(issueNumberStr, 10);
+
+				for (const folderManager of this._repositoriesManager.folderManagers) {
+					const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
+					if (issueModel) {
+						// Use the extension's command to open the issue description
+						await vscode.commands.executeCommand('issue.openDescription', issueModel);
+						return;
+					}
+				}
+			}
+
+			// Fallback to opening externally if we can't find the issue locally
 			await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
 		} catch (error) {
 			Logger.error(`Failed to open issue: ${error}`, DashboardWebviewProvider.ID);
-			vscode.window.showErrorMessage('Failed to open issue.');
+			// Fallback to opening externally
+			try {
+				await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
+			} catch (fallbackError) {
+				vscode.window.showErrorMessage('Failed to open issue.');
+			}
 		}
 	}
 

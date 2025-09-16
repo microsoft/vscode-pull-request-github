@@ -201,6 +201,21 @@ html, body, app {
 	text-decoration: underline;
 }
 
+.complexity-score {
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	padding: 2px 6px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+.complexity-score span {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
 .chat-section {
 	margin-top: 4px;
 	flex-shrink: 0;

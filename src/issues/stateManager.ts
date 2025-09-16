@@ -25,6 +25,7 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
+import { ComplexityScore, ComplexityService } from './complexityService';
 import { CurrentIssue } from './currentIssue';
 
 const CURRENT_ISSUE_KEY = 'currentIssue';
@@ -50,6 +51,7 @@ const DEFAULT_QUERY_CONFIGURATION_VALUE: { label: string, query: string, groupBy
 
 export class IssueItem extends IssueModel {
 	uri: vscode.Uri;
+	complexity?: ComplexityScore;
 }
 
 interface SingleRepoState {
@@ -82,6 +84,7 @@ export class StateManager {
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
 	private initializePromise: Promise<void> | undefined;
 	private statusBarItem?: vscode.StatusBarItem;
+	private complexityService: ComplexityService;
 
 	getIssueCollection(uri: vscode.Uri): Map<string, Promise<IssueQueryResult>> {
 		let collection = this._singleRepoStates.get(uri.path)?.issueCollection;
@@ -97,7 +100,9 @@ export class StateManager {
 		readonly gitAPI: GitApiImpl,
 		private manager: RepositoriesManager,
 		private context: vscode.ExtensionContext,
-	) { }
+	) {
+		this.complexityService = new ComplexityService();
+	}
 
 	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
 		let state = this._singleRepoStates.get(uri.path);
@@ -332,13 +337,29 @@ export class StateManager {
 		return new Promise(async resolve => {
 			const issues = await folderManager.getIssues(query);
 			this._onDidChangeIssueData.fire();
-			resolve(
-				issues?.items.map(item => {
-					const issueItem: IssueItem = item as IssueItem;
-					issueItem.uri = folderManager.repository.rootUri;
-					return issueItem;
-				}),
-			);
+			const issueItems = issues?.items.map(item => {
+				const issueItem: IssueItem = item as IssueItem;
+				issueItem.uri = folderManager.repository.rootUri;
+				return issueItem;
+			});
+
+			// Calculate complexity scores for all issues
+			if (issueItems) {
+				// Calculate complexity scores in the background
+				Promise.all(issueItems.map(async issueItem => {
+					try {
+						issueItem.complexity = await this.complexityService.calculateComplexity(issueItem);
+					} catch (error) {
+						// Don't fail the whole operation if complexity calculation fails
+						console.error(`Failed to calculate complexity for issue #${issueItem.number}:`, error);
+					}
+				})).then(() => {
+					// Fire the change event again after complexity scores are calculated
+					this._onDidChangeIssueData.fire();
+				});
+			}
+
+			resolve(issueItems);
 		});
 	}
 

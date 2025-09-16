@@ -27,6 +27,7 @@ interface IssueData {
 	url: string;
 	createdAt: string;
 	updatedAt: string;
+	complexity?: number;
 }
 
 interface DashboardData {
@@ -241,6 +242,11 @@ function Dashboard() {
 											{/* allow-any-unicode-next-line */}
 											<span>📅 Updated {formatDate(issue.updatedAt)}</span>
 										</div>
+										{issue.complexity && (
+											<div className="metadata-item complexity-score">
+												<span>Complexity: {issue.complexity}</span>
+											</div>
+										)}
 									</div>
 								</div>
 							))
