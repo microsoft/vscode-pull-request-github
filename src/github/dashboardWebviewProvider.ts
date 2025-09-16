@@ -373,13 +373,15 @@ export class DashboardWebviewProvider extends WebviewBase {
 	private getHtmlForWebview(): string {
 		const nonce = getNonce();
 		const uri = vscode.Uri.joinPath(this._context.extensionUri, 'dist', 'webview-dashboard.js');
+		const codiconsUri = this._webview!.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
 
 		return `<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:; font-src vscode-resource:;">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href="${codiconsUri}" rel="stylesheet" />
 		<title>GitHub Dashboard</title>
 	</head>
 	<body>

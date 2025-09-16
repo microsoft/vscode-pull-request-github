@@ -60,10 +60,8 @@ html, body, app {
 	cursor: not-allowed;
 }
 
-.refresh-spinner {
-	display: inline-block;
+.codicon-modifier-spin {
 	animation: spin 1s linear infinite;
-	font-size: 14px;
 }
 
 @keyframes spin {
@@ -80,12 +78,6 @@ html, body, app {
 	padding: 24px;
 	color: var(--vscode-descriptionForeground);
 	font-size: 14px;
-}
-
-.section-spinner {
-	display: inline-block;
-	animation: spin 1s linear infinite;
-	font-size: 16px;
 }
 
 /* Section count indicator */
@@ -167,6 +159,10 @@ html, body, app {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+}
+
+.metadata-item .codicon {
+	margin-right: 2px;
 }
 
 .status-badge {
@@ -280,11 +276,6 @@ html, body, app {
 	color: var(--vscode-button-secondaryForeground);
 	cursor: not-allowed;
 	opacity: 0.6;
-}
-
-.send-icon {
-	font-size: 14px;
-	line-height: 1;
 }
 
 .empty-state {

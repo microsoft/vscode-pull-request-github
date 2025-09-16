@@ -156,10 +156,9 @@ function Dashboard() {
 			<div className="dashboard-header">
 				<h1 className="dashboard-title">My Tasks</h1>
 				<button className="refresh-button" onClick={handleRefresh} disabled={refreshing}>
-					{refreshing ? <>
-						{/* allow-any-unicode-next-line */}
-						<span className="refresh-spinner">⟳</span>
-					</> : (
+					{refreshing ? (
+						<span className="codicon codicon-sync codicon-modifier-spin"></span>
+					) : (
 						'Refresh'
 					)}
 				</button>
@@ -190,8 +189,7 @@ function Dashboard() {
 								disabled={!chatInput.trim()}
 								title="Send message (Ctrl+Enter)"
 							>
-								{/* allow-any-unicode-next-line */}
-								<span className="send-icon">➤</span>
+								<span className="codicon codicon-send"></span>
 							</button>
 						</div>
 						<p style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
@@ -208,8 +206,7 @@ function Dashboard() {
 					<div className="column-content">
 						{issuesLoading ? (
 							<div className="section-loading">
-								{/* allow-any-unicode-next-line */}
-								<span className="section-spinner">⟳</span>
+								<span className="codicon codicon-sync codicon-modifier-spin"></span>
 								<span>Loading issues...</span>
 							</div>
 						) : !data?.milestoneIssues?.length ? (
@@ -271,8 +268,7 @@ function Dashboard() {
 					<div className="column-content">
 						{sessionsLoading ? (
 							<div className="section-loading">
-								{/* allow-any-unicode-next-line */}
-								<span className="section-spinner">⟳</span>
+								<span className="codicon codicon-sync codicon-modifier-spin"></span>
 								<span>Loading sessions...</span>
 							</div>
 						) : !data?.activeSessions?.length ? (
@@ -294,8 +290,8 @@ function Dashboard() {
 											</span>
 										</div>
 										<div className="metadata-item">
-											{/* allow-any-unicode-next-line */}
-											<span>📅 {formatDate(session.dateCreated)}</span>
+											<span className="codicon codicon-calendar"></span>
+											<span>{formatDate(session.dateCreated)}</span>
 										</div>
 										{session.pullRequest && (
 											<div className="metadata-item">
