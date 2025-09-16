@@ -1130,6 +1130,19 @@ export function registerCommands(
 	));
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.openDashboard', async () => {
+			/* __GDPR__
+				"pr.openDashboard" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.openDashboard');
+
+			// Import here to avoid circular dependencies
+			const { DashboardWebviewProvider } = await import('./github/dashboardWebviewProvider');
+			await DashboardWebviewProvider.createOrShow(context, reposManager, copilotRemoteAgentManager, telemetry, context.extensionUri);
+		})
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: RepositoryChangesNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
 			if (!folderManager) {
