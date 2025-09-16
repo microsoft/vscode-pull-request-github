@@ -19,7 +19,12 @@
 
 ## Pull Request Guidelines
 - Never touch the yarn.lock file.
-- Run `yarn run lint` and also `npm run hygiene` and fix any errors or warnings before submitting a PR.
+- Run `yarn run lint` and also `npm run hygiene` and fix any errors or warnings before committing.
+
+## Testing
+- Use `describe` and `it` blocks from Mocha for structuring tests.
+- Tests MUST run product code.
+- Tests should be placed near the code they are testing, in a `test` folder. Name test fies with a `.test.ts` suffix.
 
 ---
 _Last updated: 2025-06-20_
