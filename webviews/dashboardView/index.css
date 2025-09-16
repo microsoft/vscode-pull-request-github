@@ -201,19 +201,27 @@ html, body, app {
 	text-decoration: underline;
 }
 
+.issue-item-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
 .complexity-score {
 	background-color: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	padding: 2px 6px;
-	border-radius: 10px;
+	padding: 2px 8px;
+	border-radius: 12px;
 	font-size: 11px;
-	font-weight: 500;
+	font-weight: 600;
+	flex-shrink: 0;
+	transition: background-color 0.2s ease;
 }
 
-.complexity-score span {
-	display: flex;
-	align-items: center;
-	gap: 2px;
+.complexity-score:hover {
+	background-color: var(--vscode-button-hoverBackground);
 }
 
 .chat-section {

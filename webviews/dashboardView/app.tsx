@@ -28,6 +28,7 @@ interface IssueData {
 	createdAt: string;
 	updatedAt: string;
 	complexity?: number;
+	complexityReasoning?: string;
 }
 
 interface DashboardData {
@@ -222,8 +223,18 @@ function Dashboard() {
 									className="issue-item"
 									onClick={() => handleIssueClick(issue.url)}
 								>
-									<div className="item-title">
-										#{issue.number}: {issue.title}
+									<div className="issue-item-header">
+										<div className="item-title">
+											#{issue.number}: {issue.title}
+										</div>
+										{issue.complexity && (
+											<div 
+												className="complexity-score"
+												title={issue.complexityReasoning || `Complexity score: ${issue.complexity}`}
+											>
+												{issue.complexity}
+											</div>
+										)}
 									</div>
 									<div className="item-metadata">
 										{issue.assignee && (
@@ -242,11 +253,6 @@ function Dashboard() {
 											{/* allow-any-unicode-next-line */}
 											<span>📅 Updated {formatDate(issue.updatedAt)}</span>
 										</div>
-										{issue.complexity && (
-											<div className="metadata-item complexity-score">
-												<span>Complexity: {issue.complexity}</span>
-											</div>
-										)}
 									</div>
 								</div>
 							))
