@@ -13,6 +13,16 @@ import {
 } from '../../../common/sessionParsing';
 import { diffHeaders, diffNoAts, simpleDiff } from './fixtures/gitdiff/sessionParsing';
 
+// Helper to construct a toolCall object
+function makeToolCall(name: string, args: any): any {
+	return {
+		function: { name, arguments: JSON.stringify(args) },
+		id: 'id_' + name + '_' + Math.random().toString(36).slice(2),
+		type: 'function',
+		index: 0
+	};
+}
+
 describe('sessionParsing', function () {
 	describe('parseSessionLogs()', function () {
 		it('should parse valid session logs', function () {
@@ -205,6 +215,139 @@ another non-data line`;
 
 			assert.strictEqual(result.toolName, 'Read repository');
 			assert.strictEqual(result.invocationMessage, 'Read repository');
+		});
+
+		it('handles str_replace_editor view with diff-parsed content (empty file label -> repository)', function () {
+			const diff = [
+				'diff --git a/src/file.ts b/src/file.ts',
+				'index 1111111..2222222 100644',
+				'--- a/src/file.ts',
+				'+++ b/src/file.ts',
+				'@@ -1,2 +1,2 @@',
+				'-old line',
+				'+new line'
+			].join('\n');
+			const toolCall = makeToolCall('str_replace_editor', { command: 'view', view_range: [1, 10] });
+			const result = parseToolCallDetails(toolCall, diff);
+			assert.strictEqual(result.toolName, 'Read repository');
+			assert.strictEqual(result.invocationMessage, 'Read repository');
+		});
+
+		it('handles str_replace_editor view with diff-parsed content (non-empty file label)', function () {
+			const diff = [
+				'diff --git a/home/runner/work/repo/repo/src/deep/file.ts b/home/runner/work/repo/repo/src/deep/file.ts',
+				'index 1111111..2222222 100644',
+				'--- a/home/runner/work/repo/repo/src/deep/file.ts',
+				'+++ b/home/runner/work/repo/repo/src/deep/file.ts',
+				'@@ -1,2 +1,2 @@',
+				'-old line',
+				'+new line'
+			].join('\n');
+			const toolCall = makeToolCall('str_replace_editor', { command: 'view', view_range: [2, 8] });
+			const result = parseToolCallDetails(toolCall, diff);
+			assert.strictEqual(result.toolName, 'Read');
+			assert.ok(result.invocationMessage.includes('src/deep/file.ts'));
+			assert.ok(result.invocationMessage.includes('lines 2 to 8'));
+			assert.ok(result.toolSpecificData && 'command' in result.toolSpecificData);
+		});
+
+		it('handles str_replace_editor view with path but unparsable diff content (no diff headers)', function () {
+			const content = 'just some file content without diff headers';
+			const toolCall = makeToolCall('str_replace_editor', { command: 'view', path: '/home/runner/work/repo/repo/src/other.ts' });
+			const result = parseToolCallDetails(toolCall, content);
+			assert.strictEqual(result.toolName, 'Read');
+			assert.strictEqual(result.invocationMessage, 'Read src/other.ts');
+		});
+
+		it('handles str_replace_editor view with undefined path (no label)', function () {
+			const toolCall = makeToolCall('str_replace_editor', { command: 'view' });
+			const result = parseToolCallDetails(toolCall, 'plain content');
+			assert.strictEqual(result.toolName, 'Read repository');
+			assert.strictEqual(result.invocationMessage, 'Read repository');
+		});
+
+		it('handles str_replace_editor view with root repository path empty label branch', function () {
+			const toolCall = makeToolCall('str_replace_editor', { command: 'view', path: '/home/runner/work/repo/repo/' });
+			const result = parseToolCallDetails(toolCall, 'content');
+			assert.strictEqual(result.toolName, 'Read repository');
+		});
+
+		it('handles str_replace_editor edit with range', function () {
+			const toolCall = makeToolCall('str_replace_editor', { command: 'edit', path: '/home/runner/work/repo/repo/src/editMe.ts', view_range: [5, 15] });
+			const result = parseToolCallDetails(toolCall, '');
+			assert.strictEqual(result.toolName, 'Edit');
+			assert.ok(result.invocationMessage.includes('lines 5 to 15'));
+		});
+
+		it('handles str_replace (non-editor) path missing label fallback', function () {
+			// Provide a path that toFileLabel will still shorten; assert structure
+			const toolCall = makeToolCall('str_replace', { path: '/home/runner/work/repo/repo/src/x.ts' });
+			const result = parseToolCallDetails(toolCall, '');
+			assert.strictEqual(result.toolName, 'Edit');
+			assert.strictEqual(result.invocationMessage, 'Edit [](src/x.ts)');
+		});
+
+		it('handles create tool call', function () {
+			const toolCall = makeToolCall('create', { path: '/home/runner/work/repo/repo/new/file.txt' });
+			const result = parseToolCallDetails(toolCall, '');
+			assert.strictEqual(result.toolName, 'Create');
+			assert.strictEqual(result.invocationMessage, 'Create [](new/file.txt)');
+		});
+
+		it('handles view tool call (non str_replace_editor) with range and root path giving repository label', function () {
+			const toolCall = makeToolCall('view', { path: '/home/runner/work/repo/repo/', view_range: [2, 3] });
+			const result = parseToolCallDetails(toolCall, '');
+			assert.strictEqual(result.toolName, 'Read repository');
+			assert.strictEqual(result.invocationMessage, 'Read repository');
+		});
+
+		it('handles view tool call (non str_replace_editor) with file path and range', function () {
+			const toolCall = makeToolCall('view', { path: '/home/runner/work/repo/repo/src/app.ts', view_range: [3, 7] });
+			const result = parseToolCallDetails(toolCall, '');
+			assert.strictEqual(result.toolName, 'Read');
+			assert.ok(result.invocationMessage.includes('lines 3 to 7'));
+		});
+
+		it('handles bash tool call without command (only content)', function () {
+			const toolCall = makeToolCall('bash', {});
+			const result = parseToolCallDetails(toolCall, 'only output');
+			assert.strictEqual(result.toolName, 'Run Bash command');
+			assert.strictEqual(result.invocationMessage, 'only output');
+			assert.ok(!result.toolSpecificData); // no command so no toolSpecificData
+		});
+
+		it('handles read_bash tool call', function () {
+			const toolCall = makeToolCall('read_bash', {});
+			const result = parseToolCallDetails(toolCall, 'ignored');
+			assert.strictEqual(result.toolName, 'read_bash');
+			assert.strictEqual(result.invocationMessage, 'Read logs from Bash session');
+		});
+
+		it('handles stop_bash tool call', function () {
+			const toolCall = makeToolCall('stop_bash', {});
+			const result = parseToolCallDetails(toolCall, 'ignored');
+			assert.strictEqual(result.toolName, 'stop_bash');
+			assert.strictEqual(result.invocationMessage, 'Stop Bash session');
+		});
+
+		it('handles unknown tool call with empty content falling back to name', function () {
+			const toolCall = makeToolCall('mystery_tool', { some: 'arg' });
+			const result = parseToolCallDetails(toolCall, '');
+			assert.strictEqual(result.toolName, 'mystery_tool');
+			assert.strictEqual(result.invocationMessage, 'mystery_tool');
+		});
+
+		it('gracefully handles invalid JSON arguments for non-view str_replace_editor (edit path undefined)', function () {
+			const toolCall = {
+				function: { name: 'str_replace_editor', arguments: '{"command": "edit", invalid' },
+				id: 'bad_json',
+				type: 'function',
+				index: 0
+			};
+			// Since JSON parse fails, args becomes {} and we are in else branch -> toolName Edit without file label
+			const result = parseToolCallDetails(toolCall as any, '');
+			assert.strictEqual(result.toolName, 'Edit');
+			assert.strictEqual(result.invocationMessage, 'Edit');
 		});
 	});
 
