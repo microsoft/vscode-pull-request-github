@@ -1,0 +1,103 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "GitHub Tasks Configuration",
+	"description": "Configuration file for GitHub Tasks dashboard in VS Code. This file defines which issues and repositories to display in your dashboard view. Create a file with the .github-tasks extension to get started.",
+	"type": "object",
+	"properties": {
+		"version": {
+			"type": "number",
+			"description": "Schema version for the GitHub tasks configuration",
+			"const": 1
+		},
+		"issueQuery": {
+			"type": "string",
+			"description": "GitHub search query for filtering issues. Uses GitHub search syntax. See https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests",
+			"examples": [
+				"is:open assignee:@me",
+				"is:open milestone:\"September 2025\"",
+				"is:open assignee:@me milestone:\"September 2025\"",
+				"is:open label:bug priority:high",
+				"is:open author:@me state:open",
+				"is:open assignee:@me sort:updated-desc",
+				"is:open milestone:\"v1.0\" label:enhancement",
+				"is:open assignee:@me created:>2025-01-01"
+			],
+			"default": "is:open assignee:@me milestone:\"September 2025\""
+		},
+		"repos": {
+			"type": "array",
+			"description": "List of GitHub repositories to include in the dashboard. If not specified, uses all repositories in the current workspace. Format: 'owner/repository'",
+			"items": {
+				"type": "string",
+				"pattern": "^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$",
+				"description": "Repository in the format 'owner/repo' (e.g., 'microsoft/vscode')",
+				"examples": [
+					"microsoft/vscode",
+					"microsoft/typescript",
+					"octocat/Hello-World",
+					"github/docs",
+					"nodejs/node",
+					"facebook/react"
+				]
+			},
+			"examples": [
+				[
+					"microsoft/vscode"
+				],
+				[
+					"microsoft/vscode",
+					"microsoft/typescript"
+				],
+				[
+					"octocat/Hello-World",
+					"github/docs"
+				],
+				[
+					"microsoft/vscode",
+					"microsoft/typescript",
+					"microsoft/vscode-pull-request-github"
+				]
+			],
+			"uniqueItems": true,
+			"minItems": 1
+		}
+	},
+	"required": [
+		"version"
+	],
+	"additionalProperties": false,
+	"examples": [
+		{
+			"$schema": "./schemas/github-tasks.schema.json",
+			"version": 1,
+			"issueQuery": "is:open assignee:@me milestone:\"September 2025\""
+		},
+		{
+			"$schema": "./schemas/github-tasks.schema.json",
+			"version": 1,
+			"issueQuery": "is:open assignee:@me",
+			"repos": [
+				"microsoft/vscode",
+				"microsoft/typescript"
+			]
+		},
+		{
+			"$schema": "./schemas/github-tasks.schema.json",
+			"version": 1,
+			"issueQuery": "is:open label:bug priority:high",
+			"repos": [
+				"microsoft/vscode"
+			]
+		},
+		{
+			"$schema": "./schemas/github-tasks.schema.json",
+			"version": 1,
+			"issueQuery": "is:open assignee:@me sort:updated-desc",
+			"repos": [
+				"microsoft/vscode",
+				"microsoft/typescript",
+				"microsoft/vscode-pull-request-github"
+			]
+		}
+	]
+}

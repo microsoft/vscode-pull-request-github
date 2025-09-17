@@ -26,6 +26,7 @@ import { createExperimentationService, ExperimentationTelemetry } from './experi
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { GitHubTasksEditorProvider } from './github/githubTasksEditorProvider';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
@@ -230,6 +231,20 @@ async function init(
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
 	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
+
+	// Register the GitHub Tasks custom editor provider
+	const githubTasksEditorProvider = new GitHubTasksEditorProvider(context, reposManager, copilotRemoteAgentManager, telemetry);
+	context.subscriptions.push(
+		vscode.window.registerCustomEditorProvider(
+			GitHubTasksEditorProvider.viewType,
+			githubTasksEditorProvider,
+			{
+				webviewOptions: {
+					retainContextWhenHidden: true,
+				},
+			}
+		)
+	);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');

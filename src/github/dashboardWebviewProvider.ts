@@ -10,13 +10,30 @@ import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { ComplexityService } from '../issues/complexityService';
 import { ChatSessionWithPR } from './copilotApi';
 import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
-import { FolderRepositoryManager } from './folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
 import { RepositoriesManager } from './repositoriesManager';
 
+// Dashboard state discriminated union
+export type DashboardState = DashboardLoading | DashboardReady;
+
+export interface DashboardLoading {
+	state: 'loading';
+	issueQuery: string;
+}
+
+export interface DashboardReady {
+	state: 'ready';
+	issueQuery: string;
+	activeSessions: SessionData[];
+	milestoneIssues: IssueData[];
+}
+
+// Legacy interface for backward compatibility
 export interface DashboardData {
 	activeSessions: SessionData[];
 	milestoneIssues: IssueData[];
+	issueQuery: string;
 }
 
 export interface SessionData {
@@ -47,10 +64,12 @@ export interface IssueData {
 export class DashboardWebviewProvider extends WebviewBase {
 	public static readonly viewType = 'github.dashboard';
 	private static readonly ID = 'DashboardWebviewProvider';
-	public static currentPanel?: DashboardWebviewProvider;
 
 	protected readonly _panel: vscode.WebviewPanel;
 	private readonly _complexityService: ComplexityService;
+
+	private _issueQuery: string;
+	private _repos?: string[];
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -58,12 +77,16 @@ export class DashboardWebviewProvider extends WebviewBase {
 		private readonly _copilotRemoteAgentManager: CopilotRemoteAgentManager,
 		private readonly _telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
-		panel: vscode.WebviewPanel
+		panel: vscode.WebviewPanel,
+		issueQuery: string,
+		repos: string[] | undefined
 	) {
 		super();
 		this._panel = panel;
 		this._webview = panel.webview;
 		this._complexityService = new ComplexityService();
+		this._issueQuery = issueQuery || 'is:open assignee:@me milestone:"September 2025"';
+		this._repos = repos;
 		super.initialize();
 
 		// Set webview options
@@ -77,72 +100,67 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 		// Listen for panel disposal
 		this._register(this._panel.onDidDispose(() => {
-			DashboardWebviewProvider.currentPanel = undefined;
+			// Panel is disposed, cleanup will be handled by base class
 		}));
 
-		// Send initial data
-		this.updateDashboard();
+		// Initial data will be sent when webview sends 'ready' message
 	}
 
-	public static async createOrShow(
-		context: vscode.ExtensionContext,
-		reposManager: RepositoriesManager,
-		copilotRemoteAgentManager: CopilotRemoteAgentManager,
-		telemetry: ITelemetry,
-		extensionUri: vscode.Uri
-	): Promise<void> {
-		const column = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
-
-		// If we already have a panel, show it
-		if (DashboardWebviewProvider.currentPanel) {
-			DashboardWebviewProvider.currentPanel._panel.reveal(column);
-			return;
-		}
-
-		// Create a new panel
-		const panel = vscode.window.createWebviewPanel(
-			DashboardWebviewProvider.viewType,
-			'My Tasks',
-			column,
-			{
-				enableScripts: true,
-				retainContextWhenHidden: true,
-				localResourceRoots: [extensionUri]
-			}
-		);
-
-		// Set the icon
-		panel.iconPath = {
-			light: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'github_logo.png'),
-			dark: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'github_logo.png')
-		};
-
-		DashboardWebviewProvider.currentPanel = new DashboardWebviewProvider(
-			context,
-			reposManager,
-			copilotRemoteAgentManager,
-			telemetry,
-			extensionUri,
-			panel
-		);
-	}
-
-	public static refresh(): void {
-		if (DashboardWebviewProvider.currentPanel) {
-			DashboardWebviewProvider.currentPanel.updateDashboard();
-		}
+	public async updateConfiguration(issueQuery: string, repos?: string[]): Promise<void> {
+		this._issueQuery = issueQuery;
+		this._repos = repos;
+		await this.updateDashboard();
 	}
 
 	private async updateDashboard(): Promise<void> {
 		try {
+			// Wait for repositories to be loaded before fetching data
+			await this.waitForRepositoriesReady();
+
 			const data = await this.getDashboardData();
+			const readyData: DashboardReady = {
+				state: 'ready',
+				issueQuery: this._issueQuery,
+				activeSessions: data.activeSessions,
+				milestoneIssues: data.milestoneIssues
+			};
 			this._postMessage({
 				command: 'update-dashboard',
-				data: data
+				data: readyData
 			});
 		} catch (error) {
 			Logger.error(`Failed to update dashboard: ${error}`, DashboardWebviewProvider.ID);
 		}
+	}
+
+	private async waitForRepositoriesReady(): Promise<void> {
+		// If repositories are already loaded, return immediately
+		if (this._repositoriesManager.state === ReposManagerState.RepositoriesLoaded) {
+			return;
+		}
+
+		// If we need authentication, we can't load repositories
+		if (this._repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+			Logger.debug('Repositories need authentication, skipping issue loading', DashboardWebviewProvider.ID);
+			return;
+		}
+
+		// Wait for repositories to be loaded
+		return new Promise<void>((resolve) => {
+			const timeout = setTimeout(() => {
+				Logger.debug('Timeout waiting for repositories to load, proceeding anyway', DashboardWebviewProvider.ID);
+				resolve();
+			}, 10000); // 10 second timeout
+
+			const disposable = this._repositoriesManager.onDidChangeState(() => {
+				if (this._repositoriesManager.state === ReposManagerState.RepositoriesLoaded ||
+					this._repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+					clearTimeout(timeout);
+					disposable.dispose();
+					resolve();
+				}
+			});
+		});
 	}
 
 	private async getDashboardData(): Promise<DashboardData> {
@@ -153,7 +171,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 		return {
 			activeSessions,
-			milestoneIssues
+			milestoneIssues,
+			issueQuery: this._issueQuery
 		};
 	}
 
@@ -164,7 +183,30 @@ export class DashboardWebviewProvider extends WebviewBase {
 			const token = source.token;
 
 			const sessions = await this._copilotRemoteAgentManager.provideChatSessions(token);
-			return sessions.map(session => this.convertSessionToData(session));
+			let filteredSessions = sessions;
+
+			// Filter sessions by repositories if specified
+			const targetRepos = this.getTargetRepositories();
+			if (targetRepos.length > 0) {
+				filteredSessions = sessions.filter(session => {
+					// If session has a pull request, check if it belongs to one of the target repos
+					if (session.pullRequest?.html_url) {
+						const urlMatch = session.pullRequest.html_url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/\d+/);
+						if (urlMatch) {
+							const [, owner, repo] = urlMatch;
+							const repoIdentifier = `${owner}/${repo}`;
+							return targetRepos.some(targetRepo =>
+								targetRepo.toLowerCase() === repoIdentifier.toLowerCase()
+							);
+						}
+					}
+					// If no pull request or URL doesn't match pattern, include it
+					// (this covers sessions that might not be tied to a specific repo)
+					return targetRepos.length === 0;
+				});
+			}
+
+			return filteredSessions.map(session => this.convertSessionToData(session));
 		} catch (error) {
 			Logger.error(`Failed to get active sessions: ${error}`, DashboardWebviewProvider.ID);
 			return [];
@@ -189,9 +231,31 @@ export class DashboardWebviewProvider extends WebviewBase {
 		try {
 			const issues: IssueData[] = [];
 
+			// Check if we have any folder managers available
+			if (!this._repositoriesManager.folderManagers || this._repositoriesManager.folderManagers.length === 0) {
+				Logger.debug('No folder managers available yet, returning empty issues list', DashboardWebviewProvider.ID);
+				return [];
+			}
+
+			// Get target repositories
+			const targetRepos = this.getTargetRepositories();
+
 			for (const folderManager of this._repositoriesManager.folderManagers) {
-				const milestoneIssues = await this.getIssuesForMilestone(folderManager, 'September 2025');
-				issues.push(...milestoneIssues);
+				// If specific repos are defined, filter by them
+				if (targetRepos.length > 0) {
+					for (const repoIdentifier of targetRepos) {
+						const [owner, repo] = repoIdentifier.split('/');
+						// Check if this folder manager manages the target repo
+						if (this.folderManagerMatchesRepo(folderManager, owner, repo)) {
+							const queryIssues = await this.getIssuesForQuery(folderManager, this._issueQuery);
+							issues.push(...queryIssues);
+						}
+					}
+				} else {
+					// No specific repos defined, use all folder managers (current behavior)
+					const queryIssues = await this.getIssuesForQuery(folderManager, this._issueQuery);
+					issues.push(...queryIssues);
+				}
 			}
 
 			return issues;
@@ -201,10 +265,24 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-	private async getIssuesForMilestone(folderManager: FolderRepositoryManager, milestoneTitle: string): Promise<IssueData[]> {
+	private getTargetRepositories(): string[] {
+		return this._repos || [];
+	}
+
+	private folderManagerMatchesRepo(folderManager: FolderRepositoryManager, owner: string, repo: string): boolean {
+		// Check if the folder manager manages a repository that matches the owner/repo
+		for (const repository of folderManager.gitHubRepositories) {
+			if (repository.remote.owner.toLowerCase() === owner.toLowerCase() &&
+				repository.remote.repositoryName.toLowerCase() === repo.toLowerCase()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private async getIssuesForQuery(folderManager: FolderRepositoryManager, query: string): Promise<IssueData[]> {
 		try {
-			// Build query for open issues in the specific milestone
-			const query = `is:open milestone:"${milestoneTitle}" assignee:@me`;
+			// Use the provided query directly
 			const searchResult = await folderManager.getIssues(query);
 
 			if (!searchResult || !searchResult.items) {
@@ -213,7 +291,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
 		} catch (error) {
-			Logger.debug(`Failed to get issues for milestone ${milestoneTitle}: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Failed to get issues for query "${query}": ${error}`, DashboardWebviewProvider.ID);
 			return [];
 		}
 	}
@@ -253,6 +331,21 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>): Promise<void> {
 		switch (message.command) {
+			case 'ready':
+				this._onIsReady.fire();
+
+				// Send immediate initialize message with loading state
+				const loadingData: DashboardLoading = {
+					state: 'loading',
+					issueQuery: this._issueQuery
+				};
+				this._postMessage({
+					command: 'initialize',
+					data: loadingData
+				});
+				// Then update with full data
+				await this.updateDashboard();
+				break;
 			case 'refresh-dashboard':
 				await this.updateDashboard();
 				break;

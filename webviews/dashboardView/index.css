@@ -176,6 +176,12 @@ html, body, app {
 	color: var(--vscode-foreground);
 }
 
+.milestone-header {
+	cursor: help;
+	border-bottom: 1px dotted var(--vscode-foreground);
+	display: inline-block;
+}
+
 .column-content {
 	flex: 1;
 	overflow-y: auto;

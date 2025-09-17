@@ -12,16 +12,14 @@ import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
 import { SessionItem } from './components/SessionItem';
 import { SortDropdown } from './components/SortDropdown';
-import { DashboardData, IssueData, vscode } from './types';
+import { DashboardState, extractMilestoneFromQuery, IssueData, vscode } from './types';
 
 export function main() {
 	render(<Dashboard />, document.getElementById('app'));
 }
 
 function Dashboard() {
-	const [data, setData] = useState<DashboardData | null>(null);
-	const [issuesLoading, setIssuesLoading] = useState(true);
-	const [sessionsLoading, setSessionsLoading] = useState(true);
+	const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
 	const [refreshing, setRefreshing] = useState(false);
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest' | 'complexity-low' | 'complexity-high'>('date-oldest');
 
@@ -33,21 +31,19 @@ function Dashboard() {
 			if (!message || !message.command) {
 				return; // Ignore messages without proper structure
 			}
-
 			switch (message.command) {
+				case 'initialize':
+					setDashboardState(message.data);
+					break;
 				case 'update-dashboard':
-					setData(message.data);
-					setIssuesLoading(false);
-					setSessionsLoading(false);
+					setDashboardState(message.data);
 					setRefreshing(false);
 					break;
 			}
-		}; window.addEventListener('message', messageListener);
+		};
+		window.addEventListener('message', messageListener);
 
-		// Request initial data
 		vscode.postMessage({ command: 'ready' });
-
-		vscode.postMessage({ command: 'refresh-dashboard' });
 
 		return () => {
 			window.removeEventListener('message', messageListener);
@@ -56,8 +52,6 @@ function Dashboard() {
 
 	const handleRefresh = () => {
 		setRefreshing(true);
-		setIssuesLoading(true);
-		setSessionsLoading(true);
 		vscode.postMessage({ command: 'refresh-dashboard' });
 	};
 
@@ -110,6 +104,11 @@ function Dashboard() {
 		}
 	}, [issueSort]);
 
+	// Derived state from discriminated union
+	const issueQuery = dashboardState?.issueQuery || '';
+	const milestoneIssues = dashboardState?.state === 'ready' ? dashboardState.milestoneIssues : [];
+	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
+
 	return (
 		<div className="dashboard-container">
 			<div className="dashboard-header">
@@ -129,13 +128,23 @@ function Dashboard() {
 					<h2 className="column-header">Start new task</h2>
 
 					{/* Chat Input Section */}
-					<ChatInput data={data} />
+					<ChatInput data={dashboardState?.state === 'ready' ? {
+						activeSessions: dashboardState.activeSessions,
+						milestoneIssues: dashboardState.milestoneIssues,
+						issueQuery: dashboardState.issueQuery
+					} : null} />
 
-					<h3 className="column-header" style={{ marginTop: '24px' }}>September 2025 Issues</h3>
-					{!issuesLoading && (
+					<h3
+						className="column-header milestone-header"
+						style={{ marginTop: '24px' }}
+						title={`Issue Query: ${issueQuery}`}
+					>
+						{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
+					</h3>
+					{dashboardState?.state === 'ready' && (
 						<div className="section-header">
 							<div className="section-count">
-								{data?.milestoneIssues?.length || 0} issue{(data?.milestoneIssues?.length || 0) !== 1 ? 's' : ''}
+								{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
 							</div>
 							<SortDropdown
 								issueSort={issueSort}
@@ -144,12 +153,12 @@ function Dashboard() {
 						</div>
 					)}
 					<div className="column-content">
-						{issuesLoading ? (
+						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading issues..." />
-						) : !data?.milestoneIssues?.length ? (
-							<EmptyState message="No issues found for September 2025 milestone" />
-						) : (
-							getSortedIssues(data.milestoneIssues).map((issue) => (
+						) : dashboardState?.state === 'ready' && !milestoneIssues.length ? (
+							<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
+						) : dashboardState?.state === 'ready' ? (
+							getSortedIssues(milestoneIssues).map((issue) => (
 								<IssueItem
 									key={issue.number}
 									issue={issue}
@@ -157,25 +166,25 @@ function Dashboard() {
 									onStartRemoteAgent={handleStartRemoteAgent}
 								/>
 							))
-						)}
+						) : null}
 					</div>
 				</div>
 
 				{/* Right Column: Active tasks */}
 				<div className="dashboard-column">
 					<h2 className="column-header">Active tasks</h2>
-					{!sessionsLoading && (
+					{dashboardState?.state === 'ready' && (
 						<div className="section-count">
-							{data?.activeSessions?.length || 0} task{(data?.activeSessions?.length || 0) !== 1 ? 's' : ''}
+							{activeSessions.length || 0} task{activeSessions.length !== 1 ? 's' : ''}
 						</div>
 					)}
 					<div className="column-content">
-						{sessionsLoading ? (
+						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading sessions..." />
-						) : !data?.activeSessions?.length ? (
+						) : dashboardState?.state === 'ready' && !activeSessions.length ? (
 							<EmptyState message="No active sessions found" />
-						) : (
-							data.activeSessions.map((session, index) => (
+						) : dashboardState?.state === 'ready' ? (
+							activeSessions.map((session, index) => (
 								<SessionItem
 									key={session.id}
 									session={session}
@@ -184,7 +193,7 @@ function Dashboard() {
 									onPullRequestClick={handlePullRequestClick}
 								/>
 							))
-						)}
+						) : null}
 					</div>
 				</div>
 			</div>
