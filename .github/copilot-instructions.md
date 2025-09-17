@@ -13,6 +13,7 @@
 - **Webviews**: Place webview code in the `webviews/` directory. Use the shared `common/` code where possible.
 - **Commands**: Register new commands in `package.json` and implement them in `src/commands.ts` or a relevant module.
 - **Logging**: Use the `Logger` utility for all logging purposes. Don't use console.log or similar methods directly.
+- **Test Running**: Use tools over tasks over scripts to run tests.
 
 ## Specific Feature Practices
 - **Commands**: When adding a new command, consider whether it should be available in the command palette, context menus, or both. Add the appropriate menu entries in `package.json` to ensure the command is properly included, or excluded (command palette), from menus.
