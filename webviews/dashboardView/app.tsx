@@ -196,16 +196,6 @@ function Dashboard() {
 		}
 	};
 
-	// Generate fake complexity (1-5) based on issue number for consistent results
-	const getFakeComplexity = (issueNumber: number): number => {
-		return ((issueNumber % 5) + 1);
-	};
-
-	// Get complexity badge class
-	const getComplexityBadgeClass = (complexity: number): string => {
-		return `complexity-badge complexity-${complexity}`;
-	};
-
 	// Sort issues based on selected option
 	const getSortedIssues = useCallback((issues: IssueData[]) => {
 		if (!issues) return [];
@@ -218,9 +208,9 @@ function Dashboard() {
 			case 'date-newest':
 				return sortedIssues.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 			case 'complexity-low':
-				return sortedIssues.sort((a, b) => getFakeComplexity(a.number) - getFakeComplexity(b.number));
+				return sortedIssues.sort((a, b) => (a.complexity || 0) - (b.complexity || 0));
 			case 'complexity-high':
-				return sortedIssues.sort((a, b) => getFakeComplexity(b.number) - getFakeComplexity(a.number));
+				return sortedIssues.sort((a, b) => (b.complexity || 0) - (a.complexity || 0));
 			default:
 				return sortedIssues;
 		}
@@ -308,11 +298,6 @@ function Dashboard() {
 										</button>
 									</div>
 									<div className="item-metadata">
-										<div className="metadata-item">
-											<span className={getComplexityBadgeClass(getFakeComplexity(issue.number))}>
-												C{getFakeComplexity(issue.number)}
-											</span>
-										</div>
 										{issue.assignee && (
 											<div className="metadata-item">
 												{/* allow-any-unicode-next-line */}
