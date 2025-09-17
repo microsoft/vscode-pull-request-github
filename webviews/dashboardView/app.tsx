@@ -90,49 +90,6 @@ function Dashboard() {
 		});
 	};
 
-	const formatDate = (dateString: string) => {
-		if (!dateString) return 'Unknown';
-		const date = new Date(dateString);
-		return date.toLocaleDateString();
-	};
-
-	const getStatusBadgeClass = (status: string) => {
-		switch (status?.toLowerCase()) {
-			case 'completed':
-			case '1':
-				return 'status-badge status-completed';
-			case 'in-progress':
-			case 'inprogress':
-			case '2':
-				return 'status-badge status-in-progress';
-			case 'failed':
-			case '0':
-				return 'status-badge status-failed';
-			default:
-				return 'status-badge status-in-progress';
-		}
-	};
-
-	const formatStatus = (status: string, index?: number) => {
-		// Show 'needs clarification' for the first active task
-		if (index === 0 && (status === '1' || status?.toLowerCase() === 'completed')) {
-			return 'Needs clarification';
-		}
-
-		switch (status?.toLowerCase()) {
-			case '0':
-				return 'Failed';
-			case '1':
-				return 'Ready for review';
-			case 'completed':
-				return 'Ready for review';
-			case '2':
-				return 'In Progress';
-			default:
-				return status || 'Unknown';
-		}
-	};
-
 	// Sort issues based on selected option
 	const getSortedIssues = useCallback((issues: IssueData[]) => {
 		if (!issues) return [];
@@ -198,7 +155,6 @@ function Dashboard() {
 									issue={issue}
 									onIssueClick={handleIssueClick}
 									onStartRemoteAgent={handleStartRemoteAgent}
-									formatDate={formatDate}
 								/>
 							))
 						)}
@@ -226,9 +182,6 @@ function Dashboard() {
 									index={index}
 									onSessionClick={handleSessionClick}
 									onPullRequestClick={handlePullRequestClick}
-									formatDate={formatDate}
-									getStatusBadgeClass={getStatusBadgeClass}
-									formatStatus={formatStatus}
 								/>
 							))
 						)}

@@ -4,16 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { SessionData } from '../types';
+import { formatDate, SessionData } from '../types';
 
 interface SessionItemProps {
 	session: SessionData;
 	index: number;
 	onSessionClick: (sessionId: string) => void;
 	onPullRequestClick: (pullRequest: { number: number; title: string; url: string }) => void;
-	formatDate: (dateString: string) => string;
-	getStatusBadgeClass: (status: string) => string;
-	formatStatus: (status: string, index?: number) => string;
 }
 
 export const SessionItem: React.FC<SessionItemProps> = ({
@@ -21,9 +18,6 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 	index,
 	onSessionClick,
 	onPullRequestClick,
-	formatDate,
-	getStatusBadgeClass,
-	formatStatus
 }) => {
 	return (
 		<div
@@ -62,4 +56,41 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 			</div>
 		</div>
 	);
+};
+
+const formatStatus = (status: string, index?: number) => {
+	// Show 'needs clarification' for the first active task
+	if (index === 0 && (status === '1' || status?.toLowerCase() === 'completed')) {
+		return 'Needs clarification';
+	}
+
+	switch (status?.toLowerCase()) {
+		case '0':
+			return 'Failed';
+		case '1':
+			return 'Ready for review';
+		case 'completed':
+			return 'Ready for review';
+		case '2':
+			return 'In Progress';
+		default:
+			return status || 'Unknown';
+	}
+};
+
+const getStatusBadgeClass = (status: string) => {
+	switch (status?.toLowerCase()) {
+		case 'completed':
+		case '1':
+			return 'status-badge status-completed';
+		case 'in-progress':
+		case 'inprogress':
+		case '2':
+			return 'status-badge status-in-progress';
+		case 'failed':
+		case '0':
+			return 'status-badge status-failed';
+		default:
+			return 'status-badge status-in-progress';
+	}
 };

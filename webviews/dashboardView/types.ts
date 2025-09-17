@@ -36,3 +36,13 @@ export interface DashboardData {
 // eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 declare let acquireVsCodeApi: any;
 export const vscode = acquireVsCodeApi();
+
+
+export const formatDate = (dateString: string) => {
+	if (!dateString) {
+		return 'Unknown';
+	}
+
+	const date = new Date(dateString);
+	return date.toLocaleDateString();
+};

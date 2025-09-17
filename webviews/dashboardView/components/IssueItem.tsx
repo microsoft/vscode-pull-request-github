@@ -4,20 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { IssueData } from '../types';
+import { formatDate, IssueData } from '../types';
 
 interface IssueItemProps {
 	issue: IssueData;
 	onIssueClick: (issueUrl: string) => void;
 	onStartRemoteAgent: (issue: IssueData, event: React.MouseEvent) => void;
-	formatDate: (dateString: string) => string;
 }
 
 export const IssueItem: React.FC<IssueItemProps> = ({
 	issue,
 	onIssueClick,
 	onStartRemoteAgent,
-	formatDate
 }) => {
 	return (
 		<div

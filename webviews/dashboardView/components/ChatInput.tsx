@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import Editor, { loader } from '@monaco-editor/react';
-import React, { useCallback, useRef, useState } from 'react';
-import { DashboardData, IssueData, vscode } from '../types';
 
 import * as monaco from 'monaco-editor';
 // @ts-expect-error - Worker imports with ?worker suffix are handled by bundler
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-// @ts-expect-error - a
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+// @ts-expect-error - a
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 // @ts-expect-error - a
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 // @ts-expect-error - a
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 // @ts-expect-error - a
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import React, { useCallback, useRef, useState } from 'react';
+import { DashboardData, IssueData, vscode } from '../types';
 
 // eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 (self as any).MonacoEnvironment = {
@@ -40,7 +40,6 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 
 // Configure Monaco loader - use local monaco instance to avoid worker conflicts
 loader.config({ monaco, });
-
 
 
 
