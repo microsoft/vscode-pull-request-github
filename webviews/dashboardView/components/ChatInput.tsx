@@ -76,70 +76,61 @@ function setupMonaco() {
 	// Setup autocomplete provider
 	monaco.languages.registerCompletionItemProvider(inputLanguageId, {
 		triggerCharacters: ['#', '@'],
-		provideCompletionItems: (model: any, position: any) => {
-			try {
-				if (!model || model.isDisposed()) {
-					return { suggestions: [] };
-				}
+		provideCompletionItems: (model, position) => {
+			const textUntilPosition = model.getValueInRange({
+				startLineNumber: position.lineNumber,
+				startColumn: 1,
+				endLineNumber: position.lineNumber,
+				endColumn: position.column
+			});
 
-				const textUntilPosition = model.getValueInRange({
-					startLineNumber: position.lineNumber,
-					startColumn: 1,
-					endLineNumber: position.lineNumber,
-					endColumn: position.column
-				});
+			// Check if user is typing after #
+			const hashMatch = textUntilPosition.match(/#\d*$/);
+			if (hashMatch) {
+				const suggestions = suggestionDataSource?.milestoneIssues?.map((issue): monaco.languages.CompletionItem => ({
+					label: `#${issue.number}`,
+					kind: monaco.languages.CompletionItemKind.Reference,
+					insertText: `#${issue.number}`,
+					detail: issue.title,
+					documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
+					range: {
+						startLineNumber: position.lineNumber,
+						startColumn: position.column - hashMatch[0].length,
+						endLineNumber: position.lineNumber,
+						endColumn: position.column
+					}
+				})) || [];
 
-				// Check if user is typing after #
-				const hashMatch = textUntilPosition.match(/#\d*$/);
-				if (hashMatch) {
-					const suggestions = suggestionDataSource?.milestoneIssues?.map((issue): monaco.languages.CompletionItem => ({
-						label: `#${issue.number}`,
-						kind: monaco.languages.CompletionItemKind.Reference,
-						insertText: `#${issue.number}`,
-						detail: issue.title,
-						documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
+				return { suggestions };
+			}
+
+			// Provide @copilot suggestion
+			if (textUntilPosition.match(/@\w*$/)) {
+				return {
+					suggestions: [{
+						label: '@copilot',
+						kind: monaco.languages.CompletionItemKind.Keyword,
+						insertText: 'copilot ',
+						detail: 'Start a new Copilot task',
+						documentation: 'Begin a task description that will be sent to Copilot with full context',
 						range: {
 							startLineNumber: position.lineNumber,
-							startColumn: position.column - hashMatch[0].length,
+							startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
 							endLineNumber: position.lineNumber,
 							endColumn: position.column
 						}
-					})) || [];
-
-					return { suggestions };
-				}
-
-				// Provide @copilot suggestion
-				if (textUntilPosition.match(/@\w*$/)) {
-					return {
-						suggestions: [{
-							label: '@copilot',
-							kind: monaco.languages.CompletionItemKind.Keyword,
-							insertText: 'copilot ',
-							detail: 'Start a new Copilot task',
-							documentation: 'Begin a task description that will be sent to Copilot with full context',
-							range: {
-								startLineNumber: position.lineNumber,
-								startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
-								endLineNumber: position.lineNumber,
-								endColumn: position.column
-							}
-						}]
-					};
-				}
-
-				return { suggestions: [] };
-			} catch (error) {
-				// Model was disposed or invalid, return empty suggestions
-				return { suggestions: [] };
+					}]
+				};
 			}
+
+			return { suggestions: [] };
 		}
 	});
 }
 
 
 interface ChatInputProps {
-	data: DashboardData | null;
+	readonly data: DashboardData | null;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
@@ -199,7 +190,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		// Focus the editor to ensure it can receive paste events
 		editor.focus();
 	}, [handleSendChat]);
-
 
 	useEffect(() => {
 		suggestionDataSource = data;

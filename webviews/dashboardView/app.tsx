@@ -91,7 +91,7 @@ function Dashboard() {
 	};
 
 	// Sort issues based on selected option
-	const getSortedIssues = useCallback((issues: IssueData[]) => {
+	const getSortedIssues = useCallback((issues: readonly IssueData[]) => {
 		if (!issues) return [];
 
 		const sortedIssues = [...issues];

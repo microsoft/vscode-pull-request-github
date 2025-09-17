@@ -4,33 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 export interface SessionData {
-	id: string;
-	title: string;
-	status: string;
-	dateCreated: string;
-	pullRequest?: {
-		number: number;
-		title: string;
-		url: string;
+	readonly id: string;
+	readonly title: string;
+	readonly status: string;
+	readonly dateCreated: string;
+	readonly pullRequest?: {
+		readonly number: number;
+		readonly title: string;
+		readonly url: string;
 	};
 }
 
 export interface IssueData {
-	number: number;
-	title: string;
-	assignee?: string;
-	milestone?: string;
-	state: string;
-	url: string;
-	createdAt: string;
-	updatedAt: string;
-	complexity?: number;
-	complexityReasoning?: string;
+	readonly number: number;
+	readonly title: string;
+	readonly assignee?: string;
+	readonly milestone?: string;
+	readonly state: string;
+	readonly url: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly complexity?: number;
+	readonly complexityReasoning?: string;
 }
 
 export interface DashboardData {
-	activeSessions: SessionData[];
-	milestoneIssues: IssueData[];
+	readonly activeSessions: readonly SessionData[];
+	readonly milestoneIssues: readonly IssueData[];
 }
 
 // eslint-disable-next-line rulesdir/no-any-except-union-method-signature
