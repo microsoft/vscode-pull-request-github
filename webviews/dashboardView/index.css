@@ -21,8 +21,10 @@ html, body, app {
 		"left-column right-column";
 	height: 100vh;
 	max-height: calc(100vh - 32px);
+	max-width: 1400px;
+	margin: 0 auto;
 	padding: 16px;
-	gap: 16px;
+	gap: 8px;
 	overflow: hidden;
 }
 
@@ -40,19 +42,25 @@ html, body, app {
 }
 
 .refresh-button {
-	background: none;
-	border: 1px solid var(--vscode-button-border);
-	color: var(--vscode-button-foreground);
-	padding: 4px 8px;
-	border-radius: 2px;
+	background: transparent !important;
+	border: none !important;
+	color: var(--vscode-icon-foreground);
+	padding: 6px;
+	border-radius: 3px;
 	cursor: pointer;
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	justify-content: center;
+	transition: background-color 0.2s;
+	width: 28px;
+	height: 28px;
+	box-shadow: none !important;
+	outline: none !important;
 }
 
 .refresh-button:hover:not(:disabled) {
-	background-color: var(--vscode-button-hoverBackground);
+	background-color: var(--vscode-toolbar-hoverBackground) !important;
+	color: var(--vscode-foreground);
 }
 
 .refresh-button:disabled {
@@ -86,7 +94,62 @@ html, body, app {
 	color: var(--vscode-descriptionForeground);
 	margin-top: -8px;
 	margin-bottom: 12px;
-	padding-left: 4px;
+}
+
+/* Section header with count and sort dropdown */
+.section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: -8px;
+	margin-bottom: 12px;
+	padding-right: 4px;
+}
+
+.section-header .section-count {
+	margin: 0;
+	padding: 0;
+}
+
+/* Sort dropdown */
+.sort-dropdown {
+	display: flex;
+	align-items: center;
+}
+
+.sort-select {
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+	color: var(--vscode-input-foreground);
+	font-size: 12px;
+	font-family: var(--vscode-font-family);
+	padding: 4px 8px;
+	border-radius: 2px;
+	cursor: pointer;
+	outline: none;
+	min-width: 140px;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23999' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+	background-position: right 8px center;
+	background-repeat: no-repeat;
+	background-size: 12px;
+	padding-right: 28px;
+}
+
+.sort-select:focus {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+
+.sort-select:hover {
+	background-color: var(--vscode-input-background);
+	border-color: var(--vscode-inputOption-hoverBackground);
+}
+
+.sort-select option {
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	padding: 4px 8px;
 }
 
 .dashboard-content {
@@ -119,7 +182,7 @@ html, body, app {
 	overflow-y: auto;
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 4px;
-	padding: 8px;
+	padding: 0;
 	min-height: 300px;
 	max-height: calc(100vh - 300px);
 }
@@ -145,6 +208,38 @@ html, body, app {
 	font-weight: 500;
 	color: var(--vscode-foreground);
 	margin-bottom: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.remote-agent-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0;
+	transition: opacity 0.2s, background-color 0.2s;
+	margin-left: 8px;
+	flex-shrink: 0;
+}
+
+.issue-item:hover .remote-agent-button {
+	opacity: 1;
+}
+
+.remote-agent-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-foreground);
+}
+
+.remote-agent-button .codicon {
+	font-size: 14px;
 }
 
 .item-metadata {
@@ -171,11 +266,15 @@ html, body, app {
 	font-size: 11px;
 	font-weight: 500;
 	text-transform: uppercase;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
 }
 
 .status-completed {
-	background-color: var(--vscode-testing-iconPassed);
+	background-color: rgba(255, 255, 255, 0.05);
 	color: var(--vscode-foreground);
+	border: 1px solid var(--vscode-panel-border);
 }
 
 .status-in-progress {
@@ -186,6 +285,49 @@ html, body, app {
 .status-failed {
 	background-color: var(--vscode-testing-iconFailed);
 	color: var(--vscode-foreground);
+}
+
+.status-needs-clarification {
+	background-color: var(--vscode-editorWarning-foreground);
+	color: var(--vscode-editor-background);
+}
+
+/* Complexity badges */
+.complexity-badge {
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	display: inline-flex;
+	align-items: center;
+	min-width: 20px;
+	justify-content: center;
+}
+
+.complexity-1 {
+	background-color: #22c55e;
+	color: white;
+}
+
+.complexity-2 {
+	background-color: #84cc16;
+	color: white;
+}
+
+.complexity-3 {
+	background-color: #eab308;
+	color: white;
+}
+
+.complexity-4 {
+	background-color: #f97316;
+	color: white;
+}
+
+.complexity-5 {
+	background-color: #ef4444;
+	color: white;
 }
 
 .pull-request-link {
@@ -250,29 +392,99 @@ html, body, app {
 	border-color: var(--vscode-focusBorder);
 }
 
-.send-button-inline {
+.chat-input.copilot-command {
+	border-color: var(--vscode-editorInfo-border);
+	background-color: var(--vscode-editorInfo-background);
+}
+
+.copilot-hint {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 6px;
+	padding: 4px 8px;
+	background-color: var(--vscode-editorInfo-background);
+	border: 1px solid var(--vscode-editorInfo-border);
+	border-radius: 3px;
+	font-size: 12px;
+	color: var(--vscode-editorInfo-foreground);
+}
+
+.copilot-hint .codicon {
+	color: var(--vscode-editorInfo-foreground);
+}
+
+.issue-references {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+/* Monaco Editor styles */
+.monaco-input-wrapper {
+	position: relative;
+	display: flex;
+	align-items: flex-end;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	padding: 8px;
+	transition: border-color 0.2s;
+}
+
+.monaco-input-wrapper:hover {
+	border-color: var(--vscode-input-border);
+}
+
+.monaco-input-wrapper:focus-within {
+	border-color: var(--vscode-focusBorder);
+}
+
+.monaco-editor-container {
+	flex: 1;
+	min-height: 40px;
+	max-height: 150px;
+	padding-right: 36px; /* Space for send button */
+}
+
+/* Suppress Monaco Editor's internal border flashing */
+.monaco-input-wrapper .monaco-editor,
+.monaco-input-wrapper .monaco-editor .monaco-editor-background,
+.monaco-input-wrapper .monaco-editor .monaco-scrollable-element,
+.monaco-input-wrapper .monaco-editor .view-lines {
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
+}
+
+.monaco-input-wrapper .monaco-editor .monaco-editor-background {
+	background: transparent !important;
+}
+
+.monaco-input-wrapper .send-button-inline {
 	position: absolute;
-	right: 6px;
+	right: 14px;
 	bottom: 6px;
 	width: 28px;
 	height: 28px;
-	border: none;
-	border-radius: 3px;
-	background-color: var(--vscode-button-background);
+	border: none !important;
+	border-radius: 0 !important;
+	background-color: transparent !important;
 	color: var(--vscode-button-foreground);
 	cursor: pointer;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	transition: background-color 0.2s;
+	transition: all 0.2s;
+	box-shadow: none !important;
+	outline: none !important;
 }
 
-.send-button-inline:hover:not(:disabled) {
-	background-color: var(--vscode-button-hoverBackground);
+.monaco-input-wrapper .send-button-inline:hover:not(:disabled) {
+	background-color: var(--vscode-button-hoverBackground) !important;
+	border-radius: 0 !important;
 }
 
-.send-button-inline:disabled {
-	background-color: var(--vscode-button-secondaryBackground);
+.monaco-input-wrapper .send-button-inline:disabled {
+	background-color: transparent;
 	color: var(--vscode-button-secondaryForeground);
 	cursor: not-allowed;
 	opacity: 0.6;
@@ -306,15 +518,33 @@ html, body, app {
 }
 
 @media (max-width: 600px) {
+	html, body, #app {
+		height: auto;
+		min-height: 100%;
+	}
+
 	.dashboard-container {
 		grid-template-columns: 1fr;
 		grid-template-areas:
 			"header"
 			"left-column"
 			"right-column";
+		height: auto;
+		max-height: none;
+		overflow: visible;
 	}
 
 	.dashboard-content {
 		grid-template-columns: 1fr;
+		overflow: visible;
+	}
+
+	.dashboard-column {
+		overflow: visible;
+	}
+
+	.column-content {
+		max-height: none;
+		min-height: 200px;
 	}
 }

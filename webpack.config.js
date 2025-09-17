@@ -17,6 +17,7 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -56,6 +57,12 @@ async function getWebviewConfig(mode, env, entry) {
 		new webpack.optimize.LimitChunkCountPlugin({
 			maxChunks: 1
 		}),
+		new MonacoWebpackPlugin({
+			languages: ['typescript', 'javascript'],
+			features: ['find', 'wordHighlighter', 'suggest', 'contextmenu'],
+			globalAPI: true,
+			publicPath: ''
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
@@ -68,9 +75,7 @@ async function getWebviewConfig(mode, env, entry) {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
-	];
-
-	return {
+	]; return {
 		name: 'webviews',
 		entry: entry,
 		mode: mode,
@@ -79,6 +84,7 @@ async function getWebviewConfig(mode, env, entry) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
+			globalObject: 'self',
 		},
 		optimization: {
 			minimizer: [

@@ -259,6 +259,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 			case 'open-chat':
 				await this.openChatWithQuery(message.args?.query);
 				break;
+			case 'start-copilot-task':
+				await this.startCopilotTask(message.args?.taskDescription, message.args?.referencedIssues, message.args?.issueContext);
+				break;
 			case 'open-session':
 				await this.openSession(message.args?.sessionId);
 				break;
@@ -284,6 +287,44 @@ export class DashboardWebviewProvider extends WebviewBase {
 		} catch (error) {
 			Logger.error(`Failed to open chat with query: ${error}`, DashboardWebviewProvider.ID);
 			vscode.window.showErrorMessage('Failed to open chat. Make sure the Chat extension is available.');
+		}
+	}
+
+	private async startCopilotTask(taskDescription: string, referencedIssues: number[], issueContext: IssueData[]): Promise<void> {
+		if (!taskDescription) {
+			return;
+		}
+
+		try {
+			// Build the enhanced query with issue context
+			let enhancedQuery = `${taskDescription}`;
+
+			if (issueContext && issueContext.length > 0) {
+				enhancedQuery += `\n\nReferenced Issues:\n`;
+				for (const issue of issueContext) {
+					enhancedQuery += `- Issue #${issue.number}: ${issue.title}\n`;
+					enhancedQuery += `  URL: ${issue.url}\n`;
+					if (issue.assignee) {
+						enhancedQuery += `  Assignee: ${issue.assignee}\n`;
+					}
+					if (issue.milestone) {
+						enhancedQuery += `  Milestone: ${issue.milestone}\n`;
+					}
+					enhancedQuery += `  State: ${issue.state}\n`;
+					enhancedQuery += `  Updated: ${issue.updatedAt}\n\n`;
+				}
+			}
+
+			// Start a new copilot session with the enhanced context
+			await vscode.commands.executeCommand('workbench.action.chat.open', { query: enhancedQuery });
+
+			// Optionally refresh the dashboard to show any new sessions
+			setTimeout(() => {
+				this.updateDashboard();
+			}, 1000);
+		} catch (error) {
+			Logger.error(`Failed to start copilot task: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage('Failed to start copilot task. Make sure the Chat extension is available.');
 		}
 	}
 
@@ -379,7 +420,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:; font-src vscode-resource:;">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: data:; script-src 'nonce-${nonce}' 'unsafe-eval' vscode-resource:; style-src vscode-resource: 'unsafe-inline' http: https: data:; font-src vscode-resource: data: 'self' https://*.vscode-cdn.net; worker-src 'self' blob: data:; connect-src 'self' https:;">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link href="${codiconsUri}" rel="stylesheet" />
 		<title>GitHub Dashboard</title>
