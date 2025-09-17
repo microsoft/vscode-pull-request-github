@@ -40,6 +40,7 @@ export interface SessionData {
 	title: string;
 	status: string;
 	dateCreated: string;
+	isCurrentBranch?: boolean;
 	pullRequest?: {
 		number: number;
 		title: string;
@@ -98,6 +99,21 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Panel is disposed, cleanup will be handled by base class
 		}));
 
+		// Listen for branch changes to update current branch session marking
+		this.registerBranchChangeListeners();
+
+		// Listen for repository changes to update dashboard when repositories become available
+		this.registerRepositoryLoadListeners();
+
+		// Register cleanup for timeout
+		this._register({
+			dispose: () => {
+				if (this._branchChangeTimeout) {
+					clearTimeout(this._branchChangeTimeout);
+				}
+			}
+		});
+
 		// Initial data will be sent when webview sends 'ready' message
 	}
 
@@ -111,6 +127,13 @@ export class DashboardWebviewProvider extends WebviewBase {
 		try {
 			// Wait for repositories to be loaded before fetching data
 			await this.waitForRepositoriesReady();
+
+			// Check if we actually have folder managers available before proceeding
+			if (!this._repositoriesManager.folderManagers || this._repositoriesManager.folderManagers.length === 0) {
+				Logger.debug('No folder managers available yet, keeping loading state', DashboardWebviewProvider.ID);
+				// Don't send ready state if we don't have folder managers yet
+				return;
+			}
 
 			const data = await this.getDashboardData();
 			const readyData: DashboardReady = {
@@ -209,11 +232,13 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private convertSessionToData(session: ChatSessionWithPR): SessionData {
+		const isCurrentBranch = this.isSessionAssociatedWithCurrentBranch(session);
 		return {
 			id: session.id,
 			title: session.label,
 			status: session.status ? session.status.toString() : 'Unknown',
 			dateCreated: session.timing?.startTime ? new Date(session.timing.startTime).toISOString() : '',
+			isCurrentBranch,
 			pullRequest: session.pullRequest ? {
 				number: session.pullRequest.number,
 				title: session.pullRequest.title,
@@ -232,22 +257,19 @@ export class DashboardWebviewProvider extends WebviewBase {
 				return [];
 			}
 
-			// Get target repositories
+			// Get target repositories (either explicitly configured or current workspace repos)
 			const targetRepos = this.getTargetRepositories();
 
-			for (const folderManager of this._repositoriesManager.folderManagers) {
-				// If specific repos are defined, filter by them
-				if (targetRepos.length > 0) {
-					for (const repoIdentifier of targetRepos) {
-						const [owner, repo] = repoIdentifier.split('/');
-						// Check if this folder manager manages the target repo
-						if (this.folderManagerMatchesRepo(folderManager, owner, repo)) {
-							const queryIssues = await this.getIssuesForQuery(folderManager, this._issueQuery);
-							issues.push(...queryIssues);
-						}
-					}
-				} else {
-					// No specific repos defined, use all folder managers (current behavior)
+			// Process each target repository exactly once to avoid duplicates
+			for (const repoIdentifier of targetRepos) {
+				const [owner, repo] = repoIdentifier.split('/');
+
+				// Find the first folder manager that manages this repository
+				const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+					this.folderManagerMatchesRepo(fm, owner, repo)
+				);
+
+				if (folderManager) {
 					const queryIssues = await this.getIssuesForQuery(folderManager, this._issueQuery);
 					issues.push(...queryIssues);
 				}
@@ -260,8 +282,39 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
+	private getCurrentWorkspaceRepositories(): string[] {
+		const currentRepos: string[] = [];
+
+		if (!vscode.workspace.workspaceFolders) {
+			Logger.debug('No workspace folders found', DashboardWebviewProvider.ID);
+			return currentRepos;
+		}
+
+		// Get repository identifiers for all workspace folders
+		for (const folderManager of this._repositoriesManager.folderManagers) {
+			for (const repository of folderManager.gitHubRepositories) {
+				const repoIdentifier = `${repository.remote.owner}/${repository.remote.repositoryName}`;
+				if (!currentRepos.includes(repoIdentifier)) {
+					currentRepos.push(repoIdentifier);
+				}
+			}
+		}
+
+		Logger.debug(`Found ${currentRepos.length} workspace repositories: ${currentRepos.join(', ')}`, DashboardWebviewProvider.ID);
+		return currentRepos;
+	}
+
 	private getTargetRepositories(): string[] {
-		return this._repos || [];
+		// If explicit repos are configured, use those
+		if (this._repos) {
+			Logger.debug(`Using explicitly configured repositories: ${this._repos.join(', ')}`, DashboardWebviewProvider.ID);
+			return this._repos;
+		}
+
+		// Otherwise, default to current workspace repositories
+		const currentRepos = this.getCurrentWorkspaceRepositories();
+		Logger.debug(`Using current workspace repositories: ${currentRepos.join(', ')}`, DashboardWebviewProvider.ID);
+		return currentRepos;
 	}
 
 	private folderManagerMatchesRepo(folderManager: FolderRepositoryManager, owner: string, repo: string): boolean {
@@ -286,7 +339,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
 		} catch (error) {
-			Logger.debug(`Failed to get issues for query "${query}": ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Failed to get issues for query "${query}": ${error} `, DashboardWebviewProvider.ID);
 			return [];
 		}
 	}
@@ -333,6 +386,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 			case 'open-session':
 				await this.openSession(message.args?.sessionId);
 				break;
+			case 'open-session-with-pr':
+				await this.openSessionWithPullRequest(message.args?.sessionId, message.args?.pullRequest);
+				break;
 			case 'open-issue':
 				await this.openIssue(message.args?.issueUrl);
 				break;
@@ -353,7 +409,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 		try {
 			await vscode.commands.executeCommand('workbench.action.chat.open', { query });
 		} catch (error) {
-			Logger.error(`Failed to open chat with query: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open chat with query: ${error} `, DashboardWebviewProvider.ID);
 			vscode.window.showErrorMessage('Failed to open chat. Make sure the Chat extension is available.');
 		}
 	}
@@ -365,21 +421,21 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 		try {
 			// Build the enhanced query with issue context
-			let enhancedQuery = `${taskDescription}`;
+			let enhancedQuery = `${taskDescription} `;
 
 			if (issueContext && issueContext.length > 0) {
-				enhancedQuery += `\n\nReferenced Issues:\n`;
+				enhancedQuery += `\n\nReferenced Issues: \n`;
 				for (const issue of issueContext) {
-					enhancedQuery += `- Issue #${issue.number}: ${issue.title}\n`;
-					enhancedQuery += `  URL: ${issue.url}\n`;
+					enhancedQuery += `- Issue #${issue.number}: ${issue.title} \n`;
+					enhancedQuery += `  URL: ${issue.url} \n`;
 					if (issue.assignee) {
-						enhancedQuery += `  Assignee: ${issue.assignee}\n`;
+						enhancedQuery += `  Assignee: ${issue.assignee} \n`;
 					}
 					if (issue.milestone) {
-						enhancedQuery += `  Milestone: ${issue.milestone}\n`;
+						enhancedQuery += `  Milestone: ${issue.milestone} \n`;
 					}
-					enhancedQuery += `  State: ${issue.state}\n`;
-					enhancedQuery += `  Updated: ${issue.updatedAt}\n\n`;
+					enhancedQuery += `  State: ${issue.state} \n`;
+					enhancedQuery += `  Updated: ${issue.updatedAt} \n\n`;
 				}
 			}
 
@@ -391,8 +447,87 @@ export class DashboardWebviewProvider extends WebviewBase {
 				this.updateDashboard();
 			}, 1000);
 		} catch (error) {
-			Logger.error(`Failed to start copilot task: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to start copilot task: ${error} `, DashboardWebviewProvider.ID);
 			vscode.window.showErrorMessage('Failed to start copilot task. Make sure the Chat extension is available.');
+		}
+	}
+
+	private async checkoutPullRequestBranch(pullRequest: { number: number; title: string; url: string }): Promise<void> {
+		if (!pullRequest) {
+			return;
+		}
+
+		try {
+			// Try to find the pull request in the current repositories
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				// Parse the URL to get owner and repo
+				const urlMatch = pullRequest.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+				if (urlMatch) {
+					const [, owner, repo] = urlMatch;
+					const pullRequestModel = await folderManager.resolvePullRequest(owner, repo, pullRequest.number);
+					if (pullRequestModel) {
+						// Use VS Code's command to switch to the PR (this triggers review mode)
+						await vscode.commands.executeCommand('pr.pick', pullRequestModel);
+						Logger.debug(`Successfully switched to review mode for PR #${pullRequest.number}`, DashboardWebviewProvider.ID);
+						return;
+					}
+				}
+			}
+
+			Logger.debug(`Could not find PR model for ${pullRequest.url}, skipping branch checkout`, DashboardWebviewProvider.ID);
+		} catch (error) {
+			Logger.error(`Failed to checkout PR branch: ${error} `, DashboardWebviewProvider.ID);
+			vscode.window.showWarningMessage(`Failed to checkout PR branch. Opening PR without branch checkout.`);
+		}
+	}
+
+	private async openSessionWithPullRequest(sessionId: string, pullRequest?: { number: number; title: string; url: string }): Promise<void> {
+		if (!sessionId) {
+			return;
+		}
+
+		try {
+			if (pullRequest) {
+				// Show progress notification for the full review mode setup
+				await vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: `Entering review mode for PR #${pullRequest.number}`,
+					cancellable: false
+				}, async (progress) => {
+					progress.report({ message: 'Setting up workspace...', increment: 10 });
+
+					// First, find and checkout the PR branch to enter review mode
+					progress.report({ message: 'Switching to PR branch...', increment: 30 });
+					await this.checkoutPullRequestBranch(pullRequest);
+
+					// Small delay to ensure branch checkout and review mode activation completes
+					progress.report({ message: 'Activating review mode...', increment: 50 });
+					await new Promise(resolve => setTimeout(resolve, 500));
+
+					// // Then open the pull request description (this is the "review mode" interface)
+					// progress.report({ message: 'Opening pull request...', increment: 75 });
+					// await this.openPullRequest(pullRequest);
+
+					// Finally open the chat session beside the PR description
+					progress.report({ message: 'Opening chat session...', increment: 90 });
+					await vscode.window.showChatSession('copilot-swe-agent', sessionId, {
+						viewColumn: vscode.ViewColumn.Beside
+					});
+
+					progress.report({ message: 'Review mode ready!', increment: 100 });
+				});
+
+				// Show success message
+				vscode.window.showInformationMessage(
+					`Review mode activated for PR #${pullRequest.number}. You can now review changes and continue the chat session.`
+				);
+			} else {
+				// No PR associated, just open the chat session
+				await vscode.window.showChatSession('copilot-swe-agent', sessionId, {});
+			}
+		} catch (error) {
+			Logger.error(`Failed to open session with PR: ${error} `, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage(`Failed to enter review mode for pull request: ${error}`);
 		}
 	}
 
@@ -405,7 +540,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Open the chat session
 			await vscode.window.showChatSession('copilot-swe-agent', sessionId, {});
 		} catch (error) {
-			Logger.error(`Failed to open session: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open session: ${error} `, DashboardWebviewProvider.ID);
 			vscode.window.showErrorMessage('Failed to open session.');
 		}
 	}
@@ -435,7 +570,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Fallback to opening externally if we can't find the issue locally
 			await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
 		} catch (error) {
-			Logger.error(`Failed to open issue: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open issue: ${error} `, DashboardWebviewProvider.ID);
 			// Fallback to opening externally
 			try {
 				await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
@@ -469,7 +604,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Fallback to opening externally if we can't find the PR locally
 			await vscode.env.openExternal(vscode.Uri.parse(pullRequest.url));
 		} catch (error) {
-			Logger.error(`Failed to open pull request: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open pull request: ${error} `, DashboardWebviewProvider.ID);
 			// Fallback to opening externally
 			try {
 				await vscode.env.openExternal(vscode.Uri.parse(pullRequest.url));
@@ -477,6 +612,113 @@ export class DashboardWebviewProvider extends WebviewBase {
 				vscode.window.showErrorMessage('Failed to open pull request.');
 			}
 		}
+	}
+
+	private registerBranchChangeListeners(): void {
+		// Listen for branch changes across all repositories
+		this._register(this._repositoriesManager.onDidChangeFolderRepositories((event) => {
+			if (event.added) {
+				this.registerFolderManagerBranchListeners(event.added);
+			}
+		}));
+
+		// Register listeners for existing folder managers
+		for (const folderManager of this._repositoriesManager.folderManagers) {
+			this.registerFolderManagerBranchListeners(folderManager);
+		}
+	}
+
+	private registerRepositoryLoadListeners(): void {
+		// Listen for repository state changes to update dashboard when repositories become available
+		this._register(this._repositoriesManager.onDidChangeState(() => {
+			// When repositories state changes, try to update the dashboard
+			if (this._repositoriesManager.state === ReposManagerState.RepositoriesLoaded) {
+				this.updateDashboard();
+			}
+		}));
+
+		// Listen for folder repository changes (when repositories are added to folder managers)
+		this._register(this._repositoriesManager.onDidChangeFolderRepositories((event) => {
+			if (event.added) {
+				// When new folder managers are added, they might have repositories we can use
+				this.updateDashboard();
+				// Also register repository load listeners for the new folder manager
+				this._register(event.added.onDidLoadRepositories(() => {
+					this.updateDashboard();
+				}));
+			}
+		}));
+
+		// Also listen for when repositories are loaded within existing folder managers
+		for (const folderManager of this._repositoriesManager.folderManagers) {
+			this._register(folderManager.onDidLoadRepositories(() => {
+				this.updateDashboard();
+			}));
+		}
+	}
+
+	private registerFolderManagerBranchListeners(folderManager: FolderRepositoryManager): void {
+		// Listen for repository HEAD changes (branch changes)
+		this._register(folderManager.repository.state.onDidChange(() => {
+			// Debounce the update to avoid too frequent refreshes
+			if (this._branchChangeTimeout) {
+				clearTimeout(this._branchChangeTimeout);
+			}
+			this._branchChangeTimeout = setTimeout(() => {
+				this.updateDashboard();
+			}, 300); // 300ms debounce
+		}));
+	}
+
+	private _branchChangeTimeout: NodeJS.Timeout | undefined;
+
+	private isSessionAssociatedWithCurrentBranch(session: ChatSessionWithPR): boolean {
+		if (!session.pullRequest) {
+			return false;
+		}
+
+		// Parse the PR URL to get owner and repo
+		const urlMatch = session.pullRequest.html_url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+		if (!urlMatch) {
+			return false;
+		}
+
+		const [, owner, repo] = urlMatch;
+		const prNumber = session.pullRequest.number;
+
+		// Check if any folder manager has this PR checked out on current branch
+		for (const folderManager of this._repositoriesManager.folderManagers) {
+			// Check if this folder manager manages the target repo
+			if (this.folderManagerMatchesRepo(folderManager, owner, repo)) {
+				// Check if the current branch corresponds to this PR
+				const currentBranchName = folderManager.repository.state.HEAD?.name;
+				if (currentBranchName) {
+					// Try to find the PR model for this session
+					try {
+						// Use the active PR if it matches
+						if (folderManager.activePullRequest?.number === prNumber) {
+							return true;
+						}
+						// Also check if the branch name suggests it's a PR branch
+						// Common patterns: pr-123, pull/123, etc.
+						const prBranchPatterns = [
+							new RegExp(`pr-${prNumber}$`, 'i'),
+							new RegExp(`pull/${prNumber}$`, 'i'),
+							new RegExp(`pr/${prNumber}$`, 'i')
+						];
+						for (const pattern of prBranchPatterns) {
+							if (pattern.test(currentBranchName)) {
+								return true;
+							}
+						}
+					} catch (error) {
+						// Ignore errors in checking PR association
+					}
+				}
+			}
+		}
+
+		return false;
 	}
 
 	private getHtmlForWebview(): string {

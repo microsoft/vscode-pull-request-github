@@ -12,7 +12,7 @@ import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
 import { SessionItem } from './components/SessionItem';
 import { SortDropdown } from './components/SortDropdown';
-import { DashboardState, extractMilestoneFromQuery, IssueData, vscode } from './types';
+import { DashboardState, extractMilestoneFromQuery, IssueData, SessionData, vscode } from './types';
 
 export function main() {
 	render(<Dashboard />, document.getElementById('app'));
@@ -55,10 +55,13 @@ function Dashboard() {
 		vscode.postMessage({ command: 'refresh-dashboard' });
 	};
 
-	const handleSessionClick = (sessionId: string) => {
+	const handleSessionClick = (session: SessionData) => {
 		vscode.postMessage({
-			command: 'open-session',
-			args: { sessionId }
+			command: 'open-session-with-pr',
+			args: {
+				sessionId: session.id,
+				pullRequest: session.pullRequest
+			}
 		});
 	};
 
@@ -185,7 +188,7 @@ function Dashboard() {
 									key={session.id}
 									session={session}
 									index={index}
-									onSessionClick={handleSessionClick}
+									onSessionClick={() => handleSessionClick(session)}
 									onPullRequestClick={handlePullRequestClick}
 								/>
 							))

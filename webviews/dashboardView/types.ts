@@ -8,6 +8,7 @@ export interface SessionData {
 	readonly title: string;
 	readonly status: string;
 	readonly dateCreated: string;
+	readonly isCurrentBranch?: boolean;
 	readonly pullRequest?: {
 		readonly number: number;
 		readonly title: string;

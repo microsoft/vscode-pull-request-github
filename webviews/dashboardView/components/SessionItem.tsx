@@ -9,7 +9,7 @@ import { formatDate, SessionData } from '../types';
 interface SessionItemProps {
 	session: SessionData;
 	index: number;
-	onSessionClick: (sessionId: string) => void;
+	onSessionClick: () => void;
 	onPullRequestClick: (pullRequest: { number: number; title: string; url: string }) => void;
 }
 
@@ -22,10 +22,21 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 	return (
 		<div
 			key={session.id}
-			className="session-item"
-			onClick={() => onSessionClick(session.id)}
+			className={`session-item${session.isCurrentBranch ? ' current-branch' : ''}`}
+			onClick={onSessionClick}
+			title={session.pullRequest ?
+				`Click to open pull request #${session.pullRequest.number} and chat session${session.isCurrentBranch ? ' (Current Branch)' : ''}` :
+				`Click to open chat session${session.isCurrentBranch ? ' (Current Branch)' : ''}`
+			}
 		>
-			<div className="item-title">{session.title}</div>
+			<div className="item-title">
+				{session.isCurrentBranch && (
+					<span className="current-branch-indicator" title="Current branch">
+						<span className="codicon codicon-git-branch"></span>
+					</span>
+				)}
+				{session.title}
+			</div>
 			<div className="item-metadata">
 				<div className="metadata-item">
 					<span className={index === 0 && (session.status === '1' || session.status?.toLowerCase() === 'completed') ? 'status-badge status-needs-clarification' : getStatusBadgeClass(session.status)}>
@@ -48,6 +59,7 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 								onPullRequestClick(session.pullRequest!);
 							}}
 							style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+							title={`Open pull request #${session.pullRequest.number} only`}
 						>
 							PR #{session.pullRequest.number}
 						</button>

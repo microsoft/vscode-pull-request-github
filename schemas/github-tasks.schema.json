@@ -26,7 +26,7 @@
 		},
 		"repos": {
 			"type": "array",
-			"description": "List of GitHub repositories to include in the dashboard. If not specified, uses all repositories in the current workspace. Format: 'owner/repository'",
+			"description": "List of GitHub repositories to include in the dashboard. If not specified, defaults to repositories in the current workspace. Format: 'owner/repository'",
 			"items": {
 				"type": "string",
 				"pattern": "^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$",

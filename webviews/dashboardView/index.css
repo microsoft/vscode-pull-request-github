@@ -178,7 +178,6 @@ html, body, app {
 
 .milestone-header {
 	cursor: help;
-	border-bottom: 1px dotted var(--vscode-foreground);
 	display: inline-block;
 }
 
@@ -207,6 +206,28 @@ html, body, app {
 
 .session-item:last-child, .issue-item:last-child {
 	border-bottom: none;
+}
+
+/* Current branch session styles */
+.session-item.current-branch {
+	border-left: 3px solid var(--vscode-gitDecoration-modifiedResourceForeground);
+	background-color: rgba(var(--vscode-gitDecoration-modifiedResourceForeground-rgb, 0, 122, 204), 0.05);
+}
+
+.session-item.current-branch:hover {
+	background-color: rgba(var(--vscode-gitDecoration-modifiedResourceForeground-rgb, 0, 122, 204), 0.1);
+}
+
+.current-branch-indicator {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 0.5em;
+	color: var(--vscode-gitDecoration-modifiedResourceForeground);
+	font-size: 14px;
+}
+
+.current-branch-indicator .codicon {
+	font-size: 14px;
 }
 
 .item-title {

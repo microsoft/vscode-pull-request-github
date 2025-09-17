@@ -17,14 +17,13 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 // @ts-expect-error - a
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import React, { useCallback, useEffect, useState } from 'react';
-import { DashboardData, IssueData, vscode } from '../types';
+import { DashboardState, IssueData, vscode } from '../types';
 
 const inputLanguageId = 'taskInput';
 
-let suggestionDataSource: DashboardData | null = null;
+let suggestionDataSource: DashboardState | null = null;
 
 function setupMonaco() {
-	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	(self as any).MonacoEnvironment = {
 		getWorker(_: string, label: string): Worker {
 			if (label === 'json') {
@@ -87,7 +86,7 @@ function setupMonaco() {
 			// Check if user is typing after #
 			const hashMatch = textUntilPosition.match(/#\d*$/);
 			if (hashMatch) {
-				const suggestions = suggestionDataSource?.milestoneIssues?.map((issue): monaco.languages.CompletionItem => ({
+				const suggestions = suggestionDataSource?.state === 'ready' ? suggestionDataSource.milestoneIssues.map((issue): monaco.languages.CompletionItem => ({
 					label: `#${issue.number}`,
 					kind: monaco.languages.CompletionItemKind.Reference,
 					insertText: `#${issue.number}`,
@@ -99,7 +98,7 @@ function setupMonaco() {
 						endLineNumber: position.lineNumber,
 						endColumn: position.column
 					}
-				})) || [];
+				})) : [];
 
 				return { suggestions };
 			}
@@ -130,7 +129,7 @@ function setupMonaco() {
 
 
 interface ChatInputProps {
-	readonly data: DashboardData | null;
+	readonly data: DashboardState | null;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
@@ -271,8 +270,11 @@ const isCopilotCommand = (text: string): boolean => {
 };
 
 // Helper function to find issue data by number
-const findIssueByNumber = (data: DashboardData | null, issueNumber: number): IssueData | undefined => {
-	return data?.milestoneIssues?.find(issue => issue.number === issueNumber);
+const findIssueByNumber = (data: DashboardState | null, issueNumber: number): IssueData | undefined => {
+	if (data?.state === 'ready') {
+		return data.milestoneIssues.find(issue => issue.number === issueNumber);
+	}
+	return undefined;
 };
 
 // Helper function to extract issue numbers from text
