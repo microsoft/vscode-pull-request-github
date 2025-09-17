@@ -2,9 +2,9 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+/* eslint-disable import/no-unresolved */
 
-import Editor, { loader } from '@monaco-editor/react';
-
+import Editor, { loader, Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 // @ts-expect-error - Worker imports with ?worker suffix are handled by bundler
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
@@ -16,60 +16,133 @@ import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 // @ts-expect-error - a
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DashboardData, IssueData, vscode } from '../types';
 
-// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
-(self as any).MonacoEnvironment = {
-	getWorker(_: string, label: string): Worker {
-		if (label === 'json') {
-			return new jsonWorker();
+const inputLanguageId = 'taskInput';
+
+let suggestionDataSource: DashboardData | null = null;
+
+function setupMonaco() {
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
+	(self as any).MonacoEnvironment = {
+		getWorker(_: string, label: string): Worker {
+			if (label === 'json') {
+				return new jsonWorker();
+			}
+			if (label === 'css' || label === 'scss' || label === 'less') {
+				return new cssWorker();
+			}
+			if (label === 'html' || label === 'handlebars' || label === 'razor') {
+				return new htmlWorker();
+			}
+			if (label === 'typescript' || label === 'javascript') {
+				return new tsWorker();
+			}
+			return new editorWorker();
+		},
+	};
+
+	// Configure Monaco loader - use local monaco instance to avoid worker conflicts
+	loader.config({ monaco, });
+
+
+	// Register language for input
+	monaco.languages.register({ id: inputLanguageId });
+
+	// Define syntax highlighting rules
+	monaco.languages.setMonarchTokensProvider(inputLanguageId, {
+		tokenizer: {
+			root: [
+				[/[@]copilot\b/, 'copilot-keyword'],
+				[/#\d+/, 'issue-reference'],
+				[/.*/, 'text']
+			]
 		}
-		if (label === 'css' || label === 'scss' || label === 'less') {
-			return new cssWorker();
+	});
+
+	// Define theme colors
+	monaco.editor.defineTheme('taskInputTheme', {
+		base: 'vs-dark',
+		inherit: true,
+		rules: [
+			{ token: 'copilot-keyword', foreground: '569cd6', fontStyle: 'bold' },
+			{ token: 'issue-reference', foreground: 'ffd700' },
+			{ token: 'text', foreground: 'cccccc' }
+		],
+		colors: {}
+	});
+
+	// Setup autocomplete provider
+	monaco.languages.registerCompletionItemProvider(inputLanguageId, {
+		triggerCharacters: ['#', '@'],
+		provideCompletionItems: (model: any, position: any) => {
+			try {
+				if (!model || model.isDisposed()) {
+					return { suggestions: [] };
+				}
+
+				const textUntilPosition = model.getValueInRange({
+					startLineNumber: position.lineNumber,
+					startColumn: 1,
+					endLineNumber: position.lineNumber,
+					endColumn: position.column
+				});
+
+				// Check if user is typing after #
+				const hashMatch = textUntilPosition.match(/#\d*$/);
+				if (hashMatch) {
+					const suggestions = suggestionDataSource?.milestoneIssues?.map((issue): monaco.languages.CompletionItem => ({
+						label: `#${issue.number}`,
+						kind: monaco.languages.CompletionItemKind.Reference,
+						insertText: `#${issue.number}`,
+						detail: issue.title,
+						documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
+						range: {
+							startLineNumber: position.lineNumber,
+							startColumn: position.column - hashMatch[0].length,
+							endLineNumber: position.lineNumber,
+							endColumn: position.column
+						}
+					})) || [];
+
+					return { suggestions };
+				}
+
+				// Provide @copilot suggestion
+				if (textUntilPosition.match(/@\w*$/)) {
+					return {
+						suggestions: [{
+							label: '@copilot',
+							kind: monaco.languages.CompletionItemKind.Keyword,
+							insertText: 'copilot ',
+							detail: 'Start a new Copilot task',
+							documentation: 'Begin a task description that will be sent to Copilot with full context',
+							range: {
+								startLineNumber: position.lineNumber,
+								startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
+								endLineNumber: position.lineNumber,
+								endColumn: position.column
+							}
+						}]
+					};
+				}
+
+				return { suggestions: [] };
+			} catch (error) {
+				// Model was disposed or invalid, return empty suggestions
+				return { suggestions: [] };
+			}
 		}
-		if (label === 'html' || label === 'handlebars' || label === 'razor') {
-			return new htmlWorker();
-		}
-		if (label === 'typescript' || label === 'javascript') {
-			return new tsWorker();
-		}
-		return new editorWorker();
-	},
-};
+	});
+}
 
-// Configure Monaco loader - use local monaco instance to avoid worker conflicts
-loader.config({ monaco, });
-
-
-
-// Helper function to detect @copilot syntax
-const isCopilotCommand = (text: string): boolean => {
-	return text.trim().startsWith('@copilot');
-};
-
-// Helper function to find issue data by number
-const findIssueByNumber = (data: DashboardData | null, issueNumber: number): IssueData | undefined => {
-	return data?.milestoneIssues?.find(issue => issue.number === issueNumber);
-};
-
-// Helper function to extract issue numbers from text
-const extractIssueNumbers = (text: string): number[] => {
-	const issueRegex = /#(\d+)/g;
-	const matches: number[] = [];
-	let match;
-	while ((match = issueRegex.exec(text)) !== null) {
-		matches.push(parseInt(match[1], 10));
-	}
-	return matches;
-};
 
 interface ChatInputProps {
 	data: DashboardData | null;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
-	const editorRef = useRef<any>(null);
 	const [chatInput, setChatInput] = useState('');
 
 	// Handle content changes
@@ -112,9 +185,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 	}, [chatInput, data]);
 
 	// Setup editor instance when it mounts
-	const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
-		editorRef.current = editor;
-
+	const handleEditorDidMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
 		// Handle keyboard shortcuts
 		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
 			handleSendChat();
@@ -129,97 +200,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		editor.focus();
 	}, [handleSendChat]);
 
-	const handleEditorWillMount = (monaco: any) => {
-		// Register custom language for task input (only once)
-		if (!monaco.languages.getLanguages().find((lang: any) => lang.id === 'taskInput')) {
-			monaco.languages.register({ id: 'taskInput' });
 
-			// Define syntax highlighting rules
-			monaco.languages.setMonarchTokensProvider('taskInput', {
-				tokenizer: {
-					root: [
-						[/[@]copilot\b/, 'copilot-keyword'],
-						[/#\d+/, 'issue-reference'],
-						[/.*/, 'text']
-					]
-				}
-			});
-
-			// Define theme colors
-			monaco.editor.defineTheme('taskInputTheme', {
-				base: 'vs-dark',
-				inherit: true,
-				rules: [
-					{ token: 'copilot-keyword', foreground: '569cd6', fontStyle: 'bold' },
-					{ token: 'issue-reference', foreground: 'ffd700' },
-					{ token: 'text', foreground: 'cccccc' }
-				],
-				colors: {}
-			});
-
-			// Setup autocomplete provider
-			monaco.languages.registerCompletionItemProvider('taskInput', {
-				provideCompletionItems: (model: any, position: any) => {
-					try {
-						if (!model || model.isDisposed()) {
-							return { suggestions: [] };
-						}
-
-						const textUntilPosition = model.getValueInRange({
-							startLineNumber: position.lineNumber,
-							startColumn: 1,
-							endLineNumber: position.lineNumber,
-							endColumn: position.column
-						});
-
-						// Check if user is typing after #
-						const hashMatch = textUntilPosition.match(/#\d*$/);
-						if (hashMatch) {
-							const suggestions = data?.milestoneIssues?.map(issue => ({
-								label: `#${issue.number}`,
-								kind: monaco.languages.CompletionItemKind.Reference,
-								insertText: `${issue.number}`,
-								detail: issue.title,
-								documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
-								range: {
-									startLineNumber: position.lineNumber,
-									startColumn: position.column - hashMatch[0].length + 1,
-									endLineNumber: position.lineNumber,
-									endColumn: position.column
-								}
-							})) || [];
-
-							return { suggestions };
-						}
-
-						// Provide @copilot suggestion
-						if (textUntilPosition.match(/@\w*$/)) {
-							return {
-								suggestions: [{
-									label: '@copilot',
-									kind: monaco.languages.CompletionItemKind.Keyword,
-									insertText: 'copilot ',
-									detail: 'Start a new Copilot task',
-									documentation: 'Begin a task description that will be sent to Copilot with full context',
-									range: {
-										startLineNumber: position.lineNumber,
-										startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
-										endLineNumber: position.lineNumber,
-										endColumn: position.column
-									}
-								}]
-							};
-						}
-
-						return { suggestions: [] };
-					} catch (error) {
-						// Model was disposed or invalid, return empty suggestions
-						return { suggestions: [] };
-					}
-				}
-			});
-		}
-	};
+	useEffect(() => {
+		suggestionDataSource = data;
+	}, [data]);
 
 	return (
 		<div className="chat-section">
@@ -231,7 +215,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 					value={chatInput}
 					theme="taskInputTheme"
 					loading={null}
-					beforeMount={handleEditorWillMount}
 					onMount={handleEditorDidMount}
 					onChange={handleEditorChange}
 					options={{
@@ -246,6 +229,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 						overviewRulerBorder: false,
 						overviewRulerLanes: 0,
 						hideCursorInOverviewRuler: true,
+						colorDecorators: false,
 						scrollbar: {
 							vertical: 'auto',
 							horizontal: 'hidden',
@@ -258,12 +242,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 						},
 						occurrencesHighlight: 'off',
 						placeholder: 'Type @copilot to start a new task, or type a message to chat...',
-						// Enable clipboard operations
-						readOnly: false,
-						domReadOnly: false,
-						// Ensure paste functionality works
-						contextmenu: true,
-						// Enable all selection and editing features
+						contextmenu: false,
 						selectOnLineNumbers: false,
 						automaticLayout: true
 					}}
@@ -295,3 +274,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		</div>
 	);
 };
+
+// Helper function to detect @copilot syntax
+const isCopilotCommand = (text: string): boolean => {
+	return text.trim().startsWith('@copilot');
+};
+
+// Helper function to find issue data by number
+const findIssueByNumber = (data: DashboardData | null, issueNumber: number): IssueData | undefined => {
+	return data?.milestoneIssues?.find(issue => issue.number === issueNumber);
+};
+
+// Helper function to extract issue numbers from text
+const extractIssueNumbers = (text: string): number[] => {
+	const issueRegex = /#(\d+)/g;
+	const matches: number[] = [];
+	let match;
+	while ((match = issueRegex.exec(text)) !== null) {
+		matches.push(parseInt(match[1], 10));
+	}
+	return matches;
+};
+
+setupMonaco();
