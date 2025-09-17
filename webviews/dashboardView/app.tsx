@@ -41,7 +41,6 @@ import { render } from 'react-dom';
 
 // Configure Monaco loader - use local monaco instance to avoid worker conflicts
 loader.config({ monaco, });
-loader.config({ monaco, });
 
 
 interface SessionData {
@@ -87,9 +86,7 @@ function Dashboard() {
 	const [issuesLoading, setIssuesLoading] = useState(true);
 	const [sessionsLoading, setSessionsLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
-	const [chatInput, setChatInput] = useState('');
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest' | 'complexity-low' | 'complexity-high'>('date-oldest');
-	const editorRef = useRef<any>(null);
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -126,40 +123,6 @@ function Dashboard() {
 		setSessionsLoading(true);
 		vscode.postMessage({ command: 'refresh-dashboard' });
 	};
-
-	const handleSendChat = useCallback(() => {
-		if (chatInput.trim()) {
-			const trimmedInput = chatInput.trim();
-
-			// Check if this is a @copilot command
-			if (isCopilotCommand(trimmedInput)) {
-				// Extract the task description (remove @copilot prefix)
-				const taskDescription = trimmedInput.replace(/^@copilot\s*/, '');
-
-				// Extract issue references
-				const referencedIssues = extractIssueNumbers(taskDescription);
-				const issueContext = referencedIssues.map(issueNum => findIssueByNumber(issueNum)).filter(Boolean);
-
-				// Start a new copilot session with issue context
-				vscode.postMessage({
-					command: 'start-copilot-task',
-					args: {
-						taskDescription,
-						referencedIssues,
-						issueContext
-					}
-				});
-			} else {
-				// Regular chat command
-				vscode.postMessage({
-					command: 'open-chat',
-					args: { query: trimmedInput }
-				});
-			}
-
-			setChatInput('');
-		}
-	}, [chatInput, data]);
 
 	const handleSessionClick = (sessionId: string) => {
 		vscode.postMessage({
@@ -233,27 +196,6 @@ function Dashboard() {
 		}
 	};
 
-	// Helper function to detect @copilot syntax
-	const isCopilotCommand = (text: string): boolean => {
-		return text.trim().startsWith('@copilot');
-	};
-
-	// Helper function to extract issue numbers from text
-	const extractIssueNumbers = (text: string): number[] => {
-		const issueRegex = /#(\d+)/g;
-		const matches: number[] = [];
-		let match;
-		while ((match = issueRegex.exec(text)) !== null) {
-			matches.push(parseInt(match[1], 10));
-		}
-		return matches;
-	};
-
-	// Helper function to find issue data by number
-	const findIssueByNumber = (issueNumber: number): IssueData | undefined => {
-		return data?.milestoneIssues?.find(issue => issue.number === issueNumber);
-	};
-
 	// Generate fake complexity (1-5) based on issue number for consistent results
 	const getFakeComplexity = (issueNumber: number): number => {
 		return ((issueNumber % 5) + 1);
@@ -284,181 +226,6 @@ function Dashboard() {
 		}
 	}, [issueSort]);
 
-	// Monaco Editor Component
-	const MonacoTaskInput = () => {
-
-		// Handle content changes
-		const handleEditorChange = useCallback((value: string | undefined) => {
-			setChatInput(value || '');
-		}, []);
-
-		// Setup editor instance when it mounts
-		const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
-			editorRef.current = editor;
-
-			// Handle keyboard shortcuts
-			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-				handleSendChat();
-			});
-
-			// Ensure paste command is available
-			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
-				editor.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
-			});
-
-			// Focus the editor to ensure it can receive paste events
-			editor.focus();
-		}, [handleSendChat]);
-		const handleEditorWillMount = (monaco: any) => {
-			// Register custom language for task input (only once)
-			if (!monaco.languages.getLanguages().find((lang: any) => lang.id === 'taskInput')) {
-				monaco.languages.register({ id: 'taskInput' });
-
-				// Define syntax highlighting rules
-				monaco.languages.setMonarchTokensProvider('taskInput', {
-					tokenizer: {
-						root: [
-							[/[@]copilot\b/, 'copilot-keyword'],
-							[/#\d+/, 'issue-reference'],
-							[/.*/, 'text']
-						]
-					}
-				});
-
-				// Define theme colors
-				monaco.editor.defineTheme('taskInputTheme', {
-					base: 'vs-dark',
-					inherit: true,
-					rules: [
-						{ token: 'copilot-keyword', foreground: '569cd6', fontStyle: 'bold' },
-						{ token: 'issue-reference', foreground: 'ffd700' },
-						{ token: 'text', foreground: 'cccccc' }
-					],
-					colors: {}
-				});
-
-				// Setup autocomplete provider
-				monaco.languages.registerCompletionItemProvider('taskInput', {
-					provideCompletionItems: (model: any, position: any) => {
-						try {
-							if (!model || model.isDisposed()) {
-								return { suggestions: [] };
-							}
-
-							const textUntilPosition = model.getValueInRange({
-								startLineNumber: position.lineNumber,
-								startColumn: 1,
-								endLineNumber: position.lineNumber,
-								endColumn: position.column
-							});
-
-							// Check if user is typing after #
-							const hashMatch = textUntilPosition.match(/#\d*$/);
-							if (hashMatch) {
-								const suggestions = data?.milestoneIssues?.map(issue => ({
-									label: `#${issue.number}`,
-									kind: monaco.languages.CompletionItemKind.Reference,
-									insertText: `${issue.number}`,
-									detail: issue.title,
-									documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
-									range: {
-										startLineNumber: position.lineNumber,
-										startColumn: position.column - hashMatch[0].length + 1,
-										endLineNumber: position.lineNumber,
-										endColumn: position.column
-									}
-								})) || [];
-
-								return { suggestions };
-							}
-
-							// Provide @copilot suggestion
-							if (textUntilPosition.match(/@\w*$/)) {
-								return {
-									suggestions: [{
-										label: '@copilot',
-										kind: monaco.languages.CompletionItemKind.Keyword,
-										insertText: 'copilot ',
-										detail: 'Start a new Copilot task',
-										documentation: 'Begin a task description that will be sent to Copilot with full context',
-										range: {
-											startLineNumber: position.lineNumber,
-											startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
-											endLineNumber: position.lineNumber,
-											endColumn: position.column
-										}
-									}]
-								};
-							}
-
-							return { suggestions: [] };
-						} catch (error) {
-							// Model was disposed or invalid, return empty suggestions
-							return { suggestions: [] };
-						}
-					}
-				});
-			}
-		};
-
-		return (
-			<div className="monaco-input-wrapper">
-				<Editor
-					key="task-input-editor"
-					height="60px"
-					defaultLanguage="taskInput"
-					value={chatInput}
-					theme="taskInputTheme"
-					loading={null}
-					beforeMount={handleEditorWillMount}
-					onMount={handleEditorDidMount}
-					onChange={handleEditorChange}
-					options={{
-						minimap: { enabled: false },
-						lineNumbers: 'off',
-						glyphMargin: false,
-						folding: false,
-						lineDecorationsWidth: 0,
-						lineNumbersMinChars: 0,
-						scrollBeyondLastLine: false,
-						wordWrap: 'on',
-						overviewRulerBorder: false,
-						overviewRulerLanes: 0,
-						hideCursorInOverviewRuler: true,
-						scrollbar: {
-							vertical: 'auto',
-							horizontal: 'hidden',
-							verticalScrollbarSize: 8
-						},
-						suggest: {
-							showKeywords: false,
-							showSnippets: false,
-							showWords: false
-						},
-						occurrencesHighlight: 'off',
-						placeholder: 'Type @copilot to start a new task, or type a message to chat...',
-						// Enable clipboard operations
-						readOnly: false,
-						domReadOnly: false,
-						// Ensure paste functionality works
-						contextmenu: true,
-						// Enable all selection and editing features
-						selectOnLineNumbers: false,
-						automaticLayout: true
-					}}
-				/>
-				<button
-					className="send-button-inline"
-					onClick={handleSendChat}
-					disabled={!chatInput.trim()}
-					title="Send message (Ctrl+Enter)"
-				>
-					<span className="codicon codicon-send"></span>
-				</button>
-			</div>
-		);
-	};
-
 	return (
 		<div className="dashboard-container">
 			<div className="dashboard-header">
@@ -478,23 +245,7 @@ function Dashboard() {
 					<h2 className="column-header">Start new task</h2>
 
 					{/* Chat Input Section */}
-					<div className="chat-section">
-						<MonacoTaskInput />
-						{isCopilotCommand(chatInput) && (
-							<div className="copilot-hint">
-								<span className="codicon codicon-robot"></span>
-								<span>Starting new Copilot task</span>
-								{extractIssueNumbers(chatInput).length > 0 && (
-									<span className="issue-references">
-										{` with ${extractIssueNumbers(chatInput).length} issue reference${extractIssueNumbers(chatInput).length > 1 ? 's' : ''}`}
-									</span>
-								)}
-							</div>
-						)}
-						<p style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
-							Press Ctrl+Enter (Cmd+Enter on Mac) to send
-						</p>
-					</div>
+					<ChatInput data={data} />
 
 					<h3 className="column-header" style={{ marginTop: '24px' }}>September 2025 Issues</h3>
 					{!issuesLoading && (
@@ -648,3 +399,254 @@ function Dashboard() {
 		</div >
 	);
 }
+
+// Helper function to detect @copilot syntax
+const isCopilotCommand = (text: string): boolean => {
+	return text.trim().startsWith('@copilot');
+};
+
+// Helper function to find issue data by number
+const findIssueByNumber = (data: DashboardData | null, issueNumber: number): IssueData | undefined => {
+	return data?.milestoneIssues?.find(issue => issue.number === issueNumber);
+};
+
+// Helper function to extract issue numbers from text
+const extractIssueNumbers = (text: string): number[] => {
+	const issueRegex = /#(\d+)/g;
+	const matches: number[] = [];
+	let match;
+	while ((match = issueRegex.exec(text)) !== null) {
+		matches.push(parseInt(match[1], 10));
+	}
+	return matches;
+};
+
+// Monaco Editor Component
+const ChatInput = ({ data }: { data: DashboardData | null }) => {
+	const editorRef = useRef<any>(null);
+	const [chatInput, setChatInput] = useState('');
+
+
+	// Handle content changes
+	const handleEditorChange = useCallback((value: string | undefined) => {
+		setChatInput(value || '');
+	}, []);
+
+	const handleSendChat = useCallback(() => {
+		if (chatInput.trim()) {
+			const trimmedInput = chatInput.trim();
+
+			// Check if this is a @copilot command
+			if (isCopilotCommand(trimmedInput)) {
+				// Extract the task description (remove @copilot prefix)
+				const taskDescription = trimmedInput.replace(/^@copilot\s*/, '');
+
+				// Extract issue references
+				const referencedIssues = extractIssueNumbers(taskDescription);
+				const issueContext = referencedIssues.map(issueNum => findIssueByNumber(data, issueNum)).filter(Boolean);
+
+				// Start a new copilot session with issue context
+				vscode.postMessage({
+					command: 'start-copilot-task',
+					args: {
+						taskDescription,
+						referencedIssues,
+						issueContext
+					}
+				});
+			} else {
+				// Regular chat command
+				vscode.postMessage({
+					command: 'open-chat',
+					args: { query: trimmedInput }
+				});
+			}
+
+			setChatInput('');
+		}
+	}, [chatInput]);
+
+	// Setup editor instance when it mounts
+	const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
+		editorRef.current = editor;
+
+		// Handle keyboard shortcuts
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+			handleSendChat();
+		});
+
+		// Ensure paste command is available
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
+			editor.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
+		});
+
+		// Focus the editor to ensure it can receive paste events
+		editor.focus();
+	}, [handleSendChat]);
+	const handleEditorWillMount = (monaco: any) => {
+		// Register custom language for task input (only once)
+		if (!monaco.languages.getLanguages().find((lang: any) => lang.id === 'taskInput')) {
+			monaco.languages.register({ id: 'taskInput' });
+
+			// Define syntax highlighting rules
+			monaco.languages.setMonarchTokensProvider('taskInput', {
+				tokenizer: {
+					root: [
+						[/[@]copilot\b/, 'copilot-keyword'],
+						[/#\d+/, 'issue-reference'],
+						[/.*/, 'text']
+					]
+				}
+			});
+
+			// Define theme colors
+			monaco.editor.defineTheme('taskInputTheme', {
+				base: 'vs-dark',
+				inherit: true,
+				rules: [
+					{ token: 'copilot-keyword', foreground: '569cd6', fontStyle: 'bold' },
+					{ token: 'issue-reference', foreground: 'ffd700' },
+					{ token: 'text', foreground: 'cccccc' }
+				],
+				colors: {}
+			});
+
+			// Setup autocomplete provider
+			monaco.languages.registerCompletionItemProvider('taskInput', {
+				provideCompletionItems: (model: any, position: any) => {
+					try {
+						if (!model || model.isDisposed()) {
+							return { suggestions: [] };
+						}
+
+						const textUntilPosition = model.getValueInRange({
+							startLineNumber: position.lineNumber,
+							startColumn: 1,
+							endLineNumber: position.lineNumber,
+							endColumn: position.column
+						});
+
+						// Check if user is typing after #
+						const hashMatch = textUntilPosition.match(/#\d*$/);
+						if (hashMatch) {
+							const suggestions = data?.milestoneIssues?.map(issue => ({
+								label: `#${issue.number}`,
+								kind: monaco.languages.CompletionItemKind.Reference,
+								insertText: `${issue.number}`,
+								detail: issue.title,
+								documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
+								range: {
+									startLineNumber: position.lineNumber,
+									startColumn: position.column - hashMatch[0].length + 1,
+									endLineNumber: position.lineNumber,
+									endColumn: position.column
+								}
+							})) || [];
+
+							return { suggestions };
+						}
+
+						// Provide @copilot suggestion
+						if (textUntilPosition.match(/@\w*$/)) {
+							return {
+								suggestions: [{
+									label: '@copilot',
+									kind: monaco.languages.CompletionItemKind.Keyword,
+									insertText: 'copilot ',
+									detail: 'Start a new Copilot task',
+									documentation: 'Begin a task description that will be sent to Copilot with full context',
+									range: {
+										startLineNumber: position.lineNumber,
+										startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
+										endLineNumber: position.lineNumber,
+										endColumn: position.column
+									}
+								}]
+							};
+						}
+
+						return { suggestions: [] };
+					} catch (error) {
+						// Model was disposed or invalid, return empty suggestions
+						return { suggestions: [] };
+					}
+				}
+			});
+		}
+	};
+
+	return (
+		<div className="chat-section">
+			<div className="monaco-input-wrapper">
+				<Editor
+					key="task-input-editor"
+					height="60px"
+					defaultLanguage="taskInput"
+					value={chatInput}
+					theme="taskInputTheme"
+					loading={null}
+					beforeMount={handleEditorWillMount}
+					onMount={handleEditorDidMount}
+					onChange={handleEditorChange}
+					options={{
+						minimap: { enabled: false },
+						lineNumbers: 'off',
+						glyphMargin: false,
+						folding: false,
+						lineDecorationsWidth: 0,
+						lineNumbersMinChars: 0,
+						scrollBeyondLastLine: false,
+						wordWrap: 'on',
+						overviewRulerBorder: false,
+						overviewRulerLanes: 0,
+						hideCursorInOverviewRuler: true,
+						scrollbar: {
+							vertical: 'auto',
+							horizontal: 'hidden',
+							verticalScrollbarSize: 8
+						},
+						suggest: {
+							showKeywords: false,
+							showSnippets: false,
+							showWords: false
+						},
+						occurrencesHighlight: 'off',
+						placeholder: 'Type @copilot to start a new task, or type a message to chat...',
+						// Enable clipboard operations
+						readOnly: false,
+						domReadOnly: false,
+						// Ensure paste functionality works
+						contextmenu: true,
+						// Enable all selection and editing features
+						selectOnLineNumbers: false,
+						automaticLayout: true
+					}}
+				/>
+				<button
+					className="send-button-inline"
+					onClick={handleSendChat}
+					disabled={!chatInput.trim()}
+					title="Send message (Ctrl+Enter)"
+				>
+					<span className="codicon codicon-send"></span>
+				</button>
+			</div>
+
+			{isCopilotCommand(chatInput) && (
+				<div className="copilot-hint">
+					<span className="codicon codicon-robot"></span>
+					<span>Starting new Copilot task</span>
+					{extractIssueNumbers(chatInput).length > 0 && (
+						<span className="issue-references">
+							{` with ${extractIssueNumbers(chatInput).length} issue reference${extractIssueNumbers(chatInput).length > 1 ? 's' : ''}`}
+						</span>
+					)}
+				</div>
+			)}
+			<p style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
+				Press Ctrl+Enter (Cmd+Enter on Mac) to send
+			</p>
+		</div>
+
+	);
+};
