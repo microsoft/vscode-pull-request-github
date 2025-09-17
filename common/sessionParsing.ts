@@ -160,169 +160,156 @@ export function parseToolCallDetails(
 	},
 	content: string
 ): ParsedToolCallDetails {
+	// Parse arguments once with graceful fallback
 	let args: { command?: string, path?: string, prDescription?: string, commitMessage?: string, view_range?: unknown } = {};
-	try {
-		args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
-	} catch {
-		// fallback to empty args
-	}
+	try { args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {}; } catch { /* ignore */ }
 
 	const name = toolCall.function.name;
 
-	if (name === 'str_replace_editor') {
-		if (args.command === 'view') {
-			const parsedContent = parseDiff(content);
-			const parsedRange = parseRange(args.view_range);
-			if (parsedContent) {
-				const file = parsedContent.fileA ?? parsedContent.fileB;
-				const fileLabel = file && toFileLabel(file);
-				return {
-					toolName: fileLabel === '' ? 'Read repository' : 'Read',
-					invocationMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-					pastTenseMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-					toolSpecificData: fileLabel ? {
-						command: 'view',
-						filePath: file,
-						fileLabel: fileLabel,
-						parsedContent: parsedContent,
-						viewRange: parsedRange
-					} : undefined
-				};
-			} else {
-				const filePath = args.path;
-				let fileLabel = filePath ? toFileLabel(filePath) : undefined;
-
-				if (fileLabel === undefined || fileLabel === '') {
-					return {
-						toolName: 'Read repository',
-						invocationMessage: 'Read repository',
-						pastTenseMessage: 'Read repository',
-					};
-				} else {
-					return {
-						toolName: `Read`,
-						invocationMessage: (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')),
-						pastTenseMessage: (`Read ${fileLabel}` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')),
-						toolSpecificData: {
-							command: 'view',
-							filePath: filePath,
-							fileLabel: fileLabel,
-							viewRange: parsedRange
-						}
-					};
-				}
-			}
-		} else {
-			const filePath = args.path;
-			const fileLabel = filePath && toFileLabel(filePath);
-			const parsedRange = parseRange(args.view_range);
-
-			return {
-				toolName: 'Edit',
-				invocationMessage: fileLabel ? (`Edit [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Edit',
-				pastTenseMessage: fileLabel ? (`Edit [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Edit',
-				toolSpecificData: fileLabel ? {
-					command: args.command || 'edit',
-					filePath: filePath,
-					fileLabel: fileLabel,
-					viewRange: parsedRange
-				} : undefined
-			};
+	// Small focused helpers to remove duplication while preserving behavior
+	const buildReadDetails = (filePath: string | undefined, parsedRange: { start: number, end: number } | undefined, opts?: { parsedContent?: { content: string; fileA: string | undefined; fileB: string | undefined; } }): ParsedToolCallDetails => {
+		const fileLabel = filePath && toFileLabel(filePath);
+		if (fileLabel === undefined || fileLabel === '') {
+			return { toolName: 'Read repository', invocationMessage: 'Read repository', pastTenseMessage: 'Read repository' };
 		}
-	} else if (name === 'str_replace') {
-		const filePath = args.path;
-		const fileLabel = filePath && toFileLabel(filePath);
-
+		const rangeSuffix = parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '';
+		// Default helper returns bracket variant (used for generic view). Plain variant handled separately for str_replace_editor non-diff.
 		return {
-			toolName: 'Edit',
-			invocationMessage: fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`,
-			pastTenseMessage: fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`,
-			toolSpecificData: fileLabel ? {
-				command: 'str_replace',
-				filePath: filePath,
-				fileLabel: fileLabel,
-			} : undefined
-		};
-	} else if (name === 'create') {
-		const filePath = args.path;
-		const fileLabel = filePath && toFileLabel(filePath);
-
-		return {
-			toolName: 'Create',
-			invocationMessage: fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`,
-			pastTenseMessage: fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`,
-			toolSpecificData: fileLabel ? {
-				command: 'create',
-				filePath: filePath,
-				fileLabel: fileLabel,
-			} : undefined
-		};
-	} else if (name === 'view') {
-		const filePath = args.path;
-		const fileLabel = filePath && toFileLabel(filePath);
-		const parsedRange = parseRange(args.view_range);
-
-		return {
-			toolName: fileLabel === '' ? 'Read repository' : 'Read',
-			invocationMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-			pastTenseMessage: fileLabel ? (`Read [](${fileLabel})` + (parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '')) : 'Read repository',
-			toolSpecificData: fileLabel ? {
+			toolName: 'Read',
+			invocationMessage: `Read [](${fileLabel})${rangeSuffix}`,
+			pastTenseMessage: `Read [](${fileLabel})${rangeSuffix}`,
+			toolSpecificData: {
 				command: 'view',
+				filePath: filePath,
+				fileLabel: fileLabel,
+				parsedContent: opts?.parsedContent,
+				viewRange: parsedRange
+			}
+		};
+	};
+
+	const buildEditDetails = (filePath: string | undefined, command: string, parsedRange: { start: number, end: number } | undefined, opts?: { defaultName?: string }): ParsedToolCallDetails => {
+		const fileLabel = filePath && toFileLabel(filePath);
+		const rangeSuffix = parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '';
+		let invocationMessage: string;
+		let pastTenseMessage: string;
+		if (fileLabel) {
+			invocationMessage = `Edit [](${fileLabel})${rangeSuffix}`;
+			pastTenseMessage = `Edit [](${fileLabel})${rangeSuffix}`;
+		} else {
+			if (opts?.defaultName === 'Create') {
+				invocationMessage = pastTenseMessage = `Create File ${filePath}`;
+			} else {
+				invocationMessage = pastTenseMessage = (opts?.defaultName || 'Edit');
+			}
+			invocationMessage += rangeSuffix;
+			pastTenseMessage += rangeSuffix;
+		}
+
+		return {
+			toolName: opts?.defaultName || 'Edit',
+			invocationMessage,
+			pastTenseMessage,
+			toolSpecificData: fileLabel ? {
+				command: command || (opts?.defaultName === 'Create' ? 'create' : (command || 'edit')),
 				filePath: filePath,
 				fileLabel: fileLabel,
 				viewRange: parsedRange
 			} : undefined
 		};
-	} else if (name === 'think') {
-		const thought = (args as unknown as { thought?: string }).thought || content || 'Thought';
-		return {
-			toolName: 'think',
-			invocationMessage: thought,
-		};
-	} else if (name === 'report_progress') {
-		const details: ParsedToolCallDetails = {
-			toolName: 'Progress Update',
-			invocationMessage: `${args.prDescription}` || content || 'Progress Update'
-		};
-		if (args.commitMessage) {
-			details.originMessage = `Commit: ${args.commitMessage}`;
-		}
-		return details;
-	} else if (name === 'bash') {
-		const command = args.command ? `$ ${args.command}` : undefined;
-		const bashContent = [command, content].filter(Boolean).join('\n');
-		const details: ParsedToolCallDetails = {
-			toolName: 'Run Bash command',
-			invocationMessage: bashContent || 'Run Bash command',
-		};
+	};
 
-		// Use the terminal-specific data for bash commands
-		if (args.command) {
-			const bashToolData: BashToolData = {
-				commandLine: {
-					original: args.command,
-				},
-				language: 'bash'
-			};
-			details.toolSpecificData = bashToolData;
-		}
+	const buildStrReplaceDetails = (filePath: string | undefined): ParsedToolCallDetails => {
+		const fileLabel = filePath && toFileLabel(filePath);
+		const message = fileLabel ? `Edit [](${fileLabel})` : `Edit ${filePath}`;
+		return {
+			toolName: 'Edit',
+			invocationMessage: message,
+			pastTenseMessage: message,
+			toolSpecificData: fileLabel ? { command: 'str_replace', filePath, fileLabel } : undefined
+		};
+	};
+
+	const buildCreateDetails = (filePath: string | undefined): ParsedToolCallDetails => {
+		const fileLabel = filePath && toFileLabel(filePath);
+		const message = fileLabel ? `Create [](${fileLabel})` : `Create File ${filePath}`;
+		return {
+			toolName: 'Create',
+			invocationMessage: message,
+			pastTenseMessage: message,
+			toolSpecificData: fileLabel ? { command: 'create', filePath, fileLabel } : undefined
+		};
+	};
+
+	const buildBashDetails = (bashArgs: typeof args, contentStr: string): ParsedToolCallDetails => {
+		const command = bashArgs.command ? `$ ${bashArgs.command}` : undefined;
+		const bashContent = [command, contentStr].filter(Boolean).join('\n');
+		const details: ParsedToolCallDetails = { toolName: 'Run Bash command', invocationMessage: bashContent || 'Run Bash command' };
+		if (bashArgs.command) { details.toolSpecificData = { commandLine: { original: bashArgs.command }, language: 'bash' }; }
 		return details;
-	} else if (name === 'read_bash') {
-		return {
-			toolName: 'read_bash',
-			invocationMessage: 'Read logs from Bash session'
-		};
-	} else if (name === 'stop_bash') {
-		return {
-			toolName: 'stop_bash',
-			invocationMessage: 'Stop Bash session'
-		};
-	} else {
-		// Unknown tool type
-		return {
-			toolName: name || 'unknown',
-			invocationMessage: content || name || 'unknown'
-		};
+	};
+
+	switch (name) {
+		case 'str_replace_editor': {
+			if (args.command === 'view') {
+				const parsedContent = parseDiff(content);
+				const parsedRange = parseRange(args.view_range);
+				if (parsedContent) {
+					const file = parsedContent.fileA ?? parsedContent.fileB;
+					const fileLabel = file && toFileLabel(file);
+					if (fileLabel === '') {
+						return { toolName: 'Read repository', invocationMessage: 'Read repository', pastTenseMessage: 'Read repository' };
+					} else if (fileLabel === undefined) {
+						return { toolName: 'Read', invocationMessage: 'Read repository', pastTenseMessage: 'Read repository' };
+					} else {
+						const rangeSuffix = parsedRange ? `, lines ${parsedRange.start} to ${parsedRange.end}` : '';
+						return {
+							toolName: 'Read',
+							invocationMessage: `Read [](${fileLabel})${rangeSuffix}`,
+							pastTenseMessage: `Read [](${fileLabel})${rangeSuffix}`,
+							toolSpecificData: { command: 'view', filePath: file, fileLabel, parsedContent, viewRange: parsedRange }
+						};
+					}
+				}
+				// No diff parsed: use PLAIN (non-bracket) variant for str_replace_editor views
+				const plainRange = parseRange(args.view_range);
+				const fp = args.path; const fl = fp && toFileLabel(fp);
+				if (fl === undefined || fl === '') {
+					return { toolName: 'Read repository', invocationMessage: 'Read repository', pastTenseMessage: 'Read repository' };
+				}
+				const suffix = plainRange ? `, lines ${plainRange.start} to ${plainRange.end}` : '';
+				return {
+					toolName: 'Read',
+					invocationMessage: `Read ${fl}${suffix}`,
+					pastTenseMessage: `Read ${fl}${suffix}`,
+					toolSpecificData: { command: 'view', filePath: fp, fileLabel: fl, viewRange: plainRange }
+				};
+			}
+			return buildEditDetails(args.path, args.command || 'edit', parseRange(args.view_range));
+		}
+		case 'str_replace':
+			return buildStrReplaceDetails(args.path);
+		case 'create':
+			return buildCreateDetails(args.path);
+		case 'view':
+			return buildReadDetails(args.path, parseRange(args.view_range)); // generic view always bracket variant
+		case 'think': {
+			const thought = (args as unknown as { thought?: string }).thought || content || 'Thought';
+			return { toolName: 'think', invocationMessage: thought };
+		}
+		case 'report_progress': {
+			const details: ParsedToolCallDetails = { toolName: 'Progress Update', invocationMessage: `${args.prDescription}` || content || 'Progress Update' };
+			if (args.commitMessage) { details.originMessage = `Commit: ${args.commitMessage}`; }
+			return details;
+		}
+		case 'bash':
+			return buildBashDetails(args, content);
+		case 'read_bash':
+			return { toolName: 'read_bash', invocationMessage: 'Read logs from Bash session' };
+		case 'stop_bash':
+			return { toolName: 'stop_bash', invocationMessage: 'Stop Bash session' };
+		default:
+			return { toolName: name || 'unknown', invocationMessage: content || name || 'unknown' };
 	}
 }
 
