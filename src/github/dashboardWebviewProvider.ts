@@ -224,7 +224,14 @@ export class DashboardWebviewProvider extends WebviewBase {
 				});
 			}
 
-			return filteredSessions.map(session => this.convertSessionToData(session));
+			// Deduplicate sessions by ID to prevent duplicate display
+			const sessionMap = new Map<string, SessionData>();
+			for (const session of filteredSessions) {
+				const sessionData = this.convertSessionToData(session);
+				sessionMap.set(sessionData.id, sessionData);
+			}
+
+			return Array.from(sessionMap.values());
 		} catch (error) {
 			Logger.error(`Failed to get active sessions: ${error}`, DashboardWebviewProvider.ID);
 			return [];
@@ -249,7 +256,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 	private async getMilestoneIssues(): Promise<IssueData[]> {
 		try {
-			const issues: IssueData[] = [];
+			const issuesMap = new Map<string, IssueData>();
 
 			// Check if we have any folder managers available
 			if (!this._repositoriesManager.folderManagers || this._repositoriesManager.folderManagers.length === 0) {
@@ -271,11 +278,18 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 				if (folderManager) {
 					const queryIssues = await this.getIssuesForQuery(folderManager, this._issueQuery);
-					issues.push(...queryIssues);
+
+					// Deduplicate issues by their unique identifier (repo + issue number)
+					for (const issue of queryIssues) {
+						const issueKey = `${owner}/${repo}#${issue.number}`;
+						if (!issuesMap.has(issueKey)) {
+							issuesMap.set(issueKey, issue);
+						}
+					}
 				}
 			}
 
-			return issues;
+			return Array.from(issuesMap.values());
 		} catch (error) {
 			Logger.error(`Failed to get milestone issues: ${error}`, DashboardWebviewProvider.ID);
 			return [];
@@ -283,25 +297,24 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private getCurrentWorkspaceRepositories(): string[] {
-		const currentRepos: string[] = [];
+		const currentRepos = new Set<string>();
 
 		if (!vscode.workspace.workspaceFolders) {
 			Logger.debug('No workspace folders found', DashboardWebviewProvider.ID);
-			return currentRepos;
+			return [];
 		}
 
 		// Get repository identifiers for all workspace folders
 		for (const folderManager of this._repositoriesManager.folderManagers) {
 			for (const repository of folderManager.gitHubRepositories) {
 				const repoIdentifier = `${repository.remote.owner}/${repository.remote.repositoryName}`;
-				if (!currentRepos.includes(repoIdentifier)) {
-					currentRepos.push(repoIdentifier);
-				}
+				currentRepos.add(repoIdentifier);
 			}
 		}
 
-		Logger.debug(`Found ${currentRepos.length} workspace repositories: ${currentRepos.join(', ')}`, DashboardWebviewProvider.ID);
-		return currentRepos;
+		const repoArray = Array.from(currentRepos);
+		Logger.debug(`Found ${repoArray.length} workspace repositories: ${repoArray.join(', ')}`, DashboardWebviewProvider.ID);
+		return repoArray;
 	}
 
 	private getTargetRepositories(): string[] {
