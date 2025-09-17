@@ -867,6 +867,11 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "review.suggestDiff",
+				"title": "%command.review.suggestDiff.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.refreshList",
 				"title": "%command.pr.refreshList.title%",
 				"icon": "$(refresh)",
@@ -1627,6 +1632,10 @@
 					"when": "false"
 				},
 				{
+					"command": "review.suggestDiff",
+					"when": "false"
+				},
+				{
 					"command": "review.approve",
 					"when": "false"
 				},
@@ -2352,6 +2361,11 @@
 				}
 			],
 			"scm/title": [
+				{
+					"command": "review.suggestDiff",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposInReviewMode",
+					"group": "inline"
+				},
 				{
 					"command": "pr.create",
 					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
