@@ -48,19 +48,19 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 			<div className="item-metadata">
 				{issue.assignee && (
 					<div className="metadata-item">
-						{/* allow-any-unicode-next-line */}
-						<span>👤 {issue.assignee}</span>
+						<span className="codicon codicon-account"></span>
+						<span>{issue.assignee}</span>
 					</div>
 				)}
 				{issue.milestone && (
 					<div className="metadata-item">
-						{/* allow-any-unicode-next-line */}
-						<span>🎯 {issue.milestone}</span>
+						<span className="codicon codicon-milestone"></span>
+						<span>{issue.milestone}</span>
 					</div>
 				)}
 				<div className="metadata-item">
-					{/* allow-any-unicode-next-line */}
-					<span>📅 Updated {formatDate(issue.updatedAt)}</span>
+					<span className="codicon codicon-calendar"></span>
+					<span>Updated {formatDate(issue.updatedAt)}</span>
 				</div>
 			</div>
 		</div>
