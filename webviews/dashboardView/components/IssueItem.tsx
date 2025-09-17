@@ -28,14 +28,6 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 					<div className="item-title">
 						#{issue.number}: {issue.title}
 					</div>
-					{issue.complexity && (
-						<div
-							className="complexity-score"
-							title={issue.complexityReasoning || `Complexity score: ${issue.complexity}`}
-						>
-							{issue.complexity}
-						</div>
-					)}
 				</div>
 				<button
 					className="remote-agent-button"

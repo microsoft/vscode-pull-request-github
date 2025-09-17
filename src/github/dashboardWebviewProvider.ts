@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { ComplexityService } from '../issues/complexityService';
 import { ChatSessionWithPR } from './copilotApi';
 import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
 import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
@@ -57,8 +56,6 @@ export interface IssueData {
 	url: string;
 	createdAt: string;
 	updatedAt: string;
-	complexity?: number;
-	complexityReasoning?: string;
 }
 
 export class DashboardWebviewProvider extends WebviewBase {
@@ -66,7 +63,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	private static readonly ID = 'DashboardWebviewProvider';
 
 	protected readonly _panel: vscode.WebviewPanel;
-	private readonly _complexityService: ComplexityService;
 
 	private _issueQuery: string;
 	private _repos?: string[];
@@ -84,7 +80,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 		super();
 		this._panel = panel;
 		this._webview = panel.webview;
-		this._complexityService = new ComplexityService();
 		this._issueQuery = issueQuery || 'is:open assignee:@me milestone:"September 2025"';
 		this._repos = repos;
 		super.initialize();
@@ -297,24 +292,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private async convertIssueToData(issue: IssueModel): Promise<IssueData> {
-		let complexity: number | undefined;
-		let complexityReasoning: string | undefined;
-
-		// Check if complexity is already calculated (from IssueItem)
-		if ((issue as any).complexity?.score) {
-			complexity = (issue as any).complexity.score;
-			complexityReasoning = (issue as any).complexity.reasoning;
-		} else {
-			// Calculate complexity on demand
-			try {
-				const complexityResult = await this._complexityService.calculateComplexity(issue);
-				complexity = complexityResult.score;
-				complexityReasoning = complexityResult.reasoning;
-			} catch (error) {
-				Logger.debug(`Failed to calculate complexity for issue #${issue.number}: ${error}`, DashboardWebviewProvider.ID);
-			}
-		}
-
 		return {
 			number: issue.number,
 			title: issue.title,
@@ -323,9 +300,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			state: issue.state,
 			url: issue.html_url,
 			createdAt: issue.createdAt,
-			updatedAt: issue.updatedAt,
-			complexity,
-			complexityReasoning
+			updatedAt: issue.updatedAt
 		};
 	}
 

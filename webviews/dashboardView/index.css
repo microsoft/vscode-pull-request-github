@@ -297,44 +297,6 @@ html, body, app {
 	color: var(--vscode-editor-background);
 }
 
-/* Complexity badges */
-.complexity-badge {
-	padding: 2px 6px;
-	border-radius: 3px;
-	font-size: 10px;
-	font-weight: 600;
-	text-transform: uppercase;
-	display: inline-flex;
-	align-items: center;
-	min-width: 20px;
-	justify-content: center;
-}
-
-.complexity-1 {
-	background-color: #22c55e;
-	color: white;
-}
-
-.complexity-2 {
-	background-color: #84cc16;
-	color: white;
-}
-
-.complexity-3 {
-	background-color: #eab308;
-	color: white;
-}
-
-.complexity-4 {
-	background-color: #f97316;
-	color: white;
-}
-
-.complexity-5 {
-	background-color: #ef4444;
-	color: white;
-}
-
 .pull-request-link {
 	color: var(--vscode-textLink-foreground);
 	text-decoration: none;
@@ -350,21 +312,6 @@ html, body, app {
 	align-items: flex-start;
 	gap: 8px;
 	margin-bottom: 4px;
-}
-
-.complexity-score {
-	background-color: var(--vscode-badge-background);
-	color: var(--vscode-badge-foreground);
-	padding: 2px 8px;
-	border-radius: 12px;
-	font-size: 11px;
-	font-weight: 600;
-	flex-shrink: 0;
-	transition: background-color 0.2s ease;
-}
-
-.complexity-score:hover {
-	background-color: var(--vscode-button-hoverBackground);
 }
 
 .chat-section {

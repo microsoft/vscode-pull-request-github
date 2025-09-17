@@ -6,8 +6,8 @@
 import React from 'react';
 
 interface SortDropdownProps {
-	issueSort: 'date-oldest' | 'date-newest' | 'complexity-low' | 'complexity-high';
-	onSortChange: (sortType: 'date-oldest' | 'date-newest' | 'complexity-low' | 'complexity-high') => void;
+	issueSort: 'date-oldest' | 'date-newest';
+	onSortChange: (sortType: 'date-oldest' | 'date-newest') => void;
 }
 
 export const SortDropdown: React.FC<SortDropdownProps> = ({
@@ -23,8 +23,6 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
 			>
 				<option value="date-oldest">Date (oldest first)</option>
 				<option value="date-newest">Date (newest first)</option>
-				<option value="complexity-low">Complexity (lowest first)</option>
-				<option value="complexity-high">Complexity (highest first)</option>
 			</select>
 		</div>
 	);
