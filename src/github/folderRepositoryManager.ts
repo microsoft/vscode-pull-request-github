@@ -2464,9 +2464,12 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async checkoutDefaultBranch(branch: string): Promise<void> {
-		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'checkoutDefaultBranch' | 'checkoutDefaultBranchAndPull'>(POST_DONE, 'checkoutDefaultBranch');
+		const CHECKOUT_DEFAULT_BRANCH = 'checkoutDefaultBranch';
+		const CHECKOUT_DEFAULT_BRANCH_AND_PULL = 'checkoutDefaultBranchAndPull';
+		
+		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<typeof CHECKOUT_DEFAULT_BRANCH | typeof CHECKOUT_DEFAULT_BRANCH_AND_PULL>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
 
-		if (postDoneAction === 'checkoutDefaultBranchAndPull') {
+		if (postDoneAction === CHECKOUT_DEFAULT_BRANCH_AND_PULL) {
 			await this.checkoutDefaultBranchAndPull(branch);
 		} else {
 			await this.checkoutDefaultBranchOnly(branch);
