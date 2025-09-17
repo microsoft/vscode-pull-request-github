@@ -76,7 +76,7 @@
 	"githubPullRequests.postCreate.checkoutDefaultBranch": "Checkout the default branch of the repository",
 	"githubPullRequests.postCreate.checkoutDefaultBranchAndShow": "Checkout the default branch of the repository and show the pull request in the Pull Requests view",
 	"githubPullRequests.postCreate.checkoutDefaultBranchAndCopy": "Checkout the default branch of the repository and copy a link to the pull request to the clipboard",
-	"githubPullRequests.postDone.description": "The action to take after completing a pull request (merge/delete branches).",
+	"githubPullRequests.postDone.description": "The action to take after using the 'checkout default branch' or 'delete branch' actions on a currently checked out pull request.",
 	"githubPullRequests.postDone.checkoutDefaultBranch": "Checkout the default branch of the repository",
 	"githubPullRequests.postDone.checkoutDefaultBranchAndPull": "Checkout the default branch of the repository and pull the latest changes",
 	"githubPullRequests.defaultCommentType.description": "The default comment type to use when submitting a comment and there is no active review",
