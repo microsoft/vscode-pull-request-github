@@ -175,9 +175,9 @@ function Dashboard() {
 					)}
 					<div className="column-content">
 						{dashboardState?.state === 'loading' ? (
-							<LoadingState message="Loading sessions..." />
+							<LoadingState message="Loading tasks..." />
 						) : dashboardState?.state === 'ready' && !activeSessions.length ? (
-							<EmptyState message="No active sessions found" />
+							<EmptyState message="No active tasks found" />
 						) : dashboardState?.state === 'ready' ? (
 							activeSessions.map((session, index) => (
 								<SessionItem

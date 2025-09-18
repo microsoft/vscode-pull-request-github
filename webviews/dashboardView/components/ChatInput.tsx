@@ -166,20 +166,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		}
 	}, [chatInput]);
 
-	// Handle quick action button clicks with input focus
+	// Handle quick action button clicks with input submission
 	const handleQuickAction = useCallback((prefix: string) => {
-		setChatInput(prefix);
-		// Focus the editor after setting the input
-		if (editor) {
-			editor.focus();
-			// Position cursor at the end
-			const model = editor.getModel();
-			if (model) {
-				const position = model.getPositionAt(prefix.length);
-				editor.setPosition(position);
+		// If there's existing input, prepend the prefix and submit
+		const finalInput = chatInput.trim() ? `${prefix}${chatInput.trim()}` : prefix.trim();
+
+		if (finalInput.trim()) {
+			// Send the combined input
+			vscode.postMessage({
+				command: 'submit-chat',
+				args: { query: finalInput }
+			});
+
+			// Clear the input
+			setChatInput('');
+		} else {
+			// If no input, just set the prefix and focus editor
+			setChatInput(prefix);
+			if (editor) {
+				editor.focus();
+				// Position cursor at the end
+				const model = editor.getModel();
+				if (model) {
+					const position = model.getPositionAt(prefix.length);
+					editor.setPosition(position);
+				}
 			}
 		}
-	}, [editor]);
+	}, [chatInput, editor]);
 
 	// Setup editor instance when it mounts
 	const handleEditorDidMount = useCallback((editorInstance: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {

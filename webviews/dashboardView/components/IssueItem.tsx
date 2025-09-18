@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { formatDate, IssueData } from '../types';
+import { formatDate, formatFullDateTime, IssueData } from '../types';
 
 interface IssueItemProps {
 	issue: IssueData;
@@ -51,8 +51,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 					</div>
 				)}
 				<div className="metadata-item">
-					<span className="codicon codicon-calendar"></span>
-					<span>Updated {formatDate(issue.updatedAt)}</span>
+					<span title={formatFullDateTime(issue.updatedAt)}>Updated {formatDate(issue.updatedAt)}</span>
 				</div>
 			</div>
 		</div>

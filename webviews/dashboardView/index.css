@@ -187,8 +187,7 @@ html, body, app {
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 4px;
 	padding: 0;
-	min-height: 300px;
-	max-height: calc(100vh - 300px);
+	min-height: 0;
 }
 
 .session-item, .issue-item {
@@ -208,14 +207,14 @@ html, body, app {
 	border-bottom: none;
 }
 
-/* Current branch session styles */
+/* Current branch session styles - yellow border for active task */
 .session-item.current-branch {
-	border-left: 3px solid var(--vscode-gitDecoration-modifiedResourceForeground);
-	background-color: rgba(var(--vscode-gitDecoration-modifiedResourceForeground-rgb, 0, 122, 204), 0.05);
+	border-left: 3px solid var(--vscode-testing-iconQueued);
+	background-color: rgba(255, 193, 7, 0.05);
 }
 
 .session-item.current-branch:hover {
-	background-color: rgba(var(--vscode-gitDecoration-modifiedResourceForeground-rgb, 0, 122, 204), 0.1);
+	background-color: rgba(255, 193, 7, 0.1);
 }
 
 .current-branch-indicator {
@@ -318,6 +317,61 @@ html, body, app {
 	color: var(--vscode-editor-background);
 }
 
+.status-creating {
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	border: 1px solid var(--vscode-badge-background);
+}
+
+.status-active {
+	background-color: var(--vscode-testing-iconQueued);
+	color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-testing-iconQueued);
+}
+
+.status-available {
+	background-color: rgba(255, 255, 255, 0.1);
+	color: var(--vscode-foreground);
+	border: 1px solid var(--vscode-panel-border);
+}
+
+.status-unknown {
+	background-color: rgba(255, 255, 255, 0.05);
+	color: var(--vscode-descriptionForeground);
+	border: 1px solid var(--vscode-panel-border);
+}
+
+.temporary-session {
+	opacity: 0.8;
+	cursor: default;
+}
+
+.temporary-session:hover {
+	background-color: var(--vscode-list-hoverBackground) !important;
+	cursor: default;
+}
+
+/* Remove the old status-active-item styles as they're no longer used */
+
+.task-type-indicator {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 0.5em;
+	font-size: 12px;
+}
+
+.task-type-indicator.local {
+	color: var(--vscode-gitDecoration-modifiedResourceForeground);
+}
+
+.task-type-indicator.remote {
+	color: var(--vscode-charts-blue);
+}
+
+.item-title-text {
+	flex: 1;
+}
+
 .pull-request-link {
 	color: var(--vscode-textLink-foreground);
 	text-decoration: none;
@@ -325,6 +379,13 @@ html, body, app {
 
 .pull-request-link:hover {
 	text-decoration: underline;
+}
+
+.branch-name {
+	color: var(--vscode-gitDecoration-modifiedResourceForeground);
+	font-family: var(--vscode-editor-font-family);
+	font-size: 11px;
+	font-weight: 500;
 }
 
 .issue-item-header {

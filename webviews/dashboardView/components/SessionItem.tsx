@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { formatDate, SessionData } from '../types';
+import { formatDate, formatFullDateTime, SessionData, vscode } from '../types';
 
 interface SessionItemProps {
 	session: SessionData;
@@ -12,6 +12,16 @@ interface SessionItemProps {
 	onSessionClick: () => void;
 	onPullRequestClick: (pullRequest: { number: number; title: string; url: string }) => void;
 }
+
+const handleLocalTaskClick = (session: SessionData) => {
+	if (session.isLocal && session.id.startsWith('local-')) {
+		const branchName = session.id.replace('local-', '');
+		vscode.postMessage({
+			command: 'switch-to-local-task',
+			args: { branchName }
+		});
+	}
+};
 
 export const SessionItem: React.FC<SessionItemProps> = ({
 	session,
@@ -22,11 +32,15 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 	return (
 		<div
 			key={session.id}
-			className={`session-item${session.isCurrentBranch ? ' current-branch' : ''}`}
-			onClick={onSessionClick}
-			title={session.pullRequest ?
-				`Click to open pull request #${session.pullRequest.number} and chat session${session.isCurrentBranch ? ' (Current Branch)' : ''}` :
-				`Click to open chat session${session.isCurrentBranch ? ' (Current Branch)' : ''}`
+			className={`session-item${session.isCurrentBranch ? ' current-branch' : ''}${session.isTemporary ? ' temporary-session' : ''}${session.isLocal ? ' local-task' : ''}`}
+			onClick={session.isTemporary ? undefined : session.isLocal ? () => handleLocalTaskClick(session) : onSessionClick}
+			title={session.isTemporary ?
+				'Task is being created...' :
+				session.isLocal ?
+					`Click to switch to local task branch${session.isCurrentBranch ? ' (Current Branch)' : ''}` :
+					session.pullRequest ?
+						`Click to open pull request #${session.pullRequest.number} and chat session${session.isCurrentBranch ? ' (Current Branch)' : ''}` :
+						`Click to open chat session${session.isCurrentBranch ? ' (Current Branch)' : ''}`
 			}
 		>
 			<div className="item-title">
@@ -35,21 +49,49 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 						<span className="codicon codicon-git-branch"></span>
 					</span>
 				)}
-				{session.title}
+				{session.isLocal && (
+					<span className="task-type-indicator local" title="Local task">
+						<span className="codicon codicon-device-desktop"></span>
+					</span>
+				)}
+				{!session.isLocal && !session.isTemporary && (
+					<span className="task-type-indicator remote" title="Remote copilot task">
+						<span className="codicon codicon-robot"></span>
+					</span>
+				)}
+				<span className="item-title-text">{session.title}</span>
 			</div>
 			<div className="item-metadata">
 				<div className="metadata-item">
-					<span className={index === 0 && (session.status === '1' || session.status?.toLowerCase() === 'completed') ? 'status-badge status-needs-clarification' : getStatusBadgeClass(session.status)}>
-						{(session.status === '1' || session.status?.toLowerCase() === 'completed') && (
-							<span className="codicon codicon-circle-filled"></span>
-						)}
-						{formatStatus(session.status, index)}
-					</span>
+					{session.isTemporary ? (
+						<span className="status-badge status-creating">
+							<span className="codicon codicon-loading codicon-modifier-spin"></span>
+							{session.status}
+						</span>
+					) : session.isLocal ? (
+						// No status badge for local tasks
+						null
+					) : (
+						<span className={index === 0 && (session.status === '1' || session.status?.toLowerCase() === 'completed') ? 'status-badge status-needs-clarification' : getStatusBadgeClass(session.status)}>
+							{(session.status === '2' || session.status?.toLowerCase() === 'in progress') && (
+								<span className="codicon codicon-loading codicon-modifier-spin"></span>
+							)}
+							{(session.status === '1' || session.status?.toLowerCase() === 'completed') && (
+								<span className="codicon codicon-circle-filled"></span>
+							)}
+							{formatStatus(session.status, index)}
+						</span>
+					)}
 				</div>
 				<div className="metadata-item">
-					<span className="codicon codicon-calendar"></span>
-					<span>{formatDate(session.dateCreated)}</span>
+					<span title={formatFullDateTime(session.dateCreated)}>{formatDate(session.dateCreated)}</span>
 				</div>
+				{session.isLocal && session.branchName && (
+					<div className="metadata-item">
+						<span className="codicon codicon-git-branch"></span>
+						<span className="branch-name" title={`Branch: ${session.branchName}`}>{session.branchName}</span>
+					</div>
+				)}
 				{session.pullRequest && (
 					<div className="metadata-item">
 						<button
@@ -78,12 +120,13 @@ const formatStatus = (status: string, index?: number) => {
 
 	switch (status?.toLowerCase()) {
 		case '0':
+		case 'failed':
 			return 'Failed';
 		case '1':
-			return 'Ready for review';
 		case 'completed':
 			return 'Ready for review';
 		case '2':
+		case 'in progress':
 			return 'In Progress';
 		default:
 			return status || 'Unknown';
@@ -92,17 +135,16 @@ const formatStatus = (status: string, index?: number) => {
 
 const getStatusBadgeClass = (status: string) => {
 	switch (status?.toLowerCase()) {
-		case 'completed':
 		case '1':
+		case 'completed':
 			return 'status-badge status-completed';
-		case 'in-progress':
-		case 'inprogress':
 		case '2':
+		case 'in progress':
 			return 'status-badge status-in-progress';
-		case 'failed':
 		case '0':
+		case 'failed':
 			return 'status-badge status-failed';
 		default:
-			return 'status-badge status-in-progress';
+			return 'status-badge status-unknown';
 	}
 };

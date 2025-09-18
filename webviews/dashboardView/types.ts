@@ -9,6 +9,9 @@ export interface SessionData {
 	readonly status: string;
 	readonly dateCreated: string;
 	readonly isCurrentBranch?: boolean;
+	readonly isTemporary?: boolean;
+	readonly isLocal?: boolean;
+	readonly branchName?: string;
 	readonly pullRequest?: {
 		readonly number: number;
 		readonly title: string;
@@ -52,6 +55,15 @@ export const formatDate = (dateString: string) => {
 
 	const date = new Date(dateString);
 	return date.toLocaleDateString();
+};
+
+export const formatFullDateTime = (dateString: string) => {
+	if (!dateString) {
+		return 'Unknown';
+	}
+
+	const date = new Date(dateString);
+	return date.toLocaleString();
 };
 
 export const extractMilestoneFromQuery = (query: string): string => {
