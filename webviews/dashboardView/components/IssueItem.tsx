@@ -13,6 +13,8 @@ interface IssueItemProps {
 	associatedSession?: SessionData;
 	onSessionClick?: (session: SessionData) => void;
 	onPullRequestClick?: (pullRequest: { number: number; title: string; url: string }) => void;
+	onHover?: () => void;
+	onHoverEnd?: () => void;
 }
 
 export const IssueItem: React.FC<IssueItemProps> = ({
@@ -22,12 +24,16 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 	associatedSession,
 	onSessionClick,
 	onPullRequestClick,
+	onHover,
+	onHoverEnd,
 }) => {
 	return (
 		<div
 			key={issue.number}
 			className="issue-item"
 			onClick={() => onIssueClick(issue.url)}
+			onMouseEnter={onHover}
+			onMouseLeave={onHoverEnd}
 		>
 			<div className="item-title">
 				<div className="issue-item-header">

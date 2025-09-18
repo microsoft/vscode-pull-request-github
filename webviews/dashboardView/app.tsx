@@ -18,10 +18,26 @@ export function main() {
 	render(<Dashboard />, document.getElementById('app'));
 }
 
+// Check if a session is associated with a specific issue
+function isSessionAssociatedWithIssue(session: SessionData, issue: IssueData): boolean {
+	if (session.isLocal) return false;
+
+	// Use the same logic as findAssociatedSession
+	const sessionTitle = session.title.toLowerCase();
+	const issueNumber = `#${issue.number}`;
+	const issueTitle = issue.title.toLowerCase();
+
+	// Match by issue number reference or similar title
+	return sessionTitle.includes(issueNumber) ||
+		sessionTitle.includes(issueTitle) ||
+		issueTitle.includes(sessionTitle);
+}
+
 function Dashboard() {
 	const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
 	const [refreshing, setRefreshing] = useState(false);
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest'>('date-oldest');
+	const [hoveredIssue, setHoveredIssue] = useState<IssueData | null>(null);
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -50,12 +66,12 @@ function Dashboard() {
 		};
 	}, []);
 
-	const handleRefresh = () => {
+	const handleRefresh = useCallback(() => {
 		setRefreshing(true);
 		vscode.postMessage({ command: 'refresh-dashboard' });
-	};
+	}, []);
 
-	const handleSessionClick = (session: SessionData) => {
+	const handleSessionClick = useCallback((session: SessionData) => {
 		vscode.postMessage({
 			command: 'open-session-with-pr',
 			args: {
@@ -63,29 +79,29 @@ function Dashboard() {
 				pullRequest: session.pullRequest
 			}
 		});
-	};
+	}, []);
 
-	const handleIssueClick = (issueUrl: string) => {
+	const handleIssueClick = useCallback((issueUrl: string) => {
 		vscode.postMessage({
 			command: 'open-issue',
 			args: { issueUrl }
 		});
-	};
+	}, []);
 
-	const handleStartRemoteAgent = (issue: any, event: React.MouseEvent) => {
+	const handleStartRemoteAgent = useCallback((issue: any, event: React.MouseEvent) => {
 		event.stopPropagation(); // Prevent triggering the issue click
 		vscode.postMessage({
 			command: 'start-remote-agent',
 			args: { issue }
 		});
-	};
+	}, []);
 
-	const handlePullRequestClick = (pullRequest: { number: number; title: string; url: string }) => {
+	const handlePullRequestClick = useCallback((pullRequest: { number: number; title: string; url: string }) => {
 		vscode.postMessage({
 			command: 'open-pull-request',
 			args: { pullRequest }
 		});
-	};
+	}, []);
 
 	// Sort issues based on selected option
 	const getSortedIssues = useCallback((issues: readonly IssueData[]) => {
@@ -185,6 +201,8 @@ function Dashboard() {
 										associatedSession={associatedSession}
 										onSessionClick={handleSessionClick}
 										onPullRequestClick={handlePullRequestClick}
+										onHover={() => setHoveredIssue(issue)}
+										onHoverEnd={() => setHoveredIssue(null)}
 									/>
 								);
 							})
@@ -213,6 +231,7 @@ function Dashboard() {
 									index={index}
 									onSessionClick={() => handleSessionClick(session)}
 									onPullRequestClick={handlePullRequestClick}
+									isHighlighted={hoveredIssue !== null && isSessionAssociatedWithIssue(session, hoveredIssue)}
 								/>
 							))
 						) : null}

@@ -169,7 +169,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 	// Handle quick action button clicks with input submission
 	const handleQuickAction = useCallback((prefix: string) => {
 		// If there's existing input, prepend the prefix and submit
-		const finalInput = chatInput.trim() ? `${prefix}${chatInput.trim()}` : prefix.trim();
+		const finalInput = chatInput.trim() ? `${prefix}${chatInput.trim()}` : '';
 
 		if (finalInput.trim()) {
 			// Send the combined input
@@ -288,9 +288,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 					disabled={!chatInput.trim()}
 					title={
 						isCopilotCommand(chatInput)
-							? 'Start new remote Copilot chat (Ctrl+Enter)'
+							? 'Start new remote Copilot task (Ctrl+Enter)'
 							: isLocalCommand(chatInput)
-								? 'Start new local chat (Ctrl+Enter)'
+								? 'Start new local task (Ctrl+Enter)'
 								: 'Send message (Ctrl+Enter)'
 					}
 				>

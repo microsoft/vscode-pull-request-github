@@ -11,6 +11,7 @@ interface SessionItemProps {
 	index: number;
 	onSessionClick: () => void;
 	onPullRequestClick: (pullRequest: { number: number; title: string; url: string }) => void;
+	isHighlighted?: boolean;
 }
 
 const handleLocalTaskClick = (session: SessionData) => {
@@ -28,11 +29,12 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 	index,
 	onSessionClick,
 	onPullRequestClick,
+	isHighlighted = false,
 }) => {
 	return (
 		<div
 			key={session.id}
-			className={`session-item${session.isCurrentBranch ? ' current-branch' : ''}${session.isTemporary ? ' temporary-session' : ''}${session.isLocal ? ' local-task' : ''}`}
+			className={`session-item${session.isCurrentBranch ? ' current-branch' : ''}${session.isTemporary ? ' temporary-session' : ''}${session.isLocal ? ' local-task' : ''}${isHighlighted ? ' highlighted' : ''}`}
 			onClick={session.isTemporary ? undefined : session.isLocal ? () => handleLocalTaskClick(session) : onSessionClick}
 			title={session.isTemporary ?
 				'Task is being created...' :

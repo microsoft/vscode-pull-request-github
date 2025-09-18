@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-html, body, app {
-	height: 100%;
+html, body, .app {
 	min-height: 100%;
 }
 
@@ -214,6 +213,11 @@ body {
 }
 
 .session-item:hover, .issue-item:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+/* Highlighting for linked issue-session pairs */
+.session-item.highlighted {
 	background-color: var(--vscode-list-hoverBackground);
 }
 
