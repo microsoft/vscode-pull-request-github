@@ -19,7 +19,6 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import React, { useCallback, useEffect, useState } from 'react';
 import { DashboardState, vscode } from '../types';
 import { GlobalInstructions } from './GlobalInstructions';
-import { QuickActions } from './QuickActions';
 
 const inputLanguageId = 'taskInput';
 
@@ -334,11 +333,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 				</>
 			)}
 
-			{isGlobal && (
-				<>
-					<QuickActions />
-				</>
-			)}
+			{/* Removed QuickActions for global dashboards - moved to input area separator only */}
 		</div>
 	</>;
 };

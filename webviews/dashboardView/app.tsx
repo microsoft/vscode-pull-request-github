@@ -10,10 +10,9 @@ import { EmptyState } from './components/EmptyState';
 import { GlobalSessionItem } from './components/GlobalSessionItem';
 import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
-import { RecentProjects } from './components/RecentProjects';
 import { SessionItem } from './components/SessionItem';
 import { SortDropdown } from './components/SortDropdown';
-import { DashboardState, extractMilestoneFromQuery, IssueData, SessionData, vscode } from './types';
+import { DashboardState, extractMilestoneFromQuery, IssueData, ProjectData, SessionData, vscode } from './types';
 
 export function main() {
 	render(<Dashboard />, document.getElementById('app'));
@@ -147,20 +146,54 @@ function Dashboard() {
 	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
 	const recentProjects = isGlobal && dashboardState?.state === 'ready' ? (dashboardState as any).recentProjects : [];
 
+	// For global dashboards, create a mixed array of sessions and projects
+	const mixedItems = isGlobal ? (() => {
+		const mixed: Array<{ type: 'session', data: SessionData, index: number } | { type: 'project', data: ProjectData }> = [];
+
+		// Add sessions
+		activeSessions.forEach((session, index) => {
+			mixed.push({ type: 'session', data: session, index });
+		});
+
+		// Add projects
+		recentProjects.forEach((project: ProjectData) => {
+			mixed.push({ type: 'project', data: project });
+		});
+
+		function shuffle<T>(array: T[]): T[] {
+			for (let i = array.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				const tmp = array[i];
+				array[i] = array[j];
+				array[j] = tmp;
+			}
+			return array;
+		}
+
+		shuffle(mixed);
+
+		// Sort by recency - sessions first, then projects, but could be enhanced with actual timestamps
+		return mixed;
+	})() : [];
+
 	return (
 		<div className={`dashboard-container${isGlobal ? ' global-dashboard' : ''}`}>
-			<div className="dashboard-header">
-				<h1 className="dashboard-title">My Tasks</h1>
-				<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
-					{refreshing ? (
-						<span className="codicon codicon-sync codicon-modifier-spin"></span>
-					) : (
-						<span className="codicon codicon-refresh"></span>
-					)}
-				</button>
-			</div>
+			{!isGlobal && (
+				<div className={`dashboard-header${isGlobal ? ' global-header' : ''}`}>
+					<h1 className="dashboard-title">
+						{isGlobal ? 'Visual Studio Code - Insiders' : 'My Tasks'}
+					</h1>
+					<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
+						{refreshing ? (
+							<span className="codicon codicon-sync codicon-modifier-spin"></span>
+						) : (
+							<span className="codicon codicon-refresh"></span>
+						)}
+					</button>
+				</div>
+			)}
 
-			<div className="dashboard-content">
+			<div className={`dashboard-content${isGlobal ? ' global-dashboard' : ''}`}>
 				{/* Input Area */}
 				<div className="input-area">
 					<h2 className="area-header">Start new task</h2>
@@ -172,7 +205,7 @@ function Dashboard() {
 				<div className="issues-area">
 					{isGlobal ? (
 						<>
-							<RecentProjects projects={recentProjects} />
+							{/* Empty for now, everything moved to tasks area */}
 						</>
 					) : (
 						<>
@@ -224,7 +257,7 @@ function Dashboard() {
 
 				{/* Tasks Area */}
 				<div className="tasks-area">
-					<h2 className="area-header">Active tasks</h2>
+					<h2 className="area-header">{isGlobal ? 'Continue working on...' : 'Active tasks'}</h2>
 					{dashboardState?.state === 'ready' && (
 						<div className="section-count">
 							{activeSessions.length || 0} task{activeSessions.length !== 1 ? 's' : ''}
@@ -233,29 +266,56 @@ function Dashboard() {
 					<div className="area-content">
 						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading tasks..." />
-						) : dashboardState?.state === 'ready' && !activeSessions.length ? (
+						) : dashboardState?.state === 'ready' && !activeSessions.length && (!isGlobal || !recentProjects.length) ? (
 							<EmptyState message="No active tasks found" />
 						) : dashboardState?.state === 'ready' ? (
-							activeSessions.map((session, index) =>
-								isGlobal ? (
-									<GlobalSessionItem
-										key={session.id}
-										session={session}
-										index={index}
-										onSessionClick={() => handleSessionClick(session)}
-										onPullRequestClick={handlePullRequestClick}
-									/>
+							<>
+								{isGlobal ? (
+									// Render mixed items for global dashboard
+									mixedItems.map((item) =>
+										item.type === 'session' ? (
+											<GlobalSessionItem
+												key={item.data.id}
+												session={item.data}
+												index={item.index}
+												onSessionClick={() => handleSessionClick(item.data)}
+												onPullRequestClick={handlePullRequestClick}
+											/>
+										) : (
+											<div
+												key={`project-${item.data.path}`}
+												className="session-item project-item"
+												onClick={() => vscode.postMessage({ command: 'open-project', args: { path: item.data.path } })}
+												title={`Click to open project: ${item.data.name}`}
+											>
+												<div className="item-title">
+													<span className="task-type-indicator project" title="Recent project">
+														<span className="codicon codicon-folder-opened"></span>
+													</span>
+													<span className="item-title-text">{item.data.name}</span>
+												</div>
+												<div className="item-metadata">
+													<div className="metadata-item">
+														<span className="project-path-text">{item.data.path}</span>
+													</div>
+												</div>
+											</div>
+										)
+									)
 								) : (
-									<SessionItem
-										key={session.id}
-										session={session}
-										index={index}
-										onSessionClick={() => handleSessionClick(session)}
-										onPullRequestClick={handlePullRequestClick}
-										isHighlighted={hoveredIssue !== null && isSessionAssociatedWithIssue(session, hoveredIssue)}
-									/>
-								)
-							)
+									// Render sessions only for regular dashboard
+									activeSessions.map((session, index) => (
+										<SessionItem
+											key={session.id}
+											session={session}
+											index={index}
+											onSessionClick={() => handleSessionClick(session)}
+											onPullRequestClick={handlePullRequestClick}
+											isHighlighted={hoveredIssue !== null && isSessionAssociatedWithIssue(session, hoveredIssue)}
+										/>
+									))
+								)}
+							</>
 						) : null}
 					</div>
 				</div>
