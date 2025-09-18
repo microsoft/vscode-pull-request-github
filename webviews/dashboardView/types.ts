@@ -41,11 +41,13 @@ export type DashboardState = DashboardLoading | DashboardReady | GlobalDashboard
 
 export interface DashboardLoading {
 	readonly state: 'loading';
+	readonly isGlobal: false;
 	readonly issueQuery: string;
 }
 
 export interface DashboardReady {
 	readonly state: 'ready';
+	readonly isGlobal: false;
 	readonly issueQuery: string;
 	readonly activeSessions: readonly SessionData[];
 	readonly milestoneIssues: readonly IssueData[];

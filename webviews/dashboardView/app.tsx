@@ -140,11 +140,11 @@ function Dashboard() {
 	}, [dashboardState]);
 
 	// Derived state from discriminated union
-	const isGlobal = dashboardState && (dashboardState as any).isGlobal === true;
-	const issueQuery = !isGlobal && dashboardState ? (dashboardState as any).issueQuery || '' : '';
-	const milestoneIssues = !isGlobal && dashboardState?.state === 'ready' ? (dashboardState as any).milestoneIssues : [];
+	const isGlobal = dashboardState?.isGlobal;
+	const issueQuery = !isGlobal && dashboardState ? dashboardState.issueQuery || '' : '';
+	const milestoneIssues = !isGlobal && dashboardState?.state === 'ready' && !dashboardState.isGlobal ? dashboardState.milestoneIssues : [];
 	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
-	const recentProjects = isGlobal && dashboardState?.state === 'ready' ? (dashboardState as any).recentProjects : [];
+	const recentProjects = isGlobal && dashboardState?.state === 'ready' && dashboardState.isGlobal ? dashboardState.recentProjects : [];
 
 	// For global dashboards, create a mixed array of sessions and projects
 	const mixedItems = isGlobal ? (() => {
