@@ -204,6 +204,7 @@ body {
 .milestone-header {
 	cursor: help;
 	display: inline-block;
+	margin-top: 8px;
 }
 
 .session-item, .issue-item {
@@ -255,14 +256,14 @@ body {
 	color: var(--vscode-foreground);
 	margin-bottom: 4px;
 	display: flex;
-	align-items: center;
+	align-items: start;
 	justify-content: space-between;
 }
 
 .remote-agent-button {
 	background: transparent;
 	border: none;
-	color: var(--vscode-icon-foreground);
+	color: var(--vscode-button-foreground);
 	cursor: pointer;
 	padding: 4px;
 	border-radius: 3px;
@@ -323,6 +324,7 @@ body {
 
 .item-metadata {
 	display: flex;
+	justify-content: space-between;
 	flex-wrap: wrap;
 	gap: 8px;
 	font-size: 12px;

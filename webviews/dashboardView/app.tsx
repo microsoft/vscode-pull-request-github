@@ -150,9 +150,7 @@ function Dashboard() {
 	return (
 		<div className={`dashboard-container${isGlobal ? ' global-dashboard' : ''}`}>
 			<div className="dashboard-header">
-				<h1 className="dashboard-title">
-					{isGlobal ? 'Visual Studio Code - Insiders' : 'My Tasks'}
-				</h1>
+				<h1 className="dashboard-title">My Tasks</h1>
 				<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
 					{refreshing ? (
 						<span className="codicon codicon-sync codicon-modifier-spin"></span>
