@@ -3,36 +3,28 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-body {
-	min-height: 400px;
-}
-
 html, body, app {
 	height: 100%;
 	min-height: 100%;
 }
 
+body {
+	min-height: 400px;
+	padding: 16px;
+	padding-top: 4px;
+}
+
 .dashboard-container {
-	display: grid;
-	grid-template-rows: auto 1fr;
-	grid-template-columns: 1fr 1fr;
-	grid-template-areas:
-		"header header"
-		"left-column right-column";
-	height: 100vh;
-	max-height: calc(100vh - 32px);
 	max-width: 1400px;
 	margin: 0 auto;
-	padding: 16px;
 	gap: 8px;
-	overflow: hidden;
 }
 
 .dashboard-header {
-	grid-area: header;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	margin-bottom: 1em;
 }
 
 .dashboard-title {
@@ -153,41 +145,63 @@ html, body, app {
 }
 
 .dashboard-content {
-	grid-column: 1 / -1;
-	grid-row: 2;
+	width: 100%;
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: calc(50% - 8px) calc(50% - 8px);
+	grid-template-rows: auto 1fr;
+	grid-template-areas:
+		"input tasks"
+		"issues tasks";
 	gap: 16px;
-	overflow: hidden;
-	min-height: 0;
 }
 
 .dashboard-column {
 	display: flex;
 	flex-direction: column;
-	min-height: 0;
 	min-width: 0;
+	gap: 8px;
 }
 
-.column-header {
+/* Three area layout */
+.input-area {
+	grid-area: input;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.issues-area {
+	grid-area: issues;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.tasks-area {
+	grid-area: tasks;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.area-header {
 	font-size: 16px;
 	font-weight: 600;
-	margin-bottom: 12px;
+	margin: 0;
 	color: var(--vscode-foreground);
 }
 
-.milestone-header {
-	cursor: help;
-	display: inline-block;
-}
-
-.column-content {
+.area-content {
 	flex: 1;
 	overflow-y: auto;
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 4px;
 	padding: 0;
-	min-height: 0;
+}
+
+.milestone-header {
+	cursor: help;
+	display: inline-block;
 }
 
 .session-item, .issue-item {
@@ -433,8 +447,7 @@ html, body, app {
 
 .chat-section {
 	margin-top: 4px;
-	flex-shrink: 0;
-	max-height: 200px;
+	max-height: 30vh;
 }
 
 .chat-input-wrapper {
@@ -493,7 +506,7 @@ html, body, app {
 	position: relative;
 	display: flex;
 	align-items: flex-end;
-	border: 1px solid transparent;
+	border: 1px solid var(--vscode-input-border);
 	border-radius: 4px;
 	padding: 8px;
 	transition: border-color 0.2s;
@@ -504,13 +517,13 @@ html, body, app {
 }
 
 .monaco-input-wrapper:focus-within {
-	border-color: var(--vscode-focusBorder);
+	border-color: #007acc;
 }
 
 .monaco-editor-container {
 	flex: 1;
-	min-height: 40px;
-	max-height: 150px;
+	min-height: 60px;
+	max-height: 30vh;
 	padding-right: 100px; /* Space for send button with text */
 }
 
@@ -543,7 +556,6 @@ html, body, app {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	transition: all 0.2s;
 	box-shadow: none !important;
 	outline: none !important;
 	white-space: nowrap;
@@ -622,28 +634,20 @@ html, body, app {
 		min-height: 100%;
 	}
 
-	.dashboard-container {
-		grid-template-columns: 1fr;
-		grid-template-areas:
-			"header"
-			"left-column"
-			"right-column";
-		height: auto;
-		max-height: none;
-		overflow: visible;
-	}
-
 	.dashboard-content {
-		grid-template-columns: 1fr;
+		grid-template-columns: 100%;
+		grid-template-rows: auto auto 1fr;
+		grid-template-areas:
+			"input"
+			"issues"
+			"tasks";
 		overflow: visible;
 	}
 
-	.dashboard-column {
+	.input-area,
+	.issues-area,
+	.tasks-area {
 		overflow: visible;
 	}
 
-	.column-content {
-		max-height: none;
-		min-height: 200px;
-	}
 }

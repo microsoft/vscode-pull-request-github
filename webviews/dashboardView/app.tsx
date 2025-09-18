@@ -142,20 +142,21 @@ function Dashboard() {
 			</div>
 
 			<div className="dashboard-content">
-				{/* Left Column: Start new task */}
-				<div className="dashboard-column">
-					<h2 className="column-header">Start new task</h2>
-
-					{/* Chat Input Section */}
+				{/* Input Area */}
+				<div className="input-area">
+					<h2 className="area-header">Start new task</h2>
 					<ChatInput data={dashboardState} />
+				</div>
 
+				{/* Issues List Area */}
+				<div className="issues-area">
 					<h3
-						className="column-header milestone-header"
-						style={{ marginTop: '24px' }}
+						className="area-header milestone-header"
 						title={`Issue Query: ${issueQuery}`}
 					>
 						{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
 					</h3>
+
 					{dashboardState?.state === 'ready' && (
 						<div className="section-header">
 							<div className="section-count">
@@ -167,7 +168,7 @@ function Dashboard() {
 							/>
 						</div>
 					)}
-					<div className="column-content">
+					<div className="area-content">
 						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading issues..." />
 						) : dashboardState?.state === 'ready' && !milestoneIssues.length ? (
@@ -191,15 +192,15 @@ function Dashboard() {
 					</div>
 				</div>
 
-				{/* Right Column: Active tasks */}
-				<div className="dashboard-column">
-					<h2 className="column-header">Active tasks</h2>
+				{/* Tasks Area */}
+				<div className="tasks-area">
+					<h2 className="area-header">Active tasks</h2>
 					{dashboardState?.state === 'ready' && (
 						<div className="section-count">
 							{activeSessions.length || 0} task{activeSessions.length !== 1 ? 's' : ''}
 						</div>
 					)}
-					<div className="column-content">
+					<div className="area-content">
 						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading tasks..." />
 						) : dashboardState?.state === 'ready' && !activeSessions.length ? (

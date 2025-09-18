@@ -199,6 +199,30 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 	const handleEditorDidMount = useCallback((editorInstance: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
 		setEditor(editorInstance);
 
+		// Auto-resize editor based on content
+		const updateHeight = () => {
+			const model = editorInstance.getModel();
+			if (model) {
+				const lineCount = model.getLineCount();
+				const lineHeight = editorInstance.getOption(monaco.editor.EditorOption.lineHeight);
+				const containerHeight = Math.min(Math.max(lineCount * lineHeight + 16, 60), window.innerHeight * 0.3); // 16px for padding, min 60px, max 30vh
+
+				const container = editorInstance.getContainerDomNode();
+				if (container) {
+					container.style.height = containerHeight + 'px';
+					editorInstance.layout();
+				}
+			}
+		};
+
+		// Update height on content change
+		editorInstance.onDidChangeModelContent(() => {
+			requestAnimationFrame(updateHeight);
+		});
+
+		// Initial height adjustment
+		requestAnimationFrame(updateHeight);
+
 		// Handle keyboard shortcuts
 		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
 			handleSendChat();
@@ -222,7 +246,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 			<div className="monaco-input-wrapper">
 				<Editor
 					key="task-input-editor"
-					height="60px"
 					defaultLanguage="taskInput"
 					value={chatInput}
 					theme="taskInputTheme"
