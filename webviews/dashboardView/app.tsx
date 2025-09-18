@@ -103,6 +103,26 @@ function Dashboard() {
 		}
 	}, [issueSort]);
 
+	// Find associated session for an issue based on title matching or issue references
+	const findAssociatedSession = useCallback((issue: IssueData): SessionData | undefined => {
+		if (dashboardState?.state !== 'ready') return undefined;
+
+		return dashboardState.activeSessions.find(session => {
+			// Skip local sessions
+			if (session.isLocal) return false;
+
+			// Check if session title contains the issue number
+			const sessionTitle = session.title.toLowerCase();
+			const issueNumber = `#${issue.number}`;
+			const issueTitle = issue.title.toLowerCase();
+
+			// Match by issue number reference or similar title
+			return sessionTitle.includes(issueNumber) ||
+				sessionTitle.includes(issueTitle) ||
+				issueTitle.includes(sessionTitle);
+		});
+	}, [dashboardState]);
+
 	// Derived state from discriminated union
 	const issueQuery = dashboardState?.issueQuery || '';
 	const milestoneIssues = dashboardState?.state === 'ready' ? dashboardState.milestoneIssues : [];
@@ -153,14 +173,20 @@ function Dashboard() {
 						) : dashboardState?.state === 'ready' && !milestoneIssues.length ? (
 							<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
 						) : dashboardState?.state === 'ready' ? (
-							getSortedIssues(milestoneIssues).map((issue) => (
-								<IssueItem
-									key={issue.number}
-									issue={issue}
-									onIssueClick={handleIssueClick}
-									onStartRemoteAgent={handleStartRemoteAgent}
-								/>
-							))
+							getSortedIssues(milestoneIssues).map((issue) => {
+								const associatedSession = findAssociatedSession(issue);
+								return (
+									<IssueItem
+										key={issue.number}
+										issue={issue}
+										onIssueClick={handleIssueClick}
+										onStartRemoteAgent={handleStartRemoteAgent}
+										associatedSession={associatedSession}
+										onSessionClick={handleSessionClick}
+										onPullRequestClick={handlePullRequestClick}
+									/>
+								);
+							})
 						) : null}
 					</div>
 				</div>

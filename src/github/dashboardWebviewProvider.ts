@@ -239,25 +239,21 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private getCurrentWorkspaceRepositories(): string[] {
-		const currentRepos = new Set<string>();
-
 		if (!vscode.workspace.workspaceFolders) {
 			return [];
 		}
 
-		// Get repository identifiers for all workspace folders
+		// Get the primary repository from the first folder manager that has GitHub repositories
 		for (const folderManager of this._repositoriesManager.folderManagers) {
-			for (const repository of folderManager.gitHubRepositories) {
+			if (folderManager.gitHubRepositories.length > 0) {
+				// Return only the first repository to focus on current workspace
+				const repository = folderManager.gitHubRepositories[0];
 				const repoIdentifier = `${repository.remote.owner}/${repository.remote.repositoryName}`;
-				currentRepos.add(repoIdentifier);
-
-				// only add first for now
-				break;
+				return [repoIdentifier];
 			}
 		}
 
-		const repoArray = Array.from(currentRepos);
-		return repoArray;
+		return [];
 	}
 
 	private getTargetRepositories(): string[] {
@@ -285,8 +281,18 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 	private async getIssuesForQuery(folderManager: FolderRepositoryManager, query: string): Promise<IssueData[]> {
 		try {
-			// Use the provided query directly
-			const searchResult = await folderManager.getIssues(query);
+			// Get the primary repository for this folder manager to scope the search
+			let scopedQuery = query;
+			if (folderManager.gitHubRepositories.length > 0) {
+				const repo = folderManager.gitHubRepositories[0];
+				const repoScope = `repo:${repo.remote.owner}/${repo.remote.repositoryName}`;
+				// Add repo scope to the query if it's not already present
+				if (!query.includes('repo:')) {
+					scopedQuery = `${repoScope} ${query}`;
+				}
+			}
+
+			const searchResult = await folderManager.getIssues(scopedQuery);
 
 			if (!searchResult || !searchResult.items) {
 				return [];
