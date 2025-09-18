@@ -423,6 +423,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 			case 'submit-chat':
 				await this.handleChatSubmission(message.args?.query);
 				break;
+			case 'plan-task-with-local-agent':
+				await this.handlePlanTaskWithLocalAgent(message.args?.query);
+				break;
 			case 'open-session':
 				await this.openSession(message.args?.sessionId);
 				break;
@@ -939,6 +942,68 @@ export class DashboardWebviewProvider extends WebviewBase {
 		} catch (error) {
 			Logger.error(`Failed to start remote agent: ${error}`, DashboardWebviewProvider.ID);
 			vscode.window.showErrorMessage('Failed to start remote agent session.');
+		}
+	}
+
+	/**
+	 * Handles planning a task with local agent - opens issue side-by-side with chat
+	 */
+	private async handlePlanTaskWithLocalAgent(query: string): Promise<void> {
+		if (!query) {
+			return;
+		}
+
+		try {
+			// Extract issue references from the query to find related issues
+			const issueReferences = this.extractIssueReferences(query);
+
+			if (issueReferences.length > 0) {
+				// If there are issue references, try to open the first one side-by-side with chat
+				const firstIssue = issueReferences[0];
+
+				// Find the issue model for the referenced issue
+				for (const folderManager of this._repositoriesManager.folderManagers) {
+					try {
+						const issueModel = await folderManager.resolveIssue(
+							firstIssue.owner || folderManager.gitHubRepositories[0]?.remote.owner || '',
+							firstIssue.repo || folderManager.gitHubRepositories[0]?.remote.repositoryName || '',
+							firstIssue.number
+						);
+						if (issueModel) {
+							// Use the existing side-by-side command
+							await vscode.commands.executeCommand('issue.openIssueAndCodingAgentSideBySide', issueModel);
+							return;
+						}
+					} catch (error) {
+						// Continue to try other folder managers
+						continue;
+					}
+				}
+			}
+
+			// If no specific issue found, create a general planning session
+			// Open a new chat session with the query and planning instructions
+			await vscode.commands.executeCommand('workbench.action.chat.newChat');
+
+			const planningQuery = `I want to plan and analyze this task before implementing it:
+
+${query}
+
+Please help me:
+1. Break down what needs to be implemented
+2. Identify any potential challenges or considerations
+3. Suggest an implementation approach
+4. Ask any clarifying questions that would help create better instructions for a coding agent
+
+Keep your response focused and actionable - ask at most 3 essential questions if there are genuine ambiguities.`;
+
+			await vscode.commands.executeCommand('workbench.action.chat.open', {
+				query: planningQuery
+			});
+
+		} catch (error) {
+			Logger.error(`Failed to plan task with local agent: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage('Failed to open planning session. Make sure the Chat extension is available.');
 		}
 	}
 

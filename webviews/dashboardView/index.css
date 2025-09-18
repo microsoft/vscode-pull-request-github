@@ -581,6 +581,83 @@ body {
 	opacity: 0.6;
 }
 
+/* Send button container for split button */
+.send-button-container {
+	position: absolute;
+	right: 14px;
+	bottom: 6px;
+	display: flex;
+	height: 28px;
+}
+
+.monaco-input-wrapper .send-button-inline.split-left {
+	border-radius: 3px 0 0 3px !important;
+	border-right: 1px solid var(--vscode-button-separator) !important;
+	position: relative;
+	right: auto;
+	bottom: auto;
+	height: 100%;
+}
+
+.monaco-input-wrapper .send-button-inline.split-right {
+	border-radius: 0 3px 3px 0 !important;
+	width: 24px !important;
+	min-width: 24px !important;
+	padding: 0 4px !important;
+	position: relative;
+	right: auto;
+	bottom: auto;
+	height: 100%;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	margin-top: 4px;
+	background-color: var(--vscode-dropdown-background);
+	border: 1px solid var(--vscode-dropdown-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	z-index: 1000;
+	min-width: 200px;
+}
+
+.dropdown-item {
+	display: flex !important;
+	align-items: center !important;
+	width: 100% !important;
+	padding: 8px 12px !important;
+	border: none !important;
+	background: transparent !important;
+	color: var(--vscode-dropdown-foreground) !important;
+	cursor: pointer !important;
+	font-size: 13px !important;
+	text-align: left !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	outline: none !important;
+	white-space: nowrap !important;
+}
+
+.dropdown-item:hover {
+	background-color: var(--vscode-list-hoverBackground) !important;
+}
+
+.dropdown-item:first-child {
+	border-radius: 3px 3px 0 0 !important;
+}
+
+.dropdown-item:last-child {
+	border-radius: 0 0 3px 3px !important;
+}
+
+.dropdown-item .codicon {
+	margin-right: 8px !important;
+	font-size: 14px !important;
+}
+
 .empty-state {
 	text-align: center;
 	color: var(--vscode-descriptionForeground);

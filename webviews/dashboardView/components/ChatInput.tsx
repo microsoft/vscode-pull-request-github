@@ -86,19 +86,20 @@ function setupMonaco() {
 			// Check if user is typing after #
 			const hashMatch = textUntilPosition.match(/#\d*$/);
 			if (hashMatch) {
-				const suggestions = suggestionDataSource?.state === 'ready' ? suggestionDataSource.milestoneIssues.map((issue): monaco.languages.CompletionItem => ({
-					label: `#${issue.number}`,
-					kind: monaco.languages.CompletionItemKind.Reference,
-					insertText: `#${issue.number}`,
-					detail: issue.title,
-					documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
-					range: {
-						startLineNumber: position.lineNumber,
-						startColumn: position.column - hashMatch[0].length,
-						endLineNumber: position.lineNumber,
-						endColumn: position.column
-					}
-				})) : [];
+				const suggestions = (suggestionDataSource?.state === 'ready' && !suggestionDataSource.isGlobal)
+					? suggestionDataSource.milestoneIssues.map((issue: any): monaco.languages.CompletionItem => ({
+						label: `#${issue.number}`,
+						kind: monaco.languages.CompletionItemKind.Reference,
+						insertText: `#${issue.number}`,
+						detail: issue.title,
+						documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
+						range: {
+							startLineNumber: position.lineNumber,
+							startColumn: position.column - hashMatch[0].length,
+							endLineNumber: position.lineNumber,
+							endColumn: position.column
+						}
+					})) : [];
 
 				return { suggestions };
 			}
@@ -147,7 +148,7 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 	const [chatInput, setChatInput] = useState('');
-	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+	const [showDropdown, setShowDropdown] = useState(false);
 
 	// Handle content changes
 	const handleEditorChange = useCallback((value: string | undefined) => {
@@ -168,39 +169,43 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 		}
 	}, [chatInput]);
 
-	// Handle quick action button clicks with input submission
-	const handleQuickAction = useCallback((prefix: string) => {
-		// If there's existing input, prepend the prefix and submit
-		const finalInput = chatInput.trim() ? `${prefix}${chatInput.trim()}` : '';
 
-		if (finalInput.trim()) {
-			// Send the combined input
+
+	// Handle dropdown option for planning task with local agent
+	const handlePlanWithLocalAgent = useCallback(() => {
+		if (chatInput.trim()) {
+			const trimmedInput = chatInput.trim();
+			// Remove @copilot prefix for planning with local agent
+			const cleanQuery = trimmedInput.replace(/@copilot\s*/, '').trim();
+
+			// Send command to plan task with local agent
 			vscode.postMessage({
-				command: 'submit-chat',
-				args: { query: finalInput }
+				command: 'plan-task-with-local-agent',
+				args: { query: cleanQuery }
 			});
 
-			// Clear the input
 			setChatInput('');
-		} else {
-			// If no input, just set the prefix and focus editor
-			setChatInput(prefix);
-			if (editor) {
-				editor.focus();
-				// Position cursor at the end
-				const model = editor.getModel();
-				if (model) {
-					const position = model.getPositionAt(prefix.length);
-					editor.setPosition(position);
-				}
-			}
+			setShowDropdown(false);
 		}
-	}, [chatInput, editor]);
+	}, [chatInput]);
+
+	// Handle clicking outside dropdown to close it
+	useEffect(() => {
+		const handleClickOutside = (event: Event) => {
+			const target = event.target as HTMLElement;
+			if (!target.closest('.send-button-container')) {
+				setShowDropdown(false);
+			}
+		};
+
+		if (showDropdown) {
+			document.addEventListener('click', handleClickOutside);
+			return () => document.removeEventListener('click', handleClickOutside);
+		}
+	}, [showDropdown]);
 
 	// Setup editor instance when it mounts
 	const handleEditorDidMount = useCallback((editorInstance: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
-		setEditor(editorInstance);
-
 		// Auto-resize editor based on content
 		const updateHeight = () => {
 			const model = editorInstance.getModel();
@@ -284,28 +289,60 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 						automaticLayout: true
 					}}
 				/>
-				<button
-					className="send-button-inline"
-					onClick={handleSendChat}
-					disabled={!chatInput.trim()}
-					title={
-						isCopilotCommand(chatInput)
-							? 'Start new remote Copilot task (Ctrl+Enter)'
-							: isLocalCommand(chatInput)
+				{isCopilotCommand(chatInput) ? (
+					<div className="send-button-container">
+						<button
+							className="send-button-inline split-left"
+							onClick={handleSendChat}
+							disabled={!chatInput.trim()}
+							title="Start new remote Copilot task (Ctrl+Enter)"
+						>
+							<span style={{ marginRight: '4px', fontSize: '12px' }}>Start remote task</span>
+							<span className="codicon codicon-send"></span>
+						</button>
+						<button
+							className="send-button-inline split-right"
+							onClick={(e) => {
+								e.stopPropagation();
+								setShowDropdown(!showDropdown);
+							}}
+							disabled={!chatInput.trim()}
+							title="More options"
+						>
+							<span className="codicon codicon-chevron-down"></span>
+						</button>
+						{showDropdown && (
+							<div className="dropdown-menu">
+								<button
+									className="dropdown-item"
+									onClick={handlePlanWithLocalAgent}
+								>
+									<span>Plan task with local agent</span>
+									<span className="codicon codicon-comment-discussion" style={{ marginLeft: '8px' }}></span>
+								</button>
+							</div>
+						)}
+					</div>
+				) : (
+					<button
+						className="send-button-inline"
+						onClick={handleSendChat}
+						disabled={!chatInput.trim()}
+						title={
+							isLocalCommand(chatInput)
 								? 'Start new local task (Ctrl+Enter)'
 								: 'Send message (Ctrl+Enter)'
-					}
-				>
-					<span style={{ marginRight: '4px', fontSize: '12px' }}>
-						{isCopilotCommand(chatInput)
-							? 'Start remote task'
-							: isLocalCommand(chatInput)
+						}
+					>
+						<span style={{ marginRight: '4px', fontSize: '12px' }}>
+							{isLocalCommand(chatInput)
 								? 'Start local task'
 								: 'Send'
-						}
-					</span>
-					<span className="codicon codicon-send"></span>
-				</button>
+							}
+						</span>
+						<span className="codicon codicon-send"></span>
+					</button>
+				)}
 			</div>
 		</div>
 
@@ -313,24 +350,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 
 		<div className="quick-actions">
 			{!isGlobal && (
-				<>
-					<div
-						className="quick-action-button"
-						onClick={() => handleQuickAction('@copilot ')}
-						title="Start remote GitHub agent - works in background and creates a PR"
-					>
-						<span className="codicon codicon-robot"></span>
-						<span>Start background task on GitHub</span>
+				<div className="global-instructions">
+					<div className="instructions-content">
+						<p>
+							<strong>Reference issues:</strong> Use the syntax <code>org/repo#123</code> to start work on specific issues from any repository.
+						</p>
+						<p>
+							<strong>Choose your agent:</strong> Use <code>@local</code> to work locally or <code>@copilot</code> to use GitHub Copilot.
+						</p>
+						<p>
+							<strong>Mention projects:</strong> You can talk about projects by name to work across multiple repositories.
+						</p>
 					</div>
-					<div
-						className="quick-action-button"
-						onClick={() => handleQuickAction('@local ')}
-						title="Create new branch and work locally with chat assistance"
-					>
-						<span className="codicon codicon-device-desktop"></span>
-						<span>Start local task</span>
-					</div>
-				</>
+				</div>
 			)}
 
 			{/* Removed QuickActions for global dashboards - moved to input area separator only */}
