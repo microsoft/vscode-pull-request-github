@@ -148,12 +148,44 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 	const [chatInput, setChatInput] = useState('');
+	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 
 	// Handle content changes
 	const handleEditorChange = useCallback((value: string | undefined) => {
 		setChatInput(value || '');
 	}, []);
+
+	const handleAgentClick = useCallback((agent: string) => {
+		let finalInput: string;
+		const currentInput = chatInput.trim();
+
+		if (!currentInput) {
+			// Empty input - just set the agent
+			finalInput = agent;
+		} else {
+			// Check if input starts with an agent pattern
+			const agentMatch = currentInput.match(/^@(local|copilot)\s*/);
+			if (agentMatch) {
+				// Replace existing agent with the clicked one
+				finalInput = agent + currentInput.substring(agentMatch[0].length);
+			} else {
+				// No agent at start - prepend the clicked agent
+				finalInput = agent + currentInput;
+			}
+		}
+
+		setChatInput(finalInput);
+		if (editor) {
+			editor.focus();
+			// Position cursor at the end
+			const model = editor.getModel();
+			if (model) {
+				const position = model.getPositionAt(finalInput.length);
+				editor.setPosition(position);
+			}
+		}
+	}, [chatInput, editor]);
 
 	const handleSendChat = useCallback(() => {
 		if (chatInput.trim()) {
@@ -206,6 +238,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 
 	// Setup editor instance when it mounts
 	const handleEditorDidMount = useCallback((editorInstance: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+		setEditor(editorInstance);
+
 		// Auto-resize editor based on content
 		const updateHeight = () => {
 			const model = editorInstance.getModel();
@@ -346,7 +380,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 			</div>
 		</div>
 
-		{isGlobal && <GlobalInstructions />}
+		{isGlobal && <GlobalInstructions onAgentClick={handleAgentClick} />}
 
 		<div className="quick-actions">
 			{!isGlobal && (
@@ -356,7 +390,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 							<strong>Reference issues:</strong> Use the syntax <code>org/repo#123</code> to start work on specific issues from any repository.
 						</p>
 						<p>
-							<strong>Choose your agent:</strong> Use <code>@local</code> to work locally or <code>@copilot</code> to use GitHub Copilot.
+							<strong>Choose your agent:</strong> Use <code
+								style={{ cursor: 'pointer' }}
+								onClick={() => handleAgentClick('@local ')}
+								title="Click to add @local to input"
+							>@local</code> to work locally or <code
+								style={{ cursor: 'pointer' }}
+								onClick={() => handleAgentClick('@copilot ')}
+								title="Click to add @copilot to input"
+							>@copilot</code> to use GitHub Copilot.
 						</p>
 						<p>
 							<strong>Mention projects:</strong> You can talk about projects by name to work across multiple repositories.
