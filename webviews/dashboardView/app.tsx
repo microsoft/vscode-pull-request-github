@@ -294,11 +294,13 @@ function Dashboard() {
 													</span>
 													<span className="item-title-text">{item.data.name}</span>
 												</div>
-												<div className="item-metadata">
-													<div className="metadata-item">
-														<span className="project-path-text">{item.data.path}</span>
+												{item.data.path && (
+													<div className="item-metadata">
+														<div className="metadata-item">
+															<span className="project-path-text">{item.data.path}</span>
+														</div>
 													</div>
-												</div>
+												)}
 											</div>
 										)
 									)

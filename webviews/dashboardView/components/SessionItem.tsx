@@ -64,27 +64,26 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 				<span className="item-title-text">{session.title}</span>
 			</div>
 			<div className="item-metadata">
-				<div className="metadata-item">
-					{session.isTemporary ? (
-						<span className="status-badge status-creating">
-							<span className="codicon codicon-loading codicon-modifier-spin"></span>
-							{session.status}
-						</span>
-					) : session.isLocal ? (
-						// No status badge for local tasks
-						null
-					) : (
-						<span className={index === 0 && (session.status === '1' || session.status?.toLowerCase() === 'completed') ? 'status-badge status-needs-clarification' : getStatusBadgeClass(session.status)}>
-							{(session.status === '2' || session.status?.toLowerCase() === 'in progress') && (
+				{(session.isTemporary || !session.isLocal) && (
+					<div className="metadata-item">
+						{session.isTemporary ? (
+							<span className="status-badge status-creating">
 								<span className="codicon codicon-loading codicon-modifier-spin"></span>
-							)}
-							{(session.status === '1' || session.status?.toLowerCase() === 'completed') && (
-								<span className="codicon codicon-circle-filled"></span>
-							)}
-							{formatStatus(session.status, index)}
-						</span>
-					)}
-				</div>
+								{session.status}
+							</span>
+						) : (
+							<span className={index === 0 && (session.status === '1' || session.status?.toLowerCase() === 'completed') ? 'status-badge status-needs-clarification' : getStatusBadgeClass(session.status)}>
+								{(session.status === '2' || session.status?.toLowerCase() === 'in progress') && (
+									<span className="codicon codicon-loading codicon-modifier-spin"></span>
+								)}
+								{(session.status === '1' || session.status?.toLowerCase() === 'completed') && (
+									<span className="codicon codicon-circle-filled"></span>
+								)}
+								{formatStatus(session.status, index)}
+							</span>
+						)}
+					</div>
+				)}
 				<div className="metadata-item">
 					<span title={formatFullDateTime(session.dateCreated)}>{formatDate(session.dateCreated)}</span>
 				</div>
