@@ -190,6 +190,79 @@ body {
 	color: var(--vscode-foreground);
 }
 
+.area-header-container {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+}
+
+.filter-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background-color 0.2s ease;
+}
+
+.filter-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.filter-button:active {
+	background-color: var(--vscode-toolbar-activeBackground);
+}
+
+.filter-button .codicon {
+	font-size: 14px;
+}
+
+.filter-dropdown {
+	position: relative;
+	display: inline-block;
+}
+
+.filter-dropdown-menu {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	background: var(--vscode-menu-background);
+	border: 1px solid var(--vscode-menu-border);
+	border-radius: 3px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	z-index: 1000;
+	min-width: 120px;
+	padding: 4px 0;
+}
+
+.filter-dropdown-item {
+	display: flex;
+	align-items: center;
+	padding: 6px 12px;
+	cursor: pointer;
+	color: var(--vscode-menu-foreground);
+	transition: background-color 0.2s ease;
+}
+
+.filter-dropdown-item:hover {
+	background-color: var(--vscode-menu-selectionBackground);
+	color: var(--vscode-menu-selectionForeground);
+}
+
+.filter-dropdown-item .codicon {
+	margin-right: 8px;
+	font-size: 12px;
+}
+
+.filter-dropdown-label {
+	font-size: 13px;
+}
+
 .area-content {
 	flex: 1;
 	overflow-y: auto;

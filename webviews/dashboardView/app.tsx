@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { ChatInput } from './components/ChatInput';
 import { EmptyState } from './components/EmptyState';
+import { FilterButton, FilterState } from './components/FilterButton';
 import { GlobalSessionItem } from './components/GlobalSessionItem';
 import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
@@ -38,6 +39,7 @@ function Dashboard() {
 	const [refreshing, setRefreshing] = useState(false);
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest'>('date-oldest');
 	const [hoveredIssue, setHoveredIssue] = useState<IssueData | null>(null);
+		const [globalFilter, setGlobalFilter] = useState<FilterState>({ showTasks: true, showProjects: true });
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -150,15 +152,19 @@ function Dashboard() {
 	const mixedItems = isGlobal ? (() => {
 		const mixed: Array<{ type: 'session', data: SessionData, index: number } | { type: 'project', data: ProjectData }> = [];
 
-		// Add sessions
-		activeSessions.forEach((session, index) => {
-			mixed.push({ type: 'session', data: session, index });
-		});
+		// Add sessions based on filter
+		if (globalFilter.showTasks) {
+			activeSessions.forEach((session, index) => {
+				mixed.push({ type: 'session', data: session, index });
+			});
+		}
 
-		// Add projects
-		recentProjects.forEach((project: ProjectData) => {
-			mixed.push({ type: 'project', data: project });
-		});
+		// Add projects based on filter
+		if (globalFilter.showProjects) {
+			recentProjects.forEach((project: ProjectData) => {
+				mixed.push({ type: 'project', data: project });
+			});
+		}
 
 		function shuffle<T>(array: T[]): T[] {
 			for (let i = array.length - 1; i > 0; i--) {
@@ -258,7 +264,15 @@ function Dashboard() {
 
 				{/* Tasks Area */}
 				<div className="tasks-area">
-					<h2 className="area-header">{isGlobal ? 'Continue working on...' : 'Active tasks'}</h2>
+					<div className="area-header-container">
+						<h2 className="area-header">{isGlobal ? 'Continue working on...' : 'Active tasks'}</h2>
+						{isGlobal && (
+							<FilterButton
+								filterState={globalFilter}
+								onFilterChange={setGlobalFilter}
+							/>
+						)}
+					</div>
 					{dashboardState?.state === 'ready' && (
 						<div className="section-count">
 							{activeSessions.length || 0} task{activeSessions.length !== 1 ? 's' : ''}
