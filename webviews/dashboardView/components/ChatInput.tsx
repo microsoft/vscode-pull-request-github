@@ -45,7 +45,6 @@ function setupMonaco() {
 	// Configure Monaco loader - use local monaco instance to avoid worker conflicts
 	loader.config({ monaco, });
 
-
 	// Register language for input
 	monaco.languages.register({ id: inputLanguageId });
 
@@ -146,6 +145,7 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 	const [chatInput, setChatInput] = useState('');
+	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 
 	// Handle content changes
 	const handleEditorChange = useCallback((value: string | undefined) => {
@@ -166,20 +166,37 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		}
 	}, [chatInput]);
 
+	// Handle quick action button clicks with input focus
+	const handleQuickAction = useCallback((prefix: string) => {
+		setChatInput(prefix);
+		// Focus the editor after setting the input
+		if (editor) {
+			editor.focus();
+			// Position cursor at the end
+			const model = editor.getModel();
+			if (model) {
+				const position = model.getPositionAt(prefix.length);
+				editor.setPosition(position);
+			}
+		}
+	}, [editor]);
+
 	// Setup editor instance when it mounts
-	const handleEditorDidMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+	const handleEditorDidMount = useCallback((editorInstance: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+		setEditor(editorInstance);
+
 		// Handle keyboard shortcuts
-		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
 			handleSendChat();
 		});
 
 		// Ensure paste command is available
-		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
-			editor.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
+		editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
+			editorInstance.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
 		});
 
 		// Focus the editor to ensure it can receive paste events
-		editor.focus();
+		editorInstance.focus();
 	}, [handleSendChat]);
 
 	useEffect(() => {
@@ -255,16 +272,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 			<div className="quick-actions">
 				<div
 					className="quick-action-button"
-					onClick={() => setChatInput('@copilot ')}
-					title="Start a remote task with GitHub Copilot"
+					onClick={() => handleQuickAction('@copilot ')}
+					title="Start remote GitHub agent - works in background and creates a PR"
 				>
 					<span className="codicon codicon-robot"></span>
 					<span>Start background task on GitHub</span>
 				</div>
 				<div
 					className="quick-action-button"
-					onClick={() => setChatInput('@local ')}
-					title="Start a local task with branch creation"
+					onClick={() => handleQuickAction('@local ')}
+					title="Create new branch and work locally with chat assistance"
 				>
 					<span className="codicon codicon-device-desktop"></span>
 					<span>Start local task</span>

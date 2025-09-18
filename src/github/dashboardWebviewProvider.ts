@@ -418,8 +418,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 		try {
 			// Extract issue references from the query
-			const referencedIssues = this.extractIssueNumbers(query);
-			const issueContext = await this.getIssueContext(referencedIssues);
+			const issueReferences = this.extractIssueReferences(query);
+			const issueContext = await this.getEnhancedIssueContext(issueReferences);
 
 			// Build enhanced query with issue context if any issues are referenced
 			let enhancedQuery = query;
@@ -470,8 +470,12 @@ export class DashboardWebviewProvider extends WebviewBase {
 				}
 				// If workMode is undefined, user cancelled - do nothing
 			} else {
-				// General question - open chat normally
-				await vscode.commands.executeCommand('workbench.action.chat.open', { query: enhancedQuery });
+				// General question - create fresh chat and open with ask mode
+				await vscode.commands.executeCommand('workbench.action.chat.newChat');
+				await vscode.commands.executeCommand('workbench.action.chat.open', {
+					query: enhancedQuery,
+					mode: 'ask'
+				});
 			}
 
 			// Optionally refresh the dashboard to show any new sessions
@@ -485,35 +489,138 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	/**
-	 * Extracts issue numbers from text (e.g., #123, #456)
+	 * Extracts issue references from text (e.g., #123, owner/repo#456)
 	 */
-	private extractIssueNumbers(text: string): number[] {
-		const issueRegex = /#(\d+)/g;
-		const matches: number[] = [];
+	private extractIssueReferences(text: string): Array<{ owner?: string; repo?: string; number: number; originalMatch: string }> {
+		const references: Array<{ owner?: string; repo?: string; number: number; originalMatch: string }> = [];
+
+		// Match full repository issue references (owner/repo#123)
+		const fullRepoRegex = /([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)#(\d+)/g;
 		let match;
-		while ((match = issueRegex.exec(text)) !== null) {
-			matches.push(parseInt(match[1], 10));
+		while ((match = fullRepoRegex.exec(text)) !== null) {
+			references.push({
+				owner: match[1],
+				repo: match[2],
+				number: parseInt(match[3], 10),
+				originalMatch: match[0]
+			});
 		}
-		return matches;
+
+		// Match simple issue references (#123) for current repo
+		const simpleRegex = /#(\d+)(?![a-zA-Z0-9._-])/g;
+		while ((match = simpleRegex.exec(text)) !== null) {
+			const matchIndex = match.index;
+			const matchText = match[0];
+
+			// Skip if this number is part of a full repo reference we already found
+			const isPartOfFullRef = references.some(ref => {
+				const refStart = text.indexOf(ref.originalMatch);
+				const refEnd = refStart + ref.originalMatch.length;
+				return refStart <= matchIndex && matchIndex < refEnd;
+			});
+
+			if (!isPartOfFullRef) {
+				references.push({
+					number: parseInt(match[1], 10),
+					originalMatch: matchText
+				});
+			}
+		}
+
+		return references;
 	}
 
 	/**
-	 * Gets issue context data for referenced issue numbers
+	 * Gets enhanced issue context data for all types of issue references
 	 */
-	private async getIssueContext(issueNumbers: number[]): Promise<IssueData[]> {
-		if (issueNumbers.length === 0) {
+	private async getEnhancedIssueContext(issueReferences: Array<{ owner?: string; repo?: string; number: number; originalMatch: string }>): Promise<IssueData[]> {
+		if (issueReferences.length === 0) {
 			return [];
 		}
 
 		try {
-			// Get all milestone issues and filter for referenced ones
-			const allIssues = await this.getMilestoneIssues();
-			return issueNumbers
-				.map(issueNum => allIssues.find(issue => issue.number === issueNum))
-				.filter(Boolean) as IssueData[];
+			const issueDataPromises = issueReferences.map(async (ref) => {
+				if (ref.owner && ref.repo) {
+					// External repository issue
+					return await this.getExternalIssueData(ref.owner, ref.repo, ref.number);
+				} else {
+					// Current repository issue
+					return await this.getCurrentRepoIssueData(ref.number);
+				}
+			});
+
+			const issueDataResults = await Promise.all(issueDataPromises);
+			return issueDataResults.filter(Boolean) as IssueData[];
 		} catch (error) {
-			Logger.error(`Failed to get issue context: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to get enhanced issue context: ${error}`, DashboardWebviewProvider.ID);
 			return [];
+		}
+	}
+
+	/**
+	 * Gets issue data from external repository
+	 */
+	private async getExternalIssueData(owner: string, repo: string, issueNumber: number): Promise<IssueData | null> {
+		try {
+			// Find a folder manager that can access this repository
+			let folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.gitHubRepositories.some(ghRepo =>
+					ghRepo.remote.owner.toLowerCase() === owner.toLowerCase() &&
+					ghRepo.remote.repositoryName.toLowerCase() === repo.toLowerCase()
+				)
+			);
+
+			// If not found, use the first available folder manager (it might still have access)
+			if (!folderManager && this._repositoriesManager.folderManagers.length > 0) {
+				folderManager = this._repositoriesManager.folderManagers[0];
+			}
+
+			if (!folderManager) {
+				return null;
+			}
+
+			const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
+			if (issueModel) {
+				return await this.convertIssueToData(issueModel);
+			}
+			return null;
+		} catch (error) {
+			Logger.debug(`Failed to get external issue ${owner}/${repo}#${issueNumber}: ${error}`, DashboardWebviewProvider.ID);
+			return null;
+		}
+	}
+
+	/**
+	 * Gets issue data from current repository
+	 */
+	private async getCurrentRepoIssueData(issueNumber: number): Promise<IssueData | null> {
+		try {
+			// Get all milestone issues and find the matching one
+			const allIssues = await this.getMilestoneIssues();
+			const matchingIssue = allIssues.find(issue => issue.number === issueNumber);
+			if (matchingIssue) {
+				return matchingIssue;
+			}
+
+			// If not found in milestone issues, try to resolve directly
+			const targetRepos = this.getTargetRepositories();
+			for (const repoIdentifier of targetRepos) {
+				const [owner, repo] = repoIdentifier.split('/');
+				const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+					this.folderManagerMatchesRepo(fm, owner, repo)
+				);
+
+				if (folderManager) {
+					const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
+					if (issueModel) {
+						return await this.convertIssueToData(issueModel);
+					}
+				}
+			}
+			return null;
+		} catch (error) {
+			Logger.debug(`Failed to get current repo issue #${issueNumber}: ${error}`, DashboardWebviewProvider.ID);
+			return null;
 		}
 	}
 
@@ -850,41 +957,48 @@ Classification:`;
 	 */
 	private async setupLocalWorkflow(query: string): Promise<void> {
 		try {
-			// Get the first available folder manager with a repository
-			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
-				fm.gitHubRepositories.length > 0
-			);
-
-			if (!folderManager) {
-				vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
-				return;
-			}
-
-			// Generate a logical branch name from the query
-			const branchName = this.generateBranchName(query);
-
-			// Create the branch
 			await vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
-				title: `Creating branch: ${branchName}`,
+				title: 'Setting up local workflow',
 				cancellable: false
-			}, async () => {
+			}, async (progress) => {
+				progress.report({ message: 'Initializing...', increment: 10 });
+
+				// Get the first available folder manager with a repository
+				const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+					fm.gitHubRepositories.length > 0
+				);
+
+				if (!folderManager) {
+					vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
+					return;
+				}
+
+				// Generate a logical branch name from the query
+				progress.report({ message: 'Generating branch name...', increment: 30 });
+				const branchName = await this.generateBranchName(query);
+
+				// Create the branch
+				progress.report({ message: `Creating branch: ${branchName}`, increment: 60 });
 				await folderManager.repository.createBranch(branchName, true);
+
+				// Create a fresh chat session and open with ask mode
+				progress.report({ message: 'Opening chat session...', increment: 90 });
+				await vscode.commands.executeCommand('workbench.action.chat.newChat');
+				await vscode.commands.executeCommand('workbench.action.chat.open', {
+					query,
+					mode: 'ask'
+				});
+
+				progress.report({ message: 'Local workflow ready!', increment: 100 });
 			});
 
 			// Show success message
-			vscode.window.showInformationMessage(`Created and switched to branch: ${branchName}`);
-
-			// Open chat with agent mode
-			await vscode.commands.executeCommand('workbench.action.chat.open', {
-				query,
-				// Note: Agent mode activation might require additional parameters
-				// This depends on the VS Code chat API implementation
-			});
+			vscode.window.showInformationMessage('Local workflow setup complete! Ready to work on your task.');
 
 		} catch (error) {
 			Logger.error(`Failed to setup local workflow: ${error}`, DashboardWebviewProvider.ID);
-			vscode.window.showErrorMessage(`Failed to create branch: ${error}`);
+			vscode.window.showErrorMessage(`Failed to setup local workflow: ${error}`);
 		}
 	}
 
@@ -893,42 +1007,55 @@ Classification:`;
 	 */
 	private async createRemoteBackgroundSession(query: string): Promise<void> {
 		try {
-			// Extract the query without @copilot mention
-			const cleanQuery = query.replace(/@copilot\s*/, '').trim();
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: 'Creating remote coding agent session',
+				cancellable: false
+			}, async (progress) => {
+				progress.report({ message: 'Preparing task...', increment: 20 });
 
-			// Use the copilot remote agent manager to create a new session
-			const sessionResult = await this._copilotRemoteAgentManager.provideNewChatSessionItem({
-				request: {
+				// Extract the query without @copilot mention
+				const cleanQuery = query.replace(/@copilot\s*/, '').trim();
+
+				// Use the copilot remote agent manager to create a new session
+				progress.report({ message: 'Creating session with coding agent...', increment: 60 });
+				const sessionResult = await this._copilotRemoteAgentManager.provideNewChatSessionItem({
+					request: {
+						prompt: cleanQuery,
+						references: [],
+						participant: 'copilot-swe-agent'
+					} as any, // Type assertion as we're using this internal API
 					prompt: cleanQuery,
-					references: [],
-					participant: 'copilot-swe-agent'
-				} as any, // Type assertion as we're using this internal API
-				prompt: cleanQuery,
-				history: [],
-				metadata: { source: 'dashboard' }
-			}, new vscode.CancellationTokenSource().token);
+					history: [],
+					metadata: { source: 'dashboard' }
+				}, new vscode.CancellationTokenSource().token);
 
-			// Show confirmation that the task has been created
-			if (sessionResult && sessionResult.id) {
-				const sessionTitle = sessionResult.label || `Session ${sessionResult.id}`;
-				const viewAction = 'View Session';
-				const result = await vscode.window.showInformationMessage(
-					`Created new coding agent task: ${sessionTitle}`,
-					viewAction
-				);
+				// Show confirmation that the task has been created
+				if (sessionResult && sessionResult.id) {
+					progress.report({ message: 'Session created successfully!', increment: 90 });
 
-				if (result === viewAction) {
-					// Open the session if user chooses to view it
-					await vscode.window.showChatSession('copilot-swe-agent', sessionResult.id, {});
+					const sessionTitle = sessionResult.label || `Session ${sessionResult.id}`;
+					const viewAction = 'View Session';
+					const result = await vscode.window.showInformationMessage(
+						`Created new coding agent task: ${sessionTitle}`,
+						viewAction
+					);
+
+					if (result === viewAction) {
+						// Open the session if user chooses to view it
+						await vscode.window.showChatSession('copilot-swe-agent', sessionResult.id, {});
+					}
+
+					// Refresh the dashboard to show the new session
+					setTimeout(() => {
+						this.updateDashboard();
+					}, 1000);
+
+					progress.report({ message: 'Remote session ready!', increment: 100 });
+				} else {
+					vscode.window.showErrorMessage('Failed to create coding agent session.');
 				}
-
-				// Refresh the dashboard to show the new session
-				setTimeout(() => {
-					this.updateDashboard();
-				}, 1000);
-			} else {
-				vscode.window.showErrorMessage('Failed to create coding agent session.');
-			}
+			});
 
 		} catch (error) {
 			Logger.error(`Failed to create remote background session: ${error}`, DashboardWebviewProvider.ID);
@@ -937,9 +1064,85 @@ Classification:`;
 	}
 
 	/**
-	 * Generates a logical branch name from a query
+	 * Generates a logical branch name from a query using LM API with uniqueness checking
 	 */
-	private generateBranchName(query: string): string {
+	private async generateBranchName(query: string): Promise<string> {
+		try {
+			// Try to get a language model for branch name generation
+			const models = await vscode.lm.selectChatModels({
+				vendor: 'copilot',
+				family: 'gpt-4o'
+			});
+
+			let baseName: string;
+
+			if (models && models.length > 0) {
+				const model = models[0];
+
+				// Create a focused prompt for branch name generation
+				const namePrompt = `Generate a concise, descriptive git branch name for this task. The name should be:
+- 3-6 words maximum
+- Use kebab-case (lowercase with hyphens)
+- Be descriptive but brief
+- Follow conventional branch naming patterns
+- No special characters except hyphens
+- Start with a category like "feature/", "fix/", "refactor/", etc. if appropriate
+
+Examples:
+- "implement user authentication" → "feature/user-authentication"
+- "fix login bug" → "fix/login-bug"
+- "add search functionality" → "feature/search-functionality"
+- "refactor database code" → "refactor/database-code"
+- "update styling" → "update/styling"
+
+Task: "${query}"
+
+Branch name:`;
+
+				const messages = [vscode.LanguageModelChatMessage.User(namePrompt)];
+
+				const response = await model.sendRequest(messages, {
+					justification: 'Generating descriptive branch name for development task'
+				});
+
+				let result = '';
+				for await (const chunk of response.text) {
+					result += chunk;
+				}
+
+				// Clean up the LM response
+				baseName = result.trim()
+					.replace(/^["']|["']$/g, '') // Remove quotes
+					.replace(/[^\w\s/-]/g, '') // Remove special characters except hyphens and slashes
+					.replace(/\s+/g, '-') // Replace spaces with hyphens
+					.replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+					.replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+					.toLowerCase();
+
+				// Ensure it has a reasonable length
+				if (baseName.length > 50) {
+					baseName = baseName.substring(0, 50).replace(/-[^-]*$/, ''); // Cut at word boundary
+				}
+			} else {
+				// Fallback to simple name generation if LM is unavailable
+				baseName = this.generateFallbackBranchName(query);
+			}
+
+			// Ensure uniqueness by checking existing branches
+			return await this.ensureUniqueBranchName(baseName);
+
+		} catch (error) {
+			Logger.error(`Failed to generate branch name using LM: ${error}`, DashboardWebviewProvider.ID);
+			// Fallback to simple name generation
+			const fallbackName = this.generateFallbackBranchName(query);
+			return await this.ensureUniqueBranchName(fallbackName);
+		}
+	}
+
+	/**
+	 * Fallback branch name generation when LM API is unavailable
+	 */
+	private generateFallbackBranchName(query: string): string {
 		// Clean up the query to create a branch-friendly name
 		const cleaned = query
 			.toLowerCase()
@@ -951,10 +1154,69 @@ Classification:`;
 		// Truncate to reasonable length
 		const truncated = cleaned.length > 40 ? cleaned.substring(0, 40) : cleaned;
 
-		// Add timestamp to ensure uniqueness
-		const timestamp = Date.now().toString().slice(-6);
+		return `task/${truncated}`;
+	}
 
-		return `task/${truncated}-${timestamp}`;
+	/**
+	 * Ensures branch name uniqueness by checking existing branches and adding suffix if needed
+	 */
+	private async ensureUniqueBranchName(baseName: string): Promise<string> {
+		try {
+			// Get the first available folder manager with a repository
+			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.gitHubRepositories.length > 0
+			);
+
+			if (!folderManager) {
+				// If no repository available, just add timestamp for uniqueness
+				const timestamp = Date.now().toString().slice(-6);
+				return `${baseName}-${timestamp}`;
+			}
+
+			// Get existing branch names
+			let existingBranches = new Set<string>();
+			try {
+				if (folderManager.repository.getRefs) {
+					const refs = await folderManager.repository.getRefs({
+						contains: undefined,
+						count: undefined,
+						pattern: undefined,
+						sort: undefined
+					});
+					existingBranches = new Set(
+						refs
+							.filter(ref => ref.type === 1 && ref.name) // RefType.Head and has name
+							.map(ref => ref.name!)
+					);
+				}
+			} catch (error) {
+				Logger.debug(`Could not fetch branch refs: ${error}`, DashboardWebviewProvider.ID);
+				// Continue with empty set - will use timestamp for uniqueness
+			}
+
+			// Check if base name is unique
+			if (!existingBranches.has(baseName)) {
+				return baseName;
+			}
+
+			// If not unique, try adding numeric suffixes
+			for (let i = 2; i <= 99; i++) {
+				const candidateName = `${baseName}-${i}`;
+				if (!existingBranches.has(candidateName)) {
+					return candidateName;
+				}
+			}
+
+			// If still not unique after 99 attempts, add timestamp
+			const timestamp = Date.now().toString().slice(-6);
+			return `${baseName}-${timestamp}`;
+
+		} catch (error) {
+			Logger.error(`Failed to check branch uniqueness: ${error}`, DashboardWebviewProvider.ID);
+			// Fallback to timestamp-based uniqueness
+			const timestamp = Date.now().toString().slice(-6);
+			return `${baseName}-${timestamp}`;
+		}
 	}
 
 	private registerBranchChangeListeners(): void {
