@@ -209,22 +209,23 @@ function Dashboard() {
 						</>
 					) : (
 						<>
-							<h3
-								className="area-header milestone-header"
-								title={`Issue Query: ${issueQuery}`}
-							>
-								{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
-							</h3>
-
-							{dashboardState?.state === 'ready' && (
-								<div className="section-header">
-									<div className="section-count">
-										{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
-									</div>
+							<div className="area-header milestone-header">
+								<h3
+									className="milestone-title"
+									title={`Issue Query: ${issueQuery}`}
+								>
+									{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
+								</h3>
+								{dashboardState?.state === 'ready' && (
 									<SortDropdown
 										issueSort={issueSort}
 										onSortChange={setIssueSort}
 									/>
+								)}
+							</div>
+							{dashboardState?.state === 'ready' && (
+								<div className="section-count">
+									{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
 								</div>
 							)}
 							<div className="area-content">

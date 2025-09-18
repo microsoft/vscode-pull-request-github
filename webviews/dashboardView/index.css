@@ -175,7 +175,6 @@ body {
 	grid-area: issues;
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
 }
 
 .tasks-area {
@@ -203,6 +202,9 @@ body {
 	cursor: help;
 	display: inline-block;
 	margin-top: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
 .session-item, .issue-item {
