@@ -130,7 +130,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			// Check if we actually have folder managers available before proceeding
 			if (!this._repositoriesManager.folderManagers || this._repositoriesManager.folderManagers.length === 0) {
-				Logger.debug('No folder managers available yet, keeping loading state', DashboardWebviewProvider.ID);
+
 				// Don't send ready state if we don't have folder managers yet
 				return;
 			}
@@ -159,14 +159,14 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 		// If we need authentication, we can't load repositories
 		if (this._repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
-			Logger.debug('Repositories need authentication, skipping issue loading', DashboardWebviewProvider.ID);
+
 			return;
 		}
 
 		// Wait for repositories to be loaded
 		return new Promise<void>((resolve) => {
 			const timeout = setTimeout(() => {
-				Logger.debug('Timeout waiting for repositories to load, proceeding anyway', DashboardWebviewProvider.ID);
+
 				resolve();
 			}, 10000); // 10 second timeout
 
@@ -260,7 +260,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			// Check if we have any folder managers available
 			if (!this._repositoriesManager.folderManagers || this._repositoriesManager.folderManagers.length === 0) {
-				Logger.debug('No folder managers available yet, returning empty issues list', DashboardWebviewProvider.ID);
+
 				return [];
 			}
 
@@ -300,7 +300,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 		const currentRepos = new Set<string>();
 
 		if (!vscode.workspace.workspaceFolders) {
-			Logger.debug('No workspace folders found', DashboardWebviewProvider.ID);
 			return [];
 		}
 
@@ -309,24 +308,25 @@ export class DashboardWebviewProvider extends WebviewBase {
 			for (const repository of folderManager.gitHubRepositories) {
 				const repoIdentifier = `${repository.remote.owner}/${repository.remote.repositoryName}`;
 				currentRepos.add(repoIdentifier);
+
+				// only add first for now
+				break;
 			}
 		}
 
 		const repoArray = Array.from(currentRepos);
-		Logger.debug(`Found ${repoArray.length} workspace repositories: ${repoArray.join(', ')}`, DashboardWebviewProvider.ID);
 		return repoArray;
 	}
 
 	private getTargetRepositories(): string[] {
 		// If explicit repos are configured, use those
 		if (this._repos) {
-			Logger.debug(`Using explicitly configured repositories: ${this._repos.join(', ')}`, DashboardWebviewProvider.ID);
+
 			return this._repos;
 		}
 
 		// Otherwise, default to current workspace repositories
 		const currentRepos = this.getCurrentWorkspaceRepositories();
-		Logger.debug(`Using current workspace repositories: ${currentRepos.join(', ')}`, DashboardWebviewProvider.ID);
 		return currentRepos;
 	}
 
@@ -352,7 +352,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
 		} catch (error) {
-			Logger.debug(`Failed to get issues for query "${query}": ${error} `, DashboardWebviewProvider.ID);
+
 			return [];
 		}
 	}
@@ -390,11 +390,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 			case 'refresh-dashboard':
 				await this.updateDashboard();
 				break;
-			case 'open-chat':
-				await this.openChatWithQuery(message.args?.query);
-				break;
-			case 'start-copilot-task':
-				await this.startCopilotTask(message.args?.taskDescription, message.args?.referencedIssues, message.args?.issueContext);
+			case 'submit-chat':
+				await this.handleChatSubmission(message.args?.query);
 				break;
 			case 'open-session':
 				await this.openSession(message.args?.sessionId);
@@ -414,16 +411,109 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-	private async openChatWithQuery(query: string): Promise<void> {
+	private async handleChatSubmission(query: string): Promise<void> {
 		if (!query) {
 			return;
 		}
 
 		try {
-			await vscode.commands.executeCommand('workbench.action.chat.open', { query });
+			// Extract issue references from the query
+			const referencedIssues = this.extractIssueNumbers(query);
+			const issueContext = await this.getIssueContext(referencedIssues);
+
+			// Build enhanced query with issue context if any issues are referenced
+			let enhancedQuery = query;
+			if (issueContext.length > 0) {
+				enhancedQuery += `\n\nReferenced Issues:\n`;
+				for (const issue of issueContext) {
+					enhancedQuery += `- Issue #${issue.number}: ${issue.title}\n`;
+					enhancedQuery += `  URL: ${issue.url}\n`;
+					if (issue.assignee) {
+						enhancedQuery += `  Assignee: ${issue.assignee}\n`;
+					}
+					if (issue.milestone) {
+						enhancedQuery += `  Milestone: ${issue.milestone}\n`;
+					}
+					enhancedQuery += `  State: ${issue.state}\n`;
+					enhancedQuery += `  Updated: ${issue.updatedAt}\n\n`;
+				}
+			}
+
+			// Check if user explicitly mentions @copilot for remote background session
+			if (query.includes('@copilot')) {
+				// Create background session using chat sessions API
+				await this.createRemoteBackgroundSession(enhancedQuery);
+				return;
+			}
+
+			// Check if user explicitly mentions @local for local workflow
+			if (query.includes('@local')) {
+				// Remove @local prefix and set up local workflow directly
+				const cleanQuery = enhancedQuery.replace(/@local\s*/, '').trim();
+				await this.setupLocalWorkflow(cleanQuery || enhancedQuery);
+				return;
+			}
+
+			// Determine if this is a general question or coding task
+			const isCodingTask = await this.isCodingTask(query);
+
+			if (isCodingTask) {
+				// Show quick pick to choose between local and remote work
+				const workMode = await this.showWorkModeQuickPick();
+
+				if (workMode === 'remote') {
+					// Use @copilot to start a new chat session
+					await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@copilot ${enhancedQuery}` });
+				} else if (workMode === 'local') {
+					// Create a new branch and set up local chat with agent mode
+					await this.setupLocalWorkflow(enhancedQuery);
+				}
+				// If workMode is undefined, user cancelled - do nothing
+			} else {
+				// General question - open chat normally
+				await vscode.commands.executeCommand('workbench.action.chat.open', { query: enhancedQuery });
+			}
+
+			// Optionally refresh the dashboard to show any new sessions
+			setTimeout(() => {
+				this.updateDashboard();
+			}, 1000);
 		} catch (error) {
-			Logger.error(`Failed to open chat with query: ${error} `, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to handle chat submission: ${error} `, DashboardWebviewProvider.ID);
 			vscode.window.showErrorMessage('Failed to open chat. Make sure the Chat extension is available.');
+		}
+	}
+
+	/**
+	 * Extracts issue numbers from text (e.g., #123, #456)
+	 */
+	private extractIssueNumbers(text: string): number[] {
+		const issueRegex = /#(\d+)/g;
+		const matches: number[] = [];
+		let match;
+		while ((match = issueRegex.exec(text)) !== null) {
+			matches.push(parseInt(match[1], 10));
+		}
+		return matches;
+	}
+
+	/**
+	 * Gets issue context data for referenced issue numbers
+	 */
+	private async getIssueContext(issueNumbers: number[]): Promise<IssueData[]> {
+		if (issueNumbers.length === 0) {
+			return [];
+		}
+
+		try {
+			// Get all milestone issues and filter for referenced ones
+			const allIssues = await this.getMilestoneIssues();
+			return issueNumbers
+				.map(issueNum => allIssues.find(issue => issue.number === issueNum))
+				.filter(Boolean) as IssueData[];
+		} catch (error) {
+			Logger.error(`Failed to get issue context: ${error}`, DashboardWebviewProvider.ID);
+			return [];
 		}
 	}
 
@@ -481,13 +571,13 @@ export class DashboardWebviewProvider extends WebviewBase {
 					if (pullRequestModel) {
 						// Use VS Code's command to switch to the PR (this triggers review mode)
 						await vscode.commands.executeCommand('pr.pick', pullRequestModel);
-						Logger.debug(`Successfully switched to review mode for PR #${pullRequest.number}`, DashboardWebviewProvider.ID);
+
 						return;
 					}
 				}
 			}
 
-			Logger.debug(`Could not find PR model for ${pullRequest.url}, skipping branch checkout`, DashboardWebviewProvider.ID);
+
 		} catch (error) {
 			Logger.error(`Failed to checkout PR branch: ${error} `, DashboardWebviewProvider.ID);
 			vscode.window.showWarningMessage(`Failed to checkout PR branch. Opening PR without branch checkout.`);
@@ -625,6 +715,246 @@ export class DashboardWebviewProvider extends WebviewBase {
 				vscode.window.showErrorMessage('Failed to open pull request.');
 			}
 		}
+	}
+
+	/**
+	 * Determines if a query represents a coding task vs a general question using VS Code's Language Model API
+	 */
+	private async isCodingTask(query: string): Promise<boolean> {
+		try {
+			// Try to get a language model for classification
+			const models = await vscode.lm.selectChatModels({
+				vendor: 'copilot',
+				family: 'gpt-4o'
+			});
+
+			if (!models || models.length === 0) {
+				// Fallback to keyword-based classification if no LM available
+				return this.isCodingTaskFallback(query);
+			}
+
+			const model = models[0];
+
+			// Create a focused prompt for binary classification
+			const classificationPrompt = `You are a classifier that determines whether a user query represents a coding/development task or a general question.
+
+Examples of CODING TASKS:
+- "Implement user authentication"
+- "Fix the bug in the login function"
+- "Add a search feature to the app"
+- "Refactor the database connection code"
+- "Create unit tests for the API"
+- "Debug the memory leak issue"
+- "Update the CSS styling"
+- "Build a REST endpoint"
+
+Examples of GENERAL QUESTIONS:
+- "How does authentication work?"
+- "What is a REST API?"
+- "Explain the difference between async and sync"
+- "What are the benefits of unit testing?"
+- "How do I learn React?"
+- "What is the best IDE for Python?"
+
+Respond with exactly one word: "CODING" if the query is about implementing, building, fixing, creating, or working on code. "GENERAL" if it's asking for information, explanations, or learning resources.
+
+Query: "${query}"
+
+Classification:`;
+
+			const messages = [vscode.LanguageModelChatMessage.User(classificationPrompt)];
+
+			const response = await model.sendRequest(messages, {
+				justification: 'Classifying user query type for workflow routing'
+			});
+
+			let result = '';
+			for await (const chunk of response.text) {
+				result += chunk;
+			}
+
+			// Parse the response - look for "CODING" or "GENERAL"
+			const cleanResult = result.trim().toUpperCase();
+			return cleanResult.includes('CODING');
+
+		} catch (error) {
+			Logger.error(`Failed to classify query using LM API: ${error}`, DashboardWebviewProvider.ID);
+			// Fallback to keyword-based classification
+			return this.isCodingTaskFallback(query);
+		}
+	}
+
+	/**
+	 * Fallback keyword-based classification when LM API is unavailable
+	 */
+	private isCodingTaskFallback(query: string): boolean {
+		const codingKeywords = [
+			'implement', 'create', 'add', 'build', 'develop', 'code', 'write',
+			'fix', 'debug', 'resolve', 'solve', 'repair',
+			'refactor', 'optimize', 'improve', 'enhance', 'update',
+			'feature', 'function', 'method', 'class', 'component',
+			'api', 'endpoint', 'service', 'module', 'library',
+			'test', 'testing', 'unit test', 'integration test',
+			'bug', 'issue', 'error', 'exception', 'crash'
+		];
+
+		const lowercaseQuery = query.toLowerCase();
+		return codingKeywords.some(keyword => lowercaseQuery.includes(keyword));
+	}
+
+	/**
+	 * Shows a quick pick to let user choose between local and remote work
+	 */
+	private async showWorkModeQuickPick(): Promise<'local' | 'remote' | undefined> {
+		const quickPick = vscode.window.createQuickPick();
+		quickPick.title = 'Choose how to work on this task';
+		quickPick.placeholder = 'Select whether to work locally or remotely';
+		quickPick.items = [
+			{
+				label: '$(device-desktop) Work locally',
+				detail: 'Create a new branch and work in your local environment',
+				alwaysShow: true
+			},
+			{
+				label: '$(cloud) Work remotely',
+				detail: 'Use GitHub Copilot remote agent to work in the cloud',
+				alwaysShow: true
+			}
+		];
+
+		return new Promise<'local' | 'remote' | undefined>((resolve) => {
+			quickPick.onDidAccept(() => {
+				const selectedItem = quickPick.selectedItems[0];
+				quickPick.hide();
+				if (selectedItem) {
+					if (selectedItem.label.includes('locally')) {
+						resolve('local');
+					} else if (selectedItem.label.includes('remotely')) {
+						resolve('remote');
+					}
+				}
+				resolve(undefined);
+			});
+
+			quickPick.onDidHide(() => {
+				quickPick.dispose();
+				resolve(undefined);
+			});
+
+			quickPick.show();
+		});
+	}
+
+	/**
+	 * Sets up local workflow: creates branch and opens chat with agent mode
+	 */
+	private async setupLocalWorkflow(query: string): Promise<void> {
+		try {
+			// Get the first available folder manager with a repository
+			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.gitHubRepositories.length > 0
+			);
+
+			if (!folderManager) {
+				vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
+				return;
+			}
+
+			// Generate a logical branch name from the query
+			const branchName = this.generateBranchName(query);
+
+			// Create the branch
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: `Creating branch: ${branchName}`,
+				cancellable: false
+			}, async () => {
+				await folderManager.repository.createBranch(branchName, true);
+			});
+
+			// Show success message
+			vscode.window.showInformationMessage(`Created and switched to branch: ${branchName}`);
+
+			// Open chat with agent mode
+			await vscode.commands.executeCommand('workbench.action.chat.open', {
+				query,
+				// Note: Agent mode activation might require additional parameters
+				// This depends on the VS Code chat API implementation
+			});
+
+		} catch (error) {
+			Logger.error(`Failed to setup local workflow: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage(`Failed to create branch: ${error}`);
+		}
+	}
+
+	/**
+	 * Creates a remote background session using the copilot remote agent
+	 */
+	private async createRemoteBackgroundSession(query: string): Promise<void> {
+		try {
+			// Extract the query without @copilot mention
+			const cleanQuery = query.replace(/@copilot\s*/, '').trim();
+
+			// Use the copilot remote agent manager to create a new session
+			const sessionResult = await this._copilotRemoteAgentManager.provideNewChatSessionItem({
+				request: {
+					prompt: cleanQuery,
+					references: [],
+					participant: 'copilot-swe-agent'
+				} as any, // Type assertion as we're using this internal API
+				prompt: cleanQuery,
+				history: [],
+				metadata: { source: 'dashboard' }
+			}, new vscode.CancellationTokenSource().token);
+
+			// Show confirmation that the task has been created
+			if (sessionResult && sessionResult.id) {
+				const sessionTitle = sessionResult.label || `Session ${sessionResult.id}`;
+				const viewAction = 'View Session';
+				const result = await vscode.window.showInformationMessage(
+					`Created new coding agent task: ${sessionTitle}`,
+					viewAction
+				);
+
+				if (result === viewAction) {
+					// Open the session if user chooses to view it
+					await vscode.window.showChatSession('copilot-swe-agent', sessionResult.id, {});
+				}
+
+				// Refresh the dashboard to show the new session
+				setTimeout(() => {
+					this.updateDashboard();
+				}, 1000);
+			} else {
+				vscode.window.showErrorMessage('Failed to create coding agent session.');
+			}
+
+		} catch (error) {
+			Logger.error(`Failed to create remote background session: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage(`Failed to create coding agent session: ${error}`);
+		}
+	}
+
+	/**
+	 * Generates a logical branch name from a query
+	 */
+	private generateBranchName(query: string): string {
+		// Clean up the query to create a branch-friendly name
+		const cleaned = query
+			.toLowerCase()
+			.replace(/[^\w\s-]/g, '') // Remove special characters except hyphens
+			.replace(/\s+/g, '-') // Replace spaces with hyphens
+			.replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+			.replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+		// Truncate to reasonable length
+		const truncated = cleaned.length > 40 ? cleaned.substring(0, 40) : cleaned;
+
+		// Add timestamp to ensure uniqueness
+		const timestamp = Date.now().toString().slice(-6);
+
+		return `task/${truncated}-${timestamp}`;
 	}
 
 	private registerBranchChangeListeners(): void {

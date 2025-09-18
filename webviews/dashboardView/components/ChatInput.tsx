@@ -17,7 +17,7 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 // @ts-expect-error - a
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import React, { useCallback, useEffect, useState } from 'react';
-import { DashboardState, IssueData, vscode } from '../types';
+import { DashboardState, vscode } from '../types';
 
 const inputLanguageId = 'taskInput';
 
@@ -53,7 +53,7 @@ function setupMonaco() {
 	monaco.languages.setMonarchTokensProvider(inputLanguageId, {
 		tokenizer: {
 			root: [
-				[/[@]copilot\b/, 'copilot-keyword'],
+				[/@(copilot|local)\b/, 'copilot-keyword'],
 				[/#\d+/, 'issue-reference'],
 				[/.*/, 'text']
 			]
@@ -103,15 +103,27 @@ function setupMonaco() {
 				return { suggestions };
 			}
 
-			// Provide @copilot suggestion
+			// Provide @copilot and @local suggestions
 			if (textUntilPosition.match(/@\w*$/)) {
 				return {
 					suggestions: [{
 						label: '@copilot',
 						kind: monaco.languages.CompletionItemKind.Keyword,
 						insertText: 'copilot ',
-						detail: 'Start a new Copilot task',
-						documentation: 'Begin a task description that will be sent to Copilot with full context',
+						detail: 'Start a new remote Copilot task',
+						documentation: 'Begin a task description that will be sent to Copilot to work remotely on GitHub',
+						range: {
+							startLineNumber: position.lineNumber,
+							startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
+							endLineNumber: position.lineNumber,
+							endColumn: position.column
+						}
+					}, {
+						label: '@local',
+						kind: monaco.languages.CompletionItemKind.Keyword,
+						insertText: 'local ',
+						detail: 'Start a new local task',
+						documentation: 'Begin a task description that will create a new branch and work locally in your environment',
 						range: {
 							startLineNumber: position.lineNumber,
 							startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
@@ -144,35 +156,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		if (chatInput.trim()) {
 			const trimmedInput = chatInput.trim();
 
-			// Check if this is a @copilot command
-			if (isCopilotCommand(trimmedInput)) {
-				// Extract the task description (remove @copilot prefix)
-				const taskDescription = trimmedInput.replace(/^@copilot\s*/, '');
-
-				// Extract issue references
-				const referencedIssues = extractIssueNumbers(taskDescription);
-				const issueContext = referencedIssues.map(issueNum => findIssueByNumber(data, issueNum)).filter(Boolean);
-
-				// Start a new copilot session with issue context
-				vscode.postMessage({
-					command: 'start-copilot-task',
-					args: {
-						taskDescription,
-						referencedIssues,
-						issueContext
-					}
-				});
-			} else {
-				// Regular chat command
-				vscode.postMessage({
-					command: 'open-chat',
-					args: { query: trimmedInput }
-				});
-			}
+			// Send all chat input to the provider for processing
+			vscode.postMessage({
+				command: 'submit-chat',
+				args: { query: trimmedInput }
+			});
 
 			setChatInput('');
 		}
-	}, [chatInput, data]);
+	}, [chatInput]);
 
 	// Setup editor instance when it mounts
 	const handleEditorDidMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
@@ -230,7 +222,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 							showWords: false
 						},
 						occurrencesHighlight: 'off',
-						placeholder: 'Type @copilot to start a new task, or type a message to chat...',
+						placeholder: 'Ask a question or describe a coding task...',
 						contextmenu: false,
 						selectOnLineNumbers: false,
 						automaticLayout: true
@@ -240,26 +232,44 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 					className="send-button-inline"
 					onClick={handleSendChat}
 					disabled={!chatInput.trim()}
-					title="Send message (Ctrl+Enter)"
+					title={
+						isCopilotCommand(chatInput)
+							? 'Start new remote Copilot chat (Ctrl+Enter)'
+							: isLocalCommand(chatInput)
+								? 'Start new local chat (Ctrl+Enter)'
+								: 'Send message (Ctrl+Enter)'
+					}
 				>
+					<span style={{ marginRight: '4px', fontSize: '12px' }}>
+						{isCopilotCommand(chatInput)
+							? 'Start remote task'
+							: isLocalCommand(chatInput)
+								? 'Start local task'
+								: 'Send'
+						}
+					</span>
 					<span className="codicon codicon-send"></span>
 				</button>
 			</div>
 
-			{isCopilotCommand(chatInput) && (
-				<div className="copilot-hint">
+			<div className="quick-actions">
+				<div
+					className="quick-action-button"
+					onClick={() => setChatInput('@copilot ')}
+					title="Start a remote task with GitHub Copilot"
+				>
 					<span className="codicon codicon-robot"></span>
-					<span>Starting new Copilot task</span>
-					{extractIssueNumbers(chatInput).length > 0 && (
-						<span className="issue-references">
-							{` with ${extractIssueNumbers(chatInput).length} issue reference${extractIssueNumbers(chatInput).length > 1 ? 's' : ''}`}
-						</span>
-					)}
+					<span>Start background task on GitHub</span>
 				</div>
-			)}
-			<p style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
-				Press Ctrl+Enter (Cmd+Enter on Mac) to send
-			</p>
+				<div
+					className="quick-action-button"
+					onClick={() => setChatInput('@local ')}
+					title="Start a local task with branch creation"
+				>
+					<span className="codicon codicon-device-desktop"></span>
+					<span>Start local task</span>
+				</div>
+			</div>
 		</div>
 	);
 };
@@ -269,23 +279,9 @@ const isCopilotCommand = (text: string): boolean => {
 	return text.trim().startsWith('@copilot');
 };
 
-// Helper function to find issue data by number
-const findIssueByNumber = (data: DashboardState | null, issueNumber: number): IssueData | undefined => {
-	if (data?.state === 'ready') {
-		return data.milestoneIssues.find(issue => issue.number === issueNumber);
-	}
-	return undefined;
-};
-
-// Helper function to extract issue numbers from text
-const extractIssueNumbers = (text: string): number[] => {
-	const issueRegex = /#(\d+)/g;
-	const matches: number[] = [];
-	let match;
-	while ((match = issueRegex.exec(text)) !== null) {
-		matches.push(parseInt(match[1], 10));
-	}
-	return matches;
+// Helper function to detect @local syntax
+const isLocalCommand = (text: string): boolean => {
+	return text.trim().startsWith('@local');
 };
 
 setupMonaco();

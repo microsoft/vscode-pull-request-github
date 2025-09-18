@@ -127,11 +127,7 @@ function Dashboard() {
 					<h2 className="column-header">Start new task</h2>
 
 					{/* Chat Input Section */}
-					<ChatInput data={dashboardState?.state === 'ready' ? {
-						activeSessions: dashboardState.activeSessions,
-						milestoneIssues: dashboardState.milestoneIssues,
-						issueQuery: dashboardState.issueQuery
-					} : null} />
+					<ChatInput data={dashboardState} />
 
 					<h3
 						className="column-header milestone-header"

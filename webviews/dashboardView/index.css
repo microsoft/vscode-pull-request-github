@@ -415,7 +415,7 @@ html, body, app {
 	flex: 1;
 	min-height: 40px;
 	max-height: 150px;
-	padding-right: 36px; /* Space for send button */
+	padding-right: 100px; /* Space for send button with text */
 }
 
 /* Suppress Monaco Editor's internal border flashing */
@@ -436,8 +436,9 @@ html, body, app {
 	position: absolute;
 	right: 14px;
 	bottom: 6px;
-	width: 28px;
+	min-width: 28px;
 	height: 28px;
+	padding: 0 8px;
 	border: none !important;
 	border-radius: 0 !important;
 	background-color: transparent !important;
@@ -449,6 +450,8 @@ html, body, app {
 	transition: all 0.2s;
 	box-shadow: none !important;
 	outline: none !important;
+	white-space: nowrap;
+	font-family: var(--vscode-font-family);
 }
 
 .monaco-input-wrapper .send-button-inline:hover:not(:disabled) {
@@ -468,6 +471,33 @@ html, body, app {
 	color: var(--vscode-descriptionForeground);
 	padding: 24px;
 	font-style: italic;
+}
+
+.quick-actions {
+	margin-top: 8px;
+}
+
+.quick-action-button {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	margin-bottom: 4px;
+	border-radius: 4px;
+	cursor: pointer;
+	border: 1px solid var(--vscode-button-secondaryBorder);
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	transition: background-color 0.1s ease;
+	font-family: var(--vscode-font-family);
+	font-size: 13px;
+}
+
+.quick-action-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.quick-action-button .codicon {
+	margin-right: 8px;
 }
 
 .loading-indicator {
