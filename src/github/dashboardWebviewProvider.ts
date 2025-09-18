@@ -271,11 +271,140 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private async switchToLocalTask(branchName: string): Promise<void> {
+		// Switch to the branch first
 		await this._taskManager.switchToLocalTask(branchName);
+
+		// Open the combined diff view for all changes in the branch
+		await this.openBranchDiffView(branchName);
+
 		// Update dashboard to reflect current branch change
 		setTimeout(() => {
 			this.updateDashboard();
 		}, 500);
+	}
+
+	private async openBranchDiffView(branchName: string): Promise<void> {
+		try {
+			// Find the folder manager that has this branch
+			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.gitHubRepositories.length > 0
+			);
+
+			if (!folderManager) {
+				vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
+				return;
+			}
+
+			// Get the base branch (usually main or master)
+			const baseBranch = await this.getDefaultBranch(folderManager) || 'main';
+
+			// Use git to get the list of changed files
+			const changedFiles = await this.getChangedFilesInBranch(folderManager, branchName, baseBranch);
+
+			if (changedFiles.length === 0) {
+				vscode.window.showInformationMessage(`No changes found in branch ${branchName}`);
+				return;
+			}
+
+			// Open the first changed file using the existing openDiff pattern
+			// if (changedFiles.length > 0) {
+			// 	const firstFile = changedFiles[0];
+			// 	await this.openFileInDiffView(folderManager, firstFile, branchName, baseBranch);
+			// }
+
+			// Position chat to the right
+			await vscode.commands.executeCommand('workbench.action.chat.open', {
+				location: vscode.ViewColumn.Two
+			});
+
+			// Show info about other changed files
+			if (changedFiles.length > 1) {
+				const otherFiles = changedFiles.slice(1);
+				const action = await vscode.window.showInformationMessage(
+					`Showing 1 of ${changedFiles.length} changed files. ${otherFiles.length} more files changed.`,
+					'Show All Changes'
+				);
+
+				if (action === 'Show All Changes') {
+					// Open file explorer focused on the changed files
+					await vscode.commands.executeCommand('workbench.view.explorer');
+				}
+			}
+
+		} catch (error) {
+			Logger.error(`Failed to open branch diff view: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage(`Failed to open diff view for branch ${branchName}: ${error}`);
+		}
+	}
+
+	private async getDefaultBranch(folderManager: FolderRepositoryManager): Promise<string | undefined> {
+		try {
+			// Try to get the default branch from the repository
+			if (folderManager.repository.getRefs) {
+				const refs = await folderManager.repository.getRefs({ pattern: 'refs/remotes/origin' });
+				const defaultRef = refs.find(ref => ref.name === 'refs/remotes/origin/main') ||
+					refs.find(ref => ref.name === 'refs/remotes/origin/master');
+				return defaultRef?.name?.split('/').pop();
+			}
+			return undefined;
+		} catch (error) {
+			Logger.debug(`Failed to get default branch: ${error}`, DashboardWebviewProvider.ID);
+			return undefined;
+		}
+	}
+
+	private async getChangedFilesInBranch(folderManager: FolderRepositoryManager, branchName: string, baseBranch: string): Promise<string[]> {
+		try {
+			// Use the repository's git interface to get changed files
+			const repository = folderManager.repository;
+
+			// Get the diff between base and target branch
+			const diff = await repository.diffBetween('refs/heads/' + baseBranch, 'refs/heads/' + branchName);
+			// Extract file paths from the diff
+			return diff.map(change => change.uri.fsPath);
+
+
+		} catch (error) {
+			Logger.debug(`Failed to get changed files via API: ${error}`, DashboardWebviewProvider.ID);
+		}
+
+		// Fallback: try to get changes using git status if on the branch
+		try {
+			const repository = folderManager.repository;
+			const changes = repository.state.workingTreeChanges.concat(repository.state.indexChanges);
+			return changes.map(change => change.uri.fsPath);
+		} catch (fallbackError) {
+			Logger.debug(`Fallback failed: ${fallbackError}`, DashboardWebviewProvider.ID);
+			return [];
+		}
+	}
+
+	private async openFileInDiffView(folderManager: FolderRepositoryManager, filePath: string, branchName: string, baseBranch: string): Promise<void> {
+		try {
+			// Create URIs for the base and head versions of the file
+			const baseUri = vscode.Uri.file(filePath).with({
+				scheme: 'git',
+				query: `${baseBranch}`
+			});
+			const headUri = vscode.Uri.file(filePath).with({
+				scheme: 'git',
+				query: branchName
+			});
+
+			// Use the same openDiff pattern as FileChangeNode
+			const fileName = filePath.split('/').pop() || filePath;
+			await vscode.commands.executeCommand(
+				'vscode.diff',
+				baseUri,
+				headUri,
+				`${fileName} (${baseBranch} ↔ ${branchName})`,
+				{ viewColumn: vscode.ViewColumn.One }
+			);
+
+		} catch (error) {
+			Logger.error(`Failed to open file in diff view: ${error}`, DashboardWebviewProvider.ID);
+			throw error;
+		}
 	}
 
 	private async getMilestoneIssues(): Promise<IssueData[]> {
