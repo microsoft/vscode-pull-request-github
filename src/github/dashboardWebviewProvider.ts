@@ -438,6 +438,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 			case 'switch-to-local-task':
 				await this.switchToLocalTask(message.args?.branchName);
 				break;
+			case 'start-remote-agent':
+				await this.startRemoteAgent(message.args?.issue);
+				break;
 			default:
 				await super._onDidReceiveMessage(message);
 				break;
@@ -905,6 +908,37 @@ export class DashboardWebviewProvider extends WebviewBase {
 			} catch (fallbackError) {
 				vscode.window.showErrorMessage('Failed to open pull request.');
 			}
+		}
+	}
+
+	private async startRemoteAgent(issueData: any): Promise<void> {
+		if (!issueData || !issueData.url) {
+			return;
+		}
+
+		try {
+			// Parse the issue URL to get owner, repo, and issue number
+			const urlMatch = issueData.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/);
+			if (urlMatch) {
+				const [, owner, repo, issueNumberStr] = urlMatch;
+				const issueNumber = parseInt(issueNumberStr, 10);
+
+				// Find the folder manager for this repository
+				for (const folderManager of this._repositoriesManager.folderManagers) {
+					const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
+					if (issueModel) {
+						// Use the new side-by-side command
+						await vscode.commands.executeCommand('issue.openIssueAndCodingAgentSideBySide', issueModel);
+						return;
+					}
+				}
+			}
+
+			// If we can't resolve the issue locally, show an error
+			vscode.window.showErrorMessage('Unable to start remote agent session. Issue not found in local workspace.');
+		} catch (error) {
+			Logger.error(`Failed to start remote agent: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage('Failed to start remote agent session.');
 		}
 	}
 
