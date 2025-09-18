@@ -2,14 +2,15 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { render } from 'react-dom';
 import { ChatInput } from './components/ChatInput';
 import { EmptyState } from './components/EmptyState';
+import { GlobalSessionItem } from './components/GlobalSessionItem';
 import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
+import { RecentProjects } from './components/RecentProjects';
 import { SessionItem } from './components/SessionItem';
 import { SortDropdown } from './components/SortDropdown';
 import { DashboardState, extractMilestoneFromQuery, IssueData, SessionData, vscode } from './types';
@@ -140,14 +141,18 @@ function Dashboard() {
 	}, [dashboardState]);
 
 	// Derived state from discriminated union
-	const issueQuery = dashboardState?.issueQuery || '';
-	const milestoneIssues = dashboardState?.state === 'ready' ? dashboardState.milestoneIssues : [];
+	const isGlobal = dashboardState && (dashboardState as any).isGlobal === true;
+	const issueQuery = !isGlobal && dashboardState ? (dashboardState as any).issueQuery || '' : '';
+	const milestoneIssues = !isGlobal && dashboardState?.state === 'ready' ? (dashboardState as any).milestoneIssues : [];
 	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
+	const recentProjects = isGlobal && dashboardState?.state === 'ready' ? (dashboardState as any).recentProjects : [];
 
 	return (
-		<div className="dashboard-container">
+		<div className={`dashboard-container${isGlobal ? ' global-dashboard' : ''}`}>
 			<div className="dashboard-header">
-				<h1 className="dashboard-title">My Tasks</h1>
+				<h1 className="dashboard-title">
+					{isGlobal ? 'Visual Studio Code - Insiders' : 'My Tasks'}
+				</h1>
 				<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
 					{refreshing ? (
 						<span className="codicon codicon-sync codicon-modifier-spin"></span>
@@ -161,53 +166,62 @@ function Dashboard() {
 				{/* Input Area */}
 				<div className="input-area">
 					<h2 className="area-header">Start new task</h2>
-					<ChatInput data={dashboardState} />
+					<ChatInput data={dashboardState} isGlobal={!!isGlobal} />
+
 				</div>
 
-				{/* Issues List Area */}
+				{/* Issues/Projects Area */}
 				<div className="issues-area">
-					<h3
-						className="area-header milestone-header"
-						title={`Issue Query: ${issueQuery}`}
-					>
-						{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
-					</h3>
+					{isGlobal ? (
+						<>
+							<RecentProjects projects={recentProjects} />
+						</>
+					) : (
+						<>
+							<h3
+								className="area-header milestone-header"
+								title={`Issue Query: ${issueQuery}`}
+							>
+								{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
+							</h3>
 
-					{dashboardState?.state === 'ready' && (
-						<div className="section-header">
-							<div className="section-count">
-								{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
-							</div>
-							<SortDropdown
-								issueSort={issueSort}
-								onSortChange={setIssueSort}
-							/>
-						</div>
-					)}
-					<div className="area-content">
-						{dashboardState?.state === 'loading' ? (
-							<LoadingState message="Loading issues..." />
-						) : dashboardState?.state === 'ready' && !milestoneIssues.length ? (
-							<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
-						) : dashboardState?.state === 'ready' ? (
-							getSortedIssues(milestoneIssues).map((issue) => {
-								const associatedSession = findAssociatedSession(issue);
-								return (
-									<IssueItem
-										key={issue.number}
-										issue={issue}
-										onIssueClick={handleIssueClick}
-										onStartRemoteAgent={handleStartRemoteAgent}
-										associatedSession={associatedSession}
-										onSessionClick={handleSessionClick}
-										onPullRequestClick={handlePullRequestClick}
-										onHover={() => setHoveredIssue(issue)}
-										onHoverEnd={() => setHoveredIssue(null)}
+							{dashboardState?.state === 'ready' && (
+								<div className="section-header">
+									<div className="section-count">
+										{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
+									</div>
+									<SortDropdown
+										issueSort={issueSort}
+										onSortChange={setIssueSort}
 									/>
-								);
-							})
-						) : null}
-					</div>
+								</div>
+							)}
+							<div className="area-content">
+								{dashboardState?.state === 'loading' ? (
+									<LoadingState message="Loading issues..." />
+								) : dashboardState?.state === 'ready' && !milestoneIssues.length ? (
+									<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
+								) : dashboardState?.state === 'ready' ? (
+									getSortedIssues(milestoneIssues).map((issue) => {
+										const associatedSession = findAssociatedSession(issue);
+										return (
+											<IssueItem
+												key={issue.number}
+												issue={issue}
+												onIssueClick={handleIssueClick}
+												onStartRemoteAgent={handleStartRemoteAgent}
+												associatedSession={associatedSession}
+												onSessionClick={handleSessionClick}
+												onPullRequestClick={handlePullRequestClick}
+												onHover={() => setHoveredIssue(issue)}
+												onHoverEnd={() => setHoveredIssue(null)}
+											/>
+										);
+									})
+								) : null}
+							</div>
+						</>
+					)}
 				</div>
 
 				{/* Tasks Area */}
@@ -224,16 +238,26 @@ function Dashboard() {
 						) : dashboardState?.state === 'ready' && !activeSessions.length ? (
 							<EmptyState message="No active tasks found" />
 						) : dashboardState?.state === 'ready' ? (
-							activeSessions.map((session, index) => (
-								<SessionItem
-									key={session.id}
-									session={session}
-									index={index}
-									onSessionClick={() => handleSessionClick(session)}
-									onPullRequestClick={handlePullRequestClick}
-									isHighlighted={hoveredIssue !== null && isSessionAssociatedWithIssue(session, hoveredIssue)}
-								/>
-							))
+							activeSessions.map((session, index) =>
+								isGlobal ? (
+									<GlobalSessionItem
+										key={session.id}
+										session={session}
+										index={index}
+										onSessionClick={() => handleSessionClick(session)}
+										onPullRequestClick={handlePullRequestClick}
+									/>
+								) : (
+									<SessionItem
+										key={session.id}
+										session={session}
+										index={index}
+										onSessionClick={() => handleSessionClick(session)}
+										onPullRequestClick={handlePullRequestClick}
+										isHighlighted={hoveredIssue !== null && isSessionAssociatedWithIssue(session, hoveredIssue)}
+									/>
+								)
+							)
 						) : null}
 					</div>
 				</div>

@@ -38,6 +38,9 @@ export class GitHubTasksEditorProvider implements vscode.CustomTextEditorProvide
 			localResourceRoots: [this._context.extensionUri]
 		};
 
+		// Check if this is a global dashboard (file named global.github-tasks)
+		const isGlobal = document.uri.path.endsWith('global.github-tasks');
+
 		// Parse the document content
 		let tasksDocument: GitHubTasksDocument;
 		try {
@@ -49,7 +52,7 @@ export class GitHubTasksEditorProvider implements vscode.CustomTextEditorProvide
 			vscode.window.showWarningMessage('Invalid GitHub tasks file format. Using default settings.');
 		}
 
-		// Create dashboard webview with the parsed query and repos
+		// Create dashboard webview with the parsed query, repos, and global flag
 		const dashboardProvider = new DashboardWebviewProvider(
 			this._context,
 			this._repositoriesManager,
@@ -58,7 +61,8 @@ export class GitHubTasksEditorProvider implements vscode.CustomTextEditorProvide
 			this._context.extensionUri,
 			webviewPanel,
 			tasksDocument.issueQuery ?? GitHubTasksEditorProvider.getDefaultIssueQuery(),
-			tasksDocument.repos
+			tasksDocument.repos,
+			isGlobal
 		);
 
 		// Listen for document changes

@@ -18,6 +18,8 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import React, { useCallback, useEffect, useState } from 'react';
 import { DashboardState, vscode } from '../types';
+import { GlobalInstructions } from './GlobalInstructions';
+import { QuickActions } from './QuickActions';
 
 const inputLanguageId = 'taskInput';
 
@@ -140,10 +142,11 @@ function setupMonaco() {
 
 
 interface ChatInputProps {
+	isGlobal: boolean;
 	readonly data: DashboardState | null;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 	const [chatInput, setChatInput] = useState('');
 	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 
@@ -241,7 +244,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 		suggestionDataSource = data;
 	}, [data]);
 
-	return (
+	return <>
 		<div className="chat-section">
 			<div className="monaco-input-wrapper">
 				<Editor
@@ -305,27 +308,39 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data }) => {
 					<span className="codicon codicon-send"></span>
 				</button>
 			</div>
-
-			<div className="quick-actions">
-				<div
-					className="quick-action-button"
-					onClick={() => handleQuickAction('@copilot ')}
-					title="Start remote GitHub agent - works in background and creates a PR"
-				>
-					<span className="codicon codicon-robot"></span>
-					<span>Start background task on GitHub</span>
-				</div>
-				<div
-					className="quick-action-button"
-					onClick={() => handleQuickAction('@local ')}
-					title="Create new branch and work locally with chat assistance"
-				>
-					<span className="codicon codicon-device-desktop"></span>
-					<span>Start local task</span>
-				</div>
-			</div>
 		</div>
-	);
+
+		{isGlobal && <GlobalInstructions />}
+
+		<div className="quick-actions">
+			{!isGlobal && (
+				<>
+					<div
+						className="quick-action-button"
+						onClick={() => handleQuickAction('@copilot ')}
+						title="Start remote GitHub agent - works in background and creates a PR"
+					>
+						<span className="codicon codicon-robot"></span>
+						<span>Start background task on GitHub</span>
+					</div>
+					<div
+						className="quick-action-button"
+						onClick={() => handleQuickAction('@local ')}
+						title="Create new branch and work locally with chat assistance"
+					>
+						<span className="codicon codicon-device-desktop"></span>
+						<span>Start local task</span>
+					</div>
+				</>
+			)}
+
+			{isGlobal && (
+				<>
+					<QuickActions />
+				</>
+			)}
+		</div>
+	</>;
 };
 
 // Helper function to detect @copilot syntax

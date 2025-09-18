@@ -12,6 +12,7 @@ export interface SessionData {
 	readonly isTemporary?: boolean;
 	readonly isLocal?: boolean;
 	readonly branchName?: string;
+	readonly repository?: string; // For global dashboard - which repo this session belongs to
 	readonly pullRequest?: {
 		readonly number: number;
 		readonly title: string;
@@ -30,7 +31,13 @@ export interface IssueData {
 	readonly updatedAt: string;
 }
 
-export type DashboardState = DashboardLoading | DashboardReady;
+export interface ProjectData {
+	readonly name: string;
+	readonly path: string;
+	readonly lastOpened: string;
+}
+
+export type DashboardState = DashboardLoading | DashboardReady | GlobalDashboardLoading | GlobalDashboardReady;
 
 export interface DashboardLoading {
 	readonly state: 'loading';
@@ -42,6 +49,18 @@ export interface DashboardReady {
 	readonly issueQuery: string;
 	readonly activeSessions: readonly SessionData[];
 	readonly milestoneIssues: readonly IssueData[];
+}
+
+export interface GlobalDashboardLoading {
+	readonly state: 'loading';
+	readonly isGlobal: true;
+}
+
+export interface GlobalDashboardReady {
+	readonly state: 'ready';
+	readonly isGlobal: true;
+	readonly activeSessions: readonly SessionData[];
+	readonly recentProjects: readonly ProjectData[];
 }
 
 // eslint-disable-next-line rulesdir/no-any-except-union-method-signature

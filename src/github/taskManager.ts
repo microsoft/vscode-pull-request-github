@@ -19,6 +19,7 @@ export interface SessionData {
 	isTemporary?: boolean;
 	isLocal?: boolean;
 	branchName?: string;
+	repository?: string; // For global dashboard - which repo this session belongs to
 	pullRequest?: {
 		number: number;
 		title: string;
@@ -78,14 +79,81 @@ export class TaskManager {
 			});
 		} catch (error) {
 			Logger.error(`Failed to get active sessions: ${error}`, TaskManager.ID);
-			// Still return temporary sessions and local tasks even if remote sessions fail
-			try {
-				const localTasks = await this.getLocalTasks();
-				return [...Array.from(this._temporarySessions.values()), ...localTasks];
-			} catch {
-				return Array.from(this._temporarySessions.values());
-			}
+			return [];
 		}
+	}
+
+	/**
+	 * Gets all active sessions from all repositories (for global dashboard)
+	 */
+	public async getAllSessions(): Promise<SessionData[]> {
+		try {
+			// Get all repositories instead of filtering by target repos
+			const allRepos: string[] = [];
+
+			// Collect all repo identifiers from all folder managers
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				for (const githubRepository of folderManager.gitHubRepositories) {
+					const repoId = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
+					if (!allRepos.includes(repoId)) {
+						allRepos.push(repoId);
+					}
+				}
+			}
+
+			// Get sessions from all repositories
+			const [remoteSessions, localTasks] = await Promise.all([
+				this.getRemoteSessions(allRepos),
+				this.getLocalTasks()
+			]);
+
+			// Enhance remote sessions with repository information
+			const enhancedRemoteSessions = remoteSessions.map(session => ({
+				...session,
+				repository: this.extractRepositoryFromSession(session)
+			}));
+
+			// Combine and deduplicate
+			const sessionMap = new Map<string, SessionData>();
+
+			// Add enhanced remote sessions
+			for (const session of enhancedRemoteSessions) {
+				sessionMap.set(session.id, session);
+			}
+
+			// Add local tasks
+			for (const task of localTasks) {
+				sessionMap.set(task.id, task);
+			}
+
+			// Add temporary sessions
+			for (const [id, tempSession] of this._temporarySessions) {
+				sessionMap.set(id, tempSession);
+			}
+
+			// Sort sessions so temporary ones appear first, then by date
+			const allSessions = Array.from(sessionMap.values());
+			return allSessions.sort((a, b) => {
+				// Temporary sessions first
+				if (a.isTemporary && !b.isTemporary) return -1;
+				if (!a.isTemporary && b.isTemporary) return 1;
+				// Then current branch sessions
+				if (a.isCurrentBranch && !b.isCurrentBranch) return -1;
+				if (!a.isCurrentBranch && b.isCurrentBranch) return 1;
+				// Then sort by date (newest first)
+				return new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime();
+			});
+		} catch (error) {
+			Logger.error(`Failed to get all sessions: ${error}`, TaskManager.ID);
+			return [];
+		}
+	}
+
+	private extractRepositoryFromSession(session: SessionData): string | undefined {
+		// Try to extract repository name from session title or other metadata
+		// This is a simple heuristic - in a real implementation, this might be stored with the session
+		const titleMatch = session.title.match(/(\w+\/\w+)/);
+		return titleMatch ? titleMatch[1] : undefined;
 	}
 
 	/**
@@ -300,6 +368,9 @@ export class TaskManager {
 				// Create a fresh chat session and open with ask mode
 				progress.report({ message: 'Opening chat session...', increment: 90 });
 				await vscode.commands.executeCommand('workbench.action.chat.newChat');
+
+				await new Promise<void>(resolve => setTimeout(resolve, 500));
+
 				await vscode.commands.executeCommand('workbench.action.chat.open', {
 					query,
 					mode: 'agent'
