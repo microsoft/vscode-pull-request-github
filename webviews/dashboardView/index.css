@@ -268,7 +268,7 @@ body {
 	overflow-y: auto;
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 4px;
-	margin-top: 4px;
+	margin-top: 8px;
 	padding: 0;
 }
 
@@ -401,7 +401,7 @@ body {
 	justify-content: space-between;
 	flex-wrap: wrap;
 	gap: 8px;
-	font-size: 12px;
+	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
 }
 
@@ -413,6 +413,15 @@ body {
 
 .metadata-item .codicon {
 	margin-right: 2px;
+}
+
+.metadata-item.status-and-date {
+	gap: 8px;
+}
+
+.metadata-item.status-and-date .session-date {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
 }
 
 .status-badge {
@@ -737,10 +746,6 @@ body {
 	color: var(--vscode-descriptionForeground);
 	padding: 24px;
 	font-style: italic;
-}
-
-.quick-actions {
-	margin-top: 8px;
 }
 
 .quick-action-button {

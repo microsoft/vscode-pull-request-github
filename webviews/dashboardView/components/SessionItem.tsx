@@ -65,7 +65,7 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 			</div>
 			<div className="item-metadata">
 				{(session.isTemporary || !session.isLocal) && (
-					<div className="metadata-item">
+					<div className="metadata-item status-and-date">
 						{session.isTemporary ? (
 							<span className="status-badge status-creating">
 								<span className="codicon codicon-loading codicon-modifier-spin"></span>
@@ -82,11 +82,14 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 								{formatStatus(session.status, index)}
 							</span>
 						)}
+						<span className="session-date" title={formatFullDateTime(session.dateCreated)}>{formatDate(session.dateCreated)}</span>
 					</div>
 				)}
-				<div className="metadata-item">
-					<span title={formatFullDateTime(session.dateCreated)}>{formatDate(session.dateCreated)}</span>
-				</div>
+				{session.isLocal && (
+					<div className="metadata-item">
+						<span title={formatFullDateTime(session.dateCreated)}>{formatDate(session.dateCreated)}</span>
+					</div>
+				)}
 				{session.isLocal && session.branchName && (
 					<div className="metadata-item">
 						<span className="codicon codicon-git-branch"></span>
