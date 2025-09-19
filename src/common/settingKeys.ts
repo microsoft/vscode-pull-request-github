@@ -18,6 +18,7 @@ export const PULL_BRANCH = 'pullBranch';
 export const PULL_REQUEST_DESCRIPTION = 'pullRequestDescription';
 export const NOTIFICATION_SETTING = 'notifications';
 export const POST_CREATE = 'postCreate';
+export const POST_DONE = 'postDone';
 export const QUERIES = 'queries';
 export const PULL_REQUEST_LABELS = 'labelCreated';
 export const FOCUSED_MODE = 'focusedMode';
