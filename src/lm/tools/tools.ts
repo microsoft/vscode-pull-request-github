@@ -20,6 +20,7 @@ import { ConvertToSearchSyntaxTool, SearchTool } from './searchTools';
 import { SuggestFixTool } from './suggestFixTool';
 import { IssueSummarizationTool } from './summarizeIssueTool';
 import { NotificationSummarizationTool } from './summarizeNotificationsTool';
+import { UpdateQueryTool } from './updateQueryTool';
 
 export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState, copilotRemoteAgentManager: CopilotRemoteAgentManager, telemetry: ITelemetry) {
 	registerFetchingTools(context, credentialStore, repositoriesManager, chatParticipantState);
@@ -27,6 +28,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerCopilotAgentTools(context, copilotRemoteAgentManager, telemetry);
+	registerUpdateQueryTool(context);
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager, copilotRemoteAgentManager)));
 	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager, copilotRemoteAgentManager)));
 }
@@ -53,4 +55,8 @@ function registerSearchTools(context: vscode.ExtensionContext, credentialStore: 
 	context.subscriptions.push(vscode.lm.registerTool(ConvertToSearchSyntaxTool.toolId, new ConvertToSearchSyntaxTool(credentialStore, repositoriesManager, chatParticipantState)));
 	context.subscriptions.push(vscode.lm.registerTool(SearchTool.toolId, new SearchTool(credentialStore, repositoriesManager, chatParticipantState)));
 	context.subscriptions.push(vscode.lm.registerTool(DisplayIssuesTool.toolId, new DisplayIssuesTool(context, chatParticipantState)));
+}
+
+function registerUpdateQueryTool(context: vscode.ExtensionContext) {
+	context.subscriptions.push(vscode.lm.registerTool(UpdateQueryTool.toolId, new UpdateQueryTool()));
 }
