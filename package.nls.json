@@ -202,7 +202,6 @@
 	"command.pr.checkoutByNumber.title": "Checkout Pull Request by Number",
 	"command.review.openFile.title": "Open File",
 	"command.review.openLocalFile.title": "Open File",
-	"command.review.suggestDiff.title": "Suggest Edit",
 	"command.review.approve.title": "Approve",
 	"command.review.comment.title": "Comment",
 	"command.review.requestChanges.title": "Request Changes",
