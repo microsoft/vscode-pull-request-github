@@ -55,7 +55,6 @@ function setupMonaco() {
 			root: [
 				[/@(copilot|local)\b/, 'copilot-keyword'],
 				[/#\d+/, 'issue-reference'],
-				[/.*/, 'text']
 			]
 		}
 	});
