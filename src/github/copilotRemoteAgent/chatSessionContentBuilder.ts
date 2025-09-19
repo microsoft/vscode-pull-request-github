@@ -270,6 +270,10 @@ export class ChatSessionContentBuilder {
 			let currentResponseContent = '';
 
 			for (const chunk of logChunks) {
+				if (!chunk.choices || !Array.isArray(chunk.choices)) {
+					continue;
+				}
+
 				for (const choice of chunk.choices) {
 					const delta = choice.delta;
 					if (delta.role === 'assistant') {
