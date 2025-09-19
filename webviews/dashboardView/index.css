@@ -268,7 +268,7 @@ body {
 	overflow-y: auto;
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 4px;
-	margin-top: 8px;
+	margin-top: 4px;
 	padding: 0;
 }
 

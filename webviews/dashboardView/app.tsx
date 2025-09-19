@@ -202,7 +202,7 @@ function Dashboard() {
 			<div className={`dashboard-content${isGlobal ? ' global-dashboard' : ''}`}>
 				{/* Input Area */}
 				<div className="input-area">
-					<h2 className="area-header">Start new task</h2>
+					<h2 className="area-header new-task">Start new task</h2>
 					<ChatInput data={dashboardState} isGlobal={!!isGlobal} />
 
 				</div>
@@ -265,7 +265,13 @@ function Dashboard() {
 				{/* Tasks Area */}
 				<div className="tasks-area">
 					<div className="area-header-container">
-						<h2 className="area-header">{isGlobal ? 'Continue working on...' : 'Active tasks'}</h2>
+						<h2 className="area-header">
+							{isGlobal ? 'Continue working on...' :
+								dashboardState?.state === 'ready' ?
+									`${activeSessions.length || 0} active task${activeSessions.length !== 1 ? 's' : ''}` :
+									'Active tasks'
+							}
+						</h2>
 						{isGlobal && (
 							<FilterButton
 								filterState={globalFilter}
@@ -273,11 +279,6 @@ function Dashboard() {
 							/>
 						)}
 					</div>
-					{dashboardState?.state === 'ready' && (
-						<div className="section-count">
-							{activeSessions.length || 0} task{activeSessions.length !== 1 ? 's' : ''}
-						</div>
-					)}
 					<div className="area-content">
 						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading tasks..." />
