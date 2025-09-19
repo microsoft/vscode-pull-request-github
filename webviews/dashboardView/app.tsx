@@ -39,7 +39,7 @@ function Dashboard() {
 	const [refreshing, setRefreshing] = useState(false);
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest'>('date-oldest');
 	const [hoveredIssue, setHoveredIssue] = useState<IssueData | null>(null);
-		const [globalFilter, setGlobalFilter] = useState<FilterState>({ showTasks: true, showProjects: true });
+	const [globalFilter, setGlobalFilter] = useState<FilterState>({ showTasks: true, showProjects: true });
 
 	useEffect(() => {
 		// Listen for messages from the extension

@@ -67,7 +67,6 @@ function setupMonaco() {
 		rules: [
 			{ token: 'copilot-keyword', foreground: '569cd6', fontStyle: 'bold' },
 			{ token: 'issue-reference', foreground: 'ffd700' },
-			{ token: 'text', foreground: 'cccccc' }
 		],
 		colors: {}
 	});
