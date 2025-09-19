@@ -538,6 +538,8 @@ body {
 .chat-section {
 	margin-top: 4px;
 	max-height: 30vh;
+	border-radius: 2px;
+	border: 1px solid var(--vscode-panel-border);
 }
 
 .chat-input-wrapper {
