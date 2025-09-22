@@ -30,9 +30,13 @@ export class ChatSessionContentBuilder {
 		capi: CopilotApi,
 		timelineEventsPromise: Promise<TimelineEvent[]>
 	): Promise<Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2>> {
-		const sortedSessions = sessions.slice().sort((a, b) =>
-			new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-		);
+		const sortedSessions = sessions
+			.filter((session, index, array) =>
+				array.findIndex(s => s.id === session.id) === index
+			)
+			.slice().sort((a, b) =>
+				new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+			);
 
 		// Process all sessions concurrently while maintaining order
 		const sessionResults = await Promise.all(
