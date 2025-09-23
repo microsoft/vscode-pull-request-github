@@ -19,24 +19,27 @@ export class OpenPullRequestTool extends PullRequestTool {
 			return panelPR;
 		}
 
-		// Check if the active file is a diff view or multidiff view showing PR content
-		const activeEditor = vscode.window.activeTextEditor;
-		if (activeEditor?.document.uri) {
-			const uri = activeEditor.document.uri;
+		// Check if the active tab is a diff editor showing PR content
+		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		if (activeTab?.input instanceof vscode.TabInputTextDiff) {
+			const diffInput = activeTab.input;
+			const urisToCheck = [diffInput.original, diffInput.modified];
 
-			if (uri.scheme === Schemes.Pr) {
-				// This is a PR diff from GitHub
-				const prParams = fromPRUri(uri);
-				if (prParams) {
-					return this._findPullRequestByNumber(prParams.prNumber, prParams.remoteName);
-				}
-			} else if (uri.scheme === Schemes.Review) {
-				// This is a review diff from a checked out PR
-				const reviewParams = fromReviewUri(uri.query);
-				if (reviewParams) {
-					// For review scheme, find the active/checked out PR
-					const folderManager = this.folderManagers.folderManagers.find(manager => manager.activePullRequest);
-					return folderManager?.activePullRequest;
+			for (const uri of urisToCheck) {
+				if (uri.scheme === Schemes.Pr) {
+					// This is a PR diff from GitHub
+					const prParams = fromPRUri(uri);
+					if (prParams) {
+						return this._findPullRequestByNumber(prParams.prNumber, prParams.remoteName);
+					}
+				} else if (uri.scheme === Schemes.Review) {
+					// This is a review diff from a checked out PR
+					const reviewParams = fromReviewUri(uri.query);
+					if (reviewParams) {
+						// For review scheme, find the active/checked out PR
+						const folderManager = this.folderManagers.folderManagers.find(manager => manager.activePullRequest);
+						return folderManager?.activePullRequest;
+					}
 				}
 			}
 		}
