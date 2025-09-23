@@ -920,7 +920,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-				const prLinkTitle = vscode.l10n.t('Click to open this pull request in VS Code');
+				const prLinkTitle = vscode.l10n.t('Open pull request in VS Code');
 				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
