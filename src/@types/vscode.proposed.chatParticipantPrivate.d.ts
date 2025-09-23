@@ -56,11 +56,6 @@ declare module 'vscode' {
 		readonly attempt: number;
 
 		/**
-		 * The session identifier for this chat request
-		 */
-		readonly sessionId: string;
-
-		/**
 		 * If automatic command detection is enabled.
 		 */
 		readonly enableCommandDetection: boolean;
