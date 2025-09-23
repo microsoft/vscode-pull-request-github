@@ -36,8 +36,9 @@ export class OpenPullRequestTool extends PullRequestTool {
 					// This is a review diff from a checked out PR
 					const reviewParams = fromReviewUri(uri.query);
 					if (reviewParams) {
-						// For review scheme, find the active/checked out PR
-						const folderManager = this.folderManagers.folderManagers.find(manager => manager.activePullRequest);
+						// For review scheme, find the folder manager based on the root path
+						const rootUri = vscode.Uri.file(reviewParams.rootPath);
+						const folderManager = this.folderManagers.getManagerForFile(rootUri);
 						return folderManager?.activePullRequest;
 					}
 				}
