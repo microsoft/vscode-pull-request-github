@@ -465,7 +465,7 @@ export class FolderRepositoryManager extends Disposable {
 			// good
 		} else if ((enterpriseCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			// also good
-		} else if (isAuthenticated) {
+		} else if (isAuthenticated && ((dotComCount > 0) || (enterpriseCount > 0))) {
 			// Not good. We have a mismatch between auth type and server type.
 			isAuthenticated = false;
 		}

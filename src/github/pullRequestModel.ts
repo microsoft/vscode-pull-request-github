@@ -1164,11 +1164,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		});
 
-		this._onDidChangeReviewThreads.fire({
-			added,
-			changed,
-			removed,
-		});
+		if (added.length > 0 || changed.length > 0 || removed.length > 0) {
+			this._onDidChangeReviewThreads.fire({
+				added,
+				changed,
+				removed,
+			});
+		}
 	}
 
 	async initializeReviewThreadCacheAndReviewComments(): Promise<void> {
