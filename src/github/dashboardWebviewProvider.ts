@@ -26,6 +26,10 @@ export interface DashboardReady {
 	issueQuery: string;
 	activeSessions: SessionData[];
 	milestoneIssues: IssueData[];
+	repository?: {
+		owner: string;
+		name: string;
+	};
 }
 
 export interface GlobalDashboardLoading {
@@ -163,11 +167,23 @@ export class DashboardWebviewProvider extends WebviewBase {
 			}
 
 			const data = await this.getDashboardData();
+
+			// Get current repository info
+			let repository: { owner: string; name: string } | undefined;
+			const targetRepos = this.getTargetRepositories();
+			if (targetRepos.length > 0) {
+				const [owner, name] = targetRepos[0].split('/');
+				if (owner && name) {
+					repository = { owner, name };
+				}
+			}
+
 			const readyData: DashboardReady = {
 				state: 'ready',
 				issueQuery: this._issueQuery,
 				activeSessions: data.activeSessions,
-				milestoneIssues: data.milestoneIssues
+				milestoneIssues: data.milestoneIssues,
+				repository
 			};
 			this._postMessage({
 				command: 'update-dashboard',
@@ -567,6 +583,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 				break;
 			case 'start-remote-agent':
 				await this.startRemoteAgent(message.args?.issue);
+				break;
+			case 'open-external-url':
+				await vscode.env.openExternal(vscode.Uri.parse(message.args.url));
 				break;
 			default:
 				await super._onDidReceiveMessage(message);

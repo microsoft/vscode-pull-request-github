@@ -90,6 +90,18 @@ body {
 	margin-bottom: 8px;
 }
 
+/* Clickable count indicator */
+.section-count.clickable-count {
+	cursor: pointer;
+	transition: color 0.2s;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+}
+
+.section-count.clickable-count:hover {
+	color: var(--vscode-textLink-foreground);
+}
+
 /* Section header with count and sort dropdown */
 .section-header {
 	display: flex;

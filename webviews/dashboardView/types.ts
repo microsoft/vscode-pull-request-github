@@ -51,6 +51,10 @@ export interface DashboardReady {
 	readonly issueQuery: string;
 	readonly activeSessions: readonly SessionData[];
 	readonly milestoneIssues: readonly IssueData[];
+	readonly repository?: {
+		readonly owner: string;
+		readonly name: string;
+	};
 }
 
 export interface GlobalDashboardLoading {

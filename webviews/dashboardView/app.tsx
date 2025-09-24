@@ -13,7 +13,7 @@ import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
 import { SessionItem } from './components/SessionItem';
 import { SortDropdown } from './components/SortDropdown';
-import { DashboardState, extractMilestoneFromQuery, IssueData, ProjectData, SessionData, vscode } from './types';
+import { DashboardReady, DashboardState, extractMilestoneFromQuery, GlobalDashboardReady, IssueData, ProjectData, SessionData, vscode } from './types';
 
 export function main() {
 	render(<Dashboard />, document.getElementById('app'));
@@ -113,6 +113,24 @@ function Dashboard() {
 		});
 	}, []);
 
+	const handleIssueCountClick = useCallback(() => {
+		if (dashboardState?.state === 'ready' && !dashboardState.isGlobal) {
+			const readyState = dashboardState as DashboardReady;
+			const { owner, name } = readyState.repository || { owner: '', name: '' };
+
+			if (owner && name) {
+				const githubQuery = readyState.issueQuery;
+
+				const githubUrl = `https://github.com/${owner}/${name}/issues?q=${encodeURIComponent(githubQuery)}`;
+				// Open in external browser
+				vscode.postMessage({
+					command: 'open-external-url',
+					args: { url: githubUrl }
+				});
+			}
+		}
+	}, [dashboardState]);
+
 	// Sort issues based on selected option
 	const getSortedIssues = useCallback((issues: readonly IssueData[]) => {
 		if (!issues) return [];
@@ -149,12 +167,12 @@ function Dashboard() {
 		});
 	}, [dashboardState]);
 
-	// Derived state from discriminated union
+	// Derived state from discriminated union with proper type narrowing
 	const isGlobal = dashboardState?.isGlobal;
-	const issueQuery = dashboardState && !dashboardState.isGlobal ? (dashboardState.issueQuery || '') : '';
-	const milestoneIssues = !dashboardState?.isGlobal && dashboardState?.state === 'ready' && !dashboardState.isGlobal ? dashboardState.milestoneIssues : [];
+	const issueQuery = dashboardState && !dashboardState.isGlobal ? (dashboardState as DashboardReady).issueQuery || '' : '';
+	const milestoneIssues = dashboardState && !dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as DashboardReady).milestoneIssues : [];
 	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
-	const recentProjects = dashboardState?.isGlobal && dashboardState?.state === 'ready' && dashboardState.isGlobal ? dashboardState.recentProjects : [];
+	const recentProjects = dashboardState && dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as GlobalDashboardReady).recentProjects : [];
 
 	// For global dashboards, create a mixed array of sessions and projects
 	const mixedItems = isGlobal ? (() => {
@@ -244,7 +262,11 @@ function Dashboard() {
 								)}
 							</div>
 							{dashboardState?.state === 'ready' && (
-								<div className="section-count">
+								<div
+									className="section-count clickable-count"
+									onClick={handleIssueCountClick}
+									title="Click to open GitHub issues"
+								>
 									{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
 								</div>
 							)}

@@ -770,7 +770,7 @@
 				},
 				"githubIssues.taskDashboard.query": {
 					"type": "string",
-					"default": "is:open assignee:@me milestone:\"September 2025\"",
+					"default": "state:open assignee:@me milestone:\"September 2025\"",
 					"description": "The GitHub query to use for the task dashboard"
 				}
 			}
