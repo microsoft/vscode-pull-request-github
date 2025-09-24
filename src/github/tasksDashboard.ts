@@ -21,8 +21,6 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 	private readonly statusBarItem: vscode.StatusBarItem;
 
-	private readonly disposables: vscode.Disposable[] = [];
-
 	private readonly viewTitle = vscode.l10n.t('Tasks Dashboard');
 
 	constructor(
@@ -41,10 +39,7 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 		this.statusBarItem.show();
 
 		// Register webview panel serializer for tasks dashboard
-		this._register(vscode.window.registerWebviewPanelSerializer(
-			TasksDashboardManager.viewType,
-			this
-		));
+		this._register(vscode.window.registerWebviewPanelSerializer(TasksDashboardManager.viewType, this));
 	}
 
 	public override dispose() {
@@ -99,10 +94,9 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 			}
 		}));
 
-		// Listen for configuration changes
 		disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('githubIssues.taskDashboard.query')) {
-				const newQuery = vscode.workspace.getConfiguration('githubIssues').get<string>('taskDashboard.query') ?? TasksDashboardManager.getDefaultIssueQuery();
+				const newQuery = this.getIssueQuery();
 				dashboardProvider.updateConfiguration(newQuery, undefined);
 			}
 		}));
@@ -128,12 +122,12 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 		this.restoreDashboard(newWebviewPanel);
 	}
 
-	public getIssueQuery(): string {
+	private getIssueQuery(): string {
 		const config = vscode.workspace.getConfiguration('githubIssues');
-		return config.get<string>('taskDashboard.query') ?? TasksDashboardManager.getDefaultIssueQuery();
+		return config.get<string>('taskDashboard.query') ?? this.getDefaultIssueQuery();
 	}
 
-	private static getDefaultIssueQuery(): string {
+	private getDefaultIssueQuery(): string {
 		return 'is:open assignee:@me milestone:"September 2025"';
 	}
 }
