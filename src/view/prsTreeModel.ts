@@ -360,8 +360,9 @@ export class PrsTreeModel extends Disposable {
 
 	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
 		const cache = this.getFolderCache(folderRepoManager);
-		if (!update && cache.has(PRType.All) && !fetchNextPage) {
-			return cache.get(PRType.All)!.items;
+		const allCache = cache.get(PRType.All);
+		if (!update && allCache && !allCache.clearRequested && !fetchNextPage) {
+			return allCache.items;
 		}
 
 		const prs = await folderRepoManager.getPullRequests(
