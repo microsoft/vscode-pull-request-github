@@ -175,7 +175,7 @@
 	"view.github.active.pull.request.name": "Review Pull Request",
 	"view.github.active.pull.request.welcome.name": "Active Pull Request",
 	"command.pull.request.category": "GitHub Pull Requests",
-	"command.pr.openTasksDashboard.title": "Open Dashboard",
+	"command.pr.projectTasksDashboard.open.title": "Open Dashboard",
 	"command.pr.createDashboard.title": "Create Dashboard",
 	"customEditor.github.tasks.displayName": "GitHub Tasks Editor",
 	"command.githubpr.remoteAgent.title": "Remote agent integration",

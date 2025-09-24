@@ -4,141 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 /* eslint-disable import/no-unresolved */
 
-import Editor, { loader, Monaco } from '@monaco-editor/react';
+import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-// @ts-expect-error - Worker imports with ?worker suffix are handled by bundler
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-// @ts-expect-error - a
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-// @ts-expect-error - a
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-// @ts-expect-error - a
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-// @ts-expect-error - a
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import React, { useCallback, useEffect, useState } from 'react';
-import { DashboardReady, DashboardState, vscode } from '../types';
+import { DashboardState, vscode } from '../types';
 import { GlobalInstructions } from './GlobalInstructions';
+import { setupMonaco } from './monacoSupport';
 
-const inputLanguageId = 'taskInput';
-
-let suggestionDataSource: DashboardState | null = null;
-
-function setupMonaco() {
-	(self as any).MonacoEnvironment = {
-		getWorker(_: string, label: string): Worker {
-			if (label === 'json') {
-				return new jsonWorker();
-			}
-			if (label === 'css' || label === 'scss' || label === 'less') {
-				return new cssWorker();
-			}
-			if (label === 'html' || label === 'handlebars' || label === 'razor') {
-				return new htmlWorker();
-			}
-			if (label === 'typescript' || label === 'javascript') {
-				return new tsWorker();
-			}
-			return new editorWorker();
-		},
-	};
-
-	// Configure Monaco loader - use local monaco instance to avoid worker conflicts
-	loader.config({ monaco, });
-
-	// Register language for input
-	monaco.languages.register({ id: inputLanguageId });
-
-	// Define syntax highlighting rules
-	monaco.languages.setMonarchTokensProvider(inputLanguageId, {
-		tokenizer: {
-			root: [
-				[/@(copilot|local)\b/, 'copilot-keyword'],
-				[/#\d+/, 'issue-reference'],
-				[/\w+\/\w+#\d+/, 'issue-reference'],
-			]
-		}
-	});
-
-	// Define theme colors
-	monaco.editor.defineTheme('taskInputTheme', {
-		base: 'vs-dark',
-		inherit: true,
-		rules: [
-			{ token: 'copilot-keyword', foreground: '569cd6', fontStyle: 'bold' },
-			{ token: 'issue-reference', foreground: 'ffd700' },
-		],
-		colors: {}
-	});
-
-	// Setup autocomplete provider
-	monaco.languages.registerCompletionItemProvider(inputLanguageId, {
-		triggerCharacters: ['#', '@'],
-		provideCompletionItems: (model, position) => {
-			const textUntilPosition = model.getValueInRange({
-				startLineNumber: position.lineNumber,
-				startColumn: 1,
-				endLineNumber: position.lineNumber,
-				endColumn: position.column
-			});
-
-			// Check if user is typing after #
-			const hashMatch = textUntilPosition.match(/#\d*$/);
-			if (hashMatch) {
-				const suggestions = (suggestionDataSource?.state === 'ready' && !suggestionDataSource.isGlobal)
-					? (suggestionDataSource as DashboardReady).milestoneIssues.map((issue: any): monaco.languages.CompletionItem => ({
-						label: `#${issue.number}`,
-						kind: monaco.languages.CompletionItemKind.Reference,
-						insertText: `#${issue.number}`,
-						detail: issue.title,
-						documentation: `Issue #${issue.number}: ${issue.title}\nAssignee: ${issue.assignee || 'None'}\nMilestone: ${issue.milestone || 'None'}`,
-						range: {
-							startLineNumber: position.lineNumber,
-							startColumn: position.column - hashMatch[0].length,
-							endLineNumber: position.lineNumber,
-							endColumn: position.column
-						}
-					})) : [];
-
-				return { suggestions };
-			}
-
-			// Provide @copilot and @local suggestions
-			if (textUntilPosition.match(/@\w*$/)) {
-				return {
-					suggestions: [{
-						label: '@copilot',
-						kind: monaco.languages.CompletionItemKind.Keyword,
-						insertText: 'copilot ',
-						detail: 'Start a new remote Copilot task',
-						documentation: 'Begin a task description that will be sent to Copilot to work remotely on GitHub',
-						range: {
-							startLineNumber: position.lineNumber,
-							startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
-							endLineNumber: position.lineNumber,
-							endColumn: position.column
-						}
-					}, {
-						label: '@local',
-						kind: monaco.languages.CompletionItemKind.Keyword,
-						insertText: 'local ',
-						detail: 'Start a new local task',
-						documentation: 'Begin a task description that will create a new branch and work locally in your environment',
-						range: {
-							startLineNumber: position.lineNumber,
-							startColumn: Math.max(1, position.column - (textUntilPosition.match(/@\w*$/)?.[0]?.length || 0)),
-							endLineNumber: position.lineNumber,
-							endColumn: position.column
-						}
-					}]
-				};
-			}
-
-			return { suggestions: [] };
-		}
-	});
-}
-
+export let suggestionDataSource: DashboardState | null = null;
 
 interface ChatInputProps {
 	isGlobal: boolean;
@@ -412,25 +285,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onV
 								style={{ cursor: 'pointer' }}
 								onClick={() => handleAgentClick('@copilot ')}
 								title="Click to add @copilot to input"
-							>@copilot</code> to use GitHub Copilot.
+							>@copilot</code> to use GitHub Copilot
 						</p>
 					</div>
 				</div>
 			)}
-
-			{/* Removed QuickActions for global dashboards - moved to input area separator only */}
 		</div>
 	</>;
 };
-
 // Helper function to detect @copilot syntax
-const isCopilotCommand = (text: string): boolean => {
+function isCopilotCommand(text: string): boolean {
 	return text.trim().startsWith('@copilot');
-};
+}
 
 // Helper function to detect @local syntax
-const isLocalCommand = (text: string): boolean => {
+function isLocalCommand(text: string): boolean {
 	return text.trim().startsWith('@local');
-};
+}
 
 setupMonaco();

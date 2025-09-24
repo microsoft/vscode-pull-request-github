@@ -886,13 +886,6 @@
 		},
 		"commands": [
 			{
-				"command": "pr.openTasksDashboard",
-				"title": "%command.pr.openTasksDashboard.title%",
-				"category": "%command.pull.request.category%",
-				"icon": "$(dashboard)",
-				"when": "config.githubPullRequests.projectTasksDashboard.enabled"
-			},
-			{
 				"command": "githubpr.remoteAgent",
 				"title": "%command.githubpr.remoteAgent.title%",
 				"enablement": "config.githubPullRequests.codingAgent.enabled"
@@ -1809,6 +1802,13 @@
 				"command": "pr.cancelCodingAgent",
 				"title": "%command.pr.cancelCodingAgent.title%",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.projectTasksDashboard.open",
+				"title": "%command.pr.projectTasksDashboard.open.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(dashboard)",
+				"when": "config.githubPullRequests.projectTasksDashboard.enabled"
 			}
 		],
 		"languages": [

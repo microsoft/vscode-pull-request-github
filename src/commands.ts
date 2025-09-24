@@ -1132,7 +1132,7 @@ export function registerCommands(
 	));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openTasksDashboard', async () => {
+		vscode.commands.registerCommand('pr.projectTasksDashboard.open', async () => {
 			tasksDashboard.showOrCreateDashboard();
 		})
 	);

@@ -2,12 +2,11 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { render } from 'react-dom';
 import { ChatInput } from './components/ChatInput';
 import { EmptyState } from './components/EmptyState';
-import { FilterButton, FilterState } from './components/FilterButton';
 import { GlobalSessionItem } from './components/GlobalSessionItem';
 import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
@@ -19,27 +18,11 @@ export function main() {
 	render(<Dashboard />, document.getElementById('app'));
 }
 
-// Check if a session is associated with a specific issue
-function isSessionAssociatedWithIssue(session: SessionData, issue: IssueData): boolean {
-	if (session.isLocal) return false;
-
-	// Use the same logic as findAssociatedSession
-	const sessionTitle = session.title.toLowerCase();
-	const issueNumber = `#${issue.number}`;
-	const issueTitle = issue.title.toLowerCase();
-
-	// Match by issue number reference or similar title
-	return sessionTitle.includes(issueNumber) ||
-		sessionTitle.includes(issueTitle) ||
-		issueTitle.includes(sessionTitle);
-}
-
 function Dashboard() {
 	const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
 	const [refreshing, setRefreshing] = useState(false);
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest'>('date-oldest');
 	const [hoveredIssue, setHoveredIssue] = useState<IssueData | null>(null);
-	const [globalFilter, setGlobalFilter] = useState<FilterState>({ showTasks: true, showProjects: true });
 	const [chatInputValue, setChatInputValue] = useState('');
 	const [focusTrigger, setFocusTrigger] = useState(0);
 
@@ -185,74 +168,61 @@ function Dashboard() {
 	}, [dashboardState]);
 
 	// Derived state from discriminated union with proper type narrowing
-	const isGlobal = dashboardState?.isGlobal;
-	const issueQuery = dashboardState && !dashboardState.isGlobal ? (dashboardState as DashboardReady).issueQuery || '' : '';
-	const milestoneIssues = dashboardState && !dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as DashboardReady).milestoneIssues : [];
-	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
-	const recentProjects = dashboardState && dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as GlobalDashboardReady).recentProjects : [];
-	const currentBranch = dashboardState && !dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as DashboardReady).currentBranch : undefined;
+	const isGlobal = dashboardState?.isGlobal ?? false;
+	const isReady = dashboardState?.state === 'ready';
+
+	const readyState = (isReady && !isGlobal) ? dashboardState as DashboardReady : null;
+	const globalReadyState = (isReady && isGlobal) ? dashboardState as GlobalDashboardReady : null;
+
+	const issueQuery = readyState?.issueQuery || '';
+	const milestoneIssues = readyState?.milestoneIssues || [];
+	const activeSessions = isReady ? dashboardState.activeSessions : [];
+	const recentProjects = globalReadyState?.recentProjects || [];
+	const currentBranch = readyState?.currentBranch;
 
 	// For global dashboards, create a mixed array of sessions and projects
-	const mixedItems = isGlobal ? (() => {
+	const mixedItems = useMemo(() => {
+		if (!isGlobal) return [];
+
 		const mixed: Array<{ type: 'session', data: SessionData, index: number } | { type: 'project', data: ProjectData }> = [];
 
-		// Add sessions based on filter
-		if (globalFilter.showTasks) {
-			activeSessions.forEach((session, index) => {
-				mixed.push({ type: 'session', data: session, index });
-			});
+		activeSessions.forEach((session, index) => {
+			mixed.push({ type: 'session', data: session, index });
+		});
+
+		recentProjects.forEach((project: ProjectData) => {
+			mixed.push({ type: 'project', data: project });
+		});
+
+		// Simple shuffle algorithm
+		for (let i = mixed.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[mixed[i], mixed[j]] = [mixed[j], mixed[i]];
 		}
 
-		// Add projects based on filter
-		if (globalFilter.showProjects) {
-			recentProjects.forEach((project: ProjectData) => {
-				mixed.push({ type: 'project', data: project });
-			});
-		}
-
-		function shuffle<T>(array: T[]): T[] {
-			for (let i = array.length - 1; i > 0; i--) {
-				const j = Math.floor(Math.random() * (i + 1));
-				const tmp = array[i];
-				array[i] = array[j];
-				array[j] = tmp;
-			}
-			return array;
-		}
-
-		shuffle(mixed);
-
-		// Sort by recency - sessions first, then projects, but could be enhanced with actual timestamps
 		return mixed;
-	})() : [];
+	}, [isGlobal, activeSessions, recentProjects]);
 
 	return (
 		<div className={`dashboard-container${isGlobal ? ' global-dashboard' : ''}`}>
 			{!isGlobal && (
 				<div className={`dashboard-header${isGlobal ? ' global-header' : ''}`}>
-					<h1 className="dashboard-title">
-						{isGlobal ? 'Visual Studio Code - Insiders' : 'My Tasks'}
-					</h1>
+					<h1 className="dashboard-title">My Tasks</h1>
 					<div className="header-buttons">
-						{dashboardState?.state === 'ready' && !dashboardState.isGlobal &&
-							((dashboardState as DashboardReady).currentBranch) &&
-							((dashboardState as DashboardReady).currentBranch !== 'main') &&
-							((dashboardState as DashboardReady).currentBranch !== 'master') && (
+						{readyState?.currentBranch &&
+							readyState.currentBranch !== 'main' &&
+							readyState.currentBranch !== 'master' && (
 								<button
 									className="switch-to-main-button"
 									onClick={handleSwitchToMain}
-									title={`Switch from ${(dashboardState as DashboardReady).currentBranch} to main`}
+									title={`Switch from ${readyState.currentBranch} to main`}
 								>
 									<span className="codicon codicon-git-branch"></span>
 									<span>Switch to main</span>
 								</button>
 							)}
 						<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
-							{refreshing ? (
-								<span className="codicon codicon-sync codicon-modifier-spin"></span>
-							) : (
-								<span className="codicon codicon-refresh"></span>
-							)}
+							<span className={`codicon ${refreshing ? 'codicon-sync codicon-modifier-spin' : 'codicon-refresh'}`}></span>
 						</button>
 					</div>
 				</div>
@@ -274,11 +244,7 @@ function Dashboard() {
 
 				{/* Issues/Projects Area */}
 				<div className="issues-area">
-					{isGlobal ? (
-						<>
-							{/* Empty for now, everything moved to tasks area */}
-						</>
-					) : (
+					{!isGlobal && (
 						<>
 							<div className="area-header milestone-header">
 								<h3
@@ -287,14 +253,14 @@ function Dashboard() {
 								>
 									{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
 								</h3>
-								{dashboardState?.state === 'ready' && (
+								{isReady && (
 									<SortDropdown
 										issueSort={issueSort}
 										onSortChange={setIssueSort}
 									/>
 								)}
 							</div>
-							{dashboardState?.state === 'ready' && (
+							{isReady && (
 								<div
 									className="section-count clickable-count"
 									onClick={handleIssueCountClick}
@@ -306,9 +272,9 @@ function Dashboard() {
 							<div className="area-content">
 								{dashboardState?.state === 'loading' ? (
 									<LoadingState message="Loading issues..." />
-								) : dashboardState?.state === 'ready' && !milestoneIssues.length ? (
+								) : isReady && !milestoneIssues.length ? (
 									<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
-								) : dashboardState?.state === 'ready' ? (
+								) : isReady ? (
 									getSortedIssues(milestoneIssues).map((issue) => {
 										const associatedSession = findAssociatedSession(issue);
 										return (
@@ -339,24 +305,18 @@ function Dashboard() {
 					<div className="area-header-container">
 						<h2 className="area-header">
 							{isGlobal ? 'Continue working on...' :
-								dashboardState?.state === 'ready' ?
+								isReady ?
 									`${activeSessions.length || 0} active task${activeSessions.length !== 1 ? 's' : ''}` :
 									'Active tasks'
 							}
 						</h2>
-						{isGlobal && (
-							<FilterButton
-								filterState={globalFilter}
-								onFilterChange={setGlobalFilter}
-							/>
-						)}
 					</div>
 					<div className="area-content">
 						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading tasks..." />
-						) : dashboardState?.state === 'ready' && !activeSessions.length && (!isGlobal || !recentProjects.length) ? (
+						) : isReady && !activeSessions.length && (!isGlobal || !recentProjects.length) ? (
 							<EmptyState message="No active tasks found" />
-						) : dashboardState?.state === 'ready' ? (
+						) : isReady ? (
 							<>
 								{isGlobal ? (
 									// Render mixed items for global dashboard
@@ -401,7 +361,7 @@ function Dashboard() {
 											index={index}
 											onSessionClick={() => handleSessionClick(session)}
 											onPullRequestClick={handlePullRequestClick}
-											isHighlighted={hoveredIssue !== null && isSessionAssociatedWithIssue(session, hoveredIssue)}
+											isHighlighted={hoveredIssue !== null && findAssociatedSession(hoveredIssue)?.id === session.id}
 										/>
 									))
 								)}
