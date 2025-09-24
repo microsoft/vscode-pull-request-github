@@ -623,6 +623,18 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
+	private _openFirstDiff() {
+		if (this._reviewModel.localFileChanges.length) {
+			this.openDiff();
+		} else {
+			const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
+				localFileChangesDisposable.dispose();
+				this.openDiff();
+			});
+		}
+	}
+
+
 	private _doFocusShow(pr: PullRequestModel, updateLayout: boolean) {
 		// Respect the setting 'comments.openView' when it's 'never'.
 		const shouldShowCommentsView = vscode.workspace.getConfiguration(COMMENTS).get<'never' | string>(OPEN_VIEW);
@@ -638,18 +650,15 @@ export class ReviewManager extends Disposable {
 			}
 
 			if (focusedMode === 'firstDiff') {
-				if (this._reviewModel.localFileChanges.length) {
-					this.openDiff();
-				} else {
-					const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
-						localFileChangesDisposable.dispose();
-						this.openDiff();
-					});
-				}
+				return this._openFirstDiff();
 			} else if (focusedMode === 'overview') {
 				return this.openDescription();
 			} else if (focusedMode === 'multiDiff') {
-				return PullRequestModel.openChanges(this._folderRepoManager, pr);
+				if (pr.fileChanges.size < 400) {
+					return PullRequestModel.openChanges(this._folderRepoManager, pr);
+				} else {
+					return this._openFirstDiff();
+				}
 			}
 		}
 	}
