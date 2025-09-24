@@ -7,21 +7,20 @@
 import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import React, { useCallback, useEffect, useState } from 'react';
-import { DashboardState, vscode } from '../types';
-import { GlobalInstructions } from './GlobalInstructions';
+import { DashboardState } from '../types';
+import { vscode } from '../util';
 import { setupMonaco } from './monacoSupport';
 
 export let suggestionDataSource: DashboardState | null = null;
 
 interface ChatInputProps {
-	isGlobal: boolean;
 	readonly data: DashboardState | null;
 	value: string;
 	onValueChange: (value: string) => void;
 	focusTrigger?: number; // Increment this to trigger focus
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onValueChange, focusTrigger }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange, focusTrigger }) => {
 	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 
@@ -267,29 +266,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onV
 			</div>
 		</div>
 
-		{isGlobal && <GlobalInstructions onAgentClick={handleAgentClick} />}
-
 		<div className="quick-actions">
-			{!isGlobal && (
-				<div className="global-instructions">
-					<div className="instructions-content">
-						<p>
-							<strong>Reference issues:</strong> Use <code>#123</code> to start work on specific issues in this repo
-						</p>
-						<p>
-							<strong>Choose your agent:</strong> Use <code
-								style={{ cursor: 'pointer' }}
-								onClick={() => handleAgentClick('@local ')}
-								title="Click to add @local to input"
-							>@local</code> to work locally or <code
-								style={{ cursor: 'pointer' }}
-								onClick={() => handleAgentClick('@copilot ')}
-								title="Click to add @copilot to input"
-							>@copilot</code> to use GitHub Copilot
-						</p>
-					</div>
+			<div className="global-instructions">
+				<div className="instructions-content">
+					<p>
+						<strong>Reference issues:</strong> Use <code>#123</code> to start work on specific issues in this repo
+					</p>
+					<p>
+						<strong>Choose your agent:</strong> Use <code
+							style={{ cursor: 'pointer' }}
+							onClick={() => handleAgentClick('@local ')}
+							title="Click to add @local to input"
+						>@local</code> to work locally or <code
+							style={{ cursor: 'pointer' }}
+							onClick={() => handleAgentClick('@copilot ')}
+							title="Click to add @copilot to input"
+						>@copilot</code> to use GitHub Copilot
+					</p>
 				</div>
-			)}
+			</div>
 		</div>
 	</>;
 };

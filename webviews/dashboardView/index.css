@@ -946,7 +946,7 @@ body {
 	margin: 8px 0;
 }
 
-/* Global Dashboard Styles */
+/* Instructions */
 .global-instructions {
 	margin-top: 8px;
 	font-size: 80%;
@@ -972,55 +972,6 @@ body {
 	background-color: var(--vscode-widget-border);
 	margin: 12px 0;
 	opacity: 0.3;
-}
-
-/* Global Dashboard Layout */
-.dashboard-content.global-dashboard {
-	grid-template-columns: 100%;
-	grid-template-rows: auto 1fr;
-	grid-template-areas:
-		"input"
-		"tasks";
-	justify-items: center;
-	max-width: 800px;
-	margin: 0 auto;
-}
-
-.dashboard-header.global-header {
-	justify-content: center;
-	max-width: 800px;
-	margin: 0 auto;
-	padding-bottom: 24px;
-}
-
-.dashboard-header.global-header .refresh-button {
-	position: absolute;
-	right: 16px;
-}
-
-.dashboard-content.global-dashboard .input-area {
-	max-width: 600px;
-	width: 100%;
-}
-
-.dashboard-content.global-dashboard .tasks-area {
-	max-width: 600px;
-	width: 100%;
-}
-
-.dashboard-content.global-dashboard .section-count {
-	display: none;
-}
-
-.dashboard-content.global-dashboard .issues-area {
-	display: none;
-}
-
-/* Project Items in Tasks List */
-.project-path-text {
-	font-size: 11px;
-	color: var(--vscode-descriptionForeground);
-	opacity: 0.8;
 }
 
 .quick-actions-grid {
@@ -1049,61 +1000,6 @@ body {
 
 .quick-action-item .codicon {
 	font-size: 16px;
-}
-
-.recent-projects {
-	margin-top: 16px;
-}
-
-.projects-list {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.project-item {
-	padding: 8px 12px;
-	cursor: pointer;
-	border-radius: 2px;
-	transition: background-color 0.2s ease;
-}
-
-.project-item:hover {
-	background-color: var(--vscode-list-hoverBackground);
-}
-
-.project-name {
-	font-size: 13px;
-	color: var(--vscode-textLink-foreground);
-	font-weight: 500;
-}
-
-.project-path {
-	font-size: 11px;
-	color: var(--vscode-descriptionForeground);
-	margin-top: 2px;
-}
-
-.more-projects-button {
-	background: transparent;
-	border: none;
-	color: var(--vscode-textLink-foreground);
-	cursor: pointer;
-	padding: 8px 12px;
-	text-align: left;
-	font-size: 13px;
-	border-radius: 2px;
-	transition: background-color 0.2s ease;
-}
-
-.more-projects-button:hover {
-	background-color: var(--vscode-list-hoverBackground);
-}
-
-/* Repository name in global session items */
-.repository-name {
-	color: var(--vscode-gitDecoration-modifiedResourceForeground);
-	font-weight: 500;
 }
 
 .session-item:last-child, .issue-item:last-child {

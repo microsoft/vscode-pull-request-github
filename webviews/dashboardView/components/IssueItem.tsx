@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { formatDate, formatFullDateTime, IssueData, SessionData } from '../types';
+import { IssueData, SessionData } from '../types';
+import { formatDate, formatFullDateTime } from '../util';
 
 interface IssueItemProps {
 	issue: IssueData;

@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { formatDate, formatFullDateTime, SessionData, vscode } from '../types';
+import { SessionData } from '../types';
+import { formatDate, formatFullDateTime, vscode } from '../util';
 
 interface SessionItemProps {
 	session: SessionData;

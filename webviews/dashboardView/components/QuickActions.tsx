@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { vscode } from '../types';
+import { vscode } from '../util';
 
 export const QuickActions: React.FC = () => {
 	const handleNewFile = () => {

@@ -2,17 +2,17 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { render } from 'react-dom';
 import { ChatInput } from './components/ChatInput';
 import { EmptyState } from './components/EmptyState';
-import { GlobalSessionItem } from './components/GlobalSessionItem';
 import { IssueItem } from './components/IssueItem';
 import { LoadingState } from './components/LoadingState';
 import { SessionItem } from './components/SessionItem';
 import { SortDropdown } from './components/SortDropdown';
-import { DashboardReady, DashboardState, extractMilestoneFromQuery, GlobalDashboardReady, IssueData, ProjectData, SessionData, vscode } from './types';
+import { DashboardReady, DashboardState, IssueData, SessionData } from './types';
+import { extractMilestoneFromQuery, vscode } from './util';
 
 export function main() {
 	render(<Dashboard />, document.getElementById('app'));
@@ -101,7 +101,7 @@ function Dashboard() {
 	}, []);
 
 	const handleIssueCountClick = useCallback(() => {
-		if (dashboardState?.state === 'ready' && !dashboardState.isGlobal) {
+		if (dashboardState?.state === 'ready') {
 			const readyState = dashboardState as DashboardReady;
 			const { owner, name } = readyState.repository || { owner: '', name: '' };
 
@@ -168,208 +168,131 @@ function Dashboard() {
 	}, [dashboardState]);
 
 	// Derived state from discriminated union with proper type narrowing
-	const isGlobal = dashboardState?.isGlobal ?? false;
 	const isReady = dashboardState?.state === 'ready';
-
-	const readyState = (isReady && !isGlobal) ? dashboardState as DashboardReady : null;
-	const globalReadyState = (isReady && isGlobal) ? dashboardState as GlobalDashboardReady : null;
+	const readyState = isReady ? dashboardState as DashboardReady : null;
 
 	const issueQuery = readyState?.issueQuery || '';
 	const milestoneIssues = readyState?.milestoneIssues || [];
 	const activeSessions = isReady ? dashboardState.activeSessions : [];
-	const recentProjects = globalReadyState?.recentProjects || [];
-	const currentBranch = readyState?.currentBranch;
-
-	// For global dashboards, create a mixed array of sessions and projects
-	const mixedItems = useMemo(() => {
-		if (!isGlobal) return [];
-
-		const mixed: Array<{ type: 'session', data: SessionData, index: number } | { type: 'project', data: ProjectData }> = [];
-
-		activeSessions.forEach((session, index) => {
-			mixed.push({ type: 'session', data: session, index });
-		});
-
-		recentProjects.forEach((project: ProjectData) => {
-			mixed.push({ type: 'project', data: project });
-		});
-
-		// Simple shuffle algorithm
-		for (let i = mixed.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[mixed[i], mixed[j]] = [mixed[j], mixed[i]];
-		}
-
-		return mixed;
-	}, [isGlobal, activeSessions, recentProjects]);
-
-	return (
-		<div className={`dashboard-container${isGlobal ? ' global-dashboard' : ''}`}>
-			{!isGlobal && (
-				<div className={`dashboard-header${isGlobal ? ' global-header' : ''}`}>
-					<h1 className="dashboard-title">My Tasks</h1>
-					<div className="header-buttons">
-						{readyState?.currentBranch &&
-							readyState.currentBranch !== 'main' &&
-							readyState.currentBranch !== 'master' && (
-								<button
-									className="switch-to-main-button"
-									onClick={handleSwitchToMain}
-									title={`Switch from ${readyState.currentBranch} to main`}
-								>
-									<span className="codicon codicon-git-branch"></span>
-									<span>Switch to main</span>
-								</button>
-							)}
-						<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
-							<span className={`codicon ${refreshing ? 'codicon-sync codicon-modifier-spin' : 'codicon-refresh'}`}></span>
-						</button>
-					</div>
+	const currentBranch = readyState?.currentBranch; return (
+		<div className="dashboard-container">
+			<div className="dashboard-header">
+				<h1 className="dashboard-title">My Tasks</h1>
+				<div className="header-buttons">
+					{readyState?.currentBranch &&
+						readyState.currentBranch !== 'main' &&
+						readyState.currentBranch !== 'master' && (
+							<button
+								className="switch-to-main-button"
+								onClick={handleSwitchToMain}
+								title={`Switch from ${readyState.currentBranch} to main`}
+							>
+								<span className="codicon codicon-git-branch"></span>
+								<span>Switch to main</span>
+							</button>
+						)}
+					<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
+						<span className={`codicon ${refreshing ? 'codicon-sync codicon-modifier-spin' : 'codicon-refresh'}`}></span>
+					</button>
 				</div>
-			)}
+			</div>
 
-			<div className={`dashboard-content${isGlobal ? ' global-dashboard' : ''}`}>
+			<div className="dashboard-content">
 				{/* Input Area */}
 				<div className="input-area">
 					<h2 className="area-header new-task">Start new task</h2>
 					<ChatInput
 						data={dashboardState}
-						isGlobal={!!isGlobal}
 						value={chatInputValue}
 						onValueChange={setChatInputValue}
 						focusTrigger={focusTrigger}
 					/>
-
 				</div>
 
 				{/* Issues/Projects Area */}
 				<div className="issues-area">
-					{!isGlobal && (
-						<>
-							<div className="area-header milestone-header">
-								<h3
-									className="milestone-title"
-									title={`Issue Query: ${issueQuery}`}
-								>
-									{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
-								</h3>
-								{isReady && (
-									<SortDropdown
-										issueSort={issueSort}
-										onSortChange={setIssueSort}
-									/>
-								)}
-							</div>
-							{isReady && (
-								<div
-									className="section-count clickable-count"
-									onClick={handleIssueCountClick}
-									title="Click to open GitHub issues"
-								>
-									{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
-								</div>
-							)}
-							<div className="area-content">
-								{dashboardState?.state === 'loading' ? (
-									<LoadingState message="Loading issues..." />
-								) : isReady && !milestoneIssues.length ? (
-									<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
-								) : isReady ? (
-									getSortedIssues(milestoneIssues).map((issue) => {
-										const associatedSession = findAssociatedSession(issue);
-										return (
-											<IssueItem
-												key={issue.number}
-												issue={issue}
-												onIssueClick={handleIssueClick}
-												onPopulateLocalInput={handlePopulateLocalInput}
-												onPopulateRemoteInput={handlePopulateRemoteInput}
-												onSwitchToLocalTask={handleSwitchToLocalTask}
-												associatedSession={associatedSession}
-												onSessionClick={handleSessionClick}
-												onPullRequestClick={handlePullRequestClick}
-												onHover={() => setHoveredIssue(issue)}
-												onHoverEnd={() => setHoveredIssue(null)}
-												currentBranch={currentBranch}
-											/>
-										);
-									})
-								) : null}
-							</div>
-						</>
+					<div className="area-header milestone-header">
+						<h3
+							className="milestone-title"
+							title={`Issue Query: ${issueQuery}`}
+						>
+							{issueQuery ? extractMilestoneFromQuery(issueQuery) : 'Issues'}
+						</h3>
+						{isReady && (
+							<SortDropdown
+								issueSort={issueSort}
+								onSortChange={setIssueSort}
+							/>
+						)}
+					</div>
+					{isReady && (
+						<div
+							className="section-count clickable-count"
+							onClick={handleIssueCountClick}
+							title="Click to open GitHub issues"
+						>
+							{milestoneIssues.length || 0} issue{milestoneIssues.length !== 1 ? 's' : ''}
+						</div>
 					)}
+					<div className="area-content">
+						{dashboardState?.state === 'loading' ? (
+							<LoadingState message="Loading issues..." />
+						) : isReady && !milestoneIssues.length ? (
+							<EmptyState message={`No issues found for ${issueQuery ? extractMilestoneFromQuery(issueQuery).toLowerCase() : 'issues'}`} />
+						) : isReady ? (
+							getSortedIssues(milestoneIssues).map((issue) => {
+								const associatedSession = findAssociatedSession(issue);
+								return (
+									<IssueItem
+										key={issue.number}
+										issue={issue}
+										onIssueClick={handleIssueClick}
+										onPopulateLocalInput={handlePopulateLocalInput}
+										onPopulateRemoteInput={handlePopulateRemoteInput}
+										onSwitchToLocalTask={handleSwitchToLocalTask}
+										associatedSession={associatedSession}
+										onSessionClick={handleSessionClick}
+										onPullRequestClick={handlePullRequestClick}
+										onHover={() => setHoveredIssue(issue)}
+										onHoverEnd={() => setHoveredIssue(null)}
+										currentBranch={currentBranch}
+									/>
+								);
+							})
+						) : null}
+					</div>
 				</div>
 
 				{/* Tasks Area */}
 				<div className="tasks-area">
 					<div className="area-header-container">
 						<h2 className="area-header">
-							{isGlobal ? 'Continue working on...' :
-								isReady ?
-									`${activeSessions.length || 0} active task${activeSessions.length !== 1 ? 's' : ''}` :
-									'Active tasks'
+							{isReady ?
+								`${activeSessions.length || 0} active task${activeSessions.length !== 1 ? 's' : ''}` :
+								'Active tasks'
 							}
 						</h2>
 					</div>
 					<div className="area-content">
 						{dashboardState?.state === 'loading' ? (
 							<LoadingState message="Loading tasks..." />
-						) : isReady && !activeSessions.length && (!isGlobal || !recentProjects.length) ? (
+						) : isReady && !activeSessions.length ? (
 							<EmptyState message="No active tasks found" />
 						) : isReady ? (
-							<>
-								{isGlobal ? (
-									// Render mixed items for global dashboard
-									mixedItems.map((item) =>
-										item.type === 'session' ? (
-											<GlobalSessionItem
-												key={item.data.id}
-												session={item.data}
-												index={item.index}
-												onSessionClick={() => handleSessionClick(item.data)}
-												onPullRequestClick={handlePullRequestClick}
-											/>
-										) : (
-											<div
-												key={`project-${item.data.path}`}
-												className="session-item project-item"
-												onClick={() => vscode.postMessage({ command: 'open-project', args: { path: item.data.path } })}
-												title={`Click to open project: ${item.data.name}`}
-											>
-												<div className="item-title">
-													<span className="task-type-indicator project" title="Recent project">
-														<span className="codicon codicon-folder-opened"></span>
-													</span>
-													<span className="item-title-text">{item.data.name}</span>
-												</div>
-												{item.data.path && (
-													<div className="item-metadata">
-														<div className="metadata-item">
-															<span className="project-path-text">{item.data.path}</span>
-														</div>
-													</div>
-												)}
-											</div>
-										)
-									)
-								) : (
-									// Render sessions only for regular dashboard
-									activeSessions.map((session, index) => (
-										<SessionItem
-											key={session.id}
-											session={session}
-											index={index}
-											onSessionClick={() => handleSessionClick(session)}
-											onPullRequestClick={handlePullRequestClick}
-											isHighlighted={hoveredIssue !== null && findAssociatedSession(hoveredIssue)?.id === session.id}
-										/>
-									))
-								)}
-							</>
+							activeSessions.map((session, index) => (
+								<SessionItem
+									key={session.id}
+									session={session}
+									index={index}
+									onSessionClick={() => handleSessionClick(session)}
+									onPullRequestClick={handlePullRequestClick}
+									isHighlighted={hoveredIssue !== null && findAssociatedSession(hoveredIssue)?.id === session.id}
+								/>
+							))
 						) : null}
 					</div>
 				</div>
 			</div>
-		</div >
+		</div>
 	);
 }

@@ -66,7 +66,7 @@ export function setupMonaco() {
 			// Check if user is typing after #
 			const hashMatch = textUntilPosition.match(/#\d*$/);
 			if (hashMatch) {
-				const suggestions = (suggestionDataSource?.state === 'ready' && !suggestionDataSource.isGlobal)
+				const suggestions = (suggestionDataSource?.state === 'ready')
 					? (suggestionDataSource as DashboardReady).milestoneIssues.map((issue: any): monaco.languages.CompletionItem => ({
 						label: `#${issue.number}`,
 						kind: monaco.languages.CompletionItemKind.Reference,
