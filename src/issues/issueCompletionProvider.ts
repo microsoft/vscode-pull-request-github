@@ -162,6 +162,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			// leave repo undefined
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
+		let sortNumber = 0;
 
 		// Process queries in order to maintain query priority
 		for (const issueQuery of issueData) {
@@ -177,7 +178,11 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				// Only add the issue if we haven't seen it before (first query wins)
 				if (!seenIssues.has(issueKey)) {
 					seenIssues.add(issueKey);
-					completionItems.push(await this.completionItemFromIssue(repo, issue as IssueModel, range, document));
+					const completionItem = await this.completionItemFromIssue(repo, issue as IssueModel, range, document);
+					// Ensure that the sort order respects the query order
+					completionItem.sortText = sortNumber.toString().padStart(8, '0');
+					sortNumber++;
+					completionItems.push(completionItem);
 				}
 			}
 		}
@@ -213,8 +218,6 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		item.documentation = issue.body;
 		item.range = range;
 		item.detail = milestone ? milestone.title : issue.milestone?.title;
-		const sortTime = Number.MAX_SAFE_INTEGER - new Date(issue.updatedAt).getTime();
-		item.sortText = sortTime.toString().padStart(15, '0');
 		item.filterText = `${item.detail} # ${issue.number} ${issue.title} ${item.documentation}`;
 		return item;
 	}
