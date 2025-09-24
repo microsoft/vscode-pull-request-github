@@ -9,7 +9,8 @@ import { formatDate, formatFullDateTime, IssueData, SessionData } from '../types
 interface IssueItemProps {
 	issue: IssueData;
 	onIssueClick: (issueUrl: string) => void;
-	onStartRemoteAgent: (issue: IssueData, event: React.MouseEvent) => void;
+	onPopulateLocalInput: (issue: IssueData, event: React.MouseEvent) => void;
+	onPopulateRemoteInput: (issue: IssueData, event: React.MouseEvent) => void;
 	associatedSession?: SessionData;
 	onSessionClick?: (session: SessionData) => void;
 	onPullRequestClick?: (pullRequest: { number: number; title: string; url: string }) => void;
@@ -20,7 +21,8 @@ interface IssueItemProps {
 export const IssueItem: React.FC<IssueItemProps> = ({
 	issue,
 	onIssueClick,
-	onStartRemoteAgent,
+	onPopulateLocalInput,
+	onPopulateRemoteInput,
 	associatedSession,
 	onSessionClick,
 	onPullRequestClick,
@@ -72,13 +74,24 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 						)}
 					</div>
 				) : (
-					<button
-						className="remote-agent-button"
-						onClick={(e) => onStartRemoteAgent(issue, e)}
-						title="Start remote agent for this issue"
-					>
-						<span className="codicon codicon-send-to-remote-agent"></span>
-					</button>
+					<div className="task-buttons">
+						<button
+							className="local-task-button"
+							onClick={(e) => onPopulateLocalInput(issue, e)}
+							title="Populate input with local task command"
+						>
+							<span className="codicon codicon-repo-clone"></span>
+							<span>Local</span>
+						</button>
+						<button
+							className="coding-agent-task-button"
+							onClick={(e) => onPopulateRemoteInput(issue, e)}
+							title="Populate input with remote agent command"
+						>
+							<span className="codicon codicon-robot"></span>
+							<span>Remote</span>
+						</button>
+					</div>
 				)}
 			</div>
 			<div className="item-metadata">

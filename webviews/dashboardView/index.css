@@ -363,6 +363,54 @@ body {
 	font-size: 14px;
 }
 
+.task-buttons {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: 8px;
+	flex-shrink: 0;
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.issue-item:hover .task-buttons {
+	opacity: 1;
+}
+
+.local-task-button,
+.coding-agent-task-button {
+	background: transparent;
+	border: 1px solid var(--vscode-button-border);
+	color: var(--vscode-button-foreground);
+	cursor: pointer;
+	padding: 3px 6px;
+	border-radius: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 3px;
+	font-size: 11px;
+	transition: background-color 0.2s, border-color 0.2s;
+	white-space: nowrap;
+}
+
+.local-task-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+	border-color: var(--vscode-button-hoverBackground);
+	color: var(--vscode-button-foreground);
+}
+
+.coding-agent-task-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+	border-color: var(--vscode-button-hoverBackground);
+	color: var(--vscode-button-foreground);
+}
+
+.local-task-button .codicon,
+.coding-agent-task-button .codicon {
+	font-size: 12px;
+}
+
 .associated-session-info {
 	display: flex;
 	align-items: center;

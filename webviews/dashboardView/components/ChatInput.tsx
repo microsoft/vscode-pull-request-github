@@ -143,21 +143,36 @@ function setupMonaco() {
 interface ChatInputProps {
 	isGlobal: boolean;
 	readonly data: DashboardState | null;
+	value: string;
+	onValueChange: (value: string) => void;
+	focusTrigger?: number; // Increment this to trigger focus
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
-	const [chatInput, setChatInput] = useState('');
+export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onValueChange, focusTrigger }) => {
 	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 
-	// Handle content changes
-	const handleEditorChange = useCallback((value: string | undefined) => {
-		setChatInput(value || '');
-	}, []);
+	// Focus the editor when focusTrigger changes
+	useEffect(() => {
+		if (focusTrigger !== undefined && editor) {
+			editor.focus();
+			// Position cursor at the end
+			const model = editor.getModel();
+			if (model) {
+				const position = model.getPositionAt(value.length);
+				editor.setPosition(position);
+			}
+		}
+	}, [focusTrigger, editor, value]);
+
+	// Handle content changes from the editor
+	const handleEditorChange = useCallback((newValue: string | undefined) => {
+		onValueChange(newValue || '');
+	}, [onValueChange]);
 
 	const handleAgentClick = useCallback((agent: string) => {
 		let finalInput: string;
-		const currentInput = chatInput.trim();
+		const currentInput = value.trim();
 
 		if (!currentInput) {
 			// Empty input - just set the agent
@@ -174,7 +189,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 			}
 		}
 
-		setChatInput(finalInput);
+		onValueChange(finalInput);
 		if (editor) {
 			editor.focus();
 			// Position cursor at the end
@@ -184,11 +199,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 				editor.setPosition(position);
 			}
 		}
-	}, [chatInput, editor]);
+	}, [value, editor, onValueChange]);
 
 	const handleSendChat = useCallback(() => {
-		if (chatInput.trim()) {
-			const trimmedInput = chatInput.trim();
+		if (value.trim()) {
+			const trimmedInput = value.trim();
 
 			// Send all chat input to the provider for processing
 			vscode.postMessage({
@@ -196,16 +211,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 				args: { query: trimmedInput }
 			});
 
-			setChatInput('');
+			onValueChange('');
 		}
-	}, [chatInput]);
+	}, [value, onValueChange]);
 
 
 
 	// Handle dropdown option for planning task with local agent
 	const handlePlanWithLocalAgent = useCallback(() => {
-		if (chatInput.trim()) {
-			const trimmedInput = chatInput.trim();
+		if (value.trim()) {
+			const trimmedInput = value.trim();
 			// Remove @copilot prefix for planning with local agent
 			const cleanQuery = trimmedInput.replace(/@copilot\s*/, '').trim();
 
@@ -215,10 +230,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 				args: { query: cleanQuery }
 			});
 
-			setChatInput('');
+			onValueChange('');
 			setShowDropdown(false);
 		}
-	}, [chatInput]);
+	}, [value, onValueChange]);
 
 	// Handle clicking outside dropdown to close it
 	useEffect(() => {
@@ -287,7 +302,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 				<Editor
 					key="task-input-editor"
 					defaultLanguage="taskInput"
-					value={chatInput}
+					value={value}
 					theme="taskInputTheme"
 					loading={null}
 					onMount={handleEditorDidMount}
@@ -322,12 +337,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 						automaticLayout: true
 					}}
 				/>
-				{isCopilotCommand(chatInput) ? (
+				{isCopilotCommand(value) ? (
 					<div className="send-button-container">
 						<button
 							className="send-button-inline split-left"
 							onClick={handleSendChat}
-							disabled={!chatInput.trim()}
+							disabled={!value.trim()}
 							title="Start new remote Copilot task (Ctrl+Enter)"
 						>
 							<span style={{ marginRight: '4px', fontSize: '12px' }}>Start remote task</span>
@@ -339,7 +354,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 								e.stopPropagation();
 								setShowDropdown(!showDropdown);
 							}}
-							disabled={!chatInput.trim()}
+							disabled={!value.trim()}
 							title="More options"
 						>
 							<span className="codicon codicon-chevron-down"></span>
@@ -360,15 +375,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal }) => {
 					<button
 						className="send-button-inline"
 						onClick={handleSendChat}
-						disabled={!chatInput.trim()}
+						disabled={!value.trim()}
 						title={
-							isLocalCommand(chatInput)
+							isLocalCommand(value)
 								? 'Start new local task (Ctrl+Enter)'
 								: 'Send message (Ctrl+Enter)'
 						}
 					>
 						<span style={{ marginRight: '4px', fontSize: '12px' }}>
-							{isLocalCommand(chatInput)
+							{isLocalCommand(value)
 								? 'Start local task'
 								: 'Send'
 							}

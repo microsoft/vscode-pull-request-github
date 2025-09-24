@@ -470,7 +470,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	private getTargetRepositories(): string[] {
 		// If explicit repos are configured, use those
 		if (this._repos) {
-
 			return this._repos;
 		}
 
@@ -511,7 +510,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
 		} catch (error) {
-
 			return [];
 		}
 	}
@@ -1140,7 +1138,7 @@ Keep your response focused and actionable - ask at most 3 essential questions if
 	 * Determines if a query represents a coding task vs a general question using VS Code's Language Model API
 	 */
 	private async isCodingTask(query: string): Promise<boolean> {
-		return await this._taskManager.isCodingTask(query);
+		return this._taskManager.isCodingTask(query);
 	}
 
 	/**
@@ -1150,7 +1148,7 @@ Keep your response focused and actionable - ask at most 3 essential questions if
 	 * Shows a quick pick to let user choose between local and remote work
 	 */
 	private async showWorkModeQuickPick(): Promise<'local' | 'remote' | undefined> {
-		return await this._taskManager.showWorkModeQuickPick();
+		return this._taskManager.showWorkModeQuickPick();
 	}
 
 	/**

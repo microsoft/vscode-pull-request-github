@@ -40,6 +40,8 @@ function Dashboard() {
 	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest'>('date-oldest');
 	const [hoveredIssue, setHoveredIssue] = useState<IssueData | null>(null);
 	const [globalFilter, setGlobalFilter] = useState<FilterState>({ showTasks: true, showProjects: true });
+	const [chatInputValue, setChatInputValue] = useState('');
+	const [focusTrigger, setFocusTrigger] = useState(0);
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -90,12 +92,18 @@ function Dashboard() {
 		});
 	}, []);
 
-	const handleStartRemoteAgent = useCallback((issue: any, event: React.MouseEvent) => {
+	const handlePopulateLocalInput = useCallback((issue: any, event: React.MouseEvent) => {
 		event.stopPropagation(); // Prevent triggering the issue click
-		vscode.postMessage({
-			command: 'start-remote-agent',
-			args: { issue }
-		});
+		const command = `@local start work on #${issue.number}`;
+		setChatInputValue(command);
+		setFocusTrigger(prev => prev + 1); // Trigger focus
+	}, []);
+
+	const handlePopulateRemoteInput = useCallback((issue: any, event: React.MouseEvent) => {
+		event.stopPropagation(); // Prevent triggering the issue click
+		const command = `@copilot start work on #${issue.number}`;
+		setChatInputValue(command);
+		setFocusTrigger(prev => prev + 1); // Trigger focus
 	}, []);
 
 	const handlePullRequestClick = useCallback((pullRequest: { number: number; title: string; url: string }) => {
@@ -203,7 +211,13 @@ function Dashboard() {
 				{/* Input Area */}
 				<div className="input-area">
 					<h2 className="area-header new-task">Start new task</h2>
-					<ChatInput data={dashboardState} isGlobal={!!isGlobal} />
+					<ChatInput 
+						data={dashboardState} 
+						isGlobal={!!isGlobal} 
+						value={chatInputValue}
+						onValueChange={setChatInputValue}
+						focusTrigger={focusTrigger}
+					/>
 
 				</div>
 
@@ -247,7 +261,8 @@ function Dashboard() {
 												key={issue.number}
 												issue={issue}
 												onIssueClick={handleIssueClick}
-												onStartRemoteAgent={handleStartRemoteAgent}
+												onPopulateLocalInput={handlePopulateLocalInput}
+												onPopulateRemoteInput={handlePopulateRemoteInput}
 												associatedSession={associatedSession}
 												onSessionClick={handleSessionClick}
 												onPullRequestClick={handlePullRequestClick}
