@@ -169,5 +169,5 @@ async function openCopilotForQuery(currentQuery: string) {
 	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: \n```\n{0}\n```\nOutput only one, minimally modified query in a codeblock.\nModify it so that it ', currentQuery);
 
 	// Open chat with the query pre-populated
-	await vscode.commands.executeCommand(commands.OPEN_CHAT, { query: chatMessage, isPartialQuery: true, mode: 'ask' });
+	await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: chatMessage, isPartialQuery: true, agentMode: false });
 }
