@@ -44,6 +44,62 @@ describe('PullRequestGitHelper', function () {
 		sinon.restore();
 	});
 
+	describe('fetchAndCheckout', function () {
+		it('fetches remote and updates local branch when local branch exists with different commit', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('my-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Setup: local branch exists with different commit than remote
+			const localBranch = {
+				type: RefType.Head,
+				name: 'my-branch',
+				commit: 'local-commit-hash',
+				upstream: undefined,
+			};
+			repository.state.refs.push(localBranch);
+			repository._branches.push(localBranch);
+
+			// Setup: remote branch has different commit
+			const remoteBranch = {
+				type: RefType.RemoteHead,
+				name: 'refs/remotes/origin/my-branch',
+				commit: 'remote-commit-hash',
+			};
+			repository.state.refs.push(remoteBranch);
+			repository._branches.push(remoteBranch);
+
+			const remotes = [remote];
+
+			// Expect fetch to be called
+			repository.expectFetch('origin', 'my-branch');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, remotes, pullRequest, { report: () => undefined });
+
+			// Verify that the local branch was updated to point to the remote commit
+			const updatedBranch = repository._branches.find(b => b.name === 'my-branch');
+			assert.strictEqual(updatedBranch?.commit, 'remote-commit-hash');
+			assert.strictEqual(repository.state.HEAD?.name, 'my-branch');
+		});
+	});
+
 	describe('checkoutFromFork', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
 			const url = 'git@github.com:owner/name.git';

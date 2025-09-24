@@ -91,6 +91,13 @@ export class PullRequestGitHelper {
 		const remoteName = remote.remoteName;
 		let branch: Branch;
 
+		// Always fetch the remote branch first to ensure we have the latest commits
+		const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
+		Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
+		progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
+		await repository.fetch(remoteName, branchName);
+		const trackedBranch = await repository.getBranch(trackedBranchName);
+
 		try {
 			branch = await repository.getBranch(branchName);
 			// Make sure we aren't already on this branch
@@ -98,13 +105,24 @@ export class PullRequestGitHelper {
 				Logger.appendLine(`Tried to checkout ${branchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
 				return;
 			}
+
+			// Check if local branch is pointing to the same commit as the remote
+			if (branch.commit !== trackedBranch.commit) {
+				Logger.debug(`Local branch ${branchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Updating local branch.`, PullRequestGitHelper.ID);
+				progress.report({ message: vscode.l10n.t('Updating branch {0} to match remote', branchName) });
+				// Delete and recreate the local branch to point to the remote commit
+				await repository.deleteBranch(branchName, true);
+				await repository.createBranch(branchName, false, trackedBranch.commit);
+				// Get the updated branch reference
+				branch = await repository.getBranch(branchName);
+			}
+
 			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
 			progress.report({ message: vscode.l10n.t('Checking out {0}', branchName) });
 			await repository.checkout(branchName);
 
 			if (!branch.upstream) {
 				// this branch is not associated with upstream yet
-				const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 				await repository.setBranchUpstream(branchName, trackedBranchName);
 			}
 
@@ -114,16 +132,11 @@ export class PullRequestGitHelper {
 				await repository.pull();
 			}
 		} catch (err) {
-			// there is no local branch with the same name, so we are good to fetch, create and checkout the remote branch.
+			// there is no local branch with the same name, so we are good to create and checkout the remote branch.
 			Logger.appendLine(
-				`Branch ${remoteName}/${branchName} doesn't exist on local disk yet.`,
+				`Branch ${branchName} doesn't exist on local disk yet. Creating from remote.`,
 				PullRequestGitHelper.ID,
 			);
-			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
-			Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
-			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
-			await repository.fetch(remoteName, branchName);
-			const trackedBranch = await repository.getBranch(trackedBranchName);
 			// create branch
 			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', branchName) });
 			await repository.createBranch(branchName, true, trackedBranch.commit);
