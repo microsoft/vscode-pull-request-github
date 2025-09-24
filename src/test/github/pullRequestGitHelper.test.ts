@@ -68,23 +68,10 @@ describe('PullRequestGitHelper', function () {
 			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
 
 			// Setup: local branch exists with different commit than remote
-			const localBranch = {
-				type: RefType.Head,
-				name: 'my-branch',
-				commit: 'local-commit-hash',
-				upstream: undefined,
-			};
-			repository.state.refs.push(localBranch);
-			repository._branches.push(localBranch);
+			await repository.createBranch('my-branch', false, 'local-commit-hash');
 
 			// Setup: remote branch has different commit
-			const remoteBranch = {
-				type: RefType.RemoteHead,
-				name: 'refs/remotes/origin/my-branch',
-				commit: 'remote-commit-hash',
-			};
-			repository.state.refs.push(remoteBranch);
-			repository._branches.push(remoteBranch);
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
 
 			const remotes = [remote];
 
@@ -94,8 +81,8 @@ describe('PullRequestGitHelper', function () {
 			await PullRequestGitHelper.fetchAndCheckout(repository, remotes, pullRequest, { report: () => undefined });
 
 			// Verify that the local branch was updated to point to the remote commit
-			const updatedBranch = repository._branches.find(b => b.name === 'my-branch');
-			assert.strictEqual(updatedBranch?.commit, 'remote-commit-hash');
+			const updatedBranch = await repository.getBranch('my-branch');
+			assert.strictEqual(updatedBranch.commit, 'remote-commit-hash');
 			assert.strictEqual(repository.state.HEAD?.name, 'my-branch');
 		});
 	});
