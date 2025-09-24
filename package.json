@@ -59,7 +59,7 @@
 		"onFileSystem:review",
 		"onWebviewPanel:IssueOverview",
 		"onWebviewPanel:PullRequestOverview",
-		"onWebviewPanel:github-pull-request.tasksDashboard"
+		"onWebviewPanel:github-pull-request.projectTasksDashboard"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -768,10 +768,18 @@
 					"default": false,
 					"description": "%githubIssues.alwaysPromptForNewIssueRepo.description%"
 				},
-				"githubIssues.taskDashboard.query": {
+				"githubPullRequests.projectTasksDashboard.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Enable the experimental project tasks dashboard feature. This adds a new dashboard for managing GitHub issues and tasks.",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.projectTasksDashboard.issueQuery": {
 					"type": "string",
 					"default": "state:open assignee:@me milestone:\"September 2025\"",
-					"description": "The GitHub query to use for the task dashboard"
+					"description": "The GitHub query to use for the project tasks dashboard"
 				}
 			}
 		},
@@ -881,7 +889,8 @@
 				"command": "pr.openTasksDashboard",
 				"title": "%command.pr.openTasksDashboard.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(dashboard)"
+				"icon": "$(dashboard)",
+				"when": "config.githubPullRequests.projectTasksDashboard.enabled"
 			},
 			{
 				"command": "githubpr.remoteAgent",

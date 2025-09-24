@@ -14,7 +14,7 @@ html, body, .app {
 body {
 	min-height: 400px;
 	padding: 16px;
-	padding-top: 4px;
+	padding-top: 12px;
 }
 
 .dashboard-container {
@@ -34,6 +34,41 @@ body {
 	font-size: 1.5rem;
 	font-weight: 400;
 	margin: 0;
+}
+
+/* Header buttons container */
+.header-buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Switch to main button */
+.switch-to-main-button {
+	background: transparent;
+	border: 1px solid var(--vscode-button-border);
+	color: var(--vscode-button-foreground);
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	font-size: 11px;
+	transition: background-color 0.2s, border-color 0.2s;
+	white-space: nowrap;
+	height: 28px;
+}
+
+.switch-to-main-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+	border-color: var(--vscode-button-hoverBackground);
+	color: var(--vscode-button-foreground);
+}
+
+.switch-to-main-button .codicon {
+	font-size: 12px;
 }
 
 .refresh-button {
@@ -385,12 +420,24 @@ body {
 	transition: opacity 0.2s;
 }
 
+.session-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: 8px;
+	flex-shrink: 0;
+	opacity: 1;
+}
+
 .issue-item:hover .task-buttons {
 	opacity: 1;
 }
 
+.session-link-button,
+.session-start-button,
 .local-task-button,
-.coding-agent-task-button {
+.coding-agent-task-button,
+.switch-branch-button {
 	background: transparent;
 	border: 1px solid var(--vscode-button-border);
 	color: var(--vscode-button-foreground);
@@ -406,6 +453,7 @@ body {
 	white-space: nowrap;
 }
 
+.session-start-button:hover,
 .local-task-button:hover {
 	background-color: var(--vscode-button-hoverBackground);
 	border-color: var(--vscode-button-hoverBackground);
@@ -418,20 +466,25 @@ body {
 	color: var(--vscode-button-foreground);
 }
 
+.session-link-button {
+	background-color: var(--vscode-button-secondaryBackground);
+	border-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.session-link-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+	border-color: var(--vscode-button-secondaryHoverBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.session-link-button .codicon,
+.session-start-button .codicon,
 .local-task-button .codicon,
 .coding-agent-task-button .codicon {
 	font-size: 12px;
 }
 
-.associated-session-info {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	margin-left: 8px;
-	flex-shrink: 0;
-}
-
-.session-link-button,
 .pr-link-button {
 	background: transparent;
 	border: 1px solid var(--vscode-button-secondaryBorder);
@@ -447,13 +500,8 @@ body {
 	font-weight: 500;
 }
 
-.session-link-button:hover,
 .pr-link-button:hover {
 	opacity: 0.8;
-}
-
-.session-link-button .codicon {
-	font-size: 12px;
 }
 
 .item-metadata {
@@ -469,6 +517,13 @@ body {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+}
+
+.metadata-item-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: auto;
 }
 
 .metadata-item .codicon {
@@ -578,6 +633,46 @@ body {
 
 .pull-request-link:hover {
 	text-decoration: underline;
+}
+
+.create-pr-button {
+	background: var(--vscode-button-secondaryBackground);
+	border: 1px solid var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	cursor: pointer;
+	padding: 3px 6px;
+	border-radius: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 3px;
+	font-size: 11px;
+	transition: background-color 0.2s, border-color 0.2s;
+	white-space: nowrap;
+}
+
+.create-pr-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+	border-color: var(--vscode-button-secondaryHoverBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.create-pr-button .codicon {
+	font-size: 12px;
+}
+
+.active-badge {
+	background: rgba(255, 193, 7, 0.15);
+	color: var(--vscode-testing-iconQueued);
+	border: 1px solid var(--vscode-testing-iconQueued);
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 500;
+	display: inline-flex;
+	align-items: center;
+	cursor: default;
+	user-select: none;
 }
 
 .branch-name {

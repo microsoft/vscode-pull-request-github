@@ -457,7 +457,43 @@ export class StateManager {
 		statusBarItem.text = vscode.l10n.t('{0} Issue {1}', '$(issues)', currentIssues
 			.map(issue => getIssueNumberLabel(issue.issue, issue.repoDefaults))
 			.join(', '));
-		statusBarItem.tooltip = currentIssues.map(issue => issue.issue.title).join(', ');
+
+		// Enhanced tooltip with current task details
+		const tooltipLines: string[] = [];
+		for (const currentIssue of currentIssues) {
+			const issue = currentIssue.issue;
+			const branchName = currentIssue.branchName;
+
+			// Add issue title and number
+			tooltipLines.push(`Issue #${issue.number}: ${issue.title}`);
+
+			// Add branch information if available
+			if (branchName) {
+				tooltipLines.push(`Branch: ${branchName}`);
+			}
+
+			// Add repository information
+			const repoName = `${issue.githubRepository.remote.owner}/${issue.githubRepository.remote.repositoryName}`;
+			tooltipLines.push(`Repository: ${repoName}`);
+
+			// Add assignee if available
+			if (issue.assignees && issue.assignees.length > 0) {
+				const assignees = issue.assignees.map(a => a.login).join(', ');
+				tooltipLines.push(`Assignees: ${assignees}`);
+			}
+
+			// Add milestone if available
+			if (issue.milestone) {
+				tooltipLines.push(`Milestone: ${issue.milestone.title}`);
+			}
+
+			// Add separator for multiple issues
+			if (currentIssues.length > 1 && currentIssue !== currentIssues[currentIssues.length - 1]) {
+				tooltipLines.push('---');
+			}
+		}
+
+		statusBarItem.tooltip = tooltipLines.join('\n');
 		statusBarItem.command = 'issue.statusBar';
 		statusBarItem.show();
 	}

@@ -90,27 +90,46 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 						<span title={formatFullDateTime(session.dateCreated)}>{formatDate(session.dateCreated)}</span>
 					</div>
 				)}
-				{session.isLocal && session.branchName && (
-					<div className="metadata-item">
-						<span className="codicon codicon-git-branch"></span>
-						<span className="branch-name" title={`Branch: ${session.branchName}`}>{session.branchName}</span>
-					</div>
-				)}
-				{session.pullRequest && (
-					<div className="metadata-item">
-						<button
-							className="pull-request-link"
-							onClick={(e) => {
-								e.stopPropagation();
-								onPullRequestClick(session.pullRequest!);
-							}}
-							style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-							title={`Open pull request #${session.pullRequest.number} only`}
-						>
-							PR #{session.pullRequest.number}
-						</button>
-					</div>
-				)}
+				<div className="metadata-item-right">
+					{session.isLocal && session.branchName && (
+						<div className="metadata-item">
+							<span className="codicon codicon-git-branch"></span>
+							<span className="branch-name" title={`Branch: ${session.branchName}`}>{session.branchName}</span>
+						</div>
+					)}
+					{session.pullRequest && (
+						<div className="metadata-item">
+							<button
+								className="pull-request-link"
+								onClick={(e) => {
+									e.stopPropagation();
+									onPullRequestClick(session.pullRequest!);
+								}}
+								style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+								title={`Open pull request #${session.pullRequest.number} only`}
+							>
+								PR #{session.pullRequest.number}
+							</button>
+						</div>
+					)}
+					{session.isLocal && session.isCurrentBranch && !session.pullRequest && (
+						<div className="metadata-item">
+							<button
+								className="create-pr-button"
+								onClick={(e) => {
+									e.stopPropagation();
+									vscode.postMessage({
+										command: 'create-pull-request'
+									});
+								}}
+								title="Create pull request for current task"
+							>
+								<span className="codicon codicon-git-pull-request"></span>
+								<span>Create PR</span>
+							</button>
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);

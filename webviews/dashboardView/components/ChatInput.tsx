@@ -414,11 +414,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onV
 								title="Click to add @copilot to input"
 							>@copilot</code> to use GitHub Copilot.
 						</p>
-						{!isGlobal && (
-							<p>
-								<strong>Mention projects:</strong> You can talk about projects by name to work across multiple repositories.
-							</p>
-						)}
 					</div>
 				</div>
 			)}

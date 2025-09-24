@@ -29,6 +29,12 @@ export interface IssueData {
 	readonly url: string;
 	readonly createdAt: string;
 	readonly updatedAt: string;
+	readonly localTaskBranch?: string; // Name of the local task branch if it exists
+	readonly pullRequest?: {
+		readonly number: number;
+		readonly title: string;
+		readonly url: string;
+	};
 }
 
 export interface ProjectData {
@@ -55,6 +61,7 @@ export interface DashboardReady {
 		readonly owner: string;
 		readonly name: string;
 	};
+	readonly currentBranch?: string;
 }
 
 export interface GlobalDashboardLoading {

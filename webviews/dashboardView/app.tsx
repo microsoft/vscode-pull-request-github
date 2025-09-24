@@ -97,6 +97,8 @@ function Dashboard() {
 		const command = `@local start work on #${issue.number}`;
 		setChatInputValue(command);
 		setFocusTrigger(prev => prev + 1); // Trigger focus
+		// Scroll to top to show the input box
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}, []);
 
 	const handlePopulateRemoteInput = useCallback((issue: any, event: React.MouseEvent) => {
@@ -104,6 +106,8 @@ function Dashboard() {
 		const command = `@copilot start work on #${issue.number}`;
 		setChatInputValue(command);
 		setFocusTrigger(prev => prev + 1); // Trigger focus
+		// Scroll to top to show the input box
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}, []);
 
 	const handlePullRequestClick = useCallback((pullRequest: { number: number; title: string; url: string }) => {
@@ -122,7 +126,6 @@ function Dashboard() {
 				const githubQuery = readyState.issueQuery;
 
 				const githubUrl = `https://github.com/${owner}/${name}/issues?q=${encodeURIComponent(githubQuery)}`;
-				// Open in external browser
 				vscode.postMessage({
 					command: 'open-external-url',
 					args: { url: githubUrl }
@@ -130,6 +133,20 @@ function Dashboard() {
 			}
 		}
 	}, [dashboardState]);
+
+	const handleSwitchToLocalTask = useCallback((branchName: string, event: React.MouseEvent) => {
+		event.stopPropagation(); // Prevent triggering the issue click
+		vscode.postMessage({
+			command: 'switch-to-local-task',
+			args: { branchName }
+		});
+	}, []);
+
+	const handleSwitchToMain = useCallback(() => {
+		vscode.postMessage({
+			command: 'switch-to-main'
+		});
+	}, []);
 
 	// Sort issues based on selected option
 	const getSortedIssues = useCallback((issues: readonly IssueData[]) => {
@@ -173,6 +190,7 @@ function Dashboard() {
 	const milestoneIssues = dashboardState && !dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as DashboardReady).milestoneIssues : [];
 	const activeSessions = dashboardState?.state === 'ready' ? dashboardState.activeSessions : [];
 	const recentProjects = dashboardState && dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as GlobalDashboardReady).recentProjects : [];
+	const currentBranch = dashboardState && !dashboardState.isGlobal && dashboardState.state === 'ready' ? (dashboardState as DashboardReady).currentBranch : undefined;
 
 	// For global dashboards, create a mixed array of sessions and projects
 	const mixedItems = isGlobal ? (() => {
@@ -215,13 +233,28 @@ function Dashboard() {
 					<h1 className="dashboard-title">
 						{isGlobal ? 'Visual Studio Code - Insiders' : 'My Tasks'}
 					</h1>
-					<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
-						{refreshing ? (
-							<span className="codicon codicon-sync codicon-modifier-spin"></span>
-						) : (
-							<span className="codicon codicon-refresh"></span>
-						)}
-					</button>
+					<div className="header-buttons">
+						{dashboardState?.state === 'ready' && !dashboardState.isGlobal &&
+							((dashboardState as DashboardReady).currentBranch) &&
+							((dashboardState as DashboardReady).currentBranch !== 'main') &&
+							((dashboardState as DashboardReady).currentBranch !== 'master') && (
+								<button
+									className="switch-to-main-button"
+									onClick={handleSwitchToMain}
+									title={`Switch from ${(dashboardState as DashboardReady).currentBranch} to main`}
+								>
+									<span className="codicon codicon-git-branch"></span>
+									<span>Switch to main</span>
+								</button>
+							)}
+						<button className="refresh-button" onClick={handleRefresh} disabled={refreshing} title="Refresh dashboard">
+							{refreshing ? (
+								<span className="codicon codicon-sync codicon-modifier-spin"></span>
+							) : (
+								<span className="codicon codicon-refresh"></span>
+							)}
+						</button>
+					</div>
 				</div>
 			)}
 
@@ -285,11 +318,13 @@ function Dashboard() {
 												onIssueClick={handleIssueClick}
 												onPopulateLocalInput={handlePopulateLocalInput}
 												onPopulateRemoteInput={handlePopulateRemoteInput}
+												onSwitchToLocalTask={handleSwitchToLocalTask}
 												associatedSession={associatedSession}
 												onSessionClick={handleSessionClick}
 												onPullRequestClick={handlePullRequestClick}
 												onHover={() => setHoveredIssue(issue)}
 												onHoverEnd={() => setHoveredIssue(null)}
+												currentBranch={currentBranch}
 											/>
 										);
 									})

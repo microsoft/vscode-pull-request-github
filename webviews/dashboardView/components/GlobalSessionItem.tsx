@@ -117,6 +117,23 @@ export const GlobalSessionItem: React.FC<GlobalSessionItemProps> = ({
 						</button>
 					</div>
 				)}
+				{session.isLocal && session.isCurrentBranch && !session.pullRequest && (
+					<div className="metadata-item">
+						<button
+							className="create-pr-button"
+							onClick={(e) => {
+								e.stopPropagation();
+								vscode.postMessage({
+									command: 'create-pull-request'
+								});
+							}}
+							title="Create pull request for current task"
+						>
+							<span className="codicon codicon-git-pull-request"></span>
+							<span>Create PR</span>
+						</button>
+					</div>
+				)}
 			</div>
 		</div>
 	);

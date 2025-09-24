@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
 import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
@@ -30,6 +31,7 @@ export interface DashboardReady {
 		owner: string;
 		name: string;
 	};
+	currentBranch?: string;
 }
 
 export interface GlobalDashboardLoading {
@@ -66,6 +68,12 @@ export interface IssueData {
 	url: string;
 	createdAt: string;
 	updatedAt: string;
+	localTaskBranch?: string; // Name of the local task branch if it exists
+	pullRequest?: {
+		number: number;
+		title: string;
+		url: string;
+	};
 }
 
 export class DashboardWebviewProvider extends WebviewBase {
@@ -168,8 +176,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			const data = await this.getDashboardData();
 
-			// Get current repository info
+			// Get current repository info and branch
 			let repository: { owner: string; name: string } | undefined;
+			let currentBranch: string | undefined;
 			const targetRepos = this.getTargetRepositories();
 			if (targetRepos.length > 0) {
 				const [owner, name] = targetRepos[0].split('/');
@@ -178,12 +187,19 @@ export class DashboardWebviewProvider extends WebviewBase {
 				}
 			}
 
+			// Get current branch name
+			if (this._repositoriesManager.folderManagers.length > 0) {
+				const folderManager = this._repositoriesManager.folderManagers[0];
+				currentBranch = folderManager.repository.state.HEAD?.name;
+			}
+
 			const readyData: DashboardReady = {
 				state: 'ready',
 				issueQuery: this._issueQuery,
 				activeSessions: data.activeSessions,
 				milestoneIssues: data.milestoneIssues,
-				repository
+				repository,
+				currentBranch
 			};
 			this._postMessage({
 				command: 'update-dashboard',
@@ -531,7 +547,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private async convertIssueToData(issue: IssueModel): Promise<IssueData> {
-		return {
+		const issueData: IssueData = {
 			number: issue.number,
 			title: issue.title,
 			assignee: issue.assignees?.[0]?.login,
@@ -541,6 +557,231 @@ export class DashboardWebviewProvider extends WebviewBase {
 			createdAt: issue.createdAt,
 			updatedAt: issue.updatedAt
 		};
+
+		// Check for local task branch
+		try {
+			const taskBranchName = `task/issue-${issue.number}`;
+			const localTaskBranch = await this.findLocalTaskBranch(taskBranchName);
+			if (localTaskBranch) {
+				issueData.localTaskBranch = localTaskBranch;
+
+				// Check for associated pull request for this branch
+				const pullRequest = await this.findPullRequestForBranch(localTaskBranch);
+				if (pullRequest) {
+					issueData.pullRequest = pullRequest;
+				}
+			}
+		} catch (error) {
+			// If we can't check for branches, just continue without the local task info
+			Logger.debug(`Could not check for local task branch: ${error}`, DashboardWebviewProvider.ID);
+		}
+
+		return issueData;
+	}
+
+	private async findLocalTaskBranch(branchName: string): Promise<string | undefined> {
+		try {
+			// Use the same logic as TaskManager to get all task branches
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				if (folderManager.repository.getRefs) {
+					const refs = await folderManager.repository.getRefs({ pattern: 'refs/heads/' });
+
+					// Debug: log all branches
+					Logger.debug(`All local branches: ${refs.map(r => r.name).join(', ')}`, DashboardWebviewProvider.ID);
+
+					// Filter for task branches and look for our specific branch
+					const taskBranches = refs.filter(ref =>
+						ref.name &&
+						ref.name.startsWith('task/')
+					);
+
+					Logger.debug(`Task branches: ${taskBranches.map(r => r.name).join(', ')}`, DashboardWebviewProvider.ID);
+					Logger.debug(`Looking for branch: ${branchName}`, DashboardWebviewProvider.ID);
+
+					const matchingBranch = taskBranches.find(ref => ref.name === branchName);
+
+					if (matchingBranch) {
+						Logger.debug(`Found local task branch: ${branchName}`, DashboardWebviewProvider.ID);
+						return branchName;
+					}
+				}
+			}
+			Logger.debug(`Local task branch ${branchName} not found in any repository`, DashboardWebviewProvider.ID);
+			return undefined;
+		} catch (error) {
+			Logger.debug(`Failed to find local task branch ${branchName}: ${error}`, DashboardWebviewProvider.ID);
+			return undefined;
+		}
+	}
+
+	private async findPullRequestForBranch(branchName: string): Promise<{ number: number; title: string; url: string } | undefined> {
+		try {
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				if (folderManager.gitHubRepositories.length === 0) {
+					continue;
+				}
+
+				// Try each GitHub repository in this folder manager
+				for (const githubRepository of folderManager.gitHubRepositories) {
+					try {
+						// Use the getPullRequestForBranch method to find PRs for this branch
+						const pullRequest = await githubRepository.getPullRequestForBranch(branchName, githubRepository.remote.owner);
+
+						if (pullRequest) {
+							Logger.debug(`Found PR #${pullRequest.number} for branch ${branchName}`, DashboardWebviewProvider.ID);
+							return {
+								number: pullRequest.number,
+								title: pullRequest.title,
+								url: pullRequest.html_url
+							};
+						}
+					} catch (error) {
+						Logger.debug(`Failed to find PR for branch ${branchName} in ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}: ${error}`, DashboardWebviewProvider.ID);
+						// Continue to next repository
+					}
+				}
+			}
+
+			Logger.debug(`No PR found for branch ${branchName}`, DashboardWebviewProvider.ID);
+			return undefined;
+		} catch (error) {
+			Logger.debug(`Failed to find PR for branch ${branchName}: ${error}`, DashboardWebviewProvider.ID);
+			return undefined;
+		}
+	}
+
+	private async switchToMainBranch(): Promise<void> {
+		try {
+			// Find the first available folder manager with a repository
+			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.gitHubRepositories.length > 0
+			);
+
+			if (!folderManager) {
+				vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
+				return;
+			}
+
+			// Get the default branch (usually main or master)
+			const defaultBranch = await this.getDefaultBranch(folderManager) || 'main';
+
+			// Switch to the default branch
+			await folderManager.repository.checkout(defaultBranch);
+			vscode.window.showInformationMessage(`Switched to branch: ${defaultBranch}`);
+
+			// Update dashboard to reflect the branch change
+			setTimeout(() => {
+				this.updateDashboard();
+			}, 500);
+		} catch (error) {
+			Logger.error(`Failed to switch to main branch: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage(`Failed to switch to main branch: ${error}`);
+		}
+	}
+
+	private async createPullRequest(): Promise<void> {
+		try {
+			// Find the first available folder manager with a repository
+			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.gitHubRepositories.length > 0
+			);
+
+			if (!folderManager) {
+				vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
+				return;
+			}
+
+			const repository = folderManager.repository;
+			const currentBranch = repository.state.HEAD?.name;
+
+			if (!currentBranch) {
+				vscode.window.showErrorMessage('No current branch found.');
+				return;
+			}
+
+			// Check if there are any commits on this branch that aren't on main
+			const hasCommits = await this.hasCommitsOnBranch(repository, currentBranch);
+
+			if (!hasCommits) {
+				// No commits yet, stage files, generate commit message, and open SCM view
+				try {
+					// Stage all changed files
+					const workingTreeChanges = repository.state.workingTreeChanges;
+					if (workingTreeChanges.length > 0) {
+						await repository.add(workingTreeChanges.map(change => change.uri.fsPath));
+						Logger.debug(`Staged ${workingTreeChanges.length} files`, DashboardWebviewProvider.ID);
+					}
+
+					// Open SCM view first
+					await vscode.commands.executeCommand('workbench.view.scm');
+
+					// Generate commit message using Copilot
+					try {
+						await vscode.commands.executeCommand('github.copilot.git.generateCommitMessage');
+					} catch (commitMsgError) {
+						Logger.debug(`Failed to generate commit message: ${commitMsgError}`, DashboardWebviewProvider.ID);
+						// Don't fail the whole operation if commit message generation fails
+					}
+
+					vscode.window.showInformationMessage('Files staged and commit message generated. Make your first commit before creating a pull request.');
+				} catch (stagingError) {
+					Logger.error(`Failed to stage files: ${stagingError}`, DashboardWebviewProvider.ID);
+					// Fall back to just opening SCM view
+					await vscode.commands.executeCommand('workbench.view.scm');
+					vscode.window.showInformationMessage('Make your first commit before creating a pull request.');
+				}
+			} else {
+				// Has commits, proceed with create pull request flow
+				await vscode.commands.executeCommand('pr.create');
+			}
+		} catch (error) {
+			Logger.error(`Failed to create pull request: ${error}`, DashboardWebviewProvider.ID);
+			vscode.window.showErrorMessage(`Failed to create pull request: ${error}`);
+		}
+	}
+
+	private async hasCommitsOnBranch(repository: any, branchName: string): Promise<boolean> {
+		try {
+			// Find the folder manager that contains this repository
+			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+				fm.repository === repository
+			);
+
+			if (!folderManager) {
+				Logger.debug(`Could not find folder manager for repository`, DashboardWebviewProvider.ID);
+				return true;
+			}
+
+			// Get the default branch (usually main or master)
+			const defaultBranch = await this.getDefaultBranch(folderManager) || 'main';
+
+			// Get the GitHub repository for this folder manager
+			const githubRepo = folderManager.gitHubRepositories[0];
+			if (!githubRepo) {
+				Logger.debug(`No GitHub repository found in folder manager`, DashboardWebviewProvider.ID);
+				return true;
+			}
+
+			// Create a CreatePullRequestDataModel to check for changes
+			const dataModel = new CreatePullRequestDataModel(
+				folderManager,
+				githubRepo.remote.owner,
+				defaultBranch,
+				githubRepo.remote.owner,
+				branchName,
+				githubRepo.remote.repositoryName
+			);
+
+			// Check if there are any changes between the branch and the base
+			const commits = await dataModel.gitCommits();
+			dataModel.dispose();
+
+			return commits.length > 0;
+		} catch (error) {
+			// If we can't determine commit status, assume there are commits and proceed
+			Logger.debug(`Could not check branch commits: ${error}`, DashboardWebviewProvider.ID);
+			return true;
+		}
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>): Promise<void> {
@@ -586,6 +827,12 @@ export class DashboardWebviewProvider extends WebviewBase {
 				break;
 			case 'open-external-url':
 				await vscode.env.openExternal(vscode.Uri.parse(message.args.url));
+				break;
+			case 'switch-to-main':
+				await this.switchToMainBranch();
+				break;
+			case 'create-pull-request':
+				await this.createPullRequest();
 				break;
 			default:
 				await super._onDidReceiveMessage(message);

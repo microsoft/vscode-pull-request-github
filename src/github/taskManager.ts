@@ -164,6 +164,42 @@ export class TaskManager {
 		return titleMatch ? titleMatch[1] : undefined;
 	}
 
+	private async findPullRequestForBranch(branchName: string): Promise<{ number: number; title: string; url: string } | undefined> {
+		try {
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				if (folderManager.gitHubRepositories.length === 0) {
+					continue;
+				}
+
+				// Try each GitHub repository in this folder manager
+				for (const githubRepository of folderManager.gitHubRepositories) {
+					try {
+						// Use the getPullRequestForBranch method to find PRs for this branch
+						const pullRequest = await githubRepository.getPullRequestForBranch(branchName, githubRepository.remote.owner);
+
+						if (pullRequest) {
+							Logger.debug(`Found PR #${pullRequest.number} for branch ${branchName}`, TaskManager.ID);
+							return {
+								number: pullRequest.number,
+								title: pullRequest.title,
+								url: pullRequest.html_url
+							};
+						}
+					} catch (error) {
+						Logger.debug(`Failed to find PR for branch ${branchName} in ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}: ${error}`, TaskManager.ID);
+						// Continue to next repository
+					}
+				}
+			}
+
+			Logger.debug(`No PR found for branch ${branchName}`, TaskManager.ID);
+			return undefined;
+		} catch (error) {
+			Logger.debug(`Failed to find PR for branch ${branchName}: ${error}`, TaskManager.ID);
+			return undefined;
+		}
+	}
+
 	/**
 	 * Gets local task branches (branches starting with "task/")
 	 */
@@ -212,6 +248,14 @@ export class TaskManager {
 								.replace(/-/g, ' ')
 								.replace(/\b\w/g, l => l.toUpperCase());
 
+							// Check for associated pull request
+							let pullRequest: { number: number; title: string; url: string } | undefined = undefined;
+							try {
+								pullRequest = await this.findPullRequestForBranch(branch.name);
+							} catch (error) {
+								Logger.debug(`Failed to find PR for branch ${branch.name}: ${error}`, TaskManager.ID);
+							}
+
 							localTasks.push({
 								id: `local-${branch.name}`,
 								title: taskName,
@@ -219,7 +263,8 @@ export class TaskManager {
 								dateCreated,
 								isCurrentBranch,
 								isLocal: true,
-								branchName: branch.name
+								branchName: branch.name,
+								pullRequest
 							});
 						}
 					}
