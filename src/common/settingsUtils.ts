@@ -91,7 +91,7 @@ export function editQuery(namespace: string, queryName: string) {
 			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[3]) {
 			inputBox.ignoreFocusOut = true;
-			await openAIForQuery(inputBox.value);
+			await openCopilotForQuery(inputBox.value);
 			inputBox.busy = false;
 		}
 	});
@@ -165,7 +165,7 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 	}
 }
 
-async function openAIForQuery(currentQuery: string) {
+async function openCopilotForQuery(currentQuery: string) {
 	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: \n```\n{0}\n```\nOutput only one, minimally modified query in a codeblock.\nModify it so that it ', currentQuery);
 
 	// Open chat with the query pre-populated
