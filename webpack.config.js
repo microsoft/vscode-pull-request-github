@@ -58,11 +58,6 @@ async function getWebviewConfig(mode, env, entry) {
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: {
-				enabled: true,
-				files: path.join(basePath, '**', '*.ts'),
-				options: { cache: true, configFile: path.join(__dirname, '.eslintrc.webviews.json') },
-			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
@@ -171,17 +166,6 @@ async function getExtensionConfig(target, mode, env) {
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: {
-				enabled: true,
-				files: path.join(basePath, '**', '*.ts'),
-				options: {
-					cache: true,
-					configFile: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json',
-					),
-				},
-			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
