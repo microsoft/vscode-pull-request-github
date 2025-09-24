@@ -58,7 +58,7 @@ export function editQuery(namespace: string, queryName: string) {
 		{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true },
 		{ iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true },
 		{ iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true },
-		{ iconPath: new vscode.ThemeIcon('copilot'), label: vscode.l10n.t('Edit with Copilot'), alwaysShow: true }
+		{ iconPath: new vscode.ThemeIcon('sparkle'), label: vscode.l10n.t('Edit with AI'), alwaysShow: true }
 	];
 	inputBox.activeItems = [];
 	inputBox.selectedItems = [];
