@@ -225,7 +225,7 @@ export class RepositoriesManager extends Disposable {
 
 	async clearCredentialCache(): Promise<void> {
 		await this._credentialStore.reset();
-		this.updateState(ReposManagerState.Initializing);
+		this.updateState(ReposManagerState.NeedsAuthentication);
 	}
 
 	async authenticate(enterprise?: boolean): Promise<boolean> {
