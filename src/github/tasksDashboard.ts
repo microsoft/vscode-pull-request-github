@@ -7,8 +7,8 @@ import * as vscode from 'vscode';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
-import { DashboardWebviewProvider } from './dashboardWebviewProvider';
 import { RepositoriesManager } from './repositoriesManager';
+import { DashboardWebviewProvider } from './taskDashboardWebviewProvider';
 
 export class TasksDashboardManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static readonly viewType = 'github-pull-request.projectTasksDashboard';

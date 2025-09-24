@@ -15,7 +15,7 @@ import { RepositoriesManager } from './repositoriesManager';
 import { IssueReference, SessionData, TaskManager } from './taskManager';
 
 // Dashboard state discriminated union
-export type DashboardState = DashboardLoading | DashboardReady | GlobalDashboardLoading | GlobalDashboardReady;
+export type DashboardState = DashboardLoading | DashboardReady;
 
 export interface DashboardLoading {
 	state: 'loading';
@@ -32,24 +32,6 @@ export interface DashboardReady {
 		name: string;
 	};
 	currentBranch?: string;
-}
-
-export interface GlobalDashboardLoading {
-	state: 'loading';
-	isGlobal: true;
-}
-
-export interface GlobalDashboardReady {
-	state: 'ready';
-	isGlobal: true;
-	activeSessions: SessionData[];
-	recentProjects: ProjectData[];
-}
-
-export interface ProjectData {
-	name: string;
-	path: string;
-	lastOpened: string;
 }
 
 // Legacy interface for backward compatibility
@@ -85,7 +67,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	private _issueQuery: string;
 	private _repos?: string[];
 	private _taskManager: TaskManager;
-	private _isGlobal: boolean;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -95,15 +76,13 @@ export class DashboardWebviewProvider extends WebviewBase {
 		extensionUri: vscode.Uri,
 		panel: vscode.WebviewPanel,
 		issueQuery: string,
-		repos: string[] | undefined,
-		isGlobal: boolean = false
+		repos: string[] | undefined
 	) {
 		super();
 		this._panel = panel;
 		this._webview = panel.webview;
 		this._issueQuery = issueQuery || 'is:open assignee:@me milestone:"September 2025"';
 		this._repos = repos;
-		this._isGlobal = isGlobal;
 		this._taskManager = new TaskManager(this._repositoriesManager, this._copilotRemoteAgentManager);
 		super.initialize();
 
@@ -147,29 +126,11 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 	private async updateDashboard(): Promise<void> {
 		try {
-			if (this._isGlobal) {
-				// For global dashboard, get data from all repositories
-				const globalData = await this.getGlobalDashboardData();
-				const readyData: GlobalDashboardReady = {
-					state: 'ready',
-					isGlobal: true,
-					activeSessions: globalData.activeSessions,
-					recentProjects: globalData.recentProjects
-				};
-				this._postMessage({
-					command: 'update-dashboard',
-					data: readyData
-				});
-				return;
-			}
-
-			// Regular dashboard logic
 			// Wait for repositories to be loaded before fetching data
 			await this.waitForRepositoriesReady();
 
 			// Check if we actually have folder managers available before proceeding
 			if (!this._repositoriesManager.folderManagers || this._repositoriesManager.folderManagers.length === 0) {
-
 				// Don't send ready state if we don't have folder managers yet
 				return;
 			}
@@ -251,50 +212,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 			milestoneIssues,
 			issueQuery: this._issueQuery
 		};
-	}
-
-	private async getGlobalDashboardData(): Promise<{ activeSessions: SessionData[]; recentProjects: ProjectData[] }> {
-		// Get all sessions from all repositories
-		const allSessions = await this._taskManager.getAllSessions();
-
-		// Get recent projects (this would be implemented to get from VS Code workspace history)
-		const recentProjects = await this.getRecentProjects();
-
-		return {
-			activeSessions: allSessions,
-			recentProjects
-		};
-	}
-
-	private async getRecentProjects(): Promise<ProjectData[]> {
-		// For now, return mock data - in a real implementation, this would get from VS Code's recent workspaces
-		return [
-			{
-				name: 'chat-output-renderer-sample',
-				path: '~/projects/vscode-extension-samples/chat-output-renderer-sample',
-				lastOpened: new Date().toISOString()
-			},
-			{
-				name: 'vscode',
-				path: '~/projects',
-				lastOpened: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-			},
-			{
-				name: 'vscode-docs',
-				path: '~/projects',
-				lastOpened: new Date(Date.now() - 172800000).toISOString() // 2 days ago
-			},
-			{
-				name: 'sandbox',
-				path: '~/projects',
-				lastOpened: new Date(Date.now() - 259200000).toISOString() // 3 days ago
-			},
-			{
-				name: 'typescript-go',
-				path: '~/projects',
-				lastOpened: new Date(Date.now() - 345600000).toISOString() // 4 days ago
-			}
-		];
 	}
 
 	private async getActiveSessions(): Promise<SessionData[]> {
@@ -790,9 +707,10 @@ export class DashboardWebviewProvider extends WebviewBase {
 				this._onIsReady.fire();
 
 				// Send immediate initialize message with loading state
-				const loadingData: DashboardLoading | GlobalDashboardLoading = this._isGlobal
-					? { state: 'loading', isGlobal: true }
-					: { state: 'loading', issueQuery: this._issueQuery };
+				const loadingData: DashboardLoading = {
+					state: 'loading',
+					issueQuery: this._issueQuery
+				};
 
 				this._postMessage({
 					command: 'initialize',
