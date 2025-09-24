@@ -17,7 +17,7 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 // @ts-expect-error - a
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import React, { useCallback, useEffect, useState } from 'react';
-import { DashboardState, vscode } from '../types';
+import { DashboardReady, DashboardState, vscode } from '../types';
 import { GlobalInstructions } from './GlobalInstructions';
 
 const inputLanguageId = 'taskInput';
@@ -86,7 +86,7 @@ function setupMonaco() {
 			const hashMatch = textUntilPosition.match(/#\d*$/);
 			if (hashMatch) {
 				const suggestions = (suggestionDataSource?.state === 'ready' && !suggestionDataSource.isGlobal)
-					? suggestionDataSource.milestoneIssues.map((issue: any): monaco.languages.CompletionItem => ({
+					? (suggestionDataSource as DashboardReady).milestoneIssues.map((issue: any): monaco.languages.CompletionItem => ({
 						label: `#${issue.number}`,
 						kind: monaco.languages.CompletionItemKind.Reference,
 						insertText: `#${issue.number}`,
@@ -401,7 +401,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onV
 				<div className="global-instructions">
 					<div className="instructions-content">
 						<p>
-							<strong>Reference issues:</strong> Use the syntax <code>org/repo#123</code> to start work on specific issues from any repository.
+							<strong>Reference issues:</strong> Use <code>#123</code> to start work on specific issues in this repo
 						</p>
 						<p>
 							<strong>Choose your agent:</strong> Use <code
@@ -414,9 +414,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, isGlobal, value, onV
 								title="Click to add @copilot to input"
 							>@copilot</code> to use GitHub Copilot.
 						</p>
-						<p>
-							<strong>Mention projects:</strong> You can talk about projects by name to work across multiple repositories.
-						</p>
+						{!isGlobal && (
+							<p>
+								<strong>Mention projects:</strong> You can talk about projects by name to work across multiple repositories.
+							</p>
+						)}
 					</div>
 				</div>
 			)}

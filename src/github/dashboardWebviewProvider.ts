@@ -11,7 +11,7 @@ import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
 import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
 import { RepositoriesManager } from './repositoriesManager';
-import { SessionData, TaskManager } from './taskManager';
+import { IssueReference, SessionData, TaskManager } from './taskManager';
 
 // Dashboard state discriminated union
 export type DashboardState = DashboardLoading | DashboardReady | GlobalDashboardLoading | GlobalDashboardReady;
@@ -550,9 +550,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 			case 'submit-chat':
 				await this.handleChatSubmission(message.args?.query);
 				break;
-			case 'plan-task-with-local-agent':
-				await this.handlePlanTaskWithLocalAgent(message.args?.query);
-				break;
 			case 'open-session':
 				await this.openSession(message.args?.sessionId);
 				break;
@@ -601,245 +598,68 @@ export class DashboardWebviewProvider extends WebviewBase {
 			return;
 		}
 
+		query = query.trim();
+
 		try {
-			// Extract issue references from the query
-			const issueReferences = this.extractIssueReferences(query);
-			const issueContext = await this.getEnhancedIssueContext(issueReferences);
-
-			// Build enhanced query with issue context if any issues are referenced
-			let enhancedQuery = query;
-			if (issueContext.length > 0) {
-				enhancedQuery += `\n\nReferenced Issues:\n`;
-				for (const issue of issueContext) {
-					enhancedQuery += `- Issue #${issue.number}: ${issue.title}\n`;
-					enhancedQuery += `  URL: ${issue.url}\n`;
-					if (issue.assignee) {
-						enhancedQuery += `  Assignee: ${issue.assignee}\n`;
-					}
-					if (issue.milestone) {
-						enhancedQuery += `  Milestone: ${issue.milestone}\n`;
-					}
-					enhancedQuery += `  State: ${issue.state}\n`;
-					enhancedQuery += `  Updated: ${issue.updatedAt}\n\n`;
-				}
-			}
-
 			// Check if user explicitly mentions @copilot for remote background session
-			if (query.includes('@copilot')) {
-				// Create temporary session first
-				const tempId = this.createTemporarySession(enhancedQuery.replace(/@copilot\s*/, '').trim(), 'remote');
-
-				// Create background session using chat sessions API
-				try {
-					await this.createRemoteBackgroundSession(enhancedQuery);
-				} finally {
-					// Remove temporary session regardless of success/failure
-					this.removeTemporarySession(tempId);
-				}
-				return;
+			if (query.startsWith('@copilot ')) {
+				return this.handleRemoteTaskSubmission(query);
 			}
-
 			// Check if user explicitly mentions @local for local workflow
-			if (query.includes('@local')) {
-				// Create temporary session first
-				const cleanQuery = enhancedQuery.replace(/@local\s*/, '').trim();
-				const tempId = this.createTemporarySession(cleanQuery || enhancedQuery, 'local');
-
-				// Remove @local prefix and set up local workflow directly
-				try {
-					await this.setupLocalWorkflow(cleanQuery || enhancedQuery);
-				} finally {
-					// Remove temporary session regardless of success/failure
-					this.removeTemporarySession(tempId);
-				}
-				return;
+			else if (query.startsWith('@local ')) {
+				return this.handleLocalTaskSubmission(query);
 			}
-
 			// Determine if this is a general question or coding task
-			const isCodingTask = await this.isCodingTask(query);
-
-			if (isCodingTask) {
-				// Show quick pick to choose between local and remote work
-				const workMode = await this.showWorkModeQuickPick();
-
-				if (workMode === 'remote') {
-					// Create temporary session first
-					const tempId = this.createTemporarySession(enhancedQuery, 'remote');
-
-					// Use @copilot to start a new chat session
-					try {
-						await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@copilot ${enhancedQuery}` });
-					} finally {
-						// Remove temporary session
-						this.removeTemporarySession(tempId);
+			else {
+				if (await this.isCodingTask(query)) {
+					// Show quick pick to choose between local and remote work
+					const workMode = await this.showWorkModeQuickPick();
+					if (workMode === 'remote') {
+						return this.handleRemoteTaskSubmission(query);
+					} else if (workMode === 'local') {
+						return this.handleLocalTaskSubmission(query);
+					} else {
+						// User cancelled the quick pick
+						return;
 					}
-				} else if (workMode === 'local') {
-					// Create temporary session first
-					const tempId = this.createTemporarySession(enhancedQuery, 'local');
-
-					// Create a new branch and set up local chat with agent mode
-					try {
-						await this.setupLocalWorkflow(enhancedQuery);
-					} finally {
-						// Remove temporary session
-						this.removeTemporarySession(tempId);
-					}
+				} else {
+					// General question - Submit to ask mode
+					await vscode.commands.executeCommand('workbench.action.chat.open', {
+						query,
+						mode: 'ask'
+					});
 				}
-				// If workMode is undefined, user cancelled - do nothing
-			} else {
-				// General question - create fresh chat and open with ask mode
-				await vscode.commands.executeCommand('workbench.action.chat.newChat');
-				await vscode.commands.executeCommand('workbench.action.chat.open', {
-					query: enhancedQuery,
-					mode: 'ask'
-				});
 			}
-
-			// Optionally refresh the dashboard to show any new sessions
-			setTimeout(() => {
-				this.updateDashboard();
-			}, 1000);
 		} catch (error) {
 			Logger.error(`Failed to handle chat submission: ${error} `, DashboardWebviewProvider.ID);
-			vscode.window.showErrorMessage('Failed to open chat. Make sure the Chat extension is available.');
 		}
 	}
 
-	/**
-	 * Extracts issue references from text (e.g., #123, owner/repo#456)
-	 */
-	private extractIssueReferences(text: string): Array<{ owner?: string; repo?: string; number: number; originalMatch: string }> {
-		const references: Array<{ owner?: string; repo?: string; number: number; originalMatch: string }> = [];
+	private async handleLocalTaskSubmission(query: string) {
+		const cleanQuery = query.replace(/@local\s*/, '').trim();
 
-		// Match full repository issue references (owner/repo#123)
-		const fullRepoRegex = /([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)#(\d+)/g;
-		let match;
-		while ((match = fullRepoRegex.exec(text)) !== null) {
-			references.push({
-				owner: match[1],
-				repo: match[2],
-				number: parseInt(match[3], 10),
-				originalMatch: match[0]
-			});
-		}
-
-		// Match simple issue references (#123) for current repo
-		const simpleRegex = /#(\d+)(?![a-zA-Z0-9._-])/g;
-		while ((match = simpleRegex.exec(text)) !== null) {
-			const matchIndex = match.index;
-			const matchText = match[0];
-
-			// Skip if this number is part of a full repo reference we already found
-			const isPartOfFullRef = references.some(ref => {
-				const refStart = text.indexOf(ref.originalMatch);
-				const refEnd = refStart + ref.originalMatch.length;
-				return refStart <= matchIndex && matchIndex < refEnd;
-			});
-
-			if (!isPartOfFullRef) {
-				references.push({
-					number: parseInt(match[1], 10),
-					originalMatch: matchText
-				});
-			}
-		}
-
-		return references;
-	}
-
-	/**
-	 * Gets enhanced issue context data for all types of issue references
-	 */
-	private async getEnhancedIssueContext(issueReferences: Array<{ owner?: string; repo?: string; number: number; originalMatch: string }>): Promise<IssueData[]> {
-		if (issueReferences.length === 0) {
-			return [];
-		}
-
+		const tempId = this.createTemporarySession(cleanQuery || query, 'local');
 		try {
-			const issueDataPromises = issueReferences.map(async (ref) => {
-				if (ref.owner && ref.repo) {
-					// External repository issue
-					return await this.getExternalIssueData(ref.owner, ref.repo, ref.number);
-				} else {
-					// Current repository issue
-					return await this.getCurrentRepoIssueData(ref.number);
-				}
-			});
-
-			const issueDataResults = await Promise.all(issueDataPromises);
-			return issueDataResults.filter(Boolean) as IssueData[];
-		} catch (error) {
-			Logger.error(`Failed to get enhanced issue context: ${error}`, DashboardWebviewProvider.ID);
-			return [];
+			await this.handleLocalTaskWithIssueSupport(cleanQuery || query);
+		} finally {
+			this.removeTemporarySession(tempId);
 		}
 	}
 
-	/**
-	 * Gets issue data from external repository
-	 */
-	private async getExternalIssueData(owner: string, repo: string, issueNumber: number): Promise<IssueData | null> {
+	private async handleRemoteTaskSubmission(query: string) {
+		const cleanQuery = query.replace(/@copilot\s*/, '').trim();
+
+		const tempId = this.createTemporarySession(cleanQuery, 'remote');
 		try {
-			// Find a folder manager that can access this repository
-			let folderManager = this._repositoriesManager.folderManagers.find(fm =>
-				fm.gitHubRepositories.some(ghRepo =>
-					ghRepo.remote.owner.toLowerCase() === owner.toLowerCase() &&
-					ghRepo.remote.repositoryName.toLowerCase() === repo.toLowerCase()
-				)
-			);
-
-			// If not found, use the first available folder manager (it might still have access)
-			if (!folderManager && this._repositoriesManager.folderManagers.length > 0) {
-				folderManager = this._repositoriesManager.folderManagers[0];
-			}
-
-			if (!folderManager) {
-				return null;
-			}
-
-			const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
-			if (issueModel) {
-				return await this.convertIssueToData(issueModel);
-			}
-			return null;
-		} catch (error) {
-			Logger.debug(`Failed to get external issue ${owner}/${repo}#${issueNumber}: ${error}`, DashboardWebviewProvider.ID);
-			return null;
+			await this.createRemoteBackgroundSession(cleanQuery);
+		} finally {
+			// Remove temporary session regardless of success/failure
+			this.removeTemporarySession(tempId);
 		}
 	}
 
-	/**
-	 * Gets issue data from current repository
-	 */
-	private async getCurrentRepoIssueData(issueNumber: number): Promise<IssueData | null> {
-		try {
-			// Get all milestone issues and find the matching one
-			const allIssues = await this.getMilestoneIssues();
-			const matchingIssue = allIssues.find(issue => issue.number === issueNumber);
-			if (matchingIssue) {
-				return matchingIssue;
-			}
 
-			// If not found in milestone issues, try to resolve directly
-			const targetRepos = this.getTargetRepositories();
-			for (const repoIdentifier of targetRepos) {
-				const [owner, repo] = repoIdentifier.split('/');
-				const folderManager = this._repositoriesManager.folderManagers.find(fm =>
-					this.folderManagerMatchesRepo(fm, owner, repo)
-				);
 
-				if (folderManager) {
-					const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
-					if (issueModel) {
-						return await this.convertIssueToData(issueModel);
-					}
-				}
-			}
-			return null;
-		} catch (error) {
-			Logger.debug(`Failed to get current repo issue #${issueNumber}: ${error}`, DashboardWebviewProvider.ID);
-			return null;
-		}
-	}
 
 	private async startCopilotTask(taskDescription: string, referencedIssues: number[], issueContext: IssueData[]): Promise<void> {
 		if (!taskDescription) {
@@ -1072,67 +892,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-	/**
-	 * Handles planning a task with local agent - opens issue side-by-side with chat
-	 */
-	private async handlePlanTaskWithLocalAgent(query: string): Promise<void> {
-		if (!query) {
-			return;
-		}
-
-		try {
-			// Extract issue references from the query to find related issues
-			const issueReferences = this.extractIssueReferences(query);
-
-			if (issueReferences.length > 0) {
-				// If there are issue references, try to open the first one side-by-side with chat
-				const firstIssue = issueReferences[0];
-
-				// Find the issue model for the referenced issue
-				for (const folderManager of this._repositoriesManager.folderManagers) {
-					try {
-						const issueModel = await folderManager.resolveIssue(
-							firstIssue.owner || folderManager.gitHubRepositories[0]?.remote.owner || '',
-							firstIssue.repo || folderManager.gitHubRepositories[0]?.remote.repositoryName || '',
-							firstIssue.number
-						);
-						if (issueModel) {
-							// Use the existing side-by-side command
-							await vscode.commands.executeCommand('issue.openIssueAndCodingAgentSideBySide', issueModel);
-							return;
-						}
-					} catch (error) {
-						// Continue to try other folder managers
-						continue;
-					}
-				}
-			}
-
-			// If no specific issue found, create a general planning session
-			// Open a new chat session with the query and planning instructions
-			await vscode.commands.executeCommand('workbench.action.chat.newChat');
-
-			const planningQuery = `I want to plan and analyze this task before implementing it:
-
-${query}
-
-Please help me:
-1. Break down what needs to be implemented
-2. Identify any potential challenges or considerations
-3. Suggest an implementation approach
-4. Ask any clarifying questions that would help create better instructions for a coding agent
-
-Keep your response focused and actionable - ask at most 3 essential questions if there are genuine ambiguities.`;
-
-			await vscode.commands.executeCommand('workbench.action.chat.open', {
-				query: planningQuery
-			});
-
-		} catch (error) {
-			Logger.error(`Failed to plan task with local agent: ${error}`, DashboardWebviewProvider.ID);
-			vscode.window.showErrorMessage('Failed to open planning session. Make sure the Chat extension is available.');
-		}
-	}
 
 	/**
 	 * Determines if a query represents a coding task vs a general question using VS Code's Language Model API
@@ -1155,7 +914,7 @@ Keep your response focused and actionable - ask at most 3 essential questions if
 	 * Sets up local workflow: creates branch and opens chat with agent mode
 	 */
 	private async setupLocalWorkflow(query: string): Promise<void> {
-		await this._taskManager.setupLocalWorkflow(query);
+		await this._taskManager.setupNewLocalWorkflow(query);
 	}
 
 	/**
@@ -1227,6 +986,27 @@ Keep your response focused and actionable - ask at most 3 essential questions if
 
 	private _branchChangeTimeout: NodeJS.Timeout | undefined;
 
+	/**
+	 * Handles local task submission with issue support - creates branches and formats prompts
+	 */
+	private async handleLocalTaskWithIssueSupport(query: string): Promise<void> {
+		const references = extractIssueReferences(query);
+
+		if (references.length > 0) {
+			const firstRef = references[0];
+			const issueNumber = firstRef.number;
+
+			try {
+				await this._taskManager.handleLocalTaskForIssue(issueNumber, firstRef);
+			} catch (error) {
+				Logger.error(`Failed to handle local task with issue support: ${error}`, DashboardWebviewProvider.ID);
+				vscode.window.showErrorMessage('Failed to set up local task branch.');
+			}
+		} else {
+			await this.setupLocalWorkflow(query);
+		}
+	}
+
 	private getHtmlForWebview(): string {
 		const nonce = getNonce();
 		const uri = vscode.Uri.joinPath(this._context.extensionUri, 'dist', 'webview-dashboard.js');
@@ -1247,4 +1027,35 @@ Keep your response focused and actionable - ask at most 3 essential questions if
 	</body>
 </html>`;
 	}
+}
+
+
+/**
+ * Extracts issue references from text (e.g., #123, owner/repo#456)
+ */
+function extractIssueReferences(text: string): Array<IssueReference> {
+	const out: IssueReference[] = [];
+
+	// Match full repository issue references (owner/repo#123)
+	const fullRepoRegex = /([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)#(\d+)/g;
+	let match: RegExpExecArray | null;
+	while ((match = fullRepoRegex.exec(text)) !== null) {
+		out.push({
+			number: parseInt(match[3], 10),
+			nwo: {
+				owner: match[1],
+				repo: match[2],
+			},
+		});
+	}
+
+	// Match simple issue references (#123) for current repo
+	const simpleRegex = /#(\d+)(?![a-zA-Z0-9._-])/g;
+	while ((match = simpleRegex.exec(text)) !== null) {
+		out.push({
+			number: parseInt(match[1], 10),
+		});
+	}
+
+	return out;
 }

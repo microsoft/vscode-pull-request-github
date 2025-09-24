@@ -211,9 +211,9 @@ function Dashboard() {
 				{/* Input Area */}
 				<div className="input-area">
 					<h2 className="area-header new-task">Start new task</h2>
-					<ChatInput 
-						data={dashboardState} 
-						isGlobal={!!isGlobal} 
+					<ChatInput
+						data={dashboardState}
+						isGlobal={!!isGlobal}
 						value={chatInputValue}
 						onValueChange={setChatInputValue}
 						focusTrigger={focusTrigger}

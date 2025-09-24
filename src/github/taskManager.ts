@@ -10,6 +10,14 @@ import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { RepositoriesManager } from './repositoriesManager';
 
+export interface IssueReference {
+	readonly number: number;
+	readonly nwo?: {
+		readonly owner: string;
+		readonly repo: string;
+	}
+}
+
 export interface SessionData {
 	id: string;
 	title: string;
@@ -338,7 +346,7 @@ export class TaskManager {
 	/**
 	 * Sets up local workflow: creates branch and opens chat with agent mode
 	 */
-	public async setupLocalWorkflow(query: string): Promise<void> {
+	public async setupNewLocalWorkflow(query: string): Promise<void> {
 		try {
 			await vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
@@ -386,6 +394,114 @@ export class TaskManager {
 			Logger.error(`Failed to setup local workflow: ${error}`, TaskManager.ID);
 			vscode.window.showErrorMessage(`Failed to setup local workflow: ${error}`);
 		}
+	}
+
+	/**
+	 * Handles local task for a specific issue - creates branch and opens chat
+	 */
+	public async handleLocalTaskForIssue(issueNumber: number, issueRef: IssueReference): Promise<void> {
+		// Create branch name: task/issue-{number}
+		const branchName = `task/issue-${issueNumber}`;
+
+		// Find the appropriate folder manager for this issue
+		let folderManager: FolderRepositoryManager | undefined;
+		let finalOwner: string;
+		let finalRepo: string;
+
+		if (issueRef.nwo) {
+			// Full repository reference (owner/repo#123)
+			finalOwner = issueRef.nwo.owner;
+			finalRepo = issueRef.nwo.repo;
+
+			for (const manager of this._repositoriesManager.folderManagers) {
+				try {
+					const issueModel = await manager.resolveIssue(issueRef.nwo.owner, issueRef.nwo.repo, issueNumber);
+					if (issueModel) {
+						folderManager = manager;
+						break;
+					}
+				} catch (error) {
+					// Continue looking in other repos
+					continue;
+				}
+			}
+		} else {
+			// Simple reference (#123) - use current repository
+			folderManager = this._repositoriesManager.folderManagers[0];
+			if (folderManager && folderManager.gitHubRepositories.length > 0) {
+				const repo = folderManager.gitHubRepositories[0];
+				finalOwner = repo.remote.owner;
+				finalRepo = repo.remote.repositoryName;
+			} else {
+				vscode.window.showErrorMessage('No repository context found for issue reference.');
+				return;
+			}
+		}
+
+		if (!folderManager) {
+			vscode.window.showErrorMessage('Repository not found in local workspace.');
+			return;
+		}
+
+		// Check if branch already exists
+		let branchExists = false;
+		try {
+			if (folderManager.repository.getRefs) {
+				const refs = await folderManager.repository.getRefs({
+					contains: undefined,
+					count: undefined,
+					pattern: undefined,
+					sort: undefined
+				});
+				const existingBranches = new Set(
+					refs
+						.filter(ref => ref.type === 1 && ref.name) // RefType.Head = 1
+						.map(ref => ref.name!)
+				);
+				branchExists = existingBranches.has(branchName);
+			}
+		} catch (error) {
+			Logger.debug(`Could not fetch branch refs: ${error}`, TaskManager.ID);
+		}
+
+		if (branchExists) {
+			// Ask user if they want to switch to existing branch
+			const switchToBranch = vscode.l10n.t('Switch to Branch');
+			const createNewBranch = vscode.l10n.t('Create New Branch');
+			const cancel = vscode.l10n.t('Cancel');
+
+			const choice = await vscode.window.showInformationMessage(
+				vscode.l10n.t('Branch "{0}" already exists. What would you like to do?', branchName),
+				{ modal: true },
+				switchToBranch,
+				createNewBranch,
+				cancel
+			);
+
+			if (choice === switchToBranch) {
+				await folderManager.repository.checkout(branchName);
+				vscode.window.showInformationMessage(vscode.l10n.t('Switched to existing branch: {0}', branchName));
+			} else if (choice === createNewBranch) {
+				// Generate a unique branch name
+				const timestamp = Date.now();
+				const uniqueBranchName = `task/issue-${issueNumber}-${timestamp}`;
+				await folderManager.repository.createBranch(uniqueBranchName, true);
+				vscode.window.showInformationMessage(vscode.l10n.t('Created new branch: {0}', uniqueBranchName));
+			} else {
+				return; // User cancelled
+			}
+		} else {
+			// Create new branch
+			await folderManager.repository.createBranch(branchName, true);
+			vscode.window.showInformationMessage(vscode.l10n.t('Created and switched to branch: {0}', branchName));
+		}
+
+		// Format the issue URL for the prompt
+		const githubUrl = `https://github.com/${finalOwner}/${finalRepo}/issues/${issueNumber}`;
+		const formattedPrompt = `Fix ${githubUrl}`;
+
+		// Open agent chat with formatted prompt
+		await vscode.commands.executeCommand('workbench.action.chat.open', { query: formattedPrompt });
 	}
 
 	/**
