@@ -100,12 +100,6 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(branchName);
-			// Make sure we aren't already on this branch
-			if (repository.state.HEAD?.name === branch.name) {
-				Logger.appendLine(`Tried to checkout ${branchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
-				return;
-			}
-
 			// Check if local branch is pointing to the same commit as the remote
 			if (branch.commit !== trackedBranch.commit) {
 				Logger.debug(`Local branch ${branchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Updating local branch.`, PullRequestGitHelper.ID);
@@ -115,6 +109,12 @@ export class PullRequestGitHelper {
 				await repository.createBranch(branchName, false, trackedBranch.commit);
 				// Get the updated branch reference
 				branch = await repository.getBranch(branchName);
+			}
+
+			// Make sure we aren't already on this branch
+			if (repository.state.HEAD?.name === branch.name) {
+				Logger.appendLine(`Tried to checkout ${branchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
+				return;
 			}
 
 			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);

@@ -85,6 +85,48 @@ describe('PullRequestGitHelper', function () {
 			assert.strictEqual(updatedBranch.commit, 'remote-commit-hash');
 			assert.strictEqual(repository.state.HEAD?.name, 'my-branch');
 		});
+
+		it('updates branch even when currently checked out if commit differs from remote', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('my-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Setup: local branch exists with different commit than remote AND is currently checked out
+			await repository.createBranch('my-branch', true, 'local-commit-hash'); // checkout = true
+
+			// Setup: remote branch has different commit
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+
+			const remotes = [remote];
+
+			// Expect fetch to be called
+			repository.expectFetch('origin', 'my-branch');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, remotes, pullRequest, { report: () => undefined });
+
+			// Verify that the local branch was updated to point to the remote commit, even though we were already on it
+			const updatedBranch = await repository.getBranch('my-branch');
+			assert.strictEqual(updatedBranch.commit, 'remote-commit-hash');
+			// Since we were already on the branch, HEAD should remain unchanged
+			assert.strictEqual(repository.state.HEAD?.name, 'my-branch');
+		});
 	});
 
 	describe('checkoutFromFork', function () {
