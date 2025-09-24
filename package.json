@@ -58,7 +58,8 @@
 		"onFileSystem:githubcommit",
 		"onFileSystem:review",
 		"onWebviewPanel:IssueOverview",
-		"onWebviewPanel:PullRequestOverview"
+		"onWebviewPanel:PullRequestOverview",
+		"onWebviewPanel:github-pull-request.tasksDashboard"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -766,6 +767,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubIssues.alwaysPromptForNewIssueRepo.description%"
+				},
+				"githubIssues.taskDashboard.query": {
+					"type": "string",
+					"default": "is:open assignee:@me milestone:\"September 2025\"",
+					"description": "The GitHub query to use for the task dashboard"
 				}
 			}
 		},
@@ -872,16 +878,10 @@
 		},
 		"commands": [
 			{
-				"command": "pr.openDashboard",
-				"title": "%command.pr.openDashboard.title%",
+				"command": "pr.openTasksDashboard",
+				"title": "%command.pr.openTasksDashboard.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(dashboard)"
-			},
-			{
-				"command": "pr.createDashboard",
-				"title": "%command.pr.createDashboard.title%",
-				"category": "%command.pull.request.category%",
-				"icon": "$(new-file)"
 			},
 			{
 				"command": "githubpr.remoteAgent",
@@ -1800,17 +1800,6 @@
 				"command": "pr.cancelCodingAgent",
 				"title": "%command.pr.cancelCodingAgent.title%",
 				"category": "%command.pull.request.category%"
-			}
-		],
-		"customEditors": [
-			{
-				"viewType": "github.tasksEditor",
-				"displayName": "%customEditor.github.tasks.displayName%",
-				"selector": [
-					{
-						"filenamePattern": "*.github-tasks"
-					}
-				]
 			}
 		],
 		"languages": [

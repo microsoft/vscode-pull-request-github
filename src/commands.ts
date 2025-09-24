@@ -32,6 +32,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { TasksDashboardManager } from './github/tasksDashboard';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
@@ -212,6 +213,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
+	tasksDashboard: TasksDashboardManager,
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -1130,92 +1132,8 @@ export function registerCommands(
 	));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openDashboard', async () => {
-			/* __GDPR__
-				"pr.openDashboard" : {}
-			*/
-			telemetry.sendTelemetryEvent('pr.openDashboard');
-
-			// Look for existing .github-tasks files in the workspace
-			const workspaceFolders = vscode.workspace.workspaceFolders;
-			if (workspaceFolders && workspaceFolders.length > 0) {
-				// Search for existing dashboard files
-				const dashboardFiles = await vscode.workspace.findFiles('**/*.github-tasks', '**/node_modules/**', 10);
-
-				if (dashboardFiles.length > 0) {
-					// If we found existing files, let user choose or open the first one
-					if (dashboardFiles.length === 1) {
-						const document = await vscode.workspace.openTextDocument(dashboardFiles[0]);
-						await vscode.window.showTextDocument(document);
-						return;
-					} else {
-						// Multiple files found, let user choose
-						const items = dashboardFiles.map(uri => ({
-							label: vscode.workspace.asRelativePath(uri),
-							uri: uri
-						}));
-
-						const selected = await vscode.window.showQuickPick(items, {
-							placeHolder: 'Select a dashboard file to open'
-						});
-
-						if (selected) {
-							const document = await vscode.workspace.openTextDocument(selected.uri);
-							await vscode.window.showTextDocument(document);
-							return;
-						}
-					}
-				}
-			}
-
-			// No existing files found or user didn't select one, create a new one
-			// Import here to avoid circular dependencies
-			const { GitHubTasksEditorProvider } = await import('./github/githubTasksEditorProvider');
-
-			const defaultContent = GitHubTasksEditorProvider.createDefaultDocument();
-			const saveUri = await vscode.window.showSaveDialog({
-				defaultUri: vscode.Uri.file('dashboard.github-tasks'),
-				filters: {
-					'GitHub Tasks': ['github-tasks'],
-					'All Files': ['*']
-				}
-			});
-
-			if (saveUri) {
-				const encoder = new TextEncoder();
-				await vscode.workspace.fs.writeFile(saveUri, encoder.encode(defaultContent));
-				const savedDocument = await vscode.workspace.openTextDocument(saveUri);
-				await vscode.window.showTextDocument(savedDocument);
-			}
-		})
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.createDashboard', async () => {
-			/* __GDPR__
-				"pr.createDashboard" : {}
-			*/
-			telemetry.sendTelemetryEvent('pr.createDashboard');
-
-			// Import here to avoid circular dependencies
-			const { GitHubTasksEditorProvider } = await import('./github/githubTasksEditorProvider');
-
-			// Create a new dashboard file
-			const defaultContent = GitHubTasksEditorProvider.createDefaultDocument();
-			const saveUri = await vscode.window.showSaveDialog({
-				defaultUri: vscode.Uri.file('dashboard.github-tasks'),
-				filters: {
-					'GitHub Tasks': ['github-tasks'],
-					'All Files': ['*']
-				}
-			});
-
-			if (saveUri) {
-				const encoder = new TextEncoder();
-				await vscode.workspace.fs.writeFile(saveUri, encoder.encode(defaultContent));
-				const savedDocument = await vscode.workspace.openTextDocument(saveUri);
-				await vscode.window.showTextDocument(savedDocument);
-			}
+		vscode.commands.registerCommand('pr.openTasksDashboard', async () => {
+			tasksDashboard.showOrCreateDashboard();
 		})
 	);
 

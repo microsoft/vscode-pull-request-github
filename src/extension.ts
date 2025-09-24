@@ -26,9 +26,9 @@ import { createExperimentationService, ExperimentationTelemetry } from './experi
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { GitHubTasksEditorProvider } from './github/githubTasksEditorProvider';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { TasksDashboardManager } from './github/tasksDashboard';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
@@ -230,21 +230,10 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
+	const tasksDashboard = new TasksDashboardManager(context, reposManager, copilotRemoteAgentManager, telemetry);
+	context.subscriptions.push(tasksDashboard);
 
-	// Register the GitHub Tasks custom editor provider
-	const githubTasksEditorProvider = new GitHubTasksEditorProvider(context, reposManager, copilotRemoteAgentManager, telemetry);
-	context.subscriptions.push(
-		vscode.window.registerCustomEditorProvider(
-			GitHubTasksEditorProvider.viewType,
-			githubTasksEditorProvider,
-			{
-				webviewOptions: {
-					retainContextWhenHidden: true,
-				},
-			}
-		)
-	);
+	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager, tasksDashboard);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
