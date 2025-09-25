@@ -747,6 +747,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this._stateModel.notifications.size;
 	}
 
+	public clearAllNotifications(): void {
+		this._stateModel.clearAllNotifications();
+	}
+
 	hasNotification(owner: string, repo: string, pullRequestNumber: number): boolean {
 		const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
 		return this._stateModel.notifications.has(key);

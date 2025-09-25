@@ -105,6 +105,22 @@ export class CopilotStateModel extends Disposable {
 		}
 	}
 
+	clearAllNotifications(): void {
+		if (this._showNotification.size > 0) {
+			const items: PullRequestModel[] = [];
+			for (const key of this._showNotification.keys()) {
+				const item = this._states.get(key)?.item;
+				if (item) {
+					items.push(item);
+				}
+			}
+			this._showNotification.clear();
+			if (items.length > 0) {
+				this._onDidChangeNotifications.fire(items);
+			}
+		}
+	}
+
 	get notifications(): ReadonlySet<string> {
 		return this._showNotification;
 	}

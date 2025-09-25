@@ -917,6 +917,15 @@ export function registerCommands(
 		}),
 	);
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.markAllCopilotNotificationsAsRead', node => {
+			if (node instanceof CategoryTreeNode && node.isCopilot) {
+				copilotRemoteAgentManager.clearAllNotifications();
+				tree.refresh(node);
+			}
+		}),
+	);
+
 	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | ChatSessionWithPR | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
