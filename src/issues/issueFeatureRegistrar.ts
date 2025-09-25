@@ -160,8 +160,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				'issue.assignToCodingAgent',
 				(issueModel: any) => {
 					/* __GDPR__
-				"issue.assignToCodingAgent" : {}
-			*/
+						"issue.assignToCodingAgent" : {}
+					*/
 					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
 					return this.assignToCodingAgent(issueModel);
 				},
@@ -173,8 +173,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				'issue.openIssueAndCodingAgentSideBySide',
 				(issueModel: any) => {
 					/* __GDPR__
-				"issue.openIssueAndCodingAgentSideBySide" : {}
-			*/
+						"issue.openIssueAndCodingAgentSideBySide" : {}
+					*/
 					this.telemetry.sendTelemetryEvent('issue.openIssueAndCodingAgentSideBySide');
 					return this.openIssueAndCodingAgentSideBySide(issueModel);
 				},
