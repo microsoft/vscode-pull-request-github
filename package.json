@@ -778,7 +778,7 @@
 				},
 				"githubPullRequests.projectTasksDashboard.issueQuery": {
 					"type": "string",
-					"default": "state:open assignee:@me milestone:\"September 2025\"",
+					"default": "state:open assignee:@me ",
 					"description": "%githubPullRequests.projectTasksDashboard.issueQuery.description%"
 				}
 			}

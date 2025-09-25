@@ -146,10 +146,10 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 	private getIssueQuery(): string {
 		const config = vscode.workspace.getConfiguration('githubPullRequests');
-		return config.get<string>('projectTasksDashboard.issueQuery') ?? this.getDefaultIssueQuery();
+		return config.get<string>('projectTasksDashboard.issueQuery', this.getDefaultIssueQuery());
 	}
 
 	private getDefaultIssueQuery(): string {
-		return 'is:open assignee:@me milestone:"September 2025"';
+		return 'is:open assignee:@me';
 	}
 }

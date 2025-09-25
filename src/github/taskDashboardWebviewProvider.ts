@@ -81,7 +81,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 		super();
 		this._panel = panel;
 		this._webview = panel.webview;
-		this._issueQuery = issueQuery || 'is:open assignee:@me milestone:"September 2025"';
+		this._issueQuery = issueQuery;
 		this._repos = repos;
 		this._taskManager = new TaskManager(this._repositoriesManager, this._copilotRemoteAgentManager);
 		super.initialize();
