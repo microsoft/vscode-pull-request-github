@@ -157,6 +157,26 @@ async function getWebviewConfig(mode, env, entry) {
 async function getExtensionConfig(target, mode, env) {
 	const basePath = path.join(__dirname, 'src');
 
+	const entry = {
+		extension: './src/extension.ts',
+	};
+	if (target === 'webworker') {
+		entry['test/index'] = './src/test/browser/index.ts';
+	} else if (target === 'node') {
+		entry['test/index'] = './src/test/index.ts';
+	}
+
+	// Determine if we're building tests and choose the appropriate TypeScript config
+	const hasTestEntry = 'test/index' in entry;
+	let tsConfigFile;
+	if (hasTestEntry) {
+		// When building tests, use a config that includes test files
+		tsConfigFile = target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.test.json';
+	} else {
+		// When building only extension, use standard configs
+		tsConfigFile = target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json';
+	}
+
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
@@ -168,7 +188,8 @@ async function getExtensionConfig(target, mode, env) {
 			async: false,
 			formatter: 'basic',
 			typescript: {
-				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
+				configFile: path.join(__dirname, tsConfigFile),
+				mode: 'write-tsbuildinfo'
 			},
 		}),
 		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
@@ -185,15 +206,6 @@ async function getExtensionConfig(target, mode, env) {
 		plugins.push(new webpack.ProvidePlugin({
 			Buffer: ['buffer', 'Buffer']
 		}));
-	}
-
-	const entry = {
-		extension: './src/extension.ts',
-	};
-	if (target === 'webworker') {
-		entry['test/index'] = './src/test/browser/index.ts';
-	} else if (target === 'node') {
-		entry['test/index'] = './src/test/index.ts';
 	}
 
 	return {
