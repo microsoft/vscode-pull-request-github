@@ -192,6 +192,8 @@ async function getExtensionConfig(target, mode, env) {
 	};
 	if (target === 'webworker') {
 		entry['test/index'] = './src/test/browser/index.ts';
+	} else if (target === 'node') {
+		entry['test/index'] = './src/test/index.ts';
 	}
 
 	return {
