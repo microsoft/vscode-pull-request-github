@@ -71,7 +71,7 @@ module.exports.copyrightFilter = [
 	'!package.nls.json',
 	'!**/*.svg',
 	'!src/integrations/gitlens/gitlens.d.ts',
-	'!**/fixtures/**',
+	'!**/fixtures/**'
 ];
 
 module.exports.tsFormattingFilter = [

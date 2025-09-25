@@ -771,7 +771,7 @@
 				"githubPullRequests.projectTasksDashboard.enabled": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Enable the experimental project tasks dashboard feature. This adds a new dashboard for managing GitHub issues and tasks.",
+					"markdownDescription": "%githubPullRequests.projectTasksDashboard.enabled.markdownDescription%",
 					"tags": [
 						"experimental"
 					]
@@ -779,7 +779,7 @@
 				"githubPullRequests.projectTasksDashboard.issueQuery": {
 					"type": "string",
 					"default": "state:open assignee:@me milestone:\"September 2025\"",
-					"description": "The GitHub query to use for the project tasks dashboard"
+					"description": "%githubPullRequests.projectTasksDashboard.issueQuery.description%"
 				}
 			}
 		},

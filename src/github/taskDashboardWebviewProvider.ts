@@ -758,17 +758,12 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-	/**
-	 * Creates a temporary session that shows in the dashboard with a loading state
-	 */
 	private createTemporarySession(query: string, type: 'local' | 'remote'): string {
 		const tempId = this._taskManager.createTemporarySession(query, type);
 		// Immediately update the dashboard to show the temporary session
 		this.updateDashboard();
 		return tempId;
-	}	/**
-	 * Removes a temporary session from the dashboard
-	 */
+	}
 	private removeTemporarySession(tempId: string): void {
 		this._taskManager.removeTemporarySession(tempId);
 		// Update dashboard to remove the temporary session
@@ -839,47 +834,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 		} finally {
 			// Remove temporary session regardless of success/failure
 			this.removeTemporarySession(tempId);
-		}
-	}
-
-
-
-
-	private async startCopilotTask(taskDescription: string, referencedIssues: number[], issueContext: IssueData[]): Promise<void> {
-		if (!taskDescription) {
-			return;
-		}
-
-		try {
-			// Build the enhanced query with issue context
-			let enhancedQuery = `${taskDescription} `;
-
-			if (issueContext && issueContext.length > 0) {
-				enhancedQuery += `\n\nReferenced Issues: \n`;
-				for (const issue of issueContext) {
-					enhancedQuery += `- Issue #${issue.number}: ${issue.title} \n`;
-					enhancedQuery += `  URL: ${issue.url} \n`;
-					if (issue.assignee) {
-						enhancedQuery += `  Assignee: ${issue.assignee} \n`;
-					}
-					if (issue.milestone) {
-						enhancedQuery += `  Milestone: ${issue.milestone} \n`;
-					}
-					enhancedQuery += `  State: ${issue.state} \n`;
-					enhancedQuery += `  Updated: ${issue.updatedAt} \n\n`;
-				}
-			}
-
-			// Start a new copilot session with the enhanced context
-			await vscode.commands.executeCommand('workbench.action.chat.open', { query: enhancedQuery });
-
-			// Optionally refresh the dashboard to show any new sessions
-			setTimeout(() => {
-				this.updateDashboard();
-			}, 1000);
-		} catch (error) {
-			Logger.error(`Failed to start copilot task: ${error} `, DashboardWebviewProvider.ID);
-			vscode.window.showErrorMessage('Failed to start copilot task. Make sure the Chat extension is available.');
 		}
 	}
 
@@ -963,10 +917,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private async openSession(sessionId: string): Promise<void> {
-		if (!sessionId) {
-			return;
-		}
-
 		try {
 			// Open the chat session
 			await vscode.window.showChatSession('copilot-swe-agent', sessionId, {});
@@ -1076,36 +1026,21 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-
-	/**
-	 * Determines if a query represents a coding task vs a general question using VS Code's Language Model API
-	 */
 	private async isCodingTask(query: string): Promise<boolean> {
 		return this._taskManager.isCodingTask(query);
 	}
 
-	/**
-	 * Fallback keyword-based classification when LM API is unavailable
-	 */
-	/**
-	 * Shows a quick pick to let user choose between local and remote work
-	 */
 	private async showWorkModeQuickPick(): Promise<'local' | 'remote' | undefined> {
 		return this._taskManager.showWorkModeQuickPick();
 	}
 
-	/**
-	 * Sets up local workflow: creates branch and opens chat with agent mode
-	 */
 	private async setupLocalWorkflow(query: string): Promise<void> {
 		await this._taskManager.setupNewLocalWorkflow(query);
 	}
 
-	/**
-	 * Creates a remote background session using the copilot remote agent
-	 */
 	private async createRemoteBackgroundSession(query: string): Promise<void> {
 		await this._taskManager.createRemoteBackgroundSession(query);
+
 		// Refresh the dashboard to show the new session
 		setTimeout(() => {
 			this.updateDashboard();
