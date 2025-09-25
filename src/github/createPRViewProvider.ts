@@ -1303,9 +1303,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		} else {
 			try {
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
-				await this.model.setCompareBranch(newBranch);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
+			}
+			if (compareBranch) {
+				await this.model.setCompareBranch(newBranch);
 			}
 		}
 
