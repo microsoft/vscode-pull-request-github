@@ -19,7 +19,8 @@ import { hasEnterpriseUri } from './utils';
 
 const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
-
+// https://github.com/github/sweagentd/blob/59e7d9210ca3ebba029918387e525eea73cb1f4a/internal/problemstatement/problemstatement.go#L36-L53
+const MAX_PROBLEM_STATEMENT_LENGTH = 30_000;
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
 	event_type: string;
@@ -83,7 +84,18 @@ export class CopilotApi {
 		const repoSlug = `${owner}/${name}`;
 		const apiUrl = `/agents/swe/v0/jobs/${repoSlug}`;
 		let status: number | undefined;
-		Logger.trace(`postRemoteAgentJob: Posting job to ${apiUrl} with payload: ${JSON.stringify(payload)}`, CopilotApi.ID);
+
+		let isTruncated = false;
+		if (payload.problem_statement.length >= MAX_PROBLEM_STATEMENT_LENGTH) {
+			Logger.warn(`postRemoteAgentJob: Truncating! Problem statement exceeds maximum length (${MAX_PROBLEM_STATEMENT_LENGTH})`, CopilotApi.ID);
+			isTruncated = true;
+			// HACK: Take the last MAX_PROBLEM_STATEMENT_LENGTH characters
+			payload.problem_statement = payload.problem_statement.slice(-MAX_PROBLEM_STATEMENT_LENGTH);
+		}
+
+		const payloadJson = JSON.stringify(payload);
+		const payloadSize = payloadJson.length.toString();
+		Logger.trace(`postRemoteAgentJob: Posting job to ${apiUrl} with payload (size=${payloadSize}): ${JSON.stringify(payload)}`, CopilotApi.ID);
 		try {
 			const response = await this.makeApiCall(apiUrl, {
 				method: 'POST',
@@ -93,7 +105,7 @@ export class CopilotApi {
 					'Content-Type': 'application/json',
 					'Accept': 'application/json'
 				},
-				body: JSON.stringify(payload)
+				body: payloadJson
 			});
 
 			status = response.status;
@@ -106,21 +118,29 @@ export class CopilotApi {
 			/*
 				__GDPR__
 				"remoteAgent.postRemoteAgentJob" : {
-					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"payloadSize": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"isTruncated": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this.telemetry.sendTelemetryEvent('remoteAgent.postRemoteAgentJob', {
 				status: status.toString(),
+				payloadSize,
+				isTruncated: isTruncated.toString(),
 			});
 			return data;
 		} catch (error) {
 			/* __GDPR__
 				"remoteAgent.postRemoteAgentJob" : {
-					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"payloadSize": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"isTruncated": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('remoteAgent.postRemoteAgentJob', {
 				status: status?.toString() || '999',
+				payloadSize,
+				isTruncated: isTruncated.toString(),
 			});
 			throw error;
 		}
