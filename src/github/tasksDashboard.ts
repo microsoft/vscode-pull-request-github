@@ -102,7 +102,6 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 			webviewPanel,
 			issueQuery,
 			undefined, // repos - we'll use the setting-based query instead
-			false
 		);
 
 		const disposables: vscode.Disposable[] = [];
