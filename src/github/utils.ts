@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+// Debug: Log module loading
+
 import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
@@ -652,10 +654,13 @@ export function parseAccount(
 		}
 
 		// In some places, Copilot comes in as a user, and in others as a bot
+
+		const finalAvatarUrl = githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl;
+
 		return {
 			login: author.login,
 			url: COPILOT_ACCOUNTS[author.login]?.url ?? url,
-			avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl,
+			avatarUrl: finalAvatarUrl,
 			email: author.email ?? undefined,
 			id,
 			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
@@ -1636,8 +1641,21 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 }
 
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
-	return !isEnterpriseRemote ? avatarUrl : (email ? generateGravatarUrl(
-		crypto.createHash('sha256').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
+
+	// For non-enterprise, always use the provided avatarUrl
+	if (!isEnterpriseRemote) {
+		return avatarUrl;
+	}
+
+	// For enterprise, prefer GitHub avatarUrl if available, fallback to Gravatar only if needed
+	if (avatarUrl && avatarUrl.trim()) {
+		return avatarUrl;
+	}
+
+	// Only fallback to Gravatar if no avatarUrl is available and email is provided
+	const gravatarUrl = email ? generateGravatarUrl(
+		crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex')) : undefined;
+	return gravatarUrl;
 }
 
 export function getPullsUrl(repo: GitHubRepository) {

@@ -204,7 +204,17 @@ export namespace DataUri {
 	const iconsFolder = 'userIcons';
 
 	function iconFilename(user: IAccount | ITeam): string {
-		return `${reviewerId(user)}.jpg`;
+		// Include avatarUrl hash to invalidate cache when URL changes
+		const baseId = reviewerId(user);
+		if (user.avatarUrl) {
+			// Create a simple hash of the URL to detect changes
+			const urlHash = user.avatarUrl.split('').reduce((a, b) => {
+				a = ((a << 5) - a) + b.charCodeAt(0);
+				return a & a;
+			}, 0);
+			return `${baseId}_${Math.abs(urlHash)}.jpg`;
+		}
+		return `${baseId}.jpg`;
 	}
 
 	function cacheLocation(context: vscode.ExtensionContext): vscode.Uri {
@@ -290,7 +300,6 @@ export namespace DataUri {
 		const startingCacheSize = cacheLogOrder.length;
 
 		const results = await Promise.all(users.map(async (user) => {
-
 			const imageSourceUrl = user.avatarUrl;
 			if (imageSourceUrl === undefined) {
 				return undefined;
@@ -310,6 +319,9 @@ export namespace DataUri {
 				cacheMiss = true;
 				const doFetch = async () => {
 					const response = await fetch(imageSourceUrl.toString());
+					if (!response.ok) {
+						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+					}
 					const buffer = await response.arrayBuffer();
 					await writeAvatarToCache(context, user, new Uint8Array(buffer));
 					innerImageContents = Buffer.from(buffer);
