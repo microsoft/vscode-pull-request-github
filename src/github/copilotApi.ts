@@ -20,7 +20,7 @@ import { hasEnterpriseUri } from './utils';
 const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
 // https://github.com/github/sweagentd/blob/59e7d9210ca3ebba029918387e525eea73cb1f4a/internal/problemstatement/problemstatement.go#L36-L53
-export const MAX_PROBLEM_STATEMENT_LENGTH = 30_000;
+export const MAX_PROBLEM_STATEMENT_LENGTH = 30_000 - 50; // 50 character buffer
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
 	event_type: string;
