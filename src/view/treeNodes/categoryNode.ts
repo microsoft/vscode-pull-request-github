@@ -182,10 +182,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this._categoryQuery) {
-			this.contextValue = 'query';
-			if (this.isCopilot) {
-				this.contextValue = 'copilot-query';
-			}
+			this.contextValue = this.isCopilot ? 'copilot-query' : 'query';
 		}
 
 		if (this.isCopilot) {
