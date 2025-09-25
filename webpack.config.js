@@ -75,7 +75,8 @@ async function getWebviewConfig(mode, env, entry) {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
-	]; return {
+	];
+	return {
 		name: 'webviews',
 		entry: entry,
 		mode: mode,

@@ -1811,27 +1811,6 @@
 				"when": "config.githubPullRequests.projectTasksDashboard.enabled"
 			}
 		],
-		"languages": [
-			{
-				"id": "json",
-				"aliases": [
-					"GitHub Tasks",
-					"github-tasks"
-				],
-				"extensions": [
-					".github-tasks"
-				],
-				"mimetypes": [
-					"application/json"
-				]
-			}
-		],
-		"jsonValidation": [
-			{
-				"fileMatch": "*.github-tasks",
-				"url": "./schemas/github-tasks.schema.json"
-			}
-		],
 		"viewsWelcome": [
 			{
 				"view": "github:login",
