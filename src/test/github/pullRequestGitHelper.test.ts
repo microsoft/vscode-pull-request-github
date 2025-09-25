@@ -45,7 +45,7 @@ describe('PullRequestGitHelper', function () {
 	});
 
 	describe('fetchAndCheckout', function () {
-		it('fetches remote and updates local branch when local branch exists with different commit', async function () {
+		it('creates a unique branch when local branch exists with different commit to preserve user work', async function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
@@ -80,13 +80,17 @@ describe('PullRequestGitHelper', function () {
 
 			await PullRequestGitHelper.fetchAndCheckout(repository, remotes, pullRequest, { report: () => undefined });
 
-			// Verify that the local branch was updated to point to the remote commit
-			const updatedBranch = await repository.getBranch('my-branch');
-			assert.strictEqual(updatedBranch.commit, 'remote-commit-hash');
-			assert.strictEqual(repository.state.HEAD?.name, 'my-branch');
+			// Verify that the original local branch is preserved
+			const originalBranch = await repository.getBranch('my-branch');
+			assert.strictEqual(originalBranch.commit, 'local-commit-hash', 'Original branch should be preserved');
+
+			// Verify that a unique branch was created with the correct commit
+			const uniqueBranch = await repository.getBranch('pr/me/100');
+			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
+			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
 		});
 
-		it('updates branch even when currently checked out if commit differs from remote', async function () {
+		it('creates a unique branch even when currently checked out on conflicting local branch', async function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
@@ -121,11 +125,14 @@ describe('PullRequestGitHelper', function () {
 
 			await PullRequestGitHelper.fetchAndCheckout(repository, remotes, pullRequest, { report: () => undefined });
 
-			// Verify that the local branch was updated to point to the remote commit, even though we were already on it
-			const updatedBranch = await repository.getBranch('my-branch');
-			assert.strictEqual(updatedBranch.commit, 'remote-commit-hash');
-			// Since we were already on the branch, HEAD should remain unchanged
-			assert.strictEqual(repository.state.HEAD?.name, 'my-branch');
+			// Verify that the original local branch is preserved with its commit
+			const originalBranch = await repository.getBranch('my-branch');
+			assert.strictEqual(originalBranch.commit, 'local-commit-hash', 'Original branch should be preserved');
+			
+			// Verify that a unique branch was created and checked out
+			const uniqueBranch = await repository.getBranch('pr/me/100');
+			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
+			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
 		});
 	});
 
