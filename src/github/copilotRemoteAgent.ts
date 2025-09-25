@@ -601,6 +601,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return `${header}\n\n${collapsedContext}`;
 		};
 
+		let isTruncated = false;
+		if (problemContext && (problemContext.length + prompt.length >= MAX_PROBLEM_STATEMENT_LENGTH)) {
+			isTruncated = true;
+			Logger.warn(`Truncating problemContext as it will cause us to exceed maximum problem_statement length (${MAX_PROBLEM_STATEMENT_LENGTH})`, CopilotApi.ID);
+			const availableLength = MAX_PROBLEM_STATEMENT_LENGTH - prompt.length;
+			problemContext = problemContext.slice(-availableLength);
+		}
+
 		const problemStatement: string = `${prompt}\n${problemContext ?? ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
@@ -615,7 +623,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 
 		try {
-			const { pull_request, session_id } = await capiClient.postRemoteAgentJob(owner, repo, payload);
+			const { pull_request, session_id } = await capiClient.postRemoteAgentJob(owner, repo, payload, isTruncated);
 			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
