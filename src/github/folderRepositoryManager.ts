@@ -136,7 +136,7 @@ export class DetachedHeadError extends Error {
 	}
 
 	override get message() {
-		return vscode.l10n.t('{0} has a detached HEAD (create a branch first', this.repository.rootUri.toString());
+		return vscode.l10n.t('{0} has a detached HEAD (create a branch first)', this.repository.rootUri.toString());
 	}
 }
 

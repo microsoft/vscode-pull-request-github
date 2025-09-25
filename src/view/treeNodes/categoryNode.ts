@@ -169,10 +169,14 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		this.collapsibleState =
-			this._prsTreeModel.expandedQueries?.has(this.id)
-				? vscode.TreeItemCollapsibleState.Expanded
-				: vscode.TreeItemCollapsibleState.Collapsed;
+		if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		} else {
+			this.collapsibleState =
+				this._prsTreeModel.expandedQueries?.has(this.id)
+					? vscode.TreeItemCollapsibleState.Expanded
+					: vscode.TreeItemCollapsibleState.Collapsed;
+		}
 
 		if (this._categoryQuery) {
 			this.contextValue = 'query';
