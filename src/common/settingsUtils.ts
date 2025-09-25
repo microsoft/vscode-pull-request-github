@@ -58,7 +58,7 @@ export function editQuery(namespace: string, queryName: string) {
 		{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true },
 		{ iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true },
 		{ iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true },
-		{ iconPath: new vscode.ThemeIcon('copilot'), label: vscode.l10n.t('Edit with Copilot'), alwaysShow: true }
+		{ iconPath: new vscode.ThemeIcon('sparkle'), label: vscode.l10n.t('Edit with AI'), alwaysShow: true }
 	];
 	inputBox.activeItems = [];
 	inputBox.selectedItems = [];
@@ -169,5 +169,5 @@ async function openCopilotForQuery(currentQuery: string) {
 	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: \n```\n{0}\n```\nOutput only one, minimally modified query in a codeblock.\nModify it so that it ', currentQuery);
 
 	// Open chat with the query pre-populated
-	await vscode.commands.executeCommand(commands.OPEN_CHAT, { query: chatMessage, isPartialQuery: true, mode: 'ask' });
+	await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: chatMessage, isPartialQuery: true, agentMode: false });
 }

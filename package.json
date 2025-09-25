@@ -445,6 +445,19 @@
 						"%githubPullRequests.postCreate.checkoutDefaultBranchAndCopy%"
 					]
 				},
+				"githubPullRequests.postDone": {
+					"type": "string",
+					"enum": [
+						"checkoutDefaultBranch",
+						"checkoutDefaultBranchAndPull"
+					],
+					"description": "%githubPullRequests.postDone.description%",
+					"default": "checkoutDefaultBranch",
+					"enumDescriptions": [
+						"%githubPullRequests.postDone.checkoutDefaultBranch%",
+						"%githubPullRequests.postDone.checkoutDefaultBranchAndPull%"
+					]
+				},
 				"githubPullRequests.defaultCommentType": {
 					"type": "string",
 					"enum": [
@@ -1041,11 +1054,6 @@
 				"command": "review.openLocalFile",
 				"title": "%command.review.openLocalFile.title%",
 				"icon": "$(go-to-file)"
-			},
-			{
-				"command": "review.suggestDiff",
-				"title": "%command.review.suggestDiff.title%",
-				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.refreshList",
@@ -2126,10 +2134,6 @@
 					"when": "false"
 				},
 				{
-					"command": "review.suggestDiff",
-					"when": "false"
-				},
-				{
 					"command": "review.approve",
 					"when": "false"
 				},
@@ -3086,11 +3090,6 @@
 				}
 			],
 			"scm/title": [
-				{
-					"command": "review.suggestDiff",
-					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposInReviewMode",
-					"group": "inline"
-				},
 				{
 					"command": "pr.create",
 					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
@@ -4211,6 +4210,7 @@
 		"clean": "rm -r dist/",
 		"compile": "webpack --mode development --env esbuild",
 		"compile:test": "tsc -p tsconfig.test.json",
+		"watch:test": "tsc -w -p tsconfig.test.json",
 		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
 		"lint": "eslint --fix --cache --config .eslintrc.js --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
@@ -4236,7 +4236,7 @@
 		"@types/lru-cache": "^5.1.0",
 		"@types/marked": "^0.7.2",
 		"@types/mocha": "^8.2.2",
-		"@types/node": "18.17.1",
+		"@types/node": "22",
 		"@types/react": "^16.8.4",
 		"@types/react-dom": "^16.8.2",
 		"@types/sinon": "7.0.11",
@@ -4245,6 +4245,7 @@
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
+		"@vscode/test-cli": "^0.0.11",
 		"@vscode/test-electron": "^2.5.2",
 		"@vscode/test-web": "^0.0.71",
 		"assert": "^2.0.0",
@@ -4258,7 +4259,7 @@
 		"eslint-plugin-import": "2.22.1",
 		"eslint-plugin-rulesdir": "^0.2.2",
 		"event-stream": "^4.0.1",
-		"fork-ts-checker-webpack-plugin": "6.1.1",
+		"fork-ts-checker-webpack-plugin": "9.1.0",
 		"glob": "7.1.6",
 		"graphql": "15.5.0",
 		"graphql-tag": "2.11.0",
@@ -4288,7 +4289,7 @@
 		"timers-browserify": "^2.0.12",
 		"ts-loader": "9.5.2",
 		"tty": "1.0.1",
-		"typescript": "4.5.5",
+		"typescript": "^5.9.2",
 		"typescript-formatter": "^7.2.2",
 		"vinyl-fs": "^3.0.3",
 		"webpack": "5.94.0",

@@ -920,7 +920,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()})`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+				const prLinkTitle = vscode.l10n.t('Open pull request in VS Code');
+				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
@@ -1479,7 +1480,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					return {};
 				}
 
-				stream.progress('Working on your request...');
+				stream.progress(vscode.l10n.t('Delegating request to coding agent'));
 
 				// Add follow-up comment to the PR
 				const result = await this.addFollowUpToExistingPR(pullRequest.number, userPrompt);
@@ -1492,8 +1493,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 				stream.markdown(result);
 				stream.markdown('\n\n');
 
+				stream.progress(vscode.l10n.t('Waiting for progress'));
+
 				// Wait for new session and stream its progress
-				const newSession = await this.waitForNewSession(pullRequest, stream, token);
+				const newSession = await this.waitForNewSession(pullRequest, stream, token, true);
 				if (!newSession) {
 					return {};
 				}
@@ -1522,16 +1525,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return undefined;
 		}
 
+		let sessionInfo: SessionInfo | undefined;
+
+		const waitForQueuedMaxRetries = 3;
+		const waitForQueuedDelay = 5_000; // 5 seconds
+
+		// Allow for a short delay before the session is marked as 'queued'
+		let waitForQueuedCount = 0;
+		do {
+			sessionInfo = await capi.getSessionInfo(sessionId);
+			if (sessionInfo && sessionInfo.state === 'queued') {
+				Logger.trace('Queued session found', CopilotRemoteAgentManager.ID);
+				break;
+			}
+			if (waitForQueuedCount < waitForQueuedMaxRetries) {
+				Logger.trace('Session not yet queued, waiting...', CopilotRemoteAgentManager.ID);
+				await new Promise(resolve => setTimeout(resolve, waitForQueuedDelay));
+			}
+			++waitForQueuedCount;
+		} while (waitForQueuedCount <= waitForQueuedMaxRetries && (!token || !token.isCancellationRequested));
+
+		if (!sessionInfo || sessionInfo.state !== 'queued') {
+			// Failure
+			Logger.trace('Failed to find queued session', CopilotRemoteAgentManager.ID);
+			return;
+		}
+
 		const maxWaitTime = 2 * 60 * 1_000; // 2 minutes
 		const pollInterval = 3_000; // 3 seconds
 		const startTime = Date.now();
 
-		const sessionInfo = await capi.getSessionInfo(sessionId);
-		if (!sessionInfo || sessionInfo.state !== 'queued') {
-			return;
-		}
-
-		Logger.appendLine(`Session ${sessionInfo.id} is queued, waiting to start...`, CopilotRemoteAgentManager.ID);
+		Logger.appendLine(`Session ${sessionInfo.id} is queued, waiting for transition to in_progress...`, CopilotRemoteAgentManager.ID);
 		while (Date.now() - startTime < maxWaitTime && (!token || !token.isCancellationRequested)) {
 			const sessionInfo = await capi.getSessionInfo(sessionId);
 			if (sessionInfo?.state === 'in_progress') {
@@ -1545,13 +1569,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private async waitForNewSession(
 		pullRequest: PullRequestModel,
 		stream: vscode.ChatResponseStream,
-		token: vscode.CancellationToken
+		token: vscode.CancellationToken,
+		waitForTransitionToInProgress: boolean = false
 	): Promise<SessionInfo | undefined> {
 		// Get the current number of sessions
 		const capi = await this.copilotApi;
 		if (!capi) {
 			stream.markdown(vscode.l10n.t('Failed to connect to Copilot API.'));
-			return undefined;
+			return;
 		}
 
 		const initialSessions = await capi.getAllSessions(pullRequest.id);
@@ -1567,15 +1592,24 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			// Check if a new session has started
 			if (currentSessions.length > initialSessionCount) {
-				return currentSessions
+				const newSession = currentSessions
 					.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+				if (!waitForTransitionToInProgress) {
+					return newSession;
+				}
+				const inProgressSession = await this.waitForQueuedToInProgress(newSession.id, token);
+				if (!inProgressSession) {
+					stream.markdown(vscode.l10n.t('Timed out waiting for coding agent to begin work. Please try again shortly.'));
+					return;
+				}
+				return inProgressSession;
 			}
 
 			await new Promise(resolve => setTimeout(resolve, pollInterval));
 		}
 
 		stream.markdown(vscode.l10n.t('Timed out waiting for the coding agent to respond. The agent may still be processing your request.'));
-		return undefined;
+		return;
 	}
 
 	private getIconForSession(status: vscode.ChatSessionStatus): vscode.Uri | vscode.ThemeIcon {
