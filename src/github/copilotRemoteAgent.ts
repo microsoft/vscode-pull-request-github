@@ -743,21 +743,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 			})[0];
 	}
 
+	getNotificationsCount(owner: string, repo: string): number {
+		return this._stateModel.getNotificationsCount(owner, repo);
+	}
+
 	get notificationsCount(): number {
 		return this._stateModel.notifications.size;
 	}
 
-	hasNotification(owner: string, repo: string, pullRequestNumber: number): boolean {
-		const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
-		return this._stateModel.notifications.has(key);
+	hasNotification(owner: string, repo: string, pullRequestNumber?: number): boolean {
+		if (pullRequestNumber !== undefined) {
+			const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
+			return this._stateModel.notifications.has(key);
+		} else {
+			const partialKey = this._stateModel.makeKey(owner, repo);
+			return Array.from(this._stateModel.notifications.keys()).some(key => {
+				return key.startsWith(partialKey);
+			});
+		}
 	}
 
 	getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
 		return this._stateModel.get(owner, repo, prNumber);
 	}
 
-	getCounts(): { total: number; inProgress: number; error: number } {
-		return this._stateModel.getCounts();
+	getCounts(owner: string, repo: string): { total: number; inProgress: number; error: number } {
+		return this._stateModel.getCounts(owner, repo);
 	}
 
 	async extractHistory(history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>): Promise<string | undefined> {

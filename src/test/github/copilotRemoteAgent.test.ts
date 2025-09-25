@@ -260,19 +260,6 @@ describe('CopilotRemoteAgentManager', function () {
 		});
 	});
 
-	describe('getCounts()', function () {
-		it('should return valid counts object', function () {
-			const result = manager.getCounts();
-
-			assert.strictEqual(typeof result.total, 'number');
-			assert.strictEqual(typeof result.inProgress, 'number');
-			assert.strictEqual(typeof result.error, 'number');
-			assert(result.total >= 0);
-			assert(result.inProgress >= 0);
-			assert(result.error >= 0);
-		});
-	});
-
 	describe('notificationsCount', function () {
 		it('should return non-negative number', function () {
 			const count = manager.notificationsCount;

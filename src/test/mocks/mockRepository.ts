@@ -68,7 +68,9 @@ export class MockRepository implements Repository {
 	}
 
 	private _state: Mutable<RepositoryState & { refs: Ref[] }> = {
-		HEAD: undefined,
+		HEAD: {
+			type: RefType.Head
+		},
 		refs: [],
 		remotes: [],
 		submodules: [],
