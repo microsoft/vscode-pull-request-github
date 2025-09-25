@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../../common/types';
 import { AuthenticationError } from '../../common/authentication';
 import { ITelemetry } from '../../common/telemetry';
-import { COPILOT_QUERY, Schemes } from '../../common/uri';
+import { toQueryUri } from '../../common/uri';
 import { formatError } from '../../common/utils';
 import { isCopilotQuery } from '../../github/copilotPrWatcher';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
@@ -14,6 +15,7 @@ import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folde
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { extractRepoFromQuery } from '../../github/utils';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -132,6 +134,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public resourceUri: vscode.Uri;
 	public tooltip?: string | vscode.MarkdownString | undefined;
 	readonly isCopilot: boolean;
+	private _repo: RemoteInfo | undefined;
 
 	constructor(
 		parent: TreeNodeParent,
@@ -148,7 +151,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.prs = new Map();
 		this.isCopilot = !!_categoryQuery && isCopilotQuery(_categoryQuery);
-		const hasCopilotChanges = this.isCopilot && this._copilotManager.notificationsCount > 0;
 
 		switch (this.type) {
 			case PRType.All:
@@ -167,19 +169,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		this.resourceUri = vscode.Uri.parse(Schemes.PRQuery);
-
-		if (hasCopilotChanges) {
-			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-			this.resourceUri = COPILOT_QUERY;
-		} else if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
-			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-		} else {
-			this.collapsibleState =
-				this._prsTreeModel.expandedQueries?.has(this.id)
-					? vscode.TreeItemCollapsibleState.Expanded
-					: vscode.TreeItemCollapsibleState.Collapsed;
-		}
+		this.collapsibleState =
+			this._prsTreeModel.expandedQueries?.has(this.id)
+				? vscode.TreeItemCollapsibleState.Expanded
+				: vscode.TreeItemCollapsibleState.Collapsed;
 
 		if (this._categoryQuery) {
 			this.contextValue = 'query';
@@ -199,10 +192,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	private _getDescription(): string | undefined {
-		if (!this.isCopilot) {
+		if (!this.isCopilot || !this._repo) {
 			return undefined;
 		}
-		const counts = this._copilotManager.getCounts();
+		const counts = this._copilotManager.getCounts(this._repo.owner, this._repo.repositoryName);
 		if (counts.total === 0) {
 			return undefined;
 		} else if (counts.error > 0) {
@@ -325,8 +318,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	async getTreeItem(): Promise<vscode.TreeItem> {
 		this.description = this._getDescription();
+		if (!this._repo) {
+			this._repo = await extractRepoFromQuery(this.folderRepoManager, this._categoryQuery);
+		}
+		this.resourceUri = toQueryUri({ remote: this._repo, isCopilot: this.isCopilot });
 		return this;
 	}
 }

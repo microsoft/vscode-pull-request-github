@@ -277,7 +277,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		if (!configuration) {
 			return;
 		}
-		const resolved = await variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
+		const resolved = variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
 		if (!resolved) {
 			return;
 		}

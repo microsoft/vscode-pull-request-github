@@ -14,7 +14,7 @@ import { PullRequestChangeEvent } from '../github/githubRepository';
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { UnsatisfiedChecks, variableSubstitution } from '../github/utils';
+import { extractRepoFromQuery, UnsatisfiedChecks } from '../github/utils';
 import { CategoryTreeNode } from './treeNodes/categoryNode';
 import { TreeNode } from './treeNodes/treeNode';
 
@@ -255,29 +255,12 @@ export class PrsTreeModel extends Disposable {
 		return { hasMorePages: false, hasUnsearchedRepositories: false, items: prs };
 	}
 
-	private async _extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string): Promise<RemoteInfo | undefined> {
-		if (!query) {
-			return undefined;
-		}
-
-		const defaults = await folderManager.getPullRequestDefaults();
-		const substituted = await variableSubstitution(query, undefined, defaults, (await folderManager.getCurrentUser()).login);
-
-		const repoRegex = /(?:^|\s)repo:(?:"?(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)"?)/i;
-		const repoMatch = repoRegex.exec(substituted);
-		if (repoMatch && repoMatch.groups) {
-			return { owner: repoMatch.groups.owner, repositoryName: repoMatch.groups.repo };
-		}
-
-		return undefined;
-	}
-
 	private async _testIfRefreshNeeded(cached: CachedPRs, query: string, folderManager: FolderRepositoryManager): Promise<boolean> {
 		if (!cached.clearRequested) {
 			return false;
 		}
 
-		const repoInfo = await this._extractRepoFromQuery(folderManager, query);
+		const repoInfo = await extractRepoFromQuery(folderManager, query);
 		if (!repoInfo) {
 			// Query doesn't specify a repo or org, so always refresh
 			// Send telemetry once indicating we couldn't find a repo in the query.
@@ -332,7 +315,7 @@ export class PrsTreeModel extends Disposable {
 			}
 
 			if (!maxKnownPR) {
-				const repoInfo = await this._extractRepoFromQuery(folderRepoManager, query);
+				const repoInfo = await extractRepoFromQuery(folderRepoManager, query);
 				if (repoInfo) {
 					maxKnownPR = await this._getMaxKnownPR(repoInfo);
 				}
