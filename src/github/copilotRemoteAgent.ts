@@ -19,7 +19,7 @@ import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/setti
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
+import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep, MAX_PROBLEM_STATEMENT_LENGTH } from './copilotApi';
 import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
@@ -604,7 +604,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		let isTruncated = false;
 		if (problemContext && (problemContext.length + prompt.length >= MAX_PROBLEM_STATEMENT_LENGTH)) {
 			isTruncated = true;
-			Logger.warn(`Truncating problemContext as it will cause us to exceed maximum problem_statement length (${MAX_PROBLEM_STATEMENT_LENGTH})`, CopilotApi.ID);
+			Logger.warn(`Truncating problemContext as it will cause us to exceed maximum problem_statement length (${MAX_PROBLEM_STATEMENT_LENGTH})`, CopilotRemoteAgentManager.ID);
 			const availableLength = MAX_PROBLEM_STATEMENT_LENGTH - prompt.length;
 			problemContext = problemContext.slice(-availableLength);
 		}
