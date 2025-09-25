@@ -19,7 +19,8 @@ import { hasEnterpriseUri } from './utils';
 
 const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
-
+// https://github.com/github/sweagentd/blob/59e7d9210ca3ebba029918387e525eea73cb1f4a/internal/problemstatement/problemstatement.go#L36-L53
+export const MAX_PROBLEM_STATEMENT_LENGTH = 30_000 - 50; // 50 character buffer
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
 	event_type: string;
@@ -79,10 +80,15 @@ export class CopilotApi {
 		owner: string,
 		name: string,
 		payload: RemoteAgentJobPayload,
+		isTruncated: boolean,
 	): Promise<RemoteAgentJobResponse> {
 		const repoSlug = `${owner}/${name}`;
 		const apiUrl = `/agents/swe/v0/jobs/${repoSlug}`;
 		let status: number | undefined;
+
+		const problemStatementLength = payload.problem_statement.length.toString();
+		const payloadJson = JSON.stringify(payload);
+		const payloadLength = payloadJson.length.toString();
 		Logger.trace(`postRemoteAgentJob: Posting job to ${apiUrl} with payload: ${JSON.stringify(payload)}`, CopilotApi.ID);
 		try {
 			const response = await this.makeApiCall(apiUrl, {
@@ -93,7 +99,7 @@ export class CopilotApi {
 					'Content-Type': 'application/json',
 					'Accept': 'application/json'
 				},
-				body: JSON.stringify(payload)
+				body: payloadJson
 			});
 
 			status = response.status;
@@ -106,21 +112,33 @@ export class CopilotApi {
 			/*
 				__GDPR__
 				"remoteAgent.postRemoteAgentJob" : {
-					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"payloadLength": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"problemStatementLength": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"isTruncated": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this.telemetry.sendTelemetryEvent('remoteAgent.postRemoteAgentJob', {
 				status: status.toString(),
+				payloadLength,
+				problemStatementLength,
+				isTruncated: isTruncated.toString(),
 			});
 			return data;
 		} catch (error) {
 			/* __GDPR__
 				"remoteAgent.postRemoteAgentJob" : {
-					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"payloadLength": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"problemStatementLength": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"isTruncated": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('remoteAgent.postRemoteAgentJob', {
 				status: status?.toString() || '999',
+				payloadLength,
+				problemStatementLength,
+				isTruncated: isTruncated.toString(),
 			});
 			throw error;
 		}
