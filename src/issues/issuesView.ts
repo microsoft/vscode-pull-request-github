@@ -39,6 +39,9 @@ export class IssuesTreeData
 		FolderRepositoryManager | IssueItem | null | undefined | void
 	> = this._onDidChangeTreeData.event;
 
+	// Store the configuration key as a constant to avoid repeated string concatenation
+	private static readonly AVATAR_SETTING_KEY = `${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`;
+
 	constructor(
 		private stateManager: StateManager,
 		private manager: RepositoriesManager,
@@ -64,7 +67,7 @@ export class IssuesTreeData
 		// Listen for changes to the avatar display setting
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(change => {
-				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)) {
+				if (change.affectsConfiguration(IssuesTreeData.AVATAR_SETTING_KEY)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),
