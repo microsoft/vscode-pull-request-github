@@ -18,8 +18,8 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep, MAX_PROBLEM_STATEMENT_LENGTH } from './copilotApi';
+import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, MAX_PROBLEM_STATEMENT_LENGTH, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
@@ -98,7 +98,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return;
 			}
 			return result.number;
-		}
+		};
 
 		if (context.chatSessionContext?.isUntitled) {
 			/* Generate new coding agent session from an 'untitled' session */
