@@ -41,7 +41,7 @@ export function truncatePrompt(prompt: string, context?: string): { problemState
 	};
 }
 
-export function extractTitle(context: string | undefined): string | undefined {
+export function extractTitle(prompt: string, context: string | undefined): string | undefined {
 	if (!context) {
 		return;
 	}
@@ -49,6 +49,10 @@ export function extractTitle(context: string | undefined): string | undefined {
 	if (titleMatch && titleMatch[1]) {
 		return titleMatch[1].trim();
 	}
+	if (prompt.length <= 20) {
+		return prompt;
+	}
+	return prompt.substring(0, 20) + '...';
 }
 
 export function formatBodyPlaceholder(title: string | undefined): string {
