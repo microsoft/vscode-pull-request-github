@@ -5,7 +5,7 @@
 
 import * as pathLib from 'path';
 import * as marked from 'marked';
-import vscode, { ChatPromptReference } from 'vscode';
+import vscode, { ChatPromptReference, ChatSessionItem } from 'vscode';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
@@ -18,15 +18,14 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep, MAX_PROBLEM_STATEMENT_LENGTH } from './copilotApi';
+import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, MAX_PROBLEM_STATEMENT_LENGTH, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import { GithubItemStateEnum } from './interface';
 import { issueMarkdown, PlainTextRenderer } from './markdownUtils';
 import { PullRequestModel } from './pullRequestModel';
 import { chooseItem } from './quickPicks';
@@ -69,6 +68,126 @@ export namespace SessionIdForPr {
 }
 
 export class CopilotRemoteAgentManager extends Disposable {
+	async chatParticipantImpl(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) {
+		const startSession = async (prompt: string, history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>, source: string) => {
+			/* __GDPR__
+				"copilot.remoteagent.editor.invoke" : {
+					"promptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"historyLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('copilot.remoteagent.editor.invoke', {
+				promptLength: prompt.length.toString(),
+				historyLength: history?.length.toString(),
+				source,
+			});
+			stream.progress(vscode.l10n.t('Delegating to coding agent'));
+			const result = await this.invokeRemoteAgent(
+				prompt,
+				[
+					this.extractFileReferences(request.references),
+					await this.extractHistory(history)
+				].join('\n\n').trim(),
+				token,
+				false,
+			);
+			if (result.state !== 'success') {
+				Logger.error(`Failed to provide new chat session item: ${result.error}`, CopilotRemoteAgentManager.ID);
+				stream.warning('Failed delegating to coding agent. Please try again later.');
+				return;
+			}
+			return result.number;
+		};
+
+		if (context.chatSessionContext?.isUntitled) {
+			/* Generate new coding agent session from an 'untitled' session */
+			const number = await startSession(request.prompt, context.history, 'untitledChatSession');
+			if (!number) {
+				return {};
+			}
+			// Tell UI to the new chat session
+			this._onDidCommitChatSession.fire({ original: context.chatSessionContext.chatSessionItem, modified: { id: String(number), label: `Pull Request ${number}` } });
+		} else if (context.chatSessionContext) {
+			/* Follow up to an existing coding agent session */
+			try {
+				if (token.isCancellationRequested) {
+					return {};
+				}
+
+				// Validate user input
+				const userPrompt = request.prompt;
+				if (!userPrompt || userPrompt.trim().length === 0) {
+					stream.markdown(vscode.l10n.t('Please provide a message for the coding agent.'));
+					return {};
+				}
+
+				stream.progress(vscode.l10n.t('Preparing'));
+
+				const pullRequest = await this.findPullRequestById(parseInt(context.chatSessionContext.chatSessionItem.id, 10), true);
+				if (!pullRequest) {
+					stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', context.chatSessionContext.chatSessionItem.id));
+					return {};
+				}
+
+				stream.progress(vscode.l10n.t('Delegating request to coding agent'));
+
+				// Add follow-up comment to the PR
+				const result = await this.addFollowUpToExistingPR(pullRequest.number, userPrompt);
+				if (!result) {
+					stream.markdown(vscode.l10n.t('Failed to add follow-up comment to the pull request.'));
+					return {};
+				}
+
+				// Show initial success message
+				stream.markdown(result);
+				stream.markdown('\n\n');
+
+				stream.progress(vscode.l10n.t('Waiting for coding agent to respond'));
+
+				// Wait for new session and stream its progress
+				const newSession = await this.waitForNewSession(pullRequest, stream, token, true);
+				if (!newSession) {
+					return {};
+				}
+
+				// Stream the new session logs
+				stream.markdown(vscode.l10n.t('Coding agent has begun work on your request'));
+				stream.markdown('\n\n');
+
+				await this.streamSessionLogs(stream, pullRequest, newSession.id, token);
+
+				return {};
+			} catch (error) {
+				Logger.error(`Error in request handler: ${error}`, CopilotRemoteAgentManager.ID);
+				stream.markdown(vscode.l10n.t('An error occurred while processing your request.'));
+				return { errorDetails: { message: error.message } };
+			}
+		} else {
+			/* @copilot invoked from a 'normal' chat */
+
+			// TODO(jospicer): Use confirmations to guide users
+
+			const number = await startSession(request.prompt, context.history, 'chat'); // TODO(jospicer): 'All of the chat messages so far in the current chat session. Currently, only chat messages for the current participant are included'
+			if (!number) {
+				return {};
+			}
+			const pullRequest = await this.findPullRequestById(number, true);
+			if (!pullRequest) {
+				stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', number));
+				return {};
+			}
+
+			const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
+			const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(true), smartypants: true }).trim();
+
+			const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, plaintextBody, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
+			stream.push(card);
+			stream.markdown(vscode.l10n.t('GitHub Copilot coding agent has begun working on your request. Follow its progress in the associated chat and pull request.'));
+			vscode.window.showChatSession(COPILOT_SWE_AGENT, String(number), { viewColumn: vscode.ViewColumn.Active });
+		}
+	}
+
 	public static ID = 'CopilotRemoteAgentManager';
 
 	private readonly _stateModel: CopilotStateModel;
@@ -80,9 +199,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
 	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
+	private readonly _onDidCommitChatSession = this._register(new vscode.EventEmitter<{ original: ChatSessionItem; modified: ChatSessionItem }>());
+	readonly onDidCommitChatSession = this._onDidCommitChatSession.event;
 
 	private readonly gitOperationsManager: GitOperationsManager;
-	private readonly ephemeralChatSessions: Map<string, ChatSessionFromSummarizedChat> = new Map();
 
 	private codingAgentPRsPromise: Promise<{
 		item: PullRequestModel;
@@ -824,77 +944,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return parts.join('\n');
 	}
 
-
-
-	public async provideNewChatSessionItem(options: { request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<ChatSessionWithPR | ChatSessionFromSummarizedChat> {
-		const { request, history } = options;
-		if (!options.prompt) {
-			throw new Error(`Prompt is expected to provide a new chat session item`);
-		}
-
-		const prompt = options.prompt;
-		const { source, summary } = options.metadata || {};
-
-		/* __GDPR__
-			"copilot.remoteagent.editor.invoke" : {}
-		*/
-		this.telemetry.sendTelemetryEvent('copilot.remoteagent.editor.invoke', {});
-
-		// Ephemeral session for new session creation flow
-		if (source === 'chatExecuteActions') {
-			const id = `new-${Date.now()}`;
-			const val = {
-				id,
-				label: vscode.l10n.t('New coding agent session'),
-				iconPath: new vscode.ThemeIcon('plus'),
-				prompt,
-				summary,
-			};
-			this.ephemeralChatSessions.set(id, val);
-			return val;
-		}
-
-		const result = await this.invokeRemoteAgent(
-			prompt,
-			[
-				this.extractFileReferences(request.references),
-				await this.extractHistory(history)
-			].join('\n\n').trim(),
-			token,
-			false,
-		);
-		if (result.state !== 'success') {
-			Logger.error(`Failed to provide new chat session item: ${result.error}`, CopilotRemoteAgentManager.ID);
-			throw new Error(`Failed to provide new chat session item: ${result.error}`);
-		}
-
-		const { number } = result;
-
-		const pullRequest = await this.findPullRequestById(number, true);
-		if (!pullRequest) {
-			throw new Error(`Failed to find session for pull request: ${number}`);
-		}
-
-		const timeline = await pullRequest.getCopilotTimelineEvents(pullRequest);
-		const status = copilotEventToSessionStatus(mostRecentCopilotEvent(timeline));
-		const tooltip = await issueMarkdown(pullRequest, this.context, this.repositoriesManager);
-		const timestampNumber = new Date(pullRequest.createdAt).getTime();
-		const defaultBranch = await pullRequest.githubRepository.getDefaultBranch();
-		const description = pullRequest.base.ref === defaultBranch ? `pull request #${pullRequest.number}` : `pull request #${pullRequest.number} → ${pullRequest.base.ref}`;
-		return {
-			id: `${pullRequest.number}`,
-			label: pullRequest.title || `Session ${pullRequest.number}`,
-			iconPath: this.getIconForSession(status),
-			pullRequest: pullRequest,
-			description: description,
-			tooltip,
-			status,
-			timing: {
-				startTime: timestampNumber
-			}
-		};
-	}
-
 	public async provideChatSessions(token: vscode.CancellationToken): Promise<ChatSessionWithPR[]> {
 		try {
 			const capi = await this.copilotApi;
@@ -966,103 +1015,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return [];
 	}
 
-	private async newSessionFlowFromPrompt(id: string): Promise<vscode.ChatSession> {
-		const chatSession = this.ephemeralChatSessions.get(id);
-		if (!chatSession) {
-			return this.createEmptySession();
-		}
-
-		const repoInfo = await this.repoInfo();
-		if (!repoInfo) {
-			return this.createEmptySession(); // TODO: Explain how to enroll repo in coding agent, etc..?
-		}
-		const { repo, owner } = repoInfo;
-		const { prompt, summary } = chatSession;
-		const sessionRequest = new vscode.ChatRequestTurn2(
-			prompt,
-			undefined,
-			[],
-			COPILOT_SWE_AGENT,
-			[],
-			[]
-		);
-
-		const placeholderParts = [
-			new vscode.ChatResponseProgressPart(vscode.l10n.t('Starting coding agent session...')),
-			new vscode.ChatResponseConfirmationPart(
-				vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', `${owner}/${repo}`),
-				vscode.l10n.t('Your chat context will be used to continue work in a new pull request.'),
-				'invoke', // Next state
-				['Continue', 'Cancel']
-			)
-		];
-
-		const placeholderTurn = new vscode.ChatResponseTurn2(placeholderParts, {}, COPILOT_SWE_AGENT);
-		return {
-			history: [sessionRequest, placeholderTurn],
-			requestHandler: async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
-				if (token.isCancellationRequested) {
-					return {};
-				}
-				if (request.acceptedConfirmationData) {
-					if (!Array.isArray(request.acceptedConfirmationData)) {
-						Logger.error(`Invalid confirmation data: ${request.acceptedConfirmationData}`, CopilotRemoteAgentManager.ID);
-						return {};
-					}
-					const states = request.acceptedConfirmationData as string[];
-					while (states.length) {
-						const state = states.shift();
-						if (!state) {
-							continue;
-						}
-						switch (state) {
-							case 'invoke':
-								// TODO: Refactor of invokeRemoteAgent needed to extract all user prompts
-								//       Move any user action to a state in this state machine.
-								stream.progress('Delegating to coding agent');
-								const result = await this.invokeRemoteAgent(
-									prompt,
-									summary || prompt,
-									undefined,
-									false,
-								);
-								this.ephemeralChatSessions.delete(id); // TODO: Better state management
-								if (result.state !== 'success') {
-									stream.warning(`Could not create coding agent session: ${result.error}`);
-									return {};
-								}
-								const pullRequest = await this.findPullRequestById(result.number, true);
-								chatSession.pullRequest = pullRequest; // Cache for later
-								if (!pullRequest) {
-									stream.warning(`Could not find coding agent session.`);
-									return {};
-								}
-								const capi = await this.copilotApi;
-								if (!capi) {
-									stream.warning(vscode.l10n.t('Could not initialize Copilot API.'));
-									return {};
-								}
-								stream.markdown(vscode.l10n.t('Coding agent is now working on your request...'));
-								stream.markdown('\n\n');
-								await this.streamSessionLogs(stream, pullRequest, result.sessionId, token);
-								return {};
-							default:
-								Logger.error(`Unknown confirmation state: ${state}`, CopilotRemoteAgentManager.ID);
-								stream.markdown('error!');
-								return {};
-						}
-					}
-				}
-				if (request.rejectedConfirmationData) {
-					stream.push(new vscode.ChatResponseProgressPart(vscode.l10n.t('Cancelled starting coding agent session.')));
-					return {};
-				}
-				return {};
-			},
-			activeResponseCallback: undefined,
-		};
-	}
-
 	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
 		try {
 			const capi = await this.copilotApi;
@@ -1071,10 +1023,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			await this.waitRepoManagerInitialization();
-
-			if (id.startsWith('new')) {
-				return await this.newSessionFlowFromPrompt(id);
-			}
 
 			let pullRequestNumber: number | undefined;
 			let sessionIndex: number | undefined;
@@ -1132,7 +1080,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return {
 				history,
 				activeResponseCallback: this.findActiveResponseCallback(sessions, pullRequest),
-				requestHandler: this.createRequestHandlerIfNeeded(pullRequest)
+				requestHandler: undefined // TODO(jospicer): chatSessionsProvider@2 uses a single chat participant to handle requests
 			};
 		} catch (error) {
 			Logger.error(`Failed to provide chat session content: ${error}`, CopilotRemoteAgentManager.ID);
@@ -1154,12 +1102,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return this.createActiveResponseCallback(pullRequest, inProgressSession.id);
 		}
 		return undefined;
-	}
-
-	private createRequestHandlerIfNeeded(pullRequest: PullRequestModel): vscode.ChatRequestHandler | undefined {
-		return (pullRequest.state === GithubItemStateEnum.Open)
-			? this.createRequestHandler(pullRequest)
-			: undefined;
 	}
 
 	private createEmptySession(): vscode.ChatSession {
@@ -1483,56 +1425,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		return toolPart;
-	}
-
-	private createRequestHandler(pullRequest: PullRequestModel): vscode.ChatRequestHandler {
-		return async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
-			try {
-				if (token.isCancellationRequested) {
-					return {};
-				}
-
-				// Validate user input
-				const userPrompt = request.prompt;
-				if (!userPrompt || userPrompt.trim().length === 0) {
-					stream.markdown(vscode.l10n.t('Please provide a message for the coding agent.'));
-					return {};
-				}
-
-				stream.progress(vscode.l10n.t('Delegating request to coding agent'));
-
-				// Add follow-up comment to the PR
-				const result = await this.addFollowUpToExistingPR(pullRequest.number, userPrompt);
-				if (!result) {
-					stream.markdown(vscode.l10n.t('Failed to add follow-up comment to the pull request.'));
-					return {};
-				}
-
-				// Show initial success message
-				stream.markdown(result);
-				stream.markdown('\n\n');
-
-				stream.progress(vscode.l10n.t('Waiting for progress'));
-
-				// Wait for new session and stream its progress
-				const newSession = await this.waitForNewSession(pullRequest, stream, token, true);
-				if (!newSession) {
-					return {};
-				}
-
-				// Stream the new session logs
-				stream.markdown(vscode.l10n.t('Coding agent is now working on your request...'));
-				stream.markdown('\n\n');
-
-				await this.streamSessionLogs(stream, pullRequest, newSession.id, token);
-
-				return {};
-			} catch (error) {
-				Logger.error(`Error in request handler: ${error}`, CopilotRemoteAgentManager.ID);
-				stream.markdown(vscode.l10n.t('An error occurred while processing your request.'));
-				return { errorDetails: { message: error.message } };
-			}
-		};
 	}
 
 	private async waitForQueuedToInProgress(
