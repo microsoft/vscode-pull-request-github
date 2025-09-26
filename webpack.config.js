@@ -156,14 +156,12 @@ async function getWebviewConfig(mode, env, entry) {
  */
 async function getExtensionConfig(target, mode, env) {
 	const basePath = path.join(__dirname, 'src');
+	const glob = require('glob');
 
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new webpack.optimize.LimitChunkCountPlugin({
-			maxChunks: 1
-		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			formatter: 'basic',
@@ -190,10 +188,28 @@ async function getExtensionConfig(target, mode, env) {
 	const entry = {
 		extension: './src/extension.ts',
 	};
+
+	// Add test entry points
 	if (target === 'webworker') {
 		entry['test/index'] = './src/test/browser/index.ts';
 	} else if (target === 'node') {
+		// Add main test runner
 		entry['test/index'] = './src/test/index.ts';
+		
+	// Add individual test files as separate entry points
+		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname });
+		testFiles.forEach(testFile => {
+			// Convert src/test/github/utils.test.ts -> test/github/utils.test
+			const entryName = testFile.replace('src/', '').replace('.ts', '');
+			entry[entryName] = `./${testFile}`;
+		});
+	}
+
+	// Don't limit chunks for node target when we have individual test files
+	if (target !== 'node' || !('test/index' in entry && Object.keys(entry).some(key => key.endsWith('.test')))) {
+		plugins.unshift(new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}));
 	}
 
 	return {
