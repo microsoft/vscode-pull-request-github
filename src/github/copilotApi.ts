@@ -81,15 +81,19 @@ export class CopilotApi {
 		const problemStatementLength = payload.problem_statement.length.toString();
 		const payloadJson = JSON.stringify(payload);
 		const payloadLength = payloadJson.length.toString();
+		const extensionVersion = vscode.extensions.getExtension('GitHub.vscode-pull-request-github')?.packageJSON.version ?? 'unknown';
+		const userAgent = `vscode-pull-request-github/${extensionVersion}`;
+		Logger.trace(`postRemoteAgentJob: User-Agent: ${userAgent}`, CopilotApi.ID);
 		Logger.trace(`postRemoteAgentJob: Posting job to ${apiUrl} with payload: ${JSON.stringify(payload)}`, CopilotApi.ID);
 		try {
 			const response = await this.makeApiCall(apiUrl, {
 				method: 'POST',
 				headers: {
-					'Copilot-Integration-Id': 'copilot-developer-dev',
+					'Copilot-Integration-Id': 'copilot-developer-dev', // TODO: This is wrong.
 					'Authorization': `Bearer ${this.token}`,
 					'Content-Type': 'application/json',
-					'Accept': 'application/json'
+					'Accept': 'application/json',
+					'User-Agent': userAgent,
 				},
 				body: payloadJson
 			});
@@ -269,7 +273,6 @@ export class CopilotApi {
 			const response = await this.makeApiCall(`/agents/swe/v0/jobs/${owner}/${repo}/session/${sessionId}`, {
 				method: 'GET',
 				headers: {
-					'Copilot-Integration-Id': 'copilot-developer-dev',
 					'Authorization': `Bearer ${this.token}`,
 					'Content-Type': 'application/json',
 					'Accept': 'application/json'

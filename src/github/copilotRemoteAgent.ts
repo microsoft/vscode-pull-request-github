@@ -19,10 +19,11 @@ import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/setti
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionWithPR, CopilotApi, getCopilotApi, MAX_PROBLEM_STATEMENT_LENGTH, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
+import { extractTitle, formatBodyPlaceholder, truncatePrompt } from './copilotRemoteAgentUtils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -39,6 +40,8 @@ const CONTINUE = vscode.l10n.t('Continue');
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
 const CONTINUE_AND_DO_NOT_ASK_AGAIN = vscode.l10n.t('Continue and don\'t ask again');
+
+const CONTINUE_TRUNCATION = vscode.l10n.t('Continue with truncation');
 
 const COPILOT = '@copilot';
 
@@ -709,33 +712,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return { error: vscode.l10n.t('Failed to configure base branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
 		}
 
-		let title = prompt;
-		const titleMatch = problemContext?.match(/TITLE: \s*(.*)/i);
-		if (titleMatch && titleMatch[1]) {
-			title = titleMatch[1].trim();
+		const title = extractTitle(problemContext);
+		const { problemStatement, isTruncated } = truncatePrompt(prompt, problemContext);
+
+		if (isTruncated) {
+			const truncationResult = await vscode.window.showWarningMessage(
+				vscode.l10n.t('Prompt size exceeded'), { modal: true, detail: vscode.l10n.t('Your prompt will be truncated to fit within coding agent\'s context window. This may affect the quality of the response.') }, CONTINUE_TRUNCATION);
+			const userCancelled = token?.isCancellationRequested || !truncationResult || truncationResult !== CONTINUE_TRUNCATION;
+			/* __GDPR__
+				"remoteAgent.truncation" : {
+					"isCancelled" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('remoteAgent.truncation', {
+				isCancelled: String(userCancelled),
+			});
+			if (userCancelled) {
+				return { error: vscode.l10n.t('User cancelled due to truncation'), state: 'error' };
+			}
 		}
 
-		const formatBodyPlaceholder = (problemContext: string): string => {
-			const header = vscode.l10n.t('Coding agent has begun work on **{0}** and will replace this description as work progresses.', title);
-			const collapsedContext = `<details><summary>${vscode.l10n.t('See problem context')}</summary>\n\n${problemContext}\n\n</details>`;
-			return `${header}\n\n${collapsedContext}`;
-		};
-
-		let isTruncated = false;
-		if (problemContext && (problemContext.length + prompt.length >= MAX_PROBLEM_STATEMENT_LENGTH)) {
-			isTruncated = true;
-			Logger.warn(`Truncating problemContext as it will cause us to exceed maximum problem_statement length (${MAX_PROBLEM_STATEMENT_LENGTH})`, CopilotRemoteAgentManager.ID);
-			const availableLength = MAX_PROBLEM_STATEMENT_LENGTH - prompt.length;
-			problemContext = problemContext.slice(-availableLength);
-		}
-
-		const problemStatement: string = `${prompt}\n${problemContext ?? ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
 			event_type: 'visual_studio_code_remote_agent_tool_invoked',
 			pull_request: {
 				title,
-				body_placeholder: formatBodyPlaceholder(problemContext || prompt),
+				body_placeholder: formatBodyPlaceholder(title),
 				base_ref,
 				body_suffix,
 				...(head_ref && { head_ref })
