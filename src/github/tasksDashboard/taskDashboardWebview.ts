@@ -4,41 +4,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { ITelemetry } from '../common/telemetry';
-import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
-import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
-import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
-import { IssueModel } from './issueModel';
-import { RepositoriesManager } from './repositoriesManager';
+import Logger from '../../common/logger';
+import { getNonce, IRequestMessage, WebviewBase } from '../../common/webview';
+import { CreatePullRequestDataModel } from '../../view/createPullRequestDataModel';
+import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
+import { FolderRepositoryManager, ReposManagerState } from '../folderRepositoryManager';
+import { IssueModel } from '../issueModel';
+import { RepositoriesManager } from '../repositoriesManager';
 import { IssueReference, SessionData, TaskManager } from './taskManager';
 
-// Dashboard state discriminated union
-export type DashboardState = DashboardLoading | DashboardReady;
-
 export interface DashboardLoading {
-	state: 'loading';
-	issueQuery: string;
+	readonly state: 'loading';
+	readonly issueQuery: string;
 }
 
 export interface DashboardReady {
-	state: 'ready';
-	issueQuery: string;
-	activeSessions: SessionData[];
-	milestoneIssues: IssueData[];
-	repository?: {
-		owner: string;
-		name: string;
+	readonly state: 'ready';
+	readonly issueQuery: string;
+	readonly activeSessions: SessionData[];
+	readonly milestoneIssues: IssueData[];
+	readonly repository?: {
+		readonly owner: string;
+		readonly name: string;
 	};
-	currentBranch?: string;
-}
-
-// Legacy interface for backward compatibility
-export interface DashboardData {
-	activeSessions: SessionData[];
-	milestoneIssues: IssueData[];
-	issueQuery: string;
+	readonly currentBranch?: string;
 }
 
 export interface IssueData {
@@ -58,69 +47,57 @@ export interface IssueData {
 	};
 }
 
-export class DashboardWebviewProvider extends WebviewBase {
-	public static readonly viewType = 'github.dashboard';
+export class TaskDashboardWebview extends WebviewBase {
 	private static readonly ID = 'DashboardWebviewProvider';
 
 	protected readonly _panel: vscode.WebviewPanel;
 
 	private _issueQuery: string;
-	private _repos?: string[];
 	private _taskManager: TaskManager;
+
+	private _branchChangeTimeout: NodeJS.Timeout | undefined;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _copilotRemoteAgentManager: CopilotRemoteAgentManager,
-		private readonly _telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		panel: vscode.WebviewPanel,
 		issueQuery: string,
-		repos: string[] | undefined
 	) {
 		super();
+
 		this._panel = panel;
 		this._webview = panel.webview;
 		this._issueQuery = issueQuery;
-		this._repos = repos;
 		this._taskManager = new TaskManager(this._repositoriesManager, this._copilotRemoteAgentManager);
+
+		this.registerBranchChangeListeners();
+		this.registerRepositoryLoadListeners();
+
 		super.initialize();
 
-		// Set webview options
 		this._webview.options = {
 			enableScripts: true,
 			localResourceRoots: [extensionUri]
 		};
 
-		// Set webview HTML
 		this._webview.html = this.getHtmlForWebview();
-
-		// Listen for panel disposal
-		this._register(this._panel.onDidDispose(() => {
-			// Panel is disposed, cleanup will be handled by base class
-		}));
-
-		// Listen for branch changes to update current branch session marking
-		this.registerBranchChangeListeners();
-
-		// Listen for repository changes to update dashboard when repositories become available
-		this.registerRepositoryLoadListeners();
-
-		// Register cleanup for timeout
-		this._register({
-			dispose: () => {
-				if (this._branchChangeTimeout) {
-					clearTimeout(this._branchChangeTimeout);
-				}
-			}
-		});
 
 		// Initial data will be sent when webview sends 'ready' message
 	}
 
-	public async updateConfiguration(issueQuery: string, repos?: string[]): Promise<void> {
+	public override dispose() {
+		super.dispose();
+
+		if (this._branchChangeTimeout) {
+			clearTimeout(this._branchChangeTimeout);
+		}
+		this._branchChangeTimeout = undefined;
+	}
+
+	public async updateConfiguration(issueQuery: string): Promise<void> {
 		this._issueQuery = issueQuery;
-		this._repos = repos;
 		await this.updateDashboard();
 	}
 
@@ -135,7 +112,10 @@ export class DashboardWebviewProvider extends WebviewBase {
 				return;
 			}
 
-			const data = await this.getDashboardData();
+			const [activeSessions, milestoneIssues] = await Promise.all([
+				this.getActiveSessions(),
+				this.getMilestoneIssues()
+			]);
 
 			// Get current repository info and branch
 			let repository: { owner: string; name: string } | undefined;
@@ -157,8 +137,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 			const readyData: DashboardReady = {
 				state: 'ready',
 				issueQuery: this._issueQuery,
-				activeSessions: data.activeSessions,
-				milestoneIssues: data.milestoneIssues,
+				activeSessions: activeSessions,
+				milestoneIssues: milestoneIssues,
 				repository,
 				currentBranch
 			};
@@ -167,7 +147,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 				data: readyData
 			});
 		} catch (error) {
-			Logger.error(`Failed to update dashboard: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to update dashboard: ${error}`, TaskDashboardWebview.ID);
 		}
 	}
 
@@ -201,18 +181,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 		});
 	}
 
-	private async getDashboardData(): Promise<DashboardData> {
-		const [activeSessions, milestoneIssues] = await Promise.all([
-			this.getActiveSessions(),
-			this.getMilestoneIssues()
-		]);
-
-		return {
-			activeSessions,
-			milestoneIssues,
-			issueQuery: this._issueQuery
-		};
-	}
 
 	private async getActiveSessions(): Promise<SessionData[]> {
 		const targetRepos = this.getTargetRepositories();
@@ -244,22 +212,12 @@ export class DashboardWebviewProvider extends WebviewBase {
 				return;
 			}
 
-			// Get the base branch (usually main or master)
 			const baseBranch = await this.getDefaultBranch(folderManager) || 'main';
-
-			// Use git to get the list of changed files
 			const changedFiles = await this.getChangedFilesInBranch(folderManager, branchName, baseBranch);
-
 			if (changedFiles.length === 0) {
 				vscode.window.showInformationMessage(`No changes found in branch ${branchName}`);
 				return;
 			}
-
-			// Open the first changed file using the existing openDiff pattern
-			// if (changedFiles.length > 0) {
-			// 	const firstFile = changedFiles[0];
-			// 	await this.openFileInDiffView(folderManager, firstFile, branchName, baseBranch);
-			// }
 
 			// Position chat to the right
 			await vscode.commands.executeCommand('workbench.action.chat.open', {
@@ -269,35 +227,28 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Show info about other changed files
 			if (changedFiles.length > 1) {
 				const otherFiles = changedFiles.slice(1);
+				const showAllChanges = vscode.l10n.t('Show All Changes');
 				const action = await vscode.window.showInformationMessage(
-					`Showing 1 of ${changedFiles.length} changed files. ${otherFiles.length} more files changed.`,
-					'Show All Changes'
+					vscode.l10n.t(`Showing 1 of {0} changed files. {1} more files changed.`, changedFiles.length, otherFiles.length),
+					showAllChanges
 				);
 
-				if (action === 'Show All Changes') {
-					// Open file explorer focused on the changed files
+				if (action === showAllChanges) {
 					await vscode.commands.executeCommand('workbench.view.explorer');
 				}
 			}
-
 		} catch (error) {
-			Logger.error(`Failed to open branch diff view: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open branch diff view: ${error}`, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage(`Failed to open diff view for branch ${branchName}: ${error}`);
 		}
 	}
 
 	private async getDefaultBranch(folderManager: FolderRepositoryManager): Promise<string | undefined> {
 		try {
-			// Try to get the default branch from the repository
-			if (folderManager.repository.getRefs) {
-				const refs = await folderManager.repository.getRefs({ pattern: 'refs/remotes/origin' });
-				const defaultRef = refs.find(ref => ref.name === 'refs/remotes/origin/main') ||
-					refs.find(ref => ref.name === 'refs/remotes/origin/master');
-				return defaultRef?.name?.split('/').pop();
-			}
-			return undefined;
+			const defaults = await folderManager.getPullRequestDefaults();
+			return defaults.base;
 		} catch (error) {
-			Logger.debug(`Failed to get default branch: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Failed to get default branch: ${error}`, TaskDashboardWebview.ID);
 			return undefined;
 		}
 	}
@@ -314,7 +265,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 
 		} catch (error) {
-			Logger.debug(`Failed to get changed files via API: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Failed to get changed files via API: ${error}`, TaskDashboardWebview.ID);
 		}
 
 		// Fallback: try to get changes using git status if on the branch
@@ -323,39 +274,10 @@ export class DashboardWebviewProvider extends WebviewBase {
 			const changes = repository.state.workingTreeChanges.concat(repository.state.indexChanges);
 			return changes.map(change => change.uri.fsPath);
 		} catch (fallbackError) {
-			Logger.debug(`Fallback failed: ${fallbackError}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Fallback failed: ${fallbackError}`, TaskDashboardWebview.ID);
 			return [];
 		}
 	}
-
-	private async openFileInDiffView(folderManager: FolderRepositoryManager, filePath: string, branchName: string, baseBranch: string): Promise<void> {
-		try {
-			// Create URIs for the base and head versions of the file
-			const baseUri = vscode.Uri.file(filePath).with({
-				scheme: 'git',
-				query: `${baseBranch}`
-			});
-			const headUri = vscode.Uri.file(filePath).with({
-				scheme: 'git',
-				query: branchName
-			});
-
-			// Use the same openDiff pattern as FileChangeNode
-			const fileName = filePath.split('/').pop() || filePath;
-			await vscode.commands.executeCommand(
-				'vscode.diff',
-				baseUri,
-				headUri,
-				`${fileName} (${baseBranch} ↔ ${branchName})`,
-				{ viewColumn: vscode.ViewColumn.One }
-			);
-
-		} catch (error) {
-			Logger.error(`Failed to open file in diff view: ${error}`, DashboardWebviewProvider.ID);
-			throw error;
-		}
-	}
-
 	private async getMilestoneIssues(): Promise<IssueData[]> {
 		try {
 			const issuesMap = new Map<string, IssueData>();
@@ -393,7 +315,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 
 			return Array.from(issuesMap.values());
 		} catch (error) {
-			Logger.error(`Failed to get milestone issues: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to get milestone issues: ${error}`, TaskDashboardWebview.ID);
 			return [];
 		}
 	}
@@ -417,12 +339,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private getTargetRepositories(): string[] {
-		// If explicit repos are configured, use those
-		if (this._repos) {
-			return this._repos;
-		}
-
-		// Otherwise, default to current workspace repositories
 		const currentRepos = this.getCurrentWorkspaceRepositories();
 		return currentRepos;
 	}
@@ -490,7 +406,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			}
 		} catch (error) {
 			// If we can't check for branches, just continue without the local task info
-			Logger.debug(`Could not check for local task branch: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Could not check for local task branch: ${error}`, TaskDashboardWebview.ID);
 		}
 
 		return issueData;
@@ -504,7 +420,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 					const refs = await folderManager.repository.getRefs({ pattern: 'refs/heads/' });
 
 					// Debug: log all branches
-					Logger.debug(`All local branches: ${refs.map(r => r.name).join(', ')}`, DashboardWebviewProvider.ID);
+					Logger.debug(`All local branches: ${refs.map(r => r.name).join(', ')}`, TaskDashboardWebview.ID);
 
 					// Filter for task branches and look for our specific branch
 					const taskBranches = refs.filter(ref =>
@@ -512,21 +428,21 @@ export class DashboardWebviewProvider extends WebviewBase {
 						ref.name.startsWith('task/')
 					);
 
-					Logger.debug(`Task branches: ${taskBranches.map(r => r.name).join(', ')}`, DashboardWebviewProvider.ID);
-					Logger.debug(`Looking for branch: ${branchName}`, DashboardWebviewProvider.ID);
+					Logger.debug(`Task branches: ${taskBranches.map(r => r.name).join(', ')}`, TaskDashboardWebview.ID);
+					Logger.debug(`Looking for branch: ${branchName}`, TaskDashboardWebview.ID);
 
 					const matchingBranch = taskBranches.find(ref => ref.name === branchName);
 
 					if (matchingBranch) {
-						Logger.debug(`Found local task branch: ${branchName}`, DashboardWebviewProvider.ID);
+						Logger.debug(`Found local task branch: ${branchName}`, TaskDashboardWebview.ID);
 						return branchName;
 					}
 				}
 			}
-			Logger.debug(`Local task branch ${branchName} not found in any repository`, DashboardWebviewProvider.ID);
+			Logger.debug(`Local task branch ${branchName} not found in any repository`, TaskDashboardWebview.ID);
 			return undefined;
 		} catch (error) {
-			Logger.debug(`Failed to find local task branch ${branchName}: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Failed to find local task branch ${branchName}: ${error}`, TaskDashboardWebview.ID);
 			return undefined;
 		}
 	}
@@ -545,7 +461,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 						const pullRequest = await githubRepository.getPullRequestForBranch(branchName, githubRepository.remote.owner);
 
 						if (pullRequest) {
-							Logger.debug(`Found PR #${pullRequest.number} for branch ${branchName}`, DashboardWebviewProvider.ID);
+							Logger.debug(`Found PR #${pullRequest.number} for branch ${branchName}`, TaskDashboardWebview.ID);
 							return {
 								number: pullRequest.number,
 								title: pullRequest.title,
@@ -553,16 +469,16 @@ export class DashboardWebviewProvider extends WebviewBase {
 							};
 						}
 					} catch (error) {
-						Logger.debug(`Failed to find PR for branch ${branchName} in ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}: ${error}`, DashboardWebviewProvider.ID);
+						Logger.debug(`Failed to find PR for branch ${branchName} in ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}: ${error}`, TaskDashboardWebview.ID);
 						// Continue to next repository
 					}
 				}
 			}
 
-			Logger.debug(`No PR found for branch ${branchName}`, DashboardWebviewProvider.ID);
+			Logger.debug(`No PR found for branch ${branchName}`, TaskDashboardWebview.ID);
 			return undefined;
 		} catch (error) {
-			Logger.debug(`Failed to find PR for branch ${branchName}: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Failed to find PR for branch ${branchName}: ${error}`, TaskDashboardWebview.ID);
 			return undefined;
 		}
 	}
@@ -591,7 +507,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 				this.updateDashboard();
 			}, 500);
 		} catch (error) {
-			Logger.error(`Failed to switch to main branch: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to switch to main branch: ${error}`, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage(`Failed to switch to main branch: ${error}`);
 		}
 	}
@@ -626,7 +542,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 					const workingTreeChanges = repository.state.workingTreeChanges;
 					if (workingTreeChanges.length > 0) {
 						await repository.add(workingTreeChanges.map(change => change.uri.fsPath));
-						Logger.debug(`Staged ${workingTreeChanges.length} files`, DashboardWebviewProvider.ID);
+						Logger.debug(`Staged ${workingTreeChanges.length} files`, TaskDashboardWebview.ID);
 					}
 
 					// Open SCM view first
@@ -636,13 +552,13 @@ export class DashboardWebviewProvider extends WebviewBase {
 					try {
 						await vscode.commands.executeCommand('github.copilot.git.generateCommitMessage');
 					} catch (commitMsgError) {
-						Logger.debug(`Failed to generate commit message: ${commitMsgError}`, DashboardWebviewProvider.ID);
+						Logger.debug(`Failed to generate commit message: ${commitMsgError}`, TaskDashboardWebview.ID);
 						// Don't fail the whole operation if commit message generation fails
 					}
 
 					vscode.window.showInformationMessage('Files staged and commit message generated. Make your first commit before creating a pull request.');
 				} catch (stagingError) {
-					Logger.error(`Failed to stage files: ${stagingError}`, DashboardWebviewProvider.ID);
+					Logger.error(`Failed to stage files: ${stagingError}`, TaskDashboardWebview.ID);
 					// Fall back to just opening SCM view
 					await vscode.commands.executeCommand('workbench.view.scm');
 					vscode.window.showInformationMessage('Make your first commit before creating a pull request.');
@@ -652,7 +568,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 				await vscode.commands.executeCommand('pr.create');
 			}
 		} catch (error) {
-			Logger.error(`Failed to create pull request: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to create pull request: ${error}`, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage(`Failed to create pull request: ${error}`);
 		}
 	}
@@ -665,7 +581,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			);
 
 			if (!folderManager) {
-				Logger.debug(`Could not find folder manager for repository`, DashboardWebviewProvider.ID);
+				Logger.debug(`Could not find folder manager for repository`, TaskDashboardWebview.ID);
 				return true;
 			}
 
@@ -675,7 +591,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Get the GitHub repository for this folder manager
 			const githubRepo = folderManager.gitHubRepositories[0];
 			if (!githubRepo) {
-				Logger.debug(`No GitHub repository found in folder manager`, DashboardWebviewProvider.ID);
+				Logger.debug(`No GitHub repository found in folder manager`, TaskDashboardWebview.ID);
 				return true;
 			}
 
@@ -696,7 +612,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			return commits.length > 0;
 		} catch (error) {
 			// If we can't determine commit status, assume there are commits and proceed
-			Logger.debug(`Could not check branch commits: ${error}`, DashboardWebviewProvider.ID);
+			Logger.debug(`Could not check branch commits: ${error}`, TaskDashboardWebview.ID);
 			return true;
 		}
 	}
@@ -758,90 +674,54 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-	private createTemporarySession(query: string, type: 'local' | 'remote'): string {
-		const tempId = this._taskManager.createTemporarySession(query, type);
-		// Immediately update the dashboard to show the temporary session
-		this.updateDashboard();
-		return tempId;
-	}
-	private removeTemporarySession(tempId: string): void {
-		this._taskManager.removeTemporarySession(tempId);
-		// Update dashboard to remove the temporary session
-		setTimeout(() => {
-			this.updateDashboard();
-		}, 500); // Small delay to allow real session to be created
-	}
-
 	private async handleChatSubmission(query: string): Promise<void> {
+		query = query.trim();
 		if (!query) {
 			return;
 		}
 
-		query = query.trim();
-
-		try {
-			// Check if user explicitly mentions @copilot for remote background session
-			if (query.startsWith('@copilot ')) {
-				return this.handleRemoteTaskSubmission(query);
-			}
-			// Check if user explicitly mentions @local for local workflow
-			else if (query.startsWith('@local ')) {
-				return this.handleLocalTaskSubmission(query);
-			}
-			// Determine if this is a general question or coding task
-			else {
-				if (await this.isCodingTask(query)) {
-					// Show quick pick to choose between local and remote work
-					const workMode = await this.showWorkModeQuickPick();
-					if (workMode === 'remote') {
-						return this.handleRemoteTaskSubmission(query);
-					} else if (workMode === 'local') {
-						return this.handleLocalTaskSubmission(query);
-					} else {
-						// User cancelled the quick pick
-						return;
-					}
+		// Check if user explicitly mentions @copilot for remote background session
+		if (query.startsWith('@copilot ')) {
+			return this.handleRemoteTaskSubmission(query);
+		}
+		// Check if user explicitly mentions @local for local workflow
+		else if (query.startsWith('@local ')) {
+			return this.handleLocalTaskSubmission(query);
+		}
+		// Determine if this is a general question or coding task
+		else {
+			if (await this._taskManager.isCodingTask(query)) {
+				// Show quick pick to choose between local and remote work
+				const workMode = await this.showWorkModeQuickPick();
+				if (workMode === 'remote') {
+					return this.handleRemoteTaskSubmission(query);
+				} else if (workMode === 'local') {
+					return this.handleLocalTaskSubmission(query);
 				} else {
-					// General question - Submit to ask mode
-					await vscode.commands.executeCommand('workbench.action.chat.open', {
-						query,
-						mode: 'ask'
-					});
+					// User cancelled the quick pick
+					return;
 				}
+			} else {
+				// General question - Submit to ask mode
+				await vscode.commands.executeCommand('workbench.action.chat.open', {
+					query,
+					mode: 'ask'
+				});
 			}
-		} catch (error) {
-			Logger.error(`Failed to handle chat submission: ${error} `, DashboardWebviewProvider.ID);
 		}
 	}
 
 	private async handleLocalTaskSubmission(query: string) {
 		const cleanQuery = query.replace(/@local\s*/, '').trim();
-
-		const tempId = this.createTemporarySession(cleanQuery || query, 'local');
-		try {
-			await this.handleLocalTaskWithIssueSupport(cleanQuery || query);
-		} finally {
-			this.removeTemporarySession(tempId);
-		}
+		await this.handleLocalTaskWithIssueSupport(cleanQuery || query);
 	}
 
 	private async handleRemoteTaskSubmission(query: string) {
 		const cleanQuery = query.replace(/@copilot\s*/, '').trim();
-
-		const tempId = this.createTemporarySession(cleanQuery, 'remote');
-		try {
-			await this.createRemoteBackgroundSession(cleanQuery);
-		} finally {
-			// Remove temporary session regardless of success/failure
-			this.removeTemporarySession(tempId);
-		}
+		await this.createRemoteBackgroundSession(cleanQuery);
 	}
 
 	private async checkoutPullRequestBranch(pullRequest: { number: number; title: string; url: string }): Promise<void> {
-		if (!pullRequest) {
-			return;
-		}
-
 		try {
 			// Try to find the pull request in the current repositories
 			for (const folderManager of this._repositoriesManager.folderManagers) {
@@ -859,9 +739,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 				}
 			}
 
-
 		} catch (error) {
-			Logger.error(`Failed to checkout PR branch: ${error} `, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to checkout PR branch: ${error} `, TaskDashboardWebview.ID);
 			vscode.window.showWarningMessage(`Failed to checkout PR branch. Opening PR without branch checkout.`);
 		}
 	}
@@ -911,7 +790,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 				await vscode.window.showChatSession('copilot-swe-agent', sessionId, {});
 			}
 		} catch (error) {
-			Logger.error(`Failed to open session with PR: ${error} `, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open session with PR: ${error} `, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage(`Failed to enter review mode for pull request: ${error}`);
 		}
 	}
@@ -921,16 +800,12 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Open the chat session
 			await vscode.window.showChatSession('copilot-swe-agent', sessionId, {});
 		} catch (error) {
-			Logger.error(`Failed to open session: ${error} `, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open session: ${error} `, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage('Failed to open session.');
 		}
 	}
 
 	private async openIssue(issueUrl: string): Promise<void> {
-		if (!issueUrl) {
-			return;
-		}
-
 		try {
 			// Try to find the issue in the current repositories
 			const urlMatch = issueUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/);
@@ -951,7 +826,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Fallback to opening externally if we can't find the issue locally
 			await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
 		} catch (error) {
-			Logger.error(`Failed to open issue: ${error} `, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open issue: ${error} `, TaskDashboardWebview.ID);
 			// Fallback to opening externally
 			try {
 				await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
@@ -962,10 +837,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private async openPullRequest(pullRequest: { number: number; title: string; url: string }): Promise<void> {
-		if (!pullRequest) {
-			return;
-		}
-
 		try {
 			// Try to find the pull request in the current repositories
 			for (const folderManager of this._repositoriesManager.folderManagers) {
@@ -985,7 +856,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// Fallback to opening externally if we can't find the PR locally
 			await vscode.env.openExternal(vscode.Uri.parse(pullRequest.url));
 		} catch (error) {
-			Logger.error(`Failed to open pull request: ${error} `, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to open pull request: ${error} `, TaskDashboardWebview.ID);
 			// Fallback to opening externally
 			try {
 				await vscode.env.openExternal(vscode.Uri.parse(pullRequest.url));
@@ -1021,13 +892,9 @@ export class DashboardWebviewProvider extends WebviewBase {
 			// If we can't resolve the issue locally, show an error
 			vscode.window.showErrorMessage('Unable to start remote agent session. Issue not found in local workspace.');
 		} catch (error) {
-			Logger.error(`Failed to start remote agent: ${error}`, DashboardWebviewProvider.ID);
+			Logger.error(`Failed to start remote agent: ${error}`, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage('Failed to start remote agent session.');
 		}
-	}
-
-	private async isCodingTask(query: string): Promise<boolean> {
-		return this._taskManager.isCodingTask(query);
 	}
 
 	private async showWorkModeQuickPick(): Promise<'local' | 'remote' | undefined> {
@@ -1103,8 +970,6 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}));
 	}
 
-	private _branchChangeTimeout: NodeJS.Timeout | undefined;
-
 	/**
 	 * Handles local task submission with issue support - creates branches and formats prompts
 	 */
@@ -1118,7 +983,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 			try {
 				await this._taskManager.handleLocalTaskForIssue(issueNumber, firstRef);
 			} catch (error) {
-				Logger.error(`Failed to handle local task with issue support: ${error}`, DashboardWebviewProvider.ID);
+				Logger.error(`Failed to handle local task with issue support: ${error}`, TaskDashboardWebview.ID);
 				vscode.window.showErrorMessage('Failed to set up local task branch.');
 			}
 		} else {
@@ -1161,9 +1026,9 @@ function extractIssueReferences(text: string): Array<IssueReference> {
 	while ((match = fullRepoRegex.exec(text)) !== null) {
 		out.push({
 			number: parseInt(match[3], 10),
-			nwo: {
+			repo: {
 				owner: match[1],
-				repo: match[2],
+				name: match[2],
 			},
 		});
 	}

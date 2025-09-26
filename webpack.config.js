@@ -58,8 +58,8 @@ async function getWebviewConfig(mode, env, entry) {
 			maxChunks: 1
 		}),
 		new MonacoWebpackPlugin({
-			languages: ['typescript', 'javascript'],
-			features: ['find', 'wordHighlighter', 'suggest', 'contextmenu'],
+			languages: [],
+			features: ['suggest', 'contextmenu'],
 			globalAPI: true,
 			publicPath: ''
 		}),

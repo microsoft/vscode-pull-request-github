@@ -52,14 +52,12 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 						<span className="codicon codicon-git-branch"></span>
 					</span>
 				)}
-				{session.isLocal && (
-					<span className="task-type-indicator local" title="Local task">
-						<span className="codicon codicon-device-desktop"></span>
-					</span>
-				)}
-				{!session.isLocal && !session.isTemporary && (
-					<span className="task-type-indicator remote" title="Remote copilot task">
-						<span className="codicon codicon-robot"></span>
+				{!session.isTemporary && (
+					<span
+						className={`task-type-indicator ${session.isLocal ? 'local' : 'remote'}`}
+						title={session.isLocal ? 'Local task' : 'Remote copilot task'}
+					>
+						<span className={`codicon ${session.isLocal ? 'codicon-device-desktop' : 'codicon-robot'}`}></span>
 					</span>
 				)}
 				<span className="item-title-text">{session.title}</span>

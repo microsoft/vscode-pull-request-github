@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Disposable, disposeAll } from '../common/lifecycle';
-import { ITelemetry } from '../common/telemetry';
-import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
-import { RepositoriesManager } from './repositoriesManager';
-import { DashboardWebviewProvider } from './taskDashboardWebviewProvider';
+import { Disposable, disposeAll } from '../../common/lifecycle';
+import { TASKS_DASHBOARD, TASKS_DASHBOARD_ENABLED, TASKS_DASHBOARD_ISSUE_QUERY } from '../../common/settingKeys';
+import { ITelemetry } from '../../common/telemetry';
+import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
+import { RepositoriesManager } from '../repositoriesManager';
+import { TaskDashboardWebview } from './taskDashboardWebview';
 
 export class TasksDashboardManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static readonly viewType = 'github-pull-request.projectTasksDashboard';
@@ -16,7 +17,7 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 	private _currentView: {
 		readonly webview: vscode.WebviewPanel;
-		readonly dashboardProvider: DashboardWebviewProvider;
+		readonly dashboardProvider: TaskDashboardWebview;
 		readonly disposables: vscode.Disposable[];
 	} | undefined;
 
@@ -34,7 +35,7 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 		this.updateStatusBarItem();
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('githubPullRequests.projectTasksDashboard.enabled')) {
+			if (e.affectsConfiguration(`${TASKS_DASHBOARD}.${TASKS_DASHBOARD_ENABLED}`)) {
 				this.updateStatusBarItem();
 			}
 		}));
@@ -60,7 +61,7 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 		if (dashboardEnabled && !this._statusBarItem) {
 			// Create status bar item if it doesn't exist and is now enabled
 			this._statusBarItem = this._register(vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100));
-			this._statusBarItem.text = '$(dashboard) Tasks';
+			this._statusBarItem.text = vscode.l10n.t('$(dashboard) Tasks');
 			this._statusBarItem.tooltip = vscode.l10n.t('Open GitHub Tasks Dashboard');
 			this._statusBarItem.command = 'pr.projectTasksDashboard.open';
 			this._statusBarItem.show();
@@ -82,7 +83,6 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 			this._currentView = undefined;
 		}
 
-		// Set webview options (these might have been lost during restoration)
 		webviewPanel.webview.options = {
 			enableScripts: true,
 			localResourceRoots: [this._context.extensionUri]
@@ -93,33 +93,31 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 		const issueQuery = this.getIssueQuery();
 
-		const dashboardProvider = new DashboardWebviewProvider(
+		const dashboardProvider = new TaskDashboardWebview(
 			this._context,
 			this._repositoriesManager,
 			this._copilotRemoteAgentManager,
-			this._telemetry,
 			this._context.extensionUri,
 			webviewPanel,
 			issueQuery,
-			undefined, // repos - we'll use the setting-based query instead
 		);
 
 		const disposables: vscode.Disposable[] = [];
 		const currentViewEntry = { webview: webviewPanel, dashboardProvider, disposables };
 		this._currentView = currentViewEntry;
 
+		disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${TASKS_DASHBOARD}.${TASKS_DASHBOARD_ISSUE_QUERY}`)) {
+				const newQuery = this.getIssueQuery();
+				dashboardProvider.updateConfiguration(newQuery);
+			}
+		}));
+
 		// Clean up when panel is disposed
 		disposables.push(webviewPanel.onDidDispose(() => {
 			if (this._currentView === currentViewEntry) {
 				disposeAll(disposables);
 				this._currentView = undefined;
-			}
-		}));
-
-		disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('githubPullRequests.projectTasksDashboard.issueQuery')) {
-				const newQuery = this.getIssueQuery();
-				dashboardProvider.updateConfiguration(newQuery, undefined);
 			}
 		}));
 	}
@@ -145,8 +143,8 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 	}
 
 	private getIssueQuery(): string {
-		const config = vscode.workspace.getConfiguration('githubPullRequests');
-		return config.get<string>('projectTasksDashboard.issueQuery', this.getDefaultIssueQuery());
+		const config = vscode.workspace.getConfiguration(TASKS_DASHBOARD);
+		return config.get<string>(TASKS_DASHBOARD_ISSUE_QUERY, this.getDefaultIssueQuery());
 	}
 
 	private getDefaultIssueQuery(): string {

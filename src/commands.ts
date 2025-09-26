@@ -32,7 +32,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { TasksDashboardManager } from './github/tasksDashboard';
+import { TasksDashboardManager } from './github/tasksDashboard/tasksDashboardManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';

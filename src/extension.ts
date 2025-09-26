@@ -28,7 +28,7 @@ import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { TasksDashboardManager } from './github/tasksDashboard';
+import { TasksDashboardManager } from './github/tasksDashboard/tasksDashboardManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';

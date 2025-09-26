@@ -4,34 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { ChatSessionWithPR } from './copilotApi';
-import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { RepositoriesManager } from './repositoriesManager';
+import Logger from '../../common/logger';
+import { ChatSessionWithPR } from '../copilotApi';
+import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
+import { FolderRepositoryManager } from '../folderRepositoryManager';
+import { RepositoriesManager } from '../repositoriesManager';
 
 export interface IssueReference {
 	readonly number: number;
-	readonly nwo?: {
+	readonly repo?: {
 		readonly owner: string;
-		readonly repo: string;
+		readonly name: string;
 	}
 }
 
 export interface SessionData {
-	id: string;
-	title: string;
-	status: string;
-	dateCreated: string;
-	isCurrentBranch?: boolean;
-	isTemporary?: boolean;
-	isLocal?: boolean;
-	branchName?: string;
-	repository?: string; // For global dashboard - which repo this session belongs to
-	pullRequest?: {
-		number: number;
-		title: string;
-		url: string;
+	readonly id: string;
+	readonly title: string;
+	readonly status: string;
+	readonly dateCreated: string;
+	readonly isCurrentBranch?: boolean;
+	readonly isTemporary?: boolean;
+	readonly isLocal?: boolean;
+	readonly branchName?: string;
+	readonly pullRequest?: {
+		readonly number: number;
+		readonly title: string;
+		readonly url: string;
 	};
 }
 
@@ -453,14 +452,14 @@ export class TaskManager {
 		let finalOwner: string;
 		let finalRepo: string;
 
-		if (issueRef.nwo) {
+		if (issueRef.repo) {
 			// Full repository reference (owner/repo#123)
-			finalOwner = issueRef.nwo.owner;
-			finalRepo = issueRef.nwo.repo;
+			finalOwner = issueRef.repo.owner;
+			finalRepo = issueRef.repo.name;
 
 			for (const manager of this._repositoriesManager.folderManagers) {
 				try {
-					const issueModel = await manager.resolveIssue(issueRef.nwo.owner, issueRef.nwo.repo, issueNumber);
+					const issueModel = await manager.resolveIssue(issueRef.repo.owner, issueRef.repo.name, issueNumber);
 					if (issueModel) {
 						folderManager = manager;
 						break;
@@ -617,8 +616,7 @@ export class TaskManager {
 			});
 
 			if (!models || models.length === 0) {
-				// Fallback to keyword-based classification if no LM available
-				return this.isCodingTaskFallback(query);
+				return false;
 			}
 
 			const model = models[0];
@@ -667,8 +665,7 @@ Classification:`;
 
 		} catch (error) {
 			Logger.error(`Failed to classify query using LM API: ${error}`, TaskManager.ID);
-			// Fallback to keyword-based classification
-			return this.isCodingTaskFallback(query);
+			return true;
 		}
 	}
 
@@ -885,21 +882,6 @@ Branch name:`;
 				url: session.pullRequest.html_url
 			} : undefined
 		};
-	}
-
-	private isCodingTaskFallback(query: string): boolean {
-		const codingKeywords = [
-			'implement', 'create', 'add', 'build', 'develop', 'code', 'write',
-			'fix', 'debug', 'resolve', 'solve', 'repair',
-			'refactor', 'optimize', 'improve', 'enhance', 'update',
-			'feature', 'function', 'method', 'class', 'component',
-			'api', 'endpoint', 'service', 'module', 'library',
-			'test', 'testing', 'unit test', 'integration test',
-			'bug', 'issue', 'error', 'exception', 'crash'
-		];
-
-		const lowercaseQuery = query.toLowerCase();
-		return codingKeywords.some(keyword => lowercaseQuery.includes(keyword));
 	}
 
 	private generateFallbackBranchName(query: string): string {
