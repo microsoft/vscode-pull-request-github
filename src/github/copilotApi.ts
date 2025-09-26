@@ -89,7 +89,6 @@ export class CopilotApi {
 			const response = await this.makeApiCall(apiUrl, {
 				method: 'POST',
 				headers: {
-					'Copilot-Integration-Id': 'copilot-developer-dev', // TODO: This is wrong.
 					'Authorization': `Bearer ${this.token}`,
 					'Content-Type': 'application/json',
 					'Accept': 'application/json',
