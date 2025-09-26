@@ -114,8 +114,9 @@ export class CopilotStateModel extends Disposable {
 			// If owner and repo are specified, only clear notifications for that repo
 			if (owner && repo) {
 				const keysToRemove: string[] = [];
+				const prefix = `${this.makeKey(owner, repo)}#`;
 				for (const key of this._showNotification.keys()) {
-					if (key.startsWith(`${owner}/${repo}#`)) {
+					if (key.startsWith(prefix)) {
 						const item = this._states.get(key)?.item;
 						if (item) {
 							items.push(item);

@@ -195,6 +195,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
+	get repo(): RemoteInfo | undefined {
+		return this._repo;
+	}
+
 	private _getDescription(): string | undefined {
 		if (!this.isCopilot || !this._repo) {
 			return undefined;

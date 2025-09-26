@@ -880,14 +880,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	getNotificationsCountForRepo(owner: string, repo: string): number {
-		let count = 0;
-		const prefix = `${owner}/${repo}#`;
-		for (const key of this._stateModel.notifications.keys()) {
-			if (key.startsWith(prefix)) {
-				count++;
-			}
-		}
-		return count;
+		return this._stateModel.getNotificationsCount(owner, repo);
 	}
 
 	public clearAllNotifications(owner?: string, repo?: string): void {
