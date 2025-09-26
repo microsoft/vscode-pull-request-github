@@ -919,8 +919,9 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.markAllCopilotNotificationsAsRead', node => {
-			if (node instanceof CategoryTreeNode && node.isCopilot) {
-				copilotRemoteAgentManager.clearAllNotifications();
+			if (node instanceof CategoryTreeNode && node.isCopilot && node.folderRepoManager.gitHubRepositories.length > 0) {
+				const repo = node.folderRepoManager.gitHubRepositories[0];
+				copilotRemoteAgentManager.clearAllNotifications(repo.remote.owner, repo.remote.repositoryName);
 				tree.refresh(node);
 			}
 		}),

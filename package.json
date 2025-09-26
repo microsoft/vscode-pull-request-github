@@ -1991,6 +1991,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "false"
+				},
+				{
 					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
@@ -2781,6 +2785,7 @@
 				{
 					"command": "pr.markAllCopilotNotificationsAsRead",
 					"when": "view == pr:github && viewItem =~ /copilot-query/",
+					"enablement": "viewItem == copilot-query-with-notifications",
 					"group": "0_category@1"
 				},
 				{

@@ -327,6 +327,24 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		this.description = this._getDescription();
+		
+		// Update contextValue based on current notification state
+		if (this._categoryQuery) {
+			const hasNotifications = this.isCopilot && this._hasNotificationsForRepo();
+			this.contextValue = this.isCopilot ? 
+				(hasNotifications ? 'copilot-query-with-notifications' : 'copilot-query') : 
+				'query';
+		}
+		
 		return this;
+	}
+
+	private _hasNotificationsForRepo(): boolean {
+		if (!this.isCopilot || this.folderRepoManager.gitHubRepositories.length === 0) {
+			return false;
+		}
+		
+		const repo = this.folderRepoManager.gitHubRepositories[0];
+		return this._copilotManager.getNotificationsCountForRepo(repo.remote.owner, repo.remote.repositoryName) > 0;
 	}
 }
