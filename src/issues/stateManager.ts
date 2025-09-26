@@ -316,7 +316,7 @@ export class StateManager {
 			items = this.setIssues(
 				folderManager,
 				// Do not resolve pull request defaults as they will get resolved in the query later per repository
-				await variableSubstitution(query.query, undefined, undefined, user),
+				variableSubstitution(query.query, undefined, undefined, user),
 			).then(issues => ({ groupBy: query.groupBy ?? [], issues }));
 
 			if (items) {
