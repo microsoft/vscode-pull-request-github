@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import Logger from '../../common/logger';
 import { getNonce, IRequestMessage, WebviewBase } from '../../common/webview';
 import { CreatePullRequestDataModel } from '../../view/createPullRequestDataModel';
-import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
 import { FolderRepositoryManager, ReposManagerState } from '../folderRepositoryManager';
 import { IssueModel } from '../issueModel';
 import { RepositoriesManager } from '../repositoriesManager';
-import { IssueReference, SessionData, TaskManager } from './taskManager';
+import { TaskChatHandler } from './taskChatHandler';
+import { SessionData, TaskManager } from './taskManager';
 
 export interface DashboardLoading {
 	readonly state: 'loading';
@@ -50,27 +50,25 @@ export interface IssueData {
 export class TaskDashboardWebview extends WebviewBase {
 	private static readonly ID = 'DashboardWebviewProvider';
 
-	protected readonly _panel: vscode.WebviewPanel;
-
-	private _issueQuery: string;
-	private _taskManager: TaskManager;
+	private readonly _chatHandler: TaskChatHandler;
 
 	private _branchChangeTimeout: NodeJS.Timeout | undefined;
+
+	private _issueQuery: string;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _repositoriesManager: RepositoriesManager,
-		private readonly _copilotRemoteAgentManager: CopilotRemoteAgentManager,
+		private readonly _taskManager: TaskManager,
 		extensionUri: vscode.Uri,
 		panel: vscode.WebviewPanel,
 		issueQuery: string,
 	) {
 		super();
 
-		this._panel = panel;
 		this._webview = panel.webview;
 		this._issueQuery = issueQuery;
-		this._taskManager = new TaskManager(this._repositoriesManager, this._copilotRemoteAgentManager);
+		this._chatHandler = new TaskChatHandler(_taskManager);
 
 		this.registerBranchChangeListeners();
 		this.registerRepositoryLoadListeners();
@@ -295,11 +293,7 @@ export class TaskDashboardWebview extends WebviewBase {
 			for (const repoIdentifier of targetRepos) {
 				const [owner, repo] = repoIdentifier.split('/');
 
-				// Find the first folder manager that manages this repository
-				const folderManager = this._repositoriesManager.folderManagers.find(fm =>
-					this.folderManagerMatchesRepo(fm, owner, repo)
-				);
-
+				const folderManager = this._repositoriesManager.getManagerForRepository(owner, repo);
 				if (folderManager) {
 					const queryIssues = await this.getIssuesForQuery(folderManager, this._issueQuery);
 
@@ -339,19 +333,7 @@ export class TaskDashboardWebview extends WebviewBase {
 	}
 
 	private getTargetRepositories(): string[] {
-		const currentRepos = this.getCurrentWorkspaceRepositories();
-		return currentRepos;
-	}
-
-	private folderManagerMatchesRepo(folderManager: FolderRepositoryManager, owner: string, repo: string): boolean {
-		// Check if the folder manager manages a repository that matches the owner/repo
-		for (const repository of folderManager.gitHubRepositories) {
-			if (repository.remote.owner.toLowerCase() === owner.toLowerCase() &&
-				repository.remote.repositoryName.toLowerCase() === repo.toLowerCase()) {
-				return true;
-			}
-		}
-		return false;
+		return this.getCurrentWorkspaceRepositories();
 	}
 
 	private async getIssuesForQuery(folderManager: FolderRepositoryManager, query: string): Promise<IssueData[]> {
@@ -368,7 +350,6 @@ export class TaskDashboardWebview extends WebviewBase {
 			}
 
 			const searchResult = await folderManager.getIssues(scopedQuery);
-
 			if (!searchResult || !searchResult.items) {
 				return [];
 			}
@@ -394,7 +375,7 @@ export class TaskDashboardWebview extends WebviewBase {
 		// Check for local task branch
 		try {
 			const taskBranchName = `task/issue-${issue.number}`;
-			const localTaskBranch = await this.findLocalTaskBranch(taskBranchName);
+			const localTaskBranch = await this._taskManager.findLocalTaskBranch(taskBranchName);
 			if (localTaskBranch) {
 				issueData.localTaskBranch = localTaskBranch;
 
@@ -410,41 +391,6 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 
 		return issueData;
-	}
-
-	private async findLocalTaskBranch(branchName: string): Promise<string | undefined> {
-		try {
-			// Use the same logic as TaskManager to get all task branches
-			for (const folderManager of this._repositoriesManager.folderManagers) {
-				if (folderManager.repository.getRefs) {
-					const refs = await folderManager.repository.getRefs({ pattern: 'refs/heads/' });
-
-					// Debug: log all branches
-					Logger.debug(`All local branches: ${refs.map(r => r.name).join(', ')}`, TaskDashboardWebview.ID);
-
-					// Filter for task branches and look for our specific branch
-					const taskBranches = refs.filter(ref =>
-						ref.name &&
-						ref.name.startsWith('task/')
-					);
-
-					Logger.debug(`Task branches: ${taskBranches.map(r => r.name).join(', ')}`, TaskDashboardWebview.ID);
-					Logger.debug(`Looking for branch: ${branchName}`, TaskDashboardWebview.ID);
-
-					const matchingBranch = taskBranches.find(ref => ref.name === branchName);
-
-					if (matchingBranch) {
-						Logger.debug(`Found local task branch: ${branchName}`, TaskDashboardWebview.ID);
-						return branchName;
-					}
-				}
-			}
-			Logger.debug(`Local task branch ${branchName} not found in any repository`, TaskDashboardWebview.ID);
-			return undefined;
-		} catch (error) {
-			Logger.debug(`Failed to find local task branch ${branchName}: ${error}`, TaskDashboardWebview.ID);
-			return undefined;
-		}
 	}
 
 	private async findPullRequestForBranch(branchName: string): Promise<{ number: number; title: string; url: string } | undefined> {
@@ -498,9 +444,7 @@ export class TaskDashboardWebview extends WebviewBase {
 			// Get the default branch (usually main or master)
 			const defaultBranch = await this.getDefaultBranch(folderManager) || 'main';
 
-			// Switch to the default branch
 			await folderManager.repository.checkout(defaultBranch);
-			vscode.window.showInformationMessage(`Switched to branch: ${defaultBranch}`);
 
 			// Update dashboard to reflect the branch change
 			setTimeout(() => {
@@ -639,7 +583,7 @@ export class TaskDashboardWebview extends WebviewBase {
 				await this.updateDashboard();
 				break;
 			case 'submit-chat':
-				await this.handleChatSubmission(message.args?.query);
+				await this._chatHandler.handleChatSubmission(message.args?.query);
 				break;
 			case 'open-session':
 				await this.openSession(message.args?.sessionId);
@@ -648,7 +592,7 @@ export class TaskDashboardWebview extends WebviewBase {
 				await this.openSessionWithPullRequest(message.args?.sessionId, message.args?.pullRequest);
 				break;
 			case 'open-issue':
-				await this.openIssue(message.args?.issueUrl);
+				await this.openIssue(message.args?.repoOwner, message.args?.repoName, message.args?.issueNumber);
 				break;
 			case 'open-pull-request':
 				await this.openPullRequest(message.args?.pullRequest);
@@ -672,53 +616,6 @@ export class TaskDashboardWebview extends WebviewBase {
 				await super._onDidReceiveMessage(message);
 				break;
 		}
-	}
-
-	private async handleChatSubmission(query: string): Promise<void> {
-		query = query.trim();
-		if (!query) {
-			return;
-		}
-
-		// Check if user explicitly mentions @copilot for remote background session
-		if (query.startsWith('@copilot ')) {
-			return this.handleRemoteTaskSubmission(query);
-		}
-		// Check if user explicitly mentions @local for local workflow
-		else if (query.startsWith('@local ')) {
-			return this.handleLocalTaskSubmission(query);
-		}
-		// Determine if this is a general question or coding task
-		else {
-			if (await this._taskManager.isCodingTask(query)) {
-				// Show quick pick to choose between local and remote work
-				const workMode = await this.showWorkModeQuickPick();
-				if (workMode === 'remote') {
-					return this.handleRemoteTaskSubmission(query);
-				} else if (workMode === 'local') {
-					return this.handleLocalTaskSubmission(query);
-				} else {
-					// User cancelled the quick pick
-					return;
-				}
-			} else {
-				// General question - Submit to ask mode
-				await vscode.commands.executeCommand('workbench.action.chat.open', {
-					query,
-					mode: 'ask'
-				});
-			}
-		}
-	}
-
-	private async handleLocalTaskSubmission(query: string) {
-		const cleanQuery = query.replace(/@local\s*/, '').trim();
-		await this.handleLocalTaskWithIssueSupport(cleanQuery || query);
-	}
-
-	private async handleRemoteTaskSubmission(query: string) {
-		const cleanQuery = query.replace(/@copilot\s*/, '').trim();
-		await this.createRemoteBackgroundSession(cleanQuery);
 	}
 
 	private async checkoutPullRequestBranch(pullRequest: { number: number; title: string; url: string }): Promise<void> {
@@ -805,30 +702,26 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 	}
 
-	private async openIssue(issueUrl: string): Promise<void> {
+	private async openIssue(repoOwner: string, repoName: string, issueNumber: number): Promise<void> {
 		try {
 			// Try to find the issue in the current repositories
-			const urlMatch = issueUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/);
-			if (urlMatch) {
-				const [, owner, repo, issueNumberStr] = urlMatch;
-				const issueNumber = parseInt(issueNumberStr, 10);
-
-				for (const folderManager of this._repositoriesManager.folderManagers) {
-					const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
-					if (issueModel) {
-						// Use the extension's command to open the issue description
-						await vscode.commands.executeCommand('issue.openDescription', issueModel);
-						return;
-					}
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				const issueModel = await folderManager.resolveIssue(repoOwner, repoName, issueNumber);
+				if (issueModel) {
+					// Use the extension's command to open the issue description
+					await vscode.commands.executeCommand('issue.openDescription', issueModel);
+					return;
 				}
 			}
 
 			// Fallback to opening externally if we can't find the issue locally
+			const issueUrl = `https://github.com/${repoOwner}/${repoName}/issues/${issueNumber}`;
 			await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
 		} catch (error) {
 			Logger.error(`Failed to open issue: ${error} `, TaskDashboardWebview.ID);
 			// Fallback to opening externally
 			try {
+				const issueUrl = `https://github.com/${repoOwner}/${repoName}/issues/${issueNumber}`;
 				await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
 			} catch (fallbackError) {
 				vscode.window.showErrorMessage('Failed to open issue.');
@@ -897,23 +790,6 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 	}
 
-	private async showWorkModeQuickPick(): Promise<'local' | 'remote' | undefined> {
-		return this._taskManager.showWorkModeQuickPick();
-	}
-
-	private async setupLocalWorkflow(query: string): Promise<void> {
-		await this._taskManager.setupNewLocalWorkflow(query);
-	}
-
-	private async createRemoteBackgroundSession(query: string): Promise<void> {
-		await this._taskManager.createRemoteBackgroundSession(query);
-
-		// Refresh the dashboard to show the new session
-		setTimeout(() => {
-			this.updateDashboard();
-		}, 1000);
-	}
-
 	private registerBranchChangeListeners(): void {
 		// Listen for branch changes across all repositories
 		this._register(this._repositoriesManager.onDidChangeFolderRepositories((event) => {
@@ -970,27 +846,6 @@ export class TaskDashboardWebview extends WebviewBase {
 		}));
 	}
 
-	/**
-	 * Handles local task submission with issue support - creates branches and formats prompts
-	 */
-	private async handleLocalTaskWithIssueSupport(query: string): Promise<void> {
-		const references = extractIssueReferences(query);
-
-		if (references.length > 0) {
-			const firstRef = references[0];
-			const issueNumber = firstRef.number;
-
-			try {
-				await this._taskManager.handleLocalTaskForIssue(issueNumber, firstRef);
-			} catch (error) {
-				Logger.error(`Failed to handle local task with issue support: ${error}`, TaskDashboardWebview.ID);
-				vscode.window.showErrorMessage('Failed to set up local task branch.');
-			}
-		} else {
-			await this.setupLocalWorkflow(query);
-		}
-	}
-
 	private getHtmlForWebview(): string {
 		const nonce = getNonce();
 		const uri = vscode.Uri.joinPath(this._context.extensionUri, 'dist', 'webview-dashboard.js');
@@ -1011,35 +866,4 @@ export class TaskDashboardWebview extends WebviewBase {
 	</body>
 </html>`;
 	}
-}
-
-
-/**
- * Extracts issue references from text (e.g., #123, owner/repo#456)
- */
-function extractIssueReferences(text: string): Array<IssueReference> {
-	const out: IssueReference[] = [];
-
-	// Match full repository issue references (owner/repo#123)
-	const fullRepoRegex = /([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)#(\d+)/g;
-	let match: RegExpExecArray | null;
-	while ((match = fullRepoRegex.exec(text)) !== null) {
-		out.push({
-			number: parseInt(match[3], 10),
-			repo: {
-				owner: match[1],
-				name: match[2],
-			},
-		});
-	}
-
-	// Match simple issue references (#123) for current repo
-	const simpleRegex = /#(\d+)(?![a-zA-Z0-9._-])/g;
-	while ((match = simpleRegex.exec(text)) !== null) {
-		out.push({
-			number: parseInt(match[1], 10),
-		});
-	}
-
-	return out;
 }

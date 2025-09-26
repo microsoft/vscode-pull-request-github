@@ -36,7 +36,6 @@ export interface SessionData {
 
 export class TaskManager {
 	private static readonly ID = 'TaskManager';
-	private _temporarySessions: Map<string, SessionData> = new Map();
 
 	constructor(
 		private readonly _repositoriesManager: RepositoriesManager,
@@ -65,11 +64,6 @@ export class TaskManager {
 			// Add local tasks
 			for (const task of localTasks) {
 				sessionMap.set(task.id, task);
-			}
-
-			// Add temporary sessions (they will appear at the top)
-			for (const [id, tempSession] of this._temporarySessions) {
-				sessionMap.set(id, tempSession);
 			}
 
 			// Sort sessions so temporary ones appear first, then by date
@@ -131,11 +125,6 @@ export class TaskManager {
 			// Add local tasks
 			for (const task of localTasks) {
 				sessionMap.set(task.id, task);
-			}
-
-			// Add temporary sessions
-			for (const [id, tempSession] of this._temporarySessions) {
-				sessionMap.set(id, tempSession);
 			}
 
 			// Sort sessions so temporary ones appear first, then by date
@@ -363,31 +352,6 @@ export class TaskManager {
 	}
 
 	/**
-	 * Creates a temporary session that shows in the dashboard with a loading state
-	 */
-	public createTemporarySession(query: string, type: 'local' | 'remote'): string {
-		const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-		const tempSession: SessionData = {
-			id: tempId,
-			title: type === 'local' ? `Creating local task: ${query.substring(0, 50)}...` : `Creating remote task: ${query.substring(0, 50)}...`,
-			status: 'Creating',
-			dateCreated: new Date().toISOString(),
-			isTemporary: true
-		};
-
-		this._temporarySessions.set(tempId, tempSession);
-
-		return tempId;
-	}
-
-	/**
-	 * Removes a temporary session from the dashboard
-	 */
-	public removeTemporarySession(tempId: string): void {
-		this._temporarySessions.delete(tempId);
-	}
-
-	/**
 	 * Sets up local workflow: creates branch and opens chat with agent mode
 	 */
 	public async setupNewLocalWorkflow(query: string): Promise<void> {
@@ -602,114 +566,6 @@ export class TaskManager {
 			Logger.error(`Failed to create remote background session: ${error}`, TaskManager.ID);
 			vscode.window.showErrorMessage(`Failed to create coding agent session: ${error}`);
 		}
-	}
-
-	/**
-	 * Determines if a query represents a coding task vs a general question using VS Code's Language Model API
-	 */
-	public async isCodingTask(query: string): Promise<boolean> {
-		try {
-			// Try to get a language model for classification
-			const models = await vscode.lm.selectChatModels({
-				vendor: 'copilot',
-				family: 'gpt-4o'
-			});
-
-			if (!models || models.length === 0) {
-				return false;
-			}
-
-			const model = models[0];
-
-			// Create a focused prompt for binary classification
-			const classificationPrompt = `You are a classifier that determines whether a user query represents a coding/development task or a general question.
-
-Examples of CODING TASKS:
-- "Implement user authentication"
-- "Fix the bug in the login function"
-- "Add a search feature to the app"
-- "Refactor the database connection code"
-- "Create unit tests for the API"
-- "Debug the memory leak issue"
-- "Update the CSS styling"
-- "Build a REST endpoint"
-
-Examples of GENERAL QUESTIONS:
-- "How does authentication work?"
-- "What is a REST API?"
-- "Explain the difference between async and sync"
-- "What are the benefits of unit testing?"
-- "How do I learn React?"
-- "What is the best IDE for Python?"
-
-Respond with exactly one word: "CODING" if the query is about implementing, building, fixing, creating, or working on code. "GENERAL" if it's asking for information, explanations, or learning resources.
-
-Query: "${query}"
-
-Classification:`;
-
-			const messages = [vscode.LanguageModelChatMessage.User(classificationPrompt)];
-
-			const response = await model.sendRequest(messages, {
-				justification: 'Classifying user query type for workflow routing'
-			});
-
-			let result = '';
-			for await (const chunk of response.text) {
-				result += chunk;
-			}
-
-			// Parse the response - look for "CODING" or "GENERAL"
-			const cleanResult = result.trim().toUpperCase();
-			return cleanResult.includes('CODING');
-
-		} catch (error) {
-			Logger.error(`Failed to classify query using LM API: ${error}`, TaskManager.ID);
-			return true;
-		}
-	}
-
-	/**
-	 * Shows a quick pick to let user choose between local and remote work
-	 */
-	public async showWorkModeQuickPick(): Promise<'local' | 'remote' | undefined> {
-		const quickPick = vscode.window.createQuickPick();
-		quickPick.title = 'Choose how to work on this task';
-		quickPick.placeholder = 'Select whether to work locally or remotely';
-		quickPick.items = [
-			{
-				label: '$(device-desktop) Work locally',
-				detail: 'Create a new branch and work in your local environment',
-				alwaysShow: true
-			},
-			{
-				label: '$(cloud) Work remotely',
-				detail: 'Use GitHub Copilot remote agent to work in the cloud',
-				alwaysShow: true
-			}
-		];
-
-		return new Promise<'local' | 'remote' | undefined>((resolve) => {
-			quickPick.onDidAccept(() => {
-				const selectedItem = quickPick.selectedItems[0];
-				quickPick.hide();
-				if (selectedItem) {
-					if (selectedItem.label.includes('locally')) {
-						resolve('local');
-					} else if (selectedItem.label.includes('remotely')) {
-						resolve('remote');
-					}
-				}
-				resolve(undefined);
-			});
-
-			quickPick.onDidHide(() => {
-				quickPick.dispose();
-				resolve(undefined);
-			});
-
-			quickPick.show();
-		});
 	}
 
 	/**
@@ -967,5 +823,40 @@ Branch name:`;
 			}
 		}
 		return false;
+	}
+
+	public async findLocalTaskBranch(branchName: string): Promise<string | undefined> {
+		try {
+			// Use the same logic as TaskManager to get all task branches
+			for (const folderManager of this._repositoriesManager.folderManagers) {
+				if (folderManager.repository.getRefs) {
+					const refs = await folderManager.repository.getRefs({ pattern: 'refs/heads/' });
+
+					// Debug: log all branches
+					Logger.debug(`All local branches: ${refs.map(r => r.name).join(', ')}`, TaskManager.ID);
+
+					// Filter for task branches and look for our specific branch
+					const taskBranches = refs.filter(ref =>
+						ref.name &&
+						ref.name.startsWith('task/')
+					);
+
+					Logger.debug(`Task branches: ${taskBranches.map(r => r.name).join(', ')}`, TaskManager.ID);
+					Logger.debug(`Looking for branch: ${branchName}`, TaskManager.ID);
+
+					const matchingBranch = taskBranches.find(ref => ref.name === branchName);
+
+					if (matchingBranch) {
+						Logger.debug(`Found local task branch: ${branchName}`, TaskManager.ID);
+						return branchName;
+					}
+				}
+			}
+			Logger.debug(`Local task branch ${branchName} not found in any repository`, TaskManager.ID);
+			return undefined;
+		} catch (error) {
+			Logger.debug(`Failed to find local task branch ${branchName}: ${error}`, TaskManager.ID);
+			return undefined;
+		}
 	}
 }

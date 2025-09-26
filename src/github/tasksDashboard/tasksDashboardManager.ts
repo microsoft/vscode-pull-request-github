@@ -6,10 +6,10 @@
 import * as vscode from 'vscode';
 import { Disposable, disposeAll } from '../../common/lifecycle';
 import { TASKS_DASHBOARD, TASKS_DASHBOARD_ENABLED, TASKS_DASHBOARD_ISSUE_QUERY } from '../../common/settingKeys';
-import { ITelemetry } from '../../common/telemetry';
 import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
 import { RepositoriesManager } from '../repositoriesManager';
 import { TaskDashboardWebview } from './taskDashboardWebview';
+import { TaskManager } from './taskManager';
 
 export class TasksDashboardManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static readonly viewType = 'github-pull-request.projectTasksDashboard';
@@ -23,11 +23,12 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 	private _statusBarItem?: vscode.StatusBarItem;
 
+	private readonly _taskManager: TaskManager;
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _copilotRemoteAgentManager: CopilotRemoteAgentManager,
-		private readonly _telemetry: ITelemetry
 	) {
 		super();
 
@@ -42,6 +43,8 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 		// Register webview panel serializer for tasks dashboard
 		this._register(vscode.window.registerWebviewPanelSerializer(TasksDashboardManager.viewType, this));
+
+		this._taskManager = new TaskManager(this._repositoriesManager, this._copilotRemoteAgentManager);
 	}
 
 	public override dispose() {
@@ -96,7 +99,7 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 		const dashboardProvider = new TaskDashboardWebview(
 			this._context,
 			this._repositoriesManager,
-			this._copilotRemoteAgentManager,
+			this._taskManager,
 			this._context.extensionUri,
 			webviewPanel,
 			issueQuery,
