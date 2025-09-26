@@ -4177,7 +4177,6 @@
 		]
 	},
 	"scripts": {
-		"postinstall": "yarn update-dts",
 		"bundle": "webpack --mode production --env esbuild",
 		"bundle:node": "webpack --mode production --config-name extension:node --config-name webviews",
 		"bundle:web": "webpack --mode production --config-name extension:webworker --config-name webviews",
