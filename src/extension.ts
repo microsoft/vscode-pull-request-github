@@ -230,7 +230,7 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	const tasksDashboard = new TasksDashboardManager(context, reposManager, copilotRemoteAgentManager, telemetry);
+	const tasksDashboard = new TasksDashboardManager(context, copilotRemoteAgentManager, reposManager, reviewsManager, telemetry);
 	context.subscriptions.push(tasksDashboard);
 
 	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager, tasksDashboard);

@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import Logger from '../../common/logger';
-import { IssueReference, TaskManager } from './taskManager';
+import { ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../utils';
+import { TaskManager } from './taskManager';
 
 export class TaskChatHandler {
 	private static readonly ID = 'TaskChatHandler';
@@ -77,7 +78,7 @@ export class TaskChatHandler {
 
 		if (references.length > 0) {
 			const firstRef = references[0];
-			const issueNumber = firstRef.number;
+			const issueNumber = firstRef.issueNumber;
 
 			try {
 				await this._taskManager.handleLocalTaskForIssue(issueNumber, firstRef);
@@ -201,29 +202,13 @@ Classification:`;
 /**
  * Extracts issue references from text (e.g., #123, owner/repo#456)
  */
-function extractIssueReferences(text: string): Array<IssueReference> {
-	const out: IssueReference[] = [];
-
-	// Match full repository issue references (owner/repo#123)
-	const fullRepoRegex = /([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)#(\d+)/g;
-	let match: RegExpExecArray | null;
-	while ((match = fullRepoRegex.exec(text)) !== null) {
-		out.push({
-			number: parseInt(match[3], 10),
-			repo: {
-				owner: match[1],
-				name: match[2],
-			},
-		});
+function extractIssueReferences(text: string): Array<ParsedIssue> {
+	const out: ParsedIssue[] = [];
+	for (const match of text.matchAll(ISSUE_EXPRESSION)) {
+		const parsed = parseIssueExpressionOutput(match);
+		if (parsed) {
+			out.push(parsed);
+		}
 	}
-
-	// Match simple issue references (#123) for current repo
-	const simpleRegex = /#(\d+)(?![a-zA-Z0-9._-])/g;
-	while ((match = simpleRegex.exec(text)) !== null) {
-		out.push({
-			number: parseInt(match[1], 10),
-		});
-	}
-
 	return out;
 }

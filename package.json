@@ -1698,13 +1698,6 @@
 				"enablement": "config.githubPullRequests.codingAgent.enabled"
 			},
 			{
-				"command": "issue.openIssueAndCodingAgentSideBySide",
-				"title": "%command.issue.openIssueAndCodingAgentSideBySide.title%",
-				"category": "%command.issues.category%",
-				"icon": "$(split-horizontal)",
-				"enablement": "config.githubPullRequests.codingAgent.enabled"
-			},
-			{
 				"command": "issues.configureIssuesViewlet",
 				"title": "%command.issues.configureIssuesViewlet.title%",
 				"category": "%command.issues.category%",
@@ -2414,10 +2407,6 @@
 					"when": "false"
 				},
 				{
-					"command": "issue.openIssueAndCodingAgentSideBySide",
-					"when": "false"
-				},
-				{
 					"command": "issue.copyIssueNumber",
 					"when": "false"
 				},
@@ -2983,11 +2972,6 @@
 					"command": "issue.chatSuggestFix",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "issues_1@1"
-				},
-				{
-					"command": "issue.openIssueAndCodingAgentSideBySide",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled",
-					"group": "issues_1@2"
 				},
 				{
 					"command": "issue.copyIssueNumber",

@@ -316,7 +316,6 @@
 	"command.issue.chatSummarizeIssue.title": "Summarize With Copilot",
 	"command.issue.chatSuggestFix.title": "Suggest a Fix with Copilot",
 	"command.issue.assignToCodingAgent.title": "Assign to Coding Agent",
-	"command.issue.openIssueAndCodingAgentSideBySide.title": "Start Coding Agent Session",
 	"command.notifications.category": "GitHub Notifications",
 	"command.notifications.refresh.title": "Refresh",
 	"command.notifications.pri.title": "Prioritize",

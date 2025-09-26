@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import { Disposable, disposeAll } from '../../common/lifecycle';
 import { TASKS_DASHBOARD, TASKS_DASHBOARD_ENABLED, TASKS_DASHBOARD_ISSUE_QUERY } from '../../common/settingKeys';
+import { ITelemetry } from '../../common/telemetry';
+import { ReviewsManager } from '../../view/reviewsManager';
 import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
 import { RepositoriesManager } from '../repositoriesManager';
 import { TaskDashboardWebview } from './taskDashboardWebview';
@@ -27,8 +29,10 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _copilotRemoteAgentManager: CopilotRemoteAgentManager,
+		private readonly _repositoriesManager: RepositoriesManager,
+		private readonly _reviewsManager: ReviewsManager,
+		private readonly _telemetry: ITelemetry,
 	) {
 		super();
 
@@ -58,8 +62,7 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 	}
 
 	private updateStatusBarItem(): void {
-		const dashboardEnabled = vscode.workspace.getConfiguration('githubPullRequests')
-			.get<boolean>('projectTasksDashboard.enabled', false);
+		const dashboardEnabled = vscode.workspace.getConfiguration(TASKS_DASHBOARD).get<boolean>(TASKS_DASHBOARD_ENABLED, false);
 
 		if (dashboardEnabled && !this._statusBarItem) {
 			// Create status bar item if it doesn't exist and is now enabled
@@ -100,6 +103,8 @@ export class TasksDashboardManager extends Disposable implements vscode.WebviewP
 			this._context,
 			this._repositoriesManager,
 			this._taskManager,
+			this._reviewsManager,
+			this._telemetry,
 			this._context.extensionUri,
 			webviewPanel,
 			issueQuery,

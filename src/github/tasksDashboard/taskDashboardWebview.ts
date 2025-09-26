@@ -5,10 +5,16 @@
 
 import * as vscode from 'vscode';
 import Logger from '../../common/logger';
+import { ITelemetry } from '../../common/telemetry';
 import { getNonce, IRequestMessage, WebviewBase } from '../../common/webview';
 import { CreatePullRequestDataModel } from '../../view/createPullRequestDataModel';
+import { ReviewManager } from '../../view/reviewManager';
+import { ReviewsManager } from '../../view/reviewsManager';
 import { FolderRepositoryManager, ReposManagerState } from '../folderRepositoryManager';
 import { IssueModel } from '../issueModel';
+import { IssueOverviewPanel } from '../issueOverview';
+import { PullRequestModel } from '../pullRequestModel';
+import { PullRequestOverviewPanel } from '../pullRequestOverview';
 import { RepositoriesManager } from '../repositoriesManager';
 import { TaskChatHandler } from './taskChatHandler';
 import { SessionData, TaskManager } from './taskManager';
@@ -60,7 +66,9 @@ export class TaskDashboardWebview extends WebviewBase {
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _taskManager: TaskManager,
-		extensionUri: vscode.Uri,
+		private readonly _reviewsManager: ReviewsManager,
+		private readonly _telemetry: ITelemetry,
+		private readonly _extensionUri: vscode.Uri,
 		panel: vscode.WebviewPanel,
 		issueQuery: string,
 	) {
@@ -77,7 +85,7 @@ export class TaskDashboardWebview extends WebviewBase {
 
 		this._webview.options = {
 			enableScripts: true,
-			localResourceRoots: [extensionUri]
+			localResourceRoots: [this._extensionUri]
 		};
 
 		this._webview.html = this.getHtmlForWebview();
@@ -242,13 +250,8 @@ export class TaskDashboardWebview extends WebviewBase {
 	}
 
 	private async getDefaultBranch(folderManager: FolderRepositoryManager): Promise<string | undefined> {
-		try {
-			const defaults = await folderManager.getPullRequestDefaults();
-			return defaults.base;
-		} catch (error) {
-			Logger.debug(`Failed to get default branch: ${error}`, TaskDashboardWebview.ID);
-			return undefined;
-		}
+		const defaults = await folderManager.getPullRequestDefaults();
+		return defaults.base;
 	}
 
 	private async getChangedFilesInBranch(folderManager: FolderRepositoryManager, branchName: string, baseBranch: string): Promise<string[]> {
@@ -380,9 +383,13 @@ export class TaskDashboardWebview extends WebviewBase {
 				issueData.localTaskBranch = localTaskBranch;
 
 				// Check for associated pull request for this branch
-				const pullRequest = await this.findPullRequestForBranch(localTaskBranch);
+				const pullRequest = await issue.githubRepository.getPullRequestForBranch(localTaskBranch, issue.githubRepository.remote.owner);
 				if (pullRequest) {
-					issueData.pullRequest = pullRequest;
+					issueData.pullRequest = {
+						number: pullRequest.number,
+						title: pullRequest.title,
+						url: pullRequest.html_url,
+					};
 				}
 			}
 		} catch (error) {
@@ -393,58 +400,19 @@ export class TaskDashboardWebview extends WebviewBase {
 		return issueData;
 	}
 
-	private async findPullRequestForBranch(branchName: string): Promise<{ number: number; title: string; url: string } | undefined> {
-		try {
-			for (const folderManager of this._repositoriesManager.folderManagers) {
-				if (folderManager.gitHubRepositories.length === 0) {
-					continue;
-				}
-
-				// Try each GitHub repository in this folder manager
-				for (const githubRepository of folderManager.gitHubRepositories) {
-					try {
-						// Use the getPullRequestForBranch method to find PRs for this branch
-						const pullRequest = await githubRepository.getPullRequestForBranch(branchName, githubRepository.remote.owner);
-
-						if (pullRequest) {
-							Logger.debug(`Found PR #${pullRequest.number} for branch ${branchName}`, TaskDashboardWebview.ID);
-							return {
-								number: pullRequest.number,
-								title: pullRequest.title,
-								url: pullRequest.html_url
-							};
-						}
-					} catch (error) {
-						Logger.debug(`Failed to find PR for branch ${branchName} in ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}: ${error}`, TaskDashboardWebview.ID);
-						// Continue to next repository
-					}
-				}
-			}
-
-			Logger.debug(`No PR found for branch ${branchName}`, TaskDashboardWebview.ID);
-			return undefined;
-		} catch (error) {
-			Logger.debug(`Failed to find PR for branch ${branchName}: ${error}`, TaskDashboardWebview.ID);
-			return undefined;
-		}
-	}
-
 	private async switchToMainBranch(): Promise<void> {
 		try {
 			// Find the first available folder manager with a repository
 			const folderManager = this._repositoriesManager.folderManagers.find(fm =>
 				fm.gitHubRepositories.length > 0
 			);
-
 			if (!folderManager) {
 				vscode.window.showErrorMessage('No GitHub repository found in the current workspace.');
 				return;
 			}
 
-			// Get the default branch (usually main or master)
 			const defaultBranch = await this.getDefaultBranch(folderManager) || 'main';
-
-			await folderManager.repository.checkout(defaultBranch);
+			await folderManager?.checkoutDefaultBranch(defaultBranch);
 
 			// Update dashboard to reflect the branch change
 			setTimeout(() => {
@@ -509,7 +477,11 @@ export class TaskDashboardWebview extends WebviewBase {
 				}
 			} else {
 				// Has commits, proceed with create pull request flow
-				await vscode.commands.executeCommand('pr.create');
+				const reviewManager = ReviewManager.getReviewManagerForFolderManager(
+					this._reviewsManager.reviewManagers,
+					folderManager,
+				);
+				return reviewManager?.createPullRequest();
 			}
 		} catch (error) {
 			Logger.error(`Failed to create pull request: ${error}`, TaskDashboardWebview.ID);
@@ -600,9 +572,6 @@ export class TaskDashboardWebview extends WebviewBase {
 			case 'switch-to-local-task':
 				await this.switchToLocalTask(message.args?.branchName);
 				break;
-			case 'start-remote-agent':
-				await this.startRemoteAgent(message.args?.issue);
-				break;
 			case 'open-external-url':
 				await vscode.env.openExternal(vscode.Uri.parse(message.args.url));
 				break;
@@ -618,69 +587,52 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 	}
 
-	private async checkoutPullRequestBranch(pullRequest: { number: number; title: string; url: string }): Promise<void> {
-		try {
-			// Try to find the pull request in the current repositories
-			for (const folderManager of this._repositoriesManager.folderManagers) {
-				// Parse the URL to get owner and repo
-				const urlMatch = pullRequest.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
-				if (urlMatch) {
-					const [, owner, repo] = urlMatch;
-					const pullRequestModel = await folderManager.resolvePullRequest(owner, repo, pullRequest.number);
-					if (pullRequestModel) {
-						// Use VS Code's command to switch to the PR (this triggers review mode)
-						await vscode.commands.executeCommand('pr.pick', pullRequestModel);
-
-						return;
-					}
-				}
-			}
-
-		} catch (error) {
-			Logger.error(`Failed to checkout PR branch: ${error} `, TaskDashboardWebview.ID);
-			vscode.window.showWarningMessage(`Failed to checkout PR branch. Opening PR without branch checkout.`);
+	private async checkoutPullRequestBranch(pullRequest: PullRequestModel): Promise<void> {
+		const folderManager = this._repositoriesManager.getManagerForIssueModel(pullRequest);
+		if (folderManager && pullRequest.equals(folderManager?.activePullRequest)) {
+			const reviewManager = ReviewManager.getReviewManagerForFolderManager(this._reviewsManager.reviewManagers, folderManager);
+			return reviewManager?.switch(pullRequest);
 		}
 	}
 
-	private async openSessionWithPullRequest(sessionId: string, pullRequest?: { number: number; title: string; url: string }): Promise<void> {
-		if (!sessionId) {
-			return;
-		}
-
+	private async openSessionWithPullRequest(sessionId: string, pullRequestInfo?: { number: number; title: string; url: string }): Promise<void> {
 		try {
-			if (pullRequest) {
+			if (pullRequestInfo) {
 				// Show progress notification for the full review mode setup
 				await vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
-					title: `Entering review mode for PR #${pullRequest.number}`,
+					title: `Entering review mode for PR #${pullRequestInfo.number}`,
 					cancellable: false
 				}, async (progress) => {
-					progress.report({ message: 'Setting up workspace...', increment: 10 });
+					const pullRequestModel = await this.toPrModelAndFolderManager(pullRequestInfo);
+					if (pullRequestModel) {
+						progress.report({ message: 'Setting up workspace...', increment: 10 });
 
-					// First, find and checkout the PR branch to enter review mode
-					progress.report({ message: 'Switching to PR branch...', increment: 30 });
-					await this.checkoutPullRequestBranch(pullRequest);
+						// First, find and checkout the PR branch to enter review mode
+						progress.report({ message: 'Switching to PR branch...', increment: 30 });
+						await this.checkoutPullRequestBranch(pullRequestModel.prModel);
 
-					// Small delay to ensure branch checkout and review mode activation completes
-					progress.report({ message: 'Activating review mode...', increment: 50 });
-					await new Promise(resolve => setTimeout(resolve, 500));
+						// Small delay to ensure branch checkout and review mode activation completes
+						progress.report({ message: 'Activating review mode...', increment: 50 });
+						await new Promise(resolve => setTimeout(resolve, 500));
 
-					// // Then open the pull request description (this is the "review mode" interface)
-					// progress.report({ message: 'Opening pull request...', increment: 75 });
-					// await this.openPullRequest(pullRequest);
+						// // Then open the pull request description (this is the "review mode" interface)
+						// progress.report({ message: 'Opening pull request...', increment: 75 });
+						// await this.openPullRequest(pullRequest);
 
-					// Finally open the chat session beside the PR description
-					progress.report({ message: 'Opening chat session...', increment: 90 });
-					await vscode.window.showChatSession('copilot-swe-agent', sessionId, {
-						viewColumn: vscode.ViewColumn.Beside
-					});
+						// Finally open the chat session beside the PR description
+						progress.report({ message: 'Opening chat session...', increment: 90 });
+						await vscode.window.showChatSession('copilot-swe-agent', sessionId, {
+							viewColumn: vscode.ViewColumn.Beside
+						});
 
-					progress.report({ message: 'Review mode ready!', increment: 100 });
+						progress.report({ message: 'Review mode ready!', increment: 100 });
+					}
 				});
 
 				// Show success message
 				vscode.window.showInformationMessage(
-					`Review mode activated for PR #${pullRequest.number}. You can now review changes and continue the chat session.`
+					`Review mode activated for PR #${pullRequestInfo.number}. You can now review changes and continue the chat session.`
 				);
 			} else {
 				// No PR associated, just open the chat session
@@ -708,9 +660,7 @@ export class TaskDashboardWebview extends WebviewBase {
 			for (const folderManager of this._repositoriesManager.folderManagers) {
 				const issueModel = await folderManager.resolveIssue(repoOwner, repoName, issueNumber);
 				if (issueModel) {
-					// Use the extension's command to open the issue description
-					await vscode.commands.executeCommand('issue.openDescription', issueModel);
-					return;
+					return IssueOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, issueModel);
 				}
 			}
 
@@ -729,65 +679,30 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 	}
 
-	private async openPullRequest(pullRequest: { number: number; title: string; url: string }): Promise<void> {
-		try {
-			// Try to find the pull request in the current repositories
-			for (const folderManager of this._repositoriesManager.folderManagers) {
-				// Parse the URL to get owner and repo
-				const urlMatch = pullRequest.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
-				if (urlMatch) {
-					const [, owner, repo] = urlMatch;
-					const pullRequestModel = await folderManager.resolvePullRequest(owner, repo, pullRequest.number);
-					if (pullRequestModel) {
-						// Use the extension's command to open the pull request
-						await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
-						return;
-					}
+	private async toPrModelAndFolderManager(pullRequest: { number: number; title: string; url: string }): Promise<{ prModel: PullRequestModel; folderManager: FolderRepositoryManager } | undefined> {
+		// Try to find the pull request in the current repositories
+		for (const folderManager of this._repositoriesManager.folderManagers) {
+			// Parse the URL to get owner and repo
+			const urlMatch = pullRequest.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+			if (urlMatch) {
+				const [, owner, repo] = urlMatch;
+				const prModel = await folderManager.resolvePullRequest(owner, repo, pullRequest.number);
+				if (prModel) {
+					return { prModel, folderManager };
 				}
 			}
-
-			// Fallback to opening externally if we can't find the PR locally
-			await vscode.env.openExternal(vscode.Uri.parse(pullRequest.url));
-		} catch (error) {
-			Logger.error(`Failed to open pull request: ${error} `, TaskDashboardWebview.ID);
-			// Fallback to opening externally
-			try {
-				await vscode.env.openExternal(vscode.Uri.parse(pullRequest.url));
-			} catch (fallbackError) {
-				vscode.window.showErrorMessage('Failed to open pull request.');
-			}
 		}
+		return undefined;
 	}
 
-	private async startRemoteAgent(issueData: any): Promise<void> {
-		if (!issueData || !issueData.url) {
-			return;
+	private async openPullRequest(pullRequestInfo: { number: number; title: string; url: string }): Promise<void> {
+		const models = await this.toPrModelAndFolderManager(pullRequestInfo);
+		if (models) {
+			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._extensionUri, models.folderManager, models.prModel);
 		}
 
-		try {
-			// Parse the issue URL to get owner, repo, and issue number
-			const urlMatch = issueData.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/);
-			if (urlMatch) {
-				const [, owner, repo, issueNumberStr] = urlMatch;
-				const issueNumber = parseInt(issueNumberStr, 10);
-
-				// Find the folder manager for this repository
-				for (const folderManager of this._repositoriesManager.folderManagers) {
-					const issueModel = await folderManager.resolveIssue(owner, repo, issueNumber);
-					if (issueModel) {
-						// Use the new side-by-side command
-						await vscode.commands.executeCommand('issue.openIssueAndCodingAgentSideBySide', issueModel);
-						return;
-					}
-				}
-			}
-
-			// If we can't resolve the issue locally, show an error
-			vscode.window.showErrorMessage('Unable to start remote agent session. Issue not found in local workspace.');
-		} catch (error) {
-			Logger.error(`Failed to start remote agent: ${error}`, TaskDashboardWebview.ID);
-			vscode.window.showErrorMessage('Failed to start remote agent session.');
-		}
+		// Fallback to opening externally if we can't find the PR locally
+		await vscode.env.openExternal(vscode.Uri.parse(pullRequestInfo.url));
 	}
 
 	private registerBranchChangeListeners(): void {

@@ -9,14 +9,8 @@ import { ChatSessionWithPR } from '../copilotApi';
 import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
 import { FolderRepositoryManager } from '../folderRepositoryManager';
 import { RepositoriesManager } from '../repositoriesManager';
+import { ParsedIssue } from '../utils';
 
-export interface IssueReference {
-	readonly number: number;
-	readonly repo?: {
-		readonly owner: string;
-		readonly name: string;
-	}
-}
 
 export interface SessionData {
 	readonly id: string;
@@ -407,7 +401,7 @@ export class TaskManager {
 	/**
 	 * Handles local task for a specific issue - creates branch and opens chat
 	 */
-	public async handleLocalTaskForIssue(issueNumber: number, issueRef: IssueReference): Promise<void> {
+	public async handleLocalTaskForIssue(issueNumber: number, issueRef: ParsedIssue): Promise<void> {
 		// Create branch name: task/issue-{number}
 		const branchName = `task/issue-${issueNumber}`;
 
@@ -416,14 +410,14 @@ export class TaskManager {
 		let finalOwner: string;
 		let finalRepo: string;
 
-		if (issueRef.repo) {
+		if (issueRef.owner && issueRef.name) {
 			// Full repository reference (owner/repo#123)
-			finalOwner = issueRef.repo.owner;
-			finalRepo = issueRef.repo.name;
+			finalOwner = issueRef.owner;
+			finalRepo = issueRef.name;
 
 			for (const manager of this._repositoriesManager.folderManagers) {
 				try {
-					const issueModel = await manager.resolveIssue(issueRef.repo.owner, issueRef.repo.name, issueNumber);
+					const issueModel = await manager.resolveIssue(issueRef.owner, issueRef.name, issueNumber);
 					if (issueModel) {
 						folderManager = manager;
 						break;
