@@ -42,7 +42,7 @@ describe('copilotRemoteAgentUtils', () => {
 			assert(result.problemStatement.startsWith(prompt));
 			assert(result.problemStatement.includes('\n\n'));
 			const expectedAvailableLength = MAX_PROBLEM_STATEMENT_LENGTH - prompt.length;
-			const expectedContext = longContext.slice(-expectedAvailableLength);
+			const expectedContext = longContext.slice(-expectedAvailableLength + 2);
 			assert.strictEqual(result.problemStatement, `${prompt}\n\n${expectedContext}`);
 		});
 
