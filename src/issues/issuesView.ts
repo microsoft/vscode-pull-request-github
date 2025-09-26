@@ -6,9 +6,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
+import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -59,6 +61,15 @@ export class IssuesTreeData
 				this._onDidChangeTreeData.fire();
 			}),
 		);
+
+		// Listen for changes to the avatar display setting
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration(change => {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)) {
+					this._onDidChangeTreeData.fire();
+				}
+			}),
+		);
 	}
 
 	private getFolderRepoItem(element: FolderRepositoryManager): vscode.TreeItem {
@@ -77,10 +88,27 @@ export class IssuesTreeData
 
 	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
 		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
-		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0] ??
-			(element.isOpen
-				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+
+		const avatarDisplaySetting = vscode.workspace
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+			.get<'author' | 'assignee'>(ISSUE_AVATAR_DISPLAY, 'author');
+
+		let avatarUser: IAccount | undefined;
+		if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
+			avatarUser = element.assignees[0];
+		} else if (avatarDisplaySetting === 'author') {
+			avatarUser = element.author;
+		}
+
+		if (avatarUser) {
+			treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
+				(element.isOpen
+					? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+		} else {
+			// Use GitHub codicon when assignee setting is selected but no assignees exist
+			treeItem.iconPath = new vscode.ThemeIcon('github');
+		}
 
 		treeItem.command = {
 			command: 'issue.openDescription',
