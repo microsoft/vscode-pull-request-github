@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// @ts-nocheck
+
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
 import * as vscode from 'vscode';
