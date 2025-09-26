@@ -68,6 +68,12 @@ export class CopilotApi {
 		return this.makeApiCallFullUrl(`${this.baseUrl}${api}`, init);
 	}
 
+	private get userAgent(): string {
+		const extensionVersion = vscode.extensions.getExtension('GitHub.vscode-pull-request-github')?.packageJSON.version ?? 'unknown';
+		return `vscode-pull-request-github/${extensionVersion}`;
+	}
+
+
 	async postRemoteAgentJob(
 		owner: string,
 		name: string,
@@ -81,9 +87,6 @@ export class CopilotApi {
 		const problemStatementLength = payload.problem_statement.length.toString();
 		const payloadJson = JSON.stringify(payload);
 		const payloadLength = payloadJson.length.toString();
-		const extensionVersion = vscode.extensions.getExtension('GitHub.vscode-pull-request-github')?.packageJSON.version ?? 'unknown';
-		const userAgent = `vscode-pull-request-github/${extensionVersion}`;
-		Logger.trace(`postRemoteAgentJob: User-Agent: ${userAgent}`, CopilotApi.ID);
 		Logger.trace(`postRemoteAgentJob: Posting job to ${apiUrl} with payload: ${JSON.stringify(payload)}`, CopilotApi.ID);
 		try {
 			const response = await this.makeApiCall(apiUrl, {
@@ -92,7 +95,7 @@ export class CopilotApi {
 					'Authorization': `Bearer ${this.token}`,
 					'Content-Type': 'application/json',
 					'Accept': 'application/json',
-					'User-Agent': userAgent,
+					'User-Agent': this.userAgent,
 				},
 				body: payloadJson
 			});
@@ -274,7 +277,8 @@ export class CopilotApi {
 				headers: {
 					'Authorization': `Bearer ${this.token}`,
 					'Content-Type': 'application/json',
-					'Accept': 'application/json'
+					'Accept': 'application/json',
+					'User-Agent': this.userAgent,
 				}
 			});
 			if (!response.ok) {
