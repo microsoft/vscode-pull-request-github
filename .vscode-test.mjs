@@ -8,7 +8,7 @@ function generateConfig(label) {
   /** @type {import('@vscode/test-cli').TestConfiguration} */
   let config = {
     label,
-    files: ["out/**/*.test.js"],
+    files: ["dist/**/*.test.js"],
     version: "insiders",
     srcDir: "src",
     launchArgs: [
