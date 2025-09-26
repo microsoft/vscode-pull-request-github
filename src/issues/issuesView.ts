@@ -39,9 +39,6 @@ export class IssuesTreeData
 		FolderRepositoryManager | IssueItem | null | undefined | void
 	> = this._onDidChangeTreeData.event;
 
-	// Store the configuration key as a constant to avoid repeated string concatenation
-	private static readonly AVATAR_SETTING_KEY = `${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`;
-
 	constructor(
 		private stateManager: StateManager,
 		private manager: RepositoriesManager,
@@ -67,7 +64,7 @@ export class IssuesTreeData
 		// Listen for changes to the avatar display setting
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(change => {
-				if (change.affectsConfiguration(IssuesTreeData.AVATAR_SETTING_KEY)) {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),
@@ -96,17 +93,27 @@ export class IssuesTreeData
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
 			.get<string>(ISSUE_AVATAR_DISPLAY, 'author');
 		
-		// Determine which user to use for the avatar
-		let avatarUser = element.author;
-		if (avatarDisplaySetting === 'assignee' && element.assignees && element.assignees.length > 0) {
-			// Use the first assignee if available
-			avatarUser = element.assignees[0];
+		// Determine which user to use for the avatar or if we should use a codicon
+		let avatarUser: typeof element.author | undefined = element.author;
+		if (avatarDisplaySetting === 'assignee') {
+			if (element.assignees && element.assignees.length > 0) {
+				// Use the first assignee if available
+				avatarUser = element.assignees[0];
+			} else {
+				// No assignees, don't use an avatar
+				avatarUser = undefined;
+			}
 		}
 		
-		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
-			(element.isOpen
-				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+		if (avatarUser) {
+			treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
+				(element.isOpen
+					? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+		} else {
+			// Use GitHub codicon when assignee setting is selected but no assignees exist
+			treeItem.iconPath = new vscode.ThemeIcon('github');
+		}
 
 		treeItem.command = {
 			command: 'issue.openDescription',
