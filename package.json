@@ -14,7 +14,7 @@
 		"activeComment",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider@2",
+		"chatSessionsProvider",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
