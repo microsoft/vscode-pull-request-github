@@ -21,6 +21,8 @@ const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
 // https://github.com/github/sweagentd/blob/59e7d9210ca3ebba029918387e525eea73cb1f4a/internal/problemstatement/problemstatement.go#L36-L53
 export const MAX_PROBLEM_STATEMENT_LENGTH = 30_000 - 50; // 50 character buffer
+const JOB_API_VERSION = 'v0';
+
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
 	event_type: string;
@@ -75,7 +77,7 @@ export class CopilotApi {
 		isTruncated: boolean,
 	): Promise<RemoteAgentJobResponse> {
 		const repoSlug = `${owner}/${name}`;
-		const apiUrl = `/agents/swe/v0/jobs/${repoSlug}`;
+		const apiUrl = `/agents/swe/${JOB_API_VERSION}/jobs/${repoSlug}`;
 		let status: number | undefined;
 
 		const problemStatementLength = payload.problem_statement.length.toString();
@@ -266,7 +268,7 @@ export class CopilotApi {
 
 	public async getJobBySessionId(owner: string, repo: string, sessionId: string): Promise<JobInfo | undefined> {
 		try {
-			const response = await this.makeApiCall(`/agents/swe/v0/jobs/${owner}/${repo}/session/${sessionId}`, {
+			const response = await this.makeApiCall(`/agents/swe/${JOB_API_VERSION}/jobs/${owner}/${repo}/session/${sessionId}`, {
 				method: 'GET',
 				headers: {
 					'Copilot-Integration-Id': 'copilot-developer-dev',
