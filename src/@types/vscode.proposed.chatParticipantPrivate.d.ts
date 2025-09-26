@@ -187,8 +187,6 @@ declare module 'vscode' {
 
 		isQuotaExceeded?: boolean;
 
-		isRateLimited?: boolean;
-
 		level?: ChatErrorLevel;
 
 		code?: string;
@@ -241,7 +239,6 @@ declare module 'vscode' {
 	export class ExtendedLanguageModelToolResult extends LanguageModelToolResult {
 		toolResultMessage?: string | MarkdownString;
 		toolResultDetails?: Array<Uri | Location>;
-		toolMetadata?: unknown;
 	}
 
 	// #region Chat participant detection

@@ -419,11 +419,9 @@ export class StateManager {
 				return;
 			}
 			// Check if branch management is disabled
-			const createBranchConfig = vscode.workspace
-				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
-				.get<string>(USE_BRANCH_FOR_ISSUES);
+			const createBranchConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
 			const shouldCheckoutDefaultBranch = createBranchConfig === 'off' ? false : checkoutDefaultBranch;
-			
+
 			if (repoState.currentIssue) {
 				await repoState.currentIssue.stopWorking(shouldCheckoutDefaultBranch);
 			}
