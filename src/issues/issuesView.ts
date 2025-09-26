@@ -10,6 +10,7 @@ import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/setti
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -87,24 +88,18 @@ export class IssuesTreeData
 
 	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
 		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
-		
-		// Get the avatar display setting
+
 		const avatarDisplaySetting = vscode.workspace
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
-			.get<string>(ISSUE_AVATAR_DISPLAY, 'author');
-		
-		// Determine which user to use for the avatar or if we should use a codicon
-		let avatarUser: typeof element.author | undefined = element.author;
-		if (avatarDisplaySetting === 'assignee') {
-			if (element.assignees && element.assignees.length > 0) {
-				// Use the first assignee if available
-				avatarUser = element.assignees[0];
-			} else {
-				// No assignees, don't use an avatar
-				avatarUser = undefined;
-			}
+			.get<'author' | 'assignee'>(ISSUE_AVATAR_DISPLAY, 'author');
+
+		let avatarUser: IAccount | undefined;
+		if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
+			avatarUser = element.assignees[0];
+		} else if (avatarDisplaySetting === 'author') {
+			avatarUser = element.author;
 		}
-		
+
 		if (avatarUser) {
 			treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
 				(element.isOpen
