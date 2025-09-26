@@ -1535,8 +1535,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	public refreshChatSessions(): void {
-		this._stateModel.clear();
+	public async refreshChatSessions(): Promise<void> {
+		this._stateModel.forceClear();
+		this._onDidChangeChatSessions.fire();
 	}
 
 	public async cancelMostRecentChatSession(pullRequest: PullRequestModel): Promise<void> {

@@ -41,6 +41,13 @@ export class CopilotStateModel extends Disposable {
 		this._onRefresh.fire();
 	}
 
+	forceClear(): void {
+		this._isInitialized = false;
+		this._states.clear();
+		this._showNotification.clear();
+		this._onRefresh.fire();
+	}
+
 	makeKey(owner: string, repo: string, prNumber?: number): string {
 		if (prNumber === undefined) {
 			return `${owner}/${repo}`;
