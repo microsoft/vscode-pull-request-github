@@ -213,7 +213,7 @@ export class CurrentIssue extends Disposable {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		const branchNameConfig = await variableSubstitution(
+		const branchNameConfig = variableSubstitution(
 			await this.getBranchTitle(),
 			this.issue,
 			undefined,

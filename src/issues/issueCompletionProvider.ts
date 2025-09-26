@@ -210,7 +210,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
 				.get(ISSUE_COMPLETION_FORMAT_SCM);
 			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
-				item.insertText = await variableSubstitution(configuration, issue, repo);
+				item.insertText = variableSubstitution(configuration, issue, repo);
 			} else {
 				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
 			}

@@ -1555,6 +1555,10 @@ svg.octicon path {
 	border-radius: 20px;
 	margin-right: 2px;
 	border-style: none;
+	text-overflow: ellipsis;
+	max-width: -webkit-fill-available;
+	overflow: hidden;
+	display: inline-block;
 }
 
 .pill-overflow {

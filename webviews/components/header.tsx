@@ -69,7 +69,20 @@ export function Header({
 	);
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }) {
+interface TitleProps {
+	title: string;
+	titleHTML: string;
+	number: number;
+	url: string;
+	inEditMode: boolean;
+	setEditMode: React.Dispatch<React.SetStateAction<boolean>>;
+	setCurrentTitle: React.Dispatch<React.SetStateAction<string>>;
+	canEdit: boolean;
+	owner: string;
+	repo: string;
+}
+
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }: TitleProps): JSX.Element {
 	const { setTitle, copyPrLink } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -114,7 +127,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 				</a>
 			</h2>
 			{canEdit ?
-				<button title="Rename" onClick={setEditMode} className="icon-button">
+				<button title="Rename" onClick={() => setEditMode(true)} className="icon-button">
 					{editIcon}
 				</button>
 				: null}
@@ -128,7 +141,17 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	return editableTitle;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number, busy }) {
+interface ButtonGroupProps {
+	isCurrentlyCheckedOut: boolean;
+	isIssue: boolean;
+	repositoryDefaultBranch: string;
+	owner: string;
+	repo: string;
+	number: number;
+	busy?: boolean;
+}
+
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
 	const { refresh } = useContext(PullRequestContext);
 
 	return (
@@ -146,7 +169,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, 
 	);
 }
 
-function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boolean, codingAgentEvent: TimelineEvent | undefined }) {
+function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boolean; codingAgentEvent: TimelineEvent | undefined }): JSX.Element | null {
 	const { cancelCodingAgent, updatePR, openSessionLog } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -214,8 +237,19 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	/>;
 }
 
-function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent }) {
-	const { text, color, icon } = getStatus(state, isDraft, isIssue, stateReason);
+interface SubtitleProps {
+	state: GithubItemStateEnum;
+	stateReason?: StateReason;
+	isDraft?: boolean;
+	isIssue: boolean;
+	author: PullRequest['author'];
+	base: string;
+	head: string;
+	codingAgentEvent: TimelineEvent | undefined;
+}
+
+function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent }: SubtitleProps): JSX.Element {
+	const { text, color, icon } = getStatus(state, !!isDraft, isIssue, stateReason);
 	const copilotStatus = copilotEventToStatus(codingAgentEvent);
 	let copilotStatusIcon: JSX.Element | undefined;
 	if (copilotStatus === CopilotPRStatus.Started) {
@@ -245,7 +279,16 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 	);
 }
 
-const CheckoutButton = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) => {
+interface CheckoutButtonProps {
+	isCurrentlyCheckedOut: boolean;
+	isIssue: boolean;
+	repositoryDefaultBranch: string;
+	owner: string;
+	repo: string;
+	number: number;
+}
+
+const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) => {
 	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -320,7 +363,7 @@ const CheckoutButton = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranc
 	/>;
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason: StateReason) {
+export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason?: StateReason) {
 	const closed = isIssue ? issueClosedIcon : prClosedIcon;
 	const open = isIssue ? issueIcon : prOpenIcon;
 

@@ -18,8 +18,8 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
+import { copilotEventToSessionStatus, copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { ChatSessionFromSummarizedChat, ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep, MAX_PROBLEM_STATEMENT_LENGTH } from './copilotApi';
 import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
@@ -721,6 +721,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return `${header}\n\n${collapsedContext}`;
 		};
 
+		let isTruncated = false;
+		if (problemContext && (problemContext.length + prompt.length >= MAX_PROBLEM_STATEMENT_LENGTH)) {
+			isTruncated = true;
+			Logger.warn(`Truncating problemContext as it will cause us to exceed maximum problem_statement length (${MAX_PROBLEM_STATEMENT_LENGTH})`, CopilotRemoteAgentManager.ID);
+			const availableLength = MAX_PROBLEM_STATEMENT_LENGTH - prompt.length;
+			problemContext = problemContext.slice(-availableLength);
+		}
+
 		const problemStatement: string = `${prompt}\n${problemContext ?? ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
@@ -735,7 +743,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 
 		try {
-			const { pull_request, session_id } = await capiClient.postRemoteAgentJob(owner, repo, payload);
+			const { pull_request, session_id } = await capiClient.postRemoteAgentJob(owner, repo, payload, isTruncated);
 			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
@@ -863,21 +871,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 			})[0];
 	}
 
+	getNotificationsCount(owner: string, repo: string): number {
+		return this._stateModel.getNotificationsCount(owner, repo);
+	}
+
 	get notificationsCount(): number {
 		return this._stateModel.notifications.size;
 	}
 
-	hasNotification(owner: string, repo: string, pullRequestNumber: number): boolean {
-		const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
-		return this._stateModel.notifications.has(key);
+	hasNotification(owner: string, repo: string, pullRequestNumber?: number): boolean {
+		if (pullRequestNumber !== undefined) {
+			const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
+			return this._stateModel.notifications.has(key);
+		} else {
+			const partialKey = this._stateModel.makeKey(owner, repo);
+			return Array.from(this._stateModel.notifications.keys()).some(key => {
+				return key.startsWith(partialKey);
+			});
+		}
 	}
 
 	getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
 		return this._stateModel.get(owner, repo, prNumber);
 	}
 
-	getCounts(): { total: number; inProgress: number; error: number } {
-		return this._stateModel.getCounts();
+	getCounts(owner: string, repo: string): { total: number; inProgress: number; error: number } {
+		return this._stateModel.getCounts(owner, repo);
 	}
 
 	async extractHistory(history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>): Promise<string | undefined> {
