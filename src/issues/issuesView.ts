@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
+import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
@@ -59,6 +60,15 @@ export class IssuesTreeData
 				this._onDidChangeTreeData.fire();
 			}),
 		);
+
+		// Listen for changes to the avatar display setting
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration(change => {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)) {
+					this._onDidChangeTreeData.fire();
+				}
+			}),
+		);
 	}
 
 	private getFolderRepoItem(element: FolderRepositoryManager): vscode.TreeItem {
@@ -77,7 +87,20 @@ export class IssuesTreeData
 
 	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
 		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
-		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0] ??
+		
+		// Get the avatar display setting
+		const avatarDisplaySetting = vscode.workspace
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+			.get<string>(ISSUE_AVATAR_DISPLAY, 'author');
+		
+		// Determine which user to use for the avatar
+		let avatarUser = element.author;
+		if (avatarDisplaySetting === 'assignee' && element.assignees && element.assignees.length > 0) {
+			// Use the first assignee if available
+			avatarUser = element.assignees[0];
+		}
+		
+		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
 			(element.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
 				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));

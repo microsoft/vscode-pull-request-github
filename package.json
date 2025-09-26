@@ -744,6 +744,19 @@
 					"default": true,
 					"description": "%githubIssues.assignWhenWorking.description%"
 				},
+				"githubIssues.issueAvatarDisplay": {
+					"type": "string",
+					"enum": [
+						"author",
+						"assignee"
+					],
+					"enumDescriptions": [
+						"%githubIssues.issueAvatarDisplay.author%",
+						"%githubIssues.issueAvatarDisplay.assignee%"
+					],
+					"default": "author",
+					"description": "%githubIssues.issueAvatarDisplay.description%"
+				},
 				"githubPullRequests.focusedMode": {
 					"properties": {
 						"oneOf": [
