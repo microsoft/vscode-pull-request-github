@@ -35,7 +35,7 @@ export class WebviewBase extends Disposable {
 	protected _webview?: vscode.Webview;
 
 	private _waitForReady: Promise<void>;
-	private _onIsReady: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
+	protected _onIsReady: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 

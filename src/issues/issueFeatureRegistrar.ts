@@ -160,8 +160,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				'issue.assignToCodingAgent',
 				(issueModel: any) => {
 					/* __GDPR__
-				"issue.assignToCodingAgent" : {}
-			*/
+						"issue.assignToCodingAgent" : {}
+					*/
 					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
 					return this.assignToCodingAgent(issueModel);
 				},

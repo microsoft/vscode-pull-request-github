@@ -17,6 +17,7 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -56,6 +57,12 @@ async function getWebviewConfig(mode, env, entry) {
 		new webpack.optimize.LimitChunkCountPlugin({
 			maxChunks: 1
 		}),
+		new MonacoWebpackPlugin({
+			languages: [],
+			features: ['suggest', 'contextmenu'],
+			globalAPI: true,
+			publicPath: ''
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			formatter: 'basic',
@@ -64,7 +71,6 @@ async function getWebviewConfig(mode, env, entry) {
 			},
 		}),
 	];
-
 	return {
 		name: 'webviews',
 		entry: entry,
@@ -74,6 +80,7 @@ async function getWebviewConfig(mode, env, entry) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
+			globalObject: 'self',
 		},
 		optimization: {
 			minimizer: [
@@ -367,6 +374,7 @@ module.exports =
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
 				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
+				'webview-dashboard': './webviews/dashboardView/index.ts',
 			}),
 		]);
 	};
