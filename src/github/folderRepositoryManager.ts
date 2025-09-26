@@ -136,7 +136,7 @@ export class DetachedHeadError extends Error {
 	}
 
 	override get message() {
-		return vscode.l10n.t('{0} has a detached HEAD (create a branch first', this.repository.rootUri.toString());
+		return vscode.l10n.t('{0} has a detached HEAD (create a branch first)', this.repository.rootUri.toString());
 	}
 }
 
@@ -1108,7 +1108,7 @@ export class FolderRepositoryManager extends Disposable {
 				pageNumber: number,
 			): Promise<{ items: any[]; hasMorePages: boolean, totalCount?: number } | undefined> => {
 				// Resolve variables in the query with each repo
-				const resolvedQuery = query ? await variableSubstitution(query, undefined,
+				const resolvedQuery = query ? variableSubstitution(query, undefined,
 					{ base: await githubRepository.getDefaultBranch(), owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName }) : undefined;
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {

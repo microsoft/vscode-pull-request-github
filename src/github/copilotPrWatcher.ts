@@ -10,7 +10,6 @@ import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
-import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PRType } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
@@ -42,7 +41,10 @@ export class CopilotStateModel extends Disposable {
 		this._onRefresh.fire();
 	}
 
-	makeKey(owner: string, repo: string, prNumber: number): string {
+	makeKey(owner: string, repo: string, prNumber?: number): string {
+		if (prNumber === undefined) {
+			return `${owner}/${repo}`;
+		}
 		return `${owner}/${repo}#${prNumber}`;
 	}
 
@@ -108,7 +110,7 @@ export class CopilotStateModel extends Disposable {
 	clearAllNotifications(owner?: string, repo?: string): void {
 		if (this._showNotification.size > 0) {
 			const items: PullRequestModel[] = [];
-			
+
 			// If owner and repo are specified, only clear notifications for that repo
 			if (owner && repo) {
 				const keysToRemove: string[] = [];
@@ -132,7 +134,7 @@ export class CopilotStateModel extends Disposable {
 				}
 				this._showNotification.clear();
 			}
-			
+
 			if (items.length > 0) {
 				this._onDidChangeNotifications.fire(items);
 			}
@@ -143,6 +145,17 @@ export class CopilotStateModel extends Disposable {
 		return this._showNotification;
 	}
 
+	getNotificationsCount(owner: string, repo: string): number {
+		let total = 0;
+		const partialKey = `${this.makeKey(owner, repo)}#`;
+		for (const state of this._showNotification.values()) {
+			if (state.startsWith(partialKey)) {
+				total++;
+			}
+		}
+		return total;
+	}
+
 	setInitialized() {
 		this._isInitialized = true;
 	}
@@ -151,11 +164,14 @@ export class CopilotStateModel extends Disposable {
 		return this._isInitialized;
 	}
 
-	getCounts(): { total: number; inProgress: number; error: number } {
+	getCounts(owner: string, repo: string): { total: number; inProgress: number; error: number } {
 		let inProgressCount = 0;
 		let errorCount = 0;
 
 		for (const state of this._states.values()) {
+			if (state.item.remote.owner !== owner || state.item.remote.repositoryName !== repo) {
+				continue;
+			}
 			if (state.status === CopilotPRStatus.Started) {
 				inProgressCount++;
 			} else if (state.status === CopilotPRStatus.Failed) {
@@ -253,14 +269,6 @@ export class CopilotPRWatcher extends Disposable {
 				this._pollForChanges();
 			}, this._pollInterval);
 		}
-	}
-
-	private _currentUser: string | undefined;
-	private async _getCurrentUser(folderManager: FolderRepositoryManager): Promise<string> {
-		if (!this._currentUser) {
-			this._currentUser = (await folderManager.getCurrentUser()).login;
-		}
-		return this._currentUser;
 	}
 
 	private async _updateSingleState(pr: PullRequestModel): Promise<void> {

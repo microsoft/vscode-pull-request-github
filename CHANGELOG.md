@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.118.2
+
+### Fixes
+
+- Long coding agent problem statement results in unrecoverable error (Truncate coding agent problem_statement). https://github.com/microsoft/vscode-pull-request-github/issues/7861
+
 ## 0.118.1
 
 ### Fixes
