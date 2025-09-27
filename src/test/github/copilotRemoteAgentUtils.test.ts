@@ -61,46 +61,38 @@ describe('copilotRemoteAgentUtils', () => {
 	describe('extractTitle', () => {
 		it('should extract title from context with TITLE prefix', () => {
 			const context = 'Some initial text\nTITLE: Fix authentication bug\nSome other content';
-
-			const result = extractTitle(context);
-
+			const result = extractTitle('', context);
 			assert.strictEqual(result, 'Fix authentication bug');
 		});
 
 		it('should extract title with case insensitive matching', () => {
 			const context = 'Some text\ntitle: Add new feature\nMore text';
-
-			const result = extractTitle(context);
-
+			const result = extractTitle('', context);
 			assert.strictEqual(result, 'Add new feature');
 		});
 
 		it('should extract title with extra whitespace', () => {
 			const context = 'TITLE:   Refactor code structure   \n';
-
-			const result = extractTitle(context);
-
+			const result = extractTitle('', context);
 			assert.strictEqual(result, 'Refactor code structure');
 		});
 
-		it('should return undefined when no title is found', () => {
+		it('should use prompt when no title is found', () => {
 			const context = 'Some text without any title marker\nJust regular content';
-
-			const result = extractTitle(context);
-
-			assert.strictEqual(result, undefined);
+			const result = extractTitle('Default Title', context);
+			assert.strictEqual(result, 'Default Title');
 		});
 
-		it('should return undefined when context is undefined', () => {
-			const result = extractTitle(undefined);
-
-			assert.strictEqual(result, undefined);
+		it('should use prompt when context is undefined', () => {
+			const result = extractTitle('Default Title', undefined);
+			assert.strictEqual(result, 'Default Title');
 		});
 
-		it('should return undefined when context is empty string', () => {
-			const result = extractTitle('');
+		it('should return truncated title when context is empty string', () => {
+			const title = 'TEST TEST TEST TEST TEST TEST'; // will truncate to 20 characters
+			const result = extractTitle(title, '');
 
-			assert.strictEqual(result, undefined);
+			assert.strictEqual(result, 'TEST TEST TEST TEST ...');
 		});
 	});
 });

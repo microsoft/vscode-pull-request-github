@@ -712,7 +712,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return { error: vscode.l10n.t('Failed to configure base branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
 		}
 
-		const title = extractTitle(problemContext);
+		const title = extractTitle(prompt, problemContext);
 		const { problemStatement, isTruncated } = truncatePrompt(prompt, problemContext);
 
 		if (isTruncated) {
