@@ -42,17 +42,21 @@ export function truncatePrompt(prompt: string, context?: string): { problemState
 }
 
 export function extractTitle(prompt: string, context: string | undefined): string | undefined {
-	if (!context) {
-		return;
+	const fromTitle = () => {
+		if (!prompt) {
+			return;
+		}
+		if (prompt.length <= 20) {
+			return prompt;
+		}
+		return prompt.substring(0, 20) + '...';
 	}
-	const titleMatch = context.match(/TITLE: \s*(.*)/i);
+	const titleMatch = context?.match(/TITLE: \s*(.*)/i);
 	if (titleMatch && titleMatch[1]) {
 		return titleMatch[1].trim();
 	}
-	if (prompt.length <= 20) {
-		return prompt;
-	}
-	return prompt.substring(0, 20) + '...';
+	return fromTitle();
+
 }
 
 export function formatBodyPlaceholder(title: string | undefined): string {
