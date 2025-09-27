@@ -316,7 +316,7 @@ export class StateManager {
 			items = this.setIssues(
 				folderManager,
 				// Do not resolve pull request defaults as they will get resolved in the query later per repository
-				await variableSubstitution(query.query, undefined, undefined, user),
+				variableSubstitution(query.query, undefined, undefined, user),
 			).then(issues => ({ groupBy: query.groupBy ?? [], issues }));
 
 			if (items) {
@@ -418,8 +418,12 @@ export class StateManager {
 			if (repoState.currentIssue && issue?.issue.number === repoState.currentIssue.issue.number) {
 				return;
 			}
+			// Check if branch management is disabled
+			const createBranchConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
+			const shouldCheckoutDefaultBranch = createBranchConfig === 'off' ? false : checkoutDefaultBranch;
+
 			if (repoState.currentIssue) {
-				await repoState.currentIssue.stopWorking(checkoutDefaultBranch);
+				await repoState.currentIssue.stopWorking(shouldCheckoutDefaultBranch);
 			}
 			if (issue) {
 				this.context.subscriptions.push(issue.onDidChangeCurrentIssueState(() => this.updateStatusBar()));

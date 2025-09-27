@@ -420,6 +420,11 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, apiImpl);
 	context.subscriptions.push(copilotRemoteAgentManager);
 	if (vscode.chat?.registerChatSessionItemProvider) {
+		const chatParticipant = vscode.chat.createChatParticipant(COPILOT_SWE_AGENT, async (request, context, stream, token) =>
+			await copilotRemoteAgentManager.chatParticipantImpl(request, context, stream, token)
+		);
+		context.subscriptions.push(chatParticipant);
+
 		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
 			label = vscode.l10n.t('GitHub Copilot Coding Agent');
 			provideChatSessionItems = async (token) => {
@@ -429,9 +434,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
 			};
 			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
-			provideNewChatSessionItem = async (options: { readonly request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<vscode.ChatSessionItem> => {
-				return await copilotRemoteAgentManager.provideNewChatSessionItem(options, token);
-			};
+			onDidCommitChatSessionItem = copilotRemoteAgentManager.onDidCommitChatSession;
 		}();
 
 		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
@@ -442,7 +445,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
 			COPILOT_SWE_AGENT,
 			provider,
-			{ supportsInterruptions: true, }
+			chatParticipant,
+			{ supportsInterruptions: true }
 		));
 	}
 

@@ -268,11 +268,12 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		this._initialized = true;
-		this._register(
-			this._reposManager.onDidChangeState(() => {
-				this.refreshAll();
-			}),
-		);
+		this._register(this._reposManager.onDidChangeState(() => {
+			this.refreshAll();
+		}));
+		this._register(this._reposManager.onDidLoadAnyRepositories(() => {
+			this.refreshAll();
+		}));
 
 		for (const model of reviewModels) {
 			this._register(model.onDidChangeLocalFileChanges(_ => { this.refreshAllQueryResults(); }));

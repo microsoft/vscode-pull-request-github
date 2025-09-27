@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
 import { Protocol } from '../common/protocol';
-import { COPILOT_QUERY, createPRNodeUri, fromPRNodeUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes } from '../common/uri';
+import { createPRNodeUri, fromPRNodeUri, fromQueryUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes, toQueryUri } from '../common/uri';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
 import { PrsTreeModel } from './prsTreeModel';
@@ -28,8 +28,14 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		);
 
 		this._register(this._copilotManager.onDidChangeNotifications(items => {
-			const uris = [COPILOT_QUERY];
+			const repoItems = new Set<string>();
+			const uris: vscode.Uri[] = [];
 			for (const item of items) {
+				const queryUri = toQueryUri({ remote: { owner: item.remote.owner, repositoryName: item.remote.repositoryName }, isCopilot: true });
+				if (!repoItems.has(queryUri.toString())) {
+					repoItems.add(queryUri.toString());
+					uris.push(queryUri);
+				}
 				uris.push(createPRNodeUri(item));
 			}
 			this._onDidChangeFileDecorations.fire(uris);
@@ -81,14 +87,19 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	}
 
 	private _queryDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
-		if (uri.path === 'copilot') {
-			if (this._copilotManager.notificationsCount > 0) {
-				return {
-					tooltip: vscode.l10n.t('Coding agent has made changes', this._copilotManager.notificationsCount),
-					badge: new vscode.ThemeIcon('copilot') as any,
-					color: new vscode.ThemeColor('pullRequests.notification'),
-				};
-			}
+		const params = fromQueryUri(uri);
+		if (!params?.isCopilot || !params.remote) {
+			return;
 		}
+		const counts = this._copilotManager.getNotificationsCount(params.remote.owner, params.remote.repositoryName);
+		if (counts === 0) {
+			return;
+		}
+
+		return {
+			tooltip: vscode.l10n.t('Coding agent has made changes'),
+			badge: new vscode.ThemeIcon('copilot') as any,
+			color: new vscode.ThemeColor('pullRequests.notification'),
+		};
 	}
 }

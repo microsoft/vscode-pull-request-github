@@ -1054,6 +1054,15 @@
   resolved "https://registry.yarnpkg.com/@vscode/codicons/-/codicons-0.0.36.tgz#ccdabfaef5db596b266644ab85fc25aa701058f0"
   integrity sha512-wsNOvNMMJ2BY8rC2N2MNBG7yOowV3ov8KlvUE/AiVUlHKTfWsw3OgAOQduX7h0Un6GssKD3aoTVH+TF3DSQwKQ==
 
+"@vscode/dts@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.yarnpkg.com/@vscode/dts/-/dts-0.4.1.tgz#1946cf09db412def5fe5ecac9b9ff3e058546654"
+  integrity sha512-o8cI5Vqt6S6Y5mCI7yCkSQdiLQaLG5DMUpciJV3zReZwE+dA5KERxSVX8H3cPEhyKw21XwKGmIrg6YmN6M5uZA==
+  dependencies:
+    https-proxy-agent "^7.0.0"
+    minimist "^1.2.8"
+    prompts "^2.4.2"
+
 "@vscode/extension-telemetry@0.7.5":
   version "0.7.5"
   resolved "https://registry.yarnpkg.com/@vscode/extension-telemetry/-/extension-telemetry-0.7.5.tgz#bf965731816e08c3f146f96d901ec67954fc913b"
@@ -3918,7 +3927,7 @@ https-proxy-agent@^5.0.0:
     agent-base "6"
     debug "4"
 
-https-proxy-agent@^7.0.5, https-proxy-agent@^7.0.6:
+https-proxy-agent@^7.0.0, https-proxy-agent@^7.0.5, https-proxy-agent@^7.0.6:
   version "7.0.6"
   resolved "https://registry.yarnpkg.com/https-proxy-agent/-/https-proxy-agent-7.0.6.tgz#da8dfeac7da130b05c2ba4b59c9b6cd66611a6b9"
   integrity sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==
@@ -4636,6 +4645,11 @@ keyv@^4.5.4:
   integrity sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==
   dependencies:
     json-buffer "3.0.1"
+
+kleur@^3.0.3:
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/kleur/-/kleur-3.0.3.tgz#a79c9ecc86ee1ce3fa6206d1216c501f147fc07e"
+  integrity sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==
 
 koa-compose@^4.1.0:
   version "4.1.0"
@@ -5804,6 +5818,14 @@ process@^0.11.10:
   resolved "https://registry.yarnpkg.com/process/-/process-0.11.10.tgz#7332300e840161bda3e69a1d1d91a7d4bc16f182"
   integrity sha1-czIwDoQBYb2j5podHZGn1LwW8YI=
 
+prompts@^2.4.2:
+  version "2.4.2"
+  resolved "https://registry.yarnpkg.com/prompts/-/prompts-2.4.2.tgz#7b57e73b3a48029ad10ebd44f74b01722a4cb069"
+  integrity sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==
+  dependencies:
+    kleur "^3.0.3"
+    sisteransi "^1.0.5"
+
 prop-types@^15.6.2:
   version "15.7.2"
   resolved "https://registry.yarnpkg.com/prop-types/-/prop-types-15.7.2.tgz#52c41e75b8c87e72b9d9360e0206b99dcbffa6c5"
@@ -6419,6 +6441,11 @@ sinon@9.0.0:
     diff "^4.0.2"
     nise "^4.0.1"
     supports-color "^7.1.0"
+
+sisteransi@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/sisteransi/-/sisteransi-1.0.5.tgz#134d681297756437cc05ca01370d3a7a571075ed"
+  integrity sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==
 
 source-list-map@^2.0.0:
   version "2.0.1"
