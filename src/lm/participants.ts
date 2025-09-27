@@ -36,6 +36,7 @@ export class ChatParticipantState {
 				}
 			}
 		}
+		return undefined;
 	}
 
 	get messages(): vscode.LanguageModelChatMessage[] {

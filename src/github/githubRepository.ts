@@ -1352,9 +1352,9 @@ export class GitHubRepository extends Disposable {
 				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
 
 				ret.push(
-					...users?.nodes.map(node => {
+					...(users?.nodes.map(node => {
 						return parseAccount(node, this);
-					}),
+					}) || []),
 				);
 
 				hasNextPage = users?.pageInfo.hasNextPage;

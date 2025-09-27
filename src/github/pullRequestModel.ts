@@ -747,6 +747,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
 			getTimelineEvents(),
 			this.getViewerLatestReviewCommit(),
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			(await this.githubRepository.getAuthenticatedUser()).login,
 			this.getReviewThreads()
 		]);

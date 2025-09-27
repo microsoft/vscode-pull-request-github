@@ -206,17 +206,17 @@ export class CreatePRContextNew {
 		if (this._descriptionStack.length > 0) {
 			this.updateState({ pendingDescription: this._descriptionStack.pop() });
 		}
-	}
+	};
 
 	public preReview = async (): Promise<void> => {
 		this.updateState({ reviewing: true });
 		const result: PreReviewState = await this.postMessage({ command: 'pr.preReview' });
 		this.updateState({ preReviewState: result, reviewing: false });
-	}
+	};
 
 	public cancelPreReview = async (): Promise<void> => {
 		return this.postMessage({ command: 'pr.cancelPreReview' });
-	}
+	};
 
 	public validate = (): boolean => {
 		let isValid = true;

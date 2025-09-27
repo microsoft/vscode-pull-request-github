@@ -75,7 +75,7 @@ export class PRContext {
 	public merge = async (args: MergeArguments): Promise<MergeResult> => {
 		const result: MergeResult = await this.postMessage({ command: 'pr.merge', args });
 		return result;
-	}
+	};
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
 
@@ -227,7 +227,7 @@ export class PRContext {
 		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerId });
 		state.reviewers = reviewers;
 		this.updatePR(state);
-	}
+	};
 
 	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
 		const { pr: state } = this;
@@ -249,7 +249,7 @@ export class PRContext {
 		state.events = result.events ?? state.events;
 		state.mergeable = result.mergeable ?? state.mergeable;
 		this.updatePR(state);
-	}
+	};
 
 	public dequeue = async () => {
 		const { pr: state } = this;
@@ -261,7 +261,7 @@ export class PRContext {
 			state.mergeQueueEntry = undefined;
 		}
 		this.updatePR(state);
-	}
+	};
 
 	public enqueue = async () => {
 		const { pr: state } = this;
@@ -273,7 +273,7 @@ export class PRContext {
 			state.mergeQueueEntry = result.mergeQueueEntry;
 		}
 		this.updatePR(state);
-	}
+	};
 
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 
