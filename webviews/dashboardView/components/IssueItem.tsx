@@ -52,20 +52,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 				</div>
 				{associatedSession ? (
 					<div className="session-actions">
-						<button
-							className="session-link-button"
-							onClick={(e) => {
-								e.stopPropagation();
-								if (onSessionClick) {
-									onSessionClick(associatedSession);
-								}
-							}}
-							title="Open associated remote session"
-						>
-							<span className="codicon codicon-robot"></span>
-							<span>Session</span>
-						</button>
-						{associatedSession.pullRequest && (
+						{associatedSession.pullRequest ? (
 							<button
 								className="pr-link-button"
 								onClick={(e) => {
@@ -74,9 +61,24 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 										onPullRequestClick(associatedSession.pullRequest!);
 									}
 								}}
-								title={`Open PR #${associatedSession.pullRequest.number}`}
+								title={`Open PR #${associatedSession.pullRequest.number} (Remote task)`}
 							>
+								<span className="codicon codicon-robot"></span>
 								<span>PR #{associatedSession.pullRequest.number}</span>
+							</button>
+						) : (
+							<button
+								className="session-link-button"
+								onClick={(e) => {
+									e.stopPropagation();
+									if (onSessionClick) {
+										onSessionClick(associatedSession);
+									}
+								}}
+								title="Open associated remote session"
+							>
+								<span className="codicon codicon-robot"></span>
+								<span>Session</span>
 							</button>
 						)}
 					</div>
@@ -89,20 +91,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 					</div>
 				) : issue.localTaskBranch ? (
 					<div className="session-actions">
-						<button
-							className="session-link-button"
-							onClick={(e) => {
-								e.stopPropagation();
-								if (onSwitchToLocalTask) {
-									onSwitchToLocalTask(issue.localTaskBranch!, e);
-								}
-							}}
-							title={`Switch to existing branch: ${issue.localTaskBranch}`}
-						>
-							<span className="codicon codicon-repo-clone"></span>
-							<span>Session</span>
-						</button>
-						{issue.pullRequest && (
+						{issue.pullRequest ? (
 							<button
 								className="pr-link-button"
 								onClick={(e) => {
@@ -111,9 +100,24 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 										onPullRequestClick(issue.pullRequest!);
 									}
 								}}
-								title={`Open PR #${issue.pullRequest.number}`}
+								title={`Open PR #${issue.pullRequest.number} (Local task)`}
 							>
+								<span className="codicon codicon-device-desktop"></span>
 								<span>PR #{issue.pullRequest.number}</span>
+							</button>
+						) : (
+							<button
+								className="session-link-button"
+								onClick={(e) => {
+									e.stopPropagation();
+									if (onSwitchToLocalTask) {
+										onSwitchToLocalTask(issue.localTaskBranch!, e);
+									}
+								}}
+								title={`Switch to existing branch: ${issue.localTaskBranch}`}
+							>
+								<span className="codicon codicon-device-desktop"></span>
+								<span>{issue.localTaskBranch}</span>
 							</button>
 						)}
 					</div>
@@ -124,7 +128,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
 							onClick={(e) => onPopulateLocalInput(issue, e)}
 							title="Populate input with local task command"
 						>
-							<span className="codicon codicon-repo-clone"></span>
+							<span className="codicon codicon-device-desktop"></span>
 							<span>Start Local</span>
 						</button>
 						<button
