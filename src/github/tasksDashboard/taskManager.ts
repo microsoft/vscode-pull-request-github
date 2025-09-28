@@ -13,6 +13,12 @@ import { RepositoriesManager } from '../repositoriesManager';
 import { ParsedIssue } from '../utils';
 
 
+export interface TaskPr {
+	readonly number: number;
+	readonly title: string;
+	readonly url: string;
+}
+
 export interface TaskData {
 	readonly id: string;
 	readonly title: string;
@@ -22,11 +28,7 @@ export interface TaskData {
 	readonly isTemporary?: boolean;
 	readonly isLocal?: boolean;
 	readonly branchName?: string;
-	readonly pullRequest?: {
-		readonly number: number;
-		readonly title: string;
-		readonly url: string;
-	};
+	readonly pullRequest?: TaskPr;
 }
 
 export class TaskManager {

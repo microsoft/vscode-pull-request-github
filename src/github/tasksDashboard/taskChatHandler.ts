@@ -156,7 +156,7 @@ export class TaskChatHandler {
 			// Get a language model for intent determination
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
-				family: 'gpt-4o-mini'
+				family: 'gpt-5-mini'
 			});
 
 			if (!models || models.length === 0) {
@@ -280,10 +280,9 @@ Important guidelines:
 			case NEW_TASK_FROM_ISSUE_TOOL.name: {
 				const issueParams = toolCall.input as SchemaToType<typeof NEW_TASK_FROM_ISSUE_TOOL.inputSchema>;
 				const { issueNumber, isLocal } = issueParams;
-				const issueRef = { issueNumber } as ParsedIssue;
 
 				if (isLocal) {
-					await this._taskManager.handleLocalTaskForIssue(issueNumber, issueRef);
+					await this._taskManager.handleLocalTaskForIssue(issueNumber, { issueNumber, owner: undefined, name: undefined });
 					Logger.debug(`Created local task for issue #${issueNumber}`, TaskChatHandler.ID);
 				} else {
 					const issueQuery = `Work on issue #${issueNumber}`;
@@ -300,10 +299,7 @@ Important guidelines:
 			}
 			case GENERAL_QUESTION_TOOL.name: {
 				const questionParams = toolCall.input as SchemaToType<typeof GENERAL_QUESTION_TOOL.inputSchema>;
-				await vscode.commands.executeCommand('workbench.action.chat.open', {
-					query: questionParams.query,
-					mode: 'ask'
-				});
+				await this.handleGeneralQuestion(questionParams);
 				Logger.debug(`Opened general question in chat: ${questionParams.query}`, TaskChatHandler.ID);
 				return;
 			}
@@ -312,6 +308,13 @@ Important guidelines:
 				return;
 			}
 		}
+	}
+
+	private async handleGeneralQuestion(questionParams: { readonly query: string; }) {
+		await vscode.commands.executeCommand('workbench.action.chat.open', {
+			query: questionParams.query,
+			mode: 'ask'
+		});
 	}
 
 	/**
@@ -346,7 +349,7 @@ Important guidelines:
 			const target = tasks.find(task => task.id === taskId);
 			if (target) {
 				if (target.isLocal) {
-					this._webview.switchToLocalTask(target.branchName!);
+					this._webview.switchToLocalTask(target.branchName!, target.pullRequest);
 				} else {
 					this._webview.switchToRemoteTask(target.id, target.pullRequest);
 				}

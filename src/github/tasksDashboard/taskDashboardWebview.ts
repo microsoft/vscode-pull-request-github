@@ -3,9 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import type { Change } from '../../api/api';
+import { Status } from '../../api/api1';
 import Logger from '../../common/logger';
 import { ITelemetry } from '../../common/telemetry';
+import { toReviewUri } from '../../common/uri';
 import { getNonce, IRequestMessage, WebviewBase } from '../../common/webview';
 import { CreatePullRequestDataModel } from '../../view/createPullRequestDataModel';
 import { ReviewManager } from '../../view/reviewManager';
@@ -16,7 +20,7 @@ import { PullRequestModel } from '../pullRequestModel';
 import { PullRequestOverviewPanel } from '../pullRequestOverview';
 import { RepositoriesManager } from '../repositoriesManager';
 import { TaskChatHandler } from './taskChatHandler';
-import { IssueData, TaskData, TaskManager } from './taskManager';
+import { IssueData, TaskData, TaskManager, TaskPr } from './taskManager';
 
 export interface DashboardLoading {
 	readonly state: 'loading';
@@ -176,12 +180,20 @@ export class TaskDashboardWebview extends WebviewBase {
 		return await this._taskManager.getActiveSessions(targetRepos);
 	}
 
-	public async switchToLocalTask(branchName: string): Promise<void> {
-		// Switch to the branch first
-		await this._taskManager.switchToLocalTask(branchName);
+	public async switchToLocalTask(branchName: string, pullRequestInfo?: TaskPr): Promise<void> {
 
-		// Open the combined diff view for all changes in the branch
-		await this.openBranchDiffView(branchName);
+		if (pullRequestInfo) {
+			const pullRequestModel = await this.toPrModelAndFolderManager(pullRequestInfo);
+			if (pullRequestModel) {
+				await this.checkoutPullRequestBranch(pullRequestModel.prModel);
+			}
+		} else {
+			// Switch to the branch first
+			await this._taskManager.switchToLocalTask(branchName);
+
+			// Open the combined diff view for all changes in the branch
+			await this.openBranchDiffView(branchName);
+		}
 
 		// Update dashboard to reflect current branch change
 		setTimeout(() => {
@@ -202,30 +214,48 @@ export class TaskDashboardWebview extends WebviewBase {
 			}
 
 			const baseBranch = await this.getDefaultBranch(folderManager) || 'main';
-			const changedFiles = await this.getChangedFilesInBranch(folderManager, branchName, baseBranch);
-			if (changedFiles.length === 0) {
+			const changes = await this.getBranchChanges(folderManager, branchName, baseBranch);
+
+			if (changes.length === 0) {
 				vscode.window.showInformationMessage(`No changes found in branch ${branchName}`);
 				return;
 			}
 
-			// Position chat to the right
-			await vscode.commands.executeCommand('workbench.action.chat.open', {
-				location: vscode.ViewColumn.Two
-			});
+			// Get commit SHAs for both branches
+			const repository = folderManager.repository;
+			const baseCommit = await repository.getCommit('refs/heads/' + baseBranch);
+			// const branchCommit = await repository.getCommit('refs/heads/' + branchName);
 
-			// Show info about other changed files
-			if (changedFiles.length > 1) {
-				const otherFiles = changedFiles.slice(1);
-				const showAllChanges = vscode.l10n.t('Show All Changes');
-				const action = await vscode.window.showInformationMessage(
-					vscode.l10n.t(`Showing 1 of {0} changed files. {1} more files changed.`, changedFiles.length, otherFiles.length),
-					showAllChanges
+			// Create URI pairs for the multi diff editor
+			const changeArgs: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
+			for (const change of changes) {
+				const fileUri = change.uri;
+
+				// Create review URIs for base and branch versions
+				const baseUri = toReviewUri(
+					fileUri,
+					pathLib.basename(fileUri.fsPath),
+					undefined,
+					baseCommit.hash,
+					false,
+					{ base: true },
+					folderManager.repository.rootUri
 				);
 
-				if (action === showAllChanges) {
-					await vscode.commands.executeCommand('workbench.view.explorer');
+				// Handle different change types
+				if (change.status === Status.INDEX_ADDED || change.status === Status.UNTRACKED) {
+					// Added files - show against empty
+					changeArgs.push([fileUri, undefined, fileUri]);
+				} else if (change.status === Status.INDEX_DELETED || change.status === Status.DELETED) {
+					// Deleted files - show old version against empty
+					changeArgs.push([fileUri, baseUri, undefined]);
+				} else {
+					// Modified, renamed, or other changes
+					changeArgs.push([fileUri, baseUri, fileUri]);
 				}
 			}
+
+			return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in branch {0}', branchName), changeArgs);
 		} catch (error) {
 			Logger.error(`Failed to open branch diff view: ${error}`, TaskDashboardWebview.ID);
 			vscode.window.showErrorMessage(`Failed to open diff view for branch ${branchName}: ${error}`);
@@ -237,17 +267,14 @@ export class TaskDashboardWebview extends WebviewBase {
 		return defaults.base;
 	}
 
-	private async getChangedFilesInBranch(folderManager: FolderRepositoryManager, branchName: string, baseBranch: string): Promise<string[]> {
+	private async getBranchChanges(folderManager: FolderRepositoryManager, branchName: string, baseBranch: string): Promise<Change[]> {
 		try {
 			// Use the repository's git interface to get changed files
 			const repository = folderManager.repository;
 
 			// Get the diff between base and target branch
 			const diff = await repository.diffBetween('refs/heads/' + baseBranch, 'refs/heads/' + branchName);
-			// Extract file paths from the diff
-			return diff.map(change => change.uri.fsPath);
-
-
+			return diff;
 		} catch (error) {
 			Logger.debug(`Failed to get changed files via API: ${error}`, TaskDashboardWebview.ID);
 		}
@@ -256,7 +283,7 @@ export class TaskDashboardWebview extends WebviewBase {
 		try {
 			const repository = folderManager.repository;
 			const changes = repository.state.workingTreeChanges.concat(repository.state.indexChanges);
-			return changes.map(change => change.uri.fsPath);
+			return changes;
 		} catch (fallbackError) {
 			Logger.debug(`Fallback failed: ${fallbackError}`, TaskDashboardWebview.ID);
 			return [];
@@ -526,7 +553,7 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 	}
 
-	public async switchToRemoteTask(sessionId: string, pullRequestInfo?: { number: number; title: string; url: string }): Promise<void> {
+	public async switchToRemoteTask(sessionId: string, pullRequestInfo?: TaskPr): Promise<void> {
 		try {
 			if (pullRequestInfo) {
 				// Show progress notification for the full review mode setup
@@ -610,7 +637,7 @@ export class TaskDashboardWebview extends WebviewBase {
 		}
 	}
 
-	private async toPrModelAndFolderManager(pullRequest: { number: number; title: string; url: string }): Promise<{ prModel: PullRequestModel; folderManager: FolderRepositoryManager } | undefined> {
+	private async toPrModelAndFolderManager(pullRequest: TaskPr): Promise<{ prModel: PullRequestModel; folderManager: FolderRepositoryManager } | undefined> {
 		// Try to find the pull request in the current repositories
 		for (const folderManager of this._repositoriesManager.folderManagers) {
 			// Parse the URL to get owner and repo
@@ -626,7 +653,7 @@ export class TaskDashboardWebview extends WebviewBase {
 		return undefined;
 	}
 
-	private async openPullRequest(pullRequestInfo: { number: number; title: string; url: string }): Promise<void> {
+	private async openPullRequest(pullRequestInfo: TaskPr): Promise<void> {
 		const models = await this.toPrModelAndFolderManager(pullRequestInfo);
 		if (models) {
 			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._extensionUri, models.folderManager, models.prModel);

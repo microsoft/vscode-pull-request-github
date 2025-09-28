@@ -84,9 +84,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 				args: { query: trimmedInput }
 			});
 
-			onValueChange('');
+			// Don't clear the input here - it will be cleared when submission completes
 		}
-	}, [value, onValueChange]);
+	}, [value]);
 
 
 
@@ -94,19 +94,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 	const handlePlanWithLocalAgent = useCallback(() => {
 		if (value.trim()) {
 			const trimmedInput = value.trim();
-			// Remove @copilot prefix for planning with local agent
+			// Remove @copilot prefix for planning with local agent and add @local prefix
 			const cleanQuery = trimmedInput.replace(/@copilot\s*/, '').trim();
+			const localQuery = `@local ${cleanQuery}`;
 
-			// Send command to plan task with local agent
+			// Send command to submit chat with local agent prefix
 			vscode.postMessage({
-				command: 'plan-task-with-local-agent',
-				args: { query: cleanQuery }
+				command: 'submit-chat',
+				args: { query: localQuery }
 			});
 
-			onValueChange('');
+			// Don't clear the input here - it will be cleared when submission completes
 			setShowDropdown(false);
 		}
-	}, [value, onValueChange]);
+	}, [value]);
 
 	// Handle clicking outside dropdown to close it
 	useEffect(() => {
@@ -193,6 +194,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 						overviewRulerLanes: 0,
 						hideCursorInOverviewRuler: true,
 						colorDecorators: false,
+						readOnly: isSubmitting,
 						scrollbar: {
 							vertical: 'auto',
 							horizontal: 'hidden',

@@ -48,6 +48,8 @@ function Dashboard() {
 					break;
 				case 'chat-submission-completed':
 					setIsChatSubmitting(false);
+					// Clear the chat input when submission completes
+					setChatInputValue('');
 					break;
 			}
 		};
