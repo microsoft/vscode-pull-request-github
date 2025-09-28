@@ -25,6 +25,7 @@ function Dashboard() {
 	const [hoveredIssue, setHoveredIssue] = useState<IssueData | null>(null);
 	const [chatInputValue, setChatInputValue] = useState('');
 	const [focusTrigger, setFocusTrigger] = useState(0);
+	const [isChatSubmitting, setIsChatSubmitting] = useState(false);
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -41,6 +42,12 @@ function Dashboard() {
 				case 'update-dashboard':
 					setDashboardState(message.data);
 					setRefreshing(false);
+					break;
+				case 'chat-submission-started':
+					setIsChatSubmitting(true);
+					break;
+				case 'chat-submission-completed':
+					setIsChatSubmitting(false);
 					break;
 			}
 		};
@@ -60,7 +67,7 @@ function Dashboard() {
 
 	const handleSessionClick = useCallback((session: SessionData) => {
 		vscode.postMessage({
-			command: 'open-session-with-pr',
+			command: 'switch-to-remote-task',
 			args: {
 				sessionId: session.id,
 				pullRequest: session.pullRequest
@@ -206,6 +213,7 @@ function Dashboard() {
 						value={chatInputValue}
 						onValueChange={setChatInputValue}
 						focusTrigger={focusTrigger}
+						isSubmitting={isChatSubmitting}
 					/>
 				</div>
 

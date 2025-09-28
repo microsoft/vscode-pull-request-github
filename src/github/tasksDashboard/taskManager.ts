@@ -8,11 +8,12 @@ import Logger from '../../common/logger';
 import { ChatSessionWithPR } from '../copilotApi';
 import { CopilotRemoteAgentManager } from '../copilotRemoteAgent';
 import { FolderRepositoryManager } from '../folderRepositoryManager';
+import { IssueModel } from '../issueModel';
 import { RepositoriesManager } from '../repositoriesManager';
 import { ParsedIssue } from '../utils';
 
 
-export interface SessionData {
+export interface TaskData {
 	readonly id: string;
 	readonly title: string;
 	readonly status: string;
@@ -39,7 +40,7 @@ export class TaskManager {
 	/**
 	 * Gets all active sessions (both local and remote) including temporary ones
 	 */
-	public async getActiveSessions(targetRepos: string[]): Promise<SessionData[]> {
+	public async getActiveSessions(targetRepos: string[]): Promise<TaskData[]> {
 		try {
 			// Get both remote copilot sessions and local task branches
 			const [remoteSessions, localTasks] = await Promise.all([
@@ -48,7 +49,7 @@ export class TaskManager {
 			]);
 
 			// Combine and deduplicate
-			const sessionMap = new Map<string, SessionData>();
+			const sessionMap = new Map<string, TaskData>();
 
 			// Add remote sessions
 			for (const session of remoteSessions) {
@@ -81,7 +82,7 @@ export class TaskManager {
 	/**
 	 * Gets all active sessions from all repositories (for global dashboard)
 	 */
-	public async getAllSessions(): Promise<SessionData[]> {
+	public async getAllTasks(): Promise<TaskData[]> {
 		try {
 			// Get all repositories instead of filtering by target repos
 			const allRepos: string[] = [];
@@ -109,7 +110,7 @@ export class TaskManager {
 			}));
 
 			// Combine and deduplicate
-			const sessionMap = new Map<string, SessionData>();
+			const sessionMap = new Map<string, TaskData>();
 
 			// Add enhanced remote sessions
 			for (const session of enhancedRemoteSessions) {
@@ -139,7 +140,7 @@ export class TaskManager {
 		}
 	}
 
-	private extractRepositoryFromSession(session: SessionData): string | undefined {
+	private extractRepositoryFromSession(session: TaskData): string | undefined {
 		// Try to extract repository name from session title or other metadata
 		// This is a simple heuristic - in a real implementation, this might be stored with the session
 		const titleMatch = session.title.match(/(\w+\/\w+)/);
@@ -185,9 +186,9 @@ export class TaskManager {
 	/**
 	 * Gets local task branches (branches starting with "task/")
 	 */
-	public async getLocalTasks(): Promise<SessionData[]> {
+	public async getLocalTasks(): Promise<TaskData[]> {
 		try {
-			const localTasks: SessionData[] = [];
+			const localTasks: TaskData[] = [];
 
 			// Check each folder manager for task branches
 			for (const folderManager of this._repositoriesManager.folderManagers) {
@@ -265,7 +266,7 @@ export class TaskManager {
 	/**
 	 * Gets remote copilot sessions
 	 */
-	public async getRemoteSessions(targetRepos: string[]): Promise<SessionData[]> {
+	public async getRemoteSessions(targetRepos: string[]): Promise<TaskData[]> {
 		try {
 			// Create a cancellation token for the request
 			const source = new vscode.CancellationTokenSource();
@@ -295,7 +296,7 @@ export class TaskManager {
 			}
 
 			// Convert to SessionData format
-			const remoteSessions: SessionData[] = [];
+			const remoteSessions: TaskData[] = [];
 			for (const session of filteredSessions) {
 				const sessionData = this.convertSessionToData(session);
 				remoteSessions.push(sessionData);
@@ -699,7 +700,7 @@ Branch name:`;
 
 	// Private helper methods
 
-	private convertSessionToData(session: ChatSessionWithPR): SessionData {
+	private convertSessionToData(session: ChatSessionWithPR): TaskData {
 		const isCurrentBranch = this.isSessionAssociatedWithCurrentBranch(session);
 
 		// Map ChatSessionStatus enum to meaningful status strings
@@ -853,4 +854,82 @@ Branch name:`;
 			return undefined;
 		}
 	}
+
+	public async getIssuesForQuery(folderManager: FolderRepositoryManager, query: string): Promise<IssueData[]> {
+		try {
+			// Get the primary repository for this folder manager to scope the search
+			let scopedQuery = query;
+			if (folderManager.gitHubRepositories.length > 0) {
+				const repo = folderManager.gitHubRepositories[0];
+				const repoScope = `repo:${repo.remote.owner}/${repo.remote.repositoryName}`;
+				// Add repo scope to the query if it's not already present
+				if (!query.includes('repo:')) {
+					scopedQuery = `${repoScope} ${query}`;
+				}
+			}
+
+			const searchResult = await folderManager.getIssues(scopedQuery);
+			if (!searchResult || !searchResult.items) {
+				return [];
+			}
+
+			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
+		} catch (error) {
+			return [];
+		}
+	}
+
+	private async convertIssueToData(issue: IssueModel): Promise<IssueData> {
+		const issueData: IssueData = {
+			number: issue.number,
+			title: issue.title,
+			assignee: issue.assignees?.[0]?.login,
+			milestone: issue.milestone?.title,
+			state: issue.state,
+			url: issue.html_url,
+			createdAt: issue.createdAt,
+			updatedAt: issue.updatedAt
+		};
+
+		// Check for local task branch
+		try {
+			const taskBranchName = `task/issue-${issue.number}`;
+			const localTaskBranch = await this.findLocalTaskBranch(taskBranchName);
+			if (localTaskBranch) {
+				issueData.localTaskBranch = localTaskBranch;
+
+				// Check for associated pull request for this branch
+				const pullRequest = await issue.githubRepository.getPullRequestForBranch(localTaskBranch, issue.githubRepository.remote.owner);
+				if (pullRequest) {
+					issueData.pullRequest = {
+						number: pullRequest.number,
+						title: pullRequest.title,
+						url: pullRequest.html_url,
+					};
+				}
+			}
+		} catch (error) {
+			// If we can't check for branches, just continue without the local task info
+			Logger.debug(`Could not check for local task branch: ${error}`, TaskManager.ID);
+		}
+
+		return issueData;
+	}
+}
+
+export interface IssueData {
+	number: number;
+	title: string;
+	assignee?: string;
+	milestone?: string;
+	state: string;
+	url: string;
+	createdAt: string;
+	updatedAt: string;
+	localTaskBranch?: string; // Name of the local task branch if it exists
+	pullRequest?: {
+		number: number;
+		title: string;
+		url: string;
+	};
 }

@@ -11,13 +11,12 @@ import { CreatePullRequestDataModel } from '../../view/createPullRequestDataMode
 import { ReviewManager } from '../../view/reviewManager';
 import { ReviewsManager } from '../../view/reviewsManager';
 import { FolderRepositoryManager, ReposManagerState } from '../folderRepositoryManager';
-import { IssueModel } from '../issueModel';
 import { IssueOverviewPanel } from '../issueOverview';
 import { PullRequestModel } from '../pullRequestModel';
 import { PullRequestOverviewPanel } from '../pullRequestOverview';
 import { RepositoriesManager } from '../repositoriesManager';
 import { TaskChatHandler } from './taskChatHandler';
-import { SessionData, TaskManager } from './taskManager';
+import { IssueData, TaskData, TaskManager } from './taskManager';
 
 export interface DashboardLoading {
 	readonly state: 'loading';
@@ -27,7 +26,7 @@ export interface DashboardLoading {
 export interface DashboardReady {
 	readonly state: 'ready';
 	readonly issueQuery: string;
-	readonly activeSessions: SessionData[];
+	readonly activeSessions: TaskData[];
 	readonly milestoneIssues: IssueData[];
 	readonly repository?: {
 		readonly owner: string;
@@ -36,22 +35,6 @@ export interface DashboardReady {
 	readonly currentBranch?: string;
 }
 
-export interface IssueData {
-	number: number;
-	title: string;
-	assignee?: string;
-	milestone?: string;
-	state: string;
-	url: string;
-	createdAt: string;
-	updatedAt: string;
-	localTaskBranch?: string; // Name of the local task branch if it exists
-	pullRequest?: {
-		number: number;
-		title: string;
-		url: string;
-	};
-}
 
 export class TaskDashboardWebview extends WebviewBase {
 	private static readonly ID = 'DashboardWebviewProvider';
@@ -76,7 +59,7 @@ export class TaskDashboardWebview extends WebviewBase {
 
 		this._webview = panel.webview;
 		this._issueQuery = issueQuery;
-		this._chatHandler = new TaskChatHandler(_taskManager);
+		this._chatHandler = new TaskChatHandler(this._taskManager, this._repositoriesManager, issueQuery, this);
 
 		this.registerBranchChangeListeners();
 		this.registerRepositoryLoadListeners();
@@ -188,12 +171,12 @@ export class TaskDashboardWebview extends WebviewBase {
 	}
 
 
-	private async getActiveSessions(): Promise<SessionData[]> {
+	private async getActiveSessions(): Promise<TaskData[]> {
 		const targetRepos = this.getTargetRepositories();
 		return await this._taskManager.getActiveSessions(targetRepos);
 	}
 
-	private async switchToLocalTask(branchName: string): Promise<void> {
+	public async switchToLocalTask(branchName: string): Promise<void> {
 		// Switch to the branch first
 		await this._taskManager.switchToLocalTask(branchName);
 
@@ -340,64 +323,7 @@ export class TaskDashboardWebview extends WebviewBase {
 	}
 
 	private async getIssuesForQuery(folderManager: FolderRepositoryManager, query: string): Promise<IssueData[]> {
-		try {
-			// Get the primary repository for this folder manager to scope the search
-			let scopedQuery = query;
-			if (folderManager.gitHubRepositories.length > 0) {
-				const repo = folderManager.gitHubRepositories[0];
-				const repoScope = `repo:${repo.remote.owner}/${repo.remote.repositoryName}`;
-				// Add repo scope to the query if it's not already present
-				if (!query.includes('repo:')) {
-					scopedQuery = `${repoScope} ${query}`;
-				}
-			}
-
-			const searchResult = await folderManager.getIssues(scopedQuery);
-			if (!searchResult || !searchResult.items) {
-				return [];
-			}
-
-			return Promise.all(searchResult.items.map(issue => this.convertIssueToData(issue)));
-		} catch (error) {
-			return [];
-		}
-	}
-
-	private async convertIssueToData(issue: IssueModel): Promise<IssueData> {
-		const issueData: IssueData = {
-			number: issue.number,
-			title: issue.title,
-			assignee: issue.assignees?.[0]?.login,
-			milestone: issue.milestone?.title,
-			state: issue.state,
-			url: issue.html_url,
-			createdAt: issue.createdAt,
-			updatedAt: issue.updatedAt
-		};
-
-		// Check for local task branch
-		try {
-			const taskBranchName = `task/issue-${issue.number}`;
-			const localTaskBranch = await this._taskManager.findLocalTaskBranch(taskBranchName);
-			if (localTaskBranch) {
-				issueData.localTaskBranch = localTaskBranch;
-
-				// Check for associated pull request for this branch
-				const pullRequest = await issue.githubRepository.getPullRequestForBranch(localTaskBranch, issue.githubRepository.remote.owner);
-				if (pullRequest) {
-					issueData.pullRequest = {
-						number: pullRequest.number,
-						title: pullRequest.title,
-						url: pullRequest.html_url,
-					};
-				}
-			}
-		} catch (error) {
-			// If we can't check for branches, just continue without the local task info
-			Logger.debug(`Could not check for local task branch: ${error}`, TaskDashboardWebview.ID);
-		}
-
-		return issueData;
+		return this._taskManager.getIssuesForQuery(folderManager, query);
 	}
 
 	private async switchToMainBranch(): Promise<void> {
@@ -535,7 +461,7 @@ export class TaskDashboardWebview extends WebviewBase {
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>): Promise<void> {
 		switch (message.command) {
-			case 'ready':
+			case 'ready': {
 				this._onIsReady.fire();
 
 				// Send immediate initialize message with loading state
@@ -551,51 +477,56 @@ export class TaskDashboardWebview extends WebviewBase {
 				// Then update with full data
 				await this.updateDashboard();
 				break;
+			}
 			case 'refresh-dashboard':
-				await this.updateDashboard();
-				break;
-			case 'submit-chat':
-				await this._chatHandler.handleChatSubmission(message.args?.query);
-				break;
+				return this.updateDashboard();
+			case 'submit-chat': {
+				// Send loading state to webview
+				this._postMessage({
+					command: 'chat-submission-started'
+				});
+
+				try {
+					await this._chatHandler.handleChatSubmission(message.args?.query);
+				} finally {
+					// Send completion state to webview
+					this._postMessage({
+						command: 'chat-submission-completed'
+					});
+				}
+				return;
+			}
 			case 'open-session':
-				await this.openSession(message.args?.sessionId);
-				break;
-			case 'open-session-with-pr':
-				await this.openSessionWithPullRequest(message.args?.sessionId, message.args?.pullRequest);
-				break;
+				return this.openSession(message.args?.sessionId);
 			case 'open-issue':
-				await this.openIssue(message.args?.repoOwner, message.args?.repoName, message.args?.issueNumber);
-				break;
+				return this.openIssue(message.args?.repoOwner, message.args?.repoName, message.args?.issueNumber);
 			case 'open-pull-request':
-				await this.openPullRequest(message.args?.pullRequest);
-				break;
+				return this.openPullRequest(message.args?.pullRequest);
 			case 'switch-to-local-task':
-				await this.switchToLocalTask(message.args?.branchName);
-				break;
+				return this.switchToLocalTask(message.args?.branchName);
+			case 'switch-to-remote-task':
+				return this.switchToRemoteTask(message.args?.sessionId, message.args?.pullRequest);
 			case 'open-external-url':
 				await vscode.env.openExternal(vscode.Uri.parse(message.args.url));
-				break;
+				return;
 			case 'switch-to-main':
-				await this.switchToMainBranch();
-				break;
+				return this.switchToMainBranch();
 			case 'create-pull-request':
-				await this.createPullRequest();
-				break;
+				return this.createPullRequest();
 			default:
-				await super._onDidReceiveMessage(message);
-				break;
+				return super._onDidReceiveMessage(message);
 		}
 	}
 
 	private async checkoutPullRequestBranch(pullRequest: PullRequestModel): Promise<void> {
 		const folderManager = this._repositoriesManager.getManagerForIssueModel(pullRequest);
-		if (folderManager && pullRequest.equals(folderManager?.activePullRequest)) {
+		if (folderManager && !pullRequest.equals(folderManager?.activePullRequest)) {
 			const reviewManager = ReviewManager.getReviewManagerForFolderManager(this._reviewsManager.reviewManagers, folderManager);
 			return reviewManager?.switch(pullRequest);
 		}
 	}
 
-	private async openSessionWithPullRequest(sessionId: string, pullRequestInfo?: { number: number; title: string; url: string }): Promise<void> {
+	public async switchToRemoteTask(sessionId: string, pullRequestInfo?: { number: number; title: string; url: string }): Promise<void> {
 		try {
 			if (pullRequestInfo) {
 				// Show progress notification for the full review mode setup

@@ -14,13 +14,14 @@ import { setupMonaco } from './monacoSupport';
 export let suggestionDataSource: DashboardState | null = null;
 
 interface ChatInputProps {
-	readonly data: DashboardState | null;
+	data: DashboardState;
 	value: string;
 	onValueChange: (value: string) => void;
 	focusTrigger?: number; // Increment this to trigger focus
+	isSubmitting?: boolean; // Show progress spinner when true
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange, focusTrigger }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange, focusTrigger, isSubmitting = false }) => {
 	const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 
@@ -214,11 +215,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 						<button
 							className="send-button-inline split-left"
 							onClick={handleSendChat}
-							disabled={!value.trim()}
+							disabled={!value.trim() || isSubmitting}
 							title="Start new remote Copilot task (Ctrl+Enter)"
 						>
 							<span style={{ marginRight: '4px', fontSize: '12px' }}>Start remote task</span>
-							<span className="codicon codicon-send"></span>
+							{isSubmitting ? (
+								<span className="codicon codicon-loading codicon-modifier-spin"></span>
+							) : (
+								<span className="codicon codicon-send"></span>
+							)}
 						</button>
 						<button
 							className="send-button-inline split-right"
@@ -226,7 +231,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 								e.stopPropagation();
 								setShowDropdown(!showDropdown);
 							}}
-							disabled={!value.trim()}
+							disabled={!value.trim() || isSubmitting}
 							title="More options"
 						>
 							<span className="codicon codicon-chevron-down"></span>
@@ -247,7 +252,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 					<button
 						className="send-button-inline"
 						onClick={handleSendChat}
-						disabled={!value.trim()}
+						disabled={!value.trim() || isSubmitting}
 						title={
 							isLocalCommand(value)
 								? 'Start new local task (Ctrl+Enter)'
@@ -260,7 +265,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ data, value, onValueChange
 								: 'Send'
 							}
 						</span>
-						<span className="codicon codicon-send"></span>
+						{isSubmitting ? (
+							<span className="codicon codicon-loading codicon-modifier-spin"></span>
+						) : (
+							<span className="codicon codicon-send"></span>
+						)}
 					</button>
 				)}
 			</div>
