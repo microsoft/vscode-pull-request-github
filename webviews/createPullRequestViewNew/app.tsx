@@ -192,7 +192,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{prBaseIcon} BASE</span>
+								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -205,7 +205,7 @@ export function main() {
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'MERGE'}</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
 							</div>
 							{ctx.createParams.canModifyBranches ?
 								<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
@@ -220,7 +220,7 @@ export function main() {
 						</div>
 					</div>
 
-					<span className='input-title'>TITLE</span>
+					<label htmlFor='title' className='input-title'>Title</label>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -232,7 +232,6 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
-							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -326,13 +325,12 @@ export function main() {
 							: null}
 					</div>
 
-					<span className='input-title'>DESCRIPTION</span>
+					<label htmlFor='description' className='input-title'>Description</label>
 					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
-							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
@@ -373,7 +371,9 @@ export function main() {
 	);
 }
 
-export function Root({ children }) {
+interface RootProps { children: (params: CreateParamsNew) => JSX.Element }
+
+export function Root({ children }: RootProps): JSX.Element {
 	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
@@ -381,5 +381,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return children(pr);
+	return <>{children(pr)}</>;
 }
