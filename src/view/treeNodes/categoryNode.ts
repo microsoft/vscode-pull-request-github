@@ -179,7 +179,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this._categoryQuery) {
-			this.contextValue = 'query';
+			this.contextValue = this.isCopilot ? 'copilot-query' : 'query';
 		}
 
 		if (this.isCopilot) {
@@ -193,6 +193,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			this.tooltip = this.label;
 		}
+	}
+
+	get repo(): RemoteInfo | undefined {
+		return this._repo;
 	}
 
 	private _getDescription(): string | undefined {
@@ -328,6 +332,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this._repo = await extractRepoFromQuery(this.folderRepoManager, this._categoryQuery);
 		}
 		this.resourceUri = toQueryUri({ remote: this._repo, isCopilot: this.isCopilot });
+
+		// Update contextValue based on current notification state
+		if (this._categoryQuery) {
+			const hasNotifications = this.isCopilot && this._repo && this._copilotManager.getNotificationsCount(this._repo.owner, this._repo.repositoryName) > 0;
+			this.contextValue = this.isCopilot ?
+				(hasNotifications ? 'copilot-query-with-notifications' : 'copilot-query') :
+				'query';
+		}
+
 		return this;
 	}
 }

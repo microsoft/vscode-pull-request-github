@@ -949,6 +949,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.markAllCopilotNotificationsAsRead",
+				"title": "Mark All as Read",
+				"category": "%command.pull.request.category%",
+				"enablement": "viewItem == copilot-query-with-notifications"
+			},
+			{
 				"command": "pr.merge",
 				"title": "%command.pr.merge.title%",
 				"category": "%command.pull.request.category%"
@@ -1999,6 +2005,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "false"
+				},
+				{
 					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
@@ -2785,6 +2795,11 @@
 					"command": "pr.dismissNotification",
 					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
 					"group": "4_pullrequest@5"
+				},
+				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "view == pr:github && viewItem =~ /copilot-query/",
+					"group": "0_category@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",

@@ -107,6 +107,41 @@ export class CopilotStateModel extends Disposable {
 		}
 	}
 
+	clearAllNotifications(owner?: string, repo?: string): void {
+		if (this._showNotification.size > 0) {
+			const items: PullRequestModel[] = [];
+
+			// If owner and repo are specified, only clear notifications for that repo
+			if (owner && repo) {
+				const keysToRemove: string[] = [];
+				const prefix = `${this.makeKey(owner, repo)}#`;
+				for (const key of this._showNotification.keys()) {
+					if (key.startsWith(prefix)) {
+						const item = this._states.get(key)?.item;
+						if (item) {
+							items.push(item);
+						}
+						keysToRemove.push(key);
+					}
+				}
+				keysToRemove.forEach(key => this._showNotification.delete(key));
+			} else {
+				// Clear all notifications
+				for (const key of this._showNotification.keys()) {
+					const item = this._states.get(key)?.item;
+					if (item) {
+						items.push(item);
+					}
+				}
+				this._showNotification.clear();
+			}
+
+			if (items.length > 0) {
+				this._onDidChangeNotifications.fire(items);
+			}
+		}
+	}
+
 	get notifications(): ReadonlySet<string> {
 		return this._showNotification;
 	}
