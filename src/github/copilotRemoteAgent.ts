@@ -397,6 +397,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 
+		// Sort so that origin is first if it exists
+		ghRemotes.sort((a, b) => (a.remoteName === 'origin' ? -1 : b.remoteName === 'origin' ? 1 : 0));
+
 		const result = await chooseItem<GitHubRemote>(
 			ghRemotes,
 			itemValue => `${itemValue.remoteName} (${itemValue.owner}/${itemValue.repositoryName})`,
