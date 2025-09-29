@@ -335,7 +335,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		// Update contextValue based on current notification state
 		if (this._categoryQuery) {
-			const hasNotifications = this.isCopilot && this._repo && this._copilotManager.getNotificationsCountForRepo(this._repo.owner, this._repo.repositoryName) > 0;
+			const hasNotifications = this.isCopilot && this._repo && this._copilotManager.getNotificationsCount(this._repo.owner, this._repo.repositoryName) > 0;
 			this.contextValue = this.isCopilot ?
 				(hasNotifications ? 'copilot-query-with-notifications' : 'copilot-query') :
 				'query';

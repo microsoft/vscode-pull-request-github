@@ -921,7 +921,6 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.markAllCopilotNotificationsAsRead', node => {
 			if (node instanceof CategoryTreeNode && node.isCopilot && node.repo) {
 				copilotRemoteAgentManager.clearAllNotifications(node.repo.owner, node.repo.repositoryName);
-				tree.refresh(node);
 			}
 		}),
 	);

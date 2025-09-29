@@ -938,7 +938,8 @@
 			{
 				"command": "pr.markAllCopilotNotificationsAsRead",
 				"title": "Mark All as Read",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"enablement": "viewItem == copilot-query-with-notifications"
 			},
 			{
 				"command": "pr.merge",
@@ -2785,7 +2786,6 @@
 				{
 					"command": "pr.markAllCopilotNotificationsAsRead",
 					"when": "view == pr:github && viewItem =~ /copilot-query/",
-					"enablement": "viewItem == copilot-query-with-notifications",
 					"group": "0_category@1"
 				},
 				{
