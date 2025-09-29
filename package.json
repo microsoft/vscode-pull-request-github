@@ -632,6 +632,7 @@
 					},
 					"default": [
 						"coffeescript",
+						"crystal",
 						"diff",
 						"dockerfile",
 						"dockercompose",
