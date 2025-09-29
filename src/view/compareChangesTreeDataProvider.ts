@@ -264,7 +264,15 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 			markdown.appendMarkdown('\n\n');
 		}
 		markdown.supportThemeIcons = true;
-		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) {0} Code Review', preReviewer.title)}](command:pr.preReview)`);
+		
+		// Create the button text with potential truncation for better UI in smaller panels
+		const buttonText = vscode.l10n.t('$(sparkle) {0} Code Review', preReviewer.title);
+		const MAX_BUTTON_TEXT_LENGTH = 40; // Reasonable length for tree view messages
+		const truncatedButtonText = buttonText.length > MAX_BUTTON_TEXT_LENGTH 
+			? buttonText.substring(0, MAX_BUTTON_TEXT_LENGTH - 3) + '...'
+			: buttonText;
+			
+		markdown.appendMarkdown(`[${truncatedButtonText}](command:pr.preReview)`);
 		return markdown;
 	}
 
