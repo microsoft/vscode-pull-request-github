@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 
 // Test the text truncation logic that should be applied to tree view button text
 describe('CompareChangesTreeDataProvider text truncation', () => {
-	const MAX_BUTTON_TEXT_LENGTH = 40; // Same constant used in implementation
+	const MAX_BUTTON_TEXT_LENGTH = 40; // Same constant used in CompareChangesFilesTreeProvider
 
 	function truncateButtonText(buttonText: string): string {
 		return buttonText.length > MAX_BUTTON_TEXT_LENGTH

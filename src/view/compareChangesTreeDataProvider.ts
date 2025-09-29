@@ -208,6 +208,8 @@ abstract class CompareChangesTreeProvider extends Disposable implements vscode.T
 }
 
 class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
+	private static readonly MAX_BUTTON_TEXT_LENGTH = 40; // Reasonable length for tree view messages
+
 	constructor(
 		model: CreatePullRequestDataModel,
 		private folderRepoManager: FolderRepositoryManager,
@@ -267,9 +269,8 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 
 		// Create the button text with potential truncation for better UI in smaller panels
 		const buttonText = vscode.l10n.t('$(sparkle) {0} Code Review', preReviewer.title);
-		const MAX_BUTTON_TEXT_LENGTH = 40; // Reasonable length for tree view messages
-		const truncatedButtonText = buttonText.length > MAX_BUTTON_TEXT_LENGTH
-			? buttonText.substring(0, MAX_BUTTON_TEXT_LENGTH - 3) + '...'
+		const truncatedButtonText = buttonText.length > CompareChangesFilesTreeProvider.MAX_BUTTON_TEXT_LENGTH
+			? buttonText.substring(0, CompareChangesFilesTreeProvider.MAX_BUTTON_TEXT_LENGTH - 3) + '...'
 			: buttonText;
 
 		markdown.appendMarkdown(`[${truncatedButtonText}](command:pr.preReview)`);
