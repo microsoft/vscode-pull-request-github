@@ -175,14 +175,14 @@ async function getExtensionConfig(target, mode, env) {
 	// Add fixtures copying plugin for node target (which has individual test files)
 	if (target === 'node') {
 		const fs = require('fs');
-		
+		const srcRoot = 'src';
 		class CopyFixturesPlugin {
 			apply(compiler) {
 				compiler.hooks.afterEmit.tap('CopyFixturesPlugin', () => {
-					this.copyFixtures('src', compiler.options.output.path);
+					this.copyFixtures(srcRoot, compiler.options.output.path);
 				});
 			}
-			
+
 			copyFixtures(inputDir, outputDir) {
 				try {
 					const files = fs.readdirSync(inputDir);
@@ -191,7 +191,7 @@ async function getExtensionConfig(target, mode, env) {
 						const stats = fs.statSync(filePath);
 						if (stats.isDirectory()) {
 							if (file === 'fixtures') {
-								const outputFilePath = path.join(outputDir, inputDir, file);
+								const outputFilePath = path.join(outputDir, inputDir.substring(srcRoot.length), file);
 								const inputFilePath = path.join(inputDir, file);
 								fs.cpSync(inputFilePath, outputFilePath, { recursive: true, force: true });
 							} else {
@@ -205,7 +205,7 @@ async function getExtensionConfig(target, mode, env) {
 				}
 			}
 		}
-		
+
 		plugins.push(new CopyFixturesPlugin());
 	}
 
@@ -232,7 +232,7 @@ async function getExtensionConfig(target, mode, env) {
 	} else if (target === 'node') {
 		// Add main test runner
 		entry['test/index'] = './src/test/index.ts';
-		
+
 	// Add individual test files as separate entry points
 		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname });
 		testFiles.forEach(testFile => {
