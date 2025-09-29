@@ -172,6 +172,43 @@ async function getExtensionConfig(target, mode, env) {
 		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
 	];
 
+	// Add fixtures copying plugin for node target (which has individual test files)
+	if (target === 'node') {
+		const fs = require('fs');
+		
+		class CopyFixturesPlugin {
+			apply(compiler) {
+				compiler.hooks.afterEmit.tap('CopyFixturesPlugin', () => {
+					this.copyFixtures('src', compiler.options.output.path);
+				});
+			}
+			
+			copyFixtures(inputDir, outputDir) {
+				try {
+					const files = fs.readdirSync(inputDir);
+					for (const file of files) {
+						const filePath = path.join(inputDir, file);
+						const stats = fs.statSync(filePath);
+						if (stats.isDirectory()) {
+							if (file === 'fixtures') {
+								const outputFilePath = path.join(outputDir, inputDir, file);
+								const inputFilePath = path.join(inputDir, file);
+								fs.cpSync(inputFilePath, outputFilePath, { recursive: true, force: true });
+							} else {
+								this.copyFixtures(filePath, outputDir);
+							}
+						}
+					}
+				} catch (error) {
+					// Ignore errors during fixtures copying to not break the build
+					console.warn('Warning: Could not copy fixtures:', error.message);
+				}
+			}
+		}
+		
+		plugins.push(new CopyFixturesPlugin());
+	}
+
 	if (target === 'webworker') {
 		plugins.push(new webpack.ProvidePlugin({
 			process: path.join(
