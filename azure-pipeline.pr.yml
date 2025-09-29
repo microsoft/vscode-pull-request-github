@@ -4,6 +4,11 @@ jobs:
     pool:
       vmImage: 'macos-13'
     steps:
+      - task: NodeTool@0
+        displayName: "Use Node.js 20"
+        inputs:
+          versionSpec: "20.x"
+
       - template: scripts/ci/common-setup.yml
 
       - script: yarn run compile
