@@ -31,7 +31,7 @@ textarea:disabled {
 
 .group-branches {
 	margin-top: 20px;
-	margin-bottom: 10px;
+	margin-bottom: 2px;
 }
 
 .input-label.base,
@@ -72,8 +72,7 @@ button.input-box {
 .input-label {
 	display: flex;
 	align-items: center;
-	font-variant-caps: all-small-caps;
-	font-size: small;
+	font-size: 11px;
 	margin-bottom: 14px;
 }
 
@@ -86,6 +85,12 @@ button.input-box {
 
 /* Title, Description */
 
+.input-title {
+	display: block;
+	font-size: 11px;
+	margin-bottom: 4px;
+}
+
 #title {
 	padding-right: 24px;
 	text-overflow: ellipsis;
@@ -95,6 +100,7 @@ button.input-box {
 	position: relative;
 	display: flex;
 	flex-direction: column;
+	margin-bottom: 12px;
 }
 
 .group-title .title-action:hover {
@@ -141,7 +147,6 @@ button.input-box {
 
 .group-description {
 	flex-grow: 1;
-	margin-top: 10px;
 	max-height: 500px;
 }
 

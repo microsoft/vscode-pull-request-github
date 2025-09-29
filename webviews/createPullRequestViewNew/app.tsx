@@ -192,7 +192,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{prBaseIcon} BASE</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -205,7 +205,7 @@ export function main() {
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'MERGE'}</span>
 							</div>
 							{ctx.createParams.canModifyBranches ?
 								<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
@@ -220,6 +220,7 @@ export function main() {
 						</div>
 					</div>
 
+					<span className='input-title'>TITLE</span>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -325,6 +326,7 @@ export function main() {
 							: null}
 					</div>
 
+					<span className='input-title'>DESCRIPTION</span>
 					<div className='group-description'>
 						<textarea
 							id='description'
