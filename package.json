@@ -4192,7 +4192,7 @@
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
 		"test:preprocess-fixtures": "node scripts/preprocess-fixtures --in src --out out",
 		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
-		"watch": "webpack --watch --mode development --env esbuild",
+		"watch": "node scripts/preprocess-fixtures --in src --out dist && webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
 		"prepare": "husky install"
