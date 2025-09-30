@@ -50,7 +50,7 @@ export function extractTitle(prompt: string, context: string | undefined): strin
 			return prompt;
 		}
 		return prompt.substring(0, 20) + '...';
-	}
+	};
 	const titleMatch = context?.match(/TITLE: \s*(.*)/i);
 	if (titleMatch && titleMatch[1]) {
 		return titleMatch[1].trim();
