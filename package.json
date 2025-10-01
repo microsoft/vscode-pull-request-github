@@ -89,7 +89,7 @@
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
 				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
-				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled' && config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable && ReposManagerStateContext != NeedsAuthentication"
+				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled' && config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
 			}
 		],
 		"chatParticipants": [
