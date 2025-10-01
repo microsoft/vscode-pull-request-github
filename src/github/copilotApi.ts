@@ -218,7 +218,7 @@ export class CopilotApi {
 				},
 			});
 		if (!response.ok) {
-			throw new Error(`Failed to fetch sessions: ${response.statusText}`);
+			await this.handleApiError(response, 'getAllSessions');
 		}
 		const sessions = await response.json();
 		return sessions.sessions;
@@ -250,7 +250,7 @@ export class CopilotApi {
 			}
 		});
 		if (!response.ok) {
-			throw new Error(`Failed to fetch session: ${response.statusText}`);
+			await this.handleApiError(response, 'getSessionInfo');
 		}
 
 		return (await response.json()) as SessionInfo;
@@ -265,7 +265,7 @@ export class CopilotApi {
 			},
 		});
 		if (!logsResponse.ok) {
-			throw new Error(`Failed to fetch logs: ${logsResponse.statusText}`);
+			await this.handleApiError(logsResponse, 'getLogsFromSession');
 		}
 		return await logsResponse.text();
 	}
@@ -283,13 +283,13 @@ export class CopilotApi {
 			});
 			if (!response.ok) {
 				Logger.warn(`Failed to fetch job info for session ${sessionId}: ${response.statusText}`, CopilotApi.ID);
-				return undefined;
+				return;
 			}
 			const data = await response.json() as JobInfo;
 			return data;
 		} catch (error) {
 			Logger.warn(`Error fetching job info for session ${sessionId}: ${error}`, CopilotApi.ID);
-			return undefined;
+			return;
 		}
 	}
 
@@ -304,6 +304,30 @@ export class CopilotApi {
 		}
 
 		return this.credentialStore.getHub(authProvider);
+	}
+
+	private async handleApiError(response: Response, action: string): Promise<never> {
+		let errorBody: string | undefined = undefined;
+		try {
+			errorBody = await response.text();
+		} catch (e) { /* ignore */ }
+		const msg = `'${action}' failed with ${response.statusText} ${errorBody ? `: ${errorBody}` : ''}`;
+		Logger.error(msg, CopilotApi.ID);
+
+		/* __GDPR__
+			"remoteAgent.apiError" : {
+				"action" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"body" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryErrorEvent('remoteAgent.apiError', {
+			action,
+			status: response.status.toString(),
+			body: errorBody || '',
+		});
+
+		throw new Error(msg);
 	}
 }
 
