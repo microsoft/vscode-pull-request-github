@@ -52,10 +52,6 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 					this._onDidChangeTreeData.fire();
 				} else if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${HIDE_VIEWED_FILES}`)) {
 					this._onDidChangeTreeData.fire();
-					const hideViewedFiles = vscode.workspace
-						.getConfiguration(PR_SETTINGS_NAMESPACE)
-						.get<boolean>(HIDE_VIEWED_FILES, false);
-					await vscode.commands.executeCommand('setContext', 'hideViewedFiles', hideViewedFiles);
 				}
 			}),
 		);

@@ -1087,7 +1087,7 @@
 			{
 				"command": "pr.toggleHideViewedFiles",
 				"title": "%command.pr.toggleHideViewedFiles.title%",
-				"icon": "$(eye-closed)",
+				"icon": "$(filter)",
 				"category": "%command.pull.request.category%"
 			},
 			{

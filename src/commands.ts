@@ -1488,7 +1488,7 @@ ${contents}
 		vscode.commands.registerCommand('pr.toggleHideViewedFiles', _ => {
 			const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 			const currentValue = config.get<boolean>(HIDE_VIEWED_FILES, false);
-			config.update(HIDE_VIEWED_FILES, !currentValue, true);
+			config.update(HIDE_VIEWED_FILES, !currentValue, vscode.ConfigurationTarget.Global);
 		}),
 	);
 
