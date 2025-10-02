@@ -557,7 +557,7 @@
 				},
 				"githubPullRequests.codingAgent.uiIntegration": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%githubPullRequests.codingAgent.uiIntegration.description%",
 					"tags": [
 						"experimental",
