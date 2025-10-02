@@ -74,6 +74,9 @@ async function getWebviewConfig(mode, env, entry) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
+			// Use absolute paths (file:///) in source maps instead of the default webpack:// scheme
+			devtoolModuleFilenameTemplate: info => 'file:///' + info.absoluteResourcePath.replace(/\\/g, '/'),
+			devtoolFallbackModuleFilenameTemplate: 'file:///[absolute-resource-path]'
 		},
 		optimization: {
 			minimizer: [
@@ -233,7 +236,7 @@ async function getExtensionConfig(target, mode, env) {
 		// Add main test runner
 		entry['test/index'] = './src/test/index.ts';
 
-	// Add individual test files as separate entry points
+		// Add individual test files as separate entry points
 		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname });
 		testFiles.forEach(testFile => {
 			// Convert src/test/github/utils.test.ts -> test/github/utils.test
@@ -260,6 +263,9 @@ async function getExtensionConfig(target, mode, env) {
 			libraryTarget: 'commonjs2',
 			filename: '[name].js',
 			chunkFilename: 'feature-[name].js',
+			// Use absolute paths (file:///) in source maps for easier debugging of tests & sources
+			devtoolModuleFilenameTemplate: info => 'file:///' + info.absoluteResourcePath.replace(/\\/g, '/'),
+			devtoolFallbackModuleFilenameTemplate: 'file:///[absolute-resource-path]',
 		},
 		optimization: {
 			minimizer: [
