@@ -283,6 +283,11 @@
 					"default": "tree",
 					"description": "%githubPullRequests.fileListLayout.description%"
 				},
+				"githubPullRequests.hideViewedFiles": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.hideViewedFiles.description%"
+				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,
@@ -1077,6 +1082,12 @@
 				"command": "pr.setFileListLayoutAsFlat",
 				"title": "%command.pr.setFileListLayoutAsFlat.title%",
 				"icon": "$(list-flat)",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.toggleHideViewedFiles",
+				"title": "%command.pr.toggleHideViewedFiles.title%",
+				"icon": "$(eye-closed)",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2633,6 +2644,11 @@
 				{
 					"command": "pr.setFileListLayoutAsFlat",
 					"when": "view == prStatus:github && !fileListLayout:flat",
+					"group": "navigation1"
+				},
+				{
+					"command": "pr.toggleHideViewedFiles",
+					"when": "view == prStatus:github",
 					"group": "navigation1"
 				},
 				{

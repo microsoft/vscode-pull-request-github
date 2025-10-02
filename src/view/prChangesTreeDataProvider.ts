@@ -8,7 +8,7 @@ import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger, { PR_TREE } from '../common/logger';
-import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { FILE_LIST_LAYOUT, GIT, HIDE_VIEWED_FILES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { isDescendant } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -50,6 +50,12 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 				} else if (e.affectsConfiguration(`${GIT}.${OPEN_DIFF_ON_CLICK}`)) {
 					this._onDidChangeTreeData.fire();
+				} else if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${HIDE_VIEWED_FILES}`)) {
+					this._onDidChangeTreeData.fire();
+					const hideViewedFiles = vscode.workspace
+						.getConfiguration(PR_SETTINGS_NAMESPACE)
+						.get<boolean>(HIDE_VIEWED_FILES, false);
+					await vscode.commands.executeCommand('setContext', 'hideViewedFiles', hideViewedFiles);
 				}
 			}),
 		);
