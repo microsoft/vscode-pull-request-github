@@ -29,6 +29,7 @@ import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { TasksDashboardManager } from './github/tasksDashboard/tasksDashboardManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
@@ -236,7 +237,10 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
+	const tasksDashboard = new TasksDashboardManager(context, copilotRemoteAgentManager, reposManager, reviewsManager, telemetry);
+	context.subscriptions.push(tasksDashboard);
+
+	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager, tasksDashboard);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');

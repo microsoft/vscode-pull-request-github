@@ -94,3 +94,8 @@ export const CODING_AGENT = `${PR_SETTINGS_NAMESPACE}.codingAgent`;
 export const CODING_AGENT_ENABLED = 'enabled';
 export const CODING_AGENT_AUTO_COMMIT_AND_PUSH = 'autoCommitAndPush';
 export const CODING_AGENT_PROMPT_FOR_CONFIRMATION = 'promptForConfirmation';
+
+// Tasks Dashboard
+export const TASKS_DASHBOARD = `${PR_SETTINGS_NAMESPACE}.projectTasksDashboard`;
+export const TASKS_DASHBOARD_ENABLED = 'enabled';
+export const TASKS_DASHBOARD_ISSUE_QUERY = 'issueQuery';

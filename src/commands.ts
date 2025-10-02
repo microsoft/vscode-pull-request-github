@@ -32,6 +32,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { TasksDashboardManager } from './github/tasksDashboard/tasksDashboardManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
@@ -212,6 +213,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
+	tasksDashboard: TasksDashboardManager,
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -1060,6 +1062,12 @@ export function registerCommands(
 			}
 		}
 	));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.projectTasksDashboard.open', async () => {
+			tasksDashboard.showOrCreateDashboard();
+		})
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: RepositoryChangesNode) => {

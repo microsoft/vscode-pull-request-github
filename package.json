@@ -58,7 +58,8 @@
 		"onFileSystem:githubcommit",
 		"onFileSystem:review",
 		"onWebviewPanel:IssueOverview",
-		"onWebviewPanel:PullRequestOverview"
+		"onWebviewPanel:PullRequestOverview",
+		"onWebviewPanel:github-pull-request.projectTasksDashboard"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -793,6 +794,19 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubIssues.alwaysPromptForNewIssueRepo.description%"
+				},
+				"githubPullRequests.projectTasksDashboard.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%githubPullRequests.projectTasksDashboard.enabled.markdownDescription%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.projectTasksDashboard.issueQuery": {
+					"type": "string",
+					"default": "state:open assignee:@me ",
+					"description": "%githubPullRequests.projectTasksDashboard.issueQuery.description%"
 				}
 			}
 		},
@@ -1809,6 +1823,13 @@
 				"command": "pr.cancelCodingAgent",
 				"title": "%command.pr.cancelCodingAgent.title%",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.projectTasksDashboard.open",
+				"title": "%command.pr.projectTasksDashboard.open.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(dashboard)",
+				"when": "config.githubPullRequests.projectTasksDashboard.enabled"
 			}
 		],
 		"viewsWelcome": [
@@ -2980,11 +3001,6 @@
 					"command": "issue.chatSuggestFix",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "issues_1@1"
-				},
-				{
-					"command": "issue.assignToCodingAgent",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled",
-					"group": "issues_1@2"
 				},
 				{
 					"command": "issue.copyIssueNumber",
@@ -4294,6 +4310,7 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
+		"@monaco-editor/react": "^4.7.0",
 		"@octokit/rest": "22.0.0",
 		"@octokit/types": "14.1.0",
 		"@vscode/codicons": "^0.0.36",
@@ -4312,6 +4329,8 @@
 		"lru-cache": "6.0.0",
 		"markdown-it": "^14.1.0",
 		"marked": "^4.0.10",
+		"monaco-editor": "^0.53.0",
+		"monaco-editor-webpack-plugin": "^7.1.0",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
 		"ssh-config": "4.1.1",
