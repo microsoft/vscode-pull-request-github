@@ -11,6 +11,7 @@ import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
+import { BRANCH_LIST_TIMEOUT, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { PullRequestCommentController } from '../view/pullRequestCommentController';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
@@ -1194,6 +1195,7 @@ export class GitHubRepository extends Disposable {
 		const branches: string[] = [];
 		const defaultBranch = (await this.getMetadataForRepo(owner, repositoryName)).default_branch;
 		const startingTime = new Date().getTime();
+		const timeout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(BRANCH_LIST_TIMEOUT, 5000);
 
 		do {
 			try {
@@ -1208,8 +1210,8 @@ export class GitHubRepository extends Disposable {
 				});
 
 				branches.push(...data.repository.refs.nodes.map(node => node.name));
-				if (new Date().getTime() - startingTime > 5000) {
-					Logger.warn('List branches timeout hit.', this.id);
+				if (new Date().getTime() - startingTime > timeout) {
+					Logger.warn(`List branches timeout hit after ${timeout}ms.`, this.id);
 					break;
 				}
 				hasNextPage = data.repository.refs.pageInfo.hasNextPage;
