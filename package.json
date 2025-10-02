@@ -2201,6 +2201,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.toggleHideViewedFiles",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshChanges",
 					"when": "false"
 				},
