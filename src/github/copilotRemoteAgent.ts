@@ -96,7 +96,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				false,
 			);
 			if (result.state !== 'success') {
-				Logger.error(`Failed to provide new chat session item: ${result.error}${result.innerError ? `\n${result.innerError}` : ''}`, CopilotRemoteAgentManager.ID);
+				Logger.error(`Failed to provide new chat session item: ${result.error}${result.innerError ? `\nInner Error: ${result.innerError}` : ''}`, CopilotRemoteAgentManager.ID);
 				stream.warning(result.error);
 				return;
 			}
