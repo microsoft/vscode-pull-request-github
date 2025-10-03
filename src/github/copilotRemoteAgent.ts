@@ -72,25 +72,31 @@ export namespace SessionIdForPr {
 
 export class CopilotRemoteAgentManager extends Disposable {
 	async chatParticipantImpl(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) {
-		const startSession = async (prompt: string, history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>, source: string) => {
+		const startSession = async (prompt: string, history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>, source: string, chatSummary?: { prompt?: string; history?: string }) => {
 			/* __GDPR__
 				"copilot.remoteagent.editor.invoke" : {
 					"promptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"historyLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"hasPromptSummary" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"hasHistorySummary" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
+			const promptSummary = chatSummary?.prompt;
+			const historySummary = chatSummary?.history;
 			this.telemetry.sendTelemetryEvent('copilot.remoteagent.editor.invoke', {
 				promptLength: prompt.length.toString(),
 				historyLength: history?.length.toString(),
+				hasPromptSummary: String(!!promptSummary),
+				hasHistorySummary: String(!!historySummary),
 				source,
 			});
 			stream.progress(vscode.l10n.t('Delegating to coding agent'));
 			const result = await this.invokeRemoteAgent(
-				prompt,
+				promptSummary || prompt,
 				[
 					this.extractFileReferences(request.references),
-					await this.extractHistory(history)
+					historySummary || await this.extractHistory(history)
 				].join('\n\n').trim(),
 				token,
 				false,
@@ -171,7 +177,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			// TODO(jospicer): Use confirmations to guide users
 
-			const number = await startSession(request.prompt, context.history, 'chat'); // TODO(jospicer): 'All of the chat messages so far in the current chat session. Currently, only chat messages for the current participant are included'
+			const number = await startSession(request.prompt, context.history, 'chat', context.chatSummary); // TODO(jospicer): 'All of the chat messages so far in the current chat session. Currently, only chat messages for the current participant are included'
 			if (!number) {
 				return {};
 			}
