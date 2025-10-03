@@ -100,7 +100,7 @@ export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema)
 }
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: Uri; llmDetails: string; sessionId: string };
-type RemoteAgentErrorResult = { error: string; state: 'error' };
+type RemoteAgentErrorResult = { error: string; innerError?: string; state: 'error' };
 export type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
 export interface IAPISessionLogs {
