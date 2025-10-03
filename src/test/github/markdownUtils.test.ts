@@ -6,7 +6,6 @@
 import * as assert from 'assert';
 import * as marked from 'marked';
 import { PlainTextRenderer } from '../../github/markdownUtils';
-import { describe, it } from 'mocha';
 
 describe('PlainTextRenderer', () => {
 	it('should escape inline code by default', () => {

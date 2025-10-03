@@ -12,6 +12,7 @@ node_modules/**
 scripts/**
 src/**
 webviews/**
+**/test/**
 .eslintcache*
 .eslintignore
 .eslintrc*
