@@ -1100,13 +1100,10 @@ export class ReviewManager extends Disposable {
 			if (hasChanges) {
 				try {
 					Logger.appendLine('Auto-stashing changes before PR checkout', this.id);
-					// Add all tracked changes to staging area
-					const allChangedFiles = [
-						...workingTreeChanges.map(change => change.uri.fsPath),
-						...indexChanges.map(change => change.uri.fsPath),
-					];
-					if (allChangedFiles.length > 0) {
-						await this._repository.add(allChangedFiles);
+					// Add only working tree changes to staging area (indexChanges are already staged)
+					if (workingTreeChanges.length > 0) {
+						const workingTreeFiles = workingTreeChanges.map(change => change.uri.fsPath);
+						await this._repository.add(workingTreeFiles);
 					}
 					// Stash the changes
 					await vscode.commands.executeCommand('git.stash', this._repository);

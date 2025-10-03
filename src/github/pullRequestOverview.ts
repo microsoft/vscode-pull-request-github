@@ -652,8 +652,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
-			const shouldPopStash = this._folderRepositoryManager.stashedOnCheckout;
 			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
+			// Check if we should pop the stash after successful checkout
+			const shouldPopStash = this._folderRepositoryManager.stashedOnCheckout;
 			if (shouldPopStash) {
 				try {
 					Logger.appendLine('Popping stash after returning to default branch', PullRequestOverviewPanel.ID);

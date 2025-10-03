@@ -131,8 +131,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		try {
 			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
-			const shouldPopStash = this._folderRepositoryManager.stashedOnCheckout;
 			await this._folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+			// Check if we should pop the stash after successful checkout
+			const shouldPopStash = this._folderRepositoryManager.stashedOnCheckout;
 			if (shouldPopStash) {
 				try {
 					Logger.appendLine('Popping stash after returning to default branch', 'ActivityBarViewProvider');
