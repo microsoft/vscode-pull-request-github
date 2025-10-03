@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as buffer from 'buffer';
-import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
@@ -172,6 +172,7 @@ export class GitHubRepository extends Disposable {
 	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
+	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -277,7 +278,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables?: OperationVariables }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -291,24 +292,33 @@ export class GitHubRepository extends Disposable {
 		}
 
 		let rsp;
+		const wasLimited = this._areQueriesLimited;
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
 			const logInfo = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
 			const gqlErrors = e.graphQLErrors ? e.graphQLErrors as GraphQLError[] : undefined;
 			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
+
+			const retry = async (originalQuery: QueryOptions) => {
+				originalQuery.query = this.schema[(originalQuery.query.definitions[0] as { name: { value: string } }).name.value];
+				return gql.query<T>(originalQuery);
+			};
+
 			if (legacyFallback) {
-				query.query = legacyFallback.query;
-				return this.query(query, ignoreSamlErrors);
+				return retry({ query: legacyFallback.query, variables: legacyFallback.variables ?? query.variables });
 			}
 
-			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
-				// We're running against a GitHub server that doesn't support the query we're trying to run.
-				// Switch to the limited schema and try again.
-				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
-				query.query = this.schema[(query.query.definitions[0] as { name: { value: string } }).name.value];
-				rsp = await gql.query<T>(query);
+			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => ((error.extensions?.code === 'undefinedField') || (error.extensions?.code === 'variableRequiresValidType'))))) {
+				if (!this._areQueriesLimited) {
+					// We're running against a GitHub server that doesn't support the query we're trying to run.
+					// Switch to the limited schema and try again.
+					this._areQueriesLimited = true;
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+					rsp = await retry(query);
+				} else if (this._areQueriesLimited && !wasLimited) {
+					rsp = await retry(query);
+				}
 			} else if (ignoreSamlErrors && isSamlError(e)) {
 				// Some queries just result in SAML errors.
 			} else if ((e.message as string | undefined)?.includes('401 Unauthorized')) {
@@ -1330,6 +1340,14 @@ export class GitHubRepository extends Disposable {
 							first: 100,
 							after: after,
 						},
+					}, false, {
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after,
+						}
 					});
 
 				} else {
