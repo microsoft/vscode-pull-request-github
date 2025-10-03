@@ -652,7 +652,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
+			const shouldPopStash = this._folderRepositoryManager.stashedOnCheckout;
 			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
+			if (shouldPopStash) {
+				try {
+					Logger.appendLine('Popping stash after returning to default branch', PullRequestOverviewPanel.ID);
+					await vscode.commands.executeCommand('git.stashPop', this._folderRepositoryManager.repository);
+					this._folderRepositoryManager.stashedOnCheckout = false;
+					Logger.appendLine('Stash popped successfully', PullRequestOverviewPanel.ID);
+				} catch (popError) {
+					Logger.error(`Failed to pop stash: ${formatError(popError)}`, PullRequestOverviewPanel.ID);
+					vscode.window.showWarningMessage(vscode.l10n.t('Failed to restore stashed changes: {0}', formatError(popError)));
+				}
+			}
 			if (prBranch) {
 				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
 			}

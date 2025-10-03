@@ -8,6 +8,7 @@ import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
@@ -130,7 +131,19 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		try {
 			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
+			const shouldPopStash = this._folderRepositoryManager.stashedOnCheckout;
 			await this._folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+			if (shouldPopStash) {
+				try {
+					Logger.appendLine('Popping stash after returning to default branch', 'ActivityBarViewProvider');
+					await vscode.commands.executeCommand('git.stashPop', this._folderRepositoryManager.repository);
+					this._folderRepositoryManager.stashedOnCheckout = false;
+					Logger.appendLine('Stash popped successfully', 'ActivityBarViewProvider');
+				} catch (popError) {
+					Logger.error(`Failed to pop stash: ${formatError(popError)}`, 'ActivityBarViewProvider');
+					vscode.window.showWarningMessage(vscode.l10n.t('Failed to restore stashed changes: {0}', formatError(popError)));
+				}
+			}
 			if (prBranch) {
 				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
 			}
