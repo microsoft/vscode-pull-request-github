@@ -17,7 +17,7 @@ export class GitOperationsManager {
 		const config = vscode.workspace.getConfiguration('git');
 		const branchWhitespaceChar = config.get<string>('branchWhitespaceChar')!;
 
-		const asyncBranch = await this.generateRandomBranchName(repository, branchWhitespaceChar);
+		const asyncBranch = await this.generateRandomBranchName(repository, 'copilot', branchWhitespaceChar);
 
 		try {
 			await repository.createBranch(asyncBranch, true);
@@ -143,8 +143,8 @@ export class GitOperationsManager {
 		}
 	}
 
-	// Taken from https://github.com/microsoft/vscode/blob/e35e3b4e057450ea3d90c724fae5e3e9619b96fe/extensions/git/src/commands.ts#L3007
-	private async generateRandomBranchName(repository: Repository, separator: string): Promise<string> {
+	// Adapted from https://github.com/microsoft/vscode/blob/e35e3b4e057450ea3d90c724fae5e3e9619b96fe/extensions/git/src/commands.ts#L3007
+	private async generateRandomBranchName(repository: Repository, prefix: string, separator: string): Promise<string> {
 		const config = vscode.workspace.getConfiguration('git');
 		const branchRandomNameDictionary = config.get<string[]>('branchRandomName.dictionary')!;
 
@@ -170,7 +170,7 @@ export class GitOperationsManager {
 
 		// 5 attempts to generate a random branch name
 		for (let index = 0; index < 5; index++) {
-			const randomName = uniqueNamesGenerator({
+			const randomName = prefix + '/' + uniqueNamesGenerator({
 				dictionaries,
 				length: dictionaries.length,
 				separator
