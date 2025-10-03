@@ -703,6 +703,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 			throw error;
 		}
 
+		// Check if user has permission to assign Copilot in repository
+		if (!(await this.isAssignable())) {
+			return {
+				error: vscode.l10n.t(
+					'Unable to assign GitHub Copilot coding agent in {0}. Please check your permissions and try again.',
+					`\`${owner}/${repo}\``
+				),
+				state: 'error',
+			};
+		}
+
 		// NOTE: This is as unobtrusive as possible with the current high-level APIs.
 		// We only create a new branch and commit if there are staged or working changes.
 		// This could be improved if we add lower-level APIs to our git extension (e.g. in-memory temp git index).
