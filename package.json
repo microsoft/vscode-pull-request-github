@@ -4314,6 +4314,7 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
+		"@joaomoreno/unique-names-generator": "^5.2.0",
 		"@octokit/rest": "22.0.0",
 		"@octokit/types": "14.1.0",
 		"@vscode/codicons": "^0.0.36",
