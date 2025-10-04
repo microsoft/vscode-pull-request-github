@@ -209,6 +209,12 @@ export class FolderRepositoryManager extends Disposable {
 	private _onDidChangeRepositories = this._register(new vscode.EventEmitter<{ added: boolean }>());
 	readonly onDidChangeRepositories: vscode.Event<{ added: boolean }> = this._onDidChangeRepositories.event;
 
+	/**
+	 * Tracks whether changes were stashed when checking out the current PR.
+	 * Used to determine if we should pop the stash when returning to the default branch.
+	 */
+	private _stashedOnCheckout: boolean = false;
+
 	private _onDidChangeAssignableUsers = this._register(new vscode.EventEmitter<IAccount[]>());
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
@@ -376,6 +382,14 @@ export class FolderRepositoryManager extends Disposable {
 
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire({ old: oldPR, new: pullRequest });
+	}
+
+	get stashedOnCheckout(): boolean {
+		return this._stashedOnCheckout;
+	}
+
+	set stashedOnCheckout(value: boolean) {
+		this._stashedOnCheckout = value;
 	}
 
 	get repository(): Repository {
