@@ -11,12 +11,12 @@ import { USE_BRANCH_FOR_ISSUES, ISSUES_SETTINGS_NAMESPACE } from '../../common/s
 
 // Mock classes for testing
 class MockFolderRepositoryManager {
-	constructor(public repository: { rootUri: vscode.Uri }) {}
+	constructor(public repository: { rootUri: vscode.Uri }) { }
 }
 
 class MockSingleRepoState {
 	currentIssue?: MockCurrentIssue;
-	constructor(public folderManager: MockFolderRepositoryManager) {}
+	constructor(public folderManager: MockFolderRepositoryManager) { }
 }
 
 class MockCurrentIssue {

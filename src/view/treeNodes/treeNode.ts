@@ -39,6 +39,7 @@ export abstract class TreeNode extends Disposable {
 		if (this._children && this._children.length) {
 			return this._children;
 		}
+		return undefined;
 	}
 
 	async reveal(

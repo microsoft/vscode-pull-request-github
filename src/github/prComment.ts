@@ -332,6 +332,7 @@ export class GHPRComment extends CommentBase {
 		if (match) {
 			return suggestionBody ? suggestionBody : '';
 		}
+		return undefined;
 	}
 
 	public commentEditId() {

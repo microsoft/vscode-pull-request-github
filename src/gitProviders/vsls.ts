@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+// eslint-disable-next-line import/extensions
 import { LiveShare } from 'vsls/vscode.js';
 import { API } from '../api/api';
 import { Disposable, disposeAll } from '../common/lifecycle';
