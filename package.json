@@ -175,6 +175,12 @@
 					"description": "%githubPullRequests.logLevel.description%",
 					"markdownDeprecationMessage": "%githubPullRequests.logLevel.markdownDeprecationMessage%"
 				},
+				"githubPullRequests.branchListTimeout": {
+					"type": "number",
+					"default": 5000,
+					"minimum": 1000,
+					"markdownDescription": "%githubPullRequests.branchListTimeout.description%"
+				},
 				"githubPullRequests.remotes": {
 					"type": "array",
 					"default": [
