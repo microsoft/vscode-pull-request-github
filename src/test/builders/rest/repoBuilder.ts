@@ -16,7 +16,7 @@ type License = RepoUnion['license'];
 type Permissions = RepoUnion['permissions'];
 type CodeOfConduct = RepoUnion['code_of_conduct'];
 
-export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
+export const RepositoryBuilder = createBuilderClass<NonNullable<RepoUnion>>()({
 	id: { default: 0 },
 	node_id: { default: 'node0' },
 	name: { default: 'reponame' },
@@ -123,9 +123,9 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 		name: { default: 'name' },
 		url: { default: 'https://github.com/octocat/reponame' },
 	}),
-	forks: { default: null },
-	open_issues: { default: null },
-	watchers: { default: null },
+	forks: { default: 0 },
+	open_issues: { default: 0 },
+	watchers: { default: 0 },
 });
 
 export type RepositoryBuilder = InstanceType<typeof RepositoryBuilder>;
