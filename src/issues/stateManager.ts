@@ -343,7 +343,7 @@ export class StateManager {
 
 	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
-			const issues = await folderManager.getIssues(query);
+			const issues = await folderManager.getIssues(query, { fetchNextPage: false, fetchOnePagePerRepo: true });
 			this._onDidChangeIssueData.fire();
 			resolve(
 				issues?.items.map(item => {
