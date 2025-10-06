@@ -24,7 +24,7 @@ export interface IQueryInfo {
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	protected override _children: CategoryTreeNode[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: { light: vscode.Uri; dark: vscode.Uri };
 
 	constructor(
 		parent: TreeNodeParent,
@@ -81,16 +81,18 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		prsTreeModel: PrsTreeModel,
 		copilotManager: CopilotRemoteAgentManager
 	) {
-		const queryCategories = (await WorkspaceFolderNode.getQueries(folderManager)).map(
-			queryInfo => {
-				if (isLocalQuery(queryInfo)) {
-					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel, copilotManager);
-				} else if (isAllQuery(queryInfo)) {
-					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel, copilotManager);
-				}
-				return new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, copilotManager, queryInfo.label, queryInfo.query);
+		const queries = await WorkspaceFolderNode.getQueries(folderManager);
+		const queryCategories: Map<string, CategoryTreeNode> = new Map();
+		for (const queryInfo of queries) {
+			if (isLocalQuery(queryInfo)) {
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel, copilotManager));
+			} else if (isAllQuery(queryInfo)) {
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel, copilotManager));
+			} else {
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, copilotManager, queryInfo.label, queryInfo.query));
 			}
-		);
-		return queryCategories;
+		}
+
+		return Array.from(queryCategories.values());
 	}
 }

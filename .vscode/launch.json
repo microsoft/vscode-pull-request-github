@@ -102,12 +102,11 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Attach Web Test",
-			"program": "${workspaceFolder}/node_modules/vscode-test-web/out/index.js",
+			"program": "${workspaceFolder}/node_modules/@vscode/test-web/out/server/index.js",
 			"args": [
 				"--extensionTestsPath=dist/browser/test/index.js",
 				"--extensionDevelopmentPath=.",
 				"--browserType=chromium",
-				"--attach=9229"
 			],
 			"cascadeTerminateToConfigurations": [
 				"Launch Web Test"

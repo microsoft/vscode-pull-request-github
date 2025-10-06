@@ -200,7 +200,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	return (
 		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
+			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch} />
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 		</div>
@@ -209,7 +209,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
 	const [busy, setBusy] = useState(false);
 

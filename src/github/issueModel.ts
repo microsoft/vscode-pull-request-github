@@ -8,6 +8,7 @@ import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { compareIgnoreCase, formatError } from '../common/utils';
 import { OctokitCommon } from './common';
@@ -22,18 +23,19 @@ import {
 	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason } from './interface';
 import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
 
 export interface IssueChangeEvent {
 	title?: true;
 	body?: true;
 	milestone?: true;
-	updatedAt?: true;
+	// updatedAt?: true;
 	state?: true;
 	labels?: true;
 	assignees?: true;
 	projects?: true;
+	comments?: true;
 
 	timeline?: true;
 
@@ -50,12 +52,14 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	public titleHTML: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
+	public stateReason?: StateReason;
 	public author: IAccount;
 	public assignees?: IAccount[];
 	public createdAt: string;
 	public updatedAt: string;
 	public milestone?: IMilestone;
 	public readonly githubRepository: GitHubRepository;
+	protected readonly _telemetry: ITelemetry;
 	public readonly remote: Remote;
 	public item: TItem;
 	public body: string;
@@ -66,8 +70,9 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
 	public onDidChange = this._onDidChange.event;
 
-	constructor(githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
+	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
 		super();
+		this._telemetry = telemetry;
 		this.githubRepository = githubRepository;
 		this.remote = remote;
 		this.item = item;
@@ -152,25 +157,28 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		if (issue.titleHTML && this.titleHTML !== issue.titleHTML) {
 			this.titleHTML = issue.titleHTML;
 		}
+		if ((!this.bodyHTML || (issue.body !== this.body)) && this.bodyHTML !== issue.bodyHTML) {
+			this.bodyHTML = issue.bodyHTML;
+		}
 		if (this.body !== issue.body) {
 			changes.body = true;
 			this.body = issue.body;
-		}
-		if ((!this.bodyHTML || (issue.body !== this.body)) && this.bodyHTML !== issue.bodyHTML) {
-			this.bodyHTML = issue.bodyHTML;
 		}
 		if (this.milestone?.id !== issue.milestone?.id) {
 			changes.milestone = true;
 			this.milestone = issue.milestone;
 		}
 		if (this.updatedAt !== issue.updatedAt) {
-			changes.updatedAt = true;
 			this.updatedAt = issue.updatedAt;
 		}
 		const newState = this.stateToStateEnum(issue.state);
 		if (this.state !== newState) {
 			changes.state = true;
 			this.state = newState;
+		}
+		if ((this.stateReason !== issue.stateReason) && issue.stateReason) {
+			changes.state = true;
+			this.stateReason = issue.stateReason;
 		}
 		if (issue.assignees && (issue.assignees.length !== (this.assignees?.length ?? 0) || issue.assignees.some(assignee => this.assignees?.every(a => a.id !== assignee.id)))) {
 			changes.assignees = true;
@@ -528,12 +536,9 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
 					allEvents = [...issueModel.timelineEvents, ...newEvents];
 				}
-				const oldTimeline = issueModel.timelineEvents;
 				issueModel.timelineEvents = allEvents;
-				if (oldLastEvent && (allEvents.length !== oldTimeline.length)) {
-					this._onDidChange.fire({ timeline: true });
-				}
 			}
+			Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - exit`, GitHubRepository.ID);
 			return timelineEvents;
 		} catch (e) {
 			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);
@@ -583,6 +588,15 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 
 		try {
 			if (schema.ReplaceActorsForAssignable) {
+				const assignToCopilot = allAssignees.find(assignee => COPILOT_ACCOUNTS[assignee.login]);
+				const alreadyHasCopilot = this.assignees?.find(assignee => COPILOT_ACCOUNTS[assignee.login]) !== undefined;
+				if (assignToCopilot && !alreadyHasCopilot) {
+					/* __GDPR__
+						"pr.assignCopilot" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('pr.assignCopilot');
+				}
+
 				const assigneeIds = allAssignees.map(assignee => assignee.id);
 				await mutate({
 					mutation: schema.ReplaceActorsForAssignable,

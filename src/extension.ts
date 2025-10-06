@@ -10,20 +10,24 @@ import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
+import { COPILOT_SWE_AGENT } from './common/copilot';
 import { commands } from './common/executeCommands';
+import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
+import { isDescendant } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
@@ -39,13 +43,13 @@ import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
+import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PRNotificationDecorationProvider } from './view/prNotificationDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
-import { SessionLogViewManager } from './view/sessionLogView';
 import { TreeDecorationProviders } from './view/treeDecorationProviders';
 import { WebviewViewCoordinator } from './view/webviewViewCoordinator';
 
@@ -182,6 +186,14 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`, ACTIVATION);
 				return;
 			}
+
+			// Check if submodules should be ignored
+			const ignoreSubmodules = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(IGNORE_SUBMODULES, false);
+			if (ignoreSubmodules && isSubmodule(repo, git)) {
+				Logger.appendLine(`Repo ${repo.rootUri} is a submodule and will be ignored due to ${IGNORE_SUBMODULES} setting.`, ACTIVATION);
+				return;
+			}
+
 			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper, themeWatcher);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
@@ -198,6 +210,12 @@ async function init(
 				git
 			);
 			reviewsManager.addReviewManager(newReviewManager);
+		}
+
+		// Check if repo is in one of the workspace folders
+		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath))) {
+			Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
+			return;
 		}
 		addRepo();
 		tree.notificationProvider.refreshOrLaunchPolling();
@@ -223,17 +241,16 @@ async function init(
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry);
+	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, copilotRemoteAgentManager);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
+	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, context);
 	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context, reposManager, telemetry, copilotRemoteAgentManager);
-	context.subscriptions.push(sessionLogViewManager);
+	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context.extensionUri, credentialStore));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
@@ -388,8 +405,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const experimentationService = await createExperimentationService(context, telemetry);
 	await experimentationService.initializePromise;
 	await experimentationService.isCachedFlightEnabled('githubaa');
-	const showBadge = (vscode.env.appHost === 'desktop');
-	await credentialStore.create(showBadge ? undefined : { silent: true });
+	await credentialStore.create();
 
 	const reposManager = new RepositoriesManager(credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
@@ -408,12 +424,42 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	Logger.debug('Creating tree view.', 'Activation');
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, apiImpl);
 	context.subscriptions.push(copilotRemoteAgentManager);
+	if (vscode.chat?.registerChatSessionItemProvider) {
+		const chatParticipant = vscode.chat.createChatParticipant(COPILOT_SWE_AGENT, async (request, context, stream, token) =>
+			await copilotRemoteAgentManager.chatParticipantImpl(request, context, stream, token)
+		);
+		context.subscriptions.push(chatParticipant);
+
+		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
+			label = vscode.l10n.t('GitHub Copilot Coding Agent');
+			provideChatSessionItems = async (token) => {
+				return await copilotRemoteAgentManager.provideChatSessions(token);
+			};
+			provideChatSessionContent = async (id, token) => {
+				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
+			};
+			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
+			onDidCommitChatSessionItem = copilotRemoteAgentManager.onDidCommitChatSession;
+		}();
+
+		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
+			COPILOT_SWE_AGENT,
+			provider
+		));
+
+		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
+			COPILOT_SWE_AGENT,
+			provider,
+			chatParticipant,
+			{ supportsInterruptions: true }
+		));
+	}
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);
-	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refresh(undefined, true)));
+	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refreshAll(true)));
 	Logger.appendLine('Looking for git repository', ACTIVATION);
 	const repositories = apiImpl.repositories;
 	Logger.appendLine(`Found ${repositories.length} repositories during activation`, ACTIVATION);
@@ -436,6 +482,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
+	const githubFilesystemProvider = new GitHubCommitFileSystemProvider(reposManager, apiImpl, credentialStore);
+	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher);
 	return apiImpl;

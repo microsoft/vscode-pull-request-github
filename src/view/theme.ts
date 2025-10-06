@@ -20,8 +20,10 @@ export async function loadCurrentThemeData(): Promise<ThemeData> {
 
 export interface ThemeData {
 	type: string,
-	colors: { [key: string]: string }
+	colors?: { [key: string]: string }
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	tokenColors: any[],
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	semanticTokenColors: any[]
 }
 
@@ -71,18 +73,18 @@ function getCurrentThemePaths(themeName: string): vscode.Uri | undefined {
 	}
 }
 
-export function getIconForeground(themeData: ThemeData, kind: 'light' | 'dark'): string {
-	return themeData.colors['icon.foreground'] ?? (kind === 'dark' ? '#C5C5C5' : '#424242');
+export function getIconForeground(themeData: ThemeData | undefined, kind: 'light' | 'dark'): string {
+	return themeData?.colors?.['icon.foreground'] ?? (kind === 'dark' ? '#C5C5C5' : '#424242');
 }
 
-export function getListWarningForeground(themeData: ThemeData, kind: 'light' | 'dark'): string {
-	return themeData.colors['list.warningForeground'] ?? (kind === 'dark' ? '#CCA700' : '#855F00');
+export function getListWarningForeground(themeData: ThemeData | undefined, kind: 'light' | 'dark'): string {
+	return themeData?.colors?.['list.warningForeground'] ?? (kind === 'dark' ? '#CCA700' : '#855F00');
 }
 
-export function getListErrorForeground(themeData: ThemeData, kind: 'light' | 'dark'): string {
-	return themeData.colors['list.errorForeground'] ?? (kind === 'dark' ? '#F88070' : '#B01011');
+export function getListErrorForeground(themeData: ThemeData | undefined, kind: 'light' | 'dark'): string {
+	return themeData?.colors?.['list.errorForeground'] ?? (kind === 'dark' ? '#F88070' : '#B01011');
 }
 
-export function getNotebookStatusSuccessIconForeground(themeData: ThemeData, kind: 'light' | 'dark'): string {
-	return themeData.colors['notebookStatusSuccessIcon.foreground'] ?? (kind === 'dark' ? '#89D185' : '#388A34');
+export function getNotebookStatusSuccessIconForeground(themeData: ThemeData | undefined, kind: 'light' | 'dark'): string {
+	return themeData?.colors?.['notebookStatusSuccessIcon.foreground'] ?? (kind === 'dark' ? '#89D185' : '#388A34');
 }

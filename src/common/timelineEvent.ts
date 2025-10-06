@@ -165,6 +165,7 @@ export interface SessionPullInfo {
 
 export interface SessionLinkInfo extends SessionPullInfo {
 	sessionIndex: number;
+	openToTheSide?: boolean;
 }
 
 export interface CopilotStartedEvent {
@@ -172,7 +173,7 @@ export interface CopilotStartedEvent {
 	event: EventType.CopilotStarted;
 	createdAt: string;
 	onBehalfOf: IAccount;
-	sessionLink?: SessionLinkInfo;
+	sessionLink: SessionLinkInfo;
 }
 
 export interface CopilotFinishedEvent {

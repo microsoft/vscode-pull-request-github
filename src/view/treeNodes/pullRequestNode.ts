@@ -5,11 +5,13 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
+import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { NotificationProvider } from '../../github/notifications';
@@ -48,16 +50,12 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
-		private _notificationProvider: NotificationProvider
+		private _notificationProvider: NotificationProvider,
+		private _codingAgentManager: CopilotRemoteAgentManager,
 	) {
 		super(parent);
 		this.registerSinceReviewChange();
 		this.registerConfigurationChange();
-		this._register(this.pullRequestModel.onDidChange((e) => {
-			if (e.title || e.state) {
-				this.refresh(this);
-			}
-		}));
 		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
 			if (e.new?.number === this.pullRequestModel.number || e.old?.number === this.pullRequestModel.number) {
 				this.refresh(this);
@@ -269,10 +267,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
-	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus(this.pullRequestModel);
 		const theme = this._folderReposManager.themeWatcher.themeData;
-		if (!theme || copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
+		if (copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
 			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
 				?? new vscode.ThemeIcon('github');
 		}
@@ -302,7 +300,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
-		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
+		let labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
+		if (COPILOT_ACCOUNTS[this.pullRequestModel.author.login]) {
+			labelTitle = labelTitle.replace('[WIP]', '');
+		}
 		const login = author.specialDisplayName ?? author.login;
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);

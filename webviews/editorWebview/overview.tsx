@@ -9,7 +9,7 @@ import { PullRequest } from '../../src/github/views';
 import { AddComment, CommentView } from '../components/comment';
 import { Header } from '../components/header';
 import { StatusChecksSection } from '../components/merge';
-import Sidebar from '../components/sidebar';
+import Sidebar, { CollapsibleSidebar } from '../components/sidebar';
 import { Timeline } from '../components/timeline';
 
 const useMediaQuery = (query: string) => {
@@ -30,7 +30,7 @@ const useMediaQuery = (query: string) => {
 };
 
 export const Overview = (pr: PullRequest) => {
-	const isSingleColumnLayout = useMediaQuery('(max-width: 925px)');
+	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 
 	return <>
 		<div id="title" className="title">
@@ -40,7 +40,7 @@ export const Overview = (pr: PullRequest) => {
 		</div>
 		{isSingleColumnLayout ?
 			<>
-				<Sidebar {...pr} />
+				<CollapsibleSidebar {...pr}/>
 				<Main {...pr} />
 			</>
 			:

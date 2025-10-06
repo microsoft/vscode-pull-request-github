@@ -44,6 +44,7 @@ describe('GitHub Pull Requests view', function () {
 	let createPrHelper: CreatePullRequestHelper;
 	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
+	let gitAPI: GitApiImpl;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -58,7 +59,8 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 		);
 		credentialStore = new CredentialStore(telemetry, context);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
+		gitAPI = new GitApiImpl(reposManager);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI);
 		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
 		createPrHelper = new CreatePullRequestHelper();
 
@@ -72,7 +74,7 @@ describe('GitHub Pull Requests view', function () {
 					userAgent: 'GitHub VSCode Pull Requests',
 					previews: ['shadow-cat-preview'],
 				}), new RateLogger(telemetry, true)),
-				graphql: null,
+				graphql: {} as any,
 			};
 
 			return github;
@@ -116,7 +118,9 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
+		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
+		reposManager.insertFolderManager(folderManager);
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await reposManager.folderManagers[0].updateRepositories();
 		provider.initialize([], credentialStore);
@@ -156,7 +160,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem0 = await parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
+			const prItem0 = await parseGraphQLPullRequest(pr0.repository!.pullRequest, gitHubRepository);
 			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
@@ -173,7 +177,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem1 = await parseGraphQLPullRequest(pr1.repository.pullRequest, gitHubRepository);
+			const prItem1 = await parseGraphQLPullRequest(pr1.repository!.pullRequest, gitHubRepository);
 			const pullRequest1 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();

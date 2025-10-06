@@ -124,7 +124,7 @@ You are an expert on choosing search keywords based on a natural language search
 - Only choose labels that you're sure are relevant. Having no labels is preferable than lables that aren't relevant.
 - Don't choose labels that the user has explicitly excluded.
 - Respond with label names chosen from this JSON array of options:
-${JSON.stringify(labels.filter(label => !label.name.includes('required') && !label.name.includes('search') && !label.name.includes('question') && !label.name.includes('find')).map(label => ({ name: label.name, description: label.description })))}
+${JSON.stringify(labels.filter(label => !label.name.includes('required') && !label.name.includes('search') && !label.name.includes('question') && !label.name.includes('find') && !label.name.includes('issue')).map(label => ({ name: label.name, description: label.description })))}
 `;
 	}
 

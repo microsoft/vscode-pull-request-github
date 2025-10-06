@@ -8,33 +8,45 @@ import * as vscode from 'vscode';
 import { COPILOT_LOGINS } from '../../common/copilot';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
+import { CommentEvent, EventType, ReviewEvent } from '../../common/timelineEvent';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { FetchIssueResult } from './fetchIssueTool';
 
-export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
-	public static readonly toolId = 'github-pull-request_activePullRequest';
+export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	constructor(
-		private readonly folderManagers: RepositoriesManager,
+		protected readonly folderManagers: RepositoriesManager,
 		private readonly copilotRemoteAgentManager: CopilotRemoteAgentManager
 	) { }
 
-	private _findActivePullRequest(): PullRequestModel | undefined {
-		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
-		return folderManager?.activePullRequest ?? PullRequestOverviewPanel.currentPanel?.getCurrentItem();
-	}
+	protected abstract _findActivePullRequest(): PullRequestModel | undefined;
+
+	protected abstract _confirmationTitle(): string;
 
 	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
-		return !!pullRequest && this.copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequest.author.login);
+		return !!pullRequest && this.copilotRemoteAgentManager.enabled && COPILOT_LOGINS.includes(pullRequest.author.login);
 	}
 
+	private _getPullRequestLabel(pullRequest: PullRequestModel): string {
+		return `${pullRequest.title} (#${pullRequest.number})`;
+	}
 
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
+		if (!pullRequest) {
+			return {
+				pastTenseMessage: vscode.l10n.t('No active pull request'),
+				invocationMessage: vscode.l10n.t('Reading active pull request'),
+				confirmationMessages: { title: this._confirmationTitle(), message: vscode.l10n.t('Allow reading the details of the active pull request?') },
+			};
+		}
+
+		const label = this._getPullRequestLabel(pullRequest);
 		return {
-			invocationMessage: pullRequest ? vscode.l10n.t('Pull request "{0}"', pullRequest.title) : vscode.l10n.t('Active pull request'),
+			pastTenseMessage: vscode.l10n.t('Read pull request "{0}"', label),
+			invocationMessage: vscode.l10n.t('Reading pull request "{0}"', label),
+			confirmationMessages: { title: this._confirmationTitle(), message: vscode.l10n.t('Allow reading the details of "{0}"?', label) },
 		};
 	}
 
@@ -90,7 +102,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	): Promise<string | string[]> {
 		let copilotSteps: string | string[] = [];
 		try {
-			const logs = await this.copilotRemoteAgentManager.getSessionLogFromPullRequest(pullRequest.id);
+			const logs = await this.copilotRemoteAgentManager.getSessionLogFromPullRequest(pullRequest);
 			if (!logs) {
 				throw new Error('Could not get session logs');
 			}
@@ -107,7 +119,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		return copilotSteps;
 	}
 
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, token: vscode.CancellationToken): Promise<vscode.ExtendedLanguageModelToolResult | undefined> {
 		let pullRequest = this._findActivePullRequest();
 
 		if (!pullRequest) {
@@ -120,6 +132,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		}
 
 		const status = await pullRequest.getStatusChecks();
+		const timeline = pullRequest.timelineEvents.length > 0 ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
 		const pullRequestInfo = {
 			title: pullRequest.title,
 			body: pullRequest.body,
@@ -131,6 +144,13 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 					body: comment.body,
 					commentState: comment.isResolved ? 'resolved' : 'unresolved',
 					file: comment.path
+				};
+			}),
+			timelineComments: timeline.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented).map(event => {
+				return {
+					author: event.user?.login,
+					body: event.body,
+					commentType: event.event === EventType.Reviewed ? event.state : 'COMMENTED',
 				};
 			}),
 			state: pullRequest.state,
@@ -148,7 +168,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 				currentApprovals: status[1]?.approvals.length ?? 0,
 				areChangesRequested: (status[1]?.requestedChanges.length ?? 0) > 0,
 			},
-			isDraft: pullRequest.isDraft,
+			isDraft: pullRequest.isDraft ? 'is a draft and cannot be merged until marked as ready for review' : 'false',
 			codingAgentSession,
 			changes: (await pullRequest.getFileChangesInfo()).map(change => {
 				if (change instanceof InMemFileChange) {
@@ -159,8 +179,22 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 			})
 		};
 
-		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);
-
+		const result = new vscode.ExtendedLanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);
+		result.toolResultDetails = [vscode.Uri.parse(pullRequest.html_url)];
+		return result;
 	}
 
+}
+
+export class ActivePullRequestTool extends PullRequestTool {
+	public static readonly toolId = 'github-pull-request_activePullRequest';
+
+	protected _findActivePullRequest(): PullRequestModel | undefined {
+		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
+		return folderManager?.activePullRequest;
+	}
+
+	protected _confirmationTitle(): string {
+		return vscode.l10n.t('Active Pull Request');
+	}
 }

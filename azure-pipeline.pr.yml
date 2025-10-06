@@ -9,6 +9,12 @@ jobs:
       - script: yarn run compile
         displayName: Compile
 
+      - script: npm run hygiene
+        displayName: Run hygiene checks
+
+      - script: npm run lint
+        displayName: Run lint
+
       - script: yarn run test
         displayName: Run test suite
         env:

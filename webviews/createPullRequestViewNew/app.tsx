@@ -5,8 +5,9 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParamsNew, RemoteInfo } from '../../common/views';
-import { isTeam, MergeMethod } from '../../src/github/interface';
+import { RemoteInfo } from '../../common/types';
+import { CreateParamsNew } from '../../common/views';
+import { isITeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
@@ -219,6 +220,7 @@ export function main() {
 						</div>
 					</div>
 
+					<label htmlFor='title' className='input-title'>Title</label>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -230,7 +232,6 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
-							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -275,7 +276,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isTeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
+												{isITeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
 											</span>
 										</li>)}
 								</ul>
@@ -324,12 +325,12 @@ export function main() {
 							: null}
 					</div>
 
+					<label htmlFor='description' className='input-title'>Description</label>
 					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
-							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
@@ -359,6 +360,7 @@ export function main() {
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
+							spreadable={true}
 						/>
 
 					</div>
@@ -369,7 +371,9 @@ export function main() {
 	);
 }
 
-export function Root({ children }) {
+interface RootProps { children: (params: CreateParamsNew) => JSX.Element }
+
+export function Root({ children }: RootProps): JSX.Element {
 	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
@@ -377,5 +381,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return children(pr);
+	return <>{children(pr)}</>;
 }

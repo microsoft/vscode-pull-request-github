@@ -130,7 +130,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
-		const completionItems: Map<string, IssueCompletionItem> = new Map();
+		const completionItems: IssueCompletionItem[] = [];
+		const seenIssues: Set<string> = new Set();
 		let repo: PullRequestDefaults | undefined;
 		let uri: vscode.Uri | undefined;
 		if (document.languageId === 'scminput') {
@@ -161,7 +162,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			// leave repo undefined
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
+		let sortNumber = 0;
 
+		// Process queries in order to maintain query priority
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
 			if ((issuesOrMilestones.issues ?? []).length === 0) {
@@ -171,20 +174,25 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 					continue;
 				}
-				completionItems.set(
-					getIssueNumberLabel(issue as IssueModel),
-					await this.completionItemFromIssue(repo, issue as IssueModel, range, document),
-				);
+				const issueKey = getIssueNumberLabel(issue as IssueModel);
+				// Only add the issue if we haven't seen it before (first query wins)
+				if (!seenIssues.has(issueKey)) {
+					seenIssues.add(issueKey);
+					const completionItem = await this.completionItemFromIssue(repo, issue as IssueModel, range, document);
+					// Ensure that the sort order respects the query order
+					completionItem.sortText = sortNumber.toString().padStart(8, '0');
+					sortNumber++;
+					completionItems.push(completionItem);
+				}
 			}
-
 		}
-		
+
 		// If no issues were found, show a configuration prompt
-		if (completionItems.size === 0) {
+		if (completionItems.length === 0) {
 			return [new ConfigureIssueQueriesCompletionItem()];
 		}
-		
-		return [...completionItems.values()];
+
+		return completionItems;
 	}
 
 	private async completionItemFromIssue(
@@ -202,7 +210,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
 				.get(ISSUE_COMPLETION_FORMAT_SCM);
 			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
-				item.insertText = await variableSubstitution(configuration, issue, repo);
+				item.insertText = variableSubstitution(configuration, issue, repo);
 			} else {
 				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
 			}
@@ -210,8 +218,6 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		item.documentation = issue.body;
 		item.range = range;
 		item.detail = milestone ? milestone.title : issue.milestone?.title;
-		const sortTime = Number.MAX_SAFE_INTEGER - new Date(issue.updatedAt).getTime();
-		item.sortText = sortTime.toString().padStart(15, '0');
 		item.filterText = `${item.detail} # ${issue.number} ${issue.title} ${item.documentation}`;
 		return item;
 	}

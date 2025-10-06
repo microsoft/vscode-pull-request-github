@@ -121,11 +121,13 @@ export interface Account extends Actor {
 }
 
 export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
-	return !!x && 'name' in x && 'email' in x;
+	const asAccount = x as Partial<Account>;
+	return !!asAccount && !!asAccount?.name && (asAccount?.email !== undefined);
 }
 
 export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
-	return !!x && 'slug' in x;
+	const asTeam = x as Partial<Team>;
+	return !!asTeam && !!asTeam?.slug;
 }
 
 export interface Team {
@@ -636,6 +638,7 @@ export interface Issue {
 	number: number;
 	url: string;
 	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
+	stateReason?: 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
 	body: string;
 	bodyHTML: string;
 	title: string;
@@ -717,6 +720,8 @@ export interface PullRequest extends Issue {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
+	additions?: number;
+	deletions?: number;
 }
 
 export enum DefaultCommitTitle {

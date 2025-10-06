@@ -28,7 +28,7 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, errorIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
+import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -107,15 +107,17 @@ export default Timeline;
 
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
-	const pr = context.pr;
+	const [clickedElement, setClickedElement] = useState<'title' | 'sha' | undefined>(undefined);
 
-	const handleCommitClick = (e: React.MouseEvent) => {
-		if (pr.isCurrentlyCheckedOut) {
-			e.preventDefault();
-			context.openCommitChanges(event.sha);
-		}
-		// If not checked out, let the default href behavior proceed
+	const handleCommitClick = (e: React.MouseEvent, elementType: 'title' | 'sha') => {
+		e.preventDefault();
+		setClickedElement(elementType);
+		context.openCommitChanges(event.sha).finally(() => {
+			setClickedElement(undefined);
+		});
 	};
+
+	const isLoading = context.pr?.loadingCommit === event.sha;
 
 	return (
 		<div className="comment-container commit">
@@ -128,21 +130,21 @@ const CommitEventView = (event: CommitEvent) => {
 				<div className="message-container">
 					<a
 						className="message"
-						onClick={handleCommitClick}
-						href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
+						onClick={(e) => handleCommitClick(e, 'title')}
 						title={event.htmlUrl}
 					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
 					</a>
+					{isLoading && clickedElement === 'title' && <span className="commit-spinner-inline">{loadingIcon}</span>}
 				</div>
 			</div>
 			<div className="timeline-detail">
 				<a
 					className="sha"
-					onClick={handleCommitClick}
-					href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
+					onClick={(e) => handleCommitClick(e, 'sha')}
 					title={event.htmlUrl}
 				>
+					{isLoading && clickedElement === 'sha' && <span className="commit-spinner-before">{loadingIcon}</span>}
 					{event.sha.slice(0, 7)}
 				</a>
 				<Timestamp date={event.committedDate} />
@@ -268,13 +270,14 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 
 function AddReviewSummaryComment() {
 	const { requestChanges, approve, submit, deleteReview, pr } = useContext(PullRequestContext);
-	const { isAuthor } = pr;
+	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
+	const [commentText, setCommentText] = useState('');
 
 	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
-		const { value } = comment.current!;
+		const value = commentText;
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
@@ -302,6 +305,14 @@ function AddReviewSummaryComment() {
 		}
 	};
 
+	const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+		setCommentText(event.target.value);
+	};
+
+	// Disable buttons when summary comment is empty AND there are no review comments
+	// Note: Approve button is allowed even with empty content and no pending review
+	const shouldDisableButtons = !commentText.trim() && !pr.hasReviewDraft;
+
 	return (
 		<form>
 			<textarea
@@ -309,6 +320,8 @@ function AddReviewSummaryComment() {
 				ref={comment}
 				placeholder="Leave a review summary comment"
 				onKeyDown={onKeyDown}
+				onChange={onTextareaChange}
+				value={commentText}
 			></textarea>
 			<div className="form-actions">
 				<button
@@ -323,7 +336,7 @@ function AddReviewSummaryComment() {
 					<button
 						id="request-changes"
 						className='secondary'
-						disabled={isBusy || pr.busy}
+						disabled={isBusy || pr.busy || shouldDisableButtons}
 						onClick={(event) => submitAction(event, ReviewType.RequestChanges)}
 					>
 						Request Changes
@@ -339,7 +352,7 @@ function AddReviewSummaryComment() {
 					</button>
 				)}
 				<button
-					disabled={isBusy || pr.busy}
+					disabled={isBusy || pr.busy || shouldDisableButtons}
 					onClick={(event) => submitAction(event, ReviewType.Comment)}
 				>Submit Review</button>
 			</div>
@@ -426,8 +439,8 @@ const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent
 	const { actor } = event;
 	const assignees = (event as AssignEvent).assignees || [];
 	const unassignees = (event as UnassignEvent).unassignees || [];
-	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />));
-	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={a.id} for={a} />));
+	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={`${a.id}a`} for={a} />));
+	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={`${a.id}u`} for={a} />));
 
 	let message: JSX.Element;
 	if (assignees.length > 0 && unassignees.length > 0) {
@@ -492,8 +505,8 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 
 	const handleSessionLogClick = (e: React.MouseEvent) => {
 		if (sessionLink) {
-			const openToTheSide = e.ctrlKey || e.metaKey;
-			openSessionLog(sessionLink, openToTheSide);
+			sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
+			openSessionLog(sessionLink);
 		}
 	};
 
@@ -533,8 +546,8 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 	const { openSessionLog } = useContext(PullRequestContext);
 
 	const handleSessionLogClick = (e: React.MouseEvent) => {
-		const openToTheSide = e.ctrlKey || e.metaKey;
-		openSessionLog(event.sessionLink, openToTheSide);
+		event.sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
+		openSessionLog(event.sessionLink);
 	};
 
 	return (

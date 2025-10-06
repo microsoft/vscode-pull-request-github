@@ -5,12 +5,8 @@
 
 import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
 import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
-import { PreReviewState } from '../src/github/views';
-
-export interface RemoteInfo {
-	owner: string;
-	repositoryName: string;
-}
+import { DisplayLabel, PreReviewState } from '../src/github/views';
+import { RemoteInfo } from './types';
 
 export interface CreateParams {
 	availableBaseRemotes: RemoteInfo[];
@@ -108,7 +104,7 @@ export interface CreateParamsNew {
 	compareBranch?: string;
 	isDraftDefault: boolean;
 	isDraft?: boolean;
-	labels?: ILabel[];
+	labels?: DisplayLabel[];
 	projects?: IProject[];
 	assignees?: IAccount[];
 	reviewers?: (IAccount | ITeam)[];

@@ -7,11 +7,14 @@
 import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
@@ -373,8 +376,8 @@ export function convertRESTPullRequestToRawPullRequest(
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
-	if ('mergeable' in pullRequest) {
-		item.mergeable = pullRequest.mergeable
+	if ((pullRequest as OctokitCommon.PullsGetResponseData).mergeable !== undefined) {
+		item.mergeable = (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
 			? PullRequestMergeability.Mergeable
 			: PullRequestMergeability.NotMergeable;
 	}
@@ -569,7 +572,7 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	const reactionContentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
-	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
+	}, {} as { [key: string]: { title: string; label: string; icon?: string } });
 
 	const reactions = reactionGroups
 		.filter(group => group.reactors.totalCount > 0)
@@ -616,14 +619,39 @@ export interface RestAccount {
 	type: string;
 }
 
+export interface GraphQLAccount {
+	login: string;
+	url: string;
+	avatarUrl: string;
+	email?: string;
+	id: string;
+	name?: string;
+	__typename: string;
+}
+
 export function parseAccount(
-	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string, __typename: string } | RestAccount | null,
+	author: GraphQLAccount | RestAccount | null,
 	githubRepository?: GitHubRepository,
 ): IAccount {
 	if (author) {
-		const avatarUrl = 'avatarUrl' in author ? author.avatarUrl : author.avatar_url;
-		const id = 'node_id' in author ? author.node_id : author.id;
-		const url = 'html_url' in author ? author.html_url : author.url;
+		let avatarUrl: string;
+		let id: string;
+		let url: string;
+		let accountType: string;
+		if ((author as RestAccount).html_url) {
+			const asRestAccount = author as RestAccount;
+			avatarUrl = asRestAccount.avatar_url;
+			id = asRestAccount.node_id;
+			url = asRestAccount.html_url;
+			accountType = asRestAccount.type;
+		} else {
+			const asGraphQLAccount = author as GraphQLAccount;
+			avatarUrl = asGraphQLAccount.avatarUrl;
+			id = asGraphQLAccount.id;
+			url = asGraphQLAccount.url;
+			accountType = asGraphQLAccount.__typename;
+		}
+
 		// In some places, Copilot comes in as a user, and in others as a bot
 		return {
 			login: author.login,
@@ -633,7 +661,7 @@ export function parseAccount(
 			id,
 			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
 			specialDisplayName: COPILOT_ACCOUNTS[author.login] ? (author.name ?? COPILOT_ACCOUNTS[author.login].name) : undefined,
-			accountType: toAccountType('__typename' in author ? author.__typename : author.type),
+			accountType: toAccountType(accountType),
 		};
 	} else {
 		return {
@@ -821,6 +849,8 @@ export async function parseGraphQLPullRequest(
 		reactionCount: graphQLPullRequest.reactions.totalCount,
 		reactions: parseGraphQLReaction(graphQLPullRequest.reactionGroups),
 		commentCount: graphQLPullRequest.comments.totalCount,
+		additions: graphQLPullRequest.additions,
+		deletions: graphQLPullRequest.deletions,
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
@@ -915,6 +945,7 @@ export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: 
 		url: issue.url,
 		number: issue.number,
 		state: issue.state,
+		stateReason: issue.stateReason,
 		body: issue.body,
 		bodyHTML: await transformHtmlUrlsToExtensionUrls(issue.bodyHTML, githubRepository),
 		title: issue.title,
@@ -1299,7 +1330,7 @@ function parseGraphQLCommitContributions(
 	return items;
 }
 
-export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
+export function getReactionGroup(): { title: string; label: string; icon?: string }[] {
 	const ret = [
 		{
 			title: 'THUMBS_UP',
@@ -1640,12 +1671,12 @@ function computeSinceValue(sinceValue: string | undefined): string {
 const COPILOT_PATTERN = /\:(Copilot|copilot)(\s|$)/g;
 
 const VARIABLE_PATTERN = /\$\{([^-]*?)(-.*?)?\}/g;
-export async function variableSubstitution(
+export function variableSubstitution(
 	value: string,
 	issueModel?: IssueModel,
 	defaults?: PullRequestDefaults,
 	user?: string,
-): Promise<string> {
+): string {
 	const withVariables = value.replace(VARIABLE_PATTERN, (match: string, variable: string, extra: string) => {
 		let result: string;
 		switch (variable) {
@@ -1686,7 +1717,7 @@ export async function variableSubstitution(
 
 	// not a variable, but still a substitution that needs to be done
 	const withCopilot = withVariables.replace(COPILOT_PATTERN, () => {
-		return `:copilot-swe-agent[bot] `;
+		return `:${COPILOT_SWE_AGENT}[bot] `;
 	});
 	return withCopilot;
 }
@@ -1746,7 +1777,8 @@ export function vscodeDevPrLink(pullRequest: IssueModel) {
 export function makeLabel(label: ILabel): string {
 	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
 	const labelColor = gitHubLabelColor(label.color, isDarkTheme, true);
-	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};border-radius:10px;">&nbsp;&nbsp;${label.name.trim()}&nbsp;&nbsp;</span>`;
+	const labelName = emojify(label.name.trim());
+	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};border-radius:10px;">&nbsp;&nbsp;${labelName}&nbsp;&nbsp;</span>`;
 }
 
 
@@ -1756,4 +1788,22 @@ export enum UnsatisfiedChecks {
 	ChangesRequested = 1 << 1,
 	CIFailed = 1 << 2,
 	CIPending = 1 << 3
+}
+
+export async function extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string | undefined): Promise<RemoteInfo | undefined> {
+	if (!query) {
+		return undefined;
+	}
+
+	const defaults = await folderManager.getPullRequestDefaults();
+	// Use a fake user since we only care about pulling out the repo and repo owner
+	const substituted = variableSubstitution(query, undefined, defaults, 'fakeUser');
+
+	const repoRegex = /(?:^|\s)repo:(?:"?(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)"?)/i;
+	const repoMatch = repoRegex.exec(substituted);
+	if (repoMatch && repoMatch.groups) {
+		return { owner: repoMatch.groups.owner, repositoryName: repoMatch.groups.repo };
+	}
+
+	return undefined;
 }

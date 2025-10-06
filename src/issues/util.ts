@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URL } from 'url';
 import LRUCache from 'lru-cache';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
@@ -183,11 +182,9 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 function extractContext(context: LinkContext): { fileUri: vscode.Uri | undefined, lineNumber: number | undefined } {
 	if (context instanceof vscode.Uri) {
 		return { fileUri: context, lineNumber: undefined };
-	} else if (context !== undefined && 'lineNumber' in context && 'uri' in context) {
-		return { fileUri: context.uri, lineNumber: context.lineNumber };
-	} else {
-		return { fileUri: undefined, lineNumber: undefined };
 	}
+	const asEditorLineNumberContext = context as Partial<EditorLineNumberContext> | undefined;
+	return { fileUri: asEditorLineNumberContext?.uri, lineNumber: asEditorLineNumberContext?.lineNumber };
 }
 
 function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
@@ -365,22 +362,9 @@ export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github
 	const enterpriseUri = getEnterpriseUri();
 	let fetchUrl = upstream.fetchUrl;
 	if (enterpriseUri && fetchUrl) {
-		// upstream's origin by https
-		if (fetchUrl.startsWith('https://') && !fetchUrl.startsWith('https://github.com/')) {
-			const host = new URL(fetchUrl).host;
-			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
-				resultHost = enterpriseUri.authority;
-			}
-		}
-		if (fetchUrl.startsWith('ssh://')) {
-			fetchUrl = fetchUrl.substr('ssh://'.length);
-		}
-		// upstream's origin by ssh
-		if ((fetchUrl.startsWith('git@') || fetchUrl.includes('@git')) && !fetchUrl.startsWith('git@github.com')) {
-			const host = fetchUrl.split('@')[1]?.split(':')[0];
-			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
-				resultHost = enterpriseUri.authority;
-			}
+		const protocol = new Protocol(fetchUrl);
+		if (protocol.host.startsWith(enterpriseUri.authority) || !protocol.host.includes('github.com')) {
+			resultHost = enterpriseUri.authority;
 		}
 	}
 	return `https://${resultHost}`;

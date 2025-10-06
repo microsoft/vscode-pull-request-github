@@ -12,6 +12,7 @@ import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
@@ -57,7 +58,7 @@ import {
 	RepoAccessAndMergeMethods,
 	User,
 } from './interface';
-import { IssueModel } from './issueModel';
+import { IssueChangeEvent, IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
@@ -83,22 +84,22 @@ export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
 
-export interface ItemsData {
-	items: any[];
+export interface ItemsData<T> {
+	items: T[];
 	hasMorePages: boolean;
 	totalCount?: number;
 }
 
-export interface IssueData extends ItemsData {
+export interface IssueData extends ItemsData<Issue> {
 	items: Issue[];
 	hasMorePages: boolean;
 }
 
-export interface PullRequestData extends ItemsData {
+export interface PullRequestData extends ItemsData<PullRequestModel> {
 	items: PullRequestModel[];
 }
 
-export interface MilestoneData extends ItemsData {
+export interface MilestoneData extends ItemsData<{ milestone: IMilestone; issues: IssueModel[] }> {
 	items: { milestone: IMilestone; issues: IssueModel[] }[];
 	hasMorePages: boolean;
 }
@@ -128,9 +129,7 @@ export interface ForkDetails {
 	};
 }
 
-export interface IMetadata extends OctokitCommon.ReposGetResponseData {
-	currentUser: any;
-}
+export type IMetadata = OctokitCommon.ReposGetResponseData;
 
 export enum GraphQLErrorType {
 	Unprocessable = 'UNPROCESSABLE',
@@ -151,6 +150,11 @@ export enum CopilotWorkingStatus {
 	Done = 'Done',
 }
 
+export interface PullRequestChangeEvent {
+	model: IssueModel;
+	event: IssueChangeEvent;
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
@@ -165,13 +169,14 @@ export class GitHubRepository extends Disposable {
 			value.model.dispose();
 		}
 	});
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
-	private _onDidChangePullRequests: vscode.EventEmitter<IssueModel[]> = this._register(new vscode.EventEmitter());
-	public readonly onDidChangePullRequests: vscode.Event<IssueModel[]> = this._onDidChangePullRequests.event;
+	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
+	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -204,10 +209,10 @@ export class GitHubRepository extends Disposable {
 
 			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`github-browse-${this.remote.normalizedHost}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
-			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
 			this._register(this.commentsHandler);
 			this._register(this.commentsController);
 		} catch (e) {
@@ -234,7 +239,7 @@ export class GitHubRepository extends Disposable {
 		public remote: GitHubRemote,
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
-		private readonly _telemetry: ITelemetry,
+		public readonly telemetry: ITelemetry,
 		silent: boolean = false
 	) {
 		super();
@@ -264,7 +269,7 @@ export class GitHubRepository extends Disposable {
 					"action": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
+			this.telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
 				action: action.context
 			});
 
@@ -566,6 +571,19 @@ export class GitHubRepository extends Disposable {
 		return success;
 	}
 
+	async getCommitParent(ref: string): Promise<string | undefined> {
+		Logger.debug(`Fetch commit for ref ${ref} - enter`, this.id);
+		try {
+			const { octokit, remote } = await this.ensure();
+			const commit = (await octokit.call(octokit.api.repos.getCommit, { owner: remote.owner, repo: remote.repositoryName, ref })).data;
+			return commit.parents[0].sha;
+		} catch (e) {
+			Logger.error(`Fetching commit for ref ${ref} failed: ${e}`, this.id);
+		}
+		Logger.debug(`Fetch commit for ref ${ref} - done`, this.id);
+	}
+
+
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		let remote: GitHubRemote | undefined;
 		try {
@@ -816,27 +834,35 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getMaxIssue(): Promise<number | undefined> {
+	private async _getMaxItem(isIssue: boolean): Promise<number | undefined> {
 		try {
-			Logger.debug(`Fetch max issue - enter`, this.id);
+			Logger.debug(`Fetch max ${isIssue ? 'issue' : 'pull request'} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
 			const { data } = await query<MaxIssueResponse>({
-				query: schema.MaxIssue,
+				query: isIssue ? schema.MaxIssue : schema.MaxPullRequest,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
 				},
 			});
-			Logger.debug(`Fetch max issue - done`, this.id);
+			Logger.debug(`Fetch max ${isIssue ? 'issue' : 'pull request'} - done`, this.id);
 
 			if (data?.repository && data.repository.issues.edges.length === 1) {
 				return data.repository.issues.edges[0].node.number;
 			}
 			return;
 		} catch (e) {
-			Logger.error(`Unable to fetch issues with query: ${e}`, this.id);
+			Logger.error(`Unable to fetch ${isIssue ? 'issues' : 'pull requests'} with query: ${e}`, this.id);
 			return;
 		}
+	}
+
+	async getMaxIssue(): Promise<number | undefined> {
+		return this._getMaxItem(true);
+	}
+
+	async getMaxPullRequest(): Promise<number | undefined> {
+		return this._getMaxItem(false);
 	}
 
 	async getViewerPermission(): Promise<ViewerPermission> {
@@ -858,11 +884,11 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo[]> {
 		const { octokit, remote } = await this.ensure();
 		const createdDate = new Date(fromDate);
 		const created = `>=${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
-		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo[0]>(octokit.api.actions.listWorkflowRunsForRepo, {
+		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo>(octokit.api.actions.listWorkflowRunsForRepo, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			event: 'dynamic',
@@ -870,6 +896,16 @@ export class GitHubRepository extends Disposable {
 		});
 
 		return allRuns;
+	}
+
+	public async getWorkflowJobs(workflowRunId: number): Promise<OctokitCommon.WorkflowJob[]> {
+		const { octokit, remote } = await this.ensure();
+		const jobs = await octokit.call(octokit.api.actions.listJobsForWorkflowRun, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			run_id: workflowRunId
+		});
+		return jobs.data.jobs;
 	}
 
 	async fork(): Promise<string | undefined> {
@@ -945,24 +981,26 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
+	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
+			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;
 			const disposables: vscode.Disposable[] = [];
-			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
+			disposables.push(model.onDidChange(e => this._onPullRequestModelChanged(prModel, e)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
-			this._onDidAddPullRequest.fire(model);
+			if (!silent) {
+				this._onDidAddPullRequest.fire(model);
+			}
 		}
 
 		return model;
 	}
 
-	private _onPullRequestModelChanged(model: PullRequestModel): void {
-		this._onDidChangePullRequests.fire([model]);
+	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
+		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
@@ -1022,7 +1060,12 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
+	async getPullRequest(id: number, useCache: boolean = false): Promise<PullRequestModel | undefined> {
+		if (useCache && this._pullRequestModelsByNumber.has(id)) {
+			Logger.debug(`Using cached pull request model for ${id}`, this.id);
+			return this._pullRequestModelsByNumber.get(id)!.model;
+		}
+
 		try {
 			const { query, remote, schema } = await this.ensure();
 			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
@@ -1068,7 +1111,7 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this, remote, await parseGraphQLIssue(data.repository.issue, this));
+			return new IssueModel(this.telemetry, this, remote, await parseGraphQLIssue(data.repository.issue, this));
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;

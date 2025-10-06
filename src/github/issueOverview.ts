@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -15,11 +16,11 @@ import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../com
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
+import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -28,7 +29,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	public static currentPanel?: IssueOverviewPanel;
 
-	private static readonly _viewType: string = 'IssueOverview';
+	public static readonly viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;
@@ -41,7 +42,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: IssueModel,
 		toTheSide: Boolean = false,
+		_preserveFocus: boolean = true,
+		existingPanel?: vscode.WebviewPanel
 	) {
+		await ensureEmojis(folderRepositoryManager.context);
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
@@ -60,6 +64,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				activeColumn || vscode.ViewColumn.Active,
 				title,
 				folderRepositoryManager,
+				undefined,
+				existingPanel,
+				undefined
 			);
 		}
 
@@ -87,7 +94,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
-		private readonly type: string = IssueOverviewPanel._viewType,
+		private readonly type: string = IssueOverviewPanel.viewType,
+		existingPanel?: vscode.WebviewPanel,
 		iconSubpath?: {
 			light: string,
 			dark: string,
@@ -97,7 +105,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		this._folderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
-		this._panel = this._register(vscode.window.createWebviewPanel(type, title, column, {
+		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
 			retainContextWhenHidden: true,
@@ -183,7 +191,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			this.update(this._folderRepositoryManager, this._item);
+			await this.update(this._folderRepositoryManager, this._item);
 		}
 	}
 
@@ -192,9 +200,16 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
-		const hasWritePermission = repositoryAccess!.hasWritePermission;
+		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
+		const labels = issue.item.labels.map(label => ({
+			...label,
+			displayName: emojify(label.name)
+		}));
+
 		const context: Issue = {
+			owner: issue.remote.owner,
+			repo: issue.remote.repositoryName,
 			number: issue.number,
 			title: issue.title,
 			titleHTML: issue.titleHTML,
@@ -202,9 +217,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			createdAt: issue.createdAt,
 			body: issue.body,
 			bodyHTML: issue.bodyHTML,
-			labels: issue.item.labels,
+			labels: labels,
 			author: issue.author,
 			state: issue.state,
+			stateReason: issue.stateReason,
 			events: timelineEvents,
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,
@@ -265,15 +281,32 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem): Promise<void> {
-		this._folderRepositoryManager = foldersManager;
+	protected registerPrListeners() {
+		// none for issues
+	}
+
+	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
+		if (this._folderRepositoryManager !== foldersManager) {
+			this._folderRepositoryManager = foldersManager;
+			this.registerPrListeners();
+		}
+
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview();
-		return this.updateItem(issueModel);
+		if (!this._item || (this._item.number !== issueModel.number) || !this._panel.webview.html) {
+			this._panel.webview.html = this.getHtmlForWebview();
+			this._postMessage({ command: 'pr.clear' });
+
+		}
+
+		if (progressLocation) {
+			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel));
+		} else {
+			return this.updateItem(issueModel);
+		}
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -400,9 +433,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
+		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
 		try {
-			let newLabels: ILabel[] = [];
+			let newLabels: DisplayLabel[] = [];
 
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
@@ -418,13 +451,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return quickPick.selectedItems;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
+			const labelsToAdd = await Promise.race<readonly (vscode.QuickPickItem & { name: string })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 			quickPick.enabled = false;
 
 			if (labelsToAdd) {
-				await this._item.setLabels(labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
+				await this._item.setLabels(labelsToAdd.map(r => r.name));
+				const addedLabels: DisplayLabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.name)!);
 
 				await this._replyMessage(message, {
 					added: addedLabels,
