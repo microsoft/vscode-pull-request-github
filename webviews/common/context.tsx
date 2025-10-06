@@ -162,7 +162,6 @@ export class PRContext {
 		try {
 			const result: DeleteReviewResult = await this.postMessage({ command: 'pr.delete-review' });
 
-			// Check that the deletedReviewId exists in the events before clearing everything
 			const state = this.pr;
 			const eventsWithoutPendingReview = state?.events.filter(event =>
 				!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
