@@ -48,11 +48,16 @@ export class CopilotStateModel extends Disposable {
 		return `${owner}/${repo}#${prNumber}`;
 	}
 
+	delete(owner: string, repo: string, prNumber: number): void {
+		const key = this.makeKey(owner, repo, prNumber);
+		this.deleteKey(key);
+	}
+
 	deleteKey(key: string): void {
 		if (this._states.has(key)) {
-			const item = this._states.get(key)!;
 			this._states.delete(key);
 			if (this._showNotification.has(key)) {
+				const item = this._states.get(key)!;
 				this._showNotification.delete(key);
 				this._onDidChangeNotifications.fire([item.item]);
 			}
