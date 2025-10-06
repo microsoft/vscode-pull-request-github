@@ -14,7 +14,7 @@
 		"activeComment",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider",
+		"chatSessionsProvider@2",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -40,7 +40,7 @@
 	"version": "0.118.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.104.0"
+		"vscode": "^1.105.0"
 	},
 	"categories": [
 		"Other",
@@ -282,6 +282,11 @@
 					],
 					"default": "tree",
 					"description": "%githubPullRequests.fileListLayout.description%"
+				},
+				"githubPullRequests.hideViewedFiles": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.hideViewedFiles.description%"
 				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
@@ -557,7 +562,7 @@
 				},
 				"githubPullRequests.codingAgent.uiIntegration": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%githubPullRequests.codingAgent.uiIntegration.description%",
 					"tags": [
 						"experimental",
@@ -632,6 +637,7 @@
 					},
 					"default": [
 						"coffeescript",
+						"crystal",
 						"diff",
 						"dockerfile",
 						"dockercompose",
@@ -743,6 +749,19 @@
 					"type": "boolean",
 					"default": true,
 					"description": "%githubIssues.assignWhenWorking.description%"
+				},
+				"githubIssues.issueAvatarDisplay": {
+					"type": "string",
+					"enum": [
+						"author",
+						"assignee"
+					],
+					"enumDescriptions": [
+						"%githubIssues.issueAvatarDisplay.author%",
+						"%githubIssues.issueAvatarDisplay.assignee%"
+					],
+					"default": "author",
+					"description": "%githubIssues.issueAvatarDisplay.description%"
 				},
 				"githubPullRequests.focusedMode": {
 					"properties": {
@@ -936,6 +955,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.markAllCopilotNotificationsAsRead",
+				"title": "Mark All as Read",
+				"category": "%command.pull.request.category%",
+				"enablement": "viewItem == copilot-query-with-notifications"
+			},
+			{
 				"command": "pr.merge",
 				"title": "%command.pr.merge.title%",
 				"category": "%command.pull.request.category%"
@@ -1057,6 +1082,12 @@
 				"command": "pr.setFileListLayoutAsFlat",
 				"title": "%command.pr.setFileListLayoutAsFlat.title%",
 				"icon": "$(list-flat)",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.toggleHideViewedFiles",
+				"title": "%command.pr.toggleHideViewedFiles.title%",
+				"icon": "$(filter)",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1986,6 +2017,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "false"
+				},
+				{
 					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
@@ -2163,6 +2198,10 @@
 				},
 				{
 					"command": "pr.setFileListLayoutAsFlat",
+					"when": "false"
+				},
+				{
+					"command": "pr.toggleHideViewedFiles",
 					"when": "false"
 				},
 				{
@@ -2612,6 +2651,11 @@
 					"group": "navigation1"
 				},
 				{
+					"command": "pr.toggleHideViewedFiles",
+					"when": "view == prStatus:github",
+					"group": "navigation1"
+				},
+				{
 					"command": "pr.toggleEditorCommentingOn",
 					"when": "view == prStatus:github && !commentingEnabled",
 					"group": "navigation@0"
@@ -2772,6 +2816,11 @@
 					"command": "pr.dismissNotification",
 					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
 					"group": "4_pullrequest@5"
+				},
+				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "view == pr:github && viewItem =~ /copilot-query/",
+					"group": "0_category@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
@@ -4191,7 +4240,7 @@
 		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql && node scripts/preprocess-gql --in src/github/queriesExtra.gql --out out/src/github/queriesExtra.gql && node scripts/preprocess-gql --in src/github/queriesShared.gql --out out/src/github/queriesShared.gql && node scripts/preprocess-gql --in src/github/queriesLimited.gql --out out/src/github/queriesLimited.gql",
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
 		"test:preprocess-fixtures": "node scripts/preprocess-fixtures --in src --out out",
-		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
+		"update-dts": "cd \"src/@types\" && node ../../node_modules/@vscode/dts/index.js main && node ../../node_modules/@vscode/dts/index.js dev",
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
@@ -4213,6 +4262,7 @@
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
+		"@vscode/dts": "^0.4.1",
 		"@vscode/test-cli": "^0.0.11",
 		"@vscode/test-electron": "^2.5.2",
 		"@vscode/test-web": "^0.0.71",

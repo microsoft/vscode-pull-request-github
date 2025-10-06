@@ -9,6 +9,7 @@ import { Buffer } from 'buffer';
 import * as pathUtils from 'path';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { EXTENSION_ID } from '../constants';
 import { IAccount, isITeam, ITeam, reviewerId } from '../github/interface';
@@ -687,6 +688,24 @@ export function fromOpenPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestW
 	} catch (e) { }
 }
 
+export function toQueryUri(params: { remote: RemoteInfo | undefined, isCopilot?: boolean }) {
+	const uri = vscode.Uri.from({ scheme: Schemes.PRQuery, path: params.isCopilot ? 'copilot' : undefined, query: params.remote ? JSON.stringify({ remote: params.remote }) : undefined });
+	return uri;
+}
+
+export function fromQueryUri(uri: vscode.Uri): { remote: RemoteInfo | undefined, isCopilot?: boolean } | undefined {
+	if (uri.scheme !== Schemes.PRQuery) {
+		return;
+	}
+	try {
+		const query = uri.query ? JSON.parse(uri.query) : undefined;
+		return {
+			remote: query.remote,
+			isCopilot: uri.path === 'copilot'
+		};
+	} catch (e) { }
+}
+
 export enum Schemes {
 	File = 'file',
 	Review = 'review', // File content for a checked out PR
@@ -705,8 +724,6 @@ export enum Schemes {
 	PRQuery = 'prquery', // PR query tree item
 	GitHubCommit = 'githubcommit' // file content from GitHub for a commit
 }
-
-export const COPILOT_QUERY = vscode.Uri.from({ scheme: Schemes.PRQuery, path: 'copilot' });
 
 export function resolvePath(from: vscode.Uri, to: string) {
 	if (from.scheme === Schemes.File) {

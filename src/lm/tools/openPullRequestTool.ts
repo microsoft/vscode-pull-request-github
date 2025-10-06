@@ -43,6 +43,22 @@ export class OpenPullRequestTool extends PullRequestTool {
 					}
 				}
 			}
+		} else if (activeTab?.input instanceof vscode.TabInputText) {
+			// Check if a single file with PR scheme is open (e.g., newly added files)
+			const textInput = activeTab.input;
+			if (textInput.uri.scheme === Schemes.Pr) {
+				const prParams = fromPRUri(textInput.uri);
+				if (prParams) {
+					return this._findPullRequestByNumber(prParams.prNumber, prParams.remoteName);
+				}
+			} else if (textInput.uri.scheme === Schemes.Review) {
+				const reviewParams = fromReviewUri(textInput.uri.query);
+				if (reviewParams) {
+					const rootUri = vscode.Uri.file(reviewParams.rootPath);
+					const folderManager = this.folderManagers.getManagerForFile(rootUri);
+					return folderManager?.activePullRequest;
+				}
+			}
 		}
 
 		return undefined;

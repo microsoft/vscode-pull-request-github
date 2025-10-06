@@ -9,6 +9,7 @@
 import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
@@ -1688,12 +1689,12 @@ function computeSinceValue(sinceValue: string | undefined): string {
 const COPILOT_PATTERN = /\:(Copilot|copilot)(\s|$)/g;
 
 const VARIABLE_PATTERN = /\$\{([^-]*?)(-.*?)?\}/g;
-export async function variableSubstitution(
+export function variableSubstitution(
 	value: string,
 	issueModel?: IssueModel,
 	defaults?: PullRequestDefaults,
 	user?: string,
-): Promise<string> {
+): string {
 	const withVariables = value.replace(VARIABLE_PATTERN, (match: string, variable: string, extra: string) => {
 		let result: string;
 		switch (variable) {
@@ -1805,4 +1806,22 @@ export enum UnsatisfiedChecks {
 	ChangesRequested = 1 << 1,
 	CIFailed = 1 << 2,
 	CIPending = 1 << 3
+}
+
+export async function extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string | undefined): Promise<RemoteInfo | undefined> {
+	if (!query) {
+		return undefined;
+	}
+
+	const defaults = await folderManager.getPullRequestDefaults();
+	// Use a fake user since we only care about pulling out the repo and repo owner
+	const substituted = variableSubstitution(query, undefined, defaults, 'fakeUser');
+
+	const repoRegex = /(?:^|\s)repo:(?:"?(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)"?)/i;
+	const repoMatch = repoRegex.exec(substituted);
+	if (repoMatch && repoMatch.groups) {
+		return { owner: repoMatch.groups.owner, repositoryName: repoMatch.groups.repo };
+	}
+
+	return undefined;
 }

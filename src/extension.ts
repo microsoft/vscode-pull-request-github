@@ -21,6 +21,7 @@ import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMOD
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
+import { isDescendant } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
@@ -209,6 +210,12 @@ async function init(
 				git
 			);
 			reviewsManager.addReviewManager(newReviewManager);
+		}
+
+		// Check if repo is in one of the workspace folders
+		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath))) {
+			Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
+			return;
 		}
 		addRepo();
 		tree.notificationProvider.refreshOrLaunchPolling();
@@ -420,6 +427,11 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, apiImpl);
 	context.subscriptions.push(copilotRemoteAgentManager);
 	if (vscode.chat?.registerChatSessionItemProvider) {
+		const chatParticipant = vscode.chat.createChatParticipant(COPILOT_SWE_AGENT, async (request, context, stream, token) =>
+			await copilotRemoteAgentManager.chatParticipantImpl(request, context, stream, token)
+		);
+		context.subscriptions.push(chatParticipant);
+
 		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
 			label = vscode.l10n.t('GitHub Copilot Coding Agent');
 			provideChatSessionItems = async (token) => {
@@ -429,9 +441,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
 			};
 			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
-			provideNewChatSessionItem = async (options: { readonly request: vscode.ChatRequest; prompt?: string; history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>; metadata?: any; }, token: vscode.CancellationToken): Promise<vscode.ChatSessionItem> => {
-				return await copilotRemoteAgentManager.provideNewChatSessionItem(options, token);
-			};
+			onDidCommitChatSessionItem = copilotRemoteAgentManager.onDidCommitChatSession;
 		}();
 
 		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
@@ -442,7 +452,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
 			COPILOT_SWE_AGENT,
 			provider,
-			{ supportsInterruptions: true, }
+			chatParticipant,
+			{ supportsInterruptions: true }
 		));
 	}
 

@@ -154,8 +154,10 @@ export interface OverviewContext {
 	owner: string;
 	repo: string;
 	number: number;
+	[key: string]: boolean | string | number;
 }
 
 export interface CodingAgentContext extends SessionLinkInfo {
 	'preventDefaultContextMenuItems': true;
+	[key: string]: boolean | string | number | undefined;
 }

@@ -37,7 +37,7 @@ const RefBuilder = createBuilderClass<Ref>()({
 	}),
 });
 
-type Repository = PullRequestResponse['repository'];
+type Repository = NonNullable<PullRequestResponse['repository']>;
 type PullRequest = Repository['pullRequest'];
 type Author = PullRequest['author'];
 type AssigneesConn = PullRequest['assignees'];
