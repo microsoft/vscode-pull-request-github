@@ -8,7 +8,7 @@ import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -157,6 +157,30 @@ export class PRContext {
 	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
 
 	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
+
+	public deleteReview = async () => {
+		try {
+			const result: DeleteReviewResult = await this.postMessage({ command: 'pr.delete-review' });
+
+			const state = this.pr;
+			const eventsWithoutPendingReview = state?.events.filter(event =>
+				!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
+			) ?? [];
+
+			if (state && (eventsWithoutPendingReview.length < state.events.length)) {
+				// Update the PR state to reflect the deleted review
+				state.busy = false;
+				state.pendingCommentText = '';
+				state.pendingCommentDrafts = {};
+				// Remove the deleted review from events
+				state.events = eventsWithoutPendingReview;
+				this.updatePR(state);
+			}
+			return result;
+		} catch (error) {
+			return this.updatePR({ busy: false });
+		}
+	};
 
 	public close = async (body?: string) => {
 		const { pr } = this;
