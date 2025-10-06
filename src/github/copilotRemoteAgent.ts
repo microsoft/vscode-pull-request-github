@@ -694,12 +694,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			await ghRepository.octokit.api.repos.get({ owner, repo });
 		} catch (error) {
 			if (error.status === 404 || error.status === 403) {
-				const currentUser = await ghRepository.octokit.api.users.getAuthenticated().then((u) => u.data.login).catch(() => 'unknown');
+				const currentUser = await this.credentialStore.getCurrentUser(remote.authProviderId);
 				return {
 					error: vscode.l10n.t(
 						'Unable to access {0} as user {1}. Please check your permissions and try again.',
 						`\`${owner}/${repo}\``,
-						`\`${currentUser}\``,
+						`\`${currentUser.id}\``,
 					),
 					state: 'error',
 				};
