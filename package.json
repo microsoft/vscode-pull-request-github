@@ -3681,7 +3681,7 @@
 				"displayName": "%languageModelTools.github-pull-request_issue_fetch.displayName%",
 				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3937,7 +3937,7 @@
 				"displayName": "%languageModelTools.github-pull-request_suggest-fix.displayName%",
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3984,7 +3984,7 @@
 				"displayName": "%languageModelTools.github-pull-request_formSearchQuery.displayName%",
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -4028,7 +4028,7 @@
 				"displayName": "%languageModelTools.github-pull-request_doSearch.displayName%",
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -4074,7 +4074,7 @@
 				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
 				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
 				"icon": "$(paintcan)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
