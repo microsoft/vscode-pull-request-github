@@ -105,8 +105,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				stream,
 			);
 			if (result.state !== 'success') {
-				Logger.error(`Failed to provide new chat session item: ${result.error}`, CopilotRemoteAgentManager.ID);
-				stream.warning('Failed delegating to coding agent. Please try again later.');
+				Logger.error(`Failed to provide new chat session item: ${result.error}${result.innerError ? `\nInner Error: ${result.innerError}` : ''}`, CopilotRemoteAgentManager.ID);
+				stream.warning(result.error);
 				return;
 			}
 			return result.number;
@@ -708,7 +708,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	async invokeRemoteAgent(prompt: string, problemContext?: string, token?: vscode.CancellationToken, autoPushAndCommit = true, chatStream?: vscode.ChatResponseStream): Promise<RemoteAgentResult> {
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
-			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
+			return { error: vscode.l10n.t('Failed to initialize Copilot API. Please try again later.'), state: 'error' };
 		}
 
 		await this.promptAndUpdatePreferredGitHubRemote(true);
@@ -718,6 +718,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
 		const { owner, repo, remote, repository, ghRepository, baseRef } = repoInfo;
+
+		// Check if user has permission to access the repository
+		try {
+			await ghRepository.octokit.api.repos.get({ owner, repo });
+		} catch (error) {
+			if (error.status === 404 || error.status === 403) {
+				const currentUser = await this.credentialStore.getCurrentUser(remote.authProviderId);
+				return {
+					error: vscode.l10n.t(
+						'Unable to access {0} as user {1}. Please check your permissions and try again.',
+						`\`${owner}/${repo}\``,
+						`\`${currentUser.login}\``,
+					),
+					state: 'error',
+				};
+			}
+
+			// Re-throw other errors to be handled by the outer catch block
+			throw error;
+		}
+
+		// Check if user has permission to assign Copilot in repository
+		if (!(await this.isAssignable())) {
+			return {
+				error: vscode.l10n.t(
+					'Unable to assign GitHub Copilot coding agent in {0}. Please check your permissions and try again.',
+					`\`${owner}/${repo}\``
+				),
+				state: 'error',
+			};
+		}
 
 		// NOTE: This is as unobtrusive as possible with the current high-level APIs.
 		// We only create a new branch and commit if there are staged or working changes.
@@ -734,7 +765,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				chatStream?.progress(vscode.l10n.t('Waiting for local changes'));
 				head_ref = await this.gitOperationsManager.commitAndPushChanges(repoInfo);
 			} catch (error) {
-				return { error: error.message, state: 'error' };
+				return { error: vscode.l10n.t('Failed to commit and push changes. Please try again later.'), innerError: error.message, state: 'error' };
 			}
 		}
 
@@ -769,7 +800,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				isCancelled: String(userCancelled),
 			});
 			if (userCancelled) {
-				return { error: vscode.l10n.t('User cancelled due to truncation'), state: 'error' };
+				return { error: vscode.l10n.t('User cancelled due to truncation.'), state: 'error' };
 			}
 		}
 
@@ -818,7 +849,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				sessionId: response.session_id
 			};
 		} catch (error) {
-			return { error: error.message, state: 'error' };
+			return { error: vscode.l10n.t('Failed delegating to coding agent. Please try again later.'), innerError: error.message, state: 'error' };
 		}
 	}
 
