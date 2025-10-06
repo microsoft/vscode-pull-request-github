@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as buffer from 'buffer';
-import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
@@ -172,6 +172,7 @@ export class GitHubRepository extends Disposable {
 	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
+	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -277,7 +278,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables?: OperationVariables }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -299,6 +300,7 @@ export class GitHubRepository extends Disposable {
 			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
+				query.variables = legacyFallback.variables;
 				return this.query(query, ignoreSamlErrors);
 			}
 
@@ -426,7 +428,7 @@ export class GitHubRepository extends Disposable {
 		}
 
 		if (oldHub !== this._hub) {
-			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
 			} else {
@@ -1330,6 +1332,14 @@ export class GitHubRepository extends Disposable {
 							first: 100,
 							after: after,
 						},
+					}, false, {
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after,
+						}
 					});
 
 				} else {

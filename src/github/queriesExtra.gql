@@ -371,6 +371,23 @@ query GetSuggestedActors($owner: String!, $name: String!, $capabilities: [Reposi
 	}
 }
 
+query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		assignableUsers(first: $first, after: $after) {
+			nodes {
+				...User
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
 		pullRequest {
