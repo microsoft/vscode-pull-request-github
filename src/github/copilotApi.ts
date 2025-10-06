@@ -79,7 +79,6 @@ export class CopilotApi {
 		return `vscode-pull-request-github/${extensionVersion}`;
 	}
 
-
 	async postRemoteAgentJob(
 		owner: string,
 		name: string,
