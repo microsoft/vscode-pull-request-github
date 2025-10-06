@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.120.0
+
+### Changes
+
+- The `#openPullRequest` tool recognizes open PR diffs and PR files as being the "open pull request".
+- All Copilot PR notifications can be marked as ready using the right-click context menu on the Copilot section header in the Pull Requests view.
+- The setting `githubIssues.issueAvatarDisplay` can be used to control whether the first assignee's avatar or the author's avatar is shown in the Issues view.
+- Instead of always running the pull request queries that back the Pull Requests view when refreshing, we now check to see if there are new PRs in the repo before running the queries. This should reduce API usage when there are no new PRs.
+- The "Copy link" action is back near the PR title in the pull request description webview.
+- You can configure that the default branch is pulled when you're "done" with a PR using `"githubPullRequests.postDone": "checkoutDefaultBranchAndPull"`.
+
+### Fixes
+
+- Unable to get list of users to assign them to a pull request. https://github.com/microsoft/vscode-pull-request-github/issues/7908
+- Error notifications when using GitHub Enterprise Server. https://github.com/microsoft/vscode-pull-request-github/issues/7901
+- Ignore worktrees that aren't in one of the workspace folders. https://github.com/microsoft/vscode-pull-request-github/issues/7896
+- Typing "#" and then Enter or Tab opens the GitHub issue queries settings. https://github.com/microsoft/vscode-pull-request-github/issues/7838
+- Unexpected branch switching when githubIssues.useBranchForIssues = off. https://github.com/microsoft/vscode-pull-request-github/issues/7827
+- Extension enters rapid refresh loop, causing high API usage and rate limiting. https://github.com/microsoft/vscode-pull-request-github/issues/7816
+- GitHub PR view highlights all repos with Copilot notification. https://github.com/microsoft/vscode-pull-request-github/issues/7852
+- Wrong commit is checked out when local branch exists with the same name. https://github.com/microsoft/vscode-pull-request-github/issues/7702
+- Visual Label not provided for "Title" and "Description" field. https://github.com/microsoft/vscode-pull-request-github/issues/7595
+- VSCode unresponsive during GitHub Pull Requests PR checkout (large number of files changed). https://github.com/microsoft/vscode-pull-request-github/issues/6952
+- extension explodes and kicks back out to GITHUB: LOGIN when non github repos are in working directory (specifically codeberg). https://github.com/microsoft/vscode-pull-request-github/issues/6945
+
 ## 0.118.2
 
 ### Fixes
