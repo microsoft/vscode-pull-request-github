@@ -9,7 +9,7 @@ import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public override children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
+	public override _children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 	public checkboxState?: { state: vscode.TreeItemCheckboxState, tooltip: string, accessibilityInformation: vscode.AccessibilityInformation };
 
@@ -20,7 +20,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	override async getChildren(): Promise<TreeNode[]> {
-		return this.children;
+		return this._children;
 	}
 
 	public finalize(): void {
@@ -29,11 +29,11 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	private trimTree(): void {
-		if (this.children.length === 0) {
+		if (this._children.length === 0) {
 			return;
 		}
 
-		this.children.forEach(n => {
+		this._children.forEach(n => {
 			if (n instanceof DirectoryTreeNode) {
 				n.trimTree(); // recursive
 			}
@@ -46,10 +46,10 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		// becomes:
 		// - a/b
 		//   - c
-		if (this.children.length !== 1) {
+		if (this._children.length !== 1) {
 			return;
 		}
-		const child = this.children[0];
+		const child = this._children[0];
 		if (!(child instanceof DirectoryTreeNode)) {
 			return;
 		}
@@ -59,12 +59,12 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this.label.startsWith('/')) {
 			this.label = this.label.substr(1);
 		}
-		this.children = child.children;
-		this.children.forEach(child => { child.parent = this; });
+		this._children = child._children;
+		this._children.forEach(child => { child.parent = this; });
 	}
 
 	private sort(): void {
-		if (this.children.length <= 1) {
+		if (this._children.length <= 1) {
 			return;
 		}
 
@@ -72,7 +72,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		const files: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[] = [];
 
 		// process directory
-		this.children.forEach(node => {
+		this._children.forEach(node => {
 			if (node instanceof DirectoryTreeNode) {
 				node.sort(); // recc
 				dirs.push(node);
@@ -86,7 +86,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		dirs.sort((a, b) => (a.label! < b.label! ? -1 : 1));
 		files.sort((a, b) => (a.label! < b.label! ? -1 : 1));
 
-		this.children = [...dirs, ...files];
+		this._children = [...dirs, ...files];
 	}
 
 	public addFile(file: GitFileChangeNode | RemoteFileChangeNode | InMemFileChangeNode): void {
@@ -101,7 +101,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		if (paths.length === 1) {
 			file.parent = this;
-			this.children.push(file);
+			this._children.push(file);
 			return;
 		}
 
@@ -112,14 +112,14 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (!node) {
 			node = new DirectoryTreeNode(this, dir);
 			this.pathToChild.set(dir, node);
-			this.children.push(node);
+			this._children.push(node);
 		}
 
 		node.addPathRecc(tail, file);
 	}
 
 	public allChildrenViewed(): boolean {
-		for (const child of this.children) {
+		for (const child of this._children) {
 			if (child instanceof DirectoryTreeNode) {
 				if (!child.allChildrenViewed()) {
 					return false;

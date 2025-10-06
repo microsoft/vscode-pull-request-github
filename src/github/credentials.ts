@@ -10,6 +10,7 @@ import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
@@ -119,6 +120,10 @@ export class CredentialStore extends Disposable {
 	private setScopesFromState() {
 		this._scopes = this.context.globalState.get(LAST_USED_SCOPES_GITHUB_KEY, SCOPES_OLD);
 		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES_OLD);
+	}
+
+	get scopes() {
+		return this._scopes;
 	}
 
 	private async saveScopesInState() {
@@ -231,12 +236,13 @@ export class CredentialStore extends Disposable {
 			// Listen for changes to the enterprise URI and try again if it changes.
 			initBasedOnSettingChange(GITHUB_ENTERPRISE, URI, hasEnterpriseUri, initializeEnterprise, this.context.subscriptions);
 		}
-		let github: AuthResult | undefined;
-		if (!enterprise) {
-			github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+		const githubOptions = { ...options };
+		if (enterprise && !enterprise.canceled) {
+			githubOptions.silent = true;
 		}
+		const github = await this.initialize(AuthProvider.github, githubOptions, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		return {
-			canceled: !!(github && github.canceled) || !!(enterprise && enterprise.canceled)
+			canceled: github.canceled || !!(enterprise && enterprise.canceled)
 		};
 	}
 
@@ -284,6 +290,33 @@ export class CredentialStore extends Disposable {
 			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
 		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
+	}
+
+	async tryPromptForCopilotAuth(): Promise<boolean> {
+		if (this.isAnyAuthenticated()) {
+			return true;
+		}
+
+		const chatSetupResult = await commands.executeCommand(commands.CHAT_SETUP_ACTION_ID, 'agent', { additionalScopes: this.scopes });
+		if (!chatSetupResult) {
+			return false;
+		}
+
+		const result = await this.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
+
+		/* __GDPR__
+			"remoteAgent.command.auth" : {
+				"succeeded" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
+			succeeded: result.canceled ? 'false' : 'true'
+		});
+
+		if (result.canceled) {
+			return false;
+		}
+		return true;
 	}
 
 	public areScopesExtra(authProviderId: AuthProvider): boolean {
@@ -390,8 +423,9 @@ export class CredentialStore extends Disposable {
 		return result;
 	}
 
-	public async isCurrentUser(username: string): Promise<boolean> {
-		return (await this._githubAPI?.currentUser)?.login === username || (await this._githubEnterpriseAPI?.currentUser)?.login == username;
+	public async isCurrentUser(authProviderId: AuthProvider, username: string): Promise<boolean> {
+		const api = authProviderId === AuthProvider.github ? this._githubAPI : this._githubEnterpriseAPI;
+		return (await api?.currentUser)?.login === username;
 	}
 
 	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {
@@ -406,14 +440,14 @@ export class CredentialStore extends Disposable {
 	}
 
 	private setCurrentUser(github: GitHub): void {
-		const getUser: ReturnType<typeof github.octokit.api.users.getAuthenticated> = new Promise(resolve => {
+		const getUser: ReturnType<typeof github.octokit.api.users.getAuthenticated> = new Promise((resolve, reject) => {
 			Logger.debug('Getting current user', CredentialStore.ID);
 			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
 				Logger.debug(`Got current user ${result.data.login}`, CredentialStore.ID);
 				resolve(result);
 			}).catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to get the currently logged in user, GitHub Pull Requests will not work correctly'));
 				Logger.error(`Failed to get current user: ${e}, ${e.message}`, CredentialStore.ID);
+				reject(e);
 			});
 		});
 		github.currentUser = getUser.then(result => convertRESTUserToAccount(result.data));

@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useState } from 'react';
-import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest } from '../../src/github/views';
+import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
+import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
+import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
+import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
-import { nbsp } from './space';
+import { ContextDropdown } from './contextDropdown';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -26,9 +28,15 @@ export function Header({
 	isDraft,
 	isIssue,
 	repositoryDefaultBranch,
+	events,
+	owner,
+	repo,
+	busy,
+	stateReason
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
+	const codingAgentEvent = mostRecentCopilotEvent(events);
 
 	return (
 		<>
@@ -40,21 +48,42 @@ export function Header({
 				inEditMode={inEditMode}
 				setEditMode={setEditMode}
 				setCurrentTitle={setCurrentTitle}
-			/>
-			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
-			<ButtonGroup
-				isCurrentlyCheckedOut={isCurrentlyCheckedOut}
-				isIssue={isIssue}
 				canEdit={canEdit}
-				repositoryDefaultBranch={repositoryDefaultBranch}
-				setEditMode={setEditMode}
+				owner={owner}
+				repo={repo}
 			/>
+			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />
+			<div className="header-actions">
+				<ButtonGroup
+					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
+					isIssue={isIssue}
+					repositoryDefaultBranch={repositoryDefaultBranch}
+					owner={owner}
+					repo={repo}
+					number={number}
+					busy={busy}
+				/>
+				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={codingAgentEvent} />
+			</div>
 		</>
 	);
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle }) {
-	const { setTitle } = useContext(PullRequestContext);
+interface TitleProps {
+	title: string;
+	titleHTML: string;
+	number: number;
+	url: string;
+	inEditMode: boolean;
+	setEditMode: React.Dispatch<React.SetStateAction<boolean>>;
+	setCurrentTitle: React.Dispatch<React.SetStateAction<string>>;
+	canEdit: boolean;
+	owner: string;
+	repo: string;
+}
+
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }: TitleProps): JSX.Element {
+	const { setTitle, copyPrLink } = useContext(PullRequestContext);
 
 	const titleForm = (
 		<form
@@ -80,15 +109,31 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		</form>
 	);
 
+	const context: OverviewContext = {
+		'preventDefaultContextMenuItems': true,
+		owner,
+		repo,
+		number
+	};
+	context['github:copyMenu'] = true;
+
 	const displayTitle = (
 		<div className="overview-title">
 			<h2>
 				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
 				{' '}
-				<a href={url} title={url}>
+				<a href={url} title={url} data-vscode-context={JSON.stringify(context)}>
 					#{number}
 				</a>
 			</h2>
+			{canEdit ?
+				<button title="Rename" onClick={() => setEditMode(true)} className="icon-button">
+					{editIcon}
+				</button>
+				: null}
+			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
+				{copyIcon}
+			</button>
 		</div>
 	);
 
@@ -96,34 +141,124 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	return editableTitle;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
-	const { refresh, copyPrLink, copyVscodeDevLink } = useContext(PullRequestContext);
+interface ButtonGroupProps {
+	isCurrentlyCheckedOut: boolean;
+	isIssue: boolean;
+	repositoryDefaultBranch: string;
+	owner: string;
+	repo: string;
+	number: number;
+	busy?: boolean;
+}
+
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
+	const { refresh } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
-			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
+			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
+			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
-			{canEdit && (
-				<>
-					<button title="Rename" onClick={setEditMode} className="secondary small-button">
-						Rename
-					</button>
-					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
-						Copy Link
-					</button>
-					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
-						Copy vscode.dev Link
-					</button>
-				</>
-			)}
+			{busy ? (
+				<div className='spinner'>
+					{loadingIcon}
+				</div>
+			) : null}
 		</div>
 	);
 }
 
-function Subtitle({ state, isDraft, isIssue, author, base, head }) {
-	const { text, color, icon } = getStatus(state, isDraft, isIssue);
+function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boolean; codingAgentEvent: TimelineEvent | undefined }): JSX.Element | null {
+	const { cancelCodingAgent, updatePR, openSessionLog } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+
+	const cancel = async () => {
+		if (!codingAgentEvent) {
+			return;
+		}
+		setBusy(true);
+		const result = await cancelCodingAgent(codingAgentEvent);
+		if (result.events.length > 0) {
+			updatePR(result);
+		}
+		setBusy(false);
+	};
+
+	// Extract sessionLink from the coding agent event
+	const sessionLink = (codingAgentEvent as CopilotStartedEvent)?.sessionLink;
+
+	if (!codingAgentEvent || copilotEventToStatus(codingAgentEvent) !== CopilotPRStatus.Started) {
+		return null;
+	}
+
+	const context: CodingAgentContext = {
+		'preventDefaultContextMenuItems': true,
+		...sessionLink
+	};
+
+	context['github:codingAgentMenu'] = true;
+	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+
+	if (sessionLink) {
+		actions.push({
+			label: 'View Session',
+			value: '',
+			action: () => openSessionLog(sessionLink)
+		});
+	}
+
+	if (canEdit) {
+		actions.unshift({
+			label: 'Cancel Coding Agent',
+			value: '',
+			action: cancel
+		});
+	}
+
+	return <ContextDropdown
+		optionsContext={() => JSON.stringify(context)}
+		defaultAction={actions[0].action}
+		defaultOptionLabel={() => isBusy ? (
+			<>
+				<span className='loading-button'>{loadingIcon}</span>
+				{actions[0].label}
+			</>
+		) : actions[0].label}
+		defaultOptionValue={() => actions[0].value}
+		allOptions={() => {
+			return actions;
+		}}
+		optionsTitle={actions[0].label}
+		disabled={isBusy}
+		hasSingleAction={false}
+		spreadable={false}
+		isSecondary={true}
+	/>;
+}
+
+interface SubtitleProps {
+	state: GithubItemStateEnum;
+	stateReason?: StateReason;
+	isDraft?: boolean;
+	isIssue: boolean;
+	author: PullRequest['author'];
+	base: string;
+	head: string;
+	codingAgentEvent: TimelineEvent | undefined;
+}
+
+function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent }: SubtitleProps): JSX.Element {
+	const { text, color, icon } = getStatus(state, !!isDraft, isIssue, stateReason);
+	const copilotStatus = copilotEventToStatus(codingAgentEvent);
+	let copilotStatusIcon: JSX.Element | undefined;
+	if (copilotStatus === CopilotPRStatus.Started) {
+		copilotStatusIcon = copilotInProgressIcon;
+	} else if (copilotStatus === CopilotPRStatus.Completed) {
+		copilotStatusIcon = copilotSuccessIcon;
+	} else if (copilotStatus === CopilotPRStatus.Failed) {
+		copilotStatusIcon = copilotErrorIcon;
+	}
 
 	return (
 		<div className="subtitle">
@@ -132,7 +267,7 @@ function Subtitle({ state, isDraft, isIssue, author, base, head }) {
 				<span>{text}</span>
 			</div>
 			<div className="author">
-				{<Avatar for={author} />}
+				{<Avatar for={author} substituteIcon={copilotStatusIcon} />}
 				<div className="merge-branches">
 					<AuthorLink for={author} /> {!isIssue ? (<>
 						{getActionText(state)} into{' '}
@@ -144,8 +279,17 @@ function Subtitle({ state, isDraft, isIssue, author, base, head }) {
 	);
 }
 
-const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }) => {
-	const { exitReviewMode, checkout } = useContext(PullRequestContext);
+interface CheckoutButtonProps {
+	isCurrentlyCheckedOut: boolean;
+	isIssue: boolean;
+	repositoryDefaultBranch: string;
+	owner: string;
+	repo: string;
+	number: number;
+}
+
+const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) => {
+	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
 	const onClick = async (command: string) => {
@@ -159,6 +303,9 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 				case 'exitReviewMode':
 					await exitReviewMode();
 					break;
+				case 'openChanges':
+					await openChanges();
+					break;
 				default:
 					throw new Error(`Can't find action ${command}`);
 			}
@@ -167,41 +314,56 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 		}
 	};
 
-	if (isCurrentlyCheckedOut) {
-		return (
-			<>
-				<button aria-live="polite" className="checkedOut small-button" disabled>
-					{checkIcon}{nbsp} Checked Out
-				</button>
-				<button
-					aria-live="polite"
-					title="Switch to a different branch than this pull request branch"
-					disabled={isBusy}
-					className='small-button'
-					onClick={() => onClick('exitReviewMode')}
-				>
-					Checkout '{repositoryDefaultBranch}'
-				</button>
-			</>
-		);
-	} else if (!isIssue) {
-		return (
-			<button
-				aria-live="polite"
-				title="Checkout a local copy of this pull request branch to verify or edit changes"
-				disabled={isBusy}
-				className='small-button'
-				onClick={() => onClick('checkout')}
-			>
-				Checkout
-			</button>
-		);
-	} else {
+	if (isIssue) {
 		return null;
 	}
+
+	const context: OverviewContext = {
+		'preventDefaultContextMenuItems': true,
+		owner,
+		repo,
+		number
+	};
+
+	context['github:checkoutMenu'] = true;
+	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+
+	if (isCurrentlyCheckedOut) {
+		actions.push({
+			label: `Checkout '${repositoryDefaultBranch}'`,
+			value: '',
+			action: () => onClick('exitReviewMode')
+		});
+	} else {
+		actions.push({
+			label: 'Checkout',
+			value: '',
+			action: () => onClick('checkout')
+		});
+	}
+
+	actions.push({
+		label: 'Open Changes',
+		value: '',
+		action: () => onClick('openChanges')
+	});
+
+	return <ContextDropdown
+		optionsContext={() => JSON.stringify(context)}
+		defaultAction={actions[0].action}
+		defaultOptionLabel={() => actions[0].label}
+		defaultOptionValue={() => actions[0].value}
+		allOptions={() => {
+			return actions;
+		}}
+		optionsTitle={actions[0].label}
+		disabled={isBusy}
+		hasSingleAction={false}
+		spreadable={false}
+	/>;
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean) {
+export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason?: StateReason) {
 	const closed = isIssue ? issueClosedIcon : prClosedIcon;
 	const open = isIssue ? issueIcon : prOpenIcon;
 
@@ -210,7 +372,11 @@ export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue:
 	} else if (state === GithubItemStateEnum.Open) {
 		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: open };
 	} else {
-		return { text: 'Closed', color: 'closed', icon: closed };
+		let closedColor: string = 'closed';
+		if (isIssue) {
+			closedColor = stateReason !== 'COMPLETED' ? 'draft' : 'merged';
+		}
+		return { text: 'Closed', color: closedColor, icon: closed };
 	}
 }
 

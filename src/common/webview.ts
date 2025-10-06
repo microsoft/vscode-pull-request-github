@@ -17,7 +17,8 @@ export interface IRequestMessage<T> {
 
 export interface IReplyMessage {
 	seq?: string;
-	err?: any;
+	err?: string;
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	res?: any;
 }
 
@@ -85,7 +86,7 @@ export class WebviewBase extends Disposable {
 		this._webview?.postMessage(reply);
 	}
 
-	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: any) {
+	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: string) {
 		const reply: IReplyMessage = {
 			seq: originalMessage?.req,
 			err: error,

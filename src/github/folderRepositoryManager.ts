@@ -13,7 +13,7 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
-import { Disposable } from '../common/lifecycle';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
@@ -22,6 +22,7 @@ import {
 	AUTO_STASH,
 	DEFAULT_MERGE_METHOD,
 	GIT,
+	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
 	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
@@ -35,14 +36,15 @@ import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../c
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
+import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
 import { OctokitCommon } from './common';
 import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, GraphQLError, GraphQLErrorType, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState, UserResponse } from './graphql';
+import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -53,9 +55,8 @@ import {
 	getOverrideBranch,
 	getPRFetchQuery,
 	loginComparator,
+	parseCombinedTimelineEvents,
 	parseGraphQLPullRequest,
-	parseGraphQLTimelineEvents,
-	parseGraphQLUser,
 	teamComparator,
 	variableSubstitution,
 } from './utils';
@@ -135,7 +136,7 @@ export class DetachedHeadError extends Error {
 	}
 
 	override get message() {
-		return vscode.l10n.t('{0} has a detached HEAD (create a branch first', this.repository.rootUri.toString());
+		return vscode.l10n.t('{0} has a detached HEAD (create a branch first)', this.repository.rootUri.toString());
 	}
 }
 
@@ -178,6 +179,7 @@ const CACHED_TEMPLATE_BODY = 'templateBody';
 export class FolderRepositoryManager extends Disposable {
 	static ID = 'FolderRepositoryManager';
 
+	private _state: ReposManagerState = ReposManagerState.Initializing;
 	private _activePullRequest?: PullRequestModel;
 	private _activeIssue?: IssueModel;
 	private _githubRepositories: GitHubRepository[];
@@ -196,8 +198,8 @@ export class FolderRepositoryManager extends Disposable {
 	private _onDidMergePullRequest = this._register(new vscode.EventEmitter<void>());
 	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
 
-	private _onDidChangeActivePullRequest = this._register(new vscode.EventEmitter<{ new: number | undefined, old: number | undefined }>());
-	readonly onDidChangeActivePullRequest: vscode.Event<{ new: number | undefined, old: number | undefined }> = this._onDidChangeActivePullRequest.event;
+	private _onDidChangeActivePullRequest = this._register(new vscode.EventEmitter<{ new: PullRequestModel | undefined, old: PullRequestModel | undefined }>());
+	readonly onDidChangeActivePullRequest: vscode.Event<{ new: PullRequestModel | undefined, old: PullRequestModel | undefined }> = this._onDidChangeActivePullRequest.event;
 	private _onDidChangeActiveIssue = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
@@ -213,6 +215,12 @@ export class FolderRepositoryManager extends Disposable {
 	private _onDidChangeGithubRepositories = this._register(new vscode.EventEmitter<GitHubRepository[]>());
 	readonly onDidChangeGithubRepositories: vscode.Event<GitHubRepository[]> = this._onDidChangeGithubRepositories.event;
 
+	private _onDidChangePullRequestsEvents: vscode.Disposable[] = [];
+	private readonly _onDidChangeAnyPullRequests = this._register(new vscode.EventEmitter<PullRequestChangeEvent[]>());
+	readonly onDidChangeAnyPullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangeAnyPullRequests.event;
+	private readonly _onDidAddPullRequest = this._register(new vscode.EventEmitter<IssueModel>());
+	readonly onDidAddPullRequest: vscode.Event<IssueModel> = this._onDidAddPullRequest.event;
+
 	private _onDidDispose = this._register(new vscode.EventEmitter<void>());
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
@@ -225,7 +233,8 @@ export class FolderRepositoryManager extends Disposable {
 		public readonly telemetry: ITelemetry,
 		private readonly _git: GitApiImpl,
 		private readonly _credentialStore: CredentialStore,
-		public readonly createPullRequestHelper: CreatePullRequestHelper
+		public readonly createPullRequestHelper: CreatePullRequestHelper,
+		public readonly themeWatcher: IThemeWatcher
 	) {
 		super();
 		this._githubRepositories = [];
@@ -240,6 +249,7 @@ export class FolderRepositoryManager extends Disposable {
 		);
 
 		this._register(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+		this._register({ dispose: () => disposeAll(this._onDidChangePullRequestsEvents) });
 
 		this.cleanStoredRepoState();
 	}
@@ -354,7 +364,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (pullRequest === this._activePullRequest) {
 			return;
 		}
-		const oldNumber = this._activePullRequest?.number;
+		const oldPR = this._activePullRequest;
 		if (this._activePullRequest) {
 			this._activePullRequest.isActive = false;
 		}
@@ -363,10 +373,9 @@ export class FolderRepositoryManager extends Disposable {
 			pullRequest.isActive = true;
 			pullRequest.githubRepository.commentsHandler?.unregisterCommentController(pullRequest.number);
 		}
-		const newNumber = pullRequest?.number;
 
 		this._activePullRequest = pullRequest;
-		this._onDidChangeActivePullRequest.fire({ old: oldNumber, new: newNumber });
+		this._onDidChangeActivePullRequest.fire({ old: oldPR, new: pullRequest });
 	}
 
 	get repository(): Repository {
@@ -420,6 +429,9 @@ export class FolderRepositoryManager extends Disposable {
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 			Logger.appendLine(`Found GitHub remote for folder ${this.repository.rootUri.fsPath}`, this.id);
+			if (this._allGitHubRemotes.length > 1) {
+				await vscode.commands.executeCommand('setContext', 'github:hasMultipleGitHubRemotes', true);
+			}
 		} else {
 			Logger.appendLine(`No GitHub remotes found for folder ${this.repository.rootUri.fsPath}`, this.id);
 		}
@@ -453,12 +465,23 @@ export class FolderRepositoryManager extends Disposable {
 			// good
 		} else if ((enterpriseCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			// also good
-		} else if (isAuthenticated) {
+		} else if (isAuthenticated && ((dotComCount > 0) || (enterpriseCount > 0))) {
 			// Not good. We have a mismatch between auth type and server type.
 			isAuthenticated = false;
 		}
 		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
 		return isAuthenticated;
+	}
+
+	get state(): ReposManagerState {
+		return this._state;
+	}
+
+	private set state(state: ReposManagerState) {
+		if (state !== this._state) {
+			this._state = state;
+			this._onDidLoadRepositories.fire(state);
+		}
 	}
 
 	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
@@ -473,7 +496,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
 			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
 			if (areAllNeverGitHub) {
-				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
+				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
 			}
 		}
@@ -524,7 +547,12 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 
+			disposeAll(this._onDidChangePullRequestsEvents);
 			this._githubRepositories = repositories;
+			for (const repo of this._githubRepositories) {
+				this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(e => this._onDidChangeAnyPullRequests.fire(e)));
+				this._onDidChangePullRequestsEvents.push(repo.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)));
+			}
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 
 			const repositoriesAdded =
@@ -550,9 +578,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			this.getAssignableUsers(repositoriesAdded.length > 0);
 			if (isAuthenticated && activeRemotes.length) {
-				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
+				this.state = ReposManagerState.RepositoriesLoaded;
 			} else if (!isAuthenticated) {
-				this._onDidLoadRepositories.fire(ReposManagerState.NeedsAuthentication);
+				this.state = ReposManagerState.NeedsAuthentication;
 			}
 			if (!silent) {
 				this._onDidChangeRepositories.fire({ added: repositoriesAdded.length > 0 });
@@ -1049,8 +1077,8 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		let pagesFetched = 0;
-		const itemData: ItemsData = { hasMorePages: false, items: [], totalCount: 0 };
-		const addPage = (page: PullRequestData | undefined) => {
+		const itemData: ItemsData<T> = { hasMorePages: false, items: [], totalCount: 0 };
+		const addPage = (page: ItemsData<T> | undefined) => {
 			pagesFetched++;
 			if (page) {
 				itemData.items = itemData.items.concat(page.items);
@@ -1080,7 +1108,7 @@ export class FolderRepositoryManager extends Disposable {
 				pageNumber: number,
 			): Promise<{ items: any[]; hasMorePages: boolean, totalCount?: number } | undefined> => {
 				// Resolve variables in the query with each repo
-				const resolvedQuery = query ? await variableSubstitution(query, undefined,
+				const resolvedQuery = query ? variableSubstitution(query, undefined,
 					{ base: await githubRepository.getDefaultBranch(), owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName }) : undefined;
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
@@ -1149,17 +1177,21 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getPullRequestsForCategory(githubRepository: GitHubRepository, categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
-		let repo: IMetadata | undefined;
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
 			const { octokit, query, schema } = await githubRepository.ensure();
 
+			/* __GDPR__
+				"pr.search.category" : {
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('pr.search.category');
+
 			const user = (await githubRepository.getAuthenticatedUser()).login;
-			// Search api will not try to resolve repo that redirects, so get full name first
-			repo = await githubRepository.getMetadata();
 			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
 				q: getPRFetchQuery(user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
+				advanced_search: 'true',
 				page: page || 1,
 			});
 
@@ -1181,8 +1213,8 @@ export class FolderRepositoryManager extends Disposable {
 			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
 			const pullRequestResponses = await Promise.all(promises);
 
-			const pullRequests = pullRequestResponses
-				.map(response => {
+			const pullRequests = (await Promise.all(pullRequestResponses
+				.map(async response => {
 					if (!response?.data.repository) {
 						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
 						return null;
@@ -1191,9 +1223,9 @@ export class FolderRepositoryManager extends Disposable {
 					// Pull requests fetched with a query can be from any repo.
 					// We need to use the correct GitHubRepository for this PR.
 					return response.repo.createOrUpdatePullRequestModel(
-						parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo),
+						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo), true
 					);
-				})
+				})))
 				.filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, this.id);
@@ -1208,7 +1240,7 @@ export class FolderRepositoryManager extends Disposable {
 			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote ${githubRepository.remote.remoteName} with query failed, please check if the repo ${repo?.full_name} is valid.`,
+					`Fetching pull requests for remote ${githubRepository.remote.remoteName} with query failed, please check if the repo ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName} is valid.`,
 				);
 			} else {
 				throw e;
@@ -1271,13 +1303,13 @@ export class FolderRepositoryManager extends Disposable {
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
 	async getIssues(
-		query?: string,
+		query?: string, options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: false }
 	): Promise<ItemsResponseResult<IssueModel> | undefined> {
 		if (this.gitHubRepositories.length === 0) {
 			return undefined;
 		}
 		try {
-			const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
+			const data = await this.fetchPagedData<Issue>(options, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
 			const mappedData: ItemsResponseResult<IssueModel> = {
 				items: [],
 				hasMorePages: data.hasMorePages,
@@ -1286,7 +1318,7 @@ export class FolderRepositoryManager extends Disposable {
 			};
 			for (const issue of data.items) {
 				const githubRepository = await this.getRepoForIssue(issue);
-				mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+				mappedData.items.push(new IssueModel(this.telemetry, githubRepository, githubRepository.remote, issue));
 			}
 			return mappedData;
 		} catch (e) {
@@ -1583,7 +1615,7 @@ export class FolderRepositoryManager extends Disposable {
 			// Create PR
 			const { data } = await repo.octokit.call(repo.octokit.api.issues.create, params);
 			const item = convertRESTIssueToRawPullRequest(data, repo);
-			const issueModel = new IssueModel(repo, repo.remote, item);
+			const issueModel = new IssueModel(this.telemetry, repo, repo.remote, item);
 
 			/* __GDPR__
 				"issue.create.success" : {
@@ -1671,8 +1703,8 @@ export class FolderRepositoryManager extends Disposable {
 			if (workingDirectorySHA !== mergingPRSHA) {
 				// We are looking at different commit than what will be merged
 				const { ahead } = this.repository.state.HEAD!;
-				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
-				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this PR branch.\n\nWould you like to proceed anyway?');
+				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
 				if (ahead &&
 					(await vscode.window.showWarningMessage(
 						ahead > 1 ? pluralMessage : singularMessage,
@@ -1691,7 +1723,7 @@ export class FolderRepositoryManager extends Disposable {
 				// We have made changes to the PR that are not committed
 				if (
 					(await vscode.window.showWarningMessage(
-						vscode.l10n.t('You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?'),
+						vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
 						{ modal: true },
 						vscode.l10n.t('Yes'),
 					)) === undefined
@@ -1720,7 +1752,7 @@ export class FolderRepositoryManager extends Disposable {
 				input
 			}
 		})
-			.then(result => {
+			.then(async (result) => {
 				Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
 
 				/* __GDPR__
@@ -1728,7 +1760,7 @@ export class FolderRepositoryManager extends Disposable {
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.getCopilotTimelineEvents(pullRequest), pullRequest.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__
@@ -1853,6 +1885,9 @@ export class FolderRepositoryManager extends Disposable {
 		);
 
 		results.forEach(result => {
+			if (result.metadata.length === 0) {
+				return;
+			}
 			result.description = `${result.metadata[0].repositoryName}/${result.metadata[0].owner} ${result.metadata.map(metadata => {
 				const prString = `#${metadata.prNumber}`;
 				return metadata.isOpen ? vscode.l10n.t('{0} is open', prString) : prString;
@@ -2181,11 +2216,12 @@ export class FolderRepositoryManager extends Disposable {
 		owner: string,
 		repositoryName: string,
 		pullRequestNumber: number,
+		useCache: boolean = false,
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		Logger.appendLine(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			const pr = await githubRepo.getPullRequest(pullRequestNumber);
+			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
 			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}
@@ -2208,23 +2244,7 @@ export class FolderRepositoryManager extends Disposable {
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
 		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
-		const { query, schema } = await githubRepository.ensure();
-
-		try {
-			const { data } = await query<UserResponse>({
-				query: schema.GetUser,
-				variables: {
-					login,
-				},
-			});
-			return parseGraphQLUser(data, githubRepository);
-		} catch (e) {
-			// Ignore cases where the user doesn't exist
-			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {
-				Logger.warn(e.message);
-			}
-		}
-		return undefined;
+		return githubRepository.resolveUser(login);
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
@@ -2441,6 +2461,34 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async checkoutDefaultBranch(branch: string): Promise<void> {
+		const CHECKOUT_DEFAULT_BRANCH = 'checkoutDefaultBranch';
+		const CHECKOUT_DEFAULT_BRANCH_AND_PULL = 'checkoutDefaultBranchAndPull';
+
+		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<typeof CHECKOUT_DEFAULT_BRANCH | typeof CHECKOUT_DEFAULT_BRANCH_AND_PULL>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+
+		if (postDoneAction === CHECKOUT_DEFAULT_BRANCH_AND_PULL) {
+			await this.checkoutDefaultBranchAndPull(branch);
+		} else {
+			await this.checkoutDefaultBranchOnly(branch);
+		}
+	}
+
+	private async checkoutDefaultBranchAndPull(branch: string): Promise<void> {
+		await this.checkoutDefaultBranchOnly(branch);
+		// After checking out, pull the latest changes if the branch has an upstream
+		try {
+			const branchObj = await this.repository.getBranch(branch);
+			if (branchObj.upstream) {
+				Logger.debug(`Pulling latest changes for branch ${branch}`, this.id);
+				await this.repository.pull();
+			}
+		} catch (e) {
+			Logger.warn(`Failed to pull latest changes for branch ${branch}: ${e}`, this.id);
+			// Don't throw error - checkout succeeded, pull failure is non-critical
+		}
+	}
+
+	private async checkoutDefaultBranchOnly(branch: string): Promise<void> {
 		let branchObj: Branch | undefined;
 		try {
 			branchObj = await this.repository.getBranch(branch);
@@ -2527,6 +2575,12 @@ export class FolderRepositoryManager extends Disposable {
 
 	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
 		if (!this._updateMessageShown || autoStashSetting) {
+			// When the PR is from Copilot, we only want to show the notification when Copilot is done working
+			const copilotStatus = await pr.copilotWorkingStatus(pr);
+			if (copilotStatus === CopilotWorkingStatus.InProgress) {
+				return;
+			}
+
 			this._updateMessageShown = true;
 			const pull = vscode.l10n.t('Pull');
 			const always = vscode.l10n.t('Always Pull');
@@ -2720,7 +2774,7 @@ export class FolderRepositoryManager extends Disposable {
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
 		await new Promise<void>(resolve => {
-			if (this.gitHubRepositories.length === startingRepoCount) {
+			if ((this.gitHubRepositories.length === startingRepoCount) && vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES)?.includes('upstream')) {
 				const disposable = this.onDidChangeRepositories(() => {
 					if (this.gitHubRepositories.length > startingRepoCount) {
 						disposable.dispose();

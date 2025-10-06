@@ -5,7 +5,9 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
-import { createPRNodeUri, fromPRNodeUri, Schemes } from '../common/uri';
+import { Protocol } from '../common/protocol';
+import { createPRNodeUri, fromPRNodeUri, fromQueryUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes, toQueryUri } from '../common/uri';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
 import { PrsTreeModel } from './prsTreeModel';
 
@@ -16,7 +18,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	>();
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
-	constructor(private readonly _prsTreeModel: PrsTreeModel) {
+	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
 		this._register(vscode.window.registerFileDecorationProvider(this));
 		this._register(
@@ -24,12 +26,30 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 				this._onDidChangeFileDecorations.fire(identifiers.map(id => createPRNodeUri(id)));
 			})
 		);
+
+		this._register(this._copilotManager.onDidChangeNotifications(items => {
+			const repoItems = new Set<string>();
+			const uris: vscode.Uri[] = [];
+			for (const item of items) {
+				const queryUri = toQueryUri({ remote: { owner: item.remote.owner, repositoryName: item.remote.repositoryName }, isCopilot: true });
+				if (!repoItems.has(queryUri.toString())) {
+					repoItems.add(queryUri.toString());
+					uris.push(queryUri);
+				}
+				uris.push(createPRNodeUri(item));
+			}
+			this._onDidChangeFileDecorations.fire(uris);
+		}));
 	}
 
 	provideFileDecoration(
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
 	): vscode.ProviderResult<vscode.FileDecoration> {
+		if (uri.scheme === Schemes.PRQuery) {
+			return this._queryDecoration(uri);
+		}
+
 		if (uri.scheme !== Schemes.PRNode) {
 			return;
 		}
@@ -37,11 +57,49 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		if (!params) {
 			return;
 		}
+
+		const copilotDecoration = this._getCopilotDecoration(params);
+		if (copilotDecoration) {
+			return copilotDecoration;
+		}
+
 		const status = this._prsTreeModel.cachedPRStatus(params.prIdentifier);
 		if (!status) {
 			return;
 		}
 
-		return getStatusDecoration(status.status) as vscode.FileDecoration;
+		const decoration = getStatusDecoration(status.status) as vscode.FileDecoration;
+		return decoration;
+	}
+
+	private _getCopilotDecoration(params: PRNodeUriParams): vscode.FileDecoration | undefined {
+		const idParts = parsePRNodeIdentifier(params.prIdentifier);
+		if (!idParts) {
+			return;
+		}
+		const protocol = new Protocol(idParts.remote);
+		if (this._copilotManager.hasNotification(protocol.owner, protocol.repositoryName, idParts.prNumber)) {
+			return {
+				badge: new vscode.ThemeIcon('copilot') as any,
+				color: new vscode.ThemeColor('pullRequests.notification')
+			};
+		}
+	}
+
+	private _queryDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
+		const params = fromQueryUri(uri);
+		if (!params?.isCopilot || !params.remote) {
+			return;
+		}
+		const counts = this._copilotManager.getNotificationsCount(params.remote.owner, params.remote.repositoryName);
+		if (counts === 0) {
+			return;
+		}
+
+		return {
+			tooltip: vscode.l10n.t('Coding agent has made changes'),
+			badge: new vscode.ThemeIcon('copilot') as any,
+			color: new vscode.ThemeColor('pullRequests.notification'),
+		};
 	}
 }

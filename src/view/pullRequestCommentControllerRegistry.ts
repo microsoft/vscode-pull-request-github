@@ -82,7 +82,7 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 		if (!this._activeChangeListeners.has(folderRepositoryManager)) {
 			this._activeChangeListeners.set(folderRepositoryManager, folderRepositoryManager.onDidChangeActivePullRequest(e => {
 				if (e.old) {
-					this._prCommentHandlers[e.old]?.dispose();
+					this._prCommentHandlers[e.old.number]?.dispose();
 				}
 			}));
 		}

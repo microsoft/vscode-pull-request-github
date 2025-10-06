@@ -21,6 +21,7 @@ import { MockTelemetry } from './mockTelemetry';
 import { Uri } from 'vscode';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { mergeQuerySchemaWithShared } from '../../github/common';
+
 const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 export class MockGitHubRepository extends GitHubRepository {
@@ -33,7 +34,7 @@ export class MockGitHubRepository extends GitHubRepository {
 
 		this._hub = {
 			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockTelemetry(), true)),
-			graphql: null,
+			graphql: {} as any,
 		};
 
 		this._metadata = Promise.resolve({
@@ -71,8 +72,8 @@ export class MockGitHubRepository extends GitHubRepository {
 		block(builder);
 		const responses = builder.build();
 
-		const prNumber = responses.pullRequest.repository.pullRequest.number;
-		const headRef = responses.pullRequest.repository.pullRequest.headRef;
+		const prNumber = responses.pullRequest.repository!.pullRequest.number;
+		const headRef = responses.pullRequest.repository?.pullRequest.headRef;
 
 		this.queryProvider.expectGraphQLQuery(
 			{

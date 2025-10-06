@@ -6,13 +6,14 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isTeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -153,9 +154,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			}
 		}
 
-		if (targetReviewer && isTeam(targetReviewer.reviewer)) {
+		if (targetReviewer && isITeam(targetReviewer.reviewer)) {
 			teamReviewers.push(targetReviewer.reviewer);
-		} else if (targetReviewer && !isTeam(targetReviewer.reviewer)) {
+		} else if (targetReviewer && !isITeam(targetReviewer.reviewer)) {
 			userReviewers.push(targetReviewer.reviewer);
 		}
 
@@ -188,7 +189,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			disposeAll(this._prDisposables);
 		}
 		this._prDisposables = [];
-		this._prDisposables.push(pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.onDidChange(() => this.updatePullRequest(pullRequestModel)));
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
@@ -219,7 +220,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
-			pullRequestModel.validateDraftMode()
+			pullRequestModel.validateDraftMode(),
+			ensureEmojis(this._folderRepositoryManager.context)
 		])
 			.then(result => {
 				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = result;
@@ -267,7 +269,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					createdAt: pullRequest.createdAt,
 					body: pullRequest.body,
 					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels,
+					labels: pullRequest.item.labels.map(label => ({ ...label, displayName: emojify(label.name) })),
 					author: {
 						login: pullRequest.author.login,
 						name: pullRequest.author.name,
@@ -364,8 +366,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this.updateReviewers(review);
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
-				event: review,
-				reviewers: this._existingReviewers
+				events: [],
+				reviewers: this._existingReviewers,
+				reviewedEvent: review,
 			};
 			await this._postMessage(reviewMessage);
 		} catch (e) {
@@ -380,7 +383,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const review = await action(message.args);
 			this.updateReviewers(review);
 			const reviewMessage: SubmitReviewReply = {
-				event: review,
+				events: [],
+				reviewedEvent: review,
 				reviewers: this._existingReviewers,
 			};
 			this._replyMessage(message, reviewMessage);
@@ -439,13 +443,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set PR ready for review. {0}', formatError(e)));
-				this._throwError(message, {});
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set pull request ready for review. {0}', formatError(e)));
+				this._throwError(message, '');
 			});
 	}
 
@@ -471,7 +473,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				vscode.commands.executeCommand('pr.refreshList');
 
 				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result?.message ?? ''));
+					vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
 				}
 
 				this._replyMessage(message, {
@@ -480,7 +482,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-				this._throwError(message, {});
+				this._throwError(message, '');
 			});
 	}
 

@@ -10,7 +10,7 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
-import { stringReplaceAsync } from '../common/utils';
+import { escapeRegExp, stringReplaceAsync } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
 import { updateCommentReactions } from './utils';
@@ -208,6 +208,7 @@ export class TemporaryComment extends CommentBase {
 
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
+const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
 
 export class GHPRComment extends CommentBase {
 	private static ID = 'GHPRComment';
@@ -221,14 +222,17 @@ export class GHPRComment extends CommentBase {
 
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
+	private githubRepository: GitHubRepository | undefined;
 
-	constructor(private readonly context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
+	constructor(private readonly context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
 		this.originalAuthor = {
 			name: comment.user?.specialDisplayName ?? comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
+		const url = vscode.Uri.parse(comment.url);
+		this.githubRepository = githubRepositories?.find(repo => repo.remote.host === url.authority);
 
 		const avatarUrisPromise = comment.user ? DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28) : Promise.resolve([]);
 		this.doSetBody(comment.body, !comment.user).then(async () => { // only refresh if there's no user. If there's a user, we'll refresh in the then.
@@ -364,20 +368,18 @@ ${args[3] ?? ''}
 	}
 
 	private async replacePermalink(body: string): Promise<string> {
-		const githubRepositories = this.githubRepositories;
-		if (!githubRepositories || githubRepositories.length === 0) {
+		const githubRepository = this.githubRepository;
+		if (!githubRepository) {
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/(.+)/${githubRepositories[0].remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		const repoName = escapeRegExp(githubRepository.remote.repositoryName);
+		const expression = new RegExp(`https://github.com/(.+)/${repoName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
 		return stringReplaceAsync(body, expression, async (match: string, owner: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
 			if (index && (index > 0) && (body.charAt(index - 1) === '(')) {
 				return match;
 			}
-			const githubRepository = githubRepositories.find(repository => repository.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
-			if (!githubRepository) {
-				return match;
-			}
+
 			const startLine = parseInt(start);
 			const endLine = end ? parseInt(end) : startLine + 1;
 			const lineContents = await githubRepository.getLines(sha, file, startLine, endLine);
@@ -398,6 +400,15 @@ ${lineContents}
 		});
 	}
 
+	private replaceImages(body: string): string {
+		const html = this.rawComment.bodyHTML;
+		if (!html) {
+			return body;
+		}
+
+		return replaceImages(body, html, this.githubRepository?.remote.host);
+	}
+
 	private replaceNewlines(body: string) {
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
@@ -416,7 +427,8 @@ ${lineContents}
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
 		}
-		const newLinesReplaced = this.replaceNewlines(body);
+		const imagesReplaced = this.replaceImages(body);
+		const newLinesReplaced = this.replaceNewlines(imagesReplaced);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
 		const replacerRegex = new RegExp(`([^/\[\`]|^)@(${ALLOWED_USERS})`, 'g');
 		// Replace user
@@ -470,4 +482,25 @@ ${lineContents}
 	protected getCancelEditBody() {
 		return new vscode.MarkdownString(this.rawComment.body);
 	}
+}
+
+export function replaceImages(markdownBody: string, htmlBody: string, host: string = 'github.com') {
+	const originalExpression = new RegExp(`https:\/\/${host}\/.+\/assets\/([^\/]+\/)?(?<uuid>${UUID_EXPRESSION.source})`);
+	let originalMatch = markdownBody.match(originalExpression);
+	const htmlHost = escapeRegExp(host === 'github.com' ? 'githubusercontent.com' : host);
+
+	while (originalMatch) {
+		if (originalMatch.groups?.uuid) {
+			const uuid = escapeRegExp(originalMatch.groups.uuid);
+			const htmlExpression = new RegExp(`https:\/\/([^"]*${htmlHost})\/[^?]+${uuid}[^"]+`);
+			const htmlMatch = htmlBody.match(htmlExpression);
+			if (htmlMatch && htmlMatch[0]) {
+				markdownBody = markdownBody.replace(originalMatch[0], htmlMatch[0]);
+			} else {
+				return markdownBody;
+			}
+		}
+		originalMatch = markdownBody.match(originalExpression);
+	}
+	return markdownBody;
 }

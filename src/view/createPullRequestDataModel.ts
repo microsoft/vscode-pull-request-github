@@ -155,6 +155,11 @@ export class CreatePullRequestDataModel extends Disposable {
 	private async updateHasUpstream(branch: string): Promise<boolean> {
 		const compareBranch = await this.folderRepositoryManager.repository.getBranch(branch);
 		this._compareHasUpstream = !!compareBranch.upstream;
+		// Check that the upstream head matches the local head
+		if (this._compareHasUpstream) {
+			const upstream = await this.gitHubRepository?.hasBranch(branch);
+			this._compareHasUpstream = upstream === compareBranch.commit;
+		}
 		return this._compareHasUpstream;
 	}
 

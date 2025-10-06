@@ -166,7 +166,8 @@ abstract class CompareChangesTreeProvider extends Disposable implements vscode.T
 
 			return { rawFiles, rawCommits, mergeBase };
 		} catch (e) {
-			if ('name' in e && e.name === 'HttpError' && e.status === 404) {
+			const eWithName: Partial<{ name: string; status: number }> = e;
+			if (e.name && eWithName.name === 'HttpError' && eWithName.status === 404) {
 				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('The upstream branch `{0}` does not exist on GitHub', this.model.baseBranch));
 			}
 			return {};

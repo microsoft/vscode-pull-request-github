@@ -23,7 +23,6 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 	public contextValue?: string;
 	public tooltip: string;
 	public iconPath: vscode.ThemeIcon | vscode.Uri | undefined;
-	public description?: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 	private isLocal: boolean;
 	public readonly repository: Repository;
@@ -71,8 +70,10 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 			this.revealActiveEditorInTree(activeEditorUri);
 		}));
 
-		this._register(this.pullRequestModel.onDidInvalidate(() => {
-			this.refresh();
+		this._register(this.pullRequestModel.onDidChange(e => {
+			if (e.title || e.state) {
+				this.refresh();
+			}
 		}));
 	}
 
@@ -96,8 +97,8 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 				this.pullRequestModel,
 			);
 		}
-		this.children = [this._filesCategoryNode, this._commitsCategoryNode];
-		return this.children;
+		this._children = [this._filesCategoryNode, this._commitsCategoryNode];
+		return this._children;
 	}
 
 	private setLabel() {

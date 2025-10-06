@@ -40,9 +40,16 @@ export interface CrossReferencedEvent {
 	actor: Actor;
 	createdAt: string;
 	source: {
+		__typename: string;
 		number: number;
 		url: string;
 		title: string;
+		repository: {
+			name: string;
+			owner: {
+				login: string;
+			};
+		}
 	};
 	willCloseTarget: boolean;
 }
@@ -68,6 +75,7 @@ export interface AbbreviatedIssueComment {
 	reactions: {
 		totalCount: number;
 	};
+	reactionGroups: ReactionGroup[]
 	createdAt: string;
 }
 
@@ -113,11 +121,13 @@ export interface Account extends Actor {
 }
 
 export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
-	return !!x && 'name' in x && 'email' in x;
+	const asAccount = x as Partial<Account>;
+	return !!asAccount && !!asAccount?.name && (asAccount?.email !== undefined);
 }
 
 export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
-	return !!x && 'slug' in x;
+	const asTeam = x as Partial<Team>;
+	return !!asTeam && !!asTeam?.slug;
 }
 
 export interface Team {
@@ -177,13 +187,21 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
-		authoredDate: Date;
+		committedDate: Date;
 	};
 
 	url: string;
 }
 
 export interface AssignedEvent {
+	__typename: string;
+	id: number;
+	actor: Actor;
+	user: Account;
+	createdAt: string;
+}
+
+export interface UnassignedEvent {
 	__typename: string;
 	id: number;
 	actor: Actor;
@@ -212,6 +230,7 @@ export interface Review {
 	submittedAt: string;
 	updatedAt: string;
 	createdAt: string;
+	reactionGroups: ReactionGroup[];
 }
 
 export interface ReviewThread {
@@ -252,7 +271,7 @@ export interface TimelineEventsResponse {
 
 export interface LatestCommit {
 	commit: {
-		authoredDate: string;
+		committedDate: string;
 	}
 }
 
@@ -541,6 +560,13 @@ export interface UpdateIssueResponse {
 			bodyHTML: string;
 			title: string;
 			titleHTML: string;
+			milestone?: {
+				title: string;
+				dueOn?: string;
+				id: string;
+				createdAt: string;
+				number: number;
+			};
 		};
 	};
 }
@@ -559,7 +585,7 @@ export interface GetBranchResponse {
 			target: {
 				oid: string;
 			}
-		}
+		} | null;
 	} | null;
 }
 
@@ -612,6 +638,7 @@ export interface Issue {
 	number: number;
 	url: string;
 	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
+	stateReason?: 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
 	body: string;
 	bodyHTML: string;
 	title: string;
@@ -693,6 +720,8 @@ export interface PullRequest extends Issue {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
+	additions?: number;
+	deletions?: number;
 }
 
 export enum DefaultCommitTitle {

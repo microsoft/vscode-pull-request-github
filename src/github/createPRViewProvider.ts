@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, TitleAndDescriptionArgs } from '../../common/views';
+import { RemoteInfo } from '../../common/types';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
+import { emojify, ensureEmojis } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
@@ -32,13 +34,13 @@ import {
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
-import { PreReviewState } from './views';
+import { DisplayLabel, PreReviewState } from './views';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
@@ -170,7 +172,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
 			this.detectBaseMetadata(defaultCompareBranch),
 			this._folderRepositoryManager.getGitHubRemotes(),
-			this._folderRepositoryManager.getOrigin(defaultCompareBranch)]);
+			this._folderRepositoryManager.getOrigin(defaultCompareBranch),
+			ensureEmojis(this._folderRepositoryManager.context)
+		]);
 
 		const defaultBaseRemote: RemoteInfo = {
 			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
@@ -225,7 +229,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 		const preReviewer = this._folderRepositoryManager.getAutoReviewer();
 
-		this.labels = labels;
+		this.labels = labels.map(label => ({ ...label, displayName: emojify(label.name) }));
 
 		const params: CreateParamsNew = {
 			canModifyBranches: true,
@@ -273,13 +277,15 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		if (!configuration) {
 			return;
 		}
-		const resolved = await variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
+		const resolved = variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
 		if (!resolved) {
 			return;
 		}
 		try {
-			// TODO: We need to resolve the user and then use the replace function.
-			await pr.addAssignees([resolved]);
+			const user = await pr.githubRepository.resolveUser(resolved);
+			if (user) {
+				await pr.replaceAssignees([user]);
+			}
 		} catch (e) {
 			Logger.error(`Unable to assign pull request to user ${resolved}.`, BaseCreatePullRequestViewProvider.ID);
 		}
@@ -310,7 +316,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			const users: IAccount[] = [];
 			const teams: ITeam[] = [];
 			for (const reviewer of reviewers) {
-				if (isTeam(reviewer)) {
+				if (isITeam(reviewer)) {
 					teams.push(reviewer);
 				} else {
 					users.push(reviewer);
@@ -428,20 +434,20 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		});
 	}
 
-	private labels: ILabel[] = [];
+	private labels: DisplayLabel[] = [];
 	public async addLabels(): Promise<void> {
-		let newLabels: ILabel[] = [];
+		let newLabels: DisplayLabel[] = [];
 
-		const labelsToAdd = await vscode.window.showQuickPick(
+		const labelsToAdd = await vscode.window.showQuickPick<vscode.QuickPickItem & { name: string }>(
 			getLabelOptions(this._folderRepositoryManager, this.labels, this.model.baseOwner, this.model.repositoryName).then(options => {
 				newLabels = options.newLabels;
 				return options.labelPicks;
-			}) as Promise<vscode.QuickPickItem[]>,
+			}),
 			{ canPickMany: true, matchOnDescription: true, placeHolder: vscode.l10n.t('Apply labels') },
 		);
 
 		if (labelsToAdd) {
-			const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
+			const addedLabels: DisplayLabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.name)!);
 			this.labels = addedLabels;
 			this._postMessage({
 				command: 'set-labels',
@@ -618,8 +624,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async existingPRMessage(): Promise<string | undefined> {
-		const existingPR = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch);
-		return existingPR ? vscode.l10n.t('A pull request already exists for this branch.') : '';
+		const [existingPR, hasUpstream] = await Promise.all([PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch), this.model.getCompareHasUpstream()]);
+		if (!existingPR || !hasUpstream) {
+			return undefined;
+		}
+
+		const [pr, compareBranch] = await Promise.all([await this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
+		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
 	}
 
 	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
@@ -1292,9 +1303,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		} else {
 			try {
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
-				await this.model.setCompareBranch(newBranch);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
+			}
+			if (compareBranch) {
+				await this.model.setCompareBranch(newBranch);
 			}
 		}
 

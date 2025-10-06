@@ -7,13 +7,39 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../common/comment';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID, COPILOT_SWE_AGENT } from '../common/copilot';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { AccountType, IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { IssueModel } from './issueModel';
+import { DisplayLabel } from './views';
+
+export async function chooseItem<T>(
+	itemsToChooseFrom: T[],
+	propertyGetter: (itemValue: T) => string,
+	options?: vscode.QuickPickOptions,
+): Promise<T | undefined> {
+	if (itemsToChooseFrom.length === 0) {
+		return undefined;
+	}
+	if (itemsToChooseFrom.length === 1) {
+		return itemsToChooseFrom[0];
+	}
+	interface Item extends vscode.QuickPickItem {
+		itemValue: T;
+	}
+	const items: Item[] = itemsToChooseFrom.map(currentItem => {
+		return {
+			label: propertyGetter(currentItem),
+			itemValue: currentItem,
+		};
+	});
+	return (await vscode.window.showQuickPick(items, options))?.itemValue;
+}
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
 	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
@@ -32,7 +58,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		const user = filteredUsers[i];
 
 		let detail: string | undefined;
-		if (isSuggestedReviewer(user)) {
+		if (isISuggestedReviewer(user)) {
 			detail = user.isAuthor && user.isCommenter
 				? vscode.l10n.t('Recently edited and reviewed changes to these files')
 				: user.isAuthor
@@ -43,7 +69,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		}
 
 		alreadyAssignedItems.push({
-			label: isTeam(user) ? `${user.org}/${user.slug}` : COPILOT_ACCOUNTS[user.login] ? COPILOT_ACCOUNTS[user.login].name : user.login,
+			label: isITeam(user) ? `${user.org}/${user.slug}` : COPILOT_ACCOUNTS[user.login] ? COPILOT_ACCOUNTS[user.login].name : user.login,
 			description: user.name,
 			user,
 			picked,
@@ -120,13 +146,12 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 }
 
 function userThemeIcon(user: IAccount | ITeam) {
-	return (isTeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
+	return (isITeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
 }
 
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
 ): Promise<(vscode.QuickPickItem & { user?: IAccount | ITeam })[]> {
-	existingReviewers = existingReviewers.filter(reviewer => isTeam(reviewer.reviewer) || (reviewer.reviewer.accountType !== AccountType.Bot));
 	if (!suggestedReviewers) {
 		return [];
 	}
@@ -135,8 +160,20 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const allTeamReviewers = isInOrganization ? await folderRepositoryManager.getTeamReviewers(refreshKind) : [];
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
-	if (allAssignableUsers[remoteName]) {
-		assignableUsers.push(...allAssignableUsers[remoteName]);
+
+	// Remove the swe agent as it can't do reviews, but add the reviewer instead
+	const originalAssignableUsers = allAssignableUsers[remoteName] ?? [];
+	let hasCopilotSweAgent: boolean = false;
+	const assignableUsersForRemote = originalAssignableUsers.filter(user => {
+		if (user.login === COPILOT_SWE_AGENT) {
+			hasCopilotSweAgent = true;
+			return false;
+		}
+		return true;
+	});
+
+	if (assignableUsersForRemote) {
+		assignableUsers.push(...assignableUsersForRemote);
 	}
 
 	// used to track logins that shouldn't be added to pick list
@@ -150,6 +187,19 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	// Start with all existing reviewers so they show at the top
 	if (existingReviewers.length) {
 		reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, existingReviewers.map(reviewer => reviewer.reviewer), true));
+	}
+
+	// If we removed the coding agent, add the Copilot reviewer instead
+	if (hasCopilotSweAgent && !existingReviewers.find(user => (user.reviewer as IAccount).login === COPILOT_REVIEWER)) {
+		const copilotReviewer: IAccount = {
+			login: COPILOT_REVIEWER,
+			id: COPILOT_REVIEWER_ID,
+			url: '',
+			avatarUrl: '',
+			name: COPILOT_ACCOUNTS[COPILOT_REVIEWER]?.name ?? 'Copilot',
+			accountType: AccountType.Bot
+		};
+		assignableUsers.push(copilotReviewer);
 	}
 
 	// Suggested reviewers
@@ -392,12 +442,14 @@ export async function getLabelOptions(
 	labels: ILabel[],
 	baseOwner: string,
 	repositoryName: string
-): Promise<{ newLabels: ILabel[], labelPicks: vscode.QuickPickItem[] }> {
-	const newLabels = await folderRepoManager.getLabels(undefined, { owner: baseOwner, repo: repositoryName });
+): Promise<{ newLabels: DisplayLabel[], labelPicks: (vscode.QuickPickItem & { name: string })[] }> {
+	await ensureEmojis(folderRepoManager.context);
+	const newLabels = (await folderRepoManager.getLabels(undefined, { owner: baseOwner, repo: repositoryName })).map(label => ({ ...label, displayName: emojify(label.name) }));
 
 	const labelPicks = newLabels.map(label => {
 		return {
-			label: label.name,
+			label: label.displayName,
+			name: label.name,
 			description: label.description ?? undefined,
 			picked: labels.some(existingLabel => existingLabel.name === label.name),
 			iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

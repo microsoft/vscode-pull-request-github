@@ -7,6 +7,7 @@ import { basename } from 'path';
 import * as vscode from 'vscode';
 import { Remote } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -23,9 +24,11 @@ import { ITelemetry } from '../common/telemetry';
 import { fromRepoUri, RepoUriParams, Schemes, toNewIssueUri } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
 import { OctokitCommon } from '../github/common';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
+import { IssueOverviewPanel } from '../github/issueOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { chatCommand } from '../lm/utils';
@@ -89,6 +92,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		private reviewsManager: ReviewsManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
+		private copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	) {
 		super();
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
@@ -134,6 +138,32 @@ export class IssueFeatureRegistrar extends Disposable {
 			*/
 					this.telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
 					return this.createTodoIssueClipboard();
+				},
+				this,
+			),
+		);
+		this._register(
+			vscode.commands.registerCommand(
+				'issue.startCodingAgentFromTodo',
+				(todoInfo?: { document: vscode.TextDocument; lineNumber: number; line: string; insertIndex: number; range: vscode.Range }) => {
+					/* __GDPR__
+				"issue.startCodingAgentFromTodo" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.startCodingAgentFromTodo');
+					return this.startCodingAgentFromTodo(todoInfo);
+				},
+				this,
+			),
+		);
+		this._register(
+			vscode.commands.registerCommand(
+				'issue.assignToCodingAgent',
+				(issueModel: any) => {
+					/* __GDPR__
+				"issue.assignToCodingAgent" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
+					return this.assignToCodingAgent(issueModel);
 				},
 				this,
 			),
@@ -508,7 +538,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				} else {
 					const pullRequestModel = issue.pullRequestModel;
 					const remote = pullRequestModel.githubRepository.remote;
-					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize PR {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
+					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
 				}
 			}),
 		);
@@ -546,7 +576,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
 			this._register(
-				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context, this.copilotRemoteAgentManager), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
 		});
 	}
@@ -1264,14 +1294,18 @@ ${options?.body ?? ''}\n
 			folderManager = await this.chooseRepo(vscode.l10n.t('Choose where to create the issue.'));
 		}
 
+		const assigneesWithoutCopilot = assignees?.filter(assignee => !COPILOT_ACCOUNTS[assignee]);
+		const copilotAssignee = !!assignees?.find(assignee => COPILOT_ACCOUNTS[assignee]);
+
 		return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating issue') }, async (progress) => {
 			if (!folderManager) {
 				return false;
 			}
+			const constFolderManager: FolderRepositoryManager = folderManager;
 			progress.report({ message: vscode.l10n.t('Verifying that issue data is valid...') });
 			try {
 				if (!origin) {
-					origin = await folderManager.getPullRequestDefaults();
+					origin = await constFolderManager.getPullRequestDefaults();
 				}
 			} catch (e) {
 				// There is no remote
@@ -1287,17 +1321,23 @@ ${options?.body ?? ''}\n
 				repo: origin.repo,
 				title,
 				body,
-				assignees,
+				assignees: assigneesWithoutCopilot,
 				labels,
 				milestone
 			};
 
-			if (!(await this.verifyLabels(folderManager, createParams))) {
+			if (!(await this.verifyLabels(constFolderManager, createParams))) {
 				return false;
 			}
 			progress.report({ message: vscode.l10n.t('Creating issue in {0}...', `${createParams.owner}/${createParams.repo}`) });
-			const issue = await folderManager.createIssue(createParams);
+			const issue = await constFolderManager.createIssue(createParams);
 			if (issue) {
+				if (copilotAssignee) {
+					const copilotUser = (await folderManager.getAssignableUsers())[issue.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
+					if (copilotUser) {
+						await issue.replaceAssignees([...(issue.assignees ?? []), copilotUser]);
+					}
+				}
 				if (projects) {
 					await issue.updateProjects(projects);
 				}
@@ -1312,14 +1352,14 @@ ${options?.body ?? ''}\n
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					const copyIssueUrl = vscode.l10n.t('Copy Issue Link');
-					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
+					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the editor to see it\'s full contents.' });
 					vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
 						switch (result) {
 							case copyIssueUrl:
 								await vscode.env.clipboard.writeText(issue.html_url);
 								break;
 							case openIssue:
-								await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
+								await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, constFolderManager, issue);
 								break;
 						}
 					});
@@ -1440,5 +1480,70 @@ ${options?.body ?? ''}\n
 			return vscode.env.openExternal(vscode.Uri.parse(withPermalinks[0].permalink));
 		}
 		return undefined;
+	}
+
+	async startCodingAgentFromTodo(todoInfo?: { document: vscode.TextDocument; lineNumber: number; line: string; insertIndex: number; range: vscode.Range }) {
+		if (!todoInfo) {
+			return;
+		}
+
+		const { document, line, insertIndex } = todoInfo;
+
+		// Extract the TODO text after the trigger word
+		const todoText = line.substring(insertIndex).trim();
+
+		if (!todoText) {
+			vscode.window.showWarningMessage(vscode.l10n.t('No task description found in TODO comment'));
+			return;
+		}
+
+		// Create a prompt for the coding agent
+		const relativePath = vscode.workspace.asRelativePath(document.uri);
+		const prompt = vscode.l10n.t('Work on TODO: {0} (from {1})', todoText, relativePath);
+
+		// Start the coding agent session
+		try {
+			await this.copilotRemoteAgentManager.commandImpl({
+				userPrompt: prompt,
+				source: 'todo'
+			});
+		} catch (error) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
+		}
+	}
+
+	async assignToCodingAgent(issueModel: any) {
+		if (!issueModel) {
+			return;
+		}
+
+		// Check if the issue model is an IssueModel
+		if (!(issueModel instanceof IssueModel)) {
+			return;
+		}
+
+		try {
+			// Get the folder manager for this issue
+			const folderManager = this.manager.getManagerForIssueModel(issueModel);
+			if (!folderManager) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to find repository for issue #{0}', issueModel.number));
+				return;
+			}
+
+			// Get assignable users and find the copilot user
+			const assignableUsers = await folderManager.getAssignableUsers();
+			const copilotUser = assignableUsers[issueModel.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
+
+			if (!copilotUser) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Copilot coding agent is not available for assignment in this repository'));
+				return;
+			}
+
+			// Assign the issue to the copilot user
+			await issueModel.replaceAssignees([...(issueModel.assignees ?? []), copilotUser]);
+			vscode.window.showInformationMessage(vscode.l10n.t('Issue #{0} has been assigned to Copilot coding agent', issueModel.number));
+		} catch (error) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to assign issue to coding agent: {0}', error.message));
+		}
 	}
 }

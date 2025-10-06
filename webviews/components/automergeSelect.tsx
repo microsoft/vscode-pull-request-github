@@ -116,7 +116,7 @@ export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueue
 			{message}
 		</div>
 		<div className='button-container'>
-			<button onClick={ctx.dequeue}>Remove from queue</button>
+			<button onClick={ctx.dequeue}>Remove from Queue</button>
 		</div>
 	</div>;
 };

@@ -14,7 +14,7 @@ import { HostHelper } from './configuration';
 export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
 	private static readonly _gheServers = new Set<string>().add('ghe.com');
-	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com');
+	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com').add('codeberg.org');
 	private _knownServers: Map<string, GitHubServerType> = new Map([...Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]), ...Array.from(GitHubManager._gheServers.keys()).map(key => [key, GitHubServerType.Enterprise])] as [string, GitHubServerType][]);
 
 	public static isGithubDotCom(host: string): boolean {

@@ -200,7 +200,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	return (
 		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
+			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch} />
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 		</div>
@@ -209,7 +209,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
 	const [busy, setBusy] = useState(false);
 
@@ -275,7 +275,7 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 		<div className="status-item status-section">
 			{alertIcon}
 			<p>This branch is out-of-date with the base branch.</p>
-			<button className="secondary" onClick={update} disabled={isBusy} >Update with merge commit</button>
+			<button className="secondary" onClick={update} disabled={isBusy} >Update with Merge Commit</button>
 		</div>
 	);
 
@@ -305,7 +305,7 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 				</div>
 			</div>
 			<div className='button-container'>
-				<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
 			</div>
 		</div>
 	);
@@ -420,7 +420,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 					}}
 				>
 					<button disabled={isBusy} className="secondary" type="submit">
-						Delete branch...
+						Delete Branch...
 					</button>
 				</form>
 			</div>
