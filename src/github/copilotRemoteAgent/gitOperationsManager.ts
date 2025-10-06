@@ -148,7 +148,7 @@ export class GitOperationsManager {
 		const branchRandomNameDictionary = config.get<string[]>(BRANCH_RANDOM_NAME_DICTIONARY);
 
 		// Default to legacy behaviour if config mismatches core
-		if (!branchWhitespaceChar || !branchRandomNameDictionary) {
+		if (branchWhitespaceChar === undefined || branchRandomNameDictionary === undefined) {
 			return `copilot/vscode${Date.now()}`;
 		}
 
