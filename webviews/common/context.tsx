@@ -148,16 +148,24 @@ export class PRContext {
 	public deleteReview = async () => {
 		try {
 			const result: { deletedReviewId: number; deletedReviewComments: IComment[] } = await this.postMessage({ command: 'pr.delete-review' });
-			// Update the PR state to reflect the deleted review
+			
+			// Check that the deletedReviewId exists in the events before clearing everything
 			const state = this.pr;
-			state.busy = false;
-			state.pendingCommentText = '';
-			state.pendingCommentDrafts = {};
-			// Remove the deleted review from events
-			state.events = state.events.filter(event => 
-				!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
+			const reviewExists = state.events.some(event => 
+				event.event === EventType.Reviewed && event.id === result.deletedReviewId
 			);
-			this.updatePR(state);
+			
+			if (result.deletedReviewId && reviewExists) {
+				// Update the PR state to reflect the deleted review
+				state.busy = false;
+				state.pendingCommentText = '';
+				state.pendingCommentDrafts = {};
+				// Remove the deleted review from events
+				state.events = state.events.filter(event => 
+					!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
+				);
+				this.updatePR(state);
+			}
 			return result;
 		} catch (error) {
 			return this.updatePR({ busy: false });

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IComment } from '../common/comment';
 import { CommentEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
@@ -126,6 +127,11 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface DeleteReviewResult {
+	deletedReviewId: number;
+	deletedReviewComments: IComment[];
 }
 
 export enum PreReviewState {
