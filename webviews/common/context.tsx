@@ -8,7 +8,7 @@ import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -160,23 +160,21 @@ export class PRContext {
 
 	public deleteReview = async () => {
 		try {
-			const result: { deletedReviewId: number; deletedReviewComments: IComment[] } = await this.postMessage({ command: 'pr.delete-review' });
-			
+			const result: DeleteReviewResult = await this.postMessage({ command: 'pr.delete-review' });
+
 			// Check that the deletedReviewId exists in the events before clearing everything
 			const state = this.pr;
-			const reviewExists = state.events.some(event => 
-				event.event === EventType.Reviewed && event.id === result.deletedReviewId
-			);
-			
-			if (result.deletedReviewId && reviewExists) {
+			const eventsWithoutPendingReview = state?.events.filter(event =>
+				!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
+			) ?? [];
+
+			if (state && (eventsWithoutPendingReview.length < state.events.length)) {
 				// Update the PR state to reflect the deleted review
 				state.busy = false;
 				state.pendingCommentText = '';
 				state.pendingCommentDrafts = {};
 				// Remove the deleted review from events
-				state.events = state.events.filter(event => 
-					!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
-				);
+				state.events = eventsWithoutPendingReview;
 				this.updatePR(state);
 			}
 			return result;

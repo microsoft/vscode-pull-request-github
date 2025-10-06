@@ -327,7 +327,7 @@ function AddReviewSummaryComment() {
 				<button
 					id="cancel-review"
 					className='secondary'
-					disabled={isBusy || pr.busy}
+					disabled={isBusy || pr?.busy}
 					onClick={cancelReview}
 				>
 					Cancel Review
