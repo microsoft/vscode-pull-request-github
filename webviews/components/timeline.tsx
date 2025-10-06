@@ -269,7 +269,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 }
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit, pr } = useContext(PullRequestContext);
+	const { requestChanges, approve, submit, deleteReview, pr } = useContext(PullRequestContext);
 	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
@@ -289,6 +289,13 @@ function AddReviewSummaryComment() {
 			default:
 				await submit(value);
 		}
+		setBusy(false);
+	}
+
+	async function cancelReview(event: React.MouseEvent): Promise<void> {
+		event.preventDefault();
+		setBusy(true);
+		await deleteReview();
 		setBusy(false);
 	}
 
@@ -317,6 +324,14 @@ function AddReviewSummaryComment() {
 				value={commentText}
 			></textarea>
 			<div className="form-actions">
+				<button
+					id="cancel-review"
+					className='secondary'
+					disabled={isBusy || pr?.busy}
+					onClick={cancelReview}
+				>
+					Cancel Review
+				</button>
 				{isAuthor ? null : (
 					<button
 						id="request-changes"

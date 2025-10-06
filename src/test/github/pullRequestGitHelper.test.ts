@@ -128,7 +128,7 @@ describe('PullRequestGitHelper', function () {
 			// Verify that the original local branch is preserved with its commit
 			const originalBranch = await repository.getBranch('my-branch');
 			assert.strictEqual(originalBranch.commit, 'local-commit-hash', 'Original branch should be preserved');
-			
+
 			// Verify that a unique branch was created and checked out
 			const uniqueBranch = await repository.getBranch('pr/me/100');
 			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
