@@ -292,33 +292,25 @@ export class GitHubRepository extends Disposable {
 		}
 
 		let rsp;
-		const wasLimited = this._areQueriesLimited;
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
 			const logInfo = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
 			const gqlErrors = e.graphQLErrors ? e.graphQLErrors as GraphQLError[] : undefined;
 			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
-
-			const retry = async (originalQuery: QueryOptions) => {
-				originalQuery.query = this.schema[(originalQuery.query.definitions[0] as { name: { value: string } }).name.value];
-				return gql.query<T>(originalQuery);
-			};
-
 			if (legacyFallback) {
-				return retry({ query: legacyFallback.query, variables: legacyFallback.variables ?? query.variables });
+				query.query = legacyFallback.query;
+				query.variables = legacyFallback.variables;
+				return this.query(query, ignoreSamlErrors);
 			}
 
-			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => ((error.extensions?.code === 'undefinedField') || (error.extensions?.code === 'variableRequiresValidType'))))) {
-				if (!this._areQueriesLimited) {
-					// We're running against a GitHub server that doesn't support the query we're trying to run.
-					// Switch to the limited schema and try again.
-					this._areQueriesLimited = true;
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
-					rsp = await retry(query);
-				} else if (this._areQueriesLimited && !wasLimited) {
-					rsp = await retry(query);
-				}
+			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
+				// We're running against a GitHub server that doesn't support the query we're trying to run.
+				// Switch to the limited schema and try again.
+				this._areQueriesLimited = true;
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				query.query = this.schema[(query.query.definitions[0] as { name: { value: string } }).name.value];
+				rsp = await gql.query<T>(query);
 			} else if (ignoreSamlErrors && isSamlError(e)) {
 				// Some queries just result in SAML errors.
 			} else if ((e.message as string | undefined)?.includes('401 Unauthorized')) {
@@ -436,7 +428,7 @@ export class GitHubRepository extends Disposable {
 		}
 
 		if (oldHub !== this._hub) {
-			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
 			} else {
