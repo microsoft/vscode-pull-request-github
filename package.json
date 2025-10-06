@@ -3724,7 +3724,7 @@
 				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
 				"modelDescription": "Get a GitHub notification's details as a JSON object.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": true,
+				"canBeReferencedInPrompt": false,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3750,7 +3750,7 @@
 				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
 				"modelDescription": "Summarizes a GitHub issue or pull request. A summary is a great way to describe an issue or pull request.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": true,
+				"canBeReferencedInPrompt": false,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3825,7 +3825,7 @@
 				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
 				"modelDescription": "Summarizes a GitHub notification. A summary is a great way to describe a notification.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": true,
+				"canBeReferencedInPrompt": false,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
