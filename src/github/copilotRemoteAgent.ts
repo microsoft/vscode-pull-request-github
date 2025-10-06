@@ -699,7 +699,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					error: vscode.l10n.t(
 						'Unable to access {0} as user {1}. Please check your permissions and try again.',
 						`\`${owner}/${repo}\``,
-						`\`${currentUser.id}\``,
+						`\`${currentUser.login}\``,
 					),
 					state: 'error',
 				};
