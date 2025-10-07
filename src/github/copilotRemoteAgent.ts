@@ -785,11 +785,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		try {
 			const { pull_request, session_id } = await capiClient.postRemoteAgentJob(owner, repo, payload, isTruncated);
-			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
 
 			await this.waitForQueuedToInProgress(session_id, token);
+			this._onDidCreatePullRequest.fire(pull_request.number);
 			return {
 				state: 'success',
 				number: pull_request.number,
