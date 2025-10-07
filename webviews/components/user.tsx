@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interface';
 import { Icon } from './icon';
+import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interface';
 
 const InnerAvatar = ({ for: author }: { for: Partial<IAccount> }) => (
 	<>

@@ -5,6 +5,13 @@
 
 import { OctokitResponse } from '@octokit/types';
 import * as vscode from 'vscode';
+import { CredentialStore, GitHub } from './credentials';
+import { GitHubRepository } from './githubRepository';
+import { PullRequestState } from './graphql';
+import { IssueModel } from './issueModel';
+import { PullRequestModel } from './pullRequestModel';
+import { RepositoriesManager } from './repositoriesManager';
+import { hasEnterpriseUri } from './utils';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -14,13 +21,6 @@ import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { CategoryTreeNode } from '../view/treeNodes/categoryNode';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { TreeNode } from '../view/treeNodes/treeNode';
-import { CredentialStore, GitHub } from './credentials';
-import { GitHubRepository } from './githubRepository';
-import { PullRequestState } from './graphql';
-import { IssueModel } from './issueModel';
-import { PullRequestModel } from './pullRequestModel';
-import { RepositoriesManager } from './repositoriesManager';
-import { hasEnterpriseUri } from './utils';
 
 const DEFAULT_POLLING_DURATION = 60;
 

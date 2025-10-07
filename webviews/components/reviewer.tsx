@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement, useContext } from 'react';
+import { checkIcon, commentIcon, pendingIcon, requestChanges, syncIcon } from './icon';
+import { AuthorLink, Avatar } from './user';
 import { ReviewEvent } from '../../src/common/timelineEvent';
 import { AccountType, isITeam, ReviewState } from '../../src/github/interface';
 import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
-import { checkIcon, commentIcon, pendingIcon, requestChanges, syncIcon } from './icon';
-import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewEvent }) {
 	const { reviewer, state } = reviewInfo.reviewState;

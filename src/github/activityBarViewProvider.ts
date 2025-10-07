@@ -5,13 +5,6 @@
 
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
-import { IComment } from '../common/comment';
-import { emojify, ensureEmojis } from '../common/emoji';
-import { disposeAll } from '../common/lifecycle';
-import { ReviewEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
@@ -19,6 +12,13 @@ import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
+import { disposeAll } from '../common/lifecycle';
+import { ReviewEvent } from '../common/timelineEvent';
+import { formatError } from '../common/utils';
+import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { ReviewManager } from '../view/reviewManager';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:activePullRequest';

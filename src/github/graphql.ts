@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
+import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 
 interface PageInfo {
 	hasNextPage: boolean;

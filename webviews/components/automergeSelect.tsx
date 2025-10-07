@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { MergeSelect } from './merge';
 import { MergeMethod, MergeMethodsAvailability, MergeQueueEntry, MergeQueueState } from '../../src/github/interface';
 import PullRequestContext from '../common/context';
-import { MergeSelect } from './merge';
 
 const AutoMergeLabel = ({ busy, baseHasMergeQueue }: { busy: boolean, baseHasMergeQueue: boolean }) => {
 	if (busy) {

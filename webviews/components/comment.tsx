@@ -4,6 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ContextDropdown } from './contextDropdown';
+import { deleteIcon, editIcon, quoteIcon } from './icon';
+import { nbsp, Spaced } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
@@ -12,11 +17,6 @@ import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
-import { ContextDropdown } from './contextDropdown';
-import { deleteIcon, editIcon, quoteIcon } from './icon';
-import { nbsp, Spaced } from './space';
-import { Timestamp } from './timestamp';
-import { AuthorLink, Avatar } from './user';
 
 export type Props = {
 	headerInEditMode?: boolean;

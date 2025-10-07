@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { PullRequestCommentController } from './pullRequestCommentController';
 import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
@@ -12,7 +13,6 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CommentReactionHandler } from '../github/utils';
-import { PullRequestCommentController } from './pullRequestCommentController';
 
 interface PullRequestCommentHandlerInfo {
 	handler: PullRequestCommentController & CommentReactionHandler;

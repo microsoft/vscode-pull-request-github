@@ -5,11 +5,11 @@
 
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { HostHelper } from './configuration';
 import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { agent } from '../env/node/net';
 import { getEnterpriseUri } from '../github/utils';
-import { HostHelper } from './configuration';
 
 export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');

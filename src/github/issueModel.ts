@@ -4,13 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
-import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
-import { compareIgnoreCase, formatError } from '../common/utils';
 import { OctokitCommon } from './common';
 import { CopilotWorkingStatus, GitHubRepository } from './githubRepository';
 import {
@@ -25,6 +18,13 @@ import {
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason } from './interface';
 import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { compareIgnoreCase, formatError } from '../common/utils';
 
 export interface IssueChangeEvent {
 	title?: true;

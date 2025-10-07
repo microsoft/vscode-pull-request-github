@@ -9,6 +9,10 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
+import { CommentControllerBase } from './commentControllBase';
+import { RemoteFileChangeModel } from './fileChangeModel';
+import { ReviewManager } from './reviewManager';
+import { ReviewModel } from './reviewModel';
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
@@ -35,10 +39,6 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
-import { CommentControllerBase } from './commentControllBase';
-import { RemoteFileChangeModel } from './fileChangeModel';
-import { ReviewManager } from './reviewManager';
-import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export interface SuggestionInformation {

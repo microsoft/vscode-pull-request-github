@@ -6,6 +6,28 @@
 import * as nodePath from 'path';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
+import { OctokitCommon } from './common';
+import { ConflictModel } from './conflictGuide';
+import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
+import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
+import { CredentialStore } from './credentials';
+import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState } from './graphql';
+import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
+import { IssueModel } from './issueModel';
+import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
+import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
+import {
+	convertRESTIssueToRawPullRequest,
+	convertRESTPullRequestToRawPullRequest,
+	getOverrideBranch,
+	getPRFetchQuery,
+	loginComparator,
+	parseCombinedTimelineEvents,
+	parseGraphQLPullRequest,
+	teamComparator,
+	variableSubstitution,
+} from './utils';
 import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
@@ -38,28 +60,6 @@ import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } 
 import { git } from '../gitProviders/gitCommands';
 import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
-import { OctokitCommon } from './common';
-import { ConflictModel } from './conflictGuide';
-import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
-import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
-import { CredentialStore } from './credentials';
-import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState } from './graphql';
-import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
-import { IssueModel } from './issueModel';
-import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
-import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
-import {
-	convertRESTIssueToRawPullRequest,
-	convertRESTPullRequestToRawPullRequest,
-	getOverrideBranch,
-	getPRFetchQuery,
-	loginComparator,
-	parseCombinedTimelineEvents,
-	parseGraphQLPullRequest,
-	teamComparator,
-	variableSubstitution,
-} from './utils';
 
 async function createConflictResolutionModel(pullRequest: PullRequestModel): Promise<ConflictResolutionModel | undefined> {
 	const head = pullRequest.head;

@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ReviewManager } from './reviewManager';
 import { addDisposable, Disposable, disposeAll } from '../common/lifecycle';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewManager } from './reviewManager';
 
 export class WebviewViewCoordinator extends Disposable {
 	private _webviewViewProvider?: PullRequestViewProvider;

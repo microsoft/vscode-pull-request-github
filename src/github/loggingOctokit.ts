@@ -7,13 +7,13 @@ import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloQueryResult, FetchResult, MutationOptions, NormalizedCacheObject, OperationVariables, QueryOptions } from 'apollo-boost';
 import { bulkhead, BulkheadPolicy } from 'cockatiel';
 import * as vscode from 'vscode';
+import { RateLimit } from './graphql';
+import { IRawFileChange } from './interface';
+import { restPaginate } from './utils';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { RateLimit } from './graphql';
-import { IRawFileChange } from './interface';
-import { restPaginate } from './utils';
 
 interface RestResponse {
 	headers: {

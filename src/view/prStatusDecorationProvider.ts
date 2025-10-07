@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PrsTreeModel } from './prsTreeModel';
 import { Disposable } from '../common/lifecycle';
 import { Protocol } from '../common/protocol';
 import { createPRNodeUri, fromPRNodeUri, fromQueryUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes, toQueryUri } from '../common/uri';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
-import { PrsTreeModel } from './prsTreeModel';
 
 export class PRStatusDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
 

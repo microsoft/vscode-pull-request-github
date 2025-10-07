@@ -5,6 +5,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 import { Commit, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Disposable, disposeAll } from '../common/lifecycle';
@@ -12,7 +13,6 @@ import Logger from '../common/logger';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 
 export class ShareProviderManager extends Disposable {
 
