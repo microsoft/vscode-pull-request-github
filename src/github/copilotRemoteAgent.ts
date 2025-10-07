@@ -261,6 +261,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 		status: CopilotPRStatus;
 	}[]> | undefined;
 
+	private _isAssignable: boolean | undefined;
+
 	constructor(
 		private credentialStore: CredentialStore,
 		public repositoriesManager: RepositoriesManager,
@@ -287,18 +289,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
 			if (event.added) {
 				this._register(event.added.onDidChangeAssignableUsers(() => {
+					this._isAssignable = undefined; // Invalidate cache
 					this.updateAssignabilityContext();
 				}));
 			}
+			this._isAssignable = undefined; // Invalidate cache
 			this.updateAssignabilityContext();
 		}));
 		this.repositoriesManager.folderManagers.forEach(manager => {
 			this._register(manager.onDidChangeAssignableUsers(() => {
+				this._isAssignable = undefined; // Invalidate cache
 				this.updateAssignabilityContext();
 			}));
 		});
 		this._register(vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration(CODING_AGENT)) {
+				this._isAssignable = undefined; // Invalidate cache
 				this.updateAssignabilityContext();
 			}
 		}));
@@ -348,9 +354,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async isAssignable(): Promise<boolean> {
+		const cacheAndReturn = (b: boolean) => {
+			this._isAssignable = b;
+			return b;
+		};
+
+		if (this._isAssignable !== undefined) {
+			return this._isAssignable;
+		}
+
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return false;
+			return cacheAndReturn(false);
 		}
 
 		const { fm } = repoInfo;
@@ -361,14 +376,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const allAssignableUsers = fm.getAllAssignableUsers();
 
 			if (!allAssignableUsers) {
-				return false;
+				return cacheAndReturn(false);
 			}
-
-			// Check if any of the copilot logins are in the assignable users
-			return allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login));
+			return cacheAndReturn(allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login)));
 		} catch (error) {
 			// If there's an error fetching assignable users, assume not assignable
-			return false;
+			return cacheAndReturn(false);
 		}
 	}
 

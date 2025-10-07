@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { MAX_LINE_LENGTH } from './util';
-import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CODING_AGENT, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
@@ -98,11 +98,17 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		return codeActions;
 	}
 
-	provideCodeLenses(
+	async provideCodeLenses(
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,
-	): vscode.CodeLens[] {
+	): Promise<vscode.CodeLens[]> {
 		if (this.expression === undefined) {
+			return [];
+		}
+
+		// Check if CodeLens is enabled
+		const isCodeLensEnabled = vscode.workspace.getConfiguration(CODING_AGENT).get(SHOW_CODE_LENS, true);
+		if (!isCodeLensEnabled) {
 			return [];
 		}
 
@@ -113,17 +119,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 			if (todoInfo) {
 				const { match, search, insertIndex } = todoInfo;
 				const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
-
-				// Create GitHub Issue CodeLens
-				const createIssueCodeLens = new vscode.CodeLens(range, {
-					title: vscode.l10n.t('Create GitHub Issue'),
-					command: 'issue.createIssueFromSelection',
-					arguments: [{ document, lineNumber, line, insertIndex, range }],
-				});
-				codeLenses.push(createIssueCodeLens);
-
-				// Delegate to coding agent CodeLens (if copilot manager is available)
-				if (this.copilotRemoteAgentManager) {
+				if (this.copilotRemoteAgentManager && (await this.copilotRemoteAgentManager.isAvailable())) {
 					const startAgentCodeLens = new vscode.CodeLens(range, {
 						title: vscode.l10n.t('Delegate to coding agent'),
 						command: 'issue.startCodingAgentFromTodo',

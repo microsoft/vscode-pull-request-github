@@ -69,6 +69,7 @@ import { chatCommand } from '../lm/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { ReviewsManager } from '../view/reviewsManager';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
+import { truncate } from '../common/utils';
 
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
@@ -147,8 +148,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				'issue.startCodingAgentFromTodo',
 				(todoInfo?: { document: vscode.TextDocument; lineNumber: number; line: string; insertIndex: number; range: vscode.Range }) => {
 					/* __GDPR__
-				"issue.startCodingAgentFromTodo" : {}
-			*/
+						"issue.startCodingAgentFromTodo" : {}
+					*/
 					this.telemetry.sendTelemetryEvent('issue.startCodingAgentFromTodo');
 					return this.startCodingAgentFromTodo(todoInfo);
 				},
@@ -1492,28 +1493,27 @@ ${options?.body ?? ''}\n
 		}
 
 		const { document, line, insertIndex } = todoInfo;
-
-		// Extract the TODO text after the trigger word
 		const todoText = line.substring(insertIndex).trim();
-
 		if (!todoText) {
 			vscode.window.showWarningMessage(vscode.l10n.t('No task description found in TODO comment'));
 			return;
 		}
 
-		// Create a prompt for the coding agent
 		const relativePath = vscode.workspace.asRelativePath(document.uri);
 		const prompt = vscode.l10n.t('Work on TODO: {0} (from {1})', todoText, relativePath);
-
-		// Start the coding agent session
-		try {
-			await this.copilotRemoteAgentManager.commandImpl({
-				userPrompt: prompt,
-				source: 'todo'
-			});
-		} catch (error) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
-		}
+		return vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: vscode.l10n.t('Delegating \'{0}\' to coding agent', truncate(todoText, 20))
+		}, async (_progress) => {
+			try {
+				await this.copilotRemoteAgentManager.commandImpl({
+					userPrompt: prompt,
+					source: 'todo'
+				});
+			} catch (error) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
+			}
+		});
 	}
 
 	async assignToCodingAgent(issueModel: any) {
