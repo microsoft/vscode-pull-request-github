@@ -5,6 +5,8 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { issueBodyHasLink } from './issueLinkLookup';
+import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { commands, contexts } from '../common/executeCommands';
 import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
@@ -14,8 +16,6 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { issueBodyHasLink } from './issueLinkLookup';
-import { IssueItem, QueryGroup, StateManager } from './stateManager';
 
 export class QueryNode {
 	constructor(

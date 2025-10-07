@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
+import { getState, setState, updateState } from './cache';
+import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
-import { getState, setState, updateState } from './cache';
-import { getMessageHandler, MessageHandler } from './message';
 
 export class PRContext {
 	constructor(

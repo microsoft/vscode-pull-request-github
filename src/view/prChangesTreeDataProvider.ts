@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ProgressHelper } from './progress';
+import { ReviewModel } from './reviewModel';
 import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -13,8 +15,6 @@ import { isDescendant } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ProgressHelper } from './progress';
-import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';

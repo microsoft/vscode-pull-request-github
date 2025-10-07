@@ -7,8 +7,8 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import { IRawFileChange } from '../github/interface';
 import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
+import { IRawFileChange } from '../github/interface';
 
 export enum DiffChangeType {
 	Context,

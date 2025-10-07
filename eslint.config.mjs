@@ -18,9 +18,10 @@ export default defineConfig([
 			'dist/**/*',
 			'out/**/*',
 			'src/@types/**/*.d.ts',
-			'src/api/api.d.ts',
+			'src/api/api*.d.ts',
 			'src/test/**',
 			'**/*.{js,mjs,cjs}',
+			'.vscode-test/**/*'
 		]
 	},
 
@@ -40,6 +41,24 @@ export default defineConfig([
 			'rulesdir': /** @type {any} */(rulesdir),
 			'@typescript-eslint': tseslint.plugin,
 		},
+		settings: {
+			// Let plugin-import resolve TS paths (including d.ts, type packages, etc.)
+			'import/resolver': {
+				typescript: {
+					project: [
+						'tsconfig.base.json',
+						'tsconfig.json',
+						'tsconfig.webviews.json'
+					],
+					alwaysTryTypes: true
+				},
+				node: {
+					extensions: ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.d.ts']
+				}
+			},
+			// For rules like import/extensions (list everything you consider "module" extensions)
+			'import/extensions': ['.js', '.mjs', '.cjs', '.ts', '.tsx']
+		},
 		rules: {
 			// ESLint recommended rules
 			...js.configs.recommended.rules,
@@ -50,17 +69,17 @@ export default defineConfig([
 			'no-console': 'off',
 			'no-constant-condition': ['warn', { 'checkLoops': false }],
 			'no-caller': 'error',
-			'no-case-declarations': 'off',
+			'no-case-declarations': 'off', // TODO@alexr00 revisit
 			'no-debugger': 'warn',
 			'no-dupe-class-members': 'off',
 			'no-duplicate-imports': 'error',
-			'no-else-return': 'off',
-			'no-empty': 'off',
+			'no-else-return': 'off', // TODO@alexr00 revisit
+			'no-empty': 'off', // TODO@alexr00 revisit
 			'no-eval': 'error',
 			'no-ex-assign': 'warn',
 			'no-extend-native': 'error',
 			'no-extra-bind': 'error',
-			'no-extra-boolean-cast': 'off',
+			'no-extra-boolean-cast': 'off', // TODO@alexr00 revisit
 			'no-floating-decimal': 'error',
 			'no-implicit-coercion': 'off',
 			'no-implied-eval': 'error',
@@ -71,7 +90,7 @@ export default defineConfig([
 			'no-multi-spaces': 'off',
 			'no-prototype-builtins': 'off',
 			'no-return-assign': 'error',
-			'no-return-await': 'off',
+			'no-return-await': 'off', // TODO@alexr00 revisit
 			'no-self-compare': 'error',
 			'no-sequences': 'error',
 			'no-template-curly-in-string': 'warn',
@@ -97,14 +116,14 @@ export default defineConfig([
 			],
 			'no-unused-vars': "off", // Disable the base rule so we can use the TS version
 			'object-shorthand': 'off',
-			'one-var': 'off',
-			'prefer-arrow-callback': 'off',
+			'one-var': 'off', // TODO@alexr00 revisit
+			'prefer-arrow-callback': 'off', // TODO@alexr00 revisit
 			'prefer-const': 'off',
 			'prefer-numeric-literals': 'error',
 			'prefer-object-spread': 'error',
 			'prefer-rest-params': 'error',
 			'prefer-spread': 'error',
-			'prefer-template': 'off',
+			'prefer-template': 'off', // TODO@alexr00 revisit
 			'quotes': ['error', 'single', { 'avoidEscape': true, 'allowTemplateLiterals': true }],
 			'require-atomic-updates': 'off',
 			'semi': ['error', 'always'],
@@ -122,19 +141,38 @@ export default defineConfig([
 
 			// Import plugin rules
 			'import/export': 'off',
-			'import/extensions': ['error', 'never'],
+			'import/extensions': ['error', 'ignorePackages', {
+				js: 'never',
+				mjs: 'never',
+				cjs: 'never',
+				ts: 'never',
+				tsx: 'never'
+			}],
 			'import/named': 'off',
 			'import/namespace': 'off',
 			'import/newline-after-import': 'warn',
 			'import/no-cycle': 'off',
 			'import/no-dynamic-require': 'error',
-			'import/no-default-export': 'off',
+			'import/no-default-export': 'off', // TODO@alexr00 revisit
 			'import/no-duplicates': 'error',
 			'import/no-self-import': 'error',
+			'import/no-unresolved': ['warn', { 'ignore': ['vscode', 'ghpr', 'git', 'extensionApi', '@octokit/rest', '@octokit/types'] }],
+			'import/order': [
+				'warn',
+				{
+					'groups': ['builtin', 'external', 'internal', ['parent', 'sibling', 'index']],
+					'newlines-between': 'ignore',
+					'alphabetize': {
+						'order': 'asc',
+						'caseInsensitive': true
+					}
+				}
+			],
 
 			// TypeScript ESLint rules
 			'@typescript-eslint/await-thenable': 'error',
-			'@typescript-eslint/ban-types': 'off',
+			'@typescript-eslint/ban-types': 'off', // TODO@alexr00 revisit
+
 			'@typescript-eslint/consistent-type-assertions': [
 				'warn',
 				{
@@ -144,35 +182,37 @@ export default defineConfig([
 			],
 			'@typescript-eslint/explicit-function-return-type': 'off',
 			'@typescript-eslint/explicit-member-accessibility': 'off',
-			'@typescript-eslint/explicit-module-boundary-types': 'off',
+			'@typescript-eslint/explicit-module-boundary-types': 'off', // TODO@alexr00 revisit
+
 			'@typescript-eslint/no-empty-function': 'off',
 			'@typescript-eslint/no-empty-interface': 'error',
 			'@typescript-eslint/no-explicit-any': 'off',
-			'@typescript-eslint/no-floating-promises': 'off',
+			'@typescript-eslint/no-floating-promises': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/no-implied-eval': 'error',
-			'@typescript-eslint/no-inferrable-types': 'off',
+			'@typescript-eslint/no-inferrable-types': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/no-misused-promises': ['error', { 'checksConditionals': false, 'checksVoidReturn': false }],
 			'@typescript-eslint/no-namespace': 'off',
 			'@typescript-eslint/no-non-null-assertion': 'off',
+			"@typescript-eslint/no-redeclare": ["error", { "ignoreDeclarationMerge": true }],
 			'@typescript-eslint/no-redundant-type-constituents': 'off',
 			'@typescript-eslint/no-this-alias': 'off',
 			'@typescript-eslint/no-unnecessary-condition': 'off',
-			'@typescript-eslint/no-unnecessary-type-assertion': 'off',
+			'@typescript-eslint/no-unnecessary-type-assertion': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/no-unsafe-argument': 'off',
-			'@typescript-eslint/no-unsafe-assignment': 'off',
-			'@typescript-eslint/no-unsafe-call': 'off',
+			'@typescript-eslint/no-unsafe-assignment': 'off', // TODO@alexr00 revisit
+			'@typescript-eslint/no-unsafe-call': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/no-unsafe-enum-comparison': 'off',
-			'@typescript-eslint/no-unsafe-member-access': 'off',
-			'@typescript-eslint/no-unsafe-return': 'off',
+			'@typescript-eslint/no-unsafe-member-access': 'off', // TODO@alexr00 revisit
+			'@typescript-eslint/no-unsafe-return': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/no-unused-expressions': ['warn', { 'allowShortCircuit': true }],
 			'@typescript-eslint/no-unused-vars': ['error', { 'argsIgnorePattern': '^_', caughtErrors: 'none' }],
 			'@typescript-eslint/no-use-before-define': 'off',
-			'@typescript-eslint/prefer-regexp-exec': 'off',
+			'@typescript-eslint/prefer-regexp-exec': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/prefer-nullish-coalescing': 'off',
 			'@typescript-eslint/prefer-optional-chain': 'off',
-			'@typescript-eslint/require-await': 'off',
+			'@typescript-eslint/require-await': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/restrict-plus-operands': 'error',
-			'@typescript-eslint/restrict-template-expressions': 'off',
+			'@typescript-eslint/restrict-template-expressions': 'off', // TODO@alexr00 revisit
 			'@typescript-eslint/strict-boolean-expressions': 'off',
 			'@typescript-eslint/unbound-method': 'off',
 
@@ -216,10 +256,7 @@ export default defineConfig([
 				...globals.browser,
 				'Thenable': true,
 			},
-		},
-		rules: {
-			'rulesdir/public-methods-well-defined-types': 'error'
-		},
+		}
 	},
 
 	// Webviews
@@ -236,6 +273,9 @@ export default defineConfig([
 				...globals.browser,
 				'JSX': true,
 			},
-		}
+		},
+		rules: {
+			'rulesdir/public-methods-well-defined-types': 'error'
+		},
 	},
 ]);

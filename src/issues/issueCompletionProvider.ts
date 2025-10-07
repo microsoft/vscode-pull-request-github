@@ -11,17 +11,17 @@ import {
 } from '../common/settingKeys';
 import { fromNewIssueUri, Schemes } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
+import { IssueQueryResult, StateManager } from './stateManager';
+import {
+	getRootUriFromScmInputUri,
+	isComment,
+} from './util';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
-import { IssueQueryResult, StateManager } from './stateManager';
-import {
-	getRootUriFromScmInputUri,
-	isComment,
-} from './util';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {

@@ -4237,6 +4237,7 @@
 		"css-loader": "7.1.2",
 		"esbuild-loader": "4.2.2",
 		"eslint": "^9.36.0",
+		"eslint-import-resolver-typescript": "^4.4.4",
 		"eslint-plugin-import": "2.31.0",
 		"eslint-plugin-rulesdir": "^0.2.2",
 		"event-stream": "^4.0.1",

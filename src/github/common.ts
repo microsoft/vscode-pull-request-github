@@ -5,13 +5,13 @@
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
 import { ChatSessionStatus, Uri } from 'vscode';
+import { SessionInfo, SessionSetupStep } from './copilotApi';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 import { Repository } from '../api/api';
 import { CopilotPRStatus } from '../common/copilot';
 import { GitHubRemote } from '../common/remote';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { SessionInfo, SessionSetupStep } from './copilotApi';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
 
 export namespace OctokitCommon {
 	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-// eslint-disable-next-line import/extensions
+
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
 import { Branch, Change, Commit, Remote, RepositoryState, Submodule } from '../@types/git';
 import { IGit, Repository } from '../api/api';

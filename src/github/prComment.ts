@@ -5,15 +5,15 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { GitHubRepository } from './githubRepository';
+import { IAccount } from './interface';
+import { updateCommentReactions } from './utils';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { escapeRegExp, stringReplaceAsync } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
-import { IAccount } from './interface';
-import { updateCommentReactions } from './utils';
 
 export interface GHPRCommentThread extends vscode.CommentThread2 {
 	gitHubThreadId: string;

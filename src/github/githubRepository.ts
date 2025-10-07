@@ -7,13 +7,6 @@ import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
-import { Disposable, disposeAll } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { GitHubRemote, parseRemote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { PullRequestCommentController } from '../view/pullRequestCommentController';
-import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
@@ -79,6 +72,13 @@ import {
 	parseMilestone,
 	restPaginate,
 } from './utils';
+import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
+import { Disposable, disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { GitHubRemote, parseRemote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
+import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 

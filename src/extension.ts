@@ -5,7 +5,7 @@
 
 import TelemetryReporter from '@vscode/extension-telemetry';
 import * as vscode from 'vscode';
-// eslint-disable-next-line import/extensions
+
 import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';

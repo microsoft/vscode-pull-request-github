@@ -5,10 +5,10 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { RepoToolBase } from './toolsUtils';
 import { InMemFileChange } from '../../common/file';
 import { isITeam } from '../../github/interface';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { RepoToolBase } from './toolsUtils';
 
 interface FetchIssueToolParameters {
 	issueNumber?: number;

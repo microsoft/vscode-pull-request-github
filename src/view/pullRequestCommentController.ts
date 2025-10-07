@@ -6,6 +6,7 @@
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
+import { CommentControllerBase } from './commentControllBase';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -28,7 +29,6 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
-import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private static ID = 'PullRequestCommentController';

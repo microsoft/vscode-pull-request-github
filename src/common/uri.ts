@@ -12,12 +12,12 @@ import * as vscode from 'vscode';
 import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { EXTENSION_ID } from '../constants';
-import { IAccount, isITeam, ITeam, reviewerId } from '../github/interface';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
 import Logger from './logger';
 import { TemporaryState } from './temporaryState';
 import { compareIgnoreCase } from './utils';
+import { IAccount, isITeam, ITeam, reviewerId } from '../github/interface';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export interface ReviewUriParams {
 	path: string;

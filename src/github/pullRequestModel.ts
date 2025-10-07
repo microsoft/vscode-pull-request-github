@@ -8,19 +8,6 @@ import * as path from 'path';
 import equals from 'fast-deep-equal';
 import gql from 'graphql-tag';
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
-import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
-import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
-import { commands } from '../common/executeCommands';
-import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
-import { GitHubRef } from '../common/githubRef';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
-import { formatError, isDescendant } from '../common/utils';
-import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
@@ -88,6 +75,19 @@ import {
 	RestAccount,
 	restPaginate,
 } from './utils';
+import { Repository } from '../api/api';
+import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
+import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
+import { formatError, isDescendant } from '../common/utils';
+import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;

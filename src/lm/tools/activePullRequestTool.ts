@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { FetchIssueResult } from './fetchIssueTool';
 import { COPILOT_LOGINS } from '../../common/copilot';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
@@ -12,7 +13,6 @@ import { CommentEvent, EventType, ReviewEvent } from '../../common/timelineEvent
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { FetchIssueResult } from './fetchIssueTool';
 
 export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	constructor(

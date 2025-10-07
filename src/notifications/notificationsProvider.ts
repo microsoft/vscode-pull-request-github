@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { NotificationTreeItem } from './notificationItem';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
 import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
@@ -15,7 +16,6 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-import { NotificationTreeItem } from './notificationItem';
 
 export interface INotifications {
 	readonly notifications: Notification[];
