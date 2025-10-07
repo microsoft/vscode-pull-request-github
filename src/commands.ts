@@ -427,8 +427,6 @@ export function registerCommands(
 				"pr.deleteLocalPullRequest.success" : {}
 			*/
 				telemetry.sendTelemetryEvent('pr.deleteLocalPullRequest.success');
-				// fire and forget
-				vscode.commands.executeCommand('pr.refreshList');
 			}
 		}),
 	);
@@ -864,7 +862,7 @@ export function registerCommands(
 					let newPR;
 					if (value === yes) {
 						try {
-							newPR = await folderManager.mergePullRequest(pullRequest);
+							newPR = await pullRequest.merge(folderManager.repository);
 							return newPR;
 						} catch (e) {
 							vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);

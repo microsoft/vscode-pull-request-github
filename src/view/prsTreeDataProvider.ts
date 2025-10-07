@@ -68,6 +68,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
+			this.prsTreeModel.forceClearCache();
 			this.refreshAllQueryResults(true);
 		}));
 
