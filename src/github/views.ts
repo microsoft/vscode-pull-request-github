@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IComment } from '../common/comment';
-import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -21,6 +19,8 @@ import {
 	ReviewState,
 	StateReason,
 } from './interface';
+import { IComment } from '../common/comment';
+import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
 export enum ReviewType {
 	Comment = 'comment',

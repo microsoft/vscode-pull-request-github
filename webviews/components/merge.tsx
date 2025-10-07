@@ -12,6 +12,11 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
+import { AutoMerge, QueuedToMerge } from './automergeSelect';
+import { Dropdown } from './dropdown';
+import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
+import { nbsp } from './space';
+import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { groupBy } from '../../src/common/utils';
 import {
@@ -27,11 +32,6 @@ import {
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
-import { AutoMerge, QueuedToMerge } from './automergeSelect';
-import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
-import { nbsp } from './space';
-import { Avatar } from './user';
 
 const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return pr.state === GithubItemStateEnum.Merged ? (

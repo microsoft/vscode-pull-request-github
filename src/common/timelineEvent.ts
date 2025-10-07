@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, IActor, Reaction } from '../github/interface';
 import { IComment } from './comment';
+import { IAccount, IActor, Reaction } from '../github/interface';
 
 export enum EventType {
 	Committed,

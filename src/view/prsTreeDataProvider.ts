@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
+import { PrsTreeModel } from './prsTreeModel';
+import { ReviewModel } from './reviewModel';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -23,9 +26,6 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
-import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
-import { PrsTreeModel } from './prsTreeModel';
-import { ReviewModel } from './reviewModel';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { PRNode } from './treeNodes/pullRequestNode';

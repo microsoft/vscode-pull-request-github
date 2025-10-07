@@ -6,15 +6,15 @@
 import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
-import { ensureEmojis } from '../common/emoji';
-import Logger from '../common/logger';
-import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
 import { PullRequestDefaults } from './folderRepositoryManager';
 import { GithubItemStateEnum, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { getIssueNumberLabelFromParsed, ISSUE_OR_URL_EXPRESSION, makeLabel, parseIssueExpressionOutput, UnsatisfiedChecks } from './utils';
+import { ensureEmojis } from '../common/emoji';
+import Logger from '../common/logger';
+import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
 
 function getIconString(issue: IssueModel) {
 	switch (issue.state) {

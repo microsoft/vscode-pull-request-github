@@ -6,16 +6,16 @@
 import fetch from 'cross-fetch';
 import JSZip from 'jszip';
 import * as vscode from 'vscode';
-import { AuthProvider } from '../common/authentication';
-import { COPILOT_SWE_AGENT } from '../common/copilot';
-import Logger from '../common/logger';
-import { ITelemetry } from '../common/telemetry';
 import { CredentialStore, GitHub } from './credentials';
 import { PRType } from './interface';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
+import { AuthProvider } from '../common/authentication';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
+import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 
 const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';

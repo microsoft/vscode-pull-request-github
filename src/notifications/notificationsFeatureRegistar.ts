@@ -4,17 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { onceEvent } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
-import { CredentialStore } from '../github/credentials';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { chatCommand } from '../lm/utils';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
 import { isNotificationTreeItem, NotificationID, NotificationTreeDataItem } from './notificationItem';
 import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
+import { Disposable } from '../common/lifecycle';
+import { CredentialStore } from '../github/credentials';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { chatCommand } from '../lm/utils';
 
 export class NotificationsFeatureRegister extends Disposable {
 

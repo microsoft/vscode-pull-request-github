@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PRType } from './interface';
+import { PullRequestModel } from './pullRequestModel';
+import { PullRequestOverviewPanel } from './pullRequestOverview';
+import { RepositoriesManager } from './repositoriesManager';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
-import { PRType } from './interface';
-import { PullRequestModel } from './pullRequestModel';
-import { PullRequestOverviewPanel } from './pullRequestOverview';
-import { RepositoriesManager } from './repositoriesManager';
 
 export function isCopilotQuery(query: string): boolean {
 	const lowerQuery = query.toLowerCase();

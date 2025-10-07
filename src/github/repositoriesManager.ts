@@ -4,6 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CredentialStore } from './credentials';
+import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { PullRequestChangeEvent } from './githubRepository';
+import { IssueModel } from './issueModel';
+import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -13,11 +18,6 @@ import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { fromPRUri, fromRepoUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
-import { CredentialStore } from './credentials';
-import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
-import { PullRequestChangeEvent } from './githubRepository';
-import { IssueModel } from './issueModel';
-import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
 export interface ItemsResponseResult<T> {
 	items: T[];

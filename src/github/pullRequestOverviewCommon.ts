@@ -5,6 +5,8 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { PullRequestModel } from './pullRequestModel';
 import {
 	DEFAULT_DELETION_METHOD,
 	PR_SETTINGS_NAMESPACE,
@@ -12,8 +14,6 @@ import {
 	SELECT_REMOTE,
 } from '../common/settingKeys';
 import { Schemes } from '../common/uri';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { PullRequestModel } from './pullRequestModel';
 
 export namespace PullRequestView {
 	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {

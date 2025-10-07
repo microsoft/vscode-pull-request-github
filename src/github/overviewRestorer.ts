@@ -4,9 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { ITelemetry } from '../common/telemetry';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -14,6 +11,9 @@ import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { RepositoriesManager } from './repositoriesManager';
 import { PullRequest } from './views';
+import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 
 export class OverviewRestorer extends Disposable implements vscode.WebviewPanelSerializer {
 	private static ID = 'OverviewRestorer';

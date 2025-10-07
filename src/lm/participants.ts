@@ -6,8 +6,8 @@
 'use strict';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
-import { Disposable } from '../common/lifecycle';
 import { ParticipantsPrompt } from './participantsPrompt';
+import { Disposable } from '../common/lifecycle';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
 export class ChatParticipantState {
@@ -36,6 +36,7 @@ export class ChatParticipantState {
 				}
 			}
 		}
+		return undefined;
 	}
 
 	get messages(): vscode.LanguageModelChatMessage[] {

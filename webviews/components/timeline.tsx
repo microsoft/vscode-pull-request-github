@@ -4,6 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useRef, useState } from 'react';
+import { CommentView } from './comment';
+import Diff from './diff';
+import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
+import { nbsp } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import {
 	AssignEvent,
@@ -26,12 +32,6 @@ import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import { IAccount, IActor } from '../../src/github/interface';
 import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
-import { CommentView } from './comment';
-import Diff from './diff';
-import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
-import { nbsp } from './space';
-import { Timestamp } from './timestamp';
-import { AuthorLink, Avatar } from './user';
 
 function isAssignUnassignEvent(event: TimelineEvent | ConsolidatedAssignUnassignEvent): event is AssignEvent | UnassignEvent {
 	return event.event === EventType.Assigned || event.event === EventType.Unassigned;

@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { GitContentFileSystemProvider } from './gitContentProvider';
+import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
+import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
+import { ReviewManager } from './reviewManager';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
@@ -13,10 +17,6 @@ import { isDescendant } from '../common/utils';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { GitContentFileSystemProvider } from './gitContentProvider';
-import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { ReviewManager } from './reviewManager';
 
 export class ReviewsManager extends Disposable {
 	public static ID = 'Reviews';

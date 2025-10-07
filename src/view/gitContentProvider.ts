@@ -6,15 +6,15 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { GitFileChangeModel } from './fileChangeModel';
+import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
+import { ReviewManager } from './reviewManager';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { fromReviewUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { getRepositoryForFile } from '../github/utils';
-import { GitFileChangeModel } from './fileChangeModel';
-import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
-import { ReviewManager } from './reviewManager';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
