@@ -289,22 +289,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
 			if (event.added) {
 				this._register(event.added.onDidChangeAssignableUsers(() => {
-					this._isAssignable = undefined; // Invalidate cache
 					this.updateAssignabilityContext();
 				}));
 			}
-			this._isAssignable = undefined; // Invalidate cache
 			this.updateAssignabilityContext();
 		}));
 		this.repositoriesManager.folderManagers.forEach(manager => {
 			this._register(manager.onDidChangeAssignableUsers(() => {
-				this._isAssignable = undefined; // Invalidate cache
 				this.updateAssignabilityContext();
 			}));
 		});
 		this._register(vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration(CODING_AGENT)) {
-				this._isAssignable = undefined; // Invalidate cache
 				this.updateAssignabilityContext();
 			}
 		}));
@@ -411,6 +407,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async updateAssignabilityContext(): Promise<void> {
 		try {
+			this._isAssignable = undefined; // Invalidate cache
 			const available = await this.isAvailable();
 			commands.setContext('copilotCodingAgentAssignable', available);
 		} catch (error) {
