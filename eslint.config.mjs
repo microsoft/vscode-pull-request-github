@@ -9,7 +9,7 @@ import * as importPlugin from 'eslint-plugin-import';
 import { defineConfig } from 'eslint/config';
 import rulesdir from './build/eslint-rules/index.js';
 import tseslint from 'typescript-eslint';
-import globals from "globals";
+import globals from 'globals';
 
 export default defineConfig([
 	// Global ignore patterns

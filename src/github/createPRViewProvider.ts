@@ -629,8 +629,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return undefined;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/await-thenable
-		const [pr, compareBranch] = await Promise.all([await this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
+		const [pr, compareBranch] = await Promise.all([this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
 		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
 	}
 
@@ -705,8 +704,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				// eslint-disable-next-line @typescript-eslint/await-thenable
-				descrptionSource === 'template' ? await this.getPullRequestTemplate() : undefined
+				descrptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
