@@ -12,7 +12,7 @@ import { CommentReply, findActiveHandler, resolveCommentHandler } from './commen
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
@@ -917,6 +917,14 @@ export function registerCommands(
 		}),
 	);
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.markAllCopilotNotificationsAsRead', node => {
+			if (node instanceof CategoryTreeNode && node.isCopilot && node.repo) {
+				copilotRemoteAgentManager.clearAllNotifications(node.repo.owner, node.repo.repositoryName);
+			}
+		}),
+	);
+
 	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | ChatSessionWithPR | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
@@ -1473,6 +1481,14 @@ ${contents}
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
 			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'flat', true);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleHideViewedFiles', _ => {
+			const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+			const currentValue = config.get<boolean>(HIDE_VIEWED_FILES, false);
+			config.update(HIDE_VIEWED_FILES, !currentValue, vscode.ConfigurationTarget.Global);
 		}),
 	);
 

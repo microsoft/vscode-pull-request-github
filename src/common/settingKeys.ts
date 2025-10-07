@@ -6,8 +6,10 @@
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
 export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
 export const BRANCH_PUBLISH = 'createOnPublishBranch';
+export const BRANCH_LIST_TIMEOUT = 'branchListTimeout';
 export const USE_REVIEW_MODE = 'useReviewMode';
 export const FILE_LIST_LAYOUT = 'fileListLayout';
+export const HIDE_VIEWED_FILES = 'hideViewedFiles';
 export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
 export const IGNORE_PR_BRANCHES = 'ignoredPullRequestBranches';

@@ -220,6 +220,7 @@ export function main() {
 						</div>
 					</div>
 
+					<label htmlFor='title' className='input-title'>Title</label>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -231,7 +232,6 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
-							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -325,12 +325,12 @@ export function main() {
 							: null}
 					</div>
 
+					<label htmlFor='description' className='input-title'>Description</label>
 					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
-							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
@@ -371,7 +371,9 @@ export function main() {
 	);
 }
 
-export function Root({ children }) {
+interface RootProps { children: (params: CreateParamsNew) => JSX.Element }
+
+export function Root({ children }: RootProps): JSX.Element {
 	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
@@ -379,5 +381,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return children(pr);
+	return <>{children(pr)}</>;
 }

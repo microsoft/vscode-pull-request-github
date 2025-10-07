@@ -28,12 +28,25 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		return !!pullRequest && this.copilotRemoteAgentManager.enabled && COPILOT_LOGINS.includes(pullRequest.author.login);
 	}
 
+	private _getPullRequestLabel(pullRequest: PullRequestModel): string {
+		return `${pullRequest.title} (#${pullRequest.number})`;
+	}
+
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
+		if (!pullRequest) {
+			return {
+				pastTenseMessage: vscode.l10n.t('No active pull request'),
+				invocationMessage: vscode.l10n.t('Reading active pull request'),
+				confirmationMessages: { title: this._confirmationTitle(), message: vscode.l10n.t('Allow reading the details of the active pull request?') },
+			};
+		}
+
+		const label = this._getPullRequestLabel(pullRequest);
 		return {
-			pastTenseMessage: pullRequest ? vscode.l10n.t('Read pull request "{0}"', pullRequest.title) : vscode.l10n.t('No active pull request'),
-			invocationMessage: pullRequest ? vscode.l10n.t('Reading pull request "{0}"', pullRequest.title) : vscode.l10n.t('Reading active pull request'),
-			confirmationMessages: { title: this._confirmationTitle(), message: pullRequest ? vscode.l10n.t('Allow reading the details of "{0}"?', pullRequest.title) : vscode.l10n.t('Allow reading the details of the active pull request?') },
+			pastTenseMessage: vscode.l10n.t('Read pull request "{0}"', label),
+			invocationMessage: vscode.l10n.t('Reading pull request "{0}"', label),
+			confirmationMessages: { title: this._confirmationTitle(), message: vscode.l10n.t('Allow reading the details of "{0}"?', label) },
 		};
 	}
 

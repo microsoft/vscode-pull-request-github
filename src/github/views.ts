@@ -19,6 +19,7 @@ import {
 	ReviewState,
 	StateReason,
 } from './interface';
+import { IComment } from '../common/comment';
 import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
 export enum ReviewType {
@@ -136,6 +137,11 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface DeleteReviewResult {
+	deletedReviewId: number;
+	deletedReviewComments: IComment[];
 }
 
 export enum PreReviewState {

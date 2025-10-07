@@ -21,6 +21,7 @@ import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMOD
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
+import { isDescendant } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
@@ -209,6 +210,12 @@ async function init(
 				git
 			);
 			reviewsManager.addReviewManager(newReviewManager);
+		}
+
+		// Check if repo is in one of the workspace folders
+		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath))) {
+			Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
+			return;
 		}
 		addRepo();
 		tree.notificationProvider.refreshOrLaunchPolling();

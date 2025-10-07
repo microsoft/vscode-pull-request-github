@@ -8,7 +8,7 @@ import { LatestReviewCommitResponse } from '../../../github/graphql';
 
 import { RateLimitBuilder } from './rateLimitBuilder';
 
-type Repository = LatestReviewCommitResponse['repository'];
+type Repository = NonNullable<LatestReviewCommitResponse['repository']>;
 type PullRequest = Repository['pullRequest'];
 type ViewerLatestReview = PullRequest['viewerLatestReview'];
 type Commit = ViewerLatestReview['commit'];

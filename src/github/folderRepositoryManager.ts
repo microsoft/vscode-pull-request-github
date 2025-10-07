@@ -11,7 +11,7 @@ import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
@@ -1177,7 +1177,6 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getPullRequestsForCategory(githubRepository: GitHubRepository, categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
-		let repo: IMetadata | undefined;
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
 			const { octokit, query, schema } = await githubRepository.ensure();
@@ -1189,8 +1188,6 @@ export class FolderRepositoryManager extends Disposable {
 			this.telemetry.sendTelemetryEvent('pr.search.category');
 
 			const user = (await githubRepository.getAuthenticatedUser()).login;
-			// Search api will not try to resolve repo that redirects, so get full name first
-			repo = await githubRepository.getMetadata();
 			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
 				q: getPRFetchQuery(user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
@@ -1243,7 +1240,7 @@ export class FolderRepositoryManager extends Disposable {
 			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote ${githubRepository.remote.remoteName} with query failed, please check if the repo ${repo?.full_name} is valid.`,
+					`Fetching pull requests for remote ${githubRepository.remote.remoteName} with query failed, please check if the repo ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName} is valid.`,
 				);
 			} else {
 				throw e;
@@ -1306,13 +1303,13 @@ export class FolderRepositoryManager extends Disposable {
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
 	async getIssues(
-		query?: string,
+		query?: string, options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: false }
 	): Promise<ItemsResponseResult<IssueModel> | undefined> {
 		if (this.gitHubRepositories.length === 0) {
 			return undefined;
 		}
 		try {
-			const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
+			const data = await this.fetchPagedData<Issue>(options, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
 			const mappedData: ItemsResponseResult<IssueModel> = {
 				items: [],
 				hasMorePages: data.hasMorePages,

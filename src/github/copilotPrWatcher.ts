@@ -48,16 +48,11 @@ export class CopilotStateModel extends Disposable {
 		return `${owner}/${repo}#${prNumber}`;
 	}
 
-	delete(owner: string, repo: string, prNumber: number): void {
-		const key = this.makeKey(owner, repo, prNumber);
-		this.deleteKey(key);
-	}
-
 	deleteKey(key: string): void {
 		if (this._states.has(key)) {
+			const item = this._states.get(key)!;
 			this._states.delete(key);
 			if (this._showNotification.has(key)) {
-				const item = this._states.get(key)!;
 				this._showNotification.delete(key);
 				this._onDidChangeNotifications.fire([item.item]);
 			}
@@ -103,6 +98,41 @@ export class CopilotStateModel extends Disposable {
 			const item = this._states.get(key)?.item;
 			if (item) {
 				this._onDidChangeNotifications.fire([item]);
+			}
+		}
+	}
+
+	clearAllNotifications(owner?: string, repo?: string): void {
+		if (this._showNotification.size > 0) {
+			const items: PullRequestModel[] = [];
+
+			// If owner and repo are specified, only clear notifications for that repo
+			if (owner && repo) {
+				const keysToRemove: string[] = [];
+				const prefix = `${this.makeKey(owner, repo)}#`;
+				for (const key of this._showNotification.keys()) {
+					if (key.startsWith(prefix)) {
+						const item = this._states.get(key)?.item;
+						if (item) {
+							items.push(item);
+						}
+						keysToRemove.push(key);
+					}
+				}
+				keysToRemove.forEach(key => this._showNotification.delete(key));
+			} else {
+				// Clear all notifications
+				for (const key of this._showNotification.keys()) {
+					const item = this._states.get(key)?.item;
+					if (item) {
+						items.push(item);
+					}
+				}
+				this._showNotification.clear();
+			}
+
+			if (items.length > 0) {
+				this._onDidChangeNotifications.fire(items);
 			}
 		}
 	}

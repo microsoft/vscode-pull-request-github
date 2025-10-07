@@ -23,7 +23,7 @@ import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, uniqBy } from '../common/utils';
+import { arrayFindIndexAsync, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -275,12 +275,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		);
 
 		this._register(
-			activePullRequest.onDidChangeReviewThreads(e => {
+			activePullRequest.onDidChangeReviewThreads(async e => {
 				const githubRepositories = this.githubReposForPullRequest(this._folderRepoManager.activePullRequest);
-				e.added.forEach(async thread => {
+				for (const thread of e.added) {
 					const { path } = thread;
 
-					const index = this._pendingCommentThreadAdds.findIndex(async t => {
+					const index = await arrayFindIndexAsync(this._pendingCommentThreadAdds, async t => {
 						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
 							return false;
@@ -324,24 +324,24 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					} else {
 						threadMap[path] = [newThread];
 					}
-				});
+				}
 
-				e.changed.forEach(thread => {
+				for (const thread of e.changed) {
 					const match = this._findMatchingThread(thread);
 					if (match.index > -1) {
 						const matchingThread = match.threadMap[thread.path][match.index];
 						updateThread(this._context, matchingThread, thread, githubRepositories);
 					}
-				});
+				}
 
-				e.removed.forEach(thread => {
+				for (const thread of e.removed) {
 					const match = this._findMatchingThread(thread);
 					if (match.index > -1) {
 						const matchingThread = match.threadMap[thread.path][match.index];
 						match.threadMap[thread.path].splice(match.index, 1);
 						matchingThread.dispose();
 					}
-				});
+				}
 
 				this.updateResourcesWithCommentingRanges();
 			}),

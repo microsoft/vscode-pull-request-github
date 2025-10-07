@@ -1100,16 +1100,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async requestReview(reviewers: IAccount[], teamReviewers: ITeam[], union: boolean = false): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		const input: { pullRequestId: string, teamIds: string[], userIds: string[], botIds?: string[], union: boolean } = {
+			pullRequestId: this.graphNodeId,
+			teamIds: teamReviewers.map(t => t.id),
+			userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
+			union
+		};
+		if (!this.githubRepository.areQueriesLimited) {
+			input.botIds = reviewers.filter(r => r.accountType === AccountType.Bot).map(r => r.id);
+		}
+
 		const { data } = await mutate<GetReviewRequestsResponse>({
 			mutation: schema.AddReviewers,
 			variables: {
-				input: {
-					pullRequestId: this.graphNodeId,
-					teamIds: teamReviewers.map(t => t.id),
-					userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
-					botIds: reviewers.filter(r => r.accountType === AccountType.Bot).map(r => r.id),
-					union
-				},
+				input
 			},
 		});
 

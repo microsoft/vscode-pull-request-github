@@ -175,6 +175,12 @@
 					"description": "%githubPullRequests.logLevel.description%",
 					"markdownDeprecationMessage": "%githubPullRequests.logLevel.markdownDeprecationMessage%"
 				},
+				"githubPullRequests.branchListTimeout": {
+					"type": "number",
+					"default": 5000,
+					"minimum": 1000,
+					"markdownDescription": "%githubPullRequests.branchListTimeout.description%"
+				},
 				"githubPullRequests.remotes": {
 					"type": "array",
 					"default": [
@@ -282,6 +288,11 @@
 					],
 					"default": "tree",
 					"description": "%githubPullRequests.fileListLayout.description%"
+				},
+				"githubPullRequests.hideViewedFiles": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.hideViewedFiles.description%"
 				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
@@ -557,7 +568,7 @@
 				},
 				"githubPullRequests.codingAgent.uiIntegration": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%githubPullRequests.codingAgent.uiIntegration.description%",
 					"tags": [
 						"experimental",
@@ -632,6 +643,7 @@
 					},
 					"default": [
 						"coffeescript",
+						"crystal",
 						"diff",
 						"dockerfile",
 						"dockercompose",
@@ -949,6 +961,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.markAllCopilotNotificationsAsRead",
+				"title": "Mark All as Read",
+				"category": "%command.pull.request.category%",
+				"enablement": "viewItem == copilot-query-with-notifications"
+			},
+			{
 				"command": "pr.merge",
 				"title": "%command.pr.merge.title%",
 				"category": "%command.pull.request.category%"
@@ -1070,6 +1088,12 @@
 				"command": "pr.setFileListLayoutAsFlat",
 				"title": "%command.pr.setFileListLayoutAsFlat.title%",
 				"icon": "$(list-flat)",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.toggleHideViewedFiles",
+				"title": "%command.pr.toggleHideViewedFiles.title%",
+				"icon": "$(filter)",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1999,6 +2023,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "false"
+				},
+				{
 					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
@@ -2176,6 +2204,10 @@
 				},
 				{
 					"command": "pr.setFileListLayoutAsFlat",
+					"when": "false"
+				},
+				{
+					"command": "pr.toggleHideViewedFiles",
 					"when": "false"
 				},
 				{
@@ -2625,6 +2657,11 @@
 					"group": "navigation1"
 				},
 				{
+					"command": "pr.toggleHideViewedFiles",
+					"when": "view == prStatus:github",
+					"group": "navigation1"
+				},
+				{
 					"command": "pr.toggleEditorCommentingOn",
 					"when": "view == prStatus:github && !commentingEnabled",
 					"group": "navigation@0"
@@ -2785,6 +2822,11 @@
 					"command": "pr.dismissNotification",
 					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
 					"group": "4_pullrequest@5"
+				},
+				{
+					"command": "pr.markAllCopilotNotificationsAsRead",
+					"when": "view == pr:github && viewItem =~ /copilot-query/",
+					"group": "0_category@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
@@ -3645,7 +3687,7 @@
 				"displayName": "%languageModelTools.github-pull-request_issue_fetch.displayName%",
 				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3901,7 +3943,7 @@
 				"displayName": "%languageModelTools.github-pull-request_suggest-fix.displayName%",
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3948,7 +3990,7 @@
 				"displayName": "%languageModelTools.github-pull-request_formSearchQuery.displayName%",
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3992,7 +4034,7 @@
 				"displayName": "%languageModelTools.github-pull-request_doSearch.displayName%",
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -4038,7 +4080,7 @@
 				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
 				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
 				"icon": "$(paintcan)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {

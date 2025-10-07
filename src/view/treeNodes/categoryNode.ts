@@ -179,7 +179,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this._categoryQuery) {
-			this.contextValue = 'query';
+			this.contextValue = this.isCopilot ? 'copilot-query' : 'query';
 		}
 
 		if (this.isCopilot) {
@@ -193,6 +193,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			this.tooltip = this.label;
 		}
+	}
+
+	get repo(): RemoteInfo | undefined {
+		return this._repo;
 	}
 
 	private _getDescription(): string | undefined {
@@ -287,17 +291,21 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
-				const error = formatError(e);
-				const actions: string[] = [];
-				if (error.includes('Bad credentials')) {
-					actions.push(vscode.l10n.t('Login again'));
-				}
-				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
-					if (action && action === actions[0]) {
-						this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+				if (this.isCopilot && (e.response.status === 422) && e.message.includes('the users do not exist')) {
+					// Skip it, it's copilot and the repo doesn't have copilot
+				} else {
+					const error = formatError(e);
+					const actions: string[] = [];
+					if (error.includes('Bad credentials')) {
+						actions.push(vscode.l10n.t('Login again'));
 					}
-				});
-				needLogin = e instanceof AuthenticationError;
+					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
+						if (action && action === actions[0]) {
+							this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+						}
+					});
+					needLogin = e instanceof AuthenticationError;
+				}
 			}
 		}
 
@@ -328,6 +336,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this._repo = await extractRepoFromQuery(this.folderRepoManager, this._categoryQuery);
 		}
 		this.resourceUri = toQueryUri({ remote: this._repo, isCopilot: this.isCopilot });
+
+		// Update contextValue based on current notification state
+		if (this._categoryQuery) {
+			const hasNotifications = this.isCopilot && this._repo && this._copilotManager.getNotificationsCount(this._repo.owner, this._repo.repositoryName) > 0;
+			this.contextValue = this.isCopilot ?
+				(hasNotifications ? 'copilot-query-with-notifications' : 'copilot-query') :
+				'query';
+		}
+
 		return this;
 	}
 }

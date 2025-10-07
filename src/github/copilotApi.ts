@@ -21,6 +21,9 @@ const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
 // https://github.com/github/sweagentd/blob/59e7d9210ca3ebba029918387e525eea73cb1f4a/internal/problemstatement/problemstatement.go#L36-L53
 export const MAX_PROBLEM_STATEMENT_LENGTH = 30_000 - 50; // 50 character buffer
+// https://github.com/github/sweagentd/blob/0ad8f81a9c64754cb8a83d10777de4638bba1a6e/docs/adr/0001-create-job-api.md#post-jobsownerrepo---create-job-task
+const JOBS_API_VERSION = 'v1';
+
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
 	event_type: string;
@@ -35,11 +38,14 @@ export interface RemoteAgentJobPayload {
 }
 
 export interface RemoteAgentJobResponse {
-	pull_request: {
-		html_url: string;
-		number: number;
-	}
+	job_id: string;
 	session_id: string;
+	actor: {
+		id: number;
+		login: string;
+	};
+	created_at: string;
+	updated_at: string;
 }
 
 export interface ChatSessionWithPR extends vscode.ChatSessionItem {
@@ -73,7 +79,6 @@ export class CopilotApi {
 		return `vscode-pull-request-github/${extensionVersion}`;
 	}
 
-
 	async postRemoteAgentJob(
 		owner: string,
 		name: string,
@@ -81,7 +86,7 @@ export class CopilotApi {
 		isTruncated: boolean,
 	): Promise<RemoteAgentJobResponse> {
 		const repoSlug = `${owner}/${name}`;
-		const apiUrl = `/agents/swe/v0/jobs/${repoSlug}`;
+		const apiUrl = `/agents/swe/${JOBS_API_VERSION}/jobs/${repoSlug}`;
 		let status: number | undefined;
 
 		const problemStatementLength = payload.problem_statement.length.toString();
@@ -169,17 +174,26 @@ export class CopilotApi {
 		if (!data || typeof data !== 'object') {
 			throw new Error('Invalid response from coding agent');
 		}
-		if (!data.pull_request || typeof data.pull_request !== 'object') {
-			throw new Error('Invalid pull_request in response');
-		}
-		if (typeof data.pull_request.html_url !== 'string') {
-			throw new Error('Invalid pull_request.html_url in response');
-		}
-		if (typeof data.pull_request.number !== 'number') {
-			throw new Error('Invalid pull_request.number in response');
+		if (typeof data.job_id !== 'string') {
+			throw new Error('Invalid job_id in response');
 		}
 		if (typeof data.session_id !== 'string') {
 			throw new Error('Invalid session_id in response');
+		}
+		if (!data.actor || typeof data.actor !== 'object') {
+			throw new Error('Invalid actor in response');
+		}
+		if (typeof data.actor.id !== 'number') {
+			throw new Error('Invalid actor.id in response');
+		}
+		if (typeof data.actor.login !== 'string') {
+			throw new Error('Invalid actor.login in response');
+		}
+		if (typeof data.created_at !== 'string') {
+			throw new Error('Invalid created_at in response');
+		}
+		if (typeof data.updated_at !== 'string') {
+			throw new Error('Invalid updated_at in response');
 		}
 	}
 
@@ -218,7 +232,7 @@ export class CopilotApi {
 				},
 			});
 		if (!response.ok) {
-			throw new Error(`Failed to fetch sessions: ${response.statusText}`);
+			await this.handleApiError(response, 'getAllSessions');
 		}
 		const sessions = await response.json();
 		return sessions.sessions;
@@ -250,7 +264,7 @@ export class CopilotApi {
 			}
 		});
 		if (!response.ok) {
-			throw new Error(`Failed to fetch session: ${response.statusText}`);
+			await this.handleApiError(response, 'getSessionInfo');
 		}
 
 		return (await response.json()) as SessionInfo;
@@ -265,14 +279,37 @@ export class CopilotApi {
 			},
 		});
 		if (!logsResponse.ok) {
-			throw new Error(`Failed to fetch logs: ${logsResponse.statusText}`);
+			await this.handleApiError(logsResponse, 'getLogsFromSession');
 		}
 		return await logsResponse.text();
 	}
 
+	public async getJobByJobId(owner: string, repo: string, jobId: string): Promise<JobInfo | undefined> {
+		try {
+			const response = await this.makeApiCall(`/agents/swe/v1/jobs/${owner}/${repo}/${jobId}`, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Bearer ${this.token}`,
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'User-Agent': this.userAgent,
+				}
+			});
+			if (!response.ok) {
+				Logger.warn(`Failed to fetch job info for job ${jobId}: ${response.statusText}`, CopilotApi.ID);
+				return;
+			}
+			const data = await response.json() as JobInfo;
+			return data;
+		} catch (error) {
+			Logger.warn(`Error fetching job info for job ${jobId}: ${error}`, CopilotApi.ID);
+			return;
+		}
+	}
+
 	public async getJobBySessionId(owner: string, repo: string, sessionId: string): Promise<JobInfo | undefined> {
 		try {
-			const response = await this.makeApiCall(`/agents/swe/v0/jobs/${owner}/${repo}/session/${sessionId}`, {
+			const response = await this.makeApiCall(`/agents/swe/${JOBS_API_VERSION}/jobs/${owner}/${repo}/session/${sessionId}`, {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${this.token}`,
@@ -283,13 +320,13 @@ export class CopilotApi {
 			});
 			if (!response.ok) {
 				Logger.warn(`Failed to fetch job info for session ${sessionId}: ${response.statusText}`, CopilotApi.ID);
-				return undefined;
+				return;
 			}
 			const data = await response.json() as JobInfo;
 			return data;
 		} catch (error) {
 			Logger.warn(`Error fetching job info for session ${sessionId}: ${error}`, CopilotApi.ID);
-			return undefined;
+			return;
 		}
 	}
 
@@ -304,6 +341,30 @@ export class CopilotApi {
 		}
 
 		return this.credentialStore.getHub(authProvider);
+	}
+
+	private async handleApiError(response: Response, action: string): Promise<never> {
+		let errorBody: string | undefined = undefined;
+		try {
+			errorBody = await response.text();
+		} catch (e) { /* ignore */ }
+		const msg = `'${action}' failed with ${response.statusText} ${errorBody ? `: ${errorBody}` : ''}`;
+		Logger.error(msg, CopilotApi.ID);
+
+		/* __GDPR__
+			"remoteAgent.apiError" : {
+				"action" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"body" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryErrorEvent('remoteAgent.apiError', {
+			action,
+			status: response.status.toString(),
+			body: errorBody || '',
+		});
+
+		throw new Error(msg);
 	}
 }
 
