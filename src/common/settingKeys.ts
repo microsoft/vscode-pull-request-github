@@ -69,6 +69,8 @@ export const PULL_BEFORE_CHECKOUT = 'pullBeforeCheckout';
 export const OPEN_DIFF_ON_CLICK = 'openDiffOnClick';
 export const SHOW_INLINE_OPEN_FILE_ACTION = 'showInlineOpenFileAction';
 export const AUTO_STASH = 'autoStash';
+export const BRANCH_WHITESPACE_CHAR = 'branchWhitespaceChar';
+export const BRANCH_RANDOM_NAME_DICTIONARY = 'branchRandomName.dictionary';
 
 // GitHub Enterprise
 export const GITHUB_ENTERPRISE = 'github-enterprise';
