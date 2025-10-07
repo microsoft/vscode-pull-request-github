@@ -15,6 +15,7 @@ import { Disposable, disposeAll, toDisposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import {
+	AUTO_STASH_ON_CHECKOUT,
 	COMMENTS,
 	FOCUSED_MODE,
 	IGNORE_PR_BRANCHES,
@@ -1086,6 +1087,35 @@ export class ReviewManager extends Disposable {
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
 		this.switchingToReviewMode = true;
+
+		// Check if auto-stash is enabled and there are uncommitted changes
+		const autoStashEnabled = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(AUTO_STASH_ON_CHECKOUT, false);
+		this._folderRepoManager.stashedOnCheckout = false;
+
+		if (autoStashEnabled) {
+			const workingTreeChanges = this._repository.state.workingTreeChanges;
+			const indexChanges = this._repository.state.indexChanges;
+			const hasChanges = workingTreeChanges.length > 0 || indexChanges.length > 0;
+
+			if (hasChanges) {
+				try {
+					Logger.appendLine('Auto-stashing changes before PR checkout', this.id);
+					// Add only working tree changes to staging area (indexChanges are already staged)
+					if (workingTreeChanges.length > 0) {
+						const workingTreeFiles = workingTreeChanges.map(change => change.uri.fsPath);
+						await this._repository.add(workingTreeFiles);
+					}
+					// Stash the changes
+					await vscode.commands.executeCommand('git.stash', this._repository);
+					this._folderRepoManager.stashedOnCheckout = true;
+					Logger.appendLine('Changes stashed successfully', this.id);
+				} catch (stashError) {
+					Logger.error(`Failed to auto-stash changes: ${formatError(stashError)}`, this.id);
+					// Don't block checkout if stashing fails, but warn the user
+					vscode.window.showWarningMessage(vscode.l10n.t('Failed to auto-stash changes: {0}', formatError(stashError)));
+				}
+			}
+		}
 
 		try {
 			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {

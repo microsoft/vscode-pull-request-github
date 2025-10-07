@@ -468,6 +468,11 @@
 						"%githubPullRequests.postDone.checkoutDefaultBranchAndPull%"
 					]
 				},
+				"githubPullRequests.autoStashOnCheckout": {
+					"type": "boolean",
+					"description": "%githubPullRequests.autoStashOnCheckout.description%",
+					"default": false
+				},
 				"githubPullRequests.defaultCommentType": {
 					"type": "string",
 					"enum": [

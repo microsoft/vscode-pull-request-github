@@ -81,6 +81,7 @@
 	"githubPullRequests.postDone.description": "The action to take after using the 'checkout default branch' or 'delete branch' actions on a currently checked out pull request.",
 	"githubPullRequests.postDone.checkoutDefaultBranch": "Checkout the default branch of the repository",
 	"githubPullRequests.postDone.checkoutDefaultBranchAndPull": "Checkout the default branch of the repository and pull the latest changes",
+	"githubPullRequests.autoStashOnCheckout.description": "Automatically stash changes when checking out a pull request, and pop the stash when checking out the default branch.",
 	"githubPullRequests.defaultCommentType.description": "The default comment type to use when submitting a comment and there is no active review",
 	"githubPullRequests.defaultCommentType.single": "Submits the comment as a single comment that will be immediately visible to other users",
 	"githubPullRequests.defaultCommentType.review": "Submits the comment as a review comment that will be visible to other users once the review is submitted",
