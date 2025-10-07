@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Disposable } from '../../common/lifecycle';
 import { CreatePullRequestActionContext, GitLensApi } from './gitlens';
+import { Disposable } from '../../common/lifecycle';
 
 export class GitLensIntegration extends Disposable {
 	private _extensionsDisposable: vscode.Disposable;

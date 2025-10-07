@@ -6,17 +6,17 @@
 
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
+import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IssueModel } from './issueModel';
+import { DisplayLabel } from './views';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID, COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
-import { IssueModel } from './issueModel';
-import { DisplayLabel } from './views';
 
 export async function chooseItem<T>(
 	itemsToChooseFrom: T[],

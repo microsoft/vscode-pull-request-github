@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
+import { closeIcon, copilotIcon, settingsIcon } from './icon';
+import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { IAccount, IMilestone, IProjectItem, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
@@ -11,8 +13,6 @@ import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
-import { closeIcon, copilotIcon, settingsIcon } from './icon';
-import { Reviewer } from './reviewer';
 
 function Section({
 	id,

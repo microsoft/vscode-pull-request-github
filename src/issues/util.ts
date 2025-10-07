@@ -6,6 +6,7 @@
 import LRUCache from 'lru-cache';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
+import { StateManager } from './stateManager';
 import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
@@ -16,7 +17,6 @@ import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getEnterpriseUri, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
-import { StateManager } from './stateManager';
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 

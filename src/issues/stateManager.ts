@@ -5,6 +5,7 @@
 
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
+import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
@@ -25,7 +26,6 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
-import { CurrentIssue } from './currentIssue';
 
 const CURRENT_ISSUE_KEY = 'currentIssue';
 

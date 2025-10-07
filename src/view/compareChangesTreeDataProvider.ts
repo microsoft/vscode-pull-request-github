@@ -5,6 +5,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 import { Change, Commit } from '../api/api';
 import { Status } from '../api/api1';
 import { getGitChangeType } from '../common/diffHunk';
@@ -15,7 +16,6 @@ import { Schemes } from '../common/uri';
 import { dateFromNow } from '../common/utils';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, TreeNode, TreeNodeParent } from './treeNodes/treeNode';
 

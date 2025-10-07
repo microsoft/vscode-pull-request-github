@@ -7,16 +7,6 @@
 import * as vscode from 'vscode';
 import { OpenCommitChangesArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
-import { IComment } from '../common/comment';
-import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
-import { commands, contexts } from '../common/executeCommands';
-import { disposeAll } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
-import { ITelemetry } from '../common/telemetry';
-import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
-import { asPromise, formatError } from '../common/utils';
-import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -38,6 +28,16 @@ import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { IComment } from '../common/comment';
+import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { commands, contexts } from '../common/executeCommands';
+import { disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
+import { asPromise, formatError } from '../common/utils';
+import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -141,12 +141,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this.registerPrListeners();
 
 		this.setVisibilityContext();
-		this._register(folderRepositoryManager.onDidMergePullRequest(_ => {
-			this._postMessage({
-				command: 'update-state',
-				state: GithubItemStateEnum.Merged,
-			});
-		}));
 
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
@@ -173,7 +167,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChange(e => {
-				if (e.comments && !this._isUpdating) {
+				if ((e.state || e.comments) && !this._isUpdating) {
 					this.refreshPanel();
 				}
 			}));
@@ -595,30 +589,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		);
 	}
 
-	private mergePullRequest(
+	private async mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
-	): void {
+	): Promise<void> {
 		const { title, description, method, email } = message.args;
-		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
-				}
+			if (!result.merged) {
+				vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
+			}
 
-				const mergeResult: MergeResult = {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-					revertable: result.merged,
-					events: result.timeline
-				};
-				this._replyMessage(message, mergeResult);
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
-				this._throwError(message, '');
-			});
+			const mergeResult: MergeResult = {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+				revertable: result.merged,
+				events: result.timeline
+			};
+			this._replyMessage(message, mergeResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
 	}
 
 	private async changeEmail(message: IRequestMessage<string>): Promise<void> {

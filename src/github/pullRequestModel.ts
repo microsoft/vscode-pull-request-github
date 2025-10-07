@@ -8,24 +8,11 @@ import * as path from 'path';
 import equals from 'fast-deep-equal';
 import gql from 'graphql-tag';
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
-import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
-import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
-import { commands } from '../common/executeCommands';
-import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
-import { GitHubRef } from '../common/githubRef';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
-import { formatError, isDescendant } from '../common/utils';
-import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, GraphQLError, GraphQLErrorType } from './githubRepository';
 import {
 	AddCommentResponse,
 	AddReactionResponse,
@@ -37,8 +24,11 @@ import {
 	EnqueuePullRequestResponse,
 	FileContentResponse,
 	GetReviewRequestsResponse,
+	MergeMethod as GraphQLMergeMethod,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
+	MergePullRequestInput,
+	MergePullRequestResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
@@ -88,6 +78,20 @@ import {
 	RestAccount,
 	restPaginate,
 } from './utils';
+import { Repository } from '../api/api';
+import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
+import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
+import { formatError, isDescendant } from '../common/utils';
+import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -372,6 +376,100 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._telemetry.sendTelemetryEvent('pr.requestChanges');
 		this._onDidChange.fire({ timeline: true, comments: true });
 		return action;
+	}
+
+	async merge(
+		repository: Repository,
+		title?: string,
+		description?: string,
+		method?: 'merge' | 'squash' | 'rebase',
+		email?: string
+	): Promise<{ merged: boolean, message: string, timeline?: TimelineEvent[] }> {
+		Logger.debug(`Merging PR: ${this.number} method: ${method} for user: "${email}" - enter`, PullRequestModel.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		const workingDirectorySHA = repository.state.HEAD?.commit;
+		const mergingPRSHA = this.head?.sha;
+		const workingDirectoryIsDirty = repository.state.workingTreeChanges.length > 0;
+		let expectedHeadOid: string | undefined = this.head?.sha;
+
+		if (this.isActive) {
+			// We're on the branch of the pr being merged.
+			expectedHeadOid = workingDirectorySHA;
+			if (workingDirectorySHA !== mergingPRSHA) {
+				// We are looking at different commit than what will be merged
+				const { ahead } = repository.state.HEAD!;
+				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
+				if (ahead &&
+					(await vscode.window.showWarningMessage(
+						ahead > 1 ? pluralMessage : singularMessage,
+						{ modal: true },
+						vscode.l10n.t('Yes'),
+					)) === undefined) {
+
+					return {
+						merged: false,
+						message: vscode.l10n.t('unpushed changes'),
+					};
+				}
+			}
+
+			if (workingDirectoryIsDirty) {
+				// We have made changes to the PR that are not committed
+				if (
+					(await vscode.window.showWarningMessage(
+						vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
+						{ modal: true },
+						vscode.l10n.t('Yes'),
+					)) === undefined
+				) {
+					return {
+						merged: false,
+						message: vscode.l10n.t('uncommitted changes'),
+					};
+				}
+			}
+		}
+		const input: MergePullRequestInput = {
+			pullRequestId: this.graphNodeId,
+			commitHeadline: title,
+			commitBody: description,
+			expectedHeadOid,
+			authorEmail: email,
+			mergeMethod:
+				(method?.toUpperCase() ??
+					vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,
+		};
+
+		return mutate<MergePullRequestResponse>({
+			mutation: schema.MergePullRequest,
+			variables: {
+				input
+			}
+		})
+			.then(async (result) => {
+				Logger.debug(`Merging PR: ${this.number} - done`, PullRequestModel.ID);
+
+				/* __GDPR__
+					"pr.merge.success" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.merge.success');
+				this._onDidChange.fire({ state: true });
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await this.getCopilotTimelineEvents(this), this.githubRepository) };
+			})
+			.catch(e => {
+				/* __GDPR__
+					"pr.merge.failure" : {}
+				*/
+				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure');
+				const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
+				if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
+					return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
+				} else {
+					throw e;
+				}
+			});
 	}
 
 	/**
@@ -747,6 +845,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
 			getTimelineEvents(),
 			this.getViewerLatestReviewCommit(),
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			(await this.githubRepository.getAuthenticatedUser()).login,
 			this.getReviewThreads()
 		]);

@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem } from './notificationItem';
+import { NotificationsProvider } from './notificationsProvider';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
@@ -14,8 +16,6 @@ import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem } from './notificationItem';
-import { NotificationsProvider } from './notificationsProvider';
 
 export interface INotificationTreeItems {
 	readonly notifications: NotificationTreeItem[];

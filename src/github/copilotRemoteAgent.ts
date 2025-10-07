@@ -6,6 +6,9 @@
 import * as pathLib from 'path';
 import * as marked from 'marked';
 import vscode, { ChatPromptReference, ChatSessionItem } from 'vscode';
+import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, JobInfo, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
+import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
@@ -18,9 +21,6 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionWithPR, CopilotApi, getCopilotApi, JobInfo, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
-import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { extractTitle, formatBodyPlaceholder, truncatePrompt } from './copilotRemoteAgentUtils';
@@ -71,34 +71,36 @@ export namespace SessionIdForPr {
 	}
 }
 
+type ConfirmationResult = { step: string; accepted: boolean; metadata?: CreatePromptMetadata /* | SomeOtherMetadata */ };
+
+interface CreatePromptMetadata {
+	prompt: string;
+	history?: string;
+	references?: ChatPromptReference[];
+}
+
 export class CopilotRemoteAgentManager extends Disposable {
 	async chatParticipantImpl(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) {
-		const startSession = async (source: string) => {
+		const startSession = async (source: string, prompt: string, history?: string, references?: readonly vscode.ChatPromptReference[]) => {
 			/* __GDPR__
 				"copilot.remoteagent.editor.invoke" : {
 					"promptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"historyLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"promptSummaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"historySummaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"referencesCount" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			const prompt = request.prompt;
-			const history = context.history;
-			const promptSummary = context.chatSummary?.prompt;
-			const historySummary = context.chatSummary?.history;
 			this.telemetry.sendTelemetryEvent('copilot.remoteagent.editor.invoke', {
-				promptLength: prompt.length.toString(),
-				historyLength: history?.length.toString(),
-				promptSummaryLength: promptSummary?.length.toString() || '0',
-				historySummaryLength: historySummary?.length.toString() || '0',
+				promptLength: prompt.length.toString() ?? '0',
+				historyLength: history?.length.toString() ?? '0',
+				referencesCount: references?.length.toString() ?? '0',
 				source,
 			});
 			const result = await this.invokeRemoteAgent(
-				promptSummary || prompt,
+				prompt,
 				[
-					this.extractFileReferences(request.references),
-					historySummary || await this.extractHistory(history)
+					this.extractFileReferences(references),
+					history
 				].join('\n\n').trim(),
 				token,
 				false,
@@ -113,9 +115,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 
 		const handleConfirmationData = async () => {
-			const results: Array<{ step: string; accepted: boolean }> = [];
-			results.push(...(request.acceptedConfirmationData?.map(data => ({ step: data.step, accepted: true })) ?? []));
-			results.push(...((request.rejectedConfirmationData ?? []).filter(data => !results.some(r => r.step === data.step)).map(data => ({ step: data.step, accepted: false }))));
+			const results: ConfirmationResult[] = [];
+			results.push(...(request.acceptedConfirmationData?.map(data => ({ step: data.step, accepted: true, metadata: data?.metadata })) ?? []));
+			results.push(...((request.rejectedConfirmationData ?? []).filter(data => !results.some(r => r.step === data.step)).map(data => ({ step: data.step, accepted: false, metadata: data?.metadata }))));
 			for (const data of results) {
 				switch (data.step) {
 					case 'create':
@@ -123,7 +125,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 							stream.markdown(vscode.l10n.t('Coding agent request cancelled.'));
 							return {};
 						}
-						const number = await startSession('chat');
+						const { prompt, history, references } = data.metadata as CreatePromptMetadata;
+						const number = await startSession('chat', prompt, history, references);
 						if (!number) {
 							return {};
 						}
@@ -153,7 +156,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		if (context.chatSessionContext?.isUntitled) {
 			/* Generate new coding agent session from an 'untitled' session */
-			const number = await startSession('untitledChatSession');
+			const number = await startSession(
+				'untitledChatSession',
+				context.chatSummary?.prompt ?? request.prompt,
+				context.chatSummary?.history,
+				request.references
+			);
 			if (!number) {
 				return {};
 			}
@@ -215,15 +223,20 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return { errorDetails: { message: error.message } };
 			}
 		} else {
-			/* @copilot invoked from a 'normal' chat */
-
+			/* @copilot invoked from a 'normal' chat or 'cloud button' */
 			stream.confirmation(
 				vscode.l10n.t('Delegate to coding agent'),
 				DELEGATE_MODAL_DETAILS,
-				{ step: 'create' },
+				{
+					step: 'create',
+					metadata: {
+						prompt: context.chatSummary?.prompt ?? request.prompt,
+						history: context.chatSummary?.history,
+						references: request.references,
+					}
+				},
 				['Delegate', 'Cancel']
 			);
-
 		}
 	}
 
@@ -829,7 +842,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			const { number } = jobInfo.pull_request;
-			this._onDidCreatePullRequest.fire(number);
 
 			// Find the actual PR to get the HTML URL
 			const pullRequest = await this.findPullRequestById(number, true);
@@ -840,6 +852,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			chatStream?.progress(vscode.l10n.t('Attaching to session'));
 			await this.waitForQueuedToInProgress(response.session_id, token);
+			this._onDidCreatePullRequest.fire(number);
 			return {
 				state: 'success',
 				number,

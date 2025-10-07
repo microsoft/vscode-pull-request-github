@@ -5,6 +5,8 @@
 
 import { basename } from 'path';
 import * as vscode from 'vscode';
+import { CurrentIssue } from './currentIssue';
+import { IssueCompletionProvider } from './issueCompletionProvider';
 import { Remote } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
@@ -23,20 +25,6 @@ import { editQuery } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { fromRepoUri, RepoUriParams, Schemes, toNewIssueUri } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
-import { OctokitCommon } from '../github/common';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
-import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
-import { IProject } from '../github/interface';
-import { IssueModel } from '../github/issueModel';
-import { IssueOverviewPanel } from '../github/issueOverview';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
-import { chatCommand } from '../lm/utils';
-import { ReviewManager } from '../view/reviewManager';
-import { ReviewsManager } from '../view/reviewsManager';
-import { PRNode } from '../view/treeNodes/pullRequestNode';
-import { CurrentIssue } from './currentIssue';
-import { IssueCompletionProvider } from './issueCompletionProvider';
 import {
 	ASSIGNEES,
 	extractMetadataFromFile,
@@ -69,6 +57,18 @@ import {
 	pushAndCreatePR,
 	USER_EXPRESSION,
 } from './util';
+import { OctokitCommon } from '../github/common';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { IProject } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
+import { IssueOverviewPanel } from '../github/issueOverview';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
+import { chatCommand } from '../lm/utils';
+import { ReviewManager } from '../view/reviewManager';
+import { ReviewsManager } from '../view/reviewsManager';
+import { PRNode } from '../view/treeNodes/pullRequestNode';
 
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 

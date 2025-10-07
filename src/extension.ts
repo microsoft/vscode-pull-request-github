@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
 import TelemetryReporter from '@vscode/extension-telemetry';
 import * as vscode from 'vscode';
+
 import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
@@ -284,7 +284,7 @@ function initChat(context: vscode.ExtensionContext, credentialStore: CredentialS
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
 	Logger.appendLine(`Extension version: ${vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version}`, 'Activation');
-	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+
 	// @ts-ignore
 	if (EXTENSION_ID === 'GitHub.vscode-pull-request-github-insiders') {
 		const stable = vscode.extensions.getExtension('github.vscode-pull-request-github');

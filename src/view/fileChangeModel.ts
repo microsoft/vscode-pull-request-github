@@ -116,7 +116,7 @@ export class GitFileChangeModel extends FileChangeModel {
 		}
 	}
 
-	private _show: Promise<string | undefined>
+	private _show: Promise<string | undefined>;
 	async showBase(): Promise<string | undefined> {
 		if (!this._show && this.change.status !== GitChangeType.ADD) {
 			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha!);

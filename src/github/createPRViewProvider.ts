@@ -4,6 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import {
+	byRemoteName,
+	FolderRepositoryManager,
+	PullRequestDefaults,
+	titleAndBodyFrom,
+} from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
+import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
+import { PullRequestModel } from './pullRequestModel';
+import { getDefaultMergeMethod } from './pullRequestOverview';
+import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+import { DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
@@ -27,20 +41,6 @@ import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '.
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
-import {
-	byRemoteName,
-	FolderRepositoryManager,
-	PullRequestDefaults,
-	titleAndBodyFrom,
-} from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
-import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
-import { PullRequestModel } from './pullRequestModel';
-import { getDefaultMergeMethod } from './pullRequestOverview';
-import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
-import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
-import { DisplayLabel, PreReviewState } from './views';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
@@ -629,7 +629,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return undefined;
 		}
 
-		const [pr, compareBranch] = await Promise.all([await this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
+		const [pr, compareBranch] = await Promise.all([this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
 		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
 	}
 
@@ -704,7 +704,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descrptionSource === 'template' ? await this.getPullRequestTemplate() : undefined
+				descrptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 

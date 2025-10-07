@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
 import { Branch, Change, Commit, Remote, RepositoryState, Submodule } from '../@types/git';
 import { IGit, Repository } from '../api/api';

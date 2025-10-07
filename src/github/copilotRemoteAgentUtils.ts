@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
 import { MAX_PROBLEM_STATEMENT_LENGTH } from './copilotApi';
+import Logger from '../common/logger';
 
 /**
  * Truncation utility to ensure the problem statement sent to Copilot API is under the maximum length.

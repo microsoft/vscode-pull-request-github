@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { EDITOR, WORD_WRAP } from '../common/settingKeys';
-import { ReposManagerState } from '../github/folderRepositoryManager';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { StateManager } from './stateManager';
 import {
 	getIssue,
 	isComment,
 	MAX_LINE_LENGTH,
 } from './util';
+import { EDITOR, WORD_WRAP } from '../common/settingKeys';
+import { ReposManagerState } from '../github/folderRepositoryManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 
 const MAX_LINE_COUNT = 2000;
 

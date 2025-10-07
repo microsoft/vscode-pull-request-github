@@ -5,13 +5,6 @@
 
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
-import { IComment } from '../common/comment';
-import { emojify, ensureEmojis } from '../common/emoji';
-import { disposeAll } from '../common/lifecycle';
-import { ReviewEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
@@ -19,6 +12,13 @@ import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
+import { disposeAll } from '../common/lifecycle';
+import { ReviewEvent } from '../common/timelineEvent';
+import { formatError } from '../common/utils';
+import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { ReviewManager } from '../view/reviewManager';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:activePullRequest';
@@ -31,13 +31,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		private _item: PullRequestModel,
 	) {
 		super(extensionUri);
-
-		this._register(this._folderRepositoryManager.onDidMergePullRequest(_ => {
-			this._postMessage({
-				command: 'update-state',
-				state: GithubItemStateEnum.Merged,
-			});
-		}));
 
 		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
@@ -466,24 +459,21 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._replyMessage(message, { state: GithubItemStateEnum.Open });
 			return;
 		}
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
 
-		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+			if (!result.merged) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
+			}
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
-				}
-
-				this._replyMessage(message, {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-				});
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-				this._throwError(message, '');
+			this._replyMessage(message, {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
 			});
+
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
+			this._throwError(message, '');
+		}
 	}
 
 	private _getHtmlForWebview() {

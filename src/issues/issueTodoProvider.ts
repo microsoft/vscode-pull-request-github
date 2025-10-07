@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { MAX_LINE_LENGTH } from './util';
 import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
-import { MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
