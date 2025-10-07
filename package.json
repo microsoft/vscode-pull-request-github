@@ -4194,7 +4194,7 @@
 		"watch:test": "tsc -w -p tsconfig.test.json",
 		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
-		"lint": "eslint --fix --cache",
+		"lint": "eslint --fix --cache . --ext .ts,.tsx",
 		"package": "npx vsce package --yarn",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
 		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg && yarn run test:preprocess-fixtures",
