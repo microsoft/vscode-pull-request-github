@@ -842,7 +842,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			const { number } = jobInfo.pull_request;
-			this._onDidCreatePullRequest.fire(number);
 
 			// Find the actual PR to get the HTML URL
 			const pullRequest = await this.findPullRequestById(number, true);
@@ -853,6 +852,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			chatStream?.progress(vscode.l10n.t('Attaching to session'));
 			await this.waitForQueuedToInProgress(response.session_id, token);
+			this._onDidCreatePullRequest.fire(number);
 			return {
 				state: 'success',
 				number,
