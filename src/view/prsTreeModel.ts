@@ -90,8 +90,15 @@ export class PrsTreeModel extends Disposable {
 		}
 
 		this._register(this._reposManager.onDidChangeAnyPullRequests((prs) => {
-			const needsRefresh = prs.filter(pr => pr.event.state || pr.event.title || pr.event.body || pr.event.comments || pr.event.draft || pr.event.timeline);
-			this.clearQueriesContainingPullRequests(needsRefresh);
+			const stateChanged: PullRequestChangeEvent[] = [];
+			const needsRefresh: PullRequestChangeEvent[] = [];
+			for (const pr of prs) {
+				if (pr.event.state) {
+					stateChanged.push(pr);
+				}
+				needsRefresh.push(pr);
+			}
+			this.forceClearQueriesContainingPullRequests(stateChanged);
 			this._onDidChangeData.fire(needsRefresh);
 		}));
 
@@ -146,6 +153,11 @@ export class PrsTreeModel extends Disposable {
 
 	public cachedPRStatus(identifier: string): PRStatusChange | undefined {
 		return this._queriedPullRequests.get(identifier);
+	}
+
+	public forceClearCache() {
+		this._cachedPRs.clear();
+		this._onDidChangeData.fire();
 	}
 
 	public clearCache(silent: boolean = false) {
@@ -364,7 +376,7 @@ export class PrsTreeModel extends Disposable {
 		return prs;
 	}
 
-	private clearQueriesContainingPullRequests(pullRequests: PullRequestChangeEvent[]): void {
+	private forceClearQueriesContainingPullRequests(pullRequests: PullRequestChangeEvent[]): void {
 		const withStateChange = pullRequests.filter(prChange => prChange.event.state);
 		if (!withStateChange || withStateChange.length === 0) {
 			return;
@@ -378,7 +390,7 @@ export class PrsTreeModel extends Disposable {
 					cachedPRs.items.items.some(item => item === prChange.model)
 				);
 				if (hasPR) {
-					queries.get(queryKey)!.clearRequested = true;
+					queries.delete(queryKey);
 				}
 			}
 		}

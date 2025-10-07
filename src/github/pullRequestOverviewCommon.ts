@@ -129,8 +129,6 @@ export namespace PullRequestView {
 
 			await Promise.all(promises);
 
-			vscode.commands.executeCommand('pr.refreshList');
-
 			return {
 				isReply: false,
 				message: {

@@ -32,13 +32,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super(extensionUri);
 
-		this._register(this._folderRepositoryManager.onDidMergePullRequest(_ => {
-			this._postMessage({
-				command: 'update-state',
-				state: GithubItemStateEnum.Merged,
-			});
-		}));
-
 		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
@@ -466,24 +459,21 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._replyMessage(message, { state: GithubItemStateEnum.Open });
 			return;
 		}
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
 
-		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+			if (!result.merged) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
+			}
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
-				}
-
-				this._replyMessage(message, {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-				});
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-				this._throwError(message, '');
+			this._replyMessage(message, {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
 			});
+
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
+			this._throwError(message, '');
+		}
 	}
 
 	private _getHtmlForWebview() {
