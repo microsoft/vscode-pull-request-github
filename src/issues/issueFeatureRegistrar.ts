@@ -57,6 +57,7 @@ import {
 	pushAndCreatePR,
 	USER_EXPRESSION,
 } from './util';
+import { truncate } from '../common/utils';
 import { OctokitCommon } from '../github/common';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
@@ -69,7 +70,6 @@ import { chatCommand } from '../lm/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { ReviewsManager } from '../view/reviewsManager';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
-import { truncate } from '../common/utils';
 
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
