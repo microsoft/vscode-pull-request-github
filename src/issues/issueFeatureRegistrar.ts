@@ -575,8 +575,12 @@ export class IssueFeatureRegistrar extends Disposable {
 			this._register(
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
+			const todoProvider = new IssueTodoProvider(this.context, this.copilotRemoteAgentManager);
 			this._register(
-				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context, this.copilotRemoteAgentManager), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+				vscode.languages.registerCodeActionsProvider('*', todoProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+			);
+			this._register(
+				vscode.languages.registerCodeLensProvider('*', todoProvider),
 			);
 		});
 	}
