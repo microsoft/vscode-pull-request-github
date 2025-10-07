@@ -30,6 +30,24 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		this.expression = triggers.length > 0 ? new RegExp(triggers.map(trigger => escapeRegExp(trigger)).join('|')) : undefined;
 	}
 
+	private findTodoInLine(lineNumber: number, line: string): { match: RegExpMatchArray; search: number; insertIndex: number } | undefined {
+		const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
+		const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
+		if (matches) {
+			return undefined;
+		}
+		const match = truncatedLine.match(this.expression!);
+		const search = match?.index ?? -1;
+		if (search >= 0 && match) {
+			const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
+			const insertIndex =
+				search +
+				(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression!)![0].length);
+			return { match, search, insertIndex };
+		}
+		return undefined;
+	}
+
 	async provideCodeActions(
 		document: vscode.TextDocument,
 		range: vscode.Range | vscode.Selection,
@@ -43,45 +61,37 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		let lineNumber = range.start.line;
 		do {
 			const line = document.lineAt(lineNumber).text;
-			const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
-			const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
-			if (!matches) {
-				const match = truncatedLine.match(this.expression);
-				const search = match?.index ?? -1;
-				if (search >= 0 && match) {
-					// Create GitHub Issue action
-					const createIssueAction: vscode.CodeAction = new vscode.CodeAction(
-						vscode.l10n.t('Create GitHub Issue'),
+			const todoInfo = this.findTodoInLine(lineNumber, line);
+			if (todoInfo) {
+				const { match, search, insertIndex } = todoInfo;
+				// Create GitHub Issue action
+				const createIssueAction: vscode.CodeAction = new vscode.CodeAction(
+					vscode.l10n.t('Create GitHub Issue'),
+					vscode.CodeActionKind.QuickFix,
+				);
+				createIssueAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
+				createIssueAction.command = {
+					title: vscode.l10n.t('Create GitHub Issue'),
+					command: 'issue.createIssueFromSelection',
+					arguments: [{ document, lineNumber, line, insertIndex, range }],
+				};
+				codeActions.push(createIssueAction);
+
+				// Start Coding Agent Session action (if copilot manager is available)
+				if (this.copilotRemoteAgentManager) {
+					const startAgentAction: vscode.CodeAction = new vscode.CodeAction(
+						vscode.l10n.t('Delegate to coding agent'),
 						vscode.CodeActionKind.QuickFix,
 					);
-					createIssueAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
-					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
-					const insertIndex =
-						search +
-						(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
-					createIssueAction.command = {
-						title: vscode.l10n.t('Create GitHub Issue'),
-						command: 'issue.createIssueFromSelection',
+					startAgentAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
+					startAgentAction.command = {
+						title: vscode.l10n.t('Delegate to coding agent'),
+						command: 'issue.startCodingAgentFromTodo',
 						arguments: [{ document, lineNumber, line, insertIndex, range }],
 					};
-					codeActions.push(createIssueAction);
-
-					// Start Coding Agent Session action (if copilot manager is available)
-					if (this.copilotRemoteAgentManager) {
-						const startAgentAction: vscode.CodeAction = new vscode.CodeAction(
-							vscode.l10n.t('Delegate to coding agent'),
-							vscode.CodeActionKind.QuickFix,
-						);
-						startAgentAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
-						startAgentAction.command = {
-							title: vscode.l10n.t('Delegate to coding agent'),
-							command: 'issue.startCodingAgentFromTodo',
-							arguments: [{ document, lineNumber, line, insertIndex, range }],
-						};
-						codeActions.push(startAgentAction);
-					}
-					break;
+					codeActions.push(startAgentAction);
 				}
+				break;
 			}
 			lineNumber++;
 		} while (range.end.line >= lineNumber);
@@ -99,35 +109,27 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		const codeLenses: vscode.CodeLens[] = [];
 		for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
 			const line = document.lineAt(lineNumber).text;
-			const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
-			const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
-			if (!matches) {
-				const match = truncatedLine.match(this.expression);
-				const search = match?.index ?? -1;
-				if (search >= 0 && match) {
-					const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
-					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
-					const insertIndex =
-						search +
-						(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
+			const todoInfo = this.findTodoInLine(lineNumber, line);
+			if (todoInfo) {
+				const { match, search, insertIndex } = todoInfo;
+				const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
 
-					// Create GitHub Issue CodeLens
-					const createIssueCodeLens = new vscode.CodeLens(range, {
-						title: vscode.l10n.t('Create GitHub Issue'),
-						command: 'issue.createIssueFromSelection',
+				// Create GitHub Issue CodeLens
+				const createIssueCodeLens = new vscode.CodeLens(range, {
+					title: vscode.l10n.t('Create GitHub Issue'),
+					command: 'issue.createIssueFromSelection',
+					arguments: [{ document, lineNumber, line, insertIndex, range }],
+				});
+				codeLenses.push(createIssueCodeLens);
+
+				// Delegate to coding agent CodeLens (if copilot manager is available)
+				if (this.copilotRemoteAgentManager) {
+					const startAgentCodeLens = new vscode.CodeLens(range, {
+						title: vscode.l10n.t('Delegate to coding agent'),
+						command: 'issue.startCodingAgentFromTodo',
 						arguments: [{ document, lineNumber, line, insertIndex, range }],
 					});
-					codeLenses.push(createIssueCodeLens);
-
-					// Delegate to coding agent CodeLens (if copilot manager is available)
-					if (this.copilotRemoteAgentManager) {
-						const startAgentCodeLens = new vscode.CodeLens(range, {
-							title: vscode.l10n.t('Delegate to coding agent'),
-							command: 'issue.startCodingAgentFromTodo',
-							arguments: [{ document, lineNumber, line, insertIndex, range }],
-						});
-						codeLenses.push(startAgentCodeLens);
-					}
+					codeLenses.push(startAgentCodeLens);
 				}
 			}
 		}
