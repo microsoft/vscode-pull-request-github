@@ -30,7 +30,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		this.expression = triggers.length > 0 ? new RegExp(triggers.map(trigger => escapeRegExp(trigger)).join('|')) : undefined;
 	}
 
-	private findTodoInLine(lineNumber: number, line: string): { match: RegExpMatchArray; search: number; insertIndex: number } | undefined {
+	private findTodoInLine(line: string): { match: RegExpMatchArray; search: number; insertIndex: number } | undefined {
 		const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
 		const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
 		if (matches) {
@@ -61,7 +61,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		let lineNumber = range.start.line;
 		do {
 			const line = document.lineAt(lineNumber).text;
-			const todoInfo = this.findTodoInLine(lineNumber, line);
+			const todoInfo = this.findTodoInLine(line);
 			if (todoInfo) {
 				const { match, search, insertIndex } = todoInfo;
 				// Create GitHub Issue action
@@ -115,7 +115,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		const codeLenses: vscode.CodeLens[] = [];
 		for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
 			const line = document.lineAt(lineNumber).text;
-			const todoInfo = this.findTodoInLine(lineNumber, line);
+			const todoInfo = this.findTodoInLine(line);
 			if (todoInfo) {
 				const { match, search, insertIndex } = todoInfo;
 				const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);

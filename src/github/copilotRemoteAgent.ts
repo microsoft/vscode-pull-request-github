@@ -350,7 +350,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async isAssignable(): Promise<boolean> {
-		const cacheAndReturn = (b: boolean) => {
+		const setCachedResult = (b: boolean) => {
 			this._isAssignable = b;
 			return b;
 		};
@@ -361,7 +361,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return cacheAndReturn(false);
+			return setCachedResult(false);
 		}
 
 		const { fm } = repoInfo;
@@ -372,12 +372,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const allAssignableUsers = fm.getAllAssignableUsers();
 
 			if (!allAssignableUsers) {
-				return cacheAndReturn(false);
+				return setCachedResult(false);
 			}
-			return cacheAndReturn(allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login)));
+			return setCachedResult(allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login)));
 		} catch (error) {
 			// If there's an error fetching assignable users, assume not assignable
-			return cacheAndReturn(false);
+			return setCachedResult(false);
 		}
 	}
 
