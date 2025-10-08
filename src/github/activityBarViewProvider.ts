@@ -36,10 +36,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
 		this._register(vscode.commands.registerCommand('review.approveOnDotCom', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 		}));
 		this._register(vscode.commands.registerCommand('review.requestChangesOnDotCom', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 		}));
 	}
 
@@ -109,7 +109,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			case 'pr.submit':
 				return this.submitReviewMessage(message);
 			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+				return openPullRequestOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
 			case 'pr.update-branch':

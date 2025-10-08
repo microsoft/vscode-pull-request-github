@@ -23,7 +23,7 @@ export async function ensureEmojis(context: ExtensionContext) {
 }
 
 async function loadEmojiMap(context: ExtensionContext) {
-	const uri = (Uri as any).joinPath(context.extensionUri, 'resources', 'emojis.json');
+	const uri = Uri.joinPath(context.extensionUri, 'resources', 'emojis.json');
 	emojiMap = JSON.parse(new TextDecoder('utf8').decode(await workspace.fs.readFile(uri)));
 }
 

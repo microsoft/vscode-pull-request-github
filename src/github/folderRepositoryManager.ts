@@ -52,7 +52,7 @@ import {
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
-import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
+import { AsyncPredicate, batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
@@ -1502,12 +1502,23 @@ export class FolderRepositoryManager extends Disposable {
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
 			: // Otherwise, let's try...
 			this.findRepo(byRemoteName('origin')) || // by convention
-			this.findRepo(ownedByMe) || // bc maybe we can push there
+			await this.findRepoAsync(ownedByMe) || // bc maybe we can push there
 			first; // out of raw desperation
 	}
 
 	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined {
 		return this._githubRepositories.filter(where)[0];
+	}
+
+	findRepoAsync(where: AsyncPredicate<GitHubRepository>): Promise<GitHubRepository | undefined> {
+		return (async () => {
+			for (const repo of this._githubRepositories) {
+				if (await where(repo)) {
+					return repo;
+				}
+			}
+			return undefined;
+		})();
 	}
 
 	get upstreamRef(): UpstreamRef | undefined {
@@ -2847,9 +2858,8 @@ export function getEventType(text: string) {
 	}
 }
 
-const ownedByMe: Predicate<GitHubRepository> = repo => {
-	const { currentUser = null } = repo.octokit as any;
-	return currentUser && repo.remote.owner === currentUser.login;
+const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
+	return repo.isCurrentUser(repo.remote.authProviderId, repo.remote.owner);
 };
 
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>

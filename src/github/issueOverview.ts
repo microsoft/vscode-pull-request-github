@@ -360,7 +360,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+				return openPullRequestOnGitHub(this._item, this._telemetry);
 			case 'pr.debug':
 				return this.webviewDebug(message);
 			default:

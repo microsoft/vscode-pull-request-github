@@ -80,7 +80,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		const protocol = new Protocol(idParts.remote);
 		if (this._copilotManager.hasNotification(protocol.owner, protocol.repositoryName, idParts.prNumber)) {
 			return {
-				badge: new vscode.ThemeIcon('copilot') as any,
+				badge: new vscode.ThemeIcon('copilot') as unknown as string,
 				color: new vscode.ThemeColor('pullRequests.notification')
 			};
 		}
@@ -98,7 +98,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 
 		return {
 			tooltip: vscode.l10n.t('Coding agent has made changes'),
-			badge: new vscode.ThemeIcon('copilot') as any,
+			badge: new vscode.ThemeIcon('copilot') as unknown as string,
 			color: new vscode.ThemeColor('pullRequests.notification'),
 		};
 	}

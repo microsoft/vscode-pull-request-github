@@ -116,6 +116,8 @@ export interface FileViewedStateChangeEvent {
 
 export type FileViewedState = { [key: string]: ViewedState };
 
+type TreeDataMode = '100644' | '100755' | '120000';
+
 const BATCH_SIZE = 50;
 
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
@@ -526,7 +528,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		this._onDidChange.fire({ timeline: true });
-		return convertRESTReviewEvent(data, this.githubRepository);
+		return convertRESTReviewEvent(data as OctokitCommon.PullsCreateReviewResponseData, this.githubRepository);
 	}
 
 	/**
@@ -1054,11 +1056,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 
 			const baseTreeData = baseTree.data.tree.find(f => f.path === file.filename);
-			const baseMode: '100644' | '100755' | '120000' = baseTreeData?.mode as any ?? '100644';
+			const baseMode: TreeDataMode = (baseTreeData?.mode as TreeDataMode | undefined) ?? '100644';
 
 			const headTree = await octokit.call(octokit.api.git.getTree, { owner: model.prHeadOwner, repo: model.repositoryName, tree_sha: headTreeSha, recursive: 'true' });
 			const headTreeData = headTree.data.tree.find(f => f.path === file.filename);
-			const headMode: '100644' | '100755' | '120000' = headTreeData?.mode as any ?? '100644';
+			const headMode: TreeDataMode = (headTreeData?.mode as TreeDataMode | undefined) ?? '100644';
 
 			if (file.status === 'removed') {
 				// The file was removed so we use a null sha to indicate that (per GitHub's API).

@@ -7,7 +7,7 @@ import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
+import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
@@ -252,7 +252,7 @@ export class GitHubRepository extends Disposable {
 		silent: boolean = false
 	) {
 		super();
-		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as unknown as Schema, defaultSchema as unknown as Schema);
+		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -291,12 +291,13 @@ export class GitHubRepository extends Disposable {
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
 			Logger.debug(`Not available for query: ${logValue ?? 'unknown'}`, GRAPHQL_COMPONENT_ID);
-			return {
-				data: null,
+			const empty: ApolloQueryResult<T> = {
+				data: null as T,
 				loading: false,
 				networkStatus: NetworkStatus.error,
 				stale: false,
-			} as any;
+			} satisfies ApolloQueryResult<T>;
+			return empty;
 		}
 
 		let rsp;
@@ -316,7 +317,7 @@ export class GitHubRepository extends Disposable {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
 				query.query = this.schema[(query.query.definitions[0] as { name: { value: string } }).name.value];
 				rsp = await gql.query<T>(query);
 			} else if (ignoreSamlErrors && isSamlError(e)) {
@@ -338,15 +339,13 @@ export class GitHubRepository extends Disposable {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation.context as string}`, GRAPHQL_COMPONENT_ID);
-			return {
-				data: null,
-				loading: false,
-				networkStatus: NetworkStatus.error,
-				stale: false,
-			} as any;
+			const empty: FetchResult<T> = {
+				data: null
+			};
+			return empty;
 		}
 
-		let rsp;
+		let rsp: FetchResult<T>;
 		try {
 			rsp = await gql.mutate<T>(mutation);
 		} catch (e) {
@@ -383,7 +382,8 @@ export class GitHubRepository extends Disposable {
 			repo
 		});
 		Logger.debug(`Fetch metadata for repo ${owner}/${repo} - done`, this.id);
-		return ({ ...result.data, currentUser: (octokit as any).currentUser } as unknown) as IMetadata;
+		const metadata = { ...result.data, currentUser: await this._hub?.currentUser };
+		return metadata;
 	}
 
 	async getMetadata(): Promise<IMetadata> {
@@ -438,12 +438,12 @@ export class GitHubRepository extends Disposable {
 		if (oldHub !== this._hub) {
 			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
 			} else {
 				if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, extraSchema.default);
 				} else {
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 				}
 			}
 		}
@@ -507,7 +507,7 @@ export class GitHubRepository extends Disposable {
 						squash: data.allow_squash_merge ?? false,
 						rebase: data.allow_rebase_merge ?? false,
 					},
-					viewerCanAutoMerge: ((data as any).allow_auto_merge && hasWritePermission) ?? false
+					viewerCanAutoMerge: (data.allow_auto_merge && hasWritePermission) ?? false
 				};
 			}
 			return this._repoAccessAndMergeMethods;
@@ -1146,7 +1146,7 @@ export class GitHubRepository extends Disposable {
 					path: filePath,
 					ref,
 				},
-			)) as any;
+			)) as { data: { content: string; encoding: string; sha: string } };
 
 			if (Array.isArray(fileContent.data)) {
 				throw new Error(`Unexpected array response when getting file ${filePath}`);
@@ -1174,7 +1174,7 @@ export class GitHubRepository extends Disposable {
 			Logger.debug(`Fetch blob file ${filePath} - done`, this.id);
 		}
 
-		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
+		const buff = buffer.Buffer.from(contents, fileContent.data.encoding as BufferEncoding);
 		Logger.debug(`Fetch file ${filePath}, file length ${contents.length} - done`, this.id);
 		return buff;
 	}

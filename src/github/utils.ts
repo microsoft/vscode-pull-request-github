@@ -439,7 +439,7 @@ export function convertRESTReviewEvent(
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
-		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
+		submittedAt: review.submitted_at,
 		body: review.body,
 		bodyHTML: review.body,
 		htmlUrl: review.html_url,
@@ -1396,6 +1396,7 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 	do {
 		const result = await request(
 			{
+				// eslint-disable-next-line rulesdir/no-cast-to-any
 				...(variables as any),
 				per_page,
 				page

@@ -41,8 +41,8 @@ export class BuiltinGitProvider extends Disposable implements IGit {
 			throw e;
 		}
 
-		this._register(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e as any)));
-		this._register(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e as any)));
+		this._register(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
+		this._register(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
 		this._register(this._gitAPI.onDidChangeState(e => this._onDidChangeState.fire(e)));
 		this._register(this._gitAPI.onDidPublish(e => this._onDidPublish.fire(e)));
 	}
