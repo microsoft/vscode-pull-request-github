@@ -8,6 +8,8 @@ import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem 
 import { NotificationsProvider } from './notificationsProvider';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
@@ -15,11 +17,14 @@ import { NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export interface INotificationTreeItems {
 	readonly notifications: NotificationTreeItem[];
 	readonly hasNextPage: boolean
+	readonly pollInterval: number;
+	readonly lastModified: string;
 }
 
 export enum NotificationsSortMethod {
@@ -28,6 +33,8 @@ export enum NotificationsSortMethod {
 }
 
 export class NotificationsManager extends Disposable implements vscode.TreeDataProvider<NotificationTreeDataItem> {
+	private static ID = 'NotificationsManager';
+
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = this._register(new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>());
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
@@ -39,6 +46,10 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _dateTime: Date = new Date();
 	private _fetchNotifications: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
+
+	private _pollingDuration: number = 60; // Default polling duration
+	private _pollingHandler: NodeJS.Timeout | null;
+	private _pollingLastModified: string;
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 	get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
@@ -52,6 +63,17 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		super();
 		this._register(this._onDidChangeTreeData);
 		this._register(this._onDidChangeNotifications);
+		this._startPolling();
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
+				if (this._isPRNotificationsOn() && !this._pollingHandler) {
+					this._startPolling();
+				}
+			}
+		}));
+		this._register(PullRequestOverviewPanel.onVisible(e => {
+			this.markPrNotificationsAsRead(e);
+		}));
 	}
 
 	//#region TreeDataProvider
@@ -169,12 +191,16 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	//#endregion
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
+		let pollInterval = this._pollingDuration;
+		let lastModified = this._pollingLastModified;
 		if (this._fetchNotifications) {
 			// Get raw notifications
 			const notificationsData = await this._notificationProvider.getNotifications(this._dateTime.toISOString(), this._pageCount);
 			if (!notificationsData) {
 				return undefined;
 			}
+			pollInterval = notificationsData.pollInterval;
+			lastModified = notificationsData.lastModified;
 
 			// Resolve notifications
 			const notificationTreeItems = new Map<string, NotificationTreeItem>();
@@ -224,7 +250,9 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 		return {
 			notifications: this._sortNotifications(notifications),
-			hasNextPage: this._hasNextPage
+			hasNextPage: this._hasNextPage,
+			pollInterval,
+			lastModified
 		};
 	}
 
@@ -374,5 +402,80 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 
 		return notifications;
+	}
+
+	private _isPRNotificationsOn() {
+		return (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<NotificationVariants>(NOTIFICATION_SETTING) === 'pullRequests');
+	}
+
+	private async _pollForNewNotifications() {
+		this._pageCount = 1;
+		this._dateTime = new Date();
+		this._notifications.clear();
+		this._fetchNotifications = true;
+
+		const response = await this.getNotifications();
+		if (!response) {
+			return;
+		}
+
+		// Adapt polling interval if it has changed.
+		if (response.pollInterval !== this._pollingDuration) {
+			this._pollingDuration = response.pollInterval;
+			if (this._pollingHandler && this._isPRNotificationsOn()) {
+				Logger.appendLine('Notifications: Clearing interval', NotificationsManager.ID);
+				clearInterval(this._pollingHandler);
+				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`, NotificationsManager.ID);
+				this._startPolling();
+			}
+		}
+		if (response.lastModified !== this._pollingLastModified) {
+			this._pollingLastModified = response.lastModified;
+			this._onDidChangeTreeData.fire();
+		}
+		// this._onDidChangeNotifications.fire(oldPRNodesToUpdate);
+	}
+
+	private _startPolling() {
+		if (!this._isPRNotificationsOn()) {
+			return;
+		}
+		this._pollForNewNotifications();
+		this._pollingHandler = setInterval(
+			function (notificationProvider: NotificationsManager) {
+				notificationProvider._pollForNewNotifications();
+			},
+			this._pollingDuration * 1000,
+			this
+		);
+		this._register({ dispose: () => clearInterval(this._pollingHandler!) });
+	}
+
+	private _findNotificationKeyForIssueModel(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): string | undefined {
+		for (const [key, notification] of this._notifications.entries()) {
+			if ((issueModel instanceof IssueModel || issueModel instanceof PullRequestModel)) {
+				if (notification.model.equals(issueModel)) {
+					return key;
+				}
+			} else {
+				if (notification.notification.owner === issueModel.owner &&
+					notification.notification.name === issueModel.repo &&
+					notification.model.number === issueModel.number) {
+					return key;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	public markPrNotificationsAsRead(issueModel: IssueModel): void {
+		const notificationKey = this._findNotificationKeyForIssueModel(issueModel);
+		if (notificationKey) {
+			this.markAsRead({ threadId: this._notifications.get(notificationKey)!.notification.id, notificationKey });
+		}
+	}
+
+	public hasNotification(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): boolean {
+		return this._findNotificationKeyForIssueModel(issueModel) !== undefined;
 	}
 }

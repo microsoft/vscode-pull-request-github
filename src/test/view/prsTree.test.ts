@@ -9,9 +9,11 @@ import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
+import { MockNotificationManager } from '../mocks/mockNotificationManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -45,6 +47,7 @@ describe('GitHub Pull Requests view', function () {
 	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
 	let gitAPI: GitApiImpl;
+	let mockNotificationsManager: MockNotificationManager;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -62,6 +65,7 @@ describe('GitHub Pull Requests view', function () {
 		gitAPI = new GitApiImpl(reposManager);
 		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI);
 		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
+		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
@@ -109,7 +113,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
-		provider.initialize([], credentialStore);
+		provider.initialize([], mockNotificationsManager as NotificationsManager);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 0);
@@ -123,7 +127,7 @@ describe('GitHub Pull Requests view', function () {
 		reposManager.insertFolderManager(folderManager);
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await reposManager.folderManagers[0].updateRepositories();
-		provider.initialize([], credentialStore);
+		provider.initialize([], mockNotificationsManager as NotificationsManager);
 
 		const rootNodes = await provider.getChildren();
 
@@ -202,7 +206,7 @@ describe('GitHub Pull Requests view', function () {
 				return Promise.resolve(users.map(user => user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined));
 			});
 			await manager.updateRepositories();
-			provider.initialize([], credentialStore);
+			provider.initialize([], mockNotificationsManager as NotificationsManager);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();

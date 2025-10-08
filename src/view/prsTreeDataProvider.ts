@@ -16,12 +16,10 @@ import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
-import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PullRequestChangeEvent } from '../github/githubRepository';
 import { PRType } from '../github/interface';
 import { issueMarkdown } from '../github/markdownUtils';
-import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -32,6 +30,7 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { NotificationsManager } from '../notifications/notificationsManager';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode[] | TreeNode | void>();
@@ -46,7 +45,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 	private readonly _view: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
-	public notificationProvider: NotificationProvider;
+	private _notificationsProvider: NotificationsManager;
 	public readonly prsTreeModel: PrsTreeModel;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
@@ -66,7 +65,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this.refreshAllQueryResults(true);
 			}
 		}));
-		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.prsTreeModel.forceClearCache();
 			this.refreshAllQueryResults(true);
@@ -263,7 +261,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return undefined;
 	}
 
-	initialize(reviewModels: ReviewModel[], credentialStore: CredentialStore) {
+	initialize(reviewModels: ReviewModel[], notificationsManager: NotificationsManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
@@ -280,7 +278,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			this._register(model.onDidChangeLocalFileChanges(_ => { this.refreshAllQueryResults(); }));
 		}
 
-		this.notificationProvider = this._register(new NotificationProvider(this, credentialStore, this._reposManager));
+		this._notificationsProvider = notificationsManager;
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager, this._notificationsProvider));
 
 		this.initializeCategories();
 		this.refreshAll();
@@ -495,7 +494,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
-					this.notificationProvider,
+					this._notificationsProvider,
 					this._context,
 					this.prsTreeModel,
 					this._copilotManager,
@@ -508,7 +507,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 							folderManager.repository.rootUri,
 							folderManager,
 							this._telemetry,
-							this.notificationProvider,
+							this._notificationsProvider,
 							this._context,
 							this.prsTreeModel,
 							this._copilotManager

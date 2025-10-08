@@ -7,9 +7,12 @@ import * as vscode from 'vscode';
 import { PrsTreeModel } from './prsTreeModel';
 import { Disposable } from '../common/lifecycle';
 import { Protocol } from '../common/protocol';
+import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { createPRNodeUri, fromPRNodeUri, fromQueryUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes, toQueryUri } from '../common/uri';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
+import { PullRequestModel } from '../github/pullRequestModel';
+import { NotificationsManager } from '../notifications/notificationsManager';
 
 export class PRStatusDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
 
@@ -18,7 +21,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	>();
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
-	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotManager: CopilotRemoteAgentManager) {
+	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotManager: CopilotRemoteAgentManager, private readonly _notificationProvider: NotificationsManager) {
 		super();
 		this._register(vscode.window.registerFileDecorationProvider(this));
 		this._register(
@@ -39,6 +42,31 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 				uris.push(createPRNodeUri(item));
 			}
 			this._onDidChangeFileDecorations.fire(uris);
+		}));
+
+		this._register(
+			this._notificationProvider.onDidChangeNotifications(notifications => {
+				let uris: vscode.Uri[] = [];
+				for (const notification of notifications) {
+					if (notification.model instanceof PullRequestModel) {
+						uris.push(createPRNodeUri(notification.model));
+					}
+				}
+				this._onDidChangeFileDecorations.fire(uris);
+			})
+		);
+
+		// if the notification setting changes, refresh the decorations for the nodes with notifications
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
+				const uris: vscode.Uri[] = [];
+				for (const pr of this._notificationProvider.getAllNotifications()) {
+					if (pr.model instanceof PullRequestModel) {
+						uris.push(createPRNodeUri(pr.model));
+					}
+				}
+				this._onDidChangeFileDecorations.fire(uris);
+			}
 		}));
 	}
 
@@ -61,6 +89,11 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		const copilotDecoration = this._getCopilotDecoration(params);
 		if (copilotDecoration) {
 			return copilotDecoration;
+		}
+
+		const notificationDecoration = this._getNotificationDecoration(params);
+		if (notificationDecoration) {
+			return notificationDecoration;
 		}
 
 		const status = this._prsTreeModel.cachedPRStatus(params.prIdentifier);
@@ -101,5 +134,28 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 			badge: new vscode.ThemeIcon('copilot') as unknown as string,
 			color: new vscode.ThemeColor('pullRequests.notification'),
 		};
+	}
+
+	private _getNotificationDecoration(params: PRNodeUriParams): vscode.FileDecoration | undefined {
+		if (!this.notificationSettingValue()) {
+			return;
+		}
+		const idParts = parsePRNodeIdentifier(params.prIdentifier);
+		if (!idParts) {
+			return;
+		}
+		const protocol = new Protocol(idParts.remote);
+		if (this._notificationProvider.hasNotification({ owner: protocol.owner, repo: protocol.repositoryName, number: idParts.prNumber })) {
+			return {
+				propagate: false,
+				color: new vscode.ThemeColor('pullRequests.notification'),
+				badge: '●',
+				tooltip: 'unread notification'
+			};
+		}
+	}
+
+	private notificationSettingValue(): boolean {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<NotificationVariants>(NOTIFICATION_SETTING, 'off') === 'pullRequests';
 	}
 }

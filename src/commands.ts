@@ -26,7 +26,6 @@ import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
-import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
@@ -35,7 +34,7 @@ import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
-import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { NotificationsManager } from './notifications/notificationsManager';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
@@ -149,7 +148,6 @@ export async function openDescription(
 	folderManager: FolderRepositoryManager,
 	revealNode: boolean,
 	preserveFocus: boolean = true,
-	notificationProvider?: NotificationProvider
 ) {
 	const issue = ensurePR(folderManager, issueModel);
 	if (revealNode) {
@@ -165,12 +163,6 @@ export async function openDescription(
 		*/
 		telemetry.sendTelemetryEvent('issue.openDescription');
 	}
-
-	if (notificationProvider?.hasNotification(issue)) {
-		notificationProvider.markPrNotificationsAsRead(issue);
-	}
-
-
 }
 
 export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
@@ -210,8 +202,8 @@ export function registerCommands(
 	reposManager: RepositoriesManager,
 	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
-	tree: PullRequestsTreeDataProvider,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
+	notificationManager: NotificationsManager
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -907,10 +899,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.dismissNotification', node => {
 			if (node instanceof PRNode) {
-				tree.notificationProvider.markPrNotificationsAsRead(node.pullRequestModel).then(
-					() => tree.refresh(node)
-				);
-
+				notificationManager.markPrNotificationsAsRead(node.pullRequestModel);
 			}
 		}),
 	);
@@ -968,7 +957,7 @@ export function registerCommands(
 
 		const revealDescription = !(argument instanceof PRNode);
 
-		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
+		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode));
 	}
 
 	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR) {
