@@ -148,6 +148,11 @@ export class PrsTreeModel extends Disposable {
 		return this._queriedPullRequests.get(identifier);
 	}
 
+	public forceClearCache() {
+		this._cachedPRs.clear();
+		this._onDidChangeData.fire();
+	}
+
 	public clearCache(silent: boolean = false) {
 		if (this._cachedPRs.size === 0) {
 			return;
