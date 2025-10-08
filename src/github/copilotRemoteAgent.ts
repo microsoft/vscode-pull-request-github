@@ -261,6 +261,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 		status: CopilotPRStatus;
 	}[]> | undefined;
 
+	private _isAssignable: boolean | undefined;
+
 	constructor(
 		private credentialStore: CredentialStore,
 		public repositoriesManager: RepositoriesManager,
@@ -348,9 +350,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async isAssignable(): Promise<boolean> {
+		const setCachedResult = (b: boolean) => {
+			this._isAssignable = b;
+			return b;
+		};
+
+		if (this._isAssignable !== undefined) {
+			return this._isAssignable;
+		}
+
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return false;
+			return setCachedResult(false);
 		}
 
 		const { fm } = repoInfo;
@@ -361,14 +372,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const allAssignableUsers = fm.getAllAssignableUsers();
 
 			if (!allAssignableUsers) {
-				return false;
+				return setCachedResult(false);
 			}
-
-			// Check if any of the copilot logins are in the assignable users
-			return allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login));
+			return setCachedResult(allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login)));
 		} catch (error) {
 			// If there's an error fetching assignable users, assume not assignable
-			return false;
+			return setCachedResult(false);
 		}
 	}
 
@@ -398,6 +407,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async updateAssignabilityContext(): Promise<void> {
 		try {
+			this._isAssignable = undefined; // Invalidate cache
 			const available = await this.isAvailable();
 			commands.setContext('copilotCodingAgentAssignable', available);
 		} catch (error) {

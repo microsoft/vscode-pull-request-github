@@ -42,4 +42,90 @@ describe('IssueTodoProvider', function () {
 		assert.strictEqual(createIssueAction?.command?.command, 'issue.createIssueFromSelection');
 		assert.strictEqual(startAgentAction?.command?.command, 'issue.startCodingAgentFromTodo');
 	});
+
+	it('should provide code lenses for TODO comments', async function () {
+		const mockContext = {
+			subscriptions: []
+		} as any as vscode.ExtensionContext;
+
+		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
+
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+
+		// Create a mock document with TODO comment
+		const document = {
+			lineAt: (line: number) => ({
+				text: line === 1 ? '  // TODO: Fix this' : 'function test() {}'
+			}),
+			lineCount: 4
+		} as vscode.TextDocument;
+
+		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
+
+		assert.strictEqual(codeLenses.length, 2);
+
+		// Verify the code lenses
+		const createIssueLens = codeLenses.find(cl => cl.command?.title === 'Create GitHub Issue');
+		const startAgentLens = codeLenses.find(cl => cl.command?.title === 'Delegate to coding agent');
+
+		assert.ok(createIssueLens, 'Should have Create GitHub Issue CodeLens');
+		assert.ok(startAgentLens, 'Should have Delegate to coding agent CodeLens');
+
+		assert.strictEqual(createIssueLens?.command?.command, 'issue.createIssueFromSelection');
+		assert.strictEqual(startAgentLens?.command?.command, 'issue.startCodingAgentFromTodo');
+
+		// Verify the range points to the TODO text
+		assert.strictEqual(createIssueLens?.range.start.line, 1);
+		assert.strictEqual(startAgentLens?.range.start.line, 1);
+	});
+
+	it('should respect the createIssueCodeLens setting', async function () {
+		const mockContext = {
+			subscriptions: []
+		} as any as vscode.ExtensionContext;
+
+		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
+
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+
+		// Create a mock document with TODO comment
+		const document = {
+			lineAt: (line: number) => ({
+				text: line === 1 ? '  // TODO: Fix this' : 'function test() {}'
+			}),
+			lineCount: 4
+		} as vscode.TextDocument;
+
+		// Mock the workspace configuration to return false for createIssueCodeLens
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === 'githubIssues') {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'createIssueCodeLens') {
+							return false;
+						}
+						if (key === 'createIssueTriggers') {
+							return ['TODO', 'todo', 'BUG', 'FIXME', 'ISSUE', 'HACK'];
+						}
+						return defaultValue;
+					}
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			// Update triggers to ensure the expression is set
+			(provider as any).updateTriggers();
+
+			const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
+
+			// Should return empty array when CodeLens is disabled
+			assert.strictEqual(codeLenses.length, 0, 'Should not provide code lenses when setting is disabled');
+		} finally {
+			// Restore original configuration
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
 });

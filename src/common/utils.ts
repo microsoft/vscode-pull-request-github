@@ -1009,3 +1009,9 @@ export function escapeRegExp(string: string) {
 	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function truncate(value: string, maxLength: number, suffix = '...'): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	return `${value.substr(0, maxLength)}${suffix}`;
+}
