@@ -18,12 +18,8 @@ export enum DiffChangeType {
 }
 
 export class DiffLine {
-	public get raw(): string {
-		return this._raw;
-	}
-
 	public get text(): string {
-		return this._raw.substr(1);
+		return this.raw.substr(1);
 	}
 
 	constructor(
@@ -31,7 +27,7 @@ export class DiffLine {
 		public oldLineNumber: number /* 1 based */,
 		public newLineNumber: number /* 1 based */,
 		public positionInHunk: number,
-		private _raw: string,
+		public readonly raw: string,
 		public endwithLineBreak: boolean = true,
 	) { }
 }

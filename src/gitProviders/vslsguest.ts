@@ -115,7 +115,7 @@ export class VSLSGuest extends Disposable implements IGit {
 	}
 
 	public getRepository(folder: vscode.WorkspaceFolder): Repository {
-		return this._openRepositories.filter(repository => (repository as any).workspaceFolder === folder)[0];
+		return this._openRepositories.filter(repository => (repository as (Repository & { workspaceFolder: vscode.WorkspaceFolder })).workspaceFolder === folder)[0];
 	}
 }
 

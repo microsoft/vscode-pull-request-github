@@ -143,13 +143,14 @@ function isIComment(comment: any): comment is IComment {
 }
 
 const DESCRIPTORS = {
+	REQUESTED: 'will review',
 	PENDING: 'will review',
 	COMMENTED: 'reviewed',
 	CHANGES_REQUESTED: 'requested changes',
 	APPROVED: 'approved',
 };
 
-const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
+const reviewDescriptor = (state: keyof typeof DESCRIPTORS) => DESCRIPTORS[state];
 
 function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const asNotPullRequest = comment as Partial<IComment | ReviewEvent | CommentEvent>;
@@ -246,7 +247,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 
 	const onInput = useCallback(
 		e => {
-			draftComment.current.body = (e.target as any).value;
+			draftComment.current.body = e.target.value;
 			draftComment.current.dirty = true;
 		},
 		[draftComment],
@@ -365,7 +366,7 @@ export function AddComment({
 		textareaRef.current?.focus();
 	});
 
-	const closeButton = e => {
+	const closeButton: React.MouseEventHandler<HTMLButtonElement> = e => {
 		e.preventDefault();
 		const { value } = textareaRef.current!;
 		close(value);
@@ -427,7 +428,7 @@ export function AddComment({
 				id="comment-textarea"
 				name="body"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
-				onInput={({ target }) => updatePR({ pendingCommentText: (target as any).value })}
+				onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
 				onKeyDown={onKeyDown}
 				value={pendingCommentText}
 				placeholder="Leave a comment"
@@ -495,7 +496,7 @@ const COMMENT_METHODS = {
 };
 
 const makeCommentMenuContext = (availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
-	const createMenuContexts = {
+	const createMenuContexts: Record<string, boolean | string> = {
 		'preventDefaultContextMenuItems': true,
 		'github:reviewCommentMenu': true,
 	};

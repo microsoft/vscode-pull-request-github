@@ -91,7 +91,9 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 			onSubmit={async evt => {
 				evt.preventDefault();
 				try {
-					const txt = (evt.target as any)[0].value;
+					const form = evt.currentTarget;
+					const firstElement = form.elements[0] as HTMLInputElement | undefined;
+					const txt = firstElement ? firstElement.value : '';
 					await setTitle(txt);
 					setCurrentTitle(txt);
 				} finally {

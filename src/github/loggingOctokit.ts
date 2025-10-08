@@ -22,6 +22,12 @@ interface RestResponse {
 	}
 }
 
+interface RateLimitResult {
+	data: {
+		rateLimit: RateLimit | undefined
+	} | undefined;
+}
+
 export class RateLogger {
 	private bulkhead: BulkheadPolicy = bulkhead(140);
 	private static ID = 'RateLimit';
@@ -56,7 +62,7 @@ export class RateLogger {
 		return this.bulkhead.execute<T>(() => apiRequest()) as T;
 	}
 
-	public async logRateLimit(info: string | undefined, result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
+	public async logRateLimit(info: string | undefined, result: Promise<RateLimitResult | undefined>, isRest: boolean = false) {
 		let rateLimitInfo: { limit: number, remaining: number, cost: number } | undefined;
 		try {
 			const resolvedResult = await result;
@@ -115,7 +121,7 @@ export class LoggingApolloClient {
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRateLimit(logInfo, result as any);
+		this._rateLogger.logRateLimit(logInfo, result as Promise<RateLimitResult>);
 		return result;
 	}
 
@@ -125,7 +131,7 @@ export class LoggingApolloClient {
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRateLimit(logInfo, result as any);
+		this._rateLogger.logRateLimit(logInfo, result as Promise<RateLimitResult>);
 		return result;
 	}
 }

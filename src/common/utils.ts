@@ -366,6 +366,10 @@ export interface Predicate<T> {
 	(input: T): boolean;
 }
 
+export interface AsyncPredicate<T> {
+	(input: T): Promise<boolean>;
+}
+
 export const enum CharCode {
 	Period = 46,
 	/**

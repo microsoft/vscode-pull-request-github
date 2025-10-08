@@ -3,11 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
+module.exports = {
 
-exports.rules = {
-	'public-methods-well-defined-types': require('./public-methods-well-defined-types'),
-	'no-any-except-union-method-signature': require('./no-any-except-union-method-signature'),
-	'no-pr-in-user-strings': require('./no-pr-in-user-strings'),
-	'no-cast-to-any': require('./no-cast-to-any')
+	create(context) {
+		return {
+			'TSTypeAssertion[typeAnnotation.type="TSAnyKeyword"], TSAsExpression[typeAnnotation.type="TSAnyKeyword"]': (node) => {
+				context.report({
+					node,
+					message: `Avoid casting to 'any' type. Consider using a more specific type or type guards for better type safety.`
+				});
+			}
+		};
+	}
 };

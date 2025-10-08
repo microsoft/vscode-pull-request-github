@@ -320,7 +320,7 @@ export async function createSinglePermalink(
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
-	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+	const upstream: Remote & { fetchUrl: string } = rawUpstream as Remote & { fetchUrl: string };
 
 	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
 

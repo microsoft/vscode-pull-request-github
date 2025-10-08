@@ -146,10 +146,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
 		this._register(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._telemetry);
 		}));
 		this._register(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._telemetry);
 		}));
 	}
 

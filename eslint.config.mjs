@@ -95,6 +95,7 @@ export default defineConfig([
 			'no-sequences': 'error',
 			'no-template-curly-in-string': 'warn',
 			'no-throw-literal': 'error',
+			'no-undef': 'off',
 			'no-unneeded-ternary': 'error',
 			'no-use-before-define': 'off',
 			'no-useless-call': 'error',
@@ -218,7 +219,8 @@ export default defineConfig([
 
 			// Custom rules
 			'rulesdir/no-any-except-union-method-signature': 'error',
-			'rulesdir/no-pr-in-user-strings': 'error'
+			'rulesdir/no-pr-in-user-strings': 'error',
+			'rulesdir/no-cast-to-any': 'error',
 		}
 	},
 
