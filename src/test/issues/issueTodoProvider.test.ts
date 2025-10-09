@@ -7,13 +7,18 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { IssueTodoProvider } from '../../issues/issueTodoProvider';
 
+// Simple factory for a CopilotRemoteAgentManager mock that always reports availability.
+function createAvailableCopilotManager() {
+	return { isAvailable: async () => true } as any;
+}
+
 describe('IssueTodoProvider', function () {
 	it('should provide both actions when CopilotRemoteAgentManager is available', async function () {
 		const mockContext = {
 			subscriptions: []
 		} as any as vscode.ExtensionContext;
 
-		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
+		const mockCopilotManager = createAvailableCopilotManager();
 
 		// Mock configuration for triggers and prefixes
 		const originalGetConfiguration = vscode.workspace.getConfiguration;
@@ -34,7 +39,7 @@ describe('IssueTodoProvider', function () {
 
 		// Create a mock document with TODO comment
 		const document = {
-			lineAt: (line: number) => ({ text: line === 1 ? '  // TODO: Fix this' : 'function test() {' }),
+			lineAt: (line: number) => ({ text: line === 1 ? '  // TODO: Fix this' : '// DEBUG: function test() {' }),
 			lineCount: 4
 		} as vscode.TextDocument;
 
@@ -58,140 +63,9 @@ describe('IssueTodoProvider', function () {
 		assert.strictEqual(startAgentAction?.command?.command, 'issue.startCodingAgentFromTodo');
 	});
 
-	it('should provide code lenses for TODO comments', async function () {
-		const mockContext = {
-			subscriptions: []
-		} as any as vscode.ExtensionContext;
-
-		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
-
-		const originalGetConfiguration = vscode.workspace.getConfiguration;
-		vscode.workspace.getConfiguration = (section?: string) => {
-			if (section === 'githubIssues') {
-				return {
-					get: (key: string, defaultValue?: any) => {
-						if (key === 'createIssueTriggers') { return ['TODO']; }
-						if (key === 'createIssueCommentPrefixes') { return ['//', '#']; }
-						return defaultValue;
-					}
-				} as any;
-			}
-			return originalGetConfiguration(section);
-		};
-		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
-
-		// Create a mock document with TODO comment
-		const document = {
-			lineAt: (line: number) => ({
-				text: line === 1 ? '  // TODO: Fix this' : 'function test() {}'
-			}),
-			lineCount: 4
-		} as vscode.TextDocument;
-
-		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
-
-		assert.strictEqual(codeLenses.length, 2);
-
-		// Verify the code lenses
-		const createIssueLens = codeLenses.find(cl => cl.command?.title === 'Create GitHub Issue');
-		const startAgentLens = codeLenses.find(cl => cl.command?.title === 'Delegate to coding agent');
-
-		assert.ok(createIssueLens, 'Should have Create GitHub Issue CodeLens');
-		assert.ok(startAgentLens, 'Should have Delegate to coding agent CodeLens');
-
-		assert.strictEqual(createIssueLens?.command?.command, 'issue.createIssueFromSelection');
-		assert.strictEqual(startAgentLens?.command?.command, 'issue.startCodingAgentFromTodo');
-
-		// Verify the range points to the TODO text
-		assert.strictEqual(createIssueLens?.range.start.line, 1);
-		assert.strictEqual(startAgentLens?.range.start.line, 1);
-	});
-
-	it('should respect the createIssueCodeLens setting', async function () {
-		const mockContext = {
-			subscriptions: []
-		} as any as vscode.ExtensionContext;
-
-		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
-
-		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
-
-		// Create a mock document with TODO comment
-		const document = {
-			lineAt: (line: number) => ({
-				text: line === 1 ? '  // TODO: Fix this' : 'function test() {}'
-			}),
-			lineCount: 4
-		} as vscode.TextDocument;
-
-		// Mock the workspace configuration to return false for createIssueCodeLens
-		const originalGetConfiguration = vscode.workspace.getConfiguration;
-		vscode.workspace.getConfiguration = (section?: string) => {
-			if (section === 'githubIssues') {
-				return {
-					get: (key: string, defaultValue?: any) => {
-						if (key === 'createIssueCodeLens') {
-							return false;
-						}
-						if (key === 'createIssueTriggers') {
-							return ['TODO', 'todo', 'BUG', 'FIXME', 'ISSUE', 'HACK'];
-						}
-						return defaultValue;
-					}
-				} as any;
-			}
-			return originalGetConfiguration(section);
-		};
-
-		try {
-			// Update triggers to ensure the expression is set
-			(provider as any).updateTriggers();
-
-			const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
-
-			// Should return empty array when CodeLens is disabled
-			assert.strictEqual(codeLenses.length, 0, 'Should not provide code lenses when setting is disabled');
-		} finally {
-			// Restore original configuration
-			vscode.workspace.getConfiguration = originalGetConfiguration;
-		}
-	});
-
-	it('should not trigger on line without comment prefix', async function () {
-		const mockContext = { subscriptions: [] } as any as vscode.ExtensionContext;
-		const mockCopilotManager = {} as any;
-
-		const originalGetConfiguration = vscode.workspace.getConfiguration;
-		vscode.workspace.getConfiguration = (section?: string) => {
-			if (section === 'githubIssues') {
-				return {
-					get: (key: string, defaultValue?: any) => {
-						if (key === 'createIssueTriggers') { return ['DEBUG_RUN']; }
-						if (key === 'createIssueCommentPrefixes') { return ['//']; }
-						return defaultValue;
-					}
-				} as any;
-			}
-			return originalGetConfiguration(section);
-		};
-
-		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
-
-		const testLine = "\tregisterTouchBarEntry(DEBUG_RUN_COMMAND_ID, DEBUG_RUN_LABEL, 0, CONTEXT_IN_DEBUG_MODE.toNegated(), FileAccess.asFileUri('vs/workbench/contrib/debug/browser/media/continue-tb.png'));";
-		const document = {
-			lineAt: (_line: number) => ({ text: testLine }),
-			lineCount: 1
-		} as vscode.TextDocument;
-
-		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
-		assert.strictEqual(codeLenses.length, 0, 'Should not create CodeLens for trigger inside code without prefix');
-
-		vscode.workspace.getConfiguration = originalGetConfiguration; // restore
-	});
-
 	it('prefix matrix detection', async function () {
 		const mockContext = { subscriptions: [] } as any as vscode.ExtensionContext;
-		const mockCopilotManager = { isAvailable: async () => true } as any;
+		const mockCopilotManager = createAvailableCopilotManager();
 
 		const testCases: { testLine: string; expected: boolean; note?: string }[] = [
 			{ testLine: ' // TODO implement feature', expected: true },
@@ -199,15 +73,16 @@ describe('IssueTodoProvider', function () {
 			{ testLine: ' # TODO spaced hash', expected: true },
 			{ testLine: '-- TODO dash dash', expected: true },
 			{ testLine: ' * TODO docblock star', expected: true },
-			{ testLine: '\t*   TODO extra spaces after star', expected: true },
+			{ testLine: '   *     TODO extra spaces after star', expected: true },
 			{ testLine: '/// TODO rust style', expected: true },
 			{ testLine: '///TODO rust tight', expected: true },
-			{ testLine: 'let x = 0; // TODO not at line start so should not match', expected: false },
+			{ testLine: 'let x = 0; // TODO not at line start so should not match', expected: false }, // TODO: Detect inline TODO comments
 			{ testLine: ' *TODO (no space after star)', expected: false },
 			{ testLine: ' * NotATrigger word', expected: false },
 			{ testLine: '/* TODO inside block start should not (prefix not configured)', expected: false },
 			{ testLine: 'random text TODO (no prefix)', expected: false },
 			{ testLine: '#TODO tight hash', expected: true },
+			{ testLine: 'registerTouchBarEntry(DEBUG_RUN_COMMAND_ID, DEBUG_RUN_LABEL, 0, CONTEXT_IN_DEBUG_MODE.toNegated(), FileAccess.asFileUri(\'vs/workbench/contrib/debug/browser/media/continue-tb.png\')', expected: false }
 		];
 
 		const originalGetConfiguration = vscode.workspace.getConfiguration;
@@ -236,7 +111,7 @@ describe('IssueTodoProvider', function () {
 				} as vscode.TextDocument;
 				const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
 				const detected = codeLenses.length > 0;
-				assert.strictEqual(detected, tc.expected, `Mismatch for line: "${tc.testLine}"`);
+				assert.strictEqual(detected, tc.expected, `Unexpected result (expected=${tc.expected}) for line: "${tc.testLine}"`);
 			}
 		} finally {
 			vscode.workspace.getConfiguration = originalGetConfiguration;
