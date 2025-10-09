@@ -34,7 +34,7 @@ describe('IssueTodoProvider', function () {
 
 		// Create a mock document with TODO comment
 		const document = {
-			lineAt: (line: number) => ({ text: line === 1 ? '  // TODO: Fix this' : 'function test() {' }),
+			lineAt: (line: number) => ({ text: line === 1 ? '  // TODO: Fix this' : 'function test() {}' }),
 			lineCount: 4
 		} as vscode.TextDocument;
 
