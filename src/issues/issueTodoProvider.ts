@@ -5,13 +5,15 @@
 
 import * as vscode from 'vscode';
 import { MAX_LINE_LENGTH } from './util';
-import { CODING_AGENT, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../common/settingKeys';
+import { CODING_AGENT, CREATE_ISSUE_COMMENT_PREFIXES, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.CodeLensProvider {
 	private expression: RegExp | undefined;
+	private triggerTokens: string[] = [];
+	private prefixTokens: string[] = [];
 
 	constructor(
 		context: vscode.ExtensionContext,
@@ -26,26 +28,42 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 	}
 
 	private updateTriggers() {
-		const triggers = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_ISSUE_TRIGGERS, []);
-		this.expression = triggers.length > 0 ? new RegExp(triggers.map(trigger => escapeRegExp(trigger)).join('|')) : undefined;
+		const issuesConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE);
+		this.triggerTokens = issuesConfig.get<string[]>(CREATE_ISSUE_TRIGGERS, []);
+		this.prefixTokens = issuesConfig.get<string[]>(CREATE_ISSUE_COMMENT_PREFIXES, []);
+		if (this.triggerTokens.length === 0 || this.prefixTokens.length === 0) {
+			this.expression = undefined;
+			return;
+		}
+		// Build a regex that captures the trigger word so we can highlight just that portion
+		// ^\s*(?:prefix1|prefix2)\s*(trigger1|trigger2)\b
+		const prefixesSource = this.prefixTokens.map(p => escapeRegExp(p)).join('|');
+		const triggersSource = this.triggerTokens.map(t => escapeRegExp(t)).join('|');
+		this.expression = new RegExp(`^\\s*(?:${prefixesSource})\\s*(${triggersSource})\\b`);
 	}
 
 	private findTodoInLine(line: string): { match: RegExpMatchArray; search: number; insertIndex: number } | undefined {
-		const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
-		const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
-		if (matches) {
+		if (!this.expression) {
 			return undefined;
 		}
-		const match = truncatedLine.match(this.expression!);
-		const search = match?.index ?? -1;
-		if (search >= 0 && match) {
-			const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
-			const insertIndex =
-				search +
-				(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression!)![0].length);
-			return { match, search, insertIndex };
+		const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
+		// If the line already contains an issue reference or URL, skip
+		if (ISSUE_OR_URL_EXPRESSION.test(truncatedLine)) {
+			return undefined;
 		}
-		return undefined;
+		const match = this.expression.exec(truncatedLine);
+		if (!match) {
+			return undefined;
+		}
+		// match[1] is the captured trigger token
+		const fullMatch = match[0];
+		const trigger = match[1];
+		// Find start of trigger within full line for highlighting
+		const triggerStartInFullMatch = fullMatch.lastIndexOf(trigger); // safe since trigger appears once at end
+		const search = match.index + triggerStartInFullMatch;
+		const insertIndex = search + trigger.length;
+		// Return a RegExpMatchArray-like structure; reuse match
+		return { match, search, insertIndex };
 	}
 
 	async provideCodeActions(

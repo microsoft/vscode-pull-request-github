@@ -616,6 +616,19 @@
 					],
 					"description": "%githubIssues.createIssueTriggers.description%"
 				},
+				"githubIssues.createIssueCommentPrefixes": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "%githubIssues.createIssueCommentPrefixes.items%"
+					},
+					"default": [
+						"//",
+						"#",
+						"--"
+					],
+					"description": "%githubIssues.createIssueCommentPrefixes.description%"
+				},
 				"githubPullRequests.codingAgent.codeLens": {
 					"type": "boolean",
 					"default": true,

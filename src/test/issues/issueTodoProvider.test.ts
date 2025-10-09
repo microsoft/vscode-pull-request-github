@@ -15,6 +15,21 @@ describe('IssueTodoProvider', function () {
 
 		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
 
+		// Mock configuration for triggers and prefixes
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === 'githubIssues') {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'createIssueTriggers') { return ['TODO']; }
+						if (key === 'createIssueCommentPrefixes') { return ['//']; }
+						return defaultValue;
+					}
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
 		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
 
 		// Create a mock document with TODO comment
@@ -50,6 +65,19 @@ describe('IssueTodoProvider', function () {
 
 		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
 
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === 'githubIssues') {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'createIssueTriggers') { return ['TODO']; }
+						if (key === 'createIssueCommentPrefixes') { return ['//', '#']; }
+						return defaultValue;
+					}
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
 		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
 
 		// Create a mock document with TODO comment
@@ -127,5 +155,37 @@ describe('IssueTodoProvider', function () {
 			// Restore original configuration
 			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}
+	});
+
+	it('should not trigger on line without comment prefix', async function () {
+		const mockContext = { subscriptions: [] } as any as vscode.ExtensionContext;
+		const mockCopilotManager = {} as any;
+
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === 'githubIssues') {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'createIssueTriggers') { return ['DEBUG_RUN']; }
+						if (key === 'createIssueCommentPrefixes') { return ['//']; }
+						return defaultValue;
+					}
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+
+		const testLine = "\tregisterTouchBarEntry(DEBUG_RUN_COMMAND_ID, DEBUG_RUN_LABEL, 0, CONTEXT_IN_DEBUG_MODE.toNegated(), FileAccess.asFileUri('vs/workbench/contrib/debug/browser/media/continue-tb.png'));";
+		const document = {
+			lineAt: (_line: number) => ({ text: testLine }),
+			lineCount: 1
+		} as vscode.TextDocument;
+
+		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
+		assert.strictEqual(codeLenses.length, 0, 'Should not create CodeLens for trigger inside code without prefix');
+
+		vscode.workspace.getConfiguration = originalGetConfiguration; // restore
 	});
 });
