@@ -25,6 +25,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		this._pr = pr;
 		this._folderRepoManager = reposManager;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+		this.description = pr.item.commits.length.toString();
 
 		this.childrenDisposables = [];
 		this.childrenDisposables.push(this._pr.onDidChangeReviewThreads(() => {
