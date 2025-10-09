@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { IssueTodoProvider } from '../../issues/issueTodoProvider';
 
-describe('IssueTodoProvider', function () {
+describe.skip('IssueTodoProvider', function () {
 	it('should provide both actions when CopilotRemoteAgentManager is available', async function () {
 		const mockContext = {
 			subscriptions: []

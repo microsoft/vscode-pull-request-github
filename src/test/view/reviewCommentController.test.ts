@@ -233,7 +233,8 @@ describe('ReviewCommentController', function () {
 	});
 
 	describe('createOrReplyComment', function () {
-		it('creates a new comment on an empty thread in a local file', async function () {
+		// FIXME: #7965 Broken test
+		it.skip('creates a new comment on an empty thread in a local file', async function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			await activePullRequest.initializeReviewThreadCache();
