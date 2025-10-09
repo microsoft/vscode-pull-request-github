@@ -37,7 +37,23 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 		const importAll = (r: __WebpackModuleApi.RequireContext) => r.keys().forEach(r);
 		importAll(require.context('./', true, /\.test$/));
 	} catch (e) {
-		console.log('Error loading tests:', e);
+		// Fallback if 'require.context' is not available (e.g., in non-webpack environments)
+		try {
+			const files = glob.sync('**/*.test.js', {
+				cwd: testsRoot,
+				absolute: true,
+				// Browser/webview tests are loaded via the separate browser runner
+				ignore: ['browser/**']
+			});
+			if (!files.length) {
+				console.log('Fallback test discovery found no test files. Original error:', e);
+			}
+			for (const f of files) {
+				mocha.addFile(f);
+			}
+		} catch (fallbackErr) {
+			console.log('Both require.context and glob fallback failed to load tests', fallbackErr);
+		}
 	}
 
 	if (process.env.TEST_JUNIT_XML_PATH) {
