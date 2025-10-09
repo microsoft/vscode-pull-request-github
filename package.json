@@ -625,7 +625,9 @@
 					"default": [
 						"//",
 						"#",
-						"--"
+						"--",
+						" * ",
+						"///"
 					],
 					"description": "%githubIssues.createIssueCommentPrefixes.description%"
 				},

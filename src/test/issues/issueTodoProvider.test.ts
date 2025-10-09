@@ -188,4 +188,58 @@ describe('IssueTodoProvider', function () {
 
 		vscode.workspace.getConfiguration = originalGetConfiguration; // restore
 	});
+
+	it('prefix matrix detection', async function () {
+		const mockContext = { subscriptions: [] } as any as vscode.ExtensionContext;
+		const mockCopilotManager = { isAvailable: async () => true } as any;
+
+		const testCases: { testLine: string; expected: boolean; note?: string }[] = [
+			{ testLine: ' // TODO implement feature', expected: true },
+			{ testLine: '\t//TODO implement feature', expected: true },
+			{ testLine: ' # TODO spaced hash', expected: true },
+			{ testLine: '-- TODO dash dash', expected: true },
+			{ testLine: ' * TODO docblock star', expected: true },
+			{ testLine: '\t*   TODO extra spaces after star', expected: true },
+			{ testLine: '/// TODO rust style', expected: true },
+			{ testLine: '///TODO rust tight', expected: true },
+			{ testLine: 'let x = 0; // TODO not at line start so should not match', expected: false },
+			{ testLine: ' *TODO (no space after star)', expected: false },
+			{ testLine: ' * NotATrigger word', expected: false },
+			{ testLine: '/* TODO inside block start should not (prefix not configured)', expected: false },
+			{ testLine: 'random text TODO (no prefix)', expected: false },
+			{ testLine: '#TODO tight hash', expected: true },
+		];
+
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === 'githubIssues') {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'createIssueTriggers') { return ['TODO']; }
+						if (key === 'createIssueCommentPrefixes') { return ['//', '#', '--', ' * ', '///']; }
+						return defaultValue;
+					}
+				} as any;
+			}
+			if (section === 'githubPullRequests.codingAgent') {
+				return { get: () => true } as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+			for (const tc of testCases) {
+				const document = {
+					lineAt: (_line: number) => ({ text: tc.testLine }),
+					lineCount: 1
+				} as vscode.TextDocument;
+				const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
+				const detected = codeLenses.length > 0;
+				assert.strictEqual(detected, tc.expected, `Mismatch for line: "${tc.testLine}"`);
+			}
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
 });
