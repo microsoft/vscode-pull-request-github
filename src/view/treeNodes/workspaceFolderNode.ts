@@ -10,11 +10,11 @@ import { ITelemetry } from '../../common/telemetry';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
-import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PrsTreeModel } from '../prsTreeModel';
 import { CategoryTreeNode, isAllQuery, isLocalQuery } from './categoryNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export interface IQueryInfo {
 	label: string;
@@ -31,7 +31,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		uri: vscode.Uri,
 		public readonly folderManager: FolderRepositoryManager,
 		private telemetry: ITelemetry,
-		private notificationProvider: NotificationProvider,
+		private notificationProvider: NotificationsManager,
 		private context: vscode.ExtensionContext,
 		private readonly _prsTreeModel: PrsTreeModel,
 		private readonly _copilotMananger: CopilotRemoteAgentManager
@@ -76,7 +76,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		folderManager: FolderRepositoryManager,
 		telemetry: ITelemetry,
 		parent: TreeNodeParent,
-		notificationProvider: NotificationProvider,
+		notificationProvider: NotificationsManager,
 		context: vscode.ExtensionContext,
 		prsTreeModel: PrsTreeModel,
 		copilotManager: CopilotRemoteAgentManager

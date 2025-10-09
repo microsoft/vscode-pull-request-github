@@ -14,7 +14,6 @@ import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
-import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
@@ -22,6 +21,7 @@ import { getIconForeground, getListErrorForeground, getListWarningForeground, ge
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 {
 	static ID = 'PRNode';
@@ -50,7 +50,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
-		private _notificationProvider: NotificationProvider,
+		private _notificationProvider: NotificationsManager,
 		private _codingAgentManager: CopilotRemoteAgentManager,
 	) {
 		super(parent);
