@@ -53,6 +53,8 @@ export const WORKING_ISSUE_FORMAT_SCM = 'workingIssueFormatScm';
 export const IGNORE_COMPLETION_TRIGGER = 'ignoreCompletionTrigger';
 export const ISSUE_COMPLETION_FORMAT_SCM = 'issueCompletionFormatScm';
 export const CREATE_ISSUE_TRIGGERS = 'createIssueTriggers';
+// Comment prefixes that, when followed by a trigger token, cause issue actions to appear
+export const CREATE_ISSUE_COMMENT_PREFIXES = 'createIssueCommentPrefixes';
 export const DEFAULT = 'default';
 export const IGNORE_MILESTONES = 'ignoreMilestones';
 export const ALLOW_FETCH = 'allowFetch';

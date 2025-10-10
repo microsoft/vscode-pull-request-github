@@ -103,7 +103,21 @@
 	"githubPullRequests.experimental.useQuickChat.description": "Controls whether the Copilot \"Summarize\" commands in the Pull Requests, Issues, and Notifications views will use quick chat. Only has an effect if `#githubPullRequests.experimental.chat#` is enabled.",
 	"githubPullRequests.webviewRefreshInterval.description": "The interval, in seconds, at which the pull request and issues webviews are refreshed when the webview is the active tab.",
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
-	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
+	"githubIssues.createIssueTriggers.description": {
+		"message": "Trigger tokens found after a token in `#githubIssues.createIssueCommentPrefixes#` will show the 'Create issue from comment' code action. These tokens also enable the 'Delegate to Coding Agent' code lens if `#githubPullRequests.codingAgent.codeLens#` is enabled.",
+		"comment": [
+			"{Locked='`...`'}",
+			"Do not translate what's inside of the `...`. It is a setting id."
+		]
+	},
+	"githubIssues.createIssueCommentPrefixes.description": {
+		"message": "Comment prefixes (e.g. //, #, --) that must immediately precede a trigger token from `#githubIssues.createIssueTriggers#` to activate the issue actions / code lens.",
+		"comment": [
+			"{Locked='`#githubIssues.createIssueTriggers#`'}",
+			"Do not translate what's inside of the `...`. It is a setting id."
+		]
+	},
+	"githubIssues.createIssueCommentPrefixes.items": "Comment prefix used to detect issue trigger tokens (e.g. //, #, --).",
 	"githubIssues.createIssueTriggers.items": "String that enables the 'Create issue from comment' code action. Should not contain whitespace.",
 	"githubPullRequests.codingAgent.codeLens.description": "Show CodeLens actions above TODO comments for delegating to coding agent.",
 	"githubIssues.createInsertFormat.description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run.",
