@@ -8,6 +8,7 @@ import { PrsTreeModel } from './prsTreeModel';
 import { Disposable } from '../common/lifecycle';
 import { Protocol } from '../common/protocol';
 import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { EventType } from '../common/timelineEvent';
 import { createPRNodeUri, fromPRNodeUri, fromQueryUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes, toQueryUri } from '../common/uri';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
@@ -39,18 +40,26 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 					repoItems.add(queryUri.toString());
 					uris.push(queryUri);
 				}
-				uris.push(createPRNodeUri(item));
+				uris.push(createPRNodeUri(item, true));
 			}
 			this._onDidChangeFileDecorations.fire(uris);
 		}));
+
+		const addUriForRefresh = (uris: vscode.Uri[], pullRequest: unknown) => {
+			if (pullRequest instanceof PullRequestModel) {
+				uris.push(createPRNodeUri(pullRequest));
+				if (pullRequest.timelineEvents.some(t => t.event === EventType.CopilotStarted)) {
+					// The pr nodes in the Copilot category have a different uri so we need to refresh those too
+					uris.push(createPRNodeUri(pullRequest, true));
+				}
+			}
+		};
 
 		this._register(
 			this._notificationProvider.onDidChangeNotifications(notifications => {
 				let uris: vscode.Uri[] = [];
 				for (const notification of notifications) {
-					if (notification.model instanceof PullRequestModel) {
-						uris.push(createPRNodeUri(notification.model));
-					}
+					addUriForRefresh(uris, notification.model);
 				}
 				this._onDidChangeFileDecorations.fire(uris);
 			})
@@ -61,9 +70,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
 				const uris: vscode.Uri[] = [];
 				for (const pr of this._notificationProvider.getAllNotifications()) {
-					if (pr.model instanceof PullRequestModel) {
-						uris.push(createPRNodeUri(pr.model));
-					}
+					addUriForRefresh(uris, pr.model);
 				}
 				this._onDidChangeFileDecorations.fire(uris);
 			}
@@ -106,6 +113,9 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	}
 
 	private _getCopilotDecoration(params: PRNodeUriParams): vscode.FileDecoration | undefined {
+		if (!params.showCopilot) {
+			return;
+		}
 		const idParts = parsePRNodeIdentifier(params.prIdentifier);
 		if (!idParts) {
 			return;
