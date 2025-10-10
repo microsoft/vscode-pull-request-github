@@ -114,7 +114,7 @@ export namespace PullRequestView {
 									return;
 								}
 							}
-							await folderRepositoryManager.repository.checkout(defaultBranch);
+							await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
 						}
 						await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 						return deletedBranchTypes.push(action.type);
