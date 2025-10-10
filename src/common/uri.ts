@@ -520,6 +520,34 @@ export function createPRNodeUri(
 	});
 }
 
+export interface CommitsNodeUriParams {
+	prNumber: number;
+	commitsCount: number;
+}
+
+export function createCommitsNodeUri(prNumber: number, commitsCount: number): vscode.Uri {
+	const params: CommitsNodeUriParams = {
+		prNumber,
+		commitsCount
+	};
+
+	return vscode.Uri.parse(`commitsnode:${prNumber}`).with({
+		scheme: Schemes.CommitsNode,
+		query: JSON.stringify(params)
+	});
+}
+
+export function fromCommitsNodeUri(uri: vscode.Uri): CommitsNodeUriParams | undefined {
+	if (uri.scheme !== Schemes.CommitsNode) {
+		return undefined;
+	}
+	try {
+		return JSON.parse(uri.query) as CommitsNodeUriParams;
+	} catch (e) {
+		return undefined;
+	}
+}
+
 export interface NotificationUriParams {
 	key: string;
 }
@@ -726,7 +754,8 @@ export enum Schemes {
 	Repo = 'repo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
 	PRQuery = 'prquery', // PR query tree item
-	GitHubCommit = 'githubcommit' // file content from GitHub for a commit
+	GitHubCommit = 'githubcommit', // file content from GitHub for a commit
+	CommitsNode = 'commitsnode' // Commits tree node, for decorations
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {
