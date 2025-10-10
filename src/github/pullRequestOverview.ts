@@ -217,6 +217,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
+		this._isUpdating = true;
 		try {
 			const [
 				pullRequest,
@@ -323,6 +324,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+		} finally {
+			this._isUpdating = false;
 		}
 	}
 
