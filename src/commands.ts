@@ -900,6 +900,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.dismissNotification', node => {
 			if (node instanceof PRNode) {
 				notificationManager.markPrNotificationsAsRead(node.pullRequestModel);
+				copilotRemoteAgentManager.clearNotification(node.pullRequestModel.remote.owner, node.pullRequestModel.remote.repositoryName, node.pullRequestModel.number);
 			}
 		}),
 	);

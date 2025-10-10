@@ -994,8 +994,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 
-	public clearAllNotifications(owner?: string, repo?: string): void {
+	clearAllNotifications(owner?: string, repo?: string): void {
 		this._stateModel.clearAllNotifications(owner, repo);
+	}
+
+	clearNotification(owner: string, repo: string, pullRequestNumber: number): void {
+		this._stateModel.clearNotification(owner, repo, pullRequestNumber);
 	}
 
 	hasNotification(owner: string, repo: string, pullRequestNumber?: number): boolean {

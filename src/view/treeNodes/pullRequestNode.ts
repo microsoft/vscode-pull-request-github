@@ -307,7 +307,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		}
 		const login = author.specialDisplayName ?? author.login;
 
-		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
+		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel) || this._codingAgentManager.hasNotification(this.pullRequestModel.remote.owner, this.pullRequestModel.remote.repositoryName, this.pullRequestModel.number);
 
 		const formattedPRNumber = number.toString();
 		let labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
