@@ -13,13 +13,13 @@ import { isCopilotQuery } from '../../github/copilotPrWatcher';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
-import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { extractRepoFromQuery } from '../../github/utils';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import { IQueryInfo } from './workspaceFolderNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -141,7 +141,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		readonly folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
-		private _notificationProvider: NotificationProvider,
+		private _notificationProvider: NotificationsManager,
 		private _prsTreeModel: PrsTreeModel,
 		private _copilotManager: CopilotRemoteAgentManager,
 		_categoryLabel?: string,

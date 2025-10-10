@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CategoryTreeNode } from './categoryNode';
 import { Repository } from '../../api/api';
 import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
@@ -14,7 +15,6 @@ import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
-import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
@@ -22,6 +22,7 @@ import { getIconForeground, getListErrorForeground, getListWarningForeground, ge
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 {
 	static ID = 'PRNode';
@@ -50,7 +51,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
-		private _notificationProvider: NotificationProvider,
+		private _notificationProvider: NotificationsManager,
 		private _codingAgentManager: CopilotRemoteAgentManager,
 	) {
 		super(parent);
@@ -342,7 +343,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
-			resourceUri: createPRNodeUri(this.pullRequestModel),
+			resourceUri: createPRNodeUri(this.pullRequestModel, this.parent instanceof CategoryTreeNode && this.parent.isCopilot ? true : undefined),
 			command
 		};
 	}

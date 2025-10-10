@@ -1561,7 +1561,7 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 		lastReadAt: notification.last_read_at ? new Date(notification.last_read_at) : undefined,
 		reason: notification.reason,
 		unread: notification.unread,
-		updatedAd: new Date(notification.updated_at),
+		updatedAt: new Date(notification.updated_at),
 	};
 }
 

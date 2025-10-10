@@ -270,7 +270,7 @@ export class CopilotPRWatcher extends Disposable {
 	private async _updateSingleState(pr: PullRequestModel): Promise<void> {
 		const changes: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[] = [];
 
-		const copilotEvents = await pr.getCopilotTimelineEvents(pr);
+		const copilotEvents = await pr.getCopilotTimelineEvents(pr, false, !this._model.isInitialized);
 		let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
 		if (latestEvent === CopilotPRStatus.None) {
 			if (!COPILOT_ACCOUNTS[pr.author.login]) {
@@ -315,7 +315,7 @@ export class CopilotPRWatcher extends Disposable {
 
 					for (const pr of items) {
 						unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
-						const copilotEvents = await pr.getCopilotTimelineEvents(pr);
+						const copilotEvents = await pr.getCopilotTimelineEvents(pr, false, !this._model.isInitialized);
 						let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
 						if (latestEvent === CopilotPRStatus.None) {
 							if (!COPILOT_ACCOUNTS[pr.author.login]) {

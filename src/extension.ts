@@ -37,6 +37,8 @@ import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
+import { NotificationsManager } from './notifications/notificationsManager';
+import { NotificationsProvider } from './notifications/notificationsProvider';
 import { ThemeWatcher } from './themeWatcher';
 import { UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
@@ -46,7 +48,6 @@ import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
-import { PRNotificationDecorationProvider } from './view/prNotificationDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
@@ -170,7 +171,13 @@ async function init(
 	context.subscriptions.push(treeDecorationProviders);
 	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager)]);
 
-	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager);
+	const notificationsProvider = new NotificationsProvider(credentialStore, reposManager);
+	context.subscriptions.push(notificationsProvider);
+
+	const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore, reposManager, context);
+	context.subscriptions.push(notificationsManager);
+
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager, notificationsManager);
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
@@ -218,7 +225,6 @@ async function init(
 			return;
 		}
 		addRepo();
-		tree.notificationProvider.refreshOrLaunchPolling();
 		const disposable = repo.state.onDidChange(() => {
 			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`, ACTIVATION);
 			addRepo();
@@ -229,14 +235,11 @@ async function init(
 	git.onDidCloseRepository(repo => {
 		reposManager.removeRepo(repo);
 		reviewsManager.removeReviewManager(repo);
-		tree.notificationProvider.refreshOrLaunchPolling();
 	});
 
-	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), credentialStore);
+	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), notificationsManager);
 
-	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
-
-	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
+	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -245,7 +248,7 @@ async function init(
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, context);
+	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, notificationsManager);
 	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());

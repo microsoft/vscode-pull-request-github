@@ -40,6 +40,7 @@ import { mergeQuerySchemaWithShared } from '../../github/common';
 import { AccountType } from '../../github/interface';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { asPromise } from '../../common/utils';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -328,8 +329,9 @@ describe('ReviewCommentController', function () {
 				}
 			)
 
+			const newReviewThreadPromise = asPromise(activePullRequest.onDidChangeReviewThreads);
 			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
-
+			await newReviewThreadPromise;
 			assert.strictEqual(thread.comments.length, 1);
 			assert.strictEqual(thread.comments[0].parent, thread);
 

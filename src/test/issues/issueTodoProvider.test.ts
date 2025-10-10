@@ -6,6 +6,12 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { IssueTodoProvider } from '../../issues/issueTodoProvider';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { CODING_AGENT, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../../common/settingKeys';
+
+const mockCopilotManager: Partial<CopilotRemoteAgentManager> = {
+	isAvailable: () => Promise.resolve(true)
+}
 
 describe('IssueTodoProvider', function () {
 	it('should provide both actions when CopilotRemoteAgentManager is available', async function () {
@@ -13,9 +19,8 @@ describe('IssueTodoProvider', function () {
 			subscriptions: []
 		} as any as vscode.ExtensionContext;
 
-		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
 
-		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager as CopilotRemoteAgentManager);
 
 		// Create a mock document with TODO comment
 		const document = {
@@ -48,9 +53,7 @@ describe('IssueTodoProvider', function () {
 			subscriptions: []
 		} as any as vscode.ExtensionContext;
 
-		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
-
-		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager as CopilotRemoteAgentManager);
 
 		// Create a mock document with TODO comment
 		const document = {
@@ -62,31 +65,25 @@ describe('IssueTodoProvider', function () {
 
 		const codeLenses = await provider.provideCodeLenses(document, new vscode.CancellationTokenSource().token);
 
-		assert.strictEqual(codeLenses.length, 2);
+		assert.strictEqual(codeLenses.length, 1);
 
 		// Verify the code lenses
-		const createIssueLens = codeLenses.find(cl => cl.command?.title === 'Create GitHub Issue');
 		const startAgentLens = codeLenses.find(cl => cl.command?.title === 'Delegate to coding agent');
 
-		assert.ok(createIssueLens, 'Should have Create GitHub Issue CodeLens');
 		assert.ok(startAgentLens, 'Should have Delegate to coding agent CodeLens');
 
-		assert.strictEqual(createIssueLens?.command?.command, 'issue.createIssueFromSelection');
 		assert.strictEqual(startAgentLens?.command?.command, 'issue.startCodingAgentFromTodo');
 
 		// Verify the range points to the TODO text
-		assert.strictEqual(createIssueLens?.range.start.line, 1);
 		assert.strictEqual(startAgentLens?.range.start.line, 1);
 	});
 
-	it('should respect the createIssueCodeLens setting', async function () {
+	it('should respect the setting', async function () {
 		const mockContext = {
 			subscriptions: []
 		} as any as vscode.ExtensionContext;
 
-		const mockCopilotManager = {} as any; // Mock CopilotRemoteAgentManager
-
-		const provider = new IssueTodoProvider(mockContext, mockCopilotManager);
+		const provider = new IssueTodoProvider(mockContext, mockCopilotManager as CopilotRemoteAgentManager);
 
 		// Create a mock document with TODO comment
 		const document = {
@@ -96,17 +93,22 @@ describe('IssueTodoProvider', function () {
 			lineCount: 4
 		} as vscode.TextDocument;
 
-		// Mock the workspace configuration to return false for createIssueCodeLens
 		const originalGetConfiguration = vscode.workspace.getConfiguration;
 		vscode.workspace.getConfiguration = (section?: string) => {
-			if (section === 'githubIssues') {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
 				return {
 					get: (key: string, defaultValue?: any) => {
-						if (key === 'createIssueCodeLens') {
-							return false;
-						}
-						if (key === 'createIssueTriggers') {
+						if (key === CREATE_ISSUE_TRIGGERS) {
 							return ['TODO', 'todo', 'BUG', 'FIXME', 'ISSUE', 'HACK'];
+						}
+						return defaultValue;
+					}
+				} as any;
+			} else if (section === CODING_AGENT) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === SHOW_CODE_LENS) {
+							return false;
 						}
 						return defaultValue;
 					}

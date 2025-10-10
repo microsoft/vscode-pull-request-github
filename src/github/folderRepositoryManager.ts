@@ -2130,10 +2130,10 @@ export class FolderRepositoryManager extends Disposable {
 		useCache: boolean = false,
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
-		Logger.appendLine(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
+		Logger.trace(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
 			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
-			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
+			Logger.trace(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}
 		return undefined;
@@ -2144,10 +2144,14 @@ export class FolderRepositoryManager extends Disposable {
 		repositoryName: string,
 		pullRequestNumber: number,
 		withComments: boolean = false,
+		useCache: boolean = false
 	): Promise<IssueModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
+		Logger.trace(`Found GitHub repo for issue #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			return githubRepo.getIssue(pullRequestNumber, withComments);
+			const issue = await githubRepo.getIssue(pullRequestNumber, withComments, useCache);
+			Logger.trace(`Found GitHub issue repo for issue #${pullRequestNumber}: ${issue ? 'yes' : 'no'}`, this.id);
+			return issue;
 		}
 		return undefined;
 	}

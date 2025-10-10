@@ -10,7 +10,6 @@ import { EXTENSION_ID } from '../constants';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
 import { isNotificationTreeItem, NotificationID, NotificationTreeDataItem } from './notificationItem';
 import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
-import { NotificationsProvider } from './notificationsProvider';
 import { Disposable } from '../common/lifecycle';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -23,15 +22,9 @@ export class NotificationsFeatureRegister extends Disposable {
 		readonly credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry,
-		private readonly _context: vscode.ExtensionContext
+		notificationsManager: NotificationsManager
 	) {
 		super();
-		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager);
-		this._register(notificationsProvider);
-
-		const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore, this._repositoriesManager, this._context);
-		this._register(notificationsManager);
-
 		// Decorations
 		const decorationsProvider = new NotificationsDecorationProvider(notificationsManager);
 		this._register(vscode.window.registerFileDecorationProvider(decorationsProvider));
