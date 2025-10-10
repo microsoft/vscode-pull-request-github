@@ -40,6 +40,7 @@ import { mergeQuerySchemaWithShared } from '../../github/common';
 import { AccountType } from '../../github/interface';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { asPromise } from '../../common/utils';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -233,8 +234,7 @@ describe('ReviewCommentController', function () {
 	});
 
 	describe('createOrReplyComment', function () {
-		// FIXME: #7965 Broken test
-		it.skip('creates a new comment on an empty thread in a local file', async function () {
+		it('creates a new comment on an empty thread in a local file', async function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			await activePullRequest.initializeReviewThreadCache();
@@ -329,8 +329,9 @@ describe('ReviewCommentController', function () {
 				}
 			)
 
+			const newReviewThreadPromise = asPromise(activePullRequest.onDidChangeReviewThreads);
 			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
-
+			await newReviewThreadPromise;
 			assert.strictEqual(thread.comments.length, 1);
 			assert.strictEqual(thread.comments[0].parent, thread);
 
