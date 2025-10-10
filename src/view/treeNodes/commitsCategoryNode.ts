@@ -7,11 +7,13 @@ import * as vscode from 'vscode';
 import { CommitNode } from './commitNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import Logger, { PR_TREE } from '../../common/logger';
+import { createCommitsNodeUri } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
+	public resourceUri: vscode.Uri;
 	private _folderRepoManager: FolderRepositoryManager;
 	private _pr: PullRequestModel;
 
@@ -25,7 +27,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		this._pr = pr;
 		this._folderRepoManager = reposManager;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-		this.description = pr.item.commits.length.toString();
+		this.resourceUri = createCommitsNodeUri(pr.number, pr.item.commits.length);
 
 		this.childrenDisposables = [];
 		this.childrenDisposables.push(this._pr.onDidChangeReviewThreads(() => {
