@@ -68,6 +68,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	private _lastCheckedForUpdatesAt?: Date;
 
 	private _timelineEvents: readonly TimelineEvent[] | undefined;
+	private _copilotTimelineEvents: TimelineEvent[] | undefined;
 
 	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
 	public onDidChange = this._onDidChange.event;
@@ -514,12 +515,18 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	/**
 	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
 	 */
-	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false): Promise<TimelineEvent[]> {
+	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false, useCache: boolean = false): Promise<TimelineEvent[]> {
 		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
 			return [];
 		}
 
 		Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+
+		if (useCache && this._copilotTimelineEvents) {
+			Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} (used cache) - exit`, GitHubRepository.ID);
+
+			return this._copilotTimelineEvents;
+		}
 
 		const { octokit, remote } = await this.githubRepository.ensure();
 		try {
@@ -531,6 +538,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			});
 
 			const timelineEvents = parseSelectRestTimelineEvents(issueModel, timeline);
+			this._copilotTimelineEvents = timelineEvents;
 			if (timelineEvents.length === 0) {
 				return [];
 			}
