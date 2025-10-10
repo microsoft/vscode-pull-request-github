@@ -967,7 +967,7 @@
 			},
 			{
 				"command": "pr.markAllCopilotNotificationsAsRead",
-				"title": "Mark All as Read",
+				"title": "%command.pr.markAllCopilotNotificationsAsRead.title%",
 				"category": "%command.pull.request.category%",
 				"enablement": "viewItem == copilot-query-with-notifications"
 			},

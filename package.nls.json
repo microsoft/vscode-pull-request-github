@@ -191,6 +191,7 @@
 	"command.pr.pickOnVscodeDev.title": "Checkout Pull Request on vscode.dev",
 	"command.pr.exit.title": "Checkout Default Branch",
 	"command.pr.dismissNotification.title": "Dismiss Notification",
+	"command.pr.markAllCopilotNotificationsAsRead.title": "Dismiss All Copilot Notifications",
 	"command.pr.merge.title": "Merge Pull Request",
 	"command.pr.readyForReview.title": "Mark Pull Request Ready For Review",
 	"command.pr.openPullRequestOnGitHub.title": "Open Pull Request on GitHub",
