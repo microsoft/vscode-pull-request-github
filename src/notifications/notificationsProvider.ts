@@ -117,9 +117,22 @@ export class NotificationsProvider extends Disposable {
 			return undefined;
 		}
 		const folderManager = this._repositoriesManager.getManagerForRepository(notification.owner, notification.name) ?? this._repositoriesManager.folderManagers[0];
-		const model = notification.subject.type === NotificationSubjectType.Issue ?
-			await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true) :
-			await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber));
+		let model: IssueModel<Issue> | undefined;
+		const isIssue = notification.subject.type === NotificationSubjectType.Issue;
+
+		model = isIssue
+			? await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true, true)
+			: await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber), true);
+
+		if (model) {
+			const modelCheckedForUpdates = model.lastCheckedForUpdatesAt;
+			const notificationUpdated = notification.updatedAt;
+			if (notificationUpdated.getTime() > (modelCheckedForUpdates?.getTime() ?? 0)) {
+				model = isIssue
+					? await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true, false)
+					: await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber), false);
+			}
+		}
 		return model;
 	}
 

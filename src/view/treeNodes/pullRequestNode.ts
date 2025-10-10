@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CategoryTreeNode } from './categoryNode';
 import { Repository } from '../../api/api';
 import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
@@ -342,7 +343,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
-			resourceUri: createPRNodeUri(this.pullRequestModel),
+			resourceUri: createPRNodeUri(this.pullRequestModel, this.parent instanceof CategoryTreeNode && this.parent.isCopilot ? true : undefined),
 			command
 		};
 	}

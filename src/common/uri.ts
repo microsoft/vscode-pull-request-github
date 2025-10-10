@@ -53,7 +53,8 @@ export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
 }
 
 export interface PRNodeUriParams {
-	prIdentifier: string
+	prIdentifier: string;
+	showCopilot?: boolean;
 }
 
 export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
@@ -501,12 +502,15 @@ export function parsePRNodeIdentifier(identifier: string): { remote: string, prN
 }
 
 export function createPRNodeUri(
-	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
+	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string, showCopilot?: boolean
 ): vscode.Uri {
 	const identifier = createPRNodeIdentifier(pullRequest);
 	const params: PRNodeUriParams = {
 		prIdentifier: identifier,
 	};
+	if (showCopilot !== undefined) {
+		params.showCopilot = showCopilot;
+	}
 
 	const uri = vscode.Uri.parse(`PRNode:${identifier}`);
 

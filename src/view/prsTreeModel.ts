@@ -46,6 +46,9 @@ export class PrsTreeModel extends Disposable {
 	private readonly _queriedPullRequests: Map<string, PRStatusChange> = new Map();
 
 	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, CachedPRs>> = new Map();
+	// For ease of finding which PRs we know about
+	private _allCachedPRs: Set<PullRequestModel> = new Set();
+
 	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private _getPullRequestsForQueryLock: Promise<void> = Promise.resolve();
 	private _sentNoRepoTelemetry: boolean = false;
@@ -157,7 +160,12 @@ export class PrsTreeModel extends Disposable {
 
 	public forceClearCache() {
 		this._cachedPRs.clear();
+		this._allCachedPRs.clear();
 		this._onDidChangeData.fire();
+	}
+
+	public hasPullRequest(pr: PullRequestModel): boolean {
+		return this._allCachedPRs.has(pr);
 	}
 
 	public clearCache(silent: boolean = false) {
@@ -256,6 +264,7 @@ export class PrsTreeModel extends Disposable {
 			items: { hasMorePages: false, hasUnsearchedRepositories: false, items: prs, totalCount: prs.length }
 		};
 		cache.set(PRType.LocalPullRequest, toCache);
+		prs.forEach(pr => this._allCachedPRs.add(pr));
 
 		/* __GDPR__
 			"pr.expand.local" : {}
@@ -339,6 +348,7 @@ export class PrsTreeModel extends Disposable {
 				query,
 			);
 			cache.set(query, { clearRequested: false, items: prs, maxKnownPR });
+			prs.items.forEach(pr => this._allCachedPRs.add(pr));
 
 			/* __GDPR__
 				"pr.expand.query" : {}
@@ -365,6 +375,7 @@ export class PrsTreeModel extends Disposable {
 			{ fetchNextPage }
 		);
 		cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
+		prs.items.forEach(pr => this._allCachedPRs.add(pr));
 
 		/* __GDPR__
 			"pr.expand.all" : {}
@@ -390,6 +401,10 @@ export class PrsTreeModel extends Disposable {
 					cachedPRs.items.items.some(item => item === prChange.model)
 				);
 				if (hasPR) {
+					const cachedForQuery = queries.get(queryKey);
+					if (cachedForQuery) {
+						cachedForQuery.items.items.forEach(item => this._allCachedPRs.delete(item));
+					}
 					queries.delete(queryKey);
 				}
 			}

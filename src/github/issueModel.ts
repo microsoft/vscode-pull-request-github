@@ -65,6 +65,8 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	public body: string;
 	public bodyHTML?: string;
 
+	private _lastCheckedForUpdatesAt?: Date;
+
 	private _timelineEvents: readonly TimelineEvent[] | undefined;
 
 	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
@@ -91,6 +93,10 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			this._timelineEvents = timelineEvents;
 			this._onDidChange.fire({ timeline: true });
 		}
+	}
+
+	public get lastCheckedForUpdatesAt(): Date | undefined {
+		return this._lastCheckedForUpdatesAt;
 	}
 
 	public get isOpen(): boolean {
@@ -420,6 +426,8 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 
 	async getLastUpdateTime(time: Date): Promise<Date> {
 		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
+		// Record when we initiated this check regardless of outcome so callers can know staleness.
+		this._lastCheckedForUpdatesAt = new Date();
 		const githubRepository = this.githubRepository;
 		const { query, remote, schema } = await githubRepository.ensure();
 		try {

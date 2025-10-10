@@ -66,7 +66,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		this._startPolling();
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
-				if (this._isPRNotificationsOn() && !this._pollingHandler) {
+				if (this.isPRNotificationsOn() && !this._pollingHandler) {
 					this._startPolling();
 				}
 			}
@@ -182,13 +182,17 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName})  \n`);
 		markdown.appendMarkdown(`**${notification.subject.title}**  \n`);
 		markdown.appendMarkdown(`Type: ${notification.subject.type}  \n`);
-		markdown.appendMarkdown(`Updated: ${notification.updatedAd.toLocaleString()}  \n`);
+		markdown.appendMarkdown(`Updated: ${notification.updatedAt.toLocaleString()}  \n`);
 		markdown.appendMarkdown(`Reason: ${notification.reason}  \n`);
 
 		return markdown;
 	}
 
 	//#endregion
+
+	public get prNotifications(): PullRequestModel[] {
+		return Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest).map(n => n.model) as PullRequestModel[];
+	}
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
 		let pollInterval = this._pollingDuration;
@@ -396,7 +400,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	private _sortNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
 		if (this._sortingMethod === NotificationsSortMethod.Timestamp) {
-			return notifications.sort((n1, n2) => n2.notification.updatedAd.getTime() - n1.notification.updatedAd.getTime());
+			return notifications.sort((n1, n2) => n2.notification.updatedAt.getTime() - n1.notification.updatedAt.getTime());
 		} else if (this._sortingMethod === NotificationsSortMethod.Priority) {
 			return notifications.sort((n1, n2) => Number(n2.priority) - Number(n1.priority));
 		}
@@ -404,7 +408,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		return notifications;
 	}
 
-	private _isPRNotificationsOn() {
+	public isPRNotificationsOn() {
 		return (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<NotificationVariants>(NOTIFICATION_SETTING) === 'pullRequests');
 	}
 
@@ -422,7 +426,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		// Adapt polling interval if it has changed.
 		if (response.pollInterval !== this._pollingDuration) {
 			this._pollingDuration = response.pollInterval;
-			if (this._pollingHandler && this._isPRNotificationsOn()) {
+			if (this._pollingHandler && this.isPRNotificationsOn()) {
 				Logger.appendLine('Notifications: Clearing interval', NotificationsManager.ID);
 				clearInterval(this._pollingHandler);
 				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`, NotificationsManager.ID);
@@ -437,7 +441,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	}
 
 	private _startPolling() {
-		if (!this._isPRNotificationsOn()) {
+		if (!this.isPRNotificationsOn()) {
 			return;
 		}
 		this._pollForNewNotifications();

@@ -260,7 +260,7 @@ export interface Notification {
 	};
 	reason: string;
 	unread: boolean;
-	updatedAd: Date;
+	updatedAt: Date;
 	lastReadAt: Date | undefined;
 }
 
