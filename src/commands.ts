@@ -218,7 +218,7 @@ export function registerCommands(
 					if (activePullRequests.length >= 1) {
 						const result = await chooseItem<PullRequestModel>(
 							activePullRequests,
-							itemValue => itemValue.html_url,
+							itemValue => ({ label: itemValue.html_url }),
 						);
 						if (result) {
 							openPullRequestOnGitHub(result, telemetry);
@@ -255,7 +255,7 @@ export function registerCommands(
 					? (
 						await chooseItem(
 							activePullRequestsWithFolderManager,
-							itemValue => itemValue.activePr.html_url,
+							itemValue => ({ label: itemValue.activePr.html_url }),
 						)
 					)
 					: activePullRequestsWithFolderManager[0];
@@ -434,7 +434,7 @@ export function registerCommands(
 		}
 		return chooseItem<ReviewManager>(
 			reviewsManager.reviewManagers,
-			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
+			itemValue => ({ label: pathLib.basename(itemValue.repository.rootUri.fsPath) }),
 			{ placeHolder: vscode.l10n.t('Choose a repository to create a pull request in'), ignoreFocusOut: true },
 		);
 	}
@@ -786,7 +786,7 @@ export function registerCommands(
 				pullRequestModel = await chooseItem<PullRequestModel>(reposManager.folderManagers
 					.map(folderManager => folderManager.activePullRequest!)
 					.filter(activePR => !!activePR),
-					itemValue => `${itemValue.number}: ${itemValue.title}`,
+					itemValue => ({ label: `${itemValue.number}: ${itemValue.title}` }),
 					{ placeHolder: vscode.l10n.t('Choose the pull request to exit') });
 			} else {
 				pullRequestModel = pr;
@@ -922,7 +922,7 @@ export function registerCommands(
 			if (activePullRequests.length >= 1) {
 				issueModel = await chooseItem<PullRequestModel>(
 					activePullRequests,
-					itemValue => itemValue.title,
+					itemValue => ({ label: itemValue.title }),
 				);
 			}
 		} else {
@@ -1600,7 +1600,7 @@ ${contents}
 					.filter(activePR => !!activePR);
 				pr = await chooseItem<PullRequestModel>(
 					activePullRequests,
-					itemValue => `${itemValue.number}: ${itemValue.title}`,
+					itemValue => ({ label: `${itemValue.number}: ${itemValue.title}` }),
 					{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
 				);
 			}
@@ -1656,7 +1656,7 @@ ${contents}
 			}
 			const githubRepo = await chooseItem<{ manager: FolderRepositoryManager, repo: GitHubRepository }>(
 				githubRepositories,
-				itemValue => `${itemValue.repo.remote.owner}/${itemValue.repo.remote.repositoryName}`,
+				itemValue => ({ label: `${itemValue.repo.remote.owner}/${itemValue.repo.remote.repositoryName}` }),
 				{ placeHolder: vscode.l10n.t('Which GitHub repository do you want to checkout the pull request from?') }
 			);
 			if (!githubRepo) {
@@ -1692,7 +1692,7 @@ ${contents}
 		});
 		return chooseItem<GitHubRepository>(
 			githubRepositories,
-			itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
+			itemValue => ({ label: `${itemValue.remote.owner}/${itemValue.remote.repositoryName}` }),
 			{ placeHolder: vscode.l10n.t('Which GitHub repository do you want to open?') }
 		);
 	}
@@ -1916,7 +1916,7 @@ ${contents}
 
 			const pr = await chooseItem<PullRequestModel>(
 				activePullRequests,
-				itemValue => `${itemValue.number}: ${itemValue.title}`,
+				itemValue => ({ label: `${itemValue.number}: ${itemValue.title}` }),
 				{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
 			);
 			if (pr) {

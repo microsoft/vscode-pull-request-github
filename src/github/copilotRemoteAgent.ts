@@ -426,7 +426,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
 		return chooseItem<FolderRepositoryManager>(
 			this.repositoriesManager.folderManagers,
-			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
+			itemValue => ({ label: pathLib.basename(itemValue.repository.rootUri.fsPath) }),
 		);
 	}
 
@@ -461,7 +461,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const result = await chooseItem<GitHubRemote>(
 			ghRemotes,
-			itemValue => `${itemValue.remoteName} (${itemValue.owner}/${itemValue.repositoryName})`,
+			itemValue => ({ label: itemValue.remoteName, description: `(${itemValue.owner}/${itemValue.repositoryName})` }),
 			{
 				title: vscode.l10n.t('Coding agent will create pull requests against the selected remote.'),
 			}
@@ -665,6 +665,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			summary,
 			undefined,
 			autoPushAndCommit,
+			undefined,
+			fm
 		);
 
 		if (result.state !== 'success') {
@@ -728,7 +730,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
 	}
 
-	async invokeRemoteAgent(prompt: string, problemContext?: string, token?: vscode.CancellationToken, autoPushAndCommit = true, chatStream?: vscode.ChatResponseStream): Promise<RemoteAgentResult> {
+	async invokeRemoteAgent(prompt: string, problemContext?: string, token?: vscode.CancellationToken, autoPushAndCommit = true, chatStream?: vscode.ChatResponseStream, fm?: FolderRepositoryManager): Promise<RemoteAgentResult> {
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
 			return { error: vscode.l10n.t('Failed to initialize Copilot API. Please try again later.'), state: 'error' };
@@ -736,7 +738,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		await this.promptAndUpdatePreferredGitHubRemote(true);
 
-		const repoInfo = await this.repoInfo();
+		const repoInfo = await this.repoInfo(fm);
 		if (!repoInfo) {
 			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
@@ -1112,7 +1114,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
 				const prLinkTitle = vscode.l10n.t('Open pull request in VS Code');
-				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+
+				// If we have multiple repositories, include the repo name in the link text
+				// e.g., 'owner/repo #123' instead of just '#123'
+				let repoInfo = '';
+				if (this.repositoriesManager.folderManagers.length > 1) {
+					const owner = pullRequest.remote.owner;
+					const repo = pullRequest.remote.repositoryName;
+					repoInfo = `${owner}/${repo} `;
+				}
+				const description = new vscode.MarkdownString(`[${repoInfo}#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				return {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
