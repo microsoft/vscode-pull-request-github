@@ -8,12 +8,31 @@ import * as vscode from 'vscode';
 import { IssueTodoProvider } from '../../issues/issueTodoProvider';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { CODING_AGENT, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../../common/settingKeys';
+import * as issueUtil from '../../issues/util';
 
 const mockCopilotManager: Partial<CopilotRemoteAgentManager> = {
 	isAvailable: () => Promise.resolve(true)
 }
 
 describe('IssueTodoProvider', function () {
+	// Mock isComment
+	// We don't have a real 'vscode.TextDocument' in these tests, which
+	// causes 'vscode.languages.getTokenInformationAtPosition' to throw.
+	const originalIsComment = issueUtil.isComment;
+	before(() => {
+		(issueUtil as any).isComment = async (document: vscode.TextDocument, position: vscode.Position) => {
+			try {
+				const lineText = document.lineAt(position.line).text;
+				return lineText.trim().startsWith('//');
+			} catch {
+				return false;
+			}
+		};
+	});
+	after(() => {
+		(issueUtil as any).isComment = originalIsComment;
+	});
+
 	it('should provide both actions when CopilotRemoteAgentManager is available', async function () {
 		const mockContext = {
 			subscriptions: []
@@ -119,10 +138,12 @@ describe('IssueTodoProvider', function () {
 
 		// Create a mock document with TODO comment
 		const document = {
-			lineAt: (line: number) => ({
-				text: line === 1 ? '  // TODO: Fix this' : 'function test() {}'
-			}),
-			lineCount: 4
+			lineAt: (lineNo: number) => ({
+				text: lineNo === 1 ? '  // TODO: Fix this' : 'function test() {}',
+				firstNonWhitespaceCharacterIndex: lineNo === 1 ? 2 : 0,
+			} as vscode.TextLine),
+			lineCount: 4,
+			languageId: 'javascript'
 		} as vscode.TextDocument;
 
 		const originalGetConfiguration = vscode.workspace.getConfiguration;
