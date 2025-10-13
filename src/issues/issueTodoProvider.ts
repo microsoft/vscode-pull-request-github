@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { MAX_LINE_LENGTH } from './util';
+import { isComment, MAX_LINE_LENGTH } from './util';
 import { CODING_AGENT, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
@@ -114,7 +114,11 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 
 		const codeLenses: vscode.CodeLens[] = [];
 		for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
-			const line = document.lineAt(lineNumber).text;
+			const textLine = document.lineAt(lineNumber);
+			const { text: line, firstNonWhitespaceCharacterIndex } = textLine;
+			if (!(await isComment(document, new vscode.Position(lineNumber, firstNonWhitespaceCharacterIndex)))) {
+				continue;
+			}
 			const todoInfo = this.findTodoInLine(line);
 			if (todoInfo) {
 				const { match, search, insertIndex } = todoInfo;
