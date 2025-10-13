@@ -639,7 +639,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.hasPendingReview = false;
 		await this.updateDraftModeContext();
 
-		this.getReviewThreads();
+		await this.getReviewThreads();
 		this._onDidChange.fire({ timeline: true });
 		return {
 			deletedReviewId: databaseId,
