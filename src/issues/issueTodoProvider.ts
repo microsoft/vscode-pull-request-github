@@ -116,21 +116,22 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 		for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
 			const textLine = document.lineAt(lineNumber);
 			const { text: line, firstNonWhitespaceCharacterIndex } = textLine;
+			const todoInfo = this.findTodoInLine(line);
+			if (!todoInfo) {
+				continue;
+			}
 			if (!(await isComment(document, new vscode.Position(lineNumber, firstNonWhitespaceCharacterIndex)))) {
 				continue;
 			}
-			const todoInfo = this.findTodoInLine(line);
-			if (todoInfo) {
-				const { match, search, insertIndex } = todoInfo;
-				const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
-				if (this.copilotRemoteAgentManager && (await this.copilotRemoteAgentManager.isAvailable())) {
-					const startAgentCodeLens = new vscode.CodeLens(range, {
-						title: vscode.l10n.t('Delegate to coding agent'),
-						command: 'issue.startCodingAgentFromTodo',
-						arguments: [{ document, lineNumber, line, insertIndex, range }],
-					});
-					codeLenses.push(startAgentCodeLens);
-				}
+			const { match, search, insertIndex } = todoInfo;
+			const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
+			if (this.copilotRemoteAgentManager && (await this.copilotRemoteAgentManager.isAvailable())) {
+				const startAgentCodeLens = new vscode.CodeLens(range, {
+					title: vscode.l10n.t('Delegate to coding agent'),
+					command: 'issue.startCodingAgentFromTodo',
+					arguments: [{ document, lineNumber, line, insertIndex, range }],
+				});
+				codeLenses.push(startAgentCodeLens);
 			}
 		}
 		return codeLenses;
