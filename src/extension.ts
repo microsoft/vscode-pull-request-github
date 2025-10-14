@@ -49,6 +49,7 @@ import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { PrsTreeModel } from './view/prsTreeModel';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
 import { TreeDecorationProviders } from './view/treeDecorationProviders';
@@ -71,7 +72,8 @@ async function init(
 	reposManager: RepositoriesManager,
 	createPrHelper: CreatePullRequestHelper,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
-	themeWatcher: ThemeWatcher
+	themeWatcher: ThemeWatcher,
+	prsTreeModel: PrsTreeModel,
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
@@ -177,7 +179,7 @@ async function init(
 	const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore, reposManager, context);
 	context.subscriptions.push(notificationsManager);
 
-	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager, notificationsManager);
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, prsTreeModel, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager, notificationsManager);
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
@@ -239,7 +241,7 @@ async function init(
 
 	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), notificationsManager);
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager);
+	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -259,7 +261,7 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 
-	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry);
+	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry, prsTreeModel);
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
@@ -270,11 +272,11 @@ async function init(
 	telemetry.sendTelemetryEvent('startup');
 }
 
-function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager, telemetry: ExperimentationTelemetry) {
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager, telemetry: ExperimentationTelemetry, prsTreeModel: PrsTreeModel) {
 	const createParticipant = () => {
 		const chatParticipantState = new ChatParticipantState();
 		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager, telemetry);
+		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager, telemetry, prsTreeModel);
 	};
 
 	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
@@ -412,6 +414,10 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	const reposManager = new RepositoriesManager(credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
+
+	const prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
+	context.subscriptions.push(prsTreeModel);
+
 	// API
 	const apiImpl = new GitApiImpl(reposManager);
 	context.subscriptions.push(apiImpl);
@@ -427,7 +433,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	Logger.debug('Creating tree view.', 'Activation');
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, apiImpl);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, apiImpl, prsTreeModel);
 	context.subscriptions.push(copilotRemoteAgentManager);
 	if (vscode.chat?.registerChatSessionItemProvider) {
 		const chatParticipant = vscode.chat.createChatParticipant(COPILOT_SWE_AGENT, async (request, context, stream, token) =>
@@ -460,7 +466,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 		));
 	}
 
-	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
+	const prTree = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refreshAll(true)));
 	Logger.appendLine('Looking for git repository', ACTIVATION);
@@ -488,7 +494,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const githubFilesystemProvider = new GitHubCommitFileSystemProvider(reposManager, apiImpl, credentialStore);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher, prsTreeModel);
 	return apiImpl;
 }
 

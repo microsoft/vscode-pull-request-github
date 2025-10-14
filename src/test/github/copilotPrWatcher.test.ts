@@ -20,39 +20,27 @@ describe('Copilot PR watcher', () => {
 			} as unknown as PullRequestModel;
 		};
 
-		it('creates consistent keys and reports refresh events', () => {
-			const model = new CopilotStateModel();
-			let refreshEvents = 0;
-			model.onRefresh(() => refreshEvents++);
-
-			assert.strictEqual(model.makeKey('octo', 'repo'), 'octo/repo');
-			assert.strictEqual(model.makeKey('octo', 'repo', 7), 'octo/repo#7');
-
-			model.clear();
-			assert.strictEqual(refreshEvents, 1);
-		});
-
 		it('stores statuses and emits notifications after initialization', () => {
 			const model = new CopilotStateModel();
 			let changeEvents = 0;
 			const notifications: PullRequestModel[][] = [];
-			model.onDidChangeStates(() => changeEvents++);
-			model.onDidChangeNotifications(items => notifications.push(items));
+			model.onDidChangeCopilotStates(() => changeEvents++);
+			model.onDidChangeCopilotNotifications(items => notifications.push(items));
 
 			const pr = createPullRequest('octo', 'repo', 1);
-			model.set([{ pullRequestModel: pr, status: CopilotPRStatus.Started }]);
+			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
 
 			assert.strictEqual(model.get('octo', 'repo', 1), CopilotPRStatus.Started);
 			assert.strictEqual(changeEvents, 1);
 			assert.strictEqual(notifications.length, 0);
 			assert.strictEqual(model.notifications.size, 0);
 
-			model.set([{ pullRequestModel: pr, status: CopilotPRStatus.Started }]);
+			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
 			assert.strictEqual(changeEvents, 1);
 
 			model.setInitialized();
 			const updated = createPullRequest('octo', 'repo', 1);
-			model.set([{ pullRequestModel: updated, status: CopilotPRStatus.Completed }]);
+			model.set([{ item: updated, status: CopilotPRStatus.Completed }]);
 
 			assert.strictEqual(model.get('octo', 'repo', 1), CopilotPRStatus.Completed);
 			assert.strictEqual(changeEvents, 2);
@@ -65,12 +53,12 @@ describe('Copilot PR watcher', () => {
 			const model = new CopilotStateModel();
 			let changeEvents = 0;
 			const notifications: PullRequestModel[][] = [];
-			model.onDidChangeStates(() => changeEvents++);
-			model.onDidChangeNotifications(items => notifications.push(items));
+			model.onDidChangeCopilotStates(() => changeEvents++);
+			model.onDidChangeCopilotNotifications(items => notifications.push(items));
 
 			model.setInitialized();
 			const pr = createPullRequest('octo', 'repo', 42);
-			model.set([{ pullRequestModel: pr, status: CopilotPRStatus.Started }]);
+			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
 
 			assert.strictEqual(model.notifications.size, 1);
 			assert.strictEqual(changeEvents, 1);
@@ -87,11 +75,11 @@ describe('Copilot PR watcher', () => {
 		it('clears individual notifications and reports changes', () => {
 			const model = new CopilotStateModel();
 			const notifications: PullRequestModel[][] = [];
-			model.onDidChangeNotifications(items => notifications.push(items));
+			model.onDidChangeCopilotNotifications(items => notifications.push(items));
 
 			model.setInitialized();
 			const pr = createPullRequest('octo', 'repo', 5);
-			model.set([{ pullRequestModel: pr, status: CopilotPRStatus.Started }]);
+			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
 			assert.strictEqual(model.notifications.size, 1);
 			assert.strictEqual(notifications.length, 1);
 
@@ -107,7 +95,7 @@ describe('Copilot PR watcher', () => {
 		it('supports clearing notifications by repository or entirely', () => {
 			const model = new CopilotStateModel();
 			const notifications: PullRequestModel[][] = [];
-			model.onDidChangeNotifications(items => notifications.push(items));
+			model.onDidChangeCopilotNotifications(items => notifications.push(items));
 
 			assert.strictEqual(model.isInitialized, false);
 			model.setInitialized();
@@ -117,9 +105,9 @@ describe('Copilot PR watcher', () => {
 			const prTwo = createPullRequest('octo', 'repo', 2);
 			const prThree = createPullRequest('other', 'repo', 3);
 			model.set([
-				{ pullRequestModel: prOne, status: CopilotPRStatus.Started },
-				{ pullRequestModel: prTwo, status: CopilotPRStatus.Failed },
-				{ pullRequestModel: prThree, status: CopilotPRStatus.Completed }
+				{ item: prOne, status: CopilotPRStatus.Started },
+				{ item: prTwo, status: CopilotPRStatus.Failed },
+				{ item: prThree, status: CopilotPRStatus.Completed }
 			]);
 
 			assert.strictEqual(model.notifications.size, 3);

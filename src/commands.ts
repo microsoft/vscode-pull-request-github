@@ -35,6 +35,7 @@ import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, par
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
+import { PrsTreeModel } from './view/prsTreeModel';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
@@ -203,7 +204,8 @@ export function registerCommands(
 	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
-	notificationManager: NotificationsManager
+	notificationManager: NotificationsManager,
+	prsTreeModel: PrsTreeModel
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -900,7 +902,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.dismissNotification', node => {
 			if (node instanceof PRNode) {
 				notificationManager.markPrNotificationsAsRead(node.pullRequestModel);
-				copilotRemoteAgentManager.clearNotification(node.pullRequestModel.remote.owner, node.pullRequestModel.remote.repositoryName, node.pullRequestModel.number);
+				prsTreeModel.clearCopilotNotification(node.pullRequestModel.remote.owner, node.pullRequestModel.remote.repositoryName, node.pullRequestModel.number);
 			}
 		}),
 	);
@@ -908,7 +910,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.markAllCopilotNotificationsAsRead', node => {
 			if (node instanceof CategoryTreeNode && node.isCopilot && node.repo) {
-				copilotRemoteAgentManager.clearAllNotifications(node.repo.owner, node.repo.repositoryName);
+				prsTreeModel.clearAllCopilotNotifications(node.repo.owner, node.repo.repositoryName);
 			}
 		}),
 	);

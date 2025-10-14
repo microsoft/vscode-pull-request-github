@@ -21,6 +21,8 @@ import { GitHubServerType } from '../../common/authentication';
 import { ReposManagerState } from '../../github/folderRepositoryManager';
 import { CopilotPRStatus } from '../../common/copilot';
 import { GitApiImpl } from '../../api/api1';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
+import { PrsTreeModel } from '../../view/prsTreeModel';
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -34,6 +36,7 @@ describe('CopilotRemoteAgentManager', function () {
 	let context: MockExtensionContext;
 	let mockRepo: MockGitHubRepository;
 	let gitAPIImp: GitApiImpl;
+	let mockPrsTreeModel: MockPrsTreeModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -66,7 +69,8 @@ describe('CopilotRemoteAgentManager', function () {
 
 		gitAPIImp = new GitApiImpl(reposManager);
 
-		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp);
+		mockPrsTreeModel = new MockPrsTreeModel();
+		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp, mockPrsTreeModel as unknown as PrsTreeModel);
 		Resource.initialize(context);
 	});
 
@@ -242,29 +246,6 @@ describe('CopilotRemoteAgentManager', function () {
 			const result = await manager.getSessionLogFromPullRequest(mockPr);
 
 			assert.strictEqual(result, undefined);
-		});
-	});
-
-	describe('hasNotification()', function () {
-		it('should return false when no notification exists', function () {
-			const result = manager.hasNotification('owner', 'repo', 123);
-			assert.strictEqual(result, false);
-		});
-	});
-
-	describe('getStateForPR()', function () {
-		it('should return default state for unknown PR', function () {
-			const result = manager.getStateForPR('owner', 'repo', 123);
-			// Should return a valid CopilotPRStatus
-			assert(Object.values(CopilotPRStatus).includes(result));
-		});
-	});
-
-	describe('notificationsCount', function () {
-		it('should return non-negative number', function () {
-			const count = manager.notificationsCount;
-			assert.strictEqual(typeof count, 'number');
-			assert(count >= 0);
 		});
 	});
 

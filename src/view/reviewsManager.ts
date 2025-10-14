@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { GitContentFileSystemProvider } from './gitContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
+import { PrsTreeModel } from './prsTreeModel';
 import { ReviewManager } from './reviewManager';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -26,6 +27,7 @@ export class ReviewsManager extends Disposable {
 		private _context: vscode.ExtensionContext,
 		private _reposManager: RepositoriesManager,
 		private _reviewManagers: ReviewManager[],
+		private _prsTreeModel: PrsTreeModel,
 		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _prFileChangesProvider: PullRequestChangesTreeDataProvider,
 		private _telemetry: ITelemetry,
@@ -59,7 +61,7 @@ export class ReviewsManager extends Disposable {
 				}
 
 				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager, this._copilotManager));
+				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._prsTreeModel, this._telemetry, this._context, this._reposManager, this._copilotManager));
 				this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._notificationsManager);
 			}
 		}));

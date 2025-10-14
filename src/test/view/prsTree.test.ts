@@ -35,6 +35,8 @@ import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
+import { PrsTreeModel } from '../../view/prsTreeModel';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -48,11 +50,13 @@ describe('GitHub Pull Requests view', function () {
 	let mockThemeWatcher: MockThemeWatcher;
 	let gitAPI: GitApiImpl;
 	let mockNotificationsManager: MockNotificationManager;
+	let mockPrsTreeModel: PrsTreeModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 		mockThemeWatcher = new MockThemeWatcher();
+		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
 
 		context = new MockExtensionContext();
 
@@ -63,8 +67,8 @@ describe('GitHub Pull Requests view', function () {
 		);
 		credentialStore = new CredentialStore(telemetry, context);
 		gitAPI = new GitApiImpl(reposManager);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI, mockPrsTreeModel);
+		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager, copilotManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
 

@@ -46,16 +46,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private readonly _view: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
 	private _notificationsProvider?: NotificationsManager;
-	public readonly prsTreeModel: PrsTreeModel;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
+	constructor(public readonly prsTreeModel: PrsTreeModel, private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
-		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
 		this._register(this.prsTreeModel.onDidChangeData(e => {
 			if (e instanceof FolderRepositoryManager) {
 				this.refreshRepo(e);
@@ -169,7 +167,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (!this.prsTreeModel.hasPullRequest(notification)) {
 				return false;
 			}
-			return !this._copilotManager.hasNotification(notification.remote.owner, notification.remote.repositoryName, notification.number);
+			return !this.prsTreeModel.hasCopilotNotification(notification.remote.owner, notification.remote.repositoryName, notification.number);
 		});
 	}
 
@@ -177,7 +175,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		const isPRNotificationsOn = this._notificationsProvider?.isPRNotificationsOn();
 
 		const prNotificationsCount = isPRNotificationsOn ? this.filterNotificationsToKnown(this._notificationsProvider!.prNotifications).length : 0;
-		const copilotCount = this._copilotManager.notificationsCount;
+		const copilotCount = this.prsTreeModel.copilotNotificationsCount;
 		const totalCount = prNotificationsCount + copilotCount;
 
 		if (totalCount === 0) {

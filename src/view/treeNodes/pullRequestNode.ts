@@ -12,7 +12,6 @@ import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
@@ -23,6 +22,7 @@ import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import { NotificationsManager } from '../../notifications/notificationsManager';
+import { PrsTreeModel } from '../prsTreeModel';
 
 export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 {
 	static ID = 'PRNode';
@@ -52,7 +52,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
 		private _notificationProvider: NotificationsManager,
-		private _codingAgentManager: CopilotRemoteAgentManager,
+		private _prsTreeModel: PrsTreeModel,
 	) {
 		super(parent);
 		this.registerSinceReviewChange();
@@ -307,7 +307,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		}
 		const login = author.specialDisplayName ?? author.login;
 
-		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel) || this._codingAgentManager.hasNotification(this.pullRequestModel.remote.owner, this.pullRequestModel.remote.repositoryName, this.pullRequestModel.number);
+		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel) || this._prsTreeModel.hasCopilotNotification(this.pullRequestModel.remote.owner, this.pullRequestModel.remote.repositoryName, this.pullRequestModel.number);
 
 		const formattedPRNumber = number.toString();
 		let labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
