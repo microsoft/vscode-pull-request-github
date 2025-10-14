@@ -19,7 +19,6 @@ import { GitHubRemote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubServerType } from '../../common/authentication';
 import { ReposManagerState } from '../../github/folderRepositoryManager';
-import { CopilotPRStatus } from '../../common/copilot';
 import { GitApiImpl } from '../../api/api1';
 import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 import { PrsTreeModel } from '../../view/prsTreeModel';

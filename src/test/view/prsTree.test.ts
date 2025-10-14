@@ -50,13 +50,12 @@ describe('GitHub Pull Requests view', function () {
 	let mockThemeWatcher: MockThemeWatcher;
 	let gitAPI: GitApiImpl;
 	let mockNotificationsManager: MockNotificationManager;
-	let mockPrsTreeModel: PrsTreeModel;
+	let prsTreeModel: PrsTreeModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 		mockThemeWatcher = new MockThemeWatcher();
-		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
 
 		context = new MockExtensionContext();
 
@@ -65,10 +64,11 @@ describe('GitHub Pull Requests view', function () {
 			credentialStore,
 			telemetry,
 		);
+		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
 		credentialStore = new CredentialStore(telemetry, context);
 		gitAPI = new GitApiImpl(reposManager);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI, mockPrsTreeModel);
-		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager, copilotManager);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI, prsTreeModel);
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager, copilotManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
 
