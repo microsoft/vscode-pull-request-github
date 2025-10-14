@@ -12,7 +12,6 @@ import { MockTelemetry } from '../mocks/mockTelemetry';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { Resource } from '../../common/resources';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitHubRemote } from '../../common/remote';
@@ -67,7 +66,6 @@ describe('CopilotRemoteAgentManager', function () {
 		gitAPIImp = new GitApiImpl(reposManager);
 
 		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp);
-		Resource.initialize(context);
 	});
 
 	afterEach(function () {

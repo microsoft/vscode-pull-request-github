@@ -16,7 +16,6 @@ import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
-import { Resource } from './common/resources';
 import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
@@ -306,8 +305,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	});
 	await setGitSettingContexts(context);
 
-	// initialize resources
-	Resource.initialize(context);
 	Logger.debug('Creating API implementation.', 'Activation');
 
 	telemetry = new ExperimentationTelemetry(new TelemetryReporter(ingestionKey));

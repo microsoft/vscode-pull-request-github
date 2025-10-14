@@ -24,7 +24,6 @@ import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
-import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
@@ -83,8 +82,6 @@ describe('GitHub Pull Requests view', function () {
 
 			return github;
 		});
-
-		Resource.initialize(context);
 	});
 
 	afterEach(function () {
