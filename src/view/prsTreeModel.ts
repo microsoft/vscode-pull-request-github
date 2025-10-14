@@ -118,6 +118,10 @@ export class PrsTreeModel extends Disposable {
 			}
 		}));
 
+		this._register(this._reposManager.onDidChangeAnyGitHubRepository((folderManager) => {
+			this._onDidChangeData.fire(folderManager);
+		}));
+
 		const expandedQueries = this._context.workspaceState.get(EXPANDED_QUERIES_STATE, undefined);
 		if (expandedQueries) {
 			this._expandedQueries = new Set(expandedQueries);
