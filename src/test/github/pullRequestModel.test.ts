@@ -16,7 +16,6 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { NetworkStatus } from 'apollo-client';
-import { Resource } from '../../common/resources';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
 import { mergeQuerySchemaWithShared } from '../../github/common';
@@ -66,7 +65,6 @@ describe('PullRequestModel', function () {
 		context = new MockExtensionContext();
 		credentials = new CredentialStore(telemetry, context);
 		repo = new MockGitHubRepository(remote, credentials, telemetry, sinon);
-		Resource.initialize(context);
 	});
 
 	afterEach(function () {
