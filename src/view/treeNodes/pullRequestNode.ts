@@ -320,7 +320,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			labelPrefix += `#${formattedPRNumber}: `;
 		}
 
-		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
+		const label = `${labelPrefix}${isDraft ? '\u270E ' : ''}${labelTitle}`;
 		const description = `by @${login}`;
 		const command = {
 			title: vscode.l10n.t('View Pull Request Description'),
