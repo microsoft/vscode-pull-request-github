@@ -345,7 +345,14 @@
 			"{Locked='](command:pr.signin)'}"
 		]
 	},
-	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload.",
+	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload. If you have just enabled git in your settings, reload to continue.",
+	"welcome.github.noGitDisabled.contents": {
+		"message": "Git has been disabled in your settings. Enable git then reload.\n[Enable Git](command:workbench.action.openSettings?%5B%22git.enabled%22%5D)",
+		"comment": [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:workbench.action.openSettings?%5B%22git.enabled%22%5D)'}"
+		]
+	},
 	"welcome.github.loginNoEnterprise.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signinNoEnterprise)",
 		"comment": [

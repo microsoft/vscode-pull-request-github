@@ -1839,8 +1839,13 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "gitNotInstalled",
+				"when": "gitNotInstalled && config.git.enabled != false",
 				"contents": "%welcome.github.noGit.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "gitNotInstalled && config.git.enabled == false",
+				"contents": "%welcome.github.noGitDisabled.contents%"
 			},
 			{
 				"view": "github:login",
