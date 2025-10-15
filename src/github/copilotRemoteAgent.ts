@@ -8,12 +8,12 @@ import * as marked from 'marked';
 import vscode, { ChatPromptReference, ChatSessionItem } from 'vscode';
 import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, JobInfo, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
-import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
+import { CodingAgentPRAndStatus, CopilotPRWatcher } from './copilotPrWatcher';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -32,6 +32,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { chooseItem } from './quickPicks';
 import { RepositoriesManager } from './repositoriesManager';
 import { getRepositoryForFile } from './utils';
+import { PrsTreeModel } from '../view/prsTreeModel';
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
 // Without Pending Changes
@@ -242,7 +243,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	public static ID = 'CopilotRemoteAgentManager';
 
-	private readonly _stateModel: CopilotStateModel;
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeStates = this._onDidChangeStates.event;
 	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<PullRequestModel[]>());
@@ -255,12 +255,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidCommitChatSession = this._onDidCommitChatSession.event;
 
 	private readonly gitOperationsManager: GitOperationsManager;
-
-	private codingAgentPRsPromise: Promise<{
-		item: PullRequestModel;
-		status: CopilotPRStatus;
-	}[]> | undefined;
-
 	private _isAssignable: boolean | undefined;
 
 	constructor(
@@ -269,6 +263,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		private telemetry: ITelemetry,
 		private context: vscode.ExtensionContext,
 		private gitAPI: GitApiImpl,
+		private readonly prsTreeModel: PrsTreeModel,
 	) {
 		super();
 		this.gitOperationsManager = new GitOperationsManager(CopilotRemoteAgentManager.ID);
@@ -278,13 +273,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}));
 
-		this._stateModel = new CopilotStateModel();
-		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
-		this._register(this._stateModel.onDidChangeStates(() => {
+		this._register(new CopilotPRWatcher(this.repositoriesManager, this.prsTreeModel));
+		this._register(this.prsTreeModel.onDidChangeCopilotStates(() => {
 			this._onDidChangeStates.fire();
 			this._onDidChangeChatSessions.fire();
 		}));
-		this._register(this._stateModel.onDidChangeNotifications(items => this._onDidChangeNotifications.fire(items)));
+		this._register(this.prsTreeModel.onDidChangeCopilotNotifications(items => this._onDidChangeNotifications.fire(items)));
 
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
 			if (event.added) {
@@ -987,43 +981,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			})[0];
 	}
 
-	getNotificationsCount(owner: string, repo: string): number {
-		return this._stateModel.getNotificationsCount(owner, repo);
-	}
-
-	get notificationsCount(): number {
-		return this._stateModel.notifications.size;
-	}
-
-
-	clearAllNotifications(owner?: string, repo?: string): void {
-		this._stateModel.clearAllNotifications(owner, repo);
-	}
-
-	clearNotification(owner: string, repo: string, pullRequestNumber: number): void {
-		this._stateModel.clearNotification(owner, repo, pullRequestNumber);
-	}
-
-	hasNotification(owner: string, repo: string, pullRequestNumber?: number): boolean {
-		if (pullRequestNumber !== undefined) {
-			const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
-			return this._stateModel.notifications.has(key);
-		} else {
-			const partialKey = this._stateModel.makeKey(owner, repo);
-			return Array.from(this._stateModel.notifications.keys()).some(key => {
-				return key.startsWith(partialKey);
-			});
-		}
-	}
-
-	getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
-		return this._stateModel.get(owner, repo, prNumber);
-	}
-
-	getCounts(owner: string, repo: string): { total: number; inProgress: number; error: number } {
-		return this._stateModel.getCounts(owner, repo);
-	}
-
 	async extractHistory(history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>): Promise<string | undefined> {
 		if (!history) {
 			return;
@@ -1083,29 +1040,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			await this.waitRepoManagerInitialization();
 
-			let codingAgentPRs: CodingAgentPRAndStatus[] = [];
-			if (this._stateModel.isInitialized) {
-				codingAgentPRs = this._stateModel.all;
-				Logger.debug(`Fetched PRs from state model: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
-			} else {
-				this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<CodingAgentPRAndStatus[]>(async (resolve) => {
-					try {
-						const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-						const prAndStatus = await Promise.all(sessions.map(async pr => {
-							const timeline = await pr.getCopilotTimelineEvents(pr);
-							const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
-							return { item: pr, status };
-						}));
+			let codingAgentPRs: CodingAgentPRAndStatus[] = await this.prsTreeModel.getCopilotPullRequests();
+			Logger.debug(`Fetched PRs from API: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
 
-						resolve(prAndStatus);
-					} catch (error) {
-						Logger.error(`Failed to fetch coding agent PRs: ${error}`, CopilotRemoteAgentManager.ID);
-						resolve([]);
-					}
-				});
-				codingAgentPRs = await this.codingAgentPRsPromise;
-				Logger.debug(`Fetched PRs from API: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
-			}
 			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
 				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
@@ -1143,8 +1080,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}));
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
-		} finally {
-			this.codingAgentPRsPromise = undefined;
 		}
 		return [];
 	}
@@ -1670,7 +1605,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	public refreshChatSessions(): void {
-		this._stateModel.clear();
+		this.prsTreeModel.clearCopilotCaches();
+		this._onDidChangeChatSessions.fire();
 	}
 
 	private async waitForJobWithPullRequest(

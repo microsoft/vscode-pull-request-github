@@ -10,12 +10,22 @@ import { CopilotRemoteAgentTool, CopilotRemoteAgentToolParameters } from '../../
 import { CopilotRemoteAgentManager } from '../../../github/copilotRemoteAgent';
 import { MockTelemetry } from '../../mocks/mockTelemetry';
 import { RemoteAgentResult } from '../../../github/common';
+import { MockPrsTreeModel } from '../../mocks/mockPRsTreeModel';
+import { PrsTreeModel } from '../../../view/prsTreeModel';
+import { FolderRepositoryManager } from '../../../github/folderRepositoryManager';
+
+class TestCopilotRemoteAgentTool extends CopilotRemoteAgentTool {
+	publicGetActivePullRequestWithSession(repoInfo?: { repo: string; owner: string; fm: FolderRepositoryManager }): Promise<number | undefined> {
+		return this.getActivePullRequestWithSession(repoInfo);
+	}
+}
 
 describe('CopilotRemoteAgentTool', function () {
 	let sinon: SinonSandbox;
-	let tool: CopilotRemoteAgentTool;
+	let tool: TestCopilotRemoteAgentTool;
 	let mockManager: sinon.SinonStubbedInstance<CopilotRemoteAgentManager>;
 	let telemetry: MockTelemetry;
+	let mockPrsTreeModel: PrsTreeModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -30,8 +40,9 @@ describe('CopilotRemoteAgentTool', function () {
 				Extension: 2
 			};
 		}
+		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
 
-		tool = new CopilotRemoteAgentTool(mockManager as any, telemetry);
+		tool = new TestCopilotRemoteAgentTool(mockManager as any, telemetry, mockPrsTreeModel);
 	});
 
 	afterEach(function () {
@@ -129,10 +140,9 @@ describe('CopilotRemoteAgentTool', function () {
 				repository: {} as any,
 				ghRepository: {} as any,
 				fm: {
-					activePullRequest: { number: 456 } as any
+					activePullRequest: { number: 123 } as any
 				} as any
 			});
-			mockManager.getStateForPR.returns({} as any); // Non-falsy state
 
 			// Mock the config getter to avoid access issues
 			Object.defineProperty(mockManager, 'autoCommitAndPushEnabled', {
@@ -146,7 +156,7 @@ describe('CopilotRemoteAgentTool', function () {
 			// Handle both string and MarkdownString types
 			const message = result.confirmationMessages?.message;
 			const messageText = typeof message === 'string' ? message : message?.value || '';
-			assert(messageText.includes('existing pull request **#456**'));
+			assert(messageText.includes('existing pull request **#123**'));
 		});
 	});
 
@@ -326,9 +336,9 @@ describe('CopilotRemoteAgentTool', function () {
 		});
 	});
 
-	describe('getActivePullRequestWithSession()', function () {
+	describe('publicGetActivePullRequestWithSession()', function () {
 		it('should return undefined when no repo info is provided', async function () {
-			const result = await (tool as any).getActivePullRequestWithSession(undefined);
+			const result = await tool.publicGetActivePullRequestWithSession(undefined);
 			assert.strictEqual(result, undefined);
 		});
 
@@ -338,10 +348,10 @@ describe('CopilotRemoteAgentTool', function () {
 				repo: 'test-repo',
 				fm: {
 					activePullRequest: undefined
-				}
+				} as FolderRepositoryManager
 			};
 
-			const result = await (tool as any).getActivePullRequestWithSession(repoInfo);
+			const result = await tool.publicGetActivePullRequestWithSession(repoInfo);
 			assert.strictEqual(result, undefined);
 		});
 
@@ -350,13 +360,11 @@ describe('CopilotRemoteAgentTool', function () {
 				owner: 'test',
 				repo: 'test-repo',
 				fm: {
-					activePullRequest: { number: 123 }
-				}
+					activePullRequest: { number: 456 }
+				} as FolderRepositoryManager
 			};
 
-			mockManager.getStateForPR.returns(undefined as any);
-
-			const result = await (tool as any).getActivePullRequestWithSession(repoInfo);
+			const result = await tool.publicGetActivePullRequestWithSession(repoInfo);
 			assert.strictEqual(result, undefined);
 		});
 
@@ -366,12 +374,10 @@ describe('CopilotRemoteAgentTool', function () {
 				repo: 'test-repo',
 				fm: {
 					activePullRequest: { number: 123 }
-				}
+				} as FolderRepositoryManager
 			};
 
-			mockManager.getStateForPR.returns({} as any); // Non-falsy state
-
-			const result = await (tool as any).getActivePullRequestWithSession(repoInfo);
+			const result = await tool.publicGetActivePullRequestWithSession(repoInfo);
 			assert.strictEqual(result, 123);
 		});
 	});
