@@ -12,7 +12,6 @@ import { MockTelemetry } from '../mocks/mockTelemetry';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { Resource } from '../../common/resources';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitHubRemote } from '../../common/remote';
@@ -70,7 +69,6 @@ describe('CopilotRemoteAgentManager', function () {
 
 		mockPrsTreeModel = new MockPrsTreeModel();
 		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp, mockPrsTreeModel as unknown as PrsTreeModel);
-		Resource.initialize(context);
 	});
 
 	afterEach(function () {

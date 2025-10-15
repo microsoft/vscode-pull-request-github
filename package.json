@@ -609,7 +609,6 @@
 					"default": [
 						"TODO",
 						"todo",
-						"BUG",
 						"FIXME",
 						"ISSUE",
 						"HACK"
@@ -618,7 +617,7 @@
 				},
 				"githubPullRequests.codingAgent.codeLens": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"description": "%githubPullRequests.codingAgent.codeLens.description%"
 				},
 				"githubIssues.createInsertFormat": {

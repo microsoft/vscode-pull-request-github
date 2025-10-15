@@ -626,6 +626,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async deleteReview(): Promise<{ deletedReviewId: number; deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId();
+		if (!pendingReviewId) {
+			throw new Error(`No pending review found for pull request #${this.number}.`);
+		}
+
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
 			mutation: schema.DeleteReview,
@@ -635,15 +639,41 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
+		const deletedReviewComments = comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository));
+
+		// Update local state: remove all draft comments (and their threads if emptied) that belonged to the deleted review
+		const deletedCommentIds = new Set(deletedReviewComments.map(c => c.id));
+		const changedThreads: IReviewThread[] = [];
+		const removedThreads: IReviewThread[] = [];
+		for (let i = this._reviewThreadsCache.length - 1; i >= 0; i--) {
+			const thread = this._reviewThreadsCache[i];
+			const originalLength = thread.comments.length;
+			thread.comments = thread.comments.filter(c => !deletedCommentIds.has(c.id));
+			if (thread.comments.length === 0 && originalLength > 0) {
+				// Entire thread was composed only of comments from the deleted review; remove it.
+				this._reviewThreadsCache.splice(i, 1);
+				removedThreads.push(thread);
+			} else if (thread.comments.length !== originalLength) {
+				changedThreads.push(thread);
+			}
+		}
+		if (changedThreads.length > 0 || removedThreads.length > 0) {
+			this._onDidChangeReviewThreads.fire({ added: [], changed: changedThreads, removed: removedThreads });
+		}
+
+		// Remove from flat comments collection
+		if (this._comments) {
+			this.comments = this._comments.filter(c => !deletedCommentIds.has(c.id));
+		}
 
 		this.hasPendingReview = false;
 		await this.updateDraftModeContext();
 
-		this.getReviewThreads();
-		this._onDidChange.fire({ timeline: true });
+		// Fire change event to update timeline & comment views
+		this._onDidChange.fire({ timeline: true, comments: true });
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository)),
+			deletedReviewComments,
 		};
 	}
 

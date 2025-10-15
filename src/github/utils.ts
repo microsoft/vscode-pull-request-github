@@ -50,7 +50,6 @@ import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -1338,50 +1337,42 @@ export function getReactionGroup(): { title: string; label: string; icon?: strin
 		{
 			title: 'THUMBS_UP',
 			// allow-any-unicode-next-line
-			label: '👍',
-			icon: Resource.icons.reactions.THUMBS_UP,
+			label: '👍'
 		},
 		{
 			title: 'THUMBS_DOWN',
 			// allow-any-unicode-next-line
-			label: '👎',
-			icon: Resource.icons.reactions.THUMBS_DOWN,
+			label: '👎'
 		},
 		{
 			title: 'LAUGH',
 			// allow-any-unicode-next-line
-			label: '😄',
-			icon: Resource.icons.reactions.LAUGH,
+			label: '😄'
 		},
 		{
 			title: 'HOORAY',
 			// allow-any-unicode-next-line
-			label: '🎉',
-			icon: Resource.icons.reactions.HOORAY,
+			label: '🎉'
 		},
 		{
 			title: 'CONFUSED',
 			// allow-any-unicode-next-line
-			label: '😕',
-			icon: Resource.icons.reactions.CONFUSED,
+			label: '😕'
 		},
 		{
 			title: 'HEART',
 			// allow-any-unicode-next-line
-			label: '❤️',
-			icon: Resource.icons.reactions.HEART,
+			label: '❤️'
 		},
 		{
 			title: 'ROCKET',
 			// allow-any-unicode-next-line
-			label: '🚀',
-			icon: Resource.icons.reactions.ROCKET,
+			label: '🚀'
 		},
 		{
 			title: 'EYES',
 			// allow-any-unicode-next-line
-			label: '👀',
-			icon: Resource.icons.reactions.EYES,
+			label: '👀'
 		},
 	];
 

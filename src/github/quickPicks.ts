@@ -20,7 +20,7 @@ import { formatError } from '../common/utils';
 
 export async function chooseItem<T>(
 	itemsToChooseFrom: T[],
-	propertyGetter: (itemValue: T) => string,
+	propertyGetter: (itemValue: T) => { label: string; description?: string; },
 	options?: vscode.QuickPickOptions,
 ): Promise<T | undefined> {
 	if (itemsToChooseFrom.length === 0) {
@@ -34,7 +34,7 @@ export async function chooseItem<T>(
 	}
 	const items: Item[] = itemsToChooseFrom.map(currentItem => {
 		return {
-			label: propertyGetter(currentItem),
+			...propertyGetter(currentItem),
 			itemValue: currentItem,
 		};
 	});

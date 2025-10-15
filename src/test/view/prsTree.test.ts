@@ -24,7 +24,6 @@ import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
-import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
@@ -87,8 +86,6 @@ describe('GitHub Pull Requests view', function () {
 
 			return github;
 		});
-
-		Resource.initialize(context);
 	});
 
 	afterEach(function () {
@@ -142,6 +139,40 @@ describe('GitHub Pull Requests view', function () {
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
 			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+		);
+	});
+
+	it('refreshes tree when GitHub repositories are discovered in existing folder manager', async function () {
+		const repository = new MockRepository();
+		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
+		reposManager.insertFolderManager(folderManager);
+		provider.initialize([], mockNotificationsManager as NotificationsManager);
+
+		// Initially no children because no GitHub repositories are loaded yet
+		let rootNodes = await provider.getChildren();
+		assert.strictEqual(rootNodes.length, 0);
+
+		// Listen to the prsTreeModel's onDidChangeData event which is what actually drives the tree refresh
+		const onDidChangeDataSpy = sinon.spy();
+		provider.prsTreeModel.onDidChangeData(onDidChangeDataSpy);
+
+		// Simulate GitHub repositories being discovered (as happens when remotes load after activation)
+		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+		await folderManager.updateRepositories();
+
+		// Verify that the tree model's data change event was triggered
+		assert(onDidChangeDataSpy.calledWith(folderManager),
+			'Tree model should fire data change event with the folder manager when GitHub repositories are discovered');
+
+		// Verify tree now has content
+		rootNodes = await provider.getChildren();
+		const treeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+		assert.deepStrictEqual(
+			treeItems.map(n => n.label),
+			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+			'Tree should display categories after GitHub repositories are discovered',
 		);
 	});
 
