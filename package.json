@@ -4173,18 +4173,18 @@
 										"type": "number",
 										"description": "The number of comments on the issue."
 									}
-								}
-							},
-							"required": [
-								"title",
-								"number",
-								"url",
-								"state",
-								"createdAt",
-								"author",
-								"commentCount",
-								"reactionCount"
-							]
+								},
+								"required": [
+									"title",
+									"number",
+									"url",
+									"state",
+									"createdAt",
+									"author",
+									"commentCount",
+									"reactionCount"
+								]
+							}
 						},
 						"totalIssues": {
 							"type": "number",
