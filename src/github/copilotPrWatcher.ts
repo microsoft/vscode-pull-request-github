@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { RepositoriesManager } from './repositoriesManager';
@@ -275,12 +276,19 @@ export class CopilotPRWatcher extends Disposable {
 			}
 			latestEvent = CopilotPRStatus.Started;
 		}
+
+		if (pr.state !== GithubItemStateEnum.Open) {
+			// PR has been closed or merged, time to remove it.
+			const key = this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number);
+			this._model.deleteKey(key);
+			return;
+		}
+
 		const lastStatus = this._model.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
 		if (latestEvent !== lastStatus) {
 			changes.push({ item: pr, status: latestEvent });
 		}
 		this._model.set(changes);
 	}
-
 
 }
