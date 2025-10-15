@@ -220,8 +220,8 @@ async function init(
 			reviewsManager.addReviewManager(newReviewManager);
 		}
 
-		// Check if repo is in one of the workspace folders
-		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath))) {
+		// Check if repo is in one of the workspace folders or vice versa
+		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath) || isDescendant(repo.rootUri.fsPath, folder.uri.fsPath))) {
 			Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
 			return;
 		}
