@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TreeDecorationProvider } from './treeDecorationProviders';
-import { fromCommitsNodeUri, Schemes } from '../common/uri';
+import { createCommitsNodeUri, fromCommitsNodeUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 
@@ -15,9 +15,14 @@ export class CommitsDecorationProvider extends TreeDecorationProvider {
 		super();
 	}
 
-	registerPullRequestPropertyChangedListeners(_folderManager: FolderRepositoryManager, _model: PullRequestModel): vscode.Disposable {
-		// No need to listen for changes since commit count doesn't change dynamically
-		return { dispose: () => { } };
+	registerPullRequestPropertyChangedListeners(_folderManager: FolderRepositoryManager, model: PullRequestModel): vscode.Disposable {
+		return model.onDidChange(e => {
+			if (e.timeline) {
+				// Timeline changed, which may include new commits, so update the decoration
+				const uri = createCommitsNodeUri(model.remote.owner, model.remote.repositoryName, model.number, model.item.commits.length);
+				this._onDidChangeFileDecorations.fire(uri);
+			}
+		});
 	}
 
 	provideFileDecoration(
