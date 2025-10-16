@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.120.1
+
+### Fixes
+
+- Extension cannot find git repo when VS Code didn't open the git root directory. https://github.com/microsoft/vscode-pull-request-github/issues/7964
+
 ## 0.120.0
 
 ### Changes
