@@ -36,3 +36,10 @@ export function emojify(message: string) {
 		return emojiMap?.[code] || s;
 	});
 }
+
+export function getEmojis(): Record<string, string> {
+	if (emojiMap === undefined) {
+		return {};
+	}
+	return emojiMap;
+}
