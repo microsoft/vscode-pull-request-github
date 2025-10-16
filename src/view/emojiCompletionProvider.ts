@@ -4,20 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ensureEmojis, getEmojis } from '../common/emoji';
+import { ensureEmojis } from '../common/emoji';
 import { Schemes } from '../common/uri';
 
 export class EmojiCompletionProvider implements vscode.CompletionItemProvider {
-	private static readonly ID: string = 'EmojiCompletionProvider';
 	private _emojiCompletions: vscode.CompletionItem[] = [];
 
-	constructor(private context: vscode.ExtensionContext) {
+	constructor(private _context: vscode.ExtensionContext) {
 		void this.buildEmojiCompletions();
 	}
 
 	private async buildEmojiCompletions(): Promise<void> {
-		await ensureEmojis(this.context);
-		const emojis = getEmojis();
+		const emojis = await ensureEmojis(this._context);
 
 		for (const [name, emoji] of Object.entries(emojis)) {
 			const completionItem = new vscode.CompletionItem({ label: emoji, description: `:${name}:` }, vscode.CompletionItemKind.Text);
@@ -51,8 +49,21 @@ export class EmojiCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		// Only provide completions if we're in an emoji context (don't clutter Ctrl+Space results)
-		if (!wordRange) {
+		if (!wordRange || !wordAtPos) {
 			return [];
+		}
+
+		// Ensure the : comes after a space or start of line
+		const colonPosition = wordRange.start;
+		if (colonPosition.character > 0) {
+			const charBeforeColon = document.getText(new vscode.Range(
+				colonPosition.translate(0, -1),
+				colonPosition
+			));
+			// If the character before : is not whitespace, don't show completions
+			if (!/\s/.test(charBeforeColon)) {
+				return [];
+			}
 		}
 
 		// Update the range on cached items directly
