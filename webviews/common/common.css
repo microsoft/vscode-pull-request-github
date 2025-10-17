@@ -235,7 +235,16 @@ body img.avatar {
 
 .reviewer-icons {
 	display: flex;
+	align-items: center;
+	justify-content: flex-end;
 	gap: 4px;
+}
+
+.reviewer-icons [role='alert'] {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
 }
 
 .push-right {
