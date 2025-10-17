@@ -857,8 +857,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
 
-			chatStream?.progress(vscode.l10n.t('Attaching to session'));
-			await this.waitForQueuedToInProgress(response.session_id, token);
 			this._onDidCreatePullRequest.fire(number);
 			return {
 				state: 'success',
@@ -1163,14 +1161,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 		sessions: SessionInfo[],
 		pullRequest: PullRequestModel
 	): ((stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void>) | undefined {
-		// Only the latest in-progress session gets activeResponseCallback
-		const inProgressSession = sessions
+		// Only the latest in-progress or queued session gets activeResponseCallback
+		const pendingSession = sessions
 			.slice()
 			.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-			.find(session => session.state === 'in_progress');
+			.find(session => session.state === 'in_progress' || session.state === 'queued');
 
-		if (inProgressSession) {
-			return this.createActiveResponseCallback(pullRequest, inProgressSession.id);
+		if (pendingSession) {
+			return this.createActiveResponseCallback(pullRequest, pendingSession.id);
 		}
 		return undefined;
 	}
@@ -1185,6 +1183,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private createActiveResponseCallback(pullRequest: PullRequestModel, sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
 		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
 			// Use the shared streaming logic
+			await this.waitForQueuedToInProgress(sessionId, stream, token);
 			return this.streamSessionLogs(stream, pullRequest, sessionId, token);
 		};
 	}
@@ -1500,6 +1499,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async waitForQueuedToInProgress(
 		sessionId: string,
+		stream?: vscode.ChatResponseStream,
 		token?: vscode.CancellationToken
 	): Promise<SessionInfo | undefined> {
 		const capi = await this.copilotApi;
@@ -1517,6 +1517,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		do {
 			sessionInfo = await capi.getSessionInfo(sessionId);
 			if (sessionInfo && sessionInfo.state === 'queued') {
+				stream?.progress(vscode.l10n.t('Attaching to session'));
 				Logger.trace('Queued session found', CopilotRemoteAgentManager.ID);
 				break;
 			}
@@ -1528,6 +1529,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} while (waitForQueuedCount <= waitForQueuedMaxRetries && (!token || !token.isCancellationRequested));
 
 		if (!sessionInfo || sessionInfo.state !== 'queued') {
+			if (sessionInfo?.state === 'in_progress') {
+				Logger.trace('Session already in progress', CopilotRemoteAgentManager.ID);
+				return sessionInfo;
+			}
 			// Failure
 			Logger.trace('Failed to find queued session', CopilotRemoteAgentManager.ID);
 			return;
@@ -1546,6 +1551,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 			await new Promise(resolve => setTimeout(resolve, pollInterval));
 		}
+		Logger.warn(`Timed out waiting for session ${sessionId} to transition from queued to in_progress`, CopilotRemoteAgentManager.ID);
 	}
 
 	private async waitForNewSession(
@@ -1579,7 +1585,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				if (!waitForTransitionToInProgress) {
 					return newSession;
 				}
-				const inProgressSession = await this.waitForQueuedToInProgress(newSession.id, token);
+				const inProgressSession = await this.waitForQueuedToInProgress(newSession.id, stream, token);
 				if (!inProgressSession) {
 					stream.markdown(vscode.l10n.t('Timed out waiting for coding agent to begin work. Please try again shortly.'));
 					return;
