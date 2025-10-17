@@ -240,6 +240,13 @@ body img.avatar {
 	gap: 4px;
 }
 
+.reviewer-icons [role='alert'] {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+}
+
 .push-right {
 	margin-left: auto;
 }
