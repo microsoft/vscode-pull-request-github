@@ -29,46 +29,31 @@ export class EmojiCompletionProvider implements vscode.CompletionItemProvider {
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		_token: vscode.CancellationToken,
-		_context: vscode.CompletionContext
+		context: vscode.CompletionContext
 	): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
 		// Only provide completions for comment documents
 		if (document.uri.scheme !== Schemes.Comment) {
 			return [];
 		}
 
-		let wordRange = document.getWordRangeAtPosition(position);
-		let wordAtPos = wordRange ? document.getText(wordRange) : undefined;
-		if (!wordRange || wordAtPos?.charAt(0) !== ':') {
-			const start = wordRange?.start ?? position;
-			const testWordRange = new vscode.Range(start.translate(undefined, start.character ? -1 : 0), position);
-			const testWord = document.getText(testWordRange);
-			if (testWord.charAt(0) === ':') {
-				wordRange = testWordRange;
-				wordAtPos = testWord;
-			}
-		}
-
-		// Only provide completions if we're in an emoji context (don't clutter Ctrl+Space results)
-		if (!wordRange || !wordAtPos) {
+		const word = document.getWordRangeAtPosition(position, /:([-+_a-z0-9]+:?)?/i);
+		if (!word) {
 			return [];
 		}
 
-		// Ensure the : comes after a space or start of line
-		const colonPosition = wordRange.start;
-		if (colonPosition.character > 0) {
-			const charBeforeColon = document.getText(new vscode.Range(
-				colonPosition.translate(0, -1),
-				colonPosition
-			));
-			// If the character before : is not whitespace, don't show completions
-			if (!/\s/.test(charBeforeColon)) {
-				return [];
+		// If invoked by trigger charcter, ignore if this is the start of an emoji (single ':') and there is no preceding space
+		if (context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) {
+			if (word.end.character - word.start.character === 1 && word.start.character > 0) {
+				const charBefore = document.getText(new vscode.Range(word.start.translate(0, -1), word.start));
+				if (!/\s/.test(charBefore)) {
+					return [];
+				}
 			}
 		}
 
 		// Update the range on cached items directly
 		for (const item of this._emojiCompletions) {
-			item.range = wordRange;
+			item.range = word;
 		}
 
 		return new vscode.CompletionList(this._emojiCompletions, false);
