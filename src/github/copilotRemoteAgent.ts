@@ -167,7 +167,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return {};
 			}
 			// Tell UI to the new chat session
-			this._onDidCommitChatSession.fire({ original: context.chatSessionContext.chatSessionItem, modified: { id: String(number), label: `Pull Request ${number}` } });
+			const modified: vscode.ChatSessionItem = { id: String(number), label: `Pull Request ${number}` } as unknown as vscode.ChatSessionItem;
+			this._onDidCommitChatSession.fire({ original: context.chatSessionContext.chatSessionItem, modified });
 		} else if (context.chatSessionContext) {
 			/* Follow up to an existing coding agent session */
 			try {
@@ -1061,7 +1062,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					repoInfo = `${owner}/${repo} `;
 				}
 				const description = new vscode.MarkdownString(`[${repoInfo}#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
-				return {
+				const chatSession: ChatSessionWithPR = {
 					id: `${pullRequest.number}`,
 					label: pullRequest.title || `Session ${pullRequest.number}`,
 					iconPath: this.getIconForSession(status),
@@ -1076,7 +1077,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 						insertions: pullRequest.item.additions,
 						deletions: pullRequest.item.deletions
 					} : undefined
-				};
+				} as unknown as ChatSessionWithPR;
+				return chatSession;
 			}));
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
