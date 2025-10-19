@@ -227,7 +227,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} else {
 			/* @copilot invoked from a 'normal' chat or 'cloud button' */
 			stream.confirmation(
-				vscode.l10n.t('Delegate to coding agent'),
+				vscode.l10n.t('Delegate to agent'),
 				DELEGATE_MODAL_DETAILS,
 				{
 					step: 'create',
