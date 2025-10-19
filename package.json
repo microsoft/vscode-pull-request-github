@@ -616,7 +616,7 @@
 				},
 				"githubPullRequests.codingAgent.codeLens": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"description": "%githubPullRequests.codingAgent.codeLens.description%"
 				},
 				"githubIssues.createInsertFormat": {
