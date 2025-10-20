@@ -857,7 +857,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
 
-			this._onDidCreatePullRequest.fire(number);
 			return {
 				state: 'success',
 				number,
@@ -1184,6 +1183,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
 			// Use the shared streaming logic
 			await this.waitForQueuedToInProgress(sessionId, stream, token);
+			this._onDidCreatePullRequest.fire(pullRequest.number);
 			return this.streamSessionLogs(stream, pullRequest, sessionId, token);
 		};
 	}
