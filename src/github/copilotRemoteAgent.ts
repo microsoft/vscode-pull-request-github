@@ -57,7 +57,7 @@ export namespace SessionIdForPr {
 
 	const prefix = 'pull-session-by-index';
 
-	export function getId(prNumber: number, sessionIndex: number): vscode.Uri {
+	export function getResource(prNumber: number, sessionIndex: number): vscode.Uri {
 		return vscode.Uri.from({
 			scheme: COPILOT_SWE_AGENT, path: `/${prefix}-${prNumber}-${sessionIndex}`,
 		});

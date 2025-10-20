@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import { SinonSandbox, createSandbox } from 'sinon';
 import * as vscode from 'vscode';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { CopilotRemoteAgentManager, SessionIdForPr } from '../../github/copilotRemoteAgent';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { CredentialStore } from '../../github/credentials';
@@ -21,6 +21,7 @@ import { ReposManagerState } from '../../github/folderRepositoryManager';
 import { GitApiImpl } from '../../api/api1';
 import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 import { PrsTreeModel } from '../../view/prsTreeModel';
+import { COPILOT_SWE_AGENT } from '../../common/copilot';
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -271,7 +272,7 @@ describe('CopilotRemoteAgentManager', function () {
 		it('should return empty session when copilot API is not available', async function () {
 			const token = new vscode.CancellationTokenSource().token;
 
-			const result = await manager.provideChatSessionContent('123', token);
+			const result = await manager.provideChatSessionContent(SessionIdForPr.getResource(123, 0), token);
 
 			assert.strictEqual(Array.isArray(result.history), true);
 			assert.strictEqual(result.history.length, 0);
@@ -282,7 +283,7 @@ describe('CopilotRemoteAgentManager', function () {
 			const tokenSource = new vscode.CancellationTokenSource();
 			tokenSource.cancel();
 
-			const result = await manager.provideChatSessionContent('123', tokenSource.token);
+			const result = await manager.provideChatSessionContent(SessionIdForPr.getResource(123, 0), tokenSource.token);
 
 			assert.strictEqual(Array.isArray(result.history), true);
 			assert.strictEqual(result.history.length, 0);
@@ -291,7 +292,7 @@ describe('CopilotRemoteAgentManager', function () {
 		it('should return empty session for invalid PR number', async function () {
 			const token = new vscode.CancellationTokenSource().token;
 
-			const result = await manager.provideChatSessionContent('invalid', token);
+			const result = await manager.provideChatSessionContent(vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/invalid' }), token);
 
 			assert.strictEqual(Array.isArray(result.history), true);
 			assert.strictEqual(result.history.length, 0);
