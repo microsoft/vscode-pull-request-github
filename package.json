@@ -3529,22 +3529,22 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
 					"command": "pr.closeChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
 					"command": "pr.cancelCodingAgent",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				}
 			],
