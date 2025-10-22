@@ -19,7 +19,7 @@ import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { ICopilotRemoteAgentCommandArgs } from './github/common';
-import { ChatSessionWithPR } from './github/copilotApi';
+import { ChatSessionWithPR, CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
@@ -196,6 +196,11 @@ export async function closeAllPrAndReviewEditors() {
 function isChatSessionWithPR(value: any): value is ChatSessionWithPR {
 	const asChatSessionWithPR = value as Partial<ChatSessionWithPR>;
 	return !!asChatSessionWithPR.pullRequest;
+}
+
+function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
+	const asCrossChatSessionWithPR = value as Partial<CrossChatSessionWithPR>;
+	return !!asCrossChatSessionWithPR.pullRequestDetails;
 }
 
 export function registerCommands(
@@ -700,6 +705,14 @@ export function registerCommands(
 				pullRequestModel = pr;
 			} else if (isChatSessionWithPR(pr)) {
 				pullRequestModel = pr.pullRequest;
+			} else if (isCrossChatSessionWithPR(pr)) {
+				const resolved = await resolvePr({
+					owner: pr.pullRequestDetails.repository.owner.login,
+					repo: pr.pullRequestDetails.repository.name,
+					number: pr.pullRequestDetails.number,
+					preventDefaultContextMenuItems: true,
+				});
+				pullRequestModel = resolved?.pr;
 			} else {
 				const resolved = await resolvePr(pr as OverviewContext);
 				pullRequestModel = resolved?.pr;
@@ -963,8 +976,14 @@ export function registerCommands(
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode));
 	}
 
-	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR) {
-		const pr = argument.pullRequest;
+	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
+		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+			owner: argument.pullRequestDetails.repository.owner.login,
+			repo: argument.pullRequestDetails.repository.name,
+			number: argument.pullRequestDetails.number,
+			preventDefaultContextMenuItems: true,
+		}).then(resolved => resolved?.pr);
+
 		if (!pr) {
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;
@@ -979,8 +998,13 @@ export function registerCommands(
 		return switchToPr(folderManager, pr, folderManager.repository, false);
 	}
 
-	async function closeChatSessionPullRequest(argument: ChatSessionWithPR) {
-		const pr = argument.pullRequest;
+	async function closeChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
+		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+			owner: argument.pullRequestDetails.repository.owner.login,
+			repo: argument.pullRequestDetails.repository.name,
+			number: argument.pullRequestDetails.number,
+			preventDefaultContextMenuItems: true,
+		}).then(resolved => resolved?.pr);
 		if (!pr) {
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;
@@ -989,8 +1013,13 @@ export function registerCommands(
 		copilotRemoteAgentManager.refreshChatSessions();
 	}
 
-	async function cancelCodingAgent(argument: ChatSessionWithPR) {
-		const pr = argument.pullRequest;
+	async function cancelCodingAgent(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
+		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+			owner: argument.pullRequestDetails.repository.owner.login,
+			repo: argument.pullRequestDetails.repository.name,
+			number: argument.pullRequestDetails.number,
+			preventDefaultContextMenuItems: true,
+		}).then(resolved => resolved?.pr);
 		if (!pr) {
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;
