@@ -3539,7 +3539,7 @@
 				},
 				{
 					"command": "pr.closeChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-swe-agent",
 					"group": "context"
 				},
 				{

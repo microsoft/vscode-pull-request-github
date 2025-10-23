@@ -1009,7 +1009,7 @@ export function registerCommands(
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;
 		}
-		pr.close();
+		await pr.close();
 		copilotRemoteAgentManager.refreshChatSessions();
 	}
 
