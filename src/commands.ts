@@ -19,7 +19,7 @@ import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { ICopilotRemoteAgentCommandArgs } from './github/common';
-import { ChatSessionWithPR } from './github/copilotApi';
+import { ChatSessionWithPR, CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
@@ -196,6 +196,11 @@ export async function closeAllPrAndReviewEditors() {
 function isChatSessionWithPR(value: any): value is ChatSessionWithPR {
 	const asChatSessionWithPR = value as Partial<ChatSessionWithPR>;
 	return !!asChatSessionWithPR.pullRequest;
+}
+
+function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
+	const asCrossChatSessionWithPR = value as Partial<CrossChatSessionWithPR>;
+	return !!asCrossChatSessionWithPR.pullRequestDetails;
 }
 
 export function registerCommands(
@@ -566,7 +571,7 @@ export function registerCommands(
 		return { folderManager, pr };
 	};
 
-	const applyPullRequestChanges = async (folderManager: FolderRepositoryManager, pullRequest: PullRequestModel): Promise<void> => {
+	const applyPullRequestChanges = async (task: vscode.Progress<{ message?: string; increment?: number; }>, folderManager: FolderRepositoryManager, pullRequest: PullRequestModel): Promise<void> => {
 		let patch: string | undefined;
 		try {
 			patch = await pullRequest.getPatch();
@@ -584,22 +589,13 @@ export function registerCommands(
 			const encoder = new TextEncoder();
 			const tempUri = vscode.Uri.file(tempFilePath);
 
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('Applying changes from pull request #{0}', pullRequest.number.toString()),
-					cancellable: false
-				},
-				async (task) => {
-					await vscode.workspace.fs.writeFile(tempUri, encoder.encode(patch));
-					try {
-						await folderManager.repository.apply(tempFilePath, false);
-						task.report({ message: vscode.l10n.t('Successfully applied changes from pull request #{0}', pullRequest.number.toString()), increment: 100 });
-					} finally {
-						await vscode.workspace.fs.delete(tempUri);
-					}
-				}
-			);
+			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(patch));
+			try {
+				await folderManager.repository.apply(tempFilePath, false);
+				task.report({ message: vscode.l10n.t('Successfully applied changes from pull request #{0}', pullRequest.number.toString()), increment: 100 });
+			} finally {
+				await vscode.workspace.fs.delete(tempUri);
+			}
 
 		} catch (error) {
 			const errorMessage = formatError(error);
@@ -667,21 +663,44 @@ export function registerCommands(
 			if (Number.isNaN(prNumber)) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
 			}
-			const folderManager = reposManager.folderManagers[0];
-			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
-			if (!pullRequest) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
+
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t('Applying changes from pull request #{0}', prNumber.toString()),
+					cancellable: false
+				},
+				async (task) => {
+					task.report({ increment: 30 });
+
+					const folderManager = reposManager.folderManagers[0];
+					const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
+					if (!pullRequest) {
+						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
+					}
+
+					return applyPullRequestChanges(task, folderManager, pullRequest);
+				});
+
+			return;
+		}
+
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Applying changes from pull request'),
+				cancellable: false
+			},
+			async (task) => {
+				task.report({ increment: 30 });
+
+				const resolved = await resolvePr(ctx);
+				if (!resolved) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for applying changes.'));
+				}
+				return applyPullRequestChanges(task, resolved.folderManager, resolved.pr);
 			}
-
-			return applyPullRequestChanges(folderManager, pullRequest);
-		}
-
-		const resolved = await resolvePr(ctx);
-		if (!resolved) {
-			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for applying changes.'));
-		}
-		return applyPullRequestChanges(resolved.folderManager, resolved.pr);
-
+		);
 	}));
 
 	context.subscriptions.push(
@@ -700,6 +719,14 @@ export function registerCommands(
 				pullRequestModel = pr;
 			} else if (isChatSessionWithPR(pr)) {
 				pullRequestModel = pr.pullRequest;
+			} else if (isCrossChatSessionWithPR(pr)) {
+				const resolved = await resolvePr({
+					owner: pr.pullRequestDetails.repository.owner.login,
+					repo: pr.pullRequestDetails.repository.name,
+					number: pr.pullRequestDetails.number,
+					preventDefaultContextMenuItems: true,
+				});
+				pullRequestModel = resolved?.pr;
 			} else {
 				const resolved = await resolvePr(pr as OverviewContext);
 				pullRequestModel = resolved?.pr;
@@ -963,8 +990,14 @@ export function registerCommands(
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode));
 	}
 
-	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR) {
-		const pr = argument.pullRequest;
+	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
+		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+			owner: argument.pullRequestDetails.repository.owner.login,
+			repo: argument.pullRequestDetails.repository.name,
+			number: argument.pullRequestDetails.number,
+			preventDefaultContextMenuItems: true,
+		}).then(resolved => resolved?.pr);
+
 		if (!pr) {
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;
@@ -979,18 +1012,28 @@ export function registerCommands(
 		return switchToPr(folderManager, pr, folderManager.repository, false);
 	}
 
-	async function closeChatSessionPullRequest(argument: ChatSessionWithPR) {
-		const pr = argument.pullRequest;
+	async function closeChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
+		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+			owner: argument.pullRequestDetails.repository.owner.login,
+			repo: argument.pullRequestDetails.repository.name,
+			number: argument.pullRequestDetails.number,
+			preventDefaultContextMenuItems: true,
+		}).then(resolved => resolved?.pr);
 		if (!pr) {
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;
 		}
-		pr.close();
+		await pr.close();
 		copilotRemoteAgentManager.refreshChatSessions();
 	}
 
-	async function cancelCodingAgent(argument: ChatSessionWithPR) {
-		const pr = argument.pullRequest;
+	async function cancelCodingAgent(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
+		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+			owner: argument.pullRequestDetails.repository.owner.login,
+			repo: argument.pullRequestDetails.repository.name,
+			number: argument.pullRequestDetails.number,
+			preventDefaultContextMenuItems: true,
+		}).then(resolved => resolved?.pr);
 		if (!pr) {
 			Logger.warn(`No pull request found in chat session`, logId);
 			return;

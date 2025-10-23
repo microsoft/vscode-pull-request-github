@@ -52,6 +52,24 @@ export interface ChatSessionWithPR extends vscode.ChatSessionItem {
 	pullRequest: PullRequestModel;
 }
 
+
+/**
+ * This is temporary for the migration of CCA only.
+ * Once fully migrated we can rename to ChatSessionWithPR and remove the old one.
+ **/
+export interface CrossChatSessionWithPR extends vscode.ChatSessionItem {
+	pullRequestDetails: {
+		id: string;
+		number: number;
+		repository: {
+			owner: {
+				login: string;
+			};
+			name: string;
+		};
+	};
+}
+
 export class CopilotApi {
 	protected static readonly ID = 'copilotApi';
 

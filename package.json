@@ -3529,12 +3529,12 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
@@ -3544,18 +3544,18 @@
 				},
 				{
 					"command": "pr.cancelCodingAgent",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				}
 			],
 			"chat/multiDiff/context": [
 				{
 					"command": "pr.checkoutFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == 'copilot-cloud-agent'"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == 'copilot-cloud-agent'"
 				}
 			]
 		},
