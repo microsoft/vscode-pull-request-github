@@ -447,12 +447,12 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
 			label = vscode.l10n.t('GitHub Copilot Coding Agent');
-			provideChatSessionItems = async (token) => {
+			async provideChatSessionItems(token: vscode.CancellationToken) {
 				return await copilotRemoteAgentManager.provideChatSessions(token);
-			};
-			provideChatSessionContent = async (id, token) => {
-				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
-			};
+			}
+			async provideChatSessionContent(resource: vscode.Uri, token: vscode.CancellationToken) {
+				return await copilotRemoteAgentManager.provideChatSessionContent(resource, token);
+			}
 			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
 			onDidCommitChatSessionItem = copilotRemoteAgentManager.onDidCommitChatSession;
 		}();
