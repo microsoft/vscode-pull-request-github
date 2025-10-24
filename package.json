@@ -3544,7 +3544,7 @@
 				},
 				{
 					"command": "pr.cancelCodingAgent",
-					"when": "resourceScheme == copilot-swe-agent || resourceScheme == copilot-cloud-agent",
+					"when": "resourceScheme == copilot-swe-agent",
 					"group": "context"
 				}
 			],
