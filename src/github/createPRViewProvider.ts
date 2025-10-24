@@ -1028,11 +1028,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
+				const templatePromise = this.getPullRequestTemplate(); // Fetch in parallel
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
 				const issues = await this.findIssueContext(commitMessages);
+				const template = await templatePromise;
 
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues }, token);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues, template }, token);
 
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };

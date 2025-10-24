@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
@@ -366,13 +366,13 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 };
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason?: StateReason) {
-	const closed = isIssue ? issueClosedIcon : prClosedIcon;
-	const open = isIssue ? issueIcon : prOpenIcon;
+	const closed = isIssue ? passIcon : gitPullRequestClosedIcon;
+	const open = isIssue ? issuescon : gitPullRequestIcon;
 
 	if (state === GithubItemStateEnum.Merged) {
-		return { text: 'Merged', color: 'merged', icon: mergeIcon };
+		return { text: 'Merged', color: 'merged', icon: gitMergeIcon };
 	} else if (state === GithubItemStateEnum.Open) {
-		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: open };
+		return isDraft ? { text: 'Draft', color: 'draft', icon: gitPullRequestDraftIcon } : { text: 'Open', color: 'open', icon: open };
 	} else {
 		let closedColor: string = 'closed';
 		if (isIssue) {
