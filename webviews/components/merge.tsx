@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
+import { checkIcon, closeIcon, dotIcon, gitMergeIcon, requestChanges, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -36,7 +36,7 @@ import { Reviewer } from '../components/reviewer';
 const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return pr.state === GithubItemStateEnum.Merged ? (
 		<div className="branch-status-message">
-			<div className="branch-status-icon">{isSimple ? mergeIcon : null}</div>{' '}
+			<div className="branch-status-icon">{isSimple ? gitMergeIcon : null}</div>{' '}
 			{'Pull request successfully merged.'}
 		</div>
 	) : pr.state === GithubItemStateEnum.Closed ? (
@@ -218,7 +218,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeabl
 		updateBranch().finally(() => setBusy(false));
 	};
 
-	let icon: JSX.Element | null = pendingIcon;
+	let icon: JSX.Element | null = dotIcon;
 	let summary: string = 'Checking if this branch can be merged...';
 	let action: string | null = null;
 	if (mergeable === PullRequestMergeability.Mergeable) {
@@ -273,7 +273,7 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 	}
 	return (
 		<div className="status-item status-section">
-			{alertIcon}
+			{warningIcon}
 			<p>This branch is out-of-date with the base branch.</p>
 			<button className="secondary" onClick={update} disabled={isBusy} >Update with Merge Commit</button>
 		</div>
@@ -298,7 +298,7 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 	return (
 		<div className="ready-for-review-container">
 			<div className='ready-for-review-text-wrapper'>
-				<div className="ready-for-review-icon">{isSimple ? null : alertIcon}</div>
+				<div className="ready-for-review-icon">{isSimple ? null : warningIcon}</div>
 				<div>
 					<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
 					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
@@ -592,7 +592,7 @@ function StateIcon({ state }: { state: CheckState }) {
 		case CheckState.Failure:
 			return closeIcon;
 	}
-	return pendingIcon;
+	return dotIcon;
 }
 
 function RequiredReviewStateIcon({ state }: { state: CheckState }) {

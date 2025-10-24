@@ -134,8 +134,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		existingPanel?: vscode.WebviewPanel
 	) {
 		super(telemetry, extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel.viewType, existingPanel, {
-			light: 'resources/icons/pr_webview.svg',
-			dark: 'resources/icons/dark/pr_webview.svg'
+			light: 'resources/icons/git-pull-request_webview.svg',
+			dark: 'resources/icons/dark/git-pull-request_webview.svg'
 		});
 
 		this.registerPrListeners();
