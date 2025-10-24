@@ -3553,9 +3553,9 @@
 					"command": "pr.checkoutFromDescription"
 				},
 				{
-          "command": "pr.applyChangesFromDescription"
-        },
-        {
+					"command": "pr.applyChangesFromDescription"
+				},
+				{
 					"command": "pr.openChanges"
 				}
 			]
