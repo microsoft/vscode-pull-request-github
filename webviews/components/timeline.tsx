@@ -6,7 +6,7 @@
 import React, { useContext, useRef, useState } from 'react';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
+import { addIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -122,7 +122,7 @@ const CommitEventView = (event: CommitEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{commitIcon}
+				{gitCommitIcon}
 				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.author} />
@@ -169,7 +169,7 @@ const NewCommitsSinceReviewEventView = () => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{plusIcon}
+				{addIcon}
 				{nbsp}
 				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
 			</div>
@@ -368,7 +368,7 @@ const MergedEventView = (event: MergedEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{mergeIcon}
+				{gitMergeIcon}
 				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.user} />

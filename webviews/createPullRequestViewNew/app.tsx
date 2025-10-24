@@ -12,7 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, projectIcon, reviewerIcon, sparkleIcon, stopCircleIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -192,7 +192,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{gitCompareIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -249,7 +249,7 @@ export function main() {
 					<div className='group-additions'>
 						{params.assignees && (params.assignees.length > 0) ?
 							<div className='assignees'>
-								<span title='Assignees' aria-hidden='true'>{assigneeIcon}</span>
+								<span title='Assignees' aria-hidden='true'>{accountIcon}</span>
 								<ul aria-label='Assignees' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
@@ -267,7 +267,7 @@ export function main() {
 
 						{params.reviewers && (params.reviewers.length > 0) ?
 							<div className='reviewers'>
-								<span title='Reviewers' aria-hidden='true'>{reviewerIcon}</span>
+								<span title='Reviewers' aria-hidden='true'>{feedbackIcon}</span>
 								<ul aria-label='Reviewers' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
@@ -285,7 +285,7 @@ export function main() {
 
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
-								<span title='Labels' aria-hidden='true'>{labelIcon}</span>
+								<span title='Labels' aria-hidden='true'>{tagIcon}</span>
 								<ul aria-label='Labels' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
