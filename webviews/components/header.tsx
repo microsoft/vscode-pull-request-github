@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issueIcon, loadingIcon, passIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
@@ -367,7 +367,7 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean, stateReason?: StateReason) {
 	const closed = isIssue ? passIcon : gitPullRequestClosedIcon;
-	const open = isIssue ? issueIcon : gitPullRequestIcon;
+	const open = isIssue ? issuescon : gitPullRequestIcon;
 
 	if (state === GithubItemStateEnum.Merged) {
 		return { text: 'Merged', color: 'merged', icon: gitMergeIcon };

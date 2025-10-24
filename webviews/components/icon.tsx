@@ -11,7 +11,7 @@ export const Icon = ({ className = '', src, title }: { className?: string; title
 );
 
 export default Icon;
-// Icons exported in alphabetical order by variable name for easier maintenance
+// Codicons
 export const accountIcon = <Icon src={require('../../resources/icons/codicons/account.svg')} />;
 export const addIcon = <Icon src={require('../../resources/icons/codicons/add.svg')} />;
 export const checkIcon = <Icon src={require('../../resources/icons/codicons/check.svg')} className='check' />;
@@ -30,7 +30,7 @@ export const gitMergeIcon = <Icon src={require('../../resources/icons/codicons/g
 export const gitPullRequestClosedIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request-closed.svg')} />;
 export const gitPullRequestDraftIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request-draft.svg')} />;
 export const gitPullRequestIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request.svg')} />;
-export const issueIcon = <Icon src={require('../../resources/icons/codicons/issue.svg')} />;
+export const issuescon = <Icon src={require('../../resources/icons/codicons/issues.svg')} />;
 export const loadingIcon = <Icon className='loading' src={require('../../resources/icons/codicons/loading.svg')} />;
 export const milestoneIcon = <Icon src={require('../../resources/icons/codicons/milestone.svg')} />;
 export const passIcon = <Icon src={require('../../resources/icons/codicons/pass.svg')} />;
@@ -47,6 +47,7 @@ export const threeBars = <Icon src={require('../../resources/icons/codicons/thre
 export const trashIcon = <Icon src={require('../../resources/icons/codicons/trash.svg')} />;
 export const warningIcon = <Icon src={require('../../resources/icons/codicons/warning.svg')} />;
 
+// Other icons
 export const copilotErrorIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-error.svg')} />;
 export const copilotInProgressIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-in-progress.svg')} />;
 export const copilotSuccessIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-success.svg')} />;

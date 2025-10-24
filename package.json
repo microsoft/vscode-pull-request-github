@@ -4257,7 +4257,8 @@
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
-		"prepare": "husky install"
+		"prepare": "husky install",
+		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.36.0",
@@ -4321,6 +4322,7 @@
 		"terser-webpack-plugin": "5.1.1",
 		"timers-browserify": "^2.0.12",
 		"ts-loader": "9.5.2",
+		"ts-node": "^10.9.2",
 		"tty": "1.0.1",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.44.0",
