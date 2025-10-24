@@ -3555,7 +3555,11 @@
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-swe-agent || chatSessionType == 'copilot-cloud-agent'"
+					"when": "resourceScheme == copilot-swe-agent || resourceScheme == 'copilot-cloud-agent'"
+				},
+				{
+					"command": "pr.openChanges",
+					"when": "resourceScheme == 'copilot-cloud-agent'"
 				}
 			]
 		},

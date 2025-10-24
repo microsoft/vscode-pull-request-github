@@ -704,7 +704,7 @@ export function registerCommands(
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | ChatSessionWithPR | undefined) => {
+		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | ChatSessionWithPR | { path: string } | undefined) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -727,7 +727,22 @@ export function registerCommands(
 					preventDefaultContextMenuItems: true,
 				});
 				pullRequestModel = resolved?.pr;
-			} else {
+			}
+			else if (contextHasPath(pr)) {
+				// looks like '/123' where 123 is the PR number
+				const { path } = pr;
+				const prNumber = Number(path.startsWith('/') ? path.substring(1) : path);
+				if (Number.isNaN(prNumber)) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
+				}
+				const folderManager = reposManager.folderManagers[0];
+				const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
+				if (!pullRequest) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
+				}
+				pullRequestModel = pullRequest;
+			}
+			else {
 				const resolved = await resolvePr(pr as OverviewContext);
 				pullRequestModel = resolved?.pr;
 			}
