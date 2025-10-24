@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { checkIcon, closeIcon, dotIcon, gitMergeIcon, requestChanges, skipIcon, warningIcon } from './icon';
+import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -218,7 +218,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeabl
 		updateBranch().finally(() => setBusy(false));
 	};
 
-	let icon: JSX.Element | null = dotIcon;
+	let icon: JSX.Element | null = circleFilledIcon;
 	let summary: string = 'Checking if this branch can be merged...';
 	let action: string | null = null;
 	if (mergeable === PullRequestMergeability.Mergeable) {
@@ -592,13 +592,13 @@ function StateIcon({ state }: { state: CheckState }) {
 		case CheckState.Failure:
 			return closeIcon;
 	}
-	return dotIcon;
+	return circleFilledIcon;
 }
 
 function RequiredReviewStateIcon({ state }: { state: CheckState }) {
 	switch (state) {
 		case CheckState.Pending:
-			return requestChanges;
+			return requestChangesIcon;
 		case CheckState.Failure:
 			return closeIcon;
 	}

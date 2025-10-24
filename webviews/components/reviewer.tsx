@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement, useContext } from 'react';
-import { checkIcon, commentIcon, dotIcon, requestChanges, syncIcon } from './icon';
+import { checkIcon, circleFilledIcon, commentIcon, requestChangesIcon, syncIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 import { ReviewEvent } from '../../src/common/timelineEvent';
 import { AccountType, isITeam, ReviewState } from '../../src/github/interface';
@@ -37,8 +37,8 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 }
 
 const REVIEW_STATE: { [state: string]: React.ReactElement } = {
-	REQUESTED: cloneElement(dotIcon, { className: 'section-icon requested', title: 'Awaiting requested review' }),
+	REQUESTED: cloneElement(circleFilledIcon, { className: 'section-icon requested', title: 'Awaiting requested review' }),
 	COMMENTED: cloneElement(commentIcon, { className: 'section-icon commented', Root: 'div', title: 'Left review comments' }),
 	APPROVED: cloneElement(checkIcon, { className: 'section-icon approved', title: 'Approved these changes' }),
-	CHANGES_REQUESTED: cloneElement(requestChanges, { className: 'section-icon changes', title: 'Requested changes' }),
+	CHANGES_REQUESTED: cloneElement(requestChangesIcon, { className: 'section-icon changes', title: 'Requested changes' }),
 };
