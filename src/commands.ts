@@ -741,11 +741,10 @@ export function registerCommands(
 				pullRequestModel = resolved?.pr;
 			}
 			else if (contextHasPath(pr)) {
-				// looks like '/123' where 123 is the PR number
 				const { path } = pr;
-				const prNumber = Number(path.startsWith('/') ? path.substring(1) : path);
-				if (Number.isNaN(prNumber)) {
-					return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
+				const prNumber = prNumberFromUriPath(path);
+				if (!prNumber) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
 				}
 				const folderManager = reposManager.folderManagers[0];
 				const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
