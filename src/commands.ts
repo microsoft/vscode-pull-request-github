@@ -624,6 +624,18 @@ export function registerCommands(
 		return !!contextAsPath.path;
 	}
 
+	function prNumberFromUriPath(path: string): number | undefined {
+		const trimPath = path.startsWith('/') ? path.substring(1) : path;
+		if (!Number.isNaN(Number(trimPath))) {
+			return Number(trimPath);
+		}
+		// This is a base64 encoded PR number like: /MTIz
+		const decoded = Number(Buffer.from(trimPath, 'base64').toString('utf8'));
+		if (!Number.isNaN(decoded)) {
+			return decoded;
+		}
+	}
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
@@ -631,9 +643,9 @@ export function registerCommands(
 
 		if (contextHasPath(ctx)) {
 			const { path } = ctx;
-			const prNumber = Number(Buffer.from(path.substring(1), 'base64').toString('utf8'));
-			if (Number.isNaN(prNumber)) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
+			const prNumber = prNumberFromUriPath(path);
+			if (!prNumber) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
 			}
 			const folderManager = reposManager.folderManagers[0];
 			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
@@ -659,8 +671,8 @@ export function registerCommands(
 
 		if (contextHasPath(ctx)) {
 			const { path } = ctx;
-			const prNumber = Number(Buffer.from(path.substring(1), 'base64').toString('utf8'));
-			if (Number.isNaN(prNumber)) {
+			const prNumber = prNumberFromUriPath(path);
+			if (!prNumber) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
 			}
 

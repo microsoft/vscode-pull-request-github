@@ -3550,12 +3550,10 @@
 			],
 			"chat/multiDiff/context": [
 				{
-					"command": "pr.checkoutFromDescription",
-					"when": "resourceScheme == copilot-swe-agent || resourceScheme == 'copilot-cloud-agent'"
+					"command": "pr.checkoutFromDescription"
 				},
 				{
-					"command": "pr.applyChangesFromDescription",
-					"when": "resourceScheme == copilot-swe-agent || resourceScheme == 'copilot-cloud-agent'"
+					"command": "pr.applyChangesFromDescription"
 				}
 			]
 		},
