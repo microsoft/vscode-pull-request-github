@@ -3554,6 +3554,9 @@
 				},
 				{
 					"command": "pr.applyChangesFromDescription"
+				},
+				{
+					"command": "pr.openChanges"
 				}
 			]
 		},
