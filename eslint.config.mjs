@@ -15,6 +15,7 @@ export default defineConfig([
 	// Global ignore patterns
 	{
 		ignores: [
+			'build',
 			'dist/**/*',
 			'out/**/*',
 			'src/@types/**/*.d.ts',
