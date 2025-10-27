@@ -516,13 +516,12 @@ export async function pushAndCreatePR(
 	}
 }
 
-export async function isComment(document: vscode.TextDocument, position: vscode.Position, excludedLanguageIds = ['markdown', 'plaintext']): Promise<boolean> {
-	if (!excludedLanguageIds.includes(document.languageId)) {
-		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
-		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
-			return false;
-		}
+export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+	if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+		return false;
 	}
+
 	return true;
 }
 

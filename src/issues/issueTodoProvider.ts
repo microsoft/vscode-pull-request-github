@@ -120,7 +120,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 			if (!todoInfo) {
 				continue;
 			}
-			if (!(await isComment(document, new vscode.Position(lineNumber, firstNonWhitespaceCharacterIndex), []))) {
+			if (!(await isComment(document, new vscode.Position(lineNumber, firstNonWhitespaceCharacterIndex)))) {
 				continue;
 			}
 			const { match, search, insertIndex } = todoInfo;

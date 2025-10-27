@@ -100,7 +100,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if ((document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
+		const isPositionComment = document.languageId === 'plaintext' || document.languageId === 'markdown' || await isComment(document, position);
+
+		if ((document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !isPositionComment) {
 			return [];
 		}
 
