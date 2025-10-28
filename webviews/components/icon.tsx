@@ -25,7 +25,6 @@ export const editIcon = <Icon src={require('../../resources/icons/codicons/edit.
 export const errorIcon = <Icon src={require('../../resources/icons/codicons/error.svg')} />;
 export const feedbackIcon = <Icon src={require('../../resources/icons/codicons/feedback.svg')} />;
 export const gitCommitIcon = <Icon src={require('../../resources/icons/codicons/git-commit.svg')} />;
-export const gitCompareIcon = <Icon src={require('../../resources/icons/codicons/git-compare.svg')} />;
 export const gitMergeIcon = <Icon src={require('../../resources/icons/codicons/git-merge.svg')} />;
 export const gitPullRequestClosedIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request-closed.svg')} />;
 export const gitPullRequestDraftIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request-draft.svg')} />;
@@ -51,5 +50,5 @@ export const warningIcon = <Icon src={require('../../resources/icons/codicons/wa
 export const copilotErrorIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-error.svg')} />;
 export const copilotInProgressIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-in-progress.svg')} />;
 export const copilotSuccessIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-success.svg')} />;
-export const prMergeIcon = <Icon src={require('../../resources/icons/pr_merge.svg')} />;
-export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} className='skip' />;
+export const prMergeIcon = <Icon src={require('../../resources/icons/codicons/merge.svg')} />;
+export const skipIcon = <Icon src={require('../../resources/icons/codicons/skip.svg')} className='skip' />;
