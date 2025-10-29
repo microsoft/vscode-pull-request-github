@@ -17,7 +17,8 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
@@ -489,7 +490,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private _getHtmlForWebview() {
-		const nonce = getNonce();
+		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-open-pr-view.js');
 

@@ -38,7 +38,8 @@ import {
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
@@ -549,7 +550,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	private _getHtmlForWebview() {
-		const nonce = getNonce();
+		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-create-pr-view-new.js');
 
