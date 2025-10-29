@@ -634,28 +634,22 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
-		const branchChanged = compareBranch && (compareBranch.name !== this.model.compareBranch);
-		const currentCompareRemote = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === this.model.compareOwner)?.remote.remoteName;
-		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== currentCompareRemote);
-		if (branchChanged || branchRemoteChanged) {
-			this._defaultCompareBranch = compareBranch!.name!;
-			this.model.setCompareBranch(compareBranch!.name);
-			this.changeBranch(compareBranch!.name!, false).then(async titleAndDescription => {
-				const params: Partial<CreateParamsNew> = {
-					defaultTitle: titleAndDescription.title,
-					defaultDescription: titleAndDescription.description,
-					compareBranch: compareBranch?.name,
-					defaultCompareBranch: compareBranch?.name,
-					warning: await this.existingPRMessage(),
-				};
-				if (!branchRemoteChanged) {
-					return this._postMessage({
-						command: 'pr.initialize',
-						params,
-					});
-				}
+		this._defaultCompareBranch = compareBranch!.name!;
+		this.model.setCompareBranch(compareBranch!.name);
+		this.changeBranch(compareBranch!.name!, false).then(async titleAndDescription => {
+			const params: Partial<CreateParamsNew> = {
+				defaultTitle: titleAndDescription.title,
+				defaultDescription: titleAndDescription.description,
+				compareBranch: compareBranch?.name,
+				defaultCompareBranch: compareBranch?.name,
+				warning: await this.existingPRMessage(),
+			};
+			return this._postMessage({
+				command: 'pr.initialize',
+				params,
 			});
-		}
+		});
+
 	}
 
 	public override show(compareBranch?: Branch): void {
