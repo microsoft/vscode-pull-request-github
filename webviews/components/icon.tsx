@@ -46,10 +46,10 @@ export const tasklistIcon = <Icon src={require('../../resources/icons/codicons/t
 export const threeBars = <Icon src={require('../../resources/icons/codicons/three-bars.svg')} />;
 export const trashIcon = <Icon src={require('../../resources/icons/codicons/trash.svg')} />;
 export const warningIcon = <Icon src={require('../../resources/icons/codicons/warning.svg')} />;
+export const prMergeIcon = <Icon src={require('../../resources/icons/codicons/merge.svg')} />;
+export const skipIcon = <Icon src={require('../../resources/icons/codicons/skip.svg')} className='skip' />;
 
 // Other icons
 export const copilotErrorIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-error.svg')} />;
 export const copilotInProgressIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-in-progress.svg')} />;
 export const copilotSuccessIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-success.svg')} />;
-export const prMergeIcon = <Icon src={require('../../resources/icons/pr_merge.svg')} />;
-export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} className='skip' />;
