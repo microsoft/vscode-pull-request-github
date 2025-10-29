@@ -12,7 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { accountIcon, feedbackIcon, gitMergeIcon, milestoneIcon, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -192,7 +192,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{prMergeIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{gitCompareIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -205,7 +205,7 @@ export function main() {
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch' aria-hidden='true'>{gitMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
 							</div>
 							{ctx.createParams.canModifyBranches ?
 								<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
