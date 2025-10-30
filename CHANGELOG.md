@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.120.2
+
+### Fixes
+
+- Unable to open PR webview within VSCode. https://github.com/microsoft/vscode-pull-request-github/issues/8028
+
 ## 0.120.1
 
 ### Fixes
