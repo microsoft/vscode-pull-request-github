@@ -691,8 +691,10 @@ export class GitHubRepository extends Disposable {
 				if (prs.length === 0) {
 					return undefined;
 				}
-				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
-				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
+				const openPr = prs.find(pr => pr.state.toLowerCase() === 'open');
+				if (openPr) {
+					return this.createOrUpdatePullRequestModel(openPr);
+				}
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull request for branch failed: ${e}`, this.id);
