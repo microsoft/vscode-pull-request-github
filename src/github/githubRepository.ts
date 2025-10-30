@@ -695,6 +695,8 @@ export class GitHubRepository extends Disposable {
 				if (openPr) {
 					return this.createOrUpdatePullRequestModel(openPr);
 				}
+				// No open PR found for this branch
+				return undefined;
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull request for branch failed: ${e}`, this.id);
