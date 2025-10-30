@@ -14,7 +14,7 @@
 		"activeComment",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider@2",
+		"chatSessionsProvider@3",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -75,7 +75,7 @@
 				"name": "copilot",
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Delegate tasks to the GitHub Copilot coding agent. The agent works asynchronously to implement changes, iterates via chat, and can create or update pull requests as needed.",
-				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled'",
+				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled' && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled",
 				"capabilities": {
 					"supportsFileAttachments": true
 				}
@@ -88,7 +88,7 @@
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
 				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
-				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
+				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled"
 			}
 		],
 		"chatParticipants": [
@@ -616,7 +616,7 @@
 				},
 				"githubPullRequests.codingAgent.codeLens": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"description": "%githubPullRequests.codingAgent.codeLens.description%"
 				},
 				"githubIssues.createInsertFormat": {
@@ -3529,33 +3529,34 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "resourceScheme == copilot-swe-agent || resourceScheme == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "resourceScheme == copilot-swe-agent || resourceScheme == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
 					"command": "pr.closeChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "resourceScheme == copilot-swe-agent",
 					"group": "context"
 				},
 				{
 					"command": "pr.cancelCodingAgent",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "resourceScheme == copilot-swe-agent",
 					"group": "context"
 				}
 			],
 			"chat/multiDiff/context": [
 				{
-					"command": "pr.checkoutFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"command": "pr.checkoutFromDescription"
 				},
 				{
-					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"command": "pr.applyChangesFromDescription"
+				},
+				{
+					"command": "pr.openChanges"
 				}
 			]
 		},
@@ -4257,7 +4258,8 @@
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
-		"prepare": "husky install"
+		"prepare": "husky install",
+		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.36.0",
@@ -4321,6 +4323,7 @@
 		"terser-webpack-plugin": "5.1.1",
 		"timers-browserify": "^2.0.12",
 		"ts-loader": "9.5.2",
+		"ts-node": "^10.9.2",
 		"tty": "1.0.1",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.44.0",

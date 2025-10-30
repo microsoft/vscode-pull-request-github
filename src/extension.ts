@@ -43,6 +43,7 @@ import { UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
+import { EmojiCompletionProvider } from './view/emojiCompletionProvider';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
@@ -180,6 +181,12 @@ async function init(
 
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, prsTreeModel, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager, notificationsManager);
 	context.subscriptions.push(reviewsManager);
+
+	context.subscriptions.push(vscode.languages.registerCompletionItemProvider(
+		{ scheme: Schemes.Comment },
+		new EmojiCompletionProvider(context),
+		':'
+	));
 
 	git.onDidChangeState(() => {
 		Logger.appendLine(`Git initialization state changed: state=${git.state}`, ACTIVATION);
@@ -440,12 +447,12 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
 			label = vscode.l10n.t('GitHub Copilot Coding Agent');
-			provideChatSessionItems = async (token) => {
+			async provideChatSessionItems(token: vscode.CancellationToken) {
 				return await copilotRemoteAgentManager.provideChatSessions(token);
-			};
-			provideChatSessionContent = async (id, token) => {
-				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
-			};
+			}
+			async provideChatSessionContent(resource: vscode.Uri, token: vscode.CancellationToken) {
+				return await copilotRemoteAgentManager.provideChatSessionContent(resource, token);
+			}
 			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
 			onDidCommitChatSessionItem = copilotRemoteAgentManager.onDidCommitChatSession;
 		}();

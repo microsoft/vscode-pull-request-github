@@ -437,6 +437,7 @@ body .comment-container .review-comment-container .review-comment-body {
 
 body .comment-container .comment-body>p,
 body .comment-container .comment-body>div>p,
+body .comment-container .comment-body>div>ul,
 .comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;
