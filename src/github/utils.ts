@@ -1118,6 +1118,7 @@ export async function parseCombinedTimelineEvents(
 		| GraphQL.AssignedEvent
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
+		| null
 	)[],
 	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
@@ -1147,6 +1148,9 @@ export async function parseCombinedTimelineEvents(
 
 	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
+		if (!event) {
+			continue;
+		}
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
