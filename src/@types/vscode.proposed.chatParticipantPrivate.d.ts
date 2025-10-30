@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// version: 11
+// version: 10
 
 declare module 'vscode' {
 
@@ -282,26 +282,6 @@ declare module 'vscode' {
 	export interface ChatErrorDetailsConfirmationButton {
 		data: any;
 		label: string;
-	}
-
-	// #endregion
-
-	// #region LanguageModelProxyProvider
-
-	/**
-	 * Duplicated so that this proposal and languageModelProxy can be independent.
-	 */
-	export interface LanguageModelProxy extends Disposable {
-		readonly uri: Uri;
-		readonly key: string;
-	}
-
-	export interface LanguageModelProxyProvider {
-		provideModelProxy(forExtensionId: string, token: CancellationToken): ProviderResult<LanguageModelProxy>;
-	}
-
-	export namespace lm {
-		export function registerLanguageModelProxyProvider(provider: LanguageModelProxyProvider): Disposable;
 	}
 
 	// #endregion
