@@ -807,7 +807,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 						startLine,
 						endLine,
 						side,
-						isSingleComment,
+						isSingleComment, // suppressDraftModeUpdate
 					),
 					setReplyAuthor(thread, await this._folderRepoManager.getCurrentUser(this._folderRepoManager.activePullRequest.githubRepository), this._context)
 				]);

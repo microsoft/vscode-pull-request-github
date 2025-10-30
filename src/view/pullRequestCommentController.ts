@@ -362,7 +362,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 					thread.range ? (thread.range.start.line + 1) : undefined,
 					thread.range ? (thread.range.end.line + 1) : undefined,
 					side,
-					isSingleComment,
+					isSingleComment, // suppressDraftModeUpdate
 				),
 				setReplyAuthor(thread, await this._folderRepoManager.getCurrentUser(this.pullRequestModel.githubRepository), this._context)]);
 			}
