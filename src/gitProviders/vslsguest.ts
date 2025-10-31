@@ -149,8 +149,8 @@ class LiveShareRepositoryState implements RepositoryState {
 		this.HEAD = state.HEAD;
 		this.remotes = state.remotes;
 	}
-	refs: Ref[];
-	untrackedChanges: Change[];
+	refs: Ref[] = [];
+	untrackedChanges: Change[] = [];
 
 	public update(state: RepositoryState) {
 		this.HEAD = state.HEAD;
