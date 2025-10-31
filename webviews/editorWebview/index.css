@@ -155,7 +155,7 @@ body .comment-container.review {
 	position: relative;
 }
 
-body #main>.comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
+body #main>.comment-container>.review-comment-container>.review-comment-header:not(.no-details) {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
