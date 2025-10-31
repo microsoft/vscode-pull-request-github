@@ -84,6 +84,16 @@ export class GitApiImpl extends Disposable implements API, IGit {
 		super();
 	}
 
+	async getRepositoryWorkspace(uri: vscode.Uri): Promise<vscode.Uri[] | null> {
+		for (const [, provider] of this._providers) {
+			if (provider.getRepositoryWorkspace) {
+				return provider.getRepositoryWorkspace(uri);
+			}
+		}
+		return null;
+	}
+
+
 	public get repositories(): Repository[] {
 		const ret: Repository[] = [];
 

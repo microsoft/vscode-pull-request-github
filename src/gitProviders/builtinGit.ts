@@ -46,6 +46,9 @@ export class BuiltinGitProvider extends Disposable implements IGit {
 		this._register(this._gitAPI.onDidChangeState(e => this._onDidChangeState.fire(e)));
 		this._register(this._gitAPI.onDidPublish(e => this._onDidPublish.fire(e)));
 	}
+	getRepositoryWorkspace(uri: vscode.Uri): Promise<vscode.Uri[] | null> {
+		return this._gitAPI.getRepositoryWorkspace(uri);
+	}
 
 	static async createProvider(): Promise<BuiltinGitProvider | undefined> {
 		const extension = vscode.extensions.getExtension<GitExtension>('vscode.git');

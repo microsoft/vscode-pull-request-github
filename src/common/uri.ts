@@ -636,6 +636,7 @@ function validateOpenWebviewParams(owner?: string, repo?: string, number?: strin
 export enum UriHandlerPaths {
 	OpenIssueWebview = '/open-issue-webview',
 	OpenPullRequestWebview = '/open-pull-request-webview',
+	CheckoutPullRequest = '/checkout-pull-request'
 }
 
 export interface OpenIssueWebviewUriParams {
@@ -676,11 +677,11 @@ export async function toOpenPullRequestWebviewUri(params: OpenPullRequestWebview
 	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestWebview, query }));
 }
 
-export function fromOpenPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
+export function fromOpenOrCheckoutPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
 	if (compareIgnoreCase(uri.authority, EXTENSION_ID) !== 0) {
 		return;
 	}
-	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview) {
+	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview && uri.path !== UriHandlerPaths.CheckoutPullRequest) {
 		return;
 	}
 	try {
