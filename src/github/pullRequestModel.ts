@@ -1264,6 +1264,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param reviewer A GitHub Login
 	 */
 	async deleteReviewRequest(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
+		if (reviewers.length === 0 && teamReviewers.length === 0) {
+			return;
+		}
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
