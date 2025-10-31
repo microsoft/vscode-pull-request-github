@@ -30,6 +30,7 @@
 		"contribShareMenu",
 		"diffCommand",
 		"languageModelToolResultAudience",
+		"markdownAlertSyntax",
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
