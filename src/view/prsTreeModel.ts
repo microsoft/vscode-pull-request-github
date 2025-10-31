@@ -355,9 +355,9 @@ export class PrsTreeModel extends Disposable {
 		try {
 			let maxKnownPR: number | undefined;
 			const cache = this.getFolderCache(folderRepoManager);
+			const cachedPRs = cache.get(query)!;
 			if (!fetchNextPage && cache.has(query)) {
 				const shouldRefresh = await this._testIfRefreshNeeded(cache.get(query)!, query, folderRepoManager);
-				const cachedPRs = cache.get(query)!;
 				maxKnownPR = cachedPRs.maxKnownPR;
 				if (!shouldRefresh) {
 					cachedPRs.clearRequested = false;
@@ -377,6 +377,9 @@ export class PrsTreeModel extends Disposable {
 				{ fetchNextPage, fetchOnePagePerRepo },
 				query,
 			);
+			if (fetchNextPage) {
+				prs.items = cachedPRs?.items.items.concat(prs.items) ?? prs.items;
+			}
 			cache.set(query, { clearRequested: false, items: prs, maxKnownPR });
 			prs.items.forEach(pr => this._allCachedPRs.add(pr));
 
@@ -404,6 +407,9 @@ export class PrsTreeModel extends Disposable {
 			PRType.All,
 			{ fetchNextPage }
 		);
+		if (fetchNextPage) {
+			prs.items = allCache?.items.items.concat(prs.items) ?? prs.items;
+		}
 		cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
 		prs.items.forEach(pr => this._allCachedPRs.add(pr));
 
