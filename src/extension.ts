@@ -39,7 +39,7 @@ import { NotificationsFeatureRegister } from './notifications/notificationsFeatu
 import { NotificationsManager } from './notifications/notificationsManager';
 import { NotificationsProvider } from './notifications/notificationsProvider';
 import { ThemeWatcher } from './themeWatcher';
-import { UriHandler } from './uriHandler';
+import { resumePendingCheckout, UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
@@ -267,8 +267,11 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 
+	// Resume any pending checkout request stored before workspace reopened.
+	await resumePendingCheckout(context, reposManager);
+
 	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry, prsTreeModel);
-	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context)));
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context, git)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
