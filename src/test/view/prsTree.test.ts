@@ -256,14 +256,18 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
 
-			assert.strictEqual(localItem0.label, 'zero');
+			const label0 = (localItem0.label as vscode.TreeItemLabel2).label;
+			assert.ok(label0 instanceof vscode.MarkdownString);
+			assert.equal(label0.value, 'zero');
 			assert.strictEqual(localItem0.tooltip, undefined);
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive:hasHeadRef');
 			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
-			assert.strictEqual(localItem1.label, '✓ one');
+			const label1 = (localItem1.label as vscode.TreeItemLabel2).label;
+			assert.ok(label1 instanceof vscode.MarkdownString);
+			assert.equal(label1.value, '$(check) one');
 			assert.strictEqual(localItem1.tooltip, undefined);
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);

@@ -35,6 +35,7 @@
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
+		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
 	"version": "0.120.0",
