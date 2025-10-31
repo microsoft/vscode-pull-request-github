@@ -318,8 +318,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		if (COPILOT_ACCOUNTS[author.login]) {
 			labelTitle = labelTitle.replace('[WIP]', '');
 		}
-		// Escape any $ in the title to avoid rendering PR titles as icons.
-		label += labelTitle.replace(/[$]/g, '\\$');
+		// Escape any $(...) syntax to avoid rendering PR titles as icons.
+		label += labelTitle.replace(/\$\([a-zA-Z0-9~-]+\)/g, '\\$&');
 
 		if (isDraft) {
 			label = `_${label}_`;
