@@ -1795,11 +1795,6 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "codingAgent.openSessionLog",
-				"title": "%command.codingAgent.openSessionLog.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
 				"command": "pr.refreshChatSessions",
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
@@ -2622,6 +2617,14 @@
 				},
 				{
 					"command": "pr.preferredCodingAgentGitHubRemote",
+					"when": "false"
+				},
+				{
+					"command": "pr.closeChatSessionPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "pr.cancelCodingAgent",
 					"when": "false"
 				}
 			],
