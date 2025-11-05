@@ -240,6 +240,7 @@ export interface IGit {
 
 	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
 	getRepositoryWorkspace?(uri: Uri): Promise<Uri[] | null>;
+	clone?(uri: Uri, options?: CloneOptions): Promise<Uri | null>;
 }
 
 export interface TitleAndDescriptionProvider {

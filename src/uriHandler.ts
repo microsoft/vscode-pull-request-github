@@ -22,13 +22,33 @@ interface PendingCheckoutPayload {
 	timestamp: number; // epoch millis when the pending checkout was stored
 }
 
+function withCheckoutProgress<T>(owner: string, repo: string, prNumber: number, task: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Promise<T>): Promise<T> {
+	return vscode.window.withProgress({
+		location: vscode.ProgressLocation.Notification,
+		title: vscode.l10n.t('Checking out pull request #{0} from {1}/{2}...', prNumber, owner, repo),
+		cancellable: true
+	}, async (progress, token) => {
+		if (token.isCancellationRequested) {
+			return Promise.resolve(undefined as unknown as T);
+		}
+		return task(progress, token);
+	}) as Promise<T>;
+}
+
 async function performPullRequestCheckout(folderManager: FolderRepositoryManager, owner: string, repo: string, prNumber: number): Promise<void> {
 	try {
 		const pullRequest = await folderManager.resolvePullRequest(owner, repo, prNumber);
 		if (!pullRequest) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Pull request #{0} not found in {1}/{2}.', prNumber, owner, repo));
 			Logger.warn(`Pull request #${prNumber} not found for checkout.`, UriHandler.ID);
 			return;
 		}
+
+		const proceed = await showCheckoutPrompt(owner, repo, prNumber);
+		if (!proceed) {
+			return;
+		}
+
 		await vscode.commands.executeCommand('pr.pick', pullRequest);
 	} catch (e) {
 		Logger.error(`Error during pull request checkout: ${e instanceof Error ? e.message : String(e)}`, UriHandler.ID);
@@ -48,11 +68,11 @@ export async function resumePendingCheckout(context: vscode.ExtensionContext, re
 		return;
 	}
 	const attempt = async () => {
-		const fm = reposManager.getManagerForRepository(pending.owner, pending.repo);
-		if (!fm) {
+		const folderManager = reposManager.getManagerForRepository(pending.owner, pending.repo);
+		if (!folderManager) {
 			return false;
 		}
-		await performPullRequestCheckout(fm, pending.owner, pending.repo, pending.pullRequestNumber);
+		await performPullRequestCheckout(folderManager, pending.owner, pending.repo, pending.pullRequestNumber);
 		await context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, undefined);
 		return true;
 	};
@@ -63,6 +83,13 @@ export async function resumePendingCheckout(context: vscode.ExtensionContext, re
 			}
 		});
 	}
+}
+
+export async function showCheckoutPrompt(owner: string, repo: string, prNumber: number): Promise<boolean> {
+	const message = vscode.l10n.t('Checkout pull request #{0} from {1}/{2}?', prNumber, owner, repo);
+	const confirm = vscode.l10n.t('Checkout');
+	const selection = await vscode.window.showInformationMessage(message, { modal: true }, confirm);
+	return selection === confirm;
 }
 
 export class UriHandler implements vscode.UriHandler {
@@ -111,6 +138,12 @@ export class UriHandler implements vscode.UriHandler {
 		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, pullRequest);
 	}
 
+	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
+		const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
+		await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
+		await vscode.commands.executeCommand('vscode.openFolder', folderUri);
+	}
+
 	private async _checkoutPullRequest(uri: vscode.Uri): Promise<void> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
@@ -121,18 +154,47 @@ export class UriHandler implements vscode.UriHandler {
 			return performPullRequestCheckout(folderManager, params.owner, params.repo, params.pullRequestNumber);
 		}
 		// Folder not found; request workspace open then resume later.
-		try {
-			const remoteUri = vscode.Uri.parse(`https://github.com/${params.owner}/${params.repo}`);
-			const workspaces = await this._git.getRepositoryWorkspace(remoteUri);
-			if (workspaces && workspaces.length) {
-				const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
-				await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
-				await vscode.commands.executeCommand('vscode.openFolder', workspaces[0]);
-			} else {
-				Logger.warn(`No repository workspace found for ${remoteUri.toString()}`, UriHandler.ID);
+		await withCheckoutProgress(params.owner, params.repo, params.pullRequestNumber, async (progress, token) => {
+			if (token.isCancellationRequested) {
+				return;
 			}
-		} catch (e) {
-			Logger.error(`Failed attempting workspace open for checkout PR: ${e instanceof Error ? e.message : String(e)}`, UriHandler.ID);
+			try {
+				progress.report({ message: vscode.l10n.t('Locating workspace...') });
+				const remoteUri = vscode.Uri.parse(`https://github.com/${params.owner}/${params.repo}`);
+				const workspaces = await this._git.getRepositoryWorkspace(remoteUri);
+				if (token.isCancellationRequested) {
+					return;
+				}
+				if (workspaces && workspaces.length) {
+					progress.report({ message: vscode.l10n.t('Opening workspace...') });
+					await this._savePendingCheckoutAndOpenFolder(params, workspaces[0]);
+				} else {
+					this._showCloneOffer(remoteUri, params);
+				}
+			} catch (e) {
+				Logger.error(`Failed attempting workspace open for checkout PR: ${e instanceof Error ? e.message : String(e)}`, UriHandler.ID);
+			}
+		});
+	}
+
+	private async _showCloneOffer(remoteUri: vscode.Uri, params: { owner: string; repo: string; pullRequestNumber: number }): Promise<void> {
+		const cloneLabel = vscode.l10n.t('Clone Repository');
+		const choice = await vscode.window.showErrorMessage(
+			vscode.l10n.t('Could not find a folder for repository {0}/{1}. Please clone or open the repository manually.', params.owner, params.repo),
+			cloneLabel
+		);
+		Logger.warn(`No repository workspace found for ${remoteUri.toString()}`, UriHandler.ID);
+		if (choice === cloneLabel) {
+			try {
+				const clonedWorkspaceUri = await this._git.clone(remoteUri, { postCloneAction: 'none' });
+				if (clonedWorkspaceUri) {
+					await this._savePendingCheckoutAndOpenFolder(params, clonedWorkspaceUri);
+				} else {
+					Logger.warn(`Clone API returned null for ${remoteUri.toString()}`, UriHandler.ID);
+				}
+			} catch (err) {
+				Logger.error(`Failed to clone repository via API: ${err instanceof Error ? err.message : String(err)}`, UriHandler.ID);
+			}
 		}
 	}
 
