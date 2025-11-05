@@ -16,6 +16,7 @@ import { ProgressHelper } from './progress';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ReviewCommentController, SuggestionInformation } from './reviewCommentController';
 import { ReviewModel } from './reviewModel';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
 import { DiffChangeType, DiffHunk, parsePatch, splitIntoSmallerHunks } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -1142,9 +1143,11 @@ export class ReviewManager extends Disposable {
 			this._upgradePullRequestEditors(pr);
 
 			/* __GDPR__
-				"pr.checkout" : {}
+				"pr.checkout" : {
+					"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
 			*/
-			this._telemetry.sendTelemetryEvent('pr.checkout');
+			this._telemetry.sendTelemetryEvent('pr.checkout', { isCopilot: (pr.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 			Logger.appendLine(`Switch to Pull Request #${pr.number} - done`, this.id);
 		} finally {
 			this.setStatusForPr(pr);

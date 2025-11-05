@@ -11,6 +11,7 @@ import { PrsTreeModel } from './prsTreeModel';
 import { ReviewManager } from './reviewManager';
 import { Repository } from '../api/api';
 import { GitApiImpl, Status } from '../api/api1';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
@@ -120,10 +121,11 @@ export class ReviewsManager extends Disposable {
 
 		/* __GDPR__
 			"pr.checkout" : {
-				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-		this._telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: isFromDescription.toString() });
+		this._telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: isFromDescription.toString(), isCopilot: (pullRequestModel.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 
 		return vscode.window.withProgress(
 			{
