@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { GitApiImpl } from './api/api1';
+import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { ITelemetry } from './common/telemetry';
 import { fromOpenIssueWebviewUri, fromOpenOrCheckoutPullRequestWebviewUri, UriHandlerPaths } from './common/uri';
@@ -148,7 +149,8 @@ export class UriHandler implements vscode.UriHandler {
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
 		const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
 		await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
-		await vscode.commands.executeCommand('vscode.openFolder', folderUri);
+		const isEmpty = vscode.workspace.workspaceFolders === undefined || vscode.workspace.workspaceFolders.length === 0;
+		await commands.openFolder(folderUri, { forceNewWindow: !isEmpty, forceReuseWindow: isEmpty });
 	}
 
 	private async _checkoutPullRequest(uri: vscode.Uri): Promise<void> {
