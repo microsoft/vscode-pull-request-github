@@ -7,11 +7,10 @@
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Repository } from './api/api';
-import { GitErrorCodes, Status } from './api/api1';
+import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
-import * as PersistentState from './common/persistentState';
 import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
@@ -50,81 +49,6 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
-
-// Modal dialog options for handling uncommitted changes during PR checkout
-const STASH_CHANGES = vscode.l10n.t('Stash changes');
-const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
-const DONT_SHOW_AGAIN = vscode.l10n.t('Try to checkout anyway and don\'t show again');
-
-// Constants for persistent state storage
-const UNCOMMITTED_CHANGES_SCOPE = vscode.l10n.t('uncommitted changes warning');
-const UNCOMMITTED_CHANGES_STORAGE_KEY = 'showWarning';
-
-/**
- * Shows a modal dialog when there are uncommitted changes during PR checkout
- * @param repository The git repository with uncommitted changes
- * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
- */
-async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
-	// Check if user has disabled the warning using persistent state
-	if (PersistentState.fetch(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY) === false) {
-		return true; // User has disabled warnings, proceed without showing dialog
-	}
-
-	// Filter out untracked files as they typically don't conflict with PR checkout
-	const trackedWorkingTreeChanges = repository.state.workingTreeChanges.filter(change => change.status !== Status.UNTRACKED);
-	const hasTrackedWorkingTreeChanges = trackedWorkingTreeChanges.length > 0;
-	const hasIndexChanges = repository.state.indexChanges.length > 0;
-
-	if (!hasTrackedWorkingTreeChanges && !hasIndexChanges) {
-		return true; // No tracked uncommitted changes, proceed
-	}
-
-	const modalResult = await vscode.window.showInformationMessage(
-		vscode.l10n.t('You have uncommitted changes that might be overwritten by checking out this pull request.'),
-		{
-			modal: true,
-			detail: vscode.l10n.t('Choose how to handle your uncommitted changes before checking out the pull request.'),
-		},
-		STASH_CHANGES,
-		DISCARD_CHANGES,
-		DONT_SHOW_AGAIN,
-	);
-
-	if (!modalResult) {
-		return false; // User cancelled
-	}
-
-	if (modalResult === DONT_SHOW_AGAIN) {
-		// Store preference to never show this dialog again using persistent state
-		PersistentState.store(UNCOMMITTED_CHANGES_SCOPE, UNCOMMITTED_CHANGES_STORAGE_KEY, false);
-		return true; // Proceed with checkout
-	}
-
-	try {
-		if (modalResult === STASH_CHANGES) {
-			// Stash all changes (working tree changes + any unstaged changes)
-			const allChangedFiles = [
-				...trackedWorkingTreeChanges.map(change => change.uri.fsPath),
-				...repository.state.indexChanges.map(change => change.uri.fsPath),
-			];
-			if (allChangedFiles.length > 0) {
-				await repository.add(allChangedFiles);
-				await vscode.commands.executeCommand('git.stash', repository);
-			}
-		} else if (modalResult === DISCARD_CHANGES) {
-			// Discard all tracked working tree changes
-			const trackedWorkingTreeFiles = trackedWorkingTreeChanges.map(change => change.uri.fsPath);
-			if (trackedWorkingTreeFiles.length > 0) {
-				await repository.clean(trackedWorkingTreeFiles);
-			}
-		}
-		return true; // Successfully handled changes, proceed with checkout
-	} catch (error) {
-		vscode.window.showErrorMessage(vscode.l10n.t('Failed to handle uncommitted changes: {0}', formatError(error)));
-		return false;
-	}
-}
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
@@ -493,37 +417,6 @@ export function registerCommands(
 		),
 	);
 
-	const switchToPr = async (folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, repository: Repository | undefined, isFromDescription: boolean) => {
-		// If we don't have a repository from the node, use the one from the folder manager
-		const repositoryToCheck = repository || folderManager.repository;
-
-		// Check for uncommitted changes before proceeding with checkout
-		const shouldProceed = await handleUncommittedChanges(repositoryToCheck);
-		if (!shouldProceed) {
-			return; // User cancelled or there was an error handling changes
-		}
-
-		/* __GDPR__
-			"pr.checkout" : {
-				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: isFromDescription.toString() });
-
-		return vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.SourceControl,
-				title: vscode.l10n.t('Switching to Pull Request #{0}', pullRequestModel.number),
-			},
-			async () => {
-				await ReviewManager.getReviewManagerForRepository(
-					reviewsManager.reviewManagers,
-					pullRequestModel.githubRepository,
-					repository
-				)?.switch(pullRequestModel);
-			});
-	};
-
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
 			if (pr === undefined) {
@@ -549,7 +442,7 @@ export function registerCommands(
 			}
 
 			const fromDescriptionPage = pr instanceof PullRequestModel;
-			return switchToPr(folderManager, pullRequestModel, repository, fromDescriptionPage);
+			return reviewsManager.switchToPr(folderManager, pullRequestModel, repository, fromDescriptionPage);
 
 		}));
 
@@ -653,14 +546,14 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
 			}
 
-			return switchToPr(folderManager, pullRequest, folderManager.repository, true);
+			return reviewsManager.switchToPr(folderManager, pullRequest, folderManager.repository, true);
 		}
 
 		const resolved = await resolvePr(ctx);
 		if (!resolved) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
-		return switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
+		return reviewsManager.switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
 
 	}));
 
@@ -1035,7 +928,7 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for pull request #{0}', pr.number.toString()));
 		}
 
-		return switchToPr(folderManager, pr, folderManager.repository, false);
+		return reviewsManager.switchToPr(folderManager, pr, folderManager.repository, false);
 	}
 
 	async function closeChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {

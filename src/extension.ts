@@ -268,10 +268,10 @@ async function init(
 	registerPostCommitCommandsProvider(reposManager, git);
 
 	// Resume any pending checkout request stored before workspace reopened.
-	await resumePendingCheckout(context, reposManager);
+	await resumePendingCheckout(reviewsManager, context, reposManager);
 
 	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry, prsTreeModel);
-	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context, git)));
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();

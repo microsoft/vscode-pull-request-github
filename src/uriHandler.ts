@@ -5,13 +5,16 @@
 
 import * as vscode from 'vscode';
 import { GitApiImpl } from './api/api1';
+import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { ITelemetry } from './common/telemetry';
 import { fromOpenIssueWebviewUri, fromOpenOrCheckoutPullRequestWebviewUri, UriHandlerPaths } from './common/uri';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { IssueOverviewPanel } from './github/issueOverview';
+import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { ReviewsManager } from './view/reviewsManager';
 
 export const PENDING_CHECKOUT_PULL_REQUEST_KEY = 'pendingCheckoutPullRequest';
 
@@ -25,7 +28,7 @@ interface PendingCheckoutPayload {
 function withCheckoutProgress<T>(owner: string, repo: string, prNumber: number, task: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Promise<T>): Promise<T> {
 	return vscode.window.withProgress({
 		location: vscode.ProgressLocation.Notification,
-		title: vscode.l10n.t('Checking out pull request #{0} from {1}/{2}...', prNumber, owner, repo),
+		title: vscode.l10n.t('Checking out pull request #{0} from {1}/{2}', prNumber, owner, repo),
 		cancellable: true
 	}, async (progress, token) => {
 		if (token.isCancellationRequested) {
@@ -35,9 +38,13 @@ function withCheckoutProgress<T>(owner: string, repo: string, prNumber: number, 
 	}) as Promise<T>;
 }
 
-async function performPullRequestCheckout(folderManager: FolderRepositoryManager, owner: string, repo: string, prNumber: number): Promise<void> {
+async function performPullRequestCheckout(reviewsManager: ReviewsManager, folderManager: FolderRepositoryManager, owner: string, repo: string, prNumber: number): Promise<void> {
 	try {
-		const pullRequest = await folderManager.resolvePullRequest(owner, repo, prNumber);
+		let pullRequest: PullRequestModel | undefined;
+		await withCheckoutProgress(owner, repo, prNumber, async (progress, _token) => {
+			progress.report({ message: vscode.l10n.t('Resolving pull request') });
+			pullRequest = await folderManager.resolvePullRequest(owner, repo, prNumber);
+		});
 		if (!pullRequest) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Pull request #{0} not found in {1}/{2}.', prNumber, owner, repo));
 			Logger.warn(`Pull request #${prNumber} not found for checkout.`, UriHandler.ID);
@@ -49,13 +56,13 @@ async function performPullRequestCheckout(folderManager: FolderRepositoryManager
 			return;
 		}
 
-		await vscode.commands.executeCommand('pr.pick', pullRequest);
+		await reviewsManager.switchToPr(folderManager, pullRequest, undefined, false);
 	} catch (e) {
 		Logger.error(`Error during pull request checkout: ${e instanceof Error ? e.message : String(e)}`, UriHandler.ID);
 	}
 }
 
-export async function resumePendingCheckout(context: vscode.ExtensionContext, reposManager: RepositoriesManager): Promise<void> {
+export async function resumePendingCheckout(reviewsManager: ReviewsManager, context: vscode.ExtensionContext, reposManager: RepositoriesManager): Promise<void> {
 	const pending = context.globalState.get<PendingCheckoutPayload>(PENDING_CHECKOUT_PULL_REQUEST_KEY);
 	if (!pending) {
 		return;
@@ -72,7 +79,7 @@ export async function resumePendingCheckout(context: vscode.ExtensionContext, re
 		if (!folderManager) {
 			return false;
 		}
-		await performPullRequestCheckout(folderManager, pending.owner, pending.repo, pending.pullRequestNumber);
+		await performPullRequestCheckout(reviewsManager, folderManager, pending.owner, pending.repo, pending.pullRequestNumber);
 		await context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, undefined);
 		return true;
 	};
@@ -95,6 +102,7 @@ export async function showCheckoutPrompt(owner: string, repo: string, prNumber: 
 export class UriHandler implements vscode.UriHandler {
 	public static readonly ID = 'UriHandler';
 	constructor(private readonly _reposManagers: RepositoriesManager,
+		private readonly _reviewsManagers: ReviewsManager,
 		private readonly _telemetry: ITelemetry,
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _git: GitApiImpl
@@ -141,7 +149,8 @@ export class UriHandler implements vscode.UriHandler {
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
 		const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
 		await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
-		await vscode.commands.executeCommand('vscode.openFolder', folderUri);
+		const isEmpty = vscode.workspace.workspaceFolders === undefined || vscode.workspace.workspaceFolders.length === 0;
+		await commands.openFolder(folderUri, { forceNewWindow: !isEmpty, forceReuseWindow: isEmpty });
 	}
 
 	private async _checkoutPullRequest(uri: vscode.Uri): Promise<void> {
@@ -151,7 +160,7 @@ export class UriHandler implements vscode.UriHandler {
 		}
 		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo);
 		if (folderManager) {
-			return performPullRequestCheckout(folderManager, params.owner, params.repo, params.pullRequestNumber);
+			return performPullRequestCheckout(this._reviewsManagers, folderManager, params.owner, params.repo, params.pullRequestNumber);
 		}
 		// Folder not found; request workspace open then resume later.
 		await withCheckoutProgress(params.owner, params.repo, params.pullRequestNumber, async (progress, token) => {
@@ -159,14 +168,14 @@ export class UriHandler implements vscode.UriHandler {
 				return;
 			}
 			try {
-				progress.report({ message: vscode.l10n.t('Locating workspace...') });
+				progress.report({ message: vscode.l10n.t('Locating workspace') });
 				const remoteUri = vscode.Uri.parse(`https://github.com/${params.owner}/${params.repo}`);
 				const workspaces = await this._git.getRepositoryWorkspace(remoteUri);
 				if (token.isCancellationRequested) {
 					return;
 				}
 				if (workspaces && workspaces.length) {
-					progress.report({ message: vscode.l10n.t('Opening workspace...') });
+					progress.report({ message: vscode.l10n.t('Opening workspace') });
 					await this._savePendingCheckoutAndOpenFolder(params, workspaces[0]);
 				} else {
 					this._showCloneOffer(remoteUri, params);
