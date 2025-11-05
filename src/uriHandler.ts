@@ -138,20 +138,26 @@ export class UriHandler implements vscode.UriHandler {
 		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, pullRequest);
 	}
 
+	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
+		const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
+		await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
+		await vscode.commands.executeCommand('vscode.openFolder', folderUri);
+	}
+
 	private async _checkoutPullRequest(uri: vscode.Uri): Promise<void> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
 			return;
 		}
+		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo);
+		if (folderManager) {
+			return performPullRequestCheckout(folderManager, params.owner, params.repo, params.pullRequestNumber);
+		}
+		// Folder not found; request workspace open then resume later.
 		await withCheckoutProgress(params.owner, params.repo, params.pullRequestNumber, async (progress, token) => {
 			if (token.isCancellationRequested) {
 				return;
 			}
-			const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo);
-			if (folderManager) {
-				return performPullRequestCheckout(folderManager, params.owner, params.repo, params.pullRequestNumber);
-			}
-			// Folder not found; request workspace open then resume later.
 			try {
 				progress.report({ message: vscode.l10n.t('Locating workspace...') });
 				const remoteUri = vscode.Uri.parse(`https://github.com/${params.owner}/${params.repo}`);
@@ -161,9 +167,7 @@ export class UriHandler implements vscode.UriHandler {
 				}
 				if (workspaces && workspaces.length) {
 					progress.report({ message: vscode.l10n.t('Opening workspace...') });
-					const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
-					await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
-					await vscode.commands.executeCommand('vscode.openFolder', workspaces[0]);
+					await this._savePendingCheckoutAndOpenFolder(params, workspaces[0]);
 				} else {
 					this._showCloneOffer(remoteUri, params);
 				}
@@ -184,9 +188,7 @@ export class UriHandler implements vscode.UriHandler {
 			try {
 				const clonedWorkspaceUri = await this._git.clone(remoteUri, { postCloneAction: 'none' });
 				if (clonedWorkspaceUri) {
-					const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
-					await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
-					await vscode.commands.executeCommand('vscode.openFolder', clonedWorkspaceUri);
+					await this._savePendingCheckoutAndOpenFolder(params, clonedWorkspaceUri);
 				} else {
 					Logger.warn(`Clone API returned null for ${remoteUri.toString()}`, UriHandler.ID);
 				}
