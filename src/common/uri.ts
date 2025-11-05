@@ -690,9 +690,11 @@ export function fromOpenOrCheckoutPullRequestWebviewUri(uri: vscode.Uri): OpenPu
 		const uriParam = queryParams.get('uri');
 		if (uriParam) {
 			// Parse the GitHub PR URL - match only exact format ending with the PR number
-			const match = uriParam.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)$/);
-			if (match) {
-				const [, owner, repo, pullRequestNumber] = match;
+			// Use named regex groups for clarity
+			const prUrlRegex = /^https?:\/\/github\.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/pull\/(?<pullRequestNumber>\d+)$/;
+			const match = prUrlRegex.exec(uriParam);
+			if (match && match.groups) {
+				const { owner, repo, pullRequestNumber } = match.groups;
 				const params = {
 					owner,
 					repo,
