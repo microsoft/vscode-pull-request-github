@@ -685,6 +685,27 @@ export function fromOpenOrCheckoutPullRequestWebviewUri(uri: vscode.Uri): OpenPu
 		return;
 	}
 	try {
+		// Check if the query uses the new simplified format: uri=https://github.com/owner/repo/pull/number
+		const queryParams = new URLSearchParams(uri.query);
+		const uriParam = queryParams.get('uri');
+		if (uriParam) {
+			// Parse the GitHub PR URL - match only exact format ending with the PR number
+			const match = uriParam.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)$/);
+			if (match) {
+				const [, owner, repo, pullRequestNumber] = match;
+				const params = {
+					owner,
+					repo,
+					pullRequestNumber: parseInt(pullRequestNumber, 10)
+				};
+				if (!validateOpenWebviewParams(params.owner, params.repo, params.pullRequestNumber.toString())) {
+					return;
+				}
+				return params;
+			}
+		}
+
+		// Fall back to the old JSON format for backward compatibility
 		const query = JSON.parse(uri.query.split('&')[0]);
 		if (!validateOpenWebviewParams(query.owner, query.repo, query.pullRequestNumber)) {
 			return;

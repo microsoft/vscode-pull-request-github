@@ -115,7 +115,8 @@ export class UriHandler implements vscode.UriHandler {
 			case UriHandlerPaths.OpenPullRequestWebview:
 				return this._openPullRequestWebview(uri);
 			case UriHandlerPaths.CheckoutPullRequest:
-				// example vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?%7B%22owner%22%3A%22alexr00%22%2C%22repo%22%3A%22playground%22%2C%22pullRequestNumber%22%3A714%7D
+				// Simplified format example: vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460
+				// Legacy format example: vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?%7B%22owner%22%3A%22alexr00%22%2C%22repo%22%3A%22playground%22%2C%22pullRequestNumber%22%3A714%7D
 				return this._checkoutPullRequest(uri);
 		}
 	}
