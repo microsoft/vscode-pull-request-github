@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
-import { APIState, PublishEvent } from '../@types/git';
+import { APIState, CloneOptions, PublishEvent } from '../@types/git';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
@@ -88,6 +88,15 @@ export class GitApiImpl extends Disposable implements API, IGit {
 		for (const [, provider] of this._providers) {
 			if (provider.getRepositoryWorkspace) {
 				return provider.getRepositoryWorkspace(uri);
+			}
+		}
+		return null;
+	}
+
+	async clone(uri: vscode.Uri, options?: CloneOptions): Promise<vscode.Uri | null> {
+		for (const [, provider] of this._providers) {
+			if (provider.clone) {
+				return provider.clone(uri, options);
 			}
 		}
 		return null;
