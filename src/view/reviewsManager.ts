@@ -121,7 +121,7 @@ export class ReviewsManager extends Disposable {
 
 		/* __GDPR__
 			"pr.checkout" : {
-				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"fromDescription" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
