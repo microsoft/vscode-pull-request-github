@@ -97,5 +97,17 @@ describe('uri', () => {
 			const result1 = fromOpenOrCheckoutPullRequestWebviewUri(uri1);
 			assert.strictEqual(result1, undefined);
 		});
+
+		it('should reject URLs with extra path segments after PR number', () => {
+			// URL with /files suffix should be rejected
+			const uri1 = vscode.Uri.parse('vscode://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/owner/repo/pull/123/files');
+			const result1 = fromOpenOrCheckoutPullRequestWebviewUri(uri1);
+			assert.strictEqual(result1, undefined);
+
+			// URL with /commits suffix should be rejected
+			const uri2 = vscode.Uri.parse('vscode://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/owner/repo/pull/456/commits');
+			const result2 = fromOpenOrCheckoutPullRequestWebviewUri(uri2);
+			assert.strictEqual(result2, undefined);
+		});
 	});
 });
