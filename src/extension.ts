@@ -265,7 +265,7 @@ async function init(
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
-	registerPostCommitCommandsProvider(reposManager, git);
+	registerPostCommitCommandsProvider(context, reposManager, git);
 
 	// Resume any pending checkout request stored before workspace reopened.
 	await resumePendingCheckout(reviewsManager, context, reposManager);
@@ -350,7 +350,7 @@ async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, cr
 	return false;
 }
 
-function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, git: GitApiImpl) {
+function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, reposManager: RepositoriesManager, git: GitApiImpl) {
 	const componentId = 'GitPostCommitCommands';
 	class Provider implements PostCommitCommandsProvider {
 
@@ -379,7 +379,7 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 		Logger.debug('Trying to register post commit commands.', 'GitPostCommitCommands');
 		if (hasGitHubRepos()) {
 			Logger.debug('GitHub remote(s) found, registering post commit commands.', componentId);
-			git.registerPostCommitCommandsProvider(new Provider());
+			context.subscriptions.push(git.registerPostCommitCommandsProvider(new Provider()));
 			return true;
 		}
 		return false;
