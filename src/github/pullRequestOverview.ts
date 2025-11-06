@@ -364,6 +364,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
+			case 'pr.readyForReviewAndMerge':
+				return this.setReadyForReviewAndMerge(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
@@ -647,6 +649,25 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
 				this._throwError(message, '');
 			});
+	}
+
+	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
+		try {
+			// Step 1: Mark as ready for review
+			const readyResult = await this._item.setReadyForReview();
+
+			// Step 2: Approve the PR
+			await this._item.approve(this._folderRepositoryManager.repository, '');
+
+			// Step 3: Enable auto-merge
+			await this._item.enableAutoMerge(message.args.mergeMethod);
+
+			// Return the ready result to update the UI
+			this._replyMessage(message, readyResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to mark ready for review and merge. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
