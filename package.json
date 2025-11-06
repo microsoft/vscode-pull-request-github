@@ -3151,11 +3151,6 @@
 					"command": "pr.create",
 					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
 					"group": "inline"
-				},
-				{
-					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
-					"group": "1_header@10"
 				}
 			],
 			"comments/commentThread/context": [
