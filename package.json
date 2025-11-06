@@ -3150,7 +3150,7 @@
 				{
 					"command": "pr.create",
 					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
-					"group": "navigation"
+					"group": "inline"
 				},
 				{
 					"command": "pr.create",
