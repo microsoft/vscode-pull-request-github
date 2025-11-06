@@ -1466,7 +1466,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openCommitChanges(extensionUri: vscode.Uri, githubRepository: GitHubRepository, commitSha: string) {
+	static async openCommitChanges(githubRepository: GitHubRepository, commitSha: string) {
 		try {
 			const parentCommit = await githubRepository.getCommitParent(commitSha);
 			if (!parentCommit) {
@@ -1477,7 +1477,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const changes = await githubRepository.compareCommits(parentCommit, commitSha);
 			if (!changes?.files || changes.files.length === 0) {
 				// Show a webview with the empty commit message instead of a notification
-				showEmptyCommitWebview(extensionUri, commitSha);
+				showEmptyCommitWebview(commitSha);
 				return;
 			}
 

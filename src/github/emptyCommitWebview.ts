@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
  * Opens a webview panel to display a message for an empty commit.
  * The message is centered and styled similar to GitHub.com.
  */
-export function showEmptyCommitWebview(extensionUri: vscode.Uri, commitSha: string): void {
+export function showEmptyCommitWebview(commitSha: string): void {
 	const panel = vscode.window.createWebviewPanel(
 		'emptyCommit',
 		vscode.l10n.t('Commit {0}', commitSha.substring(0, 7)),
@@ -38,9 +38,6 @@ function getEmptyCommitHtml(): string {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-			background-color: var(--vscode-editor-background);
-			color: var(--vscode-editor-foreground);
 		}
 		.container {
 			text-align: center;
@@ -71,9 +68,7 @@ function getEmptyCommitHtml(): string {
 <body>
 	<div class="container">
 		<div class="icon">
-			<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-				<path d="M13.5 0h-12C.67 0 0 .67 0 1.5v13c0 .83.67 1.5 1.5 1.5h12c.83 0 1.5-.67 1.5-1.5v-13c0-.83-.67-1.5-1.5-1.5zM13 14H2V2h11v12zM4 7h7v1H4V7zm0 2h7v1H4V9zm0 2h7v1H4v-1zM4 5h7v1H4V5z"/>
-			</svg>
+			<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M9.99994 11.999H4.99994V10.999H9.99994V11.999Z"/><path d="M7.99994 5.99902H9.99994V6.99902H7.99994V9H6.99994V6.99902H4.99994V5.99902H6.99994V4H7.99994V5.99902Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M10.7099 1.28906L13.7099 4.28906L13.9999 4.99902V13.999L12.9999 14.999H2.99994L1.99994 13.999V1.99902L2.99994 0.999023H9.99994L10.7099 1.28906ZM2.99994 13.999H12.9999V4.99902L9.99994 1.99902H2.99994V13.999Z"/></svg>
 		</div>
 		<div class="title">No changes to show.</div>
 		<div class="subtitle">This commit has no content.</div>
