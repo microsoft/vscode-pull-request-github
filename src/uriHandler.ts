@@ -176,6 +176,7 @@ export class UriHandler implements vscode.UriHandler {
 					return;
 				}
 				if (workspaces && workspaces.length) {
+					Logger.appendLine(`Found workspaces for ${remoteUri.toString()}: ${workspaces.map(w => w.toString()).join(', ')}`, UriHandler.ID);
 					progress.report({ message: vscode.l10n.t('Opening workspace') });
 					await this._savePendingCheckoutAndOpenFolder(params, workspaces[0]);
 				} else {
