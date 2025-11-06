@@ -4,13 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { EXTENSION_ID } from '../constants';
 
 /**
  * Opens a webview panel to display a message for an empty commit.
  * The message is centered and styled similar to GitHub.com.
  */
-export function showEmptyCommitWebview(commitSha: string): void {
+export function showEmptyCommitWebview(extensionUri: vscode.Uri, commitSha: string): void {
 	const panel = vscode.window.createWebviewPanel(
 		'emptyCommit',
 		vscode.l10n.t('Commit {0}', commitSha.substring(0, 7)),
@@ -21,14 +20,10 @@ export function showEmptyCommitWebview(commitSha: string): void {
 		}
 	);
 
-	// Set icon for the webview panel tab
-	const extensionUri = vscode.extensions.getExtension(EXTENSION_ID)?.extensionUri;
-	if (extensionUri) {
-		panel.iconPath = {
-			light: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'codicons', 'git-commit.svg'),
-			dark: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'codicons', 'git-commit.svg')
-		};
-	}
+	panel.iconPath = {
+		light: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'codicons', 'git-commit.svg'),
+		dark: vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'codicons', 'git-commit.svg')
+	};
 
 	panel.webview.html = getEmptyCommitHtml();
 }
