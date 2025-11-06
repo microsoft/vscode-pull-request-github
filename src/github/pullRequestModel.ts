@@ -89,7 +89,7 @@ import { Remote } from '../common/remote';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, Schemes, toEmptyCommitUri, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
@@ -1475,8 +1475,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const changes = await githubRepository.compareCommits(parentCommit, commitSha);
 			if (!changes?.files || changes.files.length === 0) {
-				vscode.window.showInformationMessage(vscode.l10n.t('No changes found in commit {0}', commitSha.substring(0, 7)));
-				return;
+				// Open a file showing the empty commit message instead of showing a notification
+				const emptyCommitUri = toEmptyCommitUri(commitSha);
+				return vscode.window.showTextDocument(emptyCommitUri, { preview: false });
 			}
 
 			// Create URI pairs for the multi diff editor using review scheme
