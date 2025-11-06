@@ -355,7 +355,7 @@ function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, re
 	class Provider implements PostCommitCommandsProvider {
 
 		getCommands(repository: Repository) {
-			Logger.debug(`Looking for remote. Comparing ${repository.state.remotes.length} local repo remotes with ${reposManager.folderManagers.reduce((prev, curr) => prev + curr.gitHubRepositories.length, 0)} GitHub repositories.`, componentId);
+			Logger.appendLine(`Looking for remote. Comparing ${repository.state.remotes.length} local repo remotes with ${reposManager.folderManagers.reduce((prev, curr) => prev + curr.gitHubRepositories.length, 0)} GitHub repositories.`, componentId);
 			const repoRemotes = parseRepositoryRemotes(repository);
 
 			const found = reposManager.folderManagers.find(folderManager => folderManager.findRepo(githubRepo => {
@@ -363,7 +363,7 @@ function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, re
 					return remote.equals(githubRepo.remote);
 				});
 			}));
-			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
+			Logger.appendLine(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
 			return found ? [{
 				command: 'pr.pushAndCreate',
 				title: vscode.l10n.t('{0} Commit & Create Pull Request', '$(git-pull-request-create)'),
@@ -376,9 +376,9 @@ function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, re
 		return reposManager.folderManagers.some(folderManager => folderManager.gitHubRepositories.length > 0);
 	}
 	function tryRegister(): boolean {
-		Logger.debug('Trying to register post commit commands.', 'GitPostCommitCommands');
+		Logger.appendLine('Trying to register post commit commands.', 'GitPostCommitCommands');
 		if (hasGitHubRepos()) {
-			Logger.debug('GitHub remote(s) found, registering post commit commands.', componentId);
+			Logger.appendLine('GitHub remote(s) found, registering post commit commands.', componentId);
 			context.subscriptions.push(git.registerPostCommitCommandsProvider(new Provider()));
 			return true;
 		}
@@ -395,7 +395,7 @@ function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, re
 }
 
 async function deferredActivateRegisterBuiltInGitProvider(context: vscode.ExtensionContext, apiImpl: GitApiImpl, credentialStore: CredentialStore) {
-	Logger.debug('Registering built in git provider.', 'Activation');
+	Logger.appendLine('Registering built in git provider.', 'Activation');
 	if (!(await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl))) {
 		const extensionsChangedDisposable = vscode.extensions.onDidChange(async () => {
 			if (await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl)) {
