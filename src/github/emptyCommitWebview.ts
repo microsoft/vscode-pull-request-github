@@ -45,20 +45,38 @@ function getEmptyCommitHtml(): string {
 		.container {
 			text-align: center;
 			padding: 2rem;
+			max-width: 600px;
 		}
-		.message {
-			font-size: 1.2rem;
-			line-height: 1.6;
+		.icon {
+			margin-bottom: 1.5rem;
+			opacity: 0.6;
+		}
+		.icon svg {
+			width: 64px;
+			height: 64px;
+			fill: currentColor;
+		}
+		.title {
+			font-size: 1.25rem;
+			font-weight: 400;
+			margin-bottom: 0.5rem;
+			color: var(--vscode-foreground);
+		}
+		.subtitle {
+			font-size: 0.95rem;
 			color: var(--vscode-descriptionForeground);
 		}
 	</style>
 </head>
 <body>
 	<div class="container">
-		<div class="message">
-			No changes to show.<br>
-			This commit has no content.
+		<div class="icon">
+			<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+				<path d="M13.5 0h-12C.67 0 0 .67 0 1.5v13c0 .83.67 1.5 1.5 1.5h12c.83 0 1.5-.67 1.5-1.5v-13c0-.83-.67-1.5-1.5-1.5zM13 14H2V2h11v12zM4 7h7v1H4V7zm0 2h7v1H4V9zm0 2h7v1H4v-1zM4 5h7v1H4V5z"/>
+			</svg>
 		</div>
+		<div class="title">No changes to show.</div>
+		<div class="subtitle">This commit has no content.</div>
 	</div>
 </body>
 </html>`;
