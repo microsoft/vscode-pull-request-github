@@ -44,7 +44,6 @@ import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { EmojiCompletionProvider } from './view/emojiCompletionProvider';
-import { EmptyCommitFileSystemProvider } from './view/emptyCommitFileSystemProvider';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
@@ -501,8 +500,6 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 	const githubFilesystemProvider = new GitHubCommitFileSystemProvider(reposManager, apiImpl, credentialStore);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));
-	const emptyCommitFileSystemProvider = new EmptyCommitFileSystemProvider();
-	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.EmptyCommit, emptyCommitFileSystemProvider, { isReadonly: true }));
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher, prsTreeModel);
 	return apiImpl;

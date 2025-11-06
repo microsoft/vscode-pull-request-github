@@ -117,14 +117,6 @@ export function toGitHubCommitUri(fileName: string, params: GitHubCommitUriParam
 	});
 }
 
-export function toEmptyCommitUri(commitSha: string): vscode.Uri {
-	return vscode.Uri.from({
-		scheme: Schemes.EmptyCommit,
-		path: `/commit-${commitSha.substring(0, 7)}.txt`,
-		query: commitSha
-	});
-}
-
 const ImageMimetypes = ['image/png', 'image/gif', 'image/jpeg', 'image/webp', 'image/tiff', 'image/bmp'];
 // Known media types that VS Code can handle: https://github.com/microsoft/vscode/blob/a64e8e5673a44e5b9c2d493666bde684bd5a135c/src/vs/base/common/mime.ts#L33-L84
 export const KnownMediaExtensions = [
@@ -758,8 +750,7 @@ export enum Schemes {
 	Repo = 'repo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
 	PRQuery = 'prquery', // PR query tree item
-	GitHubCommit = 'githubcommit', // file content from GitHub for a commit
-	EmptyCommit = 'emptycommit' // Empty commit placeholder file
+	GitHubCommit = 'githubcommit' // file content from GitHub for a commit
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

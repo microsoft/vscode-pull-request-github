@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
+import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, GraphQLError, GraphQLErrorType } from './githubRepository';
 import {
@@ -89,7 +90,7 @@ import { Remote } from '../common/remote';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, Schemes, toEmptyCommitUri, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
@@ -1465,7 +1466,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openCommitChanges(githubRepository: GitHubRepository, commitSha: string) {
+	static async openCommitChanges(extensionUri: vscode.Uri, githubRepository: GitHubRepository, commitSha: string) {
 		try {
 			const parentCommit = await githubRepository.getCommitParent(commitSha);
 			if (!parentCommit) {
@@ -1475,9 +1476,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const changes = await githubRepository.compareCommits(parentCommit, commitSha);
 			if (!changes?.files || changes.files.length === 0) {
-				// Open a file showing the empty commit message instead of showing a notification
-				const emptyCommitUri = toEmptyCommitUri(commitSha);
-				return vscode.window.showTextDocument(emptyCommitUri, { preview: false });
+				// Show a webview with the empty commit message instead of a notification
+				showEmptyCommitWebview(extensionUri, commitSha);
+				return;
 			}
 
 			// Create URI pairs for the multi diff editor using review scheme
