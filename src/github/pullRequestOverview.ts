@@ -657,15 +657,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const readyResult = await this._item.setReadyForReview();
 
 			// Step 2: Approve the PR
-			await this._item.approve(this._folderRepositoryManager.repository, '');
+			try {
+				await this._item.approve(this._folderRepositoryManager.repository, '');
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
 
 			// Step 3: Enable auto-merge
-			await this._item.enableAutoMerge(message.args.mergeMethod);
+			try {
+				await this._item.enableAutoMerge(message.args.mergeMethod);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
 
 			// Return the ready result to update the UI
 			this._replyMessage(message, readyResult);
 		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to mark ready for review and merge. ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
 			this._throwError(message, '');
 		}
 	}
