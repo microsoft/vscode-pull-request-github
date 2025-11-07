@@ -281,9 +281,8 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 
 };
 
-export const ReadyForReview = ({ isSimple, showMergeButton, mergeMethod }: { isSimple: boolean; showMergeButton?: boolean; mergeMethod?: MergeMethod }) => {
+export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
 	const [isBusy, setBusy] = useState(false);
-	const [isMergeBusy, setMergeBusy] = useState(false);
 	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
 
 	const markReadyForReview = useCallback(async () => {
@@ -298,13 +297,13 @@ export const ReadyForReview = ({ isSimple, showMergeButton, mergeMethod }: { isS
 
 	const markReadyAndMerge = useCallback(async () => {
 		try {
-			setMergeBusy(true);
-			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod || 'squash' });
+			setBusy(true);
+			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
 			updatePR(result);
 		} finally {
-			setMergeBusy(false);
+			setBusy(false);
 		}
-	}, [setMergeBusy, readyForReviewAndMerge, updatePR, mergeMethod]);
+	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
 
 	return (
 		<div className="ready-for-review-container">
@@ -316,18 +315,18 @@ export const ReadyForReview = ({ isSimple, showMergeButton, mergeMethod }: { isS
 				</div>
 			</div>
 			<div className='button-container'>
-				<button disabled={isBusy || isMergeBusy} onClick={markReadyForReview}>Ready for Review</button>
-				{showMergeButton && (
+				{isCopilotOnMyBehalf && (
 					<button
 						className="secondary"
-						disabled={isBusy || isMergeBusy}
+						disabled={isBusy}
 						onClick={markReadyAndMerge}
-						title="Mark as ready for review, approve, and enable auto-merge with squash"
+						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
 						aria-label="Ready for Review, Approve, and Auto-Merge"
 					>
 						Ready &amp; Merge
 					</button>
 				)}
+				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
 			</div>
 		</div>
 	);
@@ -360,16 +359,14 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable, isCopilotOnMyBehalf, mergeMethodsAvailability } = pr;
+	const { hasWritePermission, canEdit, isDraft, mergeable, isCopilotOnMyBehalf, defaultMergeMethod } = pr;
 	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
 		if (!canEdit) {
 			return null;
 		}
-		
-		// For Copilot-created PRs, show the "Ready & Merge" button alongside the regular button
-		const showMergeButton = isCopilotOnMyBehalf && mergeMethodsAvailability.squash;
-		return <ReadyForReview isSimple={isSimple} showMergeButton={showMergeButton} mergeMethod="squash" />;
+
+		return <ReadyForReview isSimple={isSimple} isCopilotOnMyBehalf={isCopilotOnMyBehalf} mergeMethod={defaultMergeMethod} />;
 	}
 
 	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
