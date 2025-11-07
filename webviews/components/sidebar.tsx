@@ -383,7 +383,7 @@ function CollapsedLabel(props: PullRequest) {
 					items={labels}
 					getKey={l => l.name}
 					getColor={l => gitHubLabelColor(l.color, props?.isDarkTheme, false)}
-					getText={l => l.name}
+					getText={l => l.displayName}
 				/>
 			),
 			count: labels.length
