@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.122.0
+
+### Changes
+
+- [Markdown alert syntax](https://github.com/orgs/community/discussions/16925) is now rendered in review comments.
+
+![Markdown alerts in review comments](./documentation/changelog/0.120.3/markdown-alerts.png)
+
+- Emoji completions for `:smile:` style emojis are now available in review comments.
+
+![Emoji completions in review comments](./documentation/changelog/0.120.3/emoji-completions.gif)
+
 ## 0.120.2
 
 ### Fixes
