@@ -288,12 +288,14 @@ function CollapsedLabel(props: PullRequest) {
 		</span>
 	);
 
-	const PillContainer = ({ items, getKey, getColor, getText }: {
-		items: any[],
-		getKey: (item: any) => string,
-		getColor: (item: any) => { backgroundColor: string; textColor: string; borderColor: string },
-		getText: (item: any) => string
-	}) => {
+	interface PillContainerProps<T> {
+		items: T[];
+		getKey: (item: T) => string;
+		getColor: (item: T) => { backgroundColor: string; textColor: string; borderColor: string };
+		getText: (item: T) => string;
+	}
+
+	const PillContainer = <T,>({ items, getKey, getColor, getText }: PillContainerProps<T>) => {
 		const containerRef = useRef<HTMLSpanElement>(null);
 		const [visibleCount, setVisibleCount] = useState(items.length);
 
