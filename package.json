@@ -429,6 +429,11 @@
 					"default": false,
 					"description": "%githubPullRequests.ignoreSubmodules.description%"
 				},
+				"githubPullRequests.allowReposOutsideWorkspace": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.allowReposOutsideWorkspace.description%"
+				},
 				"githubPullRequests.neverIgnoreDefaultBranch": {
 					"type": "boolean",
 					"description": "%githubPullRequests.neverIgnoreDefaultBranch.description%"

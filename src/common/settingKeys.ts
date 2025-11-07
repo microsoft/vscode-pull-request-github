@@ -14,6 +14,7 @@ export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
 export const IGNORE_PR_BRANCHES = 'ignoredPullRequestBranches';
 export const IGNORE_SUBMODULES = 'ignoreSubmodules';
+export const ALLOW_REPOS_OUTSIDE_WORKSPACE = 'allowReposOutsideWorkspace';
 export const NEVER_IGNORE_DEFAULT_BRANCH = 'neverIgnoreDefaultBranch';
 export const OVERRIDE_DEFAULT_BRANCH = 'overrideDefaultBranch';
 export const PULL_BRANCH = 'pullBranch';
