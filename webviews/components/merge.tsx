@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkAllIcon, checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -317,13 +317,13 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 			<div className='button-container'>
 				{isCopilotOnMyBehalf && (
 					<button
-						className="secondary"
+						className="icon-button"
 						disabled={isBusy}
 						onClick={markReadyAndMerge}
 						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
 						aria-label="Ready for Review, Approve, and Auto-Merge"
 					>
-						Ready &amp; Merge
+						{checkAllIcon}
 					</button>
 				)}
 				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
