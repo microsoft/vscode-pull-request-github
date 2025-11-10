@@ -244,18 +244,20 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeabl
 		}
 	}
 	return (
-		<div className="status-item status-section">
-			{icon}
-			<p>
-				{summary}
-			</p>
-			{(action && canUpdateBranch) ?
-				<div className="button-container">
-					<button className="secondary" onClick={onClick} disabled={busy} >
-						{action}
-					</button>
-				</div>
-			: null}
+		<div className="status-section">
+			<div className="status-item">
+				{icon}
+				<p>
+					{summary}
+				</p>
+				{(action && canUpdateBranch) ?
+					<div className="button-container">
+						<button className="secondary" onClick={onClick} disabled={busy} >
+							{action}
+						</button>
+					</div>
+				: null}
+			</div>
 		</div>
 	);
 };
