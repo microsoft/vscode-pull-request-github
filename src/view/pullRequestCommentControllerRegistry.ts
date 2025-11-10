@@ -20,9 +20,15 @@ interface PullRequestCommentHandlerInfo {
 	dispose: () => void;
 }
 
+interface PRCommentingRangeProviderInfo {
+	provider: vscode.CommentingRangeProvider2;
+	refCount: number;
+	dispose: () => void;
+}
+
 export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
-	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider2 } = {};
+	private _prCommentingRangeProviders: { [key: number]: PRCommentingRangeProviderInfo } = {};
 	private readonly _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 	public readonly resourceHints = { schemes: [Schemes.Pr] };
 
@@ -40,8 +46,8 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 			return;
 		}
 
-		const provideCommentingRanges = this._prCommentingRangeProviders[params.prNumber].provideCommentingRanges.bind(
-			this._prCommentingRangeProviders[params.prNumber],
+		const provideCommentingRanges = this._prCommentingRangeProviders[params.prNumber].provider.provideCommentingRanges.bind(
+			this._prCommentingRangeProviders[params.prNumber].provider,
 		);
 
 		return provideCommentingRanges(document, token);
@@ -108,13 +114,27 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 	}
 
 	public registerCommentingRangeProvider(prNumber: number, provider: vscode.CommentingRangeProvider2): vscode.Disposable {
-		this._prCommentingRangeProviders[prNumber] = provider;
+		if (this._prCommentingRangeProviders[prNumber]) {
+			this._prCommentingRangeProviders[prNumber].refCount += 1;
+			return this._prCommentingRangeProviders[prNumber];
+		}
 
-		return {
+		this._prCommentingRangeProviders[prNumber] = {
+			provider,
+			refCount: 1,
 			dispose: () => {
-				delete this._prCommentingRangeProviders[prNumber];
+				if (!this._prCommentingRangeProviders[prNumber]) {
+					return;
+				}
+
+				this._prCommentingRangeProviders[prNumber].refCount -= 1;
+				if (this._prCommentingRangeProviders[prNumber].refCount === 0) {
+					delete this._prCommentingRangeProviders[prNumber];
+				}
 			}
 		};
+
+		return this._prCommentingRangeProviders[prNumber];
 	}
 
 	override dispose() {
