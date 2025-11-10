@@ -14,13 +14,13 @@ import { GHPRComment } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CommentReactionHandler } from '../github/utils';
 
-interface PullRequestCommentHandlerInfo {
+interface PullRequestCommentHandlerInfo extends vscode.Disposable {
 	handler: PullRequestCommentController & CommentReactionHandler;
 	refCount: number;
 	dispose: () => void;
 }
 
-interface PRCommentingRangeProviderInfo {
+interface PRCommentingRangeProviderInfo extends vscode.Disposable {
 	provider: vscode.CommentingRangeProvider2;
 	refCount: number;
 	dispose: () => void;
