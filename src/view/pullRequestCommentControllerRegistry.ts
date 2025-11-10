@@ -17,13 +17,11 @@ import { CommentReactionHandler } from '../github/utils';
 interface PullRequestCommentHandlerInfo extends vscode.Disposable {
 	handler: PullRequestCommentController & CommentReactionHandler;
 	refCount: number;
-	dispose: () => void;
 }
 
 interface PRCommentingRangeProviderInfo extends vscode.Disposable {
 	provider: vscode.CommentingRangeProvider2;
 	refCount: number;
-	dispose: () => void;
 }
 
 export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
