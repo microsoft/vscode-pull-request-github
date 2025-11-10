@@ -1064,6 +1064,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					const repo = pullRequest.remote.repositoryName;
 					repoInfo = `${owner}/${repo} `;
 				}
+				const fileCount = pullRequest.fileChanges.size === 0 ? (await pullRequest.getFileChangesInfo()).length : pullRequest.fileChanges.size;
 				const description = new vscode.MarkdownString(`[${repoInfo}#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
 				const chatSession: ChatSessionWithPR = {
 					resource: vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/' + pullRequest.number }),
@@ -1078,7 +1079,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 					},
 					statistics: pullRequest.item.additions !== undefined && pullRequest.item.deletions !== undefined && (pullRequest.item.additions > 0 || pullRequest.item.deletions > 0) ? {
 						insertions: pullRequest.item.additions,
-						deletions: pullRequest.item.deletions
+						deletions: pullRequest.item.deletions,
+						files: fileCount
 					} : undefined
 				};
 				return chatSession;
