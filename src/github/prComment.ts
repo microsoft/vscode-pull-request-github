@@ -98,6 +98,11 @@ abstract class CommentBase implements vscode.Comment {
 	public label: string | undefined;
 
 	/**
+	 * The state of the comment
+	 */
+	public state?: vscode.CommentState;
+
+	/**
 	 * The list of reactions to the comment
 	 */
 	public reactions?: vscode.CommentReaction[] | undefined;
@@ -172,7 +177,7 @@ export class TemporaryComment extends CommentBase {
 			name: currentUser.specialDisplayName ?? currentUser.login,
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
-		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
+		this.state = isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
 		this.contextValue = 'temporary,canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment.rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
@@ -248,7 +253,7 @@ export class GHPRComment extends CommentBase {
 
 		updateCommentReactions(this, comment.reactions);
 
-		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
+		this.state = comment.isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
 
 		const contextValues: string[] = [];
 		if (comment.canEdit) {
@@ -286,9 +291,9 @@ export class GHPRComment extends CommentBase {
 			refresh = true;
 		}
 
-		const oldLabel = this.label;
-		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
-		if (this.label !== oldLabel) {
+		const oldState = this.state;
+		this.state = comment.isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
+		if (this.state !== oldState) {
 			refresh = true;
 		}
 
