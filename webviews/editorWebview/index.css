@@ -314,6 +314,12 @@ button.input-box {
 	align-items: center;
 }
 
+.ready-for-review-container .button-container {
+	flex-direction: row;
+	display: flex;
+	align-items: center;
+}
+
 .ready-for-review-icon {
 	width: 16px;
 	height: 16px;

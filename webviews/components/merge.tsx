@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkAllIcon, checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -283,9 +283,10 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 
 };
 
-export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
+export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
 	const [isBusy, setBusy] = useState(false);
-	const { readyForReview, updatePR } = useContext(PullRequestContext);
+	const [isMergeBusy, setMergeBusy] = useState(false);
+	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
 
 	const markReadyForReview = useCallback(async () => {
 		try {
@@ -297,6 +298,18 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 		}
 	}, [setBusy, readyForReview, updatePR]);
 
+	const markReadyAndMerge = useCallback(async () => {
+		try {
+			setBusy(true);
+			setMergeBusy(true);
+			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
+			updatePR(result);
+		} finally {
+			setBusy(false);
+			setMergeBusy(false);
+		}
+	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+
 	return (
 		<div className="ready-for-review-container">
 			<div className='ready-for-review-text-wrapper'>
@@ -307,6 +320,17 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 				</div>
 			</div>
 			<div className='button-container'>
+				{isCopilotOnMyBehalf && (
+					<button
+						className="icon-button"
+						disabled={isBusy}
+						onClick={markReadyAndMerge}
+						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
+						aria-label="Ready for Review, Approve, and Auto-Merge"
+					>
+						{isMergeBusy ? loadingIcon : checkAllIcon}
+					</button>
+				)}
 				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
 			</div>
 		</div>
@@ -340,10 +364,14 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable } = pr;
+	const { hasWritePermission, canEdit, isDraft, mergeable, isCopilotOnMyBehalf, defaultMergeMethod } = pr;
 	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
-		return canEdit ? <ReadyForReview isSimple={isSimple} /> : null;
+		if (!canEdit) {
+			return null;
+		}
+
+		return <ReadyForReview isSimple={isSimple} isCopilotOnMyBehalf={isCopilotOnMyBehalf} mergeMethod={defaultMergeMethod} />;
 	}
 
 	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
