@@ -298,10 +298,12 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 
 	const markReadyAndMerge = useCallback(async () => {
 		try {
+			setBusy(true);
 			setMergeBusy(true);
 			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
 			updatePR(result);
 		} finally {
+			setBusy(false);
 			setMergeBusy(false);
 		}
 	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
@@ -319,7 +321,7 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 				{isCopilotOnMyBehalf && (
 					<button
 						className="icon-button"
-						disabled={isBusy || isMergeBusy}
+						disabled={isBusy}
 						onClick={markReadyAndMerge}
 						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
 						aria-label="Ready for Review, Approve, and Auto-Merge"
@@ -327,7 +329,7 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 						{isMergeBusy ? loadingIcon : checkAllIcon}
 					</button>
 				)}
-				<button disabled={isBusy || isMergeBusy} onClick={markReadyForReview}>Ready for Review</button>
+				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
 			</div>
 		</div>
 	);

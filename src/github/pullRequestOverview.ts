@@ -653,10 +653,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
 		try {
-			// Step 1: Mark as ready for review
 			const readyResult = await this._item.setReadyForReview();
 
-			// Step 2: Approve the PR
 			try {
 				await this._item.approve(this._folderRepositoryManager.repository, '');
 			} catch (e) {
@@ -665,7 +663,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return;
 			}
 
-			// Step 3: Enable auto-merge
 			try {
 				await this._item.enableAutoMerge(message.args.mergeMethod);
 			} catch (e) {
@@ -674,7 +671,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return;
 			}
 
-			// Return the ready result to update the UI
 			this._replyMessage(message, readyResult);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
