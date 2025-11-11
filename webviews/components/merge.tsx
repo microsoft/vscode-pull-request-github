@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { checkAllIcon, checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkAllIcon, checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -283,6 +283,7 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 
 export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
 	const [isBusy, setBusy] = useState(false);
+	const [isMergeBusy, setMergeBusy] = useState(false);
 	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
 
 	const markReadyForReview = useCallback(async () => {
@@ -297,11 +298,11 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 
 	const markReadyAndMerge = useCallback(async () => {
 		try {
-			setBusy(true);
+			setMergeBusy(true);
 			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
 			updatePR(result);
 		} finally {
-			setBusy(false);
+			setMergeBusy(false);
 		}
 	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
 
@@ -318,15 +319,15 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 				{isCopilotOnMyBehalf && (
 					<button
 						className="icon-button"
-						disabled={isBusy}
+						disabled={isBusy || isMergeBusy}
 						onClick={markReadyAndMerge}
 						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
 						aria-label="Ready for Review, Approve, and Auto-Merge"
 					>
-						{checkAllIcon}
+						{isMergeBusy ? loadingIcon : checkAllIcon}
 					</button>
 				)}
-				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
+				<button disabled={isBusy || isMergeBusy} onClick={markReadyForReview}>Ready for Review</button>
 			</div>
 		</div>
 	);
