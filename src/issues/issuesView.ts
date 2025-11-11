@@ -117,7 +117,7 @@ export class IssuesTreeData
 		};
 
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
-			treeItem.label = `✓ ${treeItem.label as string}`;
+			treeItem.label = `$(check) ${treeItem.label as string}`;
 			treeItem.contextValue = 'currentissue';
 		} else {
 			const savedState = this.stateManager.getSavedIssueState(element.number);
