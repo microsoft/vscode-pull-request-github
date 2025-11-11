@@ -75,6 +75,11 @@ export class ReviewManager extends Disposable {
 	 * explicit user action from something like reloading on an existing PR branch.
 	 */
 	private justSwitchedToReviewMode: boolean = false;
+	/**
+	 * The last pull request the user explicitly switched to via the switch method.
+	 * Used to enter review mode for this PR regardless of its state (open/closed/merged).
+	 */
+	private _switchedToPullRequest?: PullRequestModel;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -481,13 +486,16 @@ export class ReviewManager extends Disposable {
 
 		const useReviewConfiguration = getReviewMode();
 
-		if (pr.isClosed && !useReviewConfiguration.closed) {
+		// If this is the PR the user explicitly switched to, always use review mode regardless of state
+		const isSwitchedToPullRequest = this._switchedToPullRequest?.number === pr.number;
+
+		if (pr.isClosed && !useReviewConfiguration.closed && !isSwitchedToPullRequest) {
 			Logger.appendLine('This PR is closed', this.id);
 			await this.clear(true);
 			return;
 		}
 
-		if (pr.isMerged && !useReviewConfiguration.merged) {
+		if (pr.isMerged && !useReviewConfiguration.merged && !isSwitchedToPullRequest) {
 			Logger.appendLine('This PR is merged', this.id);
 			await this.clear(true);
 			return;
@@ -1090,6 +1098,7 @@ export class ReviewManager extends Disposable {
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
 		this.switchingToReviewMode = true;
+		this._switchedToPullRequest = pr;
 
 		try {
 			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
@@ -1243,6 +1252,7 @@ export class ReviewManager extends Disposable {
 
 			this._prNumber = undefined;
 			this._folderRepoManager.activePullRequest = undefined;
+			this._switchedToPullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
