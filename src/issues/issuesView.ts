@@ -117,8 +117,10 @@ export class IssuesTreeData
 		};
 
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
+			// Escape any $(...) syntax to avoid rendering issue titles as icons.
+			const escapedTitle = element.title.replace(/\$\([a-zA-Z0-9~-]+\)/g, '\\$&');
 			const label: vscode.TreeItemLabel2 = {
-				label: new vscode.MarkdownString(`$(check) ${element.title}`, true)
+				label: new vscode.MarkdownString(`$(check) ${escapedTitle}`, true)
 			};
 			treeItem.label = label as vscode.TreeItemLabel;
 			treeItem.contextValue = 'currentissue';
