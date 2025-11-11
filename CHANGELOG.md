@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.122.0
+
+### Changes
+
+- Auto-generated PR descriptions (via `githubPullRequests.pullRequestDescription`) will respect the repository PR template if there is one.
+- Icons in the Pull Requests view now render with codicons instead of Unicode characters.
+- Drafts in the Pull Requests view now render in italics instead of having a `[DRAFT]` prefix.
+
+![Pull Requests view showing codicon labels and italic draft PR titles](./documentation/changelog/0.122.0/pr-labels.png)
+
+- Emoji completions for `:smile:` style emojis are now available in review comments.
+
+![Emoji completions in review comments](./documentation/changelog/0.122.0/emoji-completions.gif)
+
+- [Markdown alert syntax](https://github.com/orgs/community/discussions/16925) is now rendered in review comments.
+
+![Markdown alerts in review comments](./documentation/changelog/0.122.0/markdown-alerts.png)
+
+- Opening an empty commit from a pull request webview shows an editor with a message instead of showing a notification.
+- Pull requests can be opened from from a url, for example: `vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460`
+- Icons are up-to-date with VS Code's latest icons.
+- If you start a review and want to cancel it, there's now a "Cancel Review" button in the pull request webview.
+
+![Cancel review button](./documentation/changelog/0.122.0/cancel-review.png)
+
+### Fixes
+
+- Reactions to code comments are not showing up (Web). https://github.com/microsoft/vscode-pull-request-github/issues/2195
+- Editing a comment freezes VS Code. https://github.com/microsoft/vscode/issues/274455
+- Github Pull Request tab won't open if branch names are reused. https://github.com/microsoft/vscode-pull-request-github/issues/8007
+- Icons are misaligned. https://github.com/microsoft/vscode-pull-request-github/issues/7998
+- "Git is not installed or otherwise not available" even though it is. https://github.com/microsoft/vscode-pull-request-github/issues/5454
+
+**_Thank You_**
+
+* [@bendrucker (Ben Drucker)](https://github.com/bendrucker): Enable all LLM tools in prompts (agent mode) [PR #6956](https://github.com/microsoft/vscode-pull-request-github/pull/6956)
+* [@gerardbalaoro (Gerard Balaoro)](https://github.com/gerardbalaoro): Make branch list timeout configurable (#2840) [PR #7927](https://github.com/microsoft/vscode-pull-request-github/pull/7927)
+* [@wankun-tcj](https://github.com/wankun-tcj): Fix avatar display issue in Pull Request tree view [PR #7851](https://github.com/microsoft/vscode-pull-request-github/pull/7851)
+
 ## 0.120.2
 
 ### Fixes

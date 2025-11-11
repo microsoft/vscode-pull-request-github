@@ -3147,6 +3147,13 @@
 					"group": "1_modification@5"
 				}
 			],
+			"scm/repository": [
+				{
+					"command": "pr.create",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
+					"group": "inline"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",
