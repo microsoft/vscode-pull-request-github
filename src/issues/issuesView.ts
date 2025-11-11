@@ -117,7 +117,10 @@ export class IssuesTreeData
 		};
 
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
-			treeItem.label = `✓ ${treeItem.label as string}`;
+			const label: vscode.TreeItemLabel2 = {
+				label: new vscode.MarkdownString(`$(check) ${element.title}`, true)
+			};
+			treeItem.label = label as vscode.TreeItemLabel;
 			treeItem.contextValue = 'currentissue';
 		} else {
 			const savedState = this.stateManager.getSavedIssueState(element.number);
