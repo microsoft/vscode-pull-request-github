@@ -524,15 +524,13 @@ export interface CommitsNodeUriParams {
 	owner: string;
 	repo: string;
 	prNumber: number;
-	commitsCount: number;
 }
 
-export function createCommitsNodeUri(owner: string, repo: string, prNumber: number, commitsCount: number): vscode.Uri {
+export function createCommitsNodeUri(owner: string, repo: string, prNumber: number): vscode.Uri {
 	const params: CommitsNodeUriParams = {
 		owner,
 		repo,
-		prNumber,
-		commitsCount
+		prNumber
 	};
 
 	return vscode.Uri.parse(`${Schemes.CommitsNode}:${owner}/${repo}/${prNumber}`).with({

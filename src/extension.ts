@@ -172,7 +172,7 @@ async function init(
 	);
 	const treeDecorationProviders = new TreeDecorationProviders(reposManager);
 	context.subscriptions.push(treeDecorationProviders);
-	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager), new CommitsDecorationProvider()]);
+	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager), new CommitsDecorationProvider(reposManager)]);
 
 	const notificationsProvider = new NotificationsProvider(credentialStore, reposManager);
 	context.subscriptions.push(notificationsProvider);

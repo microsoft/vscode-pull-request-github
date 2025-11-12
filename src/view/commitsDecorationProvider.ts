@@ -8,10 +8,11 @@ import { TreeDecorationProvider } from './treeDecorationProviders';
 import { createCommitsNodeUri, fromCommitsNodeUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class CommitsDecorationProvider extends TreeDecorationProvider {
 
-	constructor() {
+	constructor(private readonly _repositoriesManager: RepositoriesManager) {
 		super();
 	}
 
@@ -19,7 +20,7 @@ export class CommitsDecorationProvider extends TreeDecorationProvider {
 		return model.onDidChange(e => {
 			if (e.timeline) {
 				// Timeline changed, which may include new commits, so update the decoration
-				const uri = createCommitsNodeUri(model.remote.owner, model.remote.repositoryName, model.number, model.item.commits.length);
+				const uri = createCommitsNodeUri(model.remote.owner, model.remote.repositoryName, model.number);
 				this._onDidChangeFileDecorations.fire(uri);
 			}
 		});
@@ -38,10 +39,30 @@ export class CommitsDecorationProvider extends TreeDecorationProvider {
 			return undefined;
 		}
 
-		return {
-			badge: params.commitsCount.toString(),
-			tooltip: vscode.l10n.t('{0} commits', params.commitsCount)
-		};
+		// Find the PR model to get the current commit count
+		const folderManager = this._repositoriesManager.folderManagers.find(fm =>
+			fm.gitHubRepositories.some(repo =>
+				repo.remote.owner === params.owner && repo.remote.repositoryName === params.repo
+			)
+		);
+
+		if (folderManager) {
+			const repo = folderManager.gitHubRepositories.find(r =>
+				r.remote.owner === params.owner && r.remote.repositoryName === params.repo
+			);
+			if (repo) {
+				const pr = repo.getExistingPullRequestModel(params.prNumber);
+				if (pr) {
+					const commitsCount = pr.item.commits.length;
+					return {
+						badge: commitsCount.toString(),
+						tooltip: vscode.l10n.t('{0} commits', commitsCount)
+					};
+				}
+			}
+		}
+
+		return undefined;
 	}
 
 }
