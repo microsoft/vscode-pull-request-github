@@ -13,6 +13,7 @@ import React, {
 	useState,
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
+import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
@@ -285,25 +286,47 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 
 export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
 	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
 
-	const submitAction = useCallback(async (selected: string) => {
-		if (selected === 'readyAndMerge') {
-			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
-			updatePR(result);
-		} else {
+	const markReadyForReview = useCallback(async () => {
+		try {
+			setBusy(true);
 			const result = await readyForReview();
 			updatePR(result);
+		} finally {
+			setBusy(false);
 		}
-	}, [readyForReview, readyForReviewAndMerge, updatePR, mergeMethod]);
+	}, [readyForReview, updatePR]);
 
-	const options = isCopilotOnMyBehalf 
-		? {
-			ready: 'Ready for Review',
-			readyAndMerge: 'Ready, Approve, and Auto-Merge'
+	const markReadyAndMerge = useCallback(async () => {
+		try {
+			setBusy(true);
+			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
+			updatePR(result);
+		} finally {
+			setBusy(false);
 		}
-		: {
-			ready: 'Ready for Review'
-		};
+	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+
+	const allOptions = useCallback(() => {
+		const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [
+			{ 
+				label: 'Ready for Review', 
+				value: 'ready', 
+				action: markReadyForReview 
+			}
+		];
+		
+		if (isCopilotOnMyBehalf) {
+			actions.push({ 
+				label: 'Ready, Approve, and Auto-Merge', 
+				value: 'readyAndMerge', 
+				action: markReadyAndMerge 
+			});
+		}
+		
+		return actions;
+	}, [isCopilotOnMyBehalf, markReadyForReview, markReadyAndMerge]);
 
 	return (
 		<div className="ready-for-review-container">
@@ -315,7 +338,21 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 				</div>
 			</div>
 			<div className='button-container'>
-				<Dropdown options={options} defaultOption='ready' submitAction={submitAction} />
+				<ContextDropdown
+					optionsContext={() => JSON.stringify({
+						'preventDefaultContextMenuItems': true,
+						'github:readyForReviewMenu': true,
+						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf
+					})}
+					defaultAction={markReadyForReview}
+					defaultOptionLabel={() => 'Ready for Review'}
+					defaultOptionValue={() => 'ready'}
+					allOptions={allOptions}
+					optionsTitle='Ready for Review'
+					disabled={isBusy}
+					hasSingleAction={!isCopilotOnMyBehalf}
+					spreadable={false}
+				/>
 			</div>
 		</div>
 	);
