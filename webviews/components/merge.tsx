@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { checkAllIcon, checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -284,31 +284,26 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 };
 
 export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
-	const [isBusy, setBusy] = useState(false);
-	const [isMergeBusy, setMergeBusy] = useState(false);
 	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
 
-	const markReadyForReview = useCallback(async () => {
-		try {
-			setBusy(true);
-			const result = await readyForReview();
-			updatePR(result);
-		} finally {
-			setBusy(false);
-		}
-	}, [setBusy, readyForReview, updatePR]);
-
-	const markReadyAndMerge = useCallback(async () => {
-		try {
-			setBusy(true);
-			setMergeBusy(true);
+	const submitAction = useCallback(async (selected: string) => {
+		if (selected === 'readyAndMerge') {
 			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
 			updatePR(result);
-		} finally {
-			setBusy(false);
-			setMergeBusy(false);
+		} else {
+			const result = await readyForReview();
+			updatePR(result);
 		}
-	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+	}, [readyForReview, readyForReviewAndMerge, updatePR, mergeMethod]);
+
+	const options = isCopilotOnMyBehalf 
+		? {
+			ready: 'Ready for Review',
+			readyAndMerge: 'Ready, Approve, and Auto-Merge'
+		}
+		: {
+			ready: 'Ready for Review'
+		};
 
 	return (
 		<div className="ready-for-review-container">
@@ -320,18 +315,7 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 				</div>
 			</div>
 			<div className='button-container'>
-				{isCopilotOnMyBehalf && (
-					<button
-						className="icon-button"
-						disabled={isBusy}
-						onClick={markReadyAndMerge}
-						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
-						aria-label="Ready for Review, Approve, and Auto-Merge"
-					>
-						{isMergeBusy ? loadingIcon : checkAllIcon}
-					</button>
-				)}
-				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
+				<Dropdown options={options} defaultOption='ready' submitAction={submitAction} />
 			</div>
 		</div>
 	);
