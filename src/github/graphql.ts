@@ -188,6 +188,9 @@ export interface Commit {
 		oid: string;
 		message: string;
 		committedDate: Date;
+		statusCheckRollup?: {
+			state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+		};
 	};
 
 	url: string;
