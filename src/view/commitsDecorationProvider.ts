@@ -39,17 +39,10 @@ export class CommitsDecorationProvider extends TreeDecorationProvider {
 			return undefined;
 		}
 
-		// Find the PR model to get the current commit count
-		const folderManager = this._repositoriesManager.folderManagers.find(fm =>
-			fm.gitHubRepositories.some(repo =>
-				repo.remote.owner === params.owner && repo.remote.repositoryName === params.repo
-			)
-		);
+		const folderManager = this._repositoriesManager.getManagerForRepository(params.owner, params.repo);
 
 		if (folderManager) {
-			const repo = folderManager.gitHubRepositories.find(r =>
-				r.remote.owner === params.owner && r.remote.repositoryName === params.repo
-			);
+			const repo = folderManager.findExistingGitHubRepository({ owner: params.owner, repositoryName: params.repo });
 			if (repo) {
 				const pr = repo.getExistingPullRequestModel(params.prNumber);
 				if (pr) {
