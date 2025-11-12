@@ -106,7 +106,7 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 export default Timeline;
 
 
-function CommitStateIcon({ status }: { status: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'ERROR' | 'NEUTRAL' | 'EXPECTED' | null; }) {
+function CommitStateIcon({ status }: { status: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS' | null; }) {
 	switch (status) {
 		case 'PENDING':
 			return circleFilledIcon;
