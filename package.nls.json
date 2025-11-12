@@ -20,6 +20,7 @@
 			"{Locked='](command:workbench.action.setLogLevel)'}"
 		]
 	},
+	"githubPullRequests.branchListTimeout.description": "Maximum time in milliseconds to wait when fetching the list of branches for pull request creation. Repositories with thousands of branches may need a higher value to ensure all branches (including the default branch) are retrieved. Minimum value is 1000 (1 second).",
 	"githubPullRequests.codingAgent.description": "Enables integration with the asynchronous Copilot coding agent. The '#copilotCodingAgent' tool will be available in agent mode when this setting is enabled.",
 	"githubPullRequests.codingAgent.uiIntegration.description": "Enables UI integration within VS Code to create new coding agent sessions.",
 	"githubPullRequests.codingAgent.autoCommitAndPush.description": "Allow automatic git operations (commit, push) to be performed when starting a coding agent session",
@@ -105,6 +106,7 @@
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
 	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
 	"githubIssues.createIssueTriggers.items": "String that enables the 'Create issue from comment' code action. Should not contain whitespace.",
+	"githubPullRequests.codingAgent.codeLens.description": "Show CodeLens actions above TODO comments for delegating to coding agent.",
 	"githubIssues.createInsertFormat.description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run.",
 	"githubIssues.issueCompletions.enabled.description": "Controls whether completion suggestions are shown for issues.",
 	"githubIssues.userCompletions.enabled.description": "Controls whether completion suggestions are shown for users.",
@@ -190,6 +192,7 @@
 	"command.pr.pickOnVscodeDev.title": "Checkout Pull Request on vscode.dev",
 	"command.pr.exit.title": "Checkout Default Branch",
 	"command.pr.dismissNotification.title": "Dismiss Notification",
+	"command.pr.markAllCopilotNotificationsAsRead.title": "Dismiss All Copilot Notifications",
 	"command.pr.merge.title": "Merge Pull Request",
 	"command.pr.readyForReview.title": "Mark Pull Request Ready For Review",
 	"command.pr.openPullRequestOnGitHub.title": "Open Pull Request on GitHub",
@@ -330,7 +333,6 @@
 	"command.notifications.markPullRequestsAsDone.title": "Mark Pull Requests as Done",
 	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
-	"command.codingAgent.openSessionLog.title": "Open Coding Agent Session Log",
 	"command.pr.checkoutChatSessionPullRequest.title": "Checkout Pull Request",
 	"command.pr.closeChatSessionPullRequest.title": "Close Pull Request",
 	"command.pr.preferredCodingAgentGitHubRemote.title": "Set Preferred GitHub Remote",
@@ -343,7 +345,14 @@
 			"{Locked='](command:pr.signin)'}"
 		]
 	},
-	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload.",
+	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload. If you have just enabled git in your settings, reload to continue.",
+	"welcome.github.noGitDisabled.contents": {
+		"message": "Git has been disabled in your settings. Enable git then reload.\n[Enable Git](command:workbench.action.openSettings?%5B%22git.enabled%22%5D)",
+		"comment": [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:workbench.action.openSettings?%5B%22git.enabled%22%5D)'}"
+		]
+	},
 	"welcome.github.loginNoEnterprise.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signinNoEnterprise)",
 		"comment": [

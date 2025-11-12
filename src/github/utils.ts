@@ -7,22 +7,6 @@
 import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
-import { RemoteInfo } from '../../common/types';
-import { Repository } from '../api/api';
-import { GitApiImpl } from '../api/api1';
-import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
-import { COPILOT_SWE_AGENT } from '../common/copilot';
-import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
-import { emojify } from '../common/emoji';
-import { GitHubRef } from '../common/githubRef';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { Resource } from '../common/resources';
-import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
-import * as Common from '../common/timelineEvent';
-import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { escapeRegExp, gitHubLabelColor, stringReplaceAsync, uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
@@ -55,6 +39,21 @@ import {
 } from './interface';
 import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
+import { RemoteInfo } from '../../common/types';
+import { Repository } from '../api/api';
+import { GitApiImpl } from '../api/api1';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
+import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
+import { COPILOT_SWE_AGENT } from '../common/copilot';
+import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import { emojify } from '../common/emoji';
+import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
+import * as Common from '../common/timelineEvent';
+import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
+import { escapeRegExp, gitHubLabelColor, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -439,7 +438,7 @@ export function convertRESTReviewEvent(
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
-		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
+		submittedAt: review.submitted_at,
 		body: review.body,
 		bodyHTML: review.body,
 		htmlUrl: review.html_url,
@@ -653,10 +652,13 @@ export function parseAccount(
 		}
 
 		// In some places, Copilot comes in as a user, and in others as a bot
+
+		const finalAvatarUrl = githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl;
+
 		return {
 			login: author.login,
 			url: COPILOT_ACCOUNTS[author.login]?.url ?? url,
-			avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl,
+			avatarUrl: finalAvatarUrl,
 			email: author.email ?? undefined,
 			id,
 			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
@@ -1118,6 +1120,7 @@ export async function parseCombinedTimelineEvents(
 		| GraphQL.AssignedEvent
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
+		| null
 	)[],
 	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
@@ -1147,6 +1150,9 @@ export async function parseCombinedTimelineEvents(
 
 	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
+		if (!event) {
+			continue;
+		}
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
@@ -1335,50 +1341,42 @@ export function getReactionGroup(): { title: string; label: string; icon?: strin
 		{
 			title: 'THUMBS_UP',
 			// allow-any-unicode-next-line
-			label: '👍',
-			icon: Resource.icons.reactions.THUMBS_UP,
+			label: '👍'
 		},
 		{
 			title: 'THUMBS_DOWN',
 			// allow-any-unicode-next-line
-			label: '👎',
-			icon: Resource.icons.reactions.THUMBS_DOWN,
+			label: '👎'
 		},
 		{
 			title: 'LAUGH',
 			// allow-any-unicode-next-line
-			label: '😄',
-			icon: Resource.icons.reactions.LAUGH,
+			label: '😄'
 		},
 		{
 			title: 'HOORAY',
 			// allow-any-unicode-next-line
-			label: '🎉',
-			icon: Resource.icons.reactions.HOORAY,
+			label: '🎉'
 		},
 		{
 			title: 'CONFUSED',
 			// allow-any-unicode-next-line
-			label: '😕',
-			icon: Resource.icons.reactions.CONFUSED,
+			label: '😕'
 		},
 		{
 			title: 'HEART',
 			// allow-any-unicode-next-line
-			label: '❤️',
-			icon: Resource.icons.reactions.HEART,
+			label: '❤️'
 		},
 		{
 			title: 'ROCKET',
 			// allow-any-unicode-next-line
-			label: '🚀',
-			icon: Resource.icons.reactions.ROCKET,
+			label: '🚀'
 		},
 		{
 			title: 'EYES',
 			// allow-any-unicode-next-line
-			label: '👀',
-			icon: Resource.icons.reactions.EYES,
+			label: '👀'
 		},
 	];
 
@@ -1393,6 +1391,7 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 	do {
 		const result = await request(
 			{
+				// eslint-disable-next-line rulesdir/no-cast-to-any
 				...(variables as any),
 				per_page,
 				page
@@ -1557,7 +1556,7 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 		lastReadAt: notification.last_read_at ? new Date(notification.last_read_at) : undefined,
 		reason: notification.reason,
 		unread: notification.unread,
-		updatedAd: new Date(notification.updated_at),
+		updatedAt: new Date(notification.updated_at),
 	};
 }
 
@@ -1637,8 +1636,21 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 }
 
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
-	return !isEnterpriseRemote ? avatarUrl : (email ? generateGravatarUrl(
-		crypto.createHash('sha256').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
+
+	// For non-enterprise, always use the provided avatarUrl
+	if (!isEnterpriseRemote) {
+		return avatarUrl;
+	}
+
+	// For enterprise, prefer GitHub avatarUrl if available, fallback to Gravatar only if needed
+	if (avatarUrl && avatarUrl.trim()) {
+		return avatarUrl;
+	}
+
+	// Only fallback to Gravatar if no avatarUrl is available and email is provided
+	const gravatarUrl = email ? generateGravatarUrl(
+		crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex')) : undefined;
+	return gravatarUrl;
 }
 
 export function getPullsUrl(repo: GitHubRepository) {

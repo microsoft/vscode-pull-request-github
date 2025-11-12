@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CommitNode } from './commitNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 import Logger, { PR_TREE } from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommitNode } from './commitNode';
-import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;

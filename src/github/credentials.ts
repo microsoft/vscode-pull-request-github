@@ -9,6 +9,9 @@ import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { IAccount } from './interface';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
+import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 import { AuthProvider } from '../common/authentication';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -18,9 +21,6 @@ import { GITHUB_ENTERPRISE, URI } from '../common/settingKeys';
 import { initBasedOnSettingChange } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
-import { IAccount } from './interface';
-import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
@@ -551,7 +551,7 @@ const link = (url: string, token: string) =>
 		createHttpLink({
 			uri: `${url}/graphql`,
 			// https://github.com/apollographql/apollo-link/issues/513
-			fetch: fetch as any,
+			fetch: fetch as (((input: URL | string, init?: RequestInit) => Promise<Response>) | undefined),
 		}),
 	);
 

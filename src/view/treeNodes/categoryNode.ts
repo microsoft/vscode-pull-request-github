@@ -13,13 +13,13 @@ import { isCopilotQuery } from '../../github/copilotPrWatcher';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
-import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { extractRepoFromQuery } from '../../github/utils';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import { IQueryInfo } from './workspaceFolderNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -141,7 +141,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		readonly folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
-		private _notificationProvider: NotificationProvider,
+		private _notificationProvider: NotificationsManager,
 		private _prsTreeModel: PrsTreeModel,
 		private _copilotManager: CopilotRemoteAgentManager,
 		_categoryLabel?: string,
@@ -203,7 +203,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (!this.isCopilot || !this._repo) {
 			return undefined;
 		}
-		const counts = this._copilotManager.getCounts(this._repo.owner, this._repo.repositoryName);
+		const counts = this._prsTreeModel.getCopilotCounts(this._repo.owner, this._repo.repositoryName);
 		if (counts.total === 0) {
 			return undefined;
 		} else if (counts.error > 0) {
@@ -311,7 +311,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this.prs.size > 0) {
 			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
-				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider, this._copilotManager),
+				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider, this._prsTreeModel),
 			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
@@ -339,7 +339,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		// Update contextValue based on current notification state
 		if (this._categoryQuery) {
-			const hasNotifications = this.isCopilot && this._repo && this._copilotManager.getNotificationsCount(this._repo.owner, this._repo.repositoryName) > 0;
+			const hasNotifications = this.isCopilot && this._repo && this._prsTreeModel.getCopilotNotificationsCount(this._repo.owner, this._repo.repositoryName) > 0;
 			this.contextValue = this.isCopilot ?
 				(hasNotifications ? 'copilot-query-with-notifications' : 'copilot-query') :
 				'query';

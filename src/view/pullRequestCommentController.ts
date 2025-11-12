@@ -6,6 +6,7 @@
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
+import { CommentControllerBase } from './commentControllBase';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -28,7 +29,6 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
-import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private static ID = 'PullRequestCommentController';
@@ -227,8 +227,8 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		}
 	}
 
-	private onDidChangeReviewThreads(e: ReviewThreadChangeEvent): void {
-		e.added.forEach(async (thread) => {
+	private async onDidChangeReviewThreads(e: ReviewThreadChangeEvent): Promise<void> {
+		for (const thread of e.added) {
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this._folderRepoManager.gitRelativeRootPath(t.uri.path) === thread.path;
@@ -278,18 +278,18 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			} else {
 				this._commentThreadCache[key] = [newThread];
 			}
-		});
+		}
 
-		e.changed.forEach(thread => {
+		for (const thread of e.changed) {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
 				updateThread(this._context, matchingThread, thread, this._githubRepositories);
 			}
-		});
+		}
 
-		e.removed.forEach(async thread => {
+		for (const thread of e.removed) {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
 			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
 			if (index > -1) {
@@ -297,7 +297,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				this._commentThreadCache[key].splice(index, 1);
 				matchingThread.dispose();
 			}
-		});
+		}
 	}
 
 	protected override onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {

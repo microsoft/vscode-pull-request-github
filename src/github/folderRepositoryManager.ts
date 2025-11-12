@@ -6,6 +6,27 @@
 import * as nodePath from 'path';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
+import { OctokitCommon } from './common';
+import { ConflictModel } from './conflictGuide';
+import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
+import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
+import { CredentialStore } from './credentials';
+import { CopilotWorkingStatus, GitHubRepository, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { PullRequestResponse, PullRequestState } from './graphql';
+import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
+import { IssueModel } from './issueModel';
+import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
+import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
+import {
+	convertRESTIssueToRawPullRequest,
+	convertRESTPullRequestToRawPullRequest,
+	getOverrideBranch,
+	getPRFetchQuery,
+	loginComparator,
+	parseGraphQLPullRequest,
+	teamComparator,
+	variableSubstitution,
+} from './utils';
 import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
@@ -20,7 +41,6 @@ import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../co
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
-	DEFAULT_MERGE_METHOD,
 	GIT,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
@@ -30,36 +50,14 @@ import {
 	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
-import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
+import { AsyncPredicate, batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
-import { OctokitCommon } from './common';
-import { ConflictModel } from './conflictGuide';
-import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
-import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
-import { CredentialStore } from './credentials';
-import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState } from './graphql';
-import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
-import { IssueModel } from './issueModel';
-import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
-import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
-import {
-	convertRESTIssueToRawPullRequest,
-	convertRESTPullRequestToRawPullRequest,
-	getOverrideBranch,
-	getPRFetchQuery,
-	loginComparator,
-	parseCombinedTimelineEvents,
-	parseGraphQLPullRequest,
-	teamComparator,
-	variableSubstitution,
-} from './utils';
 
 async function createConflictResolutionModel(pullRequest: PullRequestModel): Promise<ConflictResolutionModel | undefined> {
 	const head = pullRequest.head;
@@ -194,9 +192,6 @@ export class FolderRepositoryManager extends Disposable {
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	private _addedUpstreamCount: number = 0;
-
-	private _onDidMergePullRequest = this._register(new vscode.EventEmitter<void>());
-	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
 
 	private _onDidChangeActivePullRequest = this._register(new vscode.EventEmitter<{ new: PullRequestModel | undefined, old: PullRequestModel | undefined }>());
 	readonly onDidChangeActivePullRequest: vscode.Event<{ new: PullRequestModel | undefined, old: PullRequestModel | undefined }> = this._onDidChangeActivePullRequest.event;
@@ -508,8 +503,10 @@ export class FolderRepositoryManager extends Disposable {
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
-			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
-			if (areAllNeverGitHub) {
+			const allUnknownRemotes = await this.computeAllUnknownRemotes();
+			const areAllNeverGitHub = allUnknownRemotes.every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
+			if ((allUnknownRemotes.length > 0) && areAllNeverGitHub) {
+				Logger.appendLine('No GitHub remotes found and all remotes are marked as never GitHub.', this.id);
 				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
 			}
@@ -1101,7 +1098,13 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		};
 
+		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
+			if (!activeGitHubRemotes.find(r => r.equals(repo.remote))) {
+				return false;
+			}
+
 			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
 			// If we are in case 1 or 3, don't filter out repos that are out of pages, as we will be querying from the start.
 			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
@@ -1317,13 +1320,13 @@ export class FolderRepositoryManager extends Disposable {
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
 	async getIssues(
-		query?: string,
+		query?: string, options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: false }
 	): Promise<ItemsResponseResult<IssueModel> | undefined> {
 		if (this.gitHubRepositories.length === 0) {
 			return undefined;
 		}
 		try {
-			const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
+			const data = await this.fetchPagedData<Issue>(options, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
 			const mappedData: ItemsResponseResult<IssueModel> = {
 				items: [],
 				hasMorePages: data.hasMorePages,
@@ -1521,12 +1524,23 @@ export class FolderRepositoryManager extends Disposable {
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
 			: // Otherwise, let's try...
 			this.findRepo(byRemoteName('origin')) || // by convention
-			this.findRepo(ownedByMe) || // bc maybe we can push there
+			await this.findRepoAsync(ownedByMe) || // bc maybe we can push there
 			first; // out of raw desperation
 	}
 
 	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined {
 		return this._githubRepositories.filter(where)[0];
+	}
+
+	findRepoAsync(where: AsyncPredicate<GitHubRepository>): Promise<GitHubRepository | undefined> {
+		return (async () => {
+			for (const repo of this._githubRepositories) {
+				if (await where(repo)) {
+					return repo;
+				}
+			}
+			return undefined;
+		})();
 	}
 
 	get upstreamRef(): UpstreamRef | undefined {
@@ -1693,101 +1707,6 @@ export class FolderRepositoryManager extends Disposable {
 			githubRepository = this.gitHubRepositories[0];
 		}
 		return this._credentialStore.getCurrentUser(githubRepository.remote.authProviderId);
-	}
-
-	async mergePullRequest(
-		pullRequest: PullRequestModel,
-		title?: string,
-		description?: string,
-		method?: 'merge' | 'squash' | 'rebase',
-		email?: string,
-	): Promise<{ merged: boolean, message: string, timeline?: TimelineEvent[] }> {
-		Logger.debug(`Merging PR: ${pullRequest.number} method: ${method} for user: "${email}" - enter`, this.id);
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-
-		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
-		const workingDirectorySHA = this.repository.state.HEAD && this.repository.state.HEAD.commit;
-		const mergingPRSHA = pullRequest.head && pullRequest.head.sha;
-		const workingDirectoryIsDirty = this.repository.state.workingTreeChanges.length > 0;
-		let expectedHeadOid: string | undefined = pullRequest.head?.sha;
-
-		if (activePRSHA === mergingPRSHA) {
-			// We're on the branch of the pr being merged.
-			expectedHeadOid = workingDirectorySHA;
-			if (workingDirectorySHA !== mergingPRSHA) {
-				// We are looking at different commit than what will be merged
-				const { ahead } = this.repository.state.HEAD!;
-				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
-				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
-				if (ahead &&
-					(await vscode.window.showWarningMessage(
-						ahead > 1 ? pluralMessage : singularMessage,
-						{ modal: true },
-						vscode.l10n.t('Yes'),
-					)) === undefined) {
-
-					return {
-						merged: false,
-						message: vscode.l10n.t('unpushed changes'),
-					};
-				}
-			}
-
-			if (workingDirectoryIsDirty) {
-				// We have made changes to the PR that are not committed
-				if (
-					(await vscode.window.showWarningMessage(
-						vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
-						{ modal: true },
-						vscode.l10n.t('Yes'),
-					)) === undefined
-				) {
-					return {
-						merged: false,
-						message: vscode.l10n.t('uncommitted changes'),
-					};
-				}
-			}
-		}
-		const input: MergePullRequestInput = {
-			pullRequestId: pullRequest.graphNodeId,
-			commitHeadline: title,
-			commitBody: description,
-			expectedHeadOid,
-			authorEmail: email,
-			mergeMethod:
-				(method?.toUpperCase() ??
-					vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,
-		};
-
-		return mutate<MergePullRequestResponse>({
-			mutation: schema.MergePullRequest,
-			variables: {
-				input
-			}
-		})
-			.then(async (result) => {
-				Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
-
-				/* __GDPR__
-					"pr.merge.success" : {}
-				*/
-				this.telemetry.sendTelemetryEvent('pr.merge.success');
-				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.getCopilotTimelineEvents(pullRequest), pullRequest.githubRepository) };
-			})
-			.catch(e => {
-				/* __GDPR__
-					"pr.merge.failure" : {}
-				*/
-				this.telemetry.sendTelemetryErrorEvent('pr.merge.failure');
-				const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
-				if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
-					return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
-				} else {
-					throw e;
-				}
-			});
 	}
 
 	async deleteBranch(pullRequest: PullRequestModel) {
@@ -2233,10 +2152,10 @@ export class FolderRepositoryManager extends Disposable {
 		useCache: boolean = false,
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
-		Logger.appendLine(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
+		Logger.trace(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
 			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
-			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
+			Logger.trace(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}
 		return undefined;
@@ -2247,10 +2166,14 @@ export class FolderRepositoryManager extends Disposable {
 		repositoryName: string,
 		pullRequestNumber: number,
 		withComments: boolean = false,
+		useCache: boolean = false
 	): Promise<IssueModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
+		Logger.trace(`Found GitHub repo for issue #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			return githubRepo.getIssue(pullRequestNumber, withComments);
+			const issue = await githubRepo.getIssue(pullRequestNumber, withComments, useCache);
+			Logger.trace(`Found GitHub issue repo for issue #${pullRequestNumber}: ${issue ? 'yes' : 'no'}`, this.id);
+			return issue;
 		}
 		return undefined;
 	}
@@ -2961,9 +2884,8 @@ export function getEventType(text: string) {
 	}
 }
 
-const ownedByMe: Predicate<GitHubRepository> = repo => {
-	const { currentUser = null } = repo.octokit as any;
-	return currentUser && repo.remote.owner === currentUser.login;
+const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
+	return repo.isCurrentUser(repo.remote.authProviderId, repo.remote.owner);
 };
 
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>

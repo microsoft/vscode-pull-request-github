@@ -4,17 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as buffer from 'buffer';
-import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
-import { Disposable, disposeAll } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { GitHubRemote, parseRemote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { PullRequestCommentController } from '../view/pullRequestCommentController';
-import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
-import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
+import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
@@ -79,6 +72,21 @@ import {
 	parseMilestone,
 	restPaginate,
 } from './utils';
+import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
+
+import { Disposable, disposeAll } from '../common/lifecycle';
+
+import Logger from '../common/logger';
+import { GitHubRemote, parseRemote } from '../common/remote';
+
+
+import { BRANCH_LIST_TIMEOUT, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
+
+import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
+
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -169,9 +177,17 @@ export class GitHubRepository extends Disposable {
 			value.model.dispose();
 		}
 	});
+	private _issueModelsByNumber: LRUCache<number, { model: IssueModel, disposables: vscode.Disposable[] }> = new LRUCache({
+		maxAge: 1000 * 60 * 60 * 4 /* 4 hours */, stale: true, updateAgeOnGet: true,
+		dispose: (_key, value) => {
+			disposeAll(value.disposables);
+			value.model.dispose();
+		}
+	});
 	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
+	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -197,19 +213,26 @@ export class GitHubRepository extends Disposable {
 		return this._pullRequestModelsByNumber.get(prNumber)?.model;
 	}
 
+	getExistingIssueModel(issueNumber: number): IssueModel | undefined {
+		return this._issueModelsByNumber.get(issueNumber)?.model;
+	}
+
 	get pullRequestModels(): PullRequestModel[] {
 		return Array.from(this._pullRequestModelsByNumber.values().map(value => value.model));
 	}
 
+	get issueModels(): IssueModel[] {
+		return Array.from(this._issueModelsByNumber.values().map(value => value.model));
+	}
+
 	public async ensureCommentsController(): Promise<void> {
 		try {
+			await this.ensure();
 			if (this.commentsController) {
 				return;
 			}
-
-			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.remoteName}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
@@ -243,7 +266,7 @@ export class GitHubRepository extends Disposable {
 		silent: boolean = false
 	) {
 		super();
-		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as unknown as Schema, defaultSchema as unknown as Schema);
+		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -277,17 +300,18 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables?: OperationVariables }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
 			Logger.debug(`Not available for query: ${logValue ?? 'unknown'}`, GRAPHQL_COMPONENT_ID);
-			return {
-				data: null,
+			const empty: ApolloQueryResult<T> = {
+				data: null as T,
 				loading: false,
 				networkStatus: NetworkStatus.error,
 				stale: false,
-			} as any;
+			} satisfies ApolloQueryResult<T>;
+			return empty;
 		}
 
 		let rsp;
@@ -299,6 +323,7 @@ export class GitHubRepository extends Disposable {
 			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
+				query.variables = legacyFallback.variables;
 				return this.query(query, ignoreSamlErrors);
 			}
 
@@ -306,7 +331,7 @@ export class GitHubRepository extends Disposable {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
 				query.query = this.schema[(query.query.definitions[0] as { name: { value: string } }).name.value];
 				rsp = await gql.query<T>(query);
 			} else if (ignoreSamlErrors && isSamlError(e)) {
@@ -328,15 +353,13 @@ export class GitHubRepository extends Disposable {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation.context as string}`, GRAPHQL_COMPONENT_ID);
-			return {
-				data: null,
-				loading: false,
-				networkStatus: NetworkStatus.error,
-				stale: false,
-			} as any;
+			const empty: FetchResult<T> = {
+				data: null
+			};
+			return empty;
 		}
 
-		let rsp;
+		let rsp: FetchResult<T>;
 		try {
 			rsp = await gql.mutate<T>(mutation);
 		} catch (e) {
@@ -373,7 +396,8 @@ export class GitHubRepository extends Disposable {
 			repo
 		});
 		Logger.debug(`Fetch metadata for repo ${owner}/${repo} - done`, this.id);
-		return ({ ...result.data, currentUser: (octokit as any).currentUser } as unknown) as IMetadata;
+		const metadata = { ...result.data, currentUser: await this._hub?.currentUser };
+		return metadata;
 	}
 
 	async getMetadata(): Promise<IMetadata> {
@@ -426,14 +450,14 @@ export class GitHubRepository extends Disposable {
 		}
 
 		if (oldHub !== this._hub) {
-			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
 			} else {
 				if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, extraSchema.default);
 				} else {
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 				}
 			}
 		}
@@ -497,7 +521,7 @@ export class GitHubRepository extends Disposable {
 						squash: data.allow_squash_merge ?? false,
 						rebase: data.allow_rebase_merge ?? false,
 					},
-					viewerCanAutoMerge: ((data as any).allow_auto_merge && hasWritePermission) ?? false
+					viewerCanAutoMerge: (data.allow_auto_merge && hasWritePermission) ?? false
 				};
 			}
 			return this._repoAccessAndMergeMethods;
@@ -999,6 +1023,19 @@ export class GitHubRepository extends Disposable {
 		return model;
 	}
 
+	private createOrUpdateIssueModel(issue: Issue): IssueModel {
+		let model = this._issueModelsByNumber.get(issue.number)?.model;
+		if (model) {
+			model.update(issue);
+		} else {
+			model = new IssueModel(this.telemetry, this, this.remote, issue);
+			// No issue-specific event emitters yet; store empty disposables list for symmetry/cleanup
+			const disposables: vscode.Disposable[] = [];
+			this._issueModelsByNumber.set(issue.number, { model, disposables });
+		}
+		return model;
+	}
+
 	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
 		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
@@ -1084,14 +1121,23 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			return this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			return pr;
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, this.id);
 			return;
 		}
 	}
 
-	async getIssue(id: number, withComments: boolean = false): Promise<IssueModel | undefined> {
+	async getIssue(id: number, withComments: boolean = false, useCache: boolean = false): Promise<IssueModel | undefined> {
+		if (useCache) {
+			const cached = this._issueModelsByNumber.get(id)?.model;
+			if (cached) {
+				Logger.debug(`Using cached issue model for ${id}`, this.id);
+				return cached;
+			}
+		}
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
@@ -1111,7 +1157,9 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this.telemetry, this, remote, await parseGraphQLIssue(data.repository.issue, this));
+			const issue = this.createOrUpdateIssueModel(await parseGraphQLIssue(data.repository.issue, this));
+			await issue.getLastUpdateTime(new Date(issue.item.updatedAt));
+			return issue;
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;
@@ -1136,7 +1184,7 @@ export class GitHubRepository extends Disposable {
 					path: filePath,
 					ref,
 				},
-			)) as any;
+			)) as { data: { content: string; encoding: string; sha: string } };
 
 			if (Array.isArray(fileContent.data)) {
 				throw new Error(`Unexpected array response when getting file ${filePath}`);
@@ -1164,7 +1212,7 @@ export class GitHubRepository extends Disposable {
 			Logger.debug(`Fetch blob file ${filePath} - done`, this.id);
 		}
 
-		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
+		const buff = buffer.Buffer.from(contents, fileContent.data.encoding as BufferEncoding);
 		Logger.debug(`Fetch file ${filePath}, file length ${contents.length} - done`, this.id);
 		return buff;
 	}
@@ -1194,6 +1242,7 @@ export class GitHubRepository extends Disposable {
 		const branches: string[] = [];
 		const defaultBranch = (await this.getMetadataForRepo(owner, repositoryName)).default_branch;
 		const startingTime = new Date().getTime();
+		const timeout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(BRANCH_LIST_TIMEOUT, 5000);
 
 		do {
 			try {
@@ -1208,8 +1257,8 @@ export class GitHubRepository extends Disposable {
 				});
 
 				branches.push(...data.repository.refs.nodes.map(node => node.name));
-				if (new Date().getTime() - startingTime > 5000) {
-					Logger.warn('List branches timeout hit.', this.id);
+				if (new Date().getTime() - startingTime > timeout) {
+					Logger.warn(`List branches timeout hit after ${timeout}ms.`, this.id);
 					break;
 				}
 				hasNextPage = data.repository.refs.pageInfo.hasNextPage;
@@ -1330,6 +1379,14 @@ export class GitHubRepository extends Disposable {
 							first: 100,
 							after: after,
 						},
+					}, false, {
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after,
+						}
 					});
 
 				} else {
@@ -1352,9 +1409,9 @@ export class GitHubRepository extends Disposable {
 				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
 
 				ret.push(
-					...users?.nodes.map(node => {
+					...(users?.nodes.map(node => {
 						return parseAccount(node, this);
-					}),
+					}) || []),
 				);
 
 				hasNextPage = users?.pageInfo.hasNextPage;

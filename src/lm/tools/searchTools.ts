@@ -5,11 +5,11 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { concatAsyncIterable, RepoToolBase } from './toolsUtils';
 import Logger from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { ILabel } from '../../github/interface';
 import { escapeMarkdown } from '../../issues/util';
-import { concatAsyncIterable, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
 	naturalLanguageString?: string;

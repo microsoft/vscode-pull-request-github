@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IAccount, Reaction } from '../github/interface';
 import { COPILOT_LOGINS } from './copilot';
 import { DiffHunk } from './diffHunk';
+import { IAccount, Reaction } from '../github/interface';
 
 export enum DiffSide {
 	LEFT = 'LEFT',

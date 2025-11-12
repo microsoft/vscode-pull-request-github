@@ -6,21 +6,22 @@
 import { default as assert } from 'assert';
 import { SinonSandbox, createSandbox } from 'sinon';
 import * as vscode from 'vscode';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { CopilotRemoteAgentManager, SessionIdForPr } from '../../github/copilotRemoteAgent';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { Resource } from '../../common/resources';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitHubRemote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubServerType } from '../../common/authentication';
 import { ReposManagerState } from '../../github/folderRepositoryManager';
-import { CopilotPRStatus } from '../../common/copilot';
 import { GitApiImpl } from '../../api/api1';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
+import { PrsTreeModel } from '../../view/prsTreeModel';
+import { COPILOT_SWE_AGENT } from '../../common/copilot';
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -34,6 +35,7 @@ describe('CopilotRemoteAgentManager', function () {
 	let context: MockExtensionContext;
 	let mockRepo: MockGitHubRepository;
 	let gitAPIImp: GitApiImpl;
+	let mockPrsTreeModel: MockPrsTreeModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -66,8 +68,8 @@ describe('CopilotRemoteAgentManager', function () {
 
 		gitAPIImp = new GitApiImpl(reposManager);
 
-		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp);
-		Resource.initialize(context);
+		mockPrsTreeModel = new MockPrsTreeModel();
+		manager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPIImp, mockPrsTreeModel as unknown as PrsTreeModel);
 	});
 
 	afterEach(function () {
@@ -245,29 +247,6 @@ describe('CopilotRemoteAgentManager', function () {
 		});
 	});
 
-	describe('hasNotification()', function () {
-		it('should return false when no notification exists', function () {
-			const result = manager.hasNotification('owner', 'repo', 123);
-			assert.strictEqual(result, false);
-		});
-	});
-
-	describe('getStateForPR()', function () {
-		it('should return default state for unknown PR', function () {
-			const result = manager.getStateForPR('owner', 'repo', 123);
-			// Should return a valid CopilotPRStatus
-			assert(Object.values(CopilotPRStatus).includes(result));
-		});
-	});
-
-	describe('notificationsCount', function () {
-		it('should return non-negative number', function () {
-			const count = manager.notificationsCount;
-			assert.strictEqual(typeof count, 'number');
-			assert(count >= 0);
-		});
-	});
-
 	describe('provideChatSessions()', function () {
 		it('should return empty array when copilot API is not available', async function () {
 			const token = new vscode.CancellationTokenSource().token;
@@ -293,7 +272,7 @@ describe('CopilotRemoteAgentManager', function () {
 		it('should return empty session when copilot API is not available', async function () {
 			const token = new vscode.CancellationTokenSource().token;
 
-			const result = await manager.provideChatSessionContent('123', token);
+			const result = await manager.provideChatSessionContent(SessionIdForPr.getResource(123, 0), token);
 
 			assert.strictEqual(Array.isArray(result.history), true);
 			assert.strictEqual(result.history.length, 0);
@@ -304,7 +283,7 @@ describe('CopilotRemoteAgentManager', function () {
 			const tokenSource = new vscode.CancellationTokenSource();
 			tokenSource.cancel();
 
-			const result = await manager.provideChatSessionContent('123', tokenSource.token);
+			const result = await manager.provideChatSessionContent(SessionIdForPr.getResource(123, 0), tokenSource.token);
 
 			assert.strictEqual(Array.isArray(result.history), true);
 			assert.strictEqual(result.history.length, 0);
@@ -313,7 +292,7 @@ describe('CopilotRemoteAgentManager', function () {
 		it('should return empty session for invalid PR number', async function () {
 			const token = new vscode.CancellationTokenSource().token;
 
-			const result = await manager.provideChatSessionContent('invalid', token);
+			const result = await manager.provideChatSessionContent(vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/invalid' }), token);
 
 			assert.strictEqual(Array.isArray(result.history), true);
 			assert.strictEqual(result.history.length, 0);

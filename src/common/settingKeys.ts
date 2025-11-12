@@ -6,6 +6,7 @@
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
 export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
 export const BRANCH_PUBLISH = 'createOnPublishBranch';
+export const BRANCH_LIST_TIMEOUT = 'branchListTimeout';
 export const USE_REVIEW_MODE = 'useReviewMode';
 export const FILE_LIST_LAYOUT = 'fileListLayout';
 export const HIDE_VIEWED_FILES = 'hideViewedFiles';
@@ -18,6 +19,7 @@ export const OVERRIDE_DEFAULT_BRANCH = 'overrideDefaultBranch';
 export const PULL_BRANCH = 'pullBranch';
 export const PULL_REQUEST_DESCRIPTION = 'pullRequestDescription';
 export const NOTIFICATION_SETTING = 'notifications';
+export type NotificationVariants = 'off' | 'pullRequests';
 export const POST_CREATE = 'postCreate';
 export const POST_DONE = 'postDone';
 export const QUERIES = 'queries';
@@ -69,6 +71,8 @@ export const PULL_BEFORE_CHECKOUT = 'pullBeforeCheckout';
 export const OPEN_DIFF_ON_CLICK = 'openDiffOnClick';
 export const SHOW_INLINE_OPEN_FILE_ACTION = 'showInlineOpenFileAction';
 export const AUTO_STASH = 'autoStash';
+export const BRANCH_WHITESPACE_CHAR = 'branchWhitespaceChar';
+export const BRANCH_RANDOM_NAME_DICTIONARY = 'branchRandomName.dictionary';
 
 // GitHub Enterprise
 export const GITHUB_ENTERPRISE = 'github-enterprise';
@@ -96,3 +100,4 @@ export const CODING_AGENT = `${PR_SETTINGS_NAMESPACE}.codingAgent`;
 export const CODING_AGENT_ENABLED = 'enabled';
 export const CODING_AGENT_AUTO_COMMIT_AND_PUSH = 'autoCommitAndPush';
 export const CODING_AGENT_PROMPT_FOR_CONFIRMATION = 'promptForConfirmation';
+export const SHOW_CODE_LENS = 'codeLens';

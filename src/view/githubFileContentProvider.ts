@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 import { GitApiImpl } from '../api/api1';
 import { fromGitHubCommitUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 
 export class GitHubCommitFileSystemProvider extends RepositoryFileSystemProvider {
 	constructor(private readonly repos: RepositoriesManager, gitAPI: GitApiImpl, credentialStore: CredentialStore) {

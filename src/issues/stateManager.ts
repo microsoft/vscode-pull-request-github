@@ -5,6 +5,7 @@
 
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
+import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
@@ -25,7 +26,6 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
-import { CurrentIssue } from './currentIssue';
 
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
@@ -343,7 +343,7 @@ export class StateManager {
 
 	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
-			const issues = await folderManager.getIssues(query);
+			const issues = await folderManager.getIssues(query, { fetchNextPage: false, fetchOnePagePerRepo: true });
 			this._onDidChangeIssueData.fire();
 			resolve(
 				issues?.items.map(item => {

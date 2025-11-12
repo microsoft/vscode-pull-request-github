@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 
 export abstract class RepositoryFileSystemProvider extends ReadonlyFileSystemProvider {
 	constructor(protected gitAPI: GitApiImpl, protected credentialStore: CredentialStore) {

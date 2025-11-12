@@ -4,13 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
-import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
-import { compareIgnoreCase, formatError } from '../common/utils';
 import { OctokitCommon } from './common';
 import { CopilotWorkingStatus, GitHubRepository } from './githubRepository';
 import {
@@ -25,6 +18,13 @@ import {
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason } from './interface';
 import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { compareIgnoreCase, formatError } from '../common/utils';
 
 export interface IssueChangeEvent {
 	title?: true;
@@ -65,7 +65,10 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	public body: string;
 	public bodyHTML?: string;
 
+	private _lastCheckedForUpdatesAt?: Date;
+
 	private _timelineEvents: readonly TimelineEvent[] | undefined;
+	private _copilotTimelineEvents: TimelineEvent[] | undefined;
 
 	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
 	public onDidChange = this._onDidChange.event;
@@ -91,6 +94,10 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			this._timelineEvents = timelineEvents;
 			this._onDidChange.fire({ timeline: true });
 		}
+	}
+
+	public get lastCheckedForUpdatesAt(): Date | undefined {
+		return this._lastCheckedForUpdatesAt;
 	}
 
 	public get isOpen(): boolean {
@@ -420,6 +427,8 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 
 	async getLastUpdateTime(time: Date): Promise<Date> {
 		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
+		// Record when we initiated this check regardless of outcome so callers can know staleness.
+		this._lastCheckedForUpdatesAt = new Date();
 		const githubRepository = this.githubRepository;
 		const { query, remote, schema } = await githubRepository.ensure();
 		try {
@@ -506,12 +515,18 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	/**
 	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
 	 */
-	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false): Promise<TimelineEvent[]> {
+	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false, useCache: boolean = false): Promise<TimelineEvent[]> {
 		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
 			return [];
 		}
 
 		Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+
+		if (useCache && this._copilotTimelineEvents) {
+			Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} (used cache) - exit`, GitHubRepository.ID);
+
+			return this._copilotTimelineEvents;
+		}
 
 		const { octokit, remote } = await this.githubRepository.ensure();
 		try {
@@ -523,6 +538,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			});
 
 			const timelineEvents = parseSelectRestTimelineEvents(issueModel, timeline);
+			this._copilotTimelineEvents = timelineEvents;
 			if (timelineEvents.length === 0) {
 				return [];
 			}

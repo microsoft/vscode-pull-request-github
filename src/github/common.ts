@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
+import { DocumentNode } from 'graphql';
 import { ChatSessionStatus, Uri } from 'vscode';
+import { SessionInfo, SessionSetupStep } from './copilotApi';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 import { Repository } from '../api/api';
 import { CopilotPRStatus } from '../common/copilot';
 import { GitHubRemote } from '../common/remote';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { SessionInfo, SessionSetupStep } from './copilotApi';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
 
 export namespace OctokitCommon {
 	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];
@@ -44,7 +45,9 @@ export namespace OctokitCommon {
 		user_view_type: string;
 	}
 	export type PullsCreateParams = OctokitRest.RestEndpointMethodTypes['pulls']['create']['parameters'];
-	export type PullsCreateReviewResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews']['response']['data'];
+	export type PullsCreateReviewResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews']['response']['data'] & {
+		submitted_at: string;
+	};
 	export type PullsCreateReviewCommentResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/comments']['response']['data'];
 	export type PullsGetResponseData = OctokitRest.RestEndpointMethodTypes['pulls']['get']['response']['data'];
 	export type IssuesGetResponseData = OctokitRest.RestEndpointMethodTypes['issues']['get']['response']['data'];
@@ -86,9 +89,7 @@ export namespace OctokitCommon {
 	export type WorkflowJobs = Endpoints['GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs']['response']['data'];
 }
 
-// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
-export type Schema = { [key: string]: any, definitions: any[]; };
-export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema) {
+export function mergeQuerySchemaWithShared(sharedSchema: DocumentNode, schema: DocumentNode) {
 	const sharedSchemaDefinitions = sharedSchema.definitions;
 	const schemaDefinitions = schema.definitions;
 	const mergedDefinitions = schemaDefinitions.concat(sharedSchemaDefinitions);
@@ -100,7 +101,7 @@ export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema)
 }
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: Uri; llmDetails: string; sessionId: string };
-type RemoteAgentErrorResult = { error: string; state: 'error' };
+type RemoteAgentErrorResult = { error: string; innerError?: string; state: 'error' };
 export type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
 export interface IAPISessionLogs {

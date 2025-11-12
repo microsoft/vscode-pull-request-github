@@ -5,14 +5,6 @@
 
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
-import { IComment } from '../common/comment';
-import { emojify, ensureEmojis } from '../common/emoji';
-import { disposeAll } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { ReviewEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
@@ -20,10 +12,20 @@ import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
+import { disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { ReviewEvent } from '../common/timelineEvent';
+import { formatError } from '../common/utils';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewViewBase } from '../common/webview';
+import { ReviewManager } from '../view/reviewManager';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:activePullRequest';
 	private _existingReviewers: ReviewState[] = [];
+	private _isUpdating: boolean = false;
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -33,21 +35,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super(extensionUri);
 
-		this._register(this._folderRepositoryManager.onDidMergePullRequest(_ => {
-			this._postMessage({
-				command: 'update-state',
-				state: GithubItemStateEnum.Merged,
-			});
-		}));
-
 		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
 		this._register(vscode.commands.registerCommand('review.approveOnDotCom', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 		}));
 		this._register(vscode.commands.registerCommand('review.requestChangesOnDotCom', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 		}));
 	}
 
@@ -117,7 +112,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			case 'pr.submit':
 				return this.submitReviewMessage(message);
 			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+				return openPullRequestOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
 			case 'pr.update-branch':
@@ -203,132 +198,143 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			disposeAll(this._prDisposables);
 		}
 		this._prDisposables = [];
-		this._prDisposables.push(pullRequestModel.onDidChange(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.onDidChange(e => {
+			if ((e.state || e.comments || e.reviewers) && !this._isUpdating) {
+				this.updatePullRequest(pullRequestModel);
+			}
+		}));
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
 	private _updatePendingVisibility: vscode.Disposable | undefined = undefined;
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
-		if (this._view && !this._view.visible) {
-			this._updatePendingVisibility?.dispose();
-			this._updatePendingVisibility = this._view.onDidChangeVisibility(async () => {
-				this.updatePullRequest(pullRequestModel);
+		if (this._isUpdating) {
+			throw new Error('Already updating pull request view');
+		}
+		this._isUpdating = true;
+
+		try {
+			if (this._view && !this._view.visible) {
 				this._updatePendingVisibility?.dispose();
-			});
-		}
-
-		if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
-			this.registerPrSpecificListeners(pullRequestModel);
-		}
-		this._item = pullRequestModel;
-		return Promise.all([
-			this._folderRepositoryManager.resolvePullRequest(
-				pullRequestModel.remote.owner,
-				pullRequestModel.remote.repositoryName,
-				pullRequestModel.number,
-			),
-			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			pullRequestModel.getTimelineEvents(),
-			pullRequestModel.getReviewRequests(),
-			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
-			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
-			pullRequestModel.canEdit(),
-			pullRequestModel.validateDraftMode(),
-			ensureEmojis(this._folderRepositoryManager.context)
-		])
-			.then(result => {
-				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = result;
-				if (!pullRequest) {
-					throw new Error(
-						`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
-					);
-				}
-
-				this._item = pullRequest;
-				if (!this._view) {
-					// If the there is no PR webview, then there is nothing else to update.
-					return;
-				}
-
-				try {
-					this._view.title = `${vscode.l10n.t('Review Pull Request')} #${pullRequestModel.number.toString()}`;
-				} catch (e) {
-					// If we ry to set the title of the webview too early it will throw an error.
-				}
-
-				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
-				const hasWritePermission = repositoryAccess!.hasWritePermission;
-				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-				const canEdit = hasWritePermission || viewerCanEdit;
-				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
-				this._existingReviewers = parseReviewers(
-					requestedReviewers ?? [],
-					timelineEvents ?? [],
-					pullRequest.author,
-				);
-
-				const isCrossRepository =
-					pullRequest.base &&
-					pullRequest.head &&
-					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
-
-				const continueOnGitHub = !!(isCrossRepository && isInCodespaces());
-				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
-
-				const context: Partial<PullRequest> = {
-					number: pullRequest.number,
-					title: pullRequest.title,
-					url: pullRequest.html_url,
-					createdAt: pullRequest.createdAt,
-					body: pullRequest.body,
-					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels.map(label => ({ ...label, displayName: emojify(label.name) })),
-					author: {
-						login: pullRequest.author.login,
-						name: pullRequest.author.name,
-						avatarUrl: pullRequest.userAvatar,
-						url: pullRequest.author.url,
-						email: pullRequest.author.email,
-						id: pullRequest.author.id,
-						accountType: pullRequest.author.accountType,
-					},
-					state: pullRequest.state,
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-					base: pullRequest.base.label,
-					isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
-					isLocalHeadDeleted: !branchInfo,
-					head: pullRequest.head?.label ?? '',
-					canEdit: canEdit,
-					hasWritePermission,
-					mergeable: pullRequest.item.mergeable,
-					isDraft: pullRequest.isDraft,
-					status: null,
-					reviewRequirement: null,
-					canUpdateBranch: pullRequest.item.viewerCanUpdate,
-					events: timelineEvents,
-					mergeMethodsAvailability,
-					defaultMergeMethod,
-					repositoryDefaultBranch: defaultBranch,
-					isIssue: false,
-					isAuthor: currentUser.login === pullRequest.author.login,
-					reviewers: this._existingReviewers,
-					continueOnGitHub,
-					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-					isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
-					hasReviewDraft,
-					currentUserReviewState: reviewState
-				};
-
-				this._postMessage({
-					command: 'pr.initialize',
-					pullrequest: context,
+				this._updatePendingVisibility = this._view.onDidChangeVisibility(async () => {
+					this.updatePullRequest(pullRequestModel);
+					this._updatePendingVisibility?.dispose();
 				});
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);
+			}
+
+			if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
+				this.registerPrSpecificListeners(pullRequestModel);
+			}
+			this._item = pullRequestModel;
+			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = await Promise.all([
+				this._folderRepositoryManager.resolvePullRequest(
+					pullRequestModel.remote.owner,
+					pullRequestModel.remote.repositoryName,
+					pullRequestModel.number,
+				),
+				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
+				pullRequestModel.getTimelineEvents(),
+				pullRequestModel.getReviewRequests(),
+				this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
+				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+				this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
+				pullRequestModel.canEdit(),
+				pullRequestModel.validateDraftMode(),
+				ensureEmojis(this._folderRepositoryManager.context)
+			]);
+
+			if (!pullRequest) {
+				throw new Error(
+					`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
+				);
+			}
+
+			this._item = pullRequest;
+			if (!this._view) {
+				// If the there is no PR webview, then there is nothing else to update.
+				return;
+			}
+
+			try {
+				this._view.title = `${vscode.l10n.t('Review Pull Request')} #${pullRequestModel.number.toString()}`;
+			} catch (e) {
+				// If we ry to set the title of the webview too early it will throw an error.
+			}
+
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
+			const hasWritePermission = repositoryAccess!.hasWritePermission;
+			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
+			const canEdit = hasWritePermission || viewerCanEdit;
+			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
+			this._existingReviewers = parseReviewers(
+				requestedReviewers ?? [],
+				timelineEvents ?? [],
+				pullRequest.author,
+			);
+
+			const isCrossRepository =
+				pullRequest.base &&
+				pullRequest.head &&
+				!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
+
+			const continueOnGitHub = !!(isCrossRepository && isInCodespaces());
+			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
+
+			const context: Partial<PullRequest> = {
+				number: pullRequest.number,
+				title: pullRequest.title,
+				url: pullRequest.html_url,
+				createdAt: pullRequest.createdAt,
+				body: pullRequest.body,
+				bodyHTML: pullRequest.bodyHTML,
+				labels: pullRequest.item.labels.map(label => ({ ...label, displayName: emojify(label.name) })),
+				author: {
+					login: pullRequest.author.login,
+					name: pullRequest.author.name,
+					avatarUrl: pullRequest.userAvatar,
+					url: pullRequest.author.url,
+					email: pullRequest.author.email,
+					id: pullRequest.author.id,
+					accountType: pullRequest.author.accountType,
+				},
+				state: pullRequest.state,
+				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
+				base: pullRequest.base.label,
+				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
+				isLocalHeadDeleted: !branchInfo,
+				head: pullRequest.head?.label ?? '',
+				canEdit: canEdit,
+				hasWritePermission,
+				mergeable: pullRequest.item.mergeable,
+				isDraft: pullRequest.isDraft,
+				status: null,
+				reviewRequirement: null,
+				canUpdateBranch: pullRequest.item.viewerCanUpdate,
+				events: timelineEvents,
+				mergeMethodsAvailability,
+				defaultMergeMethod,
+				repositoryDefaultBranch: defaultBranch,
+				isIssue: false,
+				isAuthor: currentUser.login === pullRequest.author.login,
+				reviewers: this._existingReviewers,
+				continueOnGitHub,
+				isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+				isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
+				hasReviewDraft,
+				currentUserReviewState: reviewState
+			};
+
+			this._postMessage({
+				command: 'pr.initialize',
+				pullrequest: context,
 			});
+
+		} catch (e) {
+			vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);
+		} finally {
+			this._isUpdating = false;
+		}
 	}
 
 	private close(message: IRequestMessage<string>): void {
@@ -480,28 +486,25 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._replyMessage(message, { state: GithubItemStateEnum.Open });
 			return;
 		}
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
 
-		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+			if (!result.merged) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
+			}
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
-				}
-
-				this._replyMessage(message, {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-				});
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-				this._throwError(message, '');
+			this._replyMessage(message, {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
 			});
+
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
+			this._throwError(message, '');
+		}
 	}
 
 	private _getHtmlForWebview() {
-		const nonce = getNonce();
+		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-open-pr-view.js');
 

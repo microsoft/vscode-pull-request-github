@@ -7,16 +7,6 @@
 import * as vscode from 'vscode';
 import { OpenCommitChangesArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
-import { IComment } from '../common/comment';
-import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
-import { commands, contexts } from '../common/executeCommands';
-import { disposeAll } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
-import { ITelemetry } from '../common/telemetry';
-import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
-import { asPromise, formatError } from '../common/utils';
-import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -37,7 +27,17 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { IComment } from '../common/comment';
+import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { commands, contexts } from '../common/executeCommands';
+import { disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
+import { asPromise, formatError } from '../common/utils';
+import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -134,28 +134,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		existingPanel?: vscode.WebviewPanel
 	) {
 		super(telemetry, extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel.viewType, existingPanel, {
-			light: 'resources/icons/pr_webview.svg',
-			dark: 'resources/icons/dark/pr_webview.svg'
+			light: 'resources/icons/git-pull-request_webview.svg',
+			dark: 'resources/icons/dark/git-pull-request_webview.svg'
 		});
 
 		this.registerPrListeners();
 
 		this.setVisibilityContext();
-		this._register(folderRepositoryManager.onDidMergePullRequest(_ => {
-			this._postMessage({
-				command: 'update-state',
-				state: GithubItemStateEnum.Merged,
-			});
-		}));
 
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
 		this._register(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._telemetry);
 		}));
 		this._register(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
-			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			return openPullRequestOnGitHub(this._item, this._telemetry);
 		}));
 	}
 
@@ -173,7 +167,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChange(e => {
-				if (e.comments && !this._isUpdating) {
+				if ((e.state || e.comments) && !this._isUpdating) {
 					this.refreshPanel();
 				}
 			}));
@@ -223,6 +217,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
+		if (this._isUpdating) {
+			throw new Error('Already updating pull request webview');
+		}
+		this._isUpdating = true;
 		try {
 			const [
 				pullRequest,
@@ -329,6 +327,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+		} finally {
+			this._isUpdating = false;
 		}
 	}
 
@@ -364,6 +364,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
+			case 'pr.readyForReviewAndMerge':
+				return this.setReadyForReviewAndMerge(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
@@ -402,6 +404,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelCodingAgent(message);
 			case 'pr.openCommitChanges':
 				return this.openCommitChanges(message);
+			case 'pr.delete-review':
+				return this.deleteReview(message);
 		}
 	}
 
@@ -507,7 +511,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			return vscode.window.showChatSession(COPILOT_SWE_AGENT, SessionIdForPr.getId(this._item.number, message.args.link.sessionIndex), {});
+			const resource = SessionIdForPr.getResource(this._item.number, message.args.link.sessionIndex);
+			return vscode.commands.executeCommand('vscode.open', resource);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
@@ -551,7 +556,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
-			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
+			await PullRequestModel.openCommitChanges(this._extensionUri, this._item.githubRepository, commitSha);
 			this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
@@ -593,30 +598,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		);
 	}
 
-	private mergePullRequest(
+	private async mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
-	): void {
+	): Promise<void> {
 		const { title, description, method, email } = message.args;
-		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
-				}
+			if (!result.merged) {
+				vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
+			}
 
-				const mergeResult: MergeResult = {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-					revertable: result.merged,
-					events: result.timeline
-				};
-				this._replyMessage(message, mergeResult);
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
-				this._throwError(message, '');
-			});
+			const mergeResult: MergeResult = {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+				revertable: result.merged,
+				events: result.timeline
+			};
+			this._replyMessage(message, mergeResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
 	}
 
 	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
@@ -647,6 +649,33 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
 				this._throwError(message, '');
 			});
+	}
+
+	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
+		try {
+			const readyResult = await this._item.setReadyForReview();
+
+			try {
+				await this._item.approve(this._folderRepositoryManager.repository, '');
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
+
+			try {
+				await this._item.enableAutoMerge(message.args.mergeMethod);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
+
+			this._replyMessage(message, readyResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
@@ -873,6 +902,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	protected override deleteCommentPromise(comment: IComment): Promise<void> {
 		return this._item.deleteReviewComment(comment.id.toString());
+	}
+
+	private async deleteReview(message: IRequestMessage<void>) {
+		try {
+			const result: DeleteReviewResult = await this._item.deleteReview();
+			await this._replyMessage(message, result);
+		} catch (e) {
+			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Deleting review failed. {0}', formatError(e)));
+			this._throwError(message, `${formatError(e)}`);
+		}
 	}
 
 	override dispose() {

@@ -4,6 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useRef, useState } from 'react';
+import { CommentView } from './comment';
+import Diff from './diff';
+import { addIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
+import { nbsp } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import {
 	AssignEvent,
@@ -26,12 +32,6 @@ import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import { IAccount, IActor } from '../../src/github/interface';
 import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
-import { CommentView } from './comment';
-import Diff from './diff';
-import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
-import { nbsp } from './space';
-import { Timestamp } from './timestamp';
-import { AuthorLink, Avatar } from './user';
 
 function isAssignUnassignEvent(event: TimelineEvent | ConsolidatedAssignUnassignEvent): event is AssignEvent | UnassignEvent {
 	return event.event === EventType.Assigned || event.event === EventType.Unassigned;
@@ -122,7 +122,7 @@ const CommitEventView = (event: CommitEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{commitIcon}
+				{gitCommitIcon}
 				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.author} />
@@ -169,7 +169,7 @@ const NewCommitsSinceReviewEventView = () => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{plusIcon}
+				{addIcon}
 				{nbsp}
 				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
 			</div>
@@ -269,7 +269,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 }
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit, pr } = useContext(PullRequestContext);
+	const { requestChanges, approve, submit, deleteReview, pr } = useContext(PullRequestContext);
 	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
@@ -289,6 +289,13 @@ function AddReviewSummaryComment() {
 			default:
 				await submit(value);
 		}
+		setBusy(false);
+	}
+
+	async function cancelReview(event: React.MouseEvent): Promise<void> {
+		event.preventDefault();
+		setBusy(true);
+		await deleteReview();
 		setBusy(false);
 	}
 
@@ -317,6 +324,14 @@ function AddReviewSummaryComment() {
 				value={commentText}
 			></textarea>
 			<div className="form-actions">
+				<button
+					id="cancel-review"
+					className='secondary'
+					disabled={isBusy || pr?.busy}
+					onClick={cancelReview}
+				>
+					Cancel Review
+				</button>
 				{isAuthor ? null : (
 					<button
 						id="request-changes"
@@ -353,7 +368,7 @@ const MergedEventView = (event: MergedEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{mergeIcon}
+				{gitMergeIcon}
 				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.user} />

@@ -366,6 +366,10 @@ export interface Predicate<T> {
 	(input: T): boolean;
 }
 
+export interface AsyncPredicate<T> {
+	(input: T): Promise<boolean>;
+}
+
 export const enum CharCode {
 	Period = 46,
 	/**
@@ -982,6 +986,16 @@ export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (s
 	return str.replace(regex, () => data[offset++]);
 }
 
+export async function arrayFindIndexAsync<T>(arr: T[], predicate: (value: T, index: number, array: T[]) => Promise<boolean>): Promise<number> {
+	for (let i = 0; i < arr.length; i++) {
+		// Evaluate predicate sequentially to allow early exit on first match
+		if (await predicate(arr[i], i, arr)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 export async function batchPromiseAll<T>(items: readonly T[], batchSize: number, processFn: (item: T) => Promise<void>): Promise<void> {
 	const batches = Math.ceil(items.length / batchSize);
 
@@ -995,3 +1009,9 @@ export function escapeRegExp(string: string) {
 	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function truncate(value: string, maxLength: number, suffix = '...'): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	return `${value.substr(0, maxLength)}${suffix}`;
+}

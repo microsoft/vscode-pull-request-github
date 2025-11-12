@@ -11,14 +11,14 @@ import { TimelineEvent } from '../common/timelineEvent';
 import { fromNewIssueUri, fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
+import { ASSIGNEES } from './issueFile';
+import { StateManager } from './stateManager';
+import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IAccount, User } from '../github/interface';
 import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRelatedUsersFromTimelineEvents } from '../github/utils';
-import { ASSIGNEES } from './issueFile';
-import { StateManager } from './stateManager';
-import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private static readonly ID: string = 'UserCompletionProvider';
@@ -77,7 +77,9 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
+		const isPositionComment = document.languageId === 'plaintext' || document.languageId === 'markdown' || await isComment(document, position);
+
+		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !isPositionComment) {
 			return [];
 		}
 

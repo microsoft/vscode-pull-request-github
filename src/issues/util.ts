@@ -6,6 +6,7 @@
 import LRUCache from 'lru-cache';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
+import { StateManager } from './stateManager';
 import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
@@ -16,7 +17,6 @@ import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getEnterpriseUri, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
-import { StateManager } from './stateManager';
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -320,7 +320,7 @@ export async function createSinglePermalink(
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
-	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+	const upstream: Remote & { fetchUrl: string } = rawUpstream as Remote & { fetchUrl: string };
 
 	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
 
@@ -517,12 +517,11 @@ export async function pushAndCreatePR(
 }
 
 export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
-	if (document.languageId !== 'markdown' && document.languageId !== 'plaintext') {
-		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
-		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
-			return false;
-		}
+	const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+	if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+		return false;
 	}
+
 	return true;
 }
 

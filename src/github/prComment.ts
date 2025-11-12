@@ -5,15 +5,15 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { GitHubRepository } from './githubRepository';
+import { IAccount } from './interface';
+import { updateCommentReactions } from './utils';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { escapeRegExp, stringReplaceAsync } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
-import { IAccount } from './interface';
-import { updateCommentReactions } from './utils';
 
 export interface GHPRCommentThread extends vscode.CommentThread2 {
 	gitHubThreadId: string;
@@ -190,7 +190,9 @@ export class TemporaryComment extends CommentBase {
 	}
 
 	get body(): string | vscode.MarkdownString {
-		return new vscode.MarkdownString(this.input);
+		const s = new vscode.MarkdownString(this.input);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	get author(): vscode.CommentAuthorInformation {
@@ -332,6 +334,7 @@ export class GHPRComment extends CommentBase {
 		if (match) {
 			return suggestionBody ? suggestionBody : '';
 		}
+		return undefined;
 	}
 
 	public commentEditId() {
@@ -476,11 +479,15 @@ ${lineContents}
 		if (this.mode === vscode.CommentMode.Editing) {
 			return this._rawBody;
 		}
-		return new vscode.MarkdownString(this.replacedBody);
+		const s = new vscode.MarkdownString(this.replacedBody);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	protected getCancelEditBody() {
-		return new vscode.MarkdownString(this.rawComment.body);
+		const s = new vscode.MarkdownString(this.rawComment.body);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 }
 

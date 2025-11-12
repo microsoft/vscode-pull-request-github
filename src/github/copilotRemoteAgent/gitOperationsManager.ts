@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { adjectives, animals, colors, NumberDictionary, uniqueNamesGenerator } from '@joaomoreno/unique-names-generator';
 import vscode from 'vscode';
 import { Repository } from '../../api/api';
 import Logger from '../../common/logger';
+import { BRANCH_RANDOM_NAME_DICTIONARY, BRANCH_WHITESPACE_CHAR, GIT } from '../../common/settingKeys';
 import { RepoInfo } from '../common';
 
 export class GitOperationsManager {
@@ -13,7 +15,7 @@ export class GitOperationsManager {
 
 	async commitAndPushChanges(repoInfo: RepoInfo) {
 		const { repository, remote, baseRef } = repoInfo;
-		const asyncBranch = `copilot/vscode${Date.now()}`;
+		const asyncBranch = await this.generateRandomBranchName(repository, 'copilot');
 
 		try {
 			await repository.createBranch(asyncBranch, true);
@@ -137,5 +139,55 @@ export class GitOperationsManager {
 				Logger.error(`Failed to checkout back to original branch '${baseRef}': ${checkoutError}`, this.loggerID);
 			}
 		}
+	}
+
+	// Adapted from https://github.com/microsoft/vscode/blob/e35e3b4e057450ea3d90c724fae5e3e9619b96fe/extensions/git/src/commands.ts#L3007
+	private async generateRandomBranchName(repository: Repository, prefix: string): Promise<string> {
+		const config = vscode.workspace.getConfiguration(GIT);
+		const branchWhitespaceChar = config.get<string>(BRANCH_WHITESPACE_CHAR);
+		const branchRandomNameDictionary = config.get<string[]>(BRANCH_RANDOM_NAME_DICTIONARY);
+
+		// Default to legacy behaviour if config mismatches core
+		if (branchWhitespaceChar === undefined || branchRandomNameDictionary === undefined) {
+			return `copilot/vscode${Date.now()}`;
+		}
+
+		const separator = branchWhitespaceChar;
+		const dictionaries: string[][] = [];
+		for (const dictionary of branchRandomNameDictionary) {
+			if (dictionary.toLowerCase() === 'adjectives') {
+				dictionaries.push(adjectives);
+			}
+			if (dictionary.toLowerCase() === 'animals') {
+				dictionaries.push(animals);
+			}
+			if (dictionary.toLowerCase() === 'colors') {
+				dictionaries.push(colors);
+			}
+			if (dictionary.toLowerCase() === 'numbers') {
+				dictionaries.push(NumberDictionary.generate({ length: 3 }));
+			}
+		}
+
+		if (dictionaries.length === 0) {
+			return '';
+		}
+
+		// 5 attempts to generate a random branch name
+		for (let index = 0; index < 5; index++) {
+			const randomName = `${prefix}/${uniqueNamesGenerator({
+				dictionaries,
+				length: dictionaries.length,
+				separator
+			})}`;
+
+			// Check for local ref conflict
+			const refs = await repository.getRefs?.({ pattern: `refs/heads/${randomName}` });
+			if (!refs || refs.length === 0) {
+				return randomName;
+			}
+		}
+
+		return '';
 	}
 }

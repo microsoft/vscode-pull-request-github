@@ -4,6 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ContextDropdown } from './contextDropdown';
+import { editIcon, quoteIcon, trashIcon } from './icon';
+import { nbsp, Spaced } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
@@ -12,11 +17,6 @@ import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
-import { ContextDropdown } from './contextDropdown';
-import { deleteIcon, editIcon, quoteIcon } from './icon';
-import { nbsp, Spaced } from './space';
-import { Timestamp } from './timestamp';
-import { AuthorLink, Avatar } from './user';
 
 export type Props = {
 	headerInEditMode?: boolean;
@@ -107,7 +107,7 @@ export function CommentView(commentProps: Props) {
 						className="icon-button"
 						onClick={() => deleteComment({ id, pullRequestReviewId })}
 					>
-						{deleteIcon}
+						{trashIcon}
 					</button>
 				) : null}
 			</div>
@@ -143,13 +143,14 @@ function isIComment(comment: any): comment is IComment {
 }
 
 const DESCRIPTORS = {
+	REQUESTED: 'will review',
 	PENDING: 'will review',
 	COMMENTED: 'reviewed',
 	CHANGES_REQUESTED: 'requested changes',
 	APPROVED: 'approved',
 };
 
-const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
+const reviewDescriptor = (state: keyof typeof DESCRIPTORS) => DESCRIPTORS[state];
 
 function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const asNotPullRequest = comment as Partial<IComment | ReviewEvent | CommentEvent>;
@@ -246,7 +247,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 
 	const onInput = useCallback(
 		e => {
-			draftComment.current.body = (e.target as any).value;
+			draftComment.current.body = e.target.value;
 			draftComment.current.dirty = true;
 		},
 		[draftComment],
@@ -365,7 +366,7 @@ export function AddComment({
 		textareaRef.current?.focus();
 	});
 
-	const closeButton = e => {
+	const closeButton: React.MouseEventHandler<HTMLButtonElement> = e => {
 		e.preventDefault();
 		const { value } = textareaRef.current!;
 		close(value);
@@ -427,7 +428,7 @@ export function AddComment({
 				id="comment-textarea"
 				name="body"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
-				onInput={({ target }) => updatePR({ pendingCommentText: (target as any).value })}
+				onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
 				onKeyDown={onKeyDown}
 				value={pendingCommentText}
 				placeholder="Leave a comment"
@@ -495,7 +496,7 @@ const COMMENT_METHODS = {
 };
 
 const makeCommentMenuContext = (availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
-	const createMenuContexts = {
+	const createMenuContexts: Record<string, boolean | string> = {
 		'preventDefaultContextMenuItems': true,
 		'github:reviewCommentMenu': true,
 	};

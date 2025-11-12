@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
+import { getState, setState, updateState } from './cache';
+import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
-import { getState, setState, updateState } from './cache';
-import { getMessageHandler, MessageHandler } from './message';
+import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 
 export class PRContext {
 	constructor(
@@ -75,7 +75,7 @@ export class PRContext {
 	public merge = async (args: MergeArguments): Promise<MergeResult> => {
 		const result: MergeResult = await this.postMessage({ command: 'pr.merge', args });
 		return result;
-	}
+	};
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
 
@@ -88,6 +88,8 @@ export class PRContext {
 	};
 
 	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReview' });
+
+	public readyForReviewAndMerge = (args: { mergeMethod: MergeMethod }): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReviewAndMerge', args });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
@@ -158,6 +160,30 @@ export class PRContext {
 
 	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
 
+	public deleteReview = async () => {
+		try {
+			const result: DeleteReviewResult = await this.postMessage({ command: 'pr.delete-review' });
+
+			const state = this.pr;
+			const eventsWithoutPendingReview = state?.events.filter(event =>
+				!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
+			) ?? [];
+
+			if (state && (eventsWithoutPendingReview.length < state.events.length)) {
+				// Update the PR state to reflect the deleted review
+				state.busy = false;
+				state.pendingCommentText = '';
+				state.pendingCommentDrafts = {};
+				// Remove the deleted review from events
+				state.events = eventsWithoutPendingReview;
+				this.updatePR(state);
+			}
+			return result;
+		} catch (error) {
+			return this.updatePR({ busy: false });
+		}
+	};
+
 	public close = async (body?: string) => {
 		const { pr } = this;
 		if (!pr) {
@@ -227,7 +253,7 @@ export class PRContext {
 		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerId });
 		state.reviewers = reviewers;
 		this.updatePR(state);
-	}
+	};
 
 	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
 		const { pr: state } = this;
@@ -249,7 +275,7 @@ export class PRContext {
 		state.events = result.events ?? state.events;
 		state.mergeable = result.mergeable ?? state.mergeable;
 		this.updatePR(state);
-	}
+	};
 
 	public dequeue = async () => {
 		const { pr: state } = this;
@@ -261,7 +287,7 @@ export class PRContext {
 			state.mergeQueueEntry = undefined;
 		}
 		this.updatePR(state);
-	}
+	};
 
 	public enqueue = async () => {
 		const { pr: state } = this;
@@ -273,7 +299,7 @@ export class PRContext {
 			state.mergeQueueEntry = result.mergeQueueEntry;
 		}
 		this.updatePR(state);
-	}
+	};
 
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 

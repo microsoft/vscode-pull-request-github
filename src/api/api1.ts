@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { APIState, PublishEvent } from '../@types/git';
+import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
+import { APIState, CloneOptions, PublishEvent } from '../@types/git';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
 
 export const enum RefType {
 	Head,
@@ -83,6 +83,25 @@ export class GitApiImpl extends Disposable implements API, IGit {
 		private readonly repositoriesManager: RepositoriesManager) {
 		super();
 	}
+
+	async getRepositoryWorkspace(uri: vscode.Uri): Promise<vscode.Uri[] | null> {
+		for (const [, provider] of this._providers) {
+			if (provider.getRepositoryWorkspace) {
+				return provider.getRepositoryWorkspace(uri);
+			}
+		}
+		return null;
+	}
+
+	async clone(uri: vscode.Uri, options?: CloneOptions): Promise<vscode.Uri | null> {
+		for (const [, provider] of this._providers) {
+			if (provider.clone) {
+				return provider.clone(uri, options);
+			}
+		}
+		return null;
+	}
+
 
 	public get repositories(): Repository[] {
 		const ret: Repository[] = [];

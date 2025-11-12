@@ -7,12 +7,12 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from https://github.com/github/VisualStudio/blob/165a97bdcab7559e0c4393a571b9ff2aed4ba8a7/src/GitHub.App/Services/PullRequestService.cs
  */
 import * as vscode from 'vscode';
+import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 import { Branch, Repository } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
-import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 export const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -329,8 +329,9 @@ export class PullRequestGitHelper {
 	): Promise<PullRequestMetadata | undefined> {
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
-			const configValue = await repository.getConfig(configKey);
-			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
+			const allConfigs = await repository.getConfigs();
+			const matchingConfigs = allConfigs.filter(config => config.key === configKey).sort((a, b) => b.value < a.value ? 1 : -1);
+			return PullRequestGitHelper.parsePullRequestMetadata(matchingConfigs[0].value);
 		} catch (_) {
 			return;
 		}

@@ -2,7 +2,7 @@ jobs:
   - job: test_suite
     displayName: Test suite
     pool:
-      vmImage: 'macos-13'
+      vmImage: 'macos-15'
     steps:
       - template: scripts/ci/common-setup.yml
 

@@ -4,13 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as pathLib from 'path';
+import { URI } from '@vscode/prompt-tsx/dist/base/util/vs/common/uri';
 import * as marked from 'marked';
 import vscode, { ChatPromptReference, ChatSessionItem } from 'vscode';
+import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, JobInfo, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
+import { CodingAgentPRAndStatus, CopilotPRWatcher } from './copilotPrWatcher';
 import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from '../../common/sessionParsing';
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -18,9 +22,6 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
-import { copilotPRStatusToSessionStatus, IAPISessionLogs, ICopilotRemoteAgentCommandArgs, ICopilotRemoteAgentCommandResponse, OctokitCommon, RemoteAgentResult, RepoInfo } from './common';
-import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
-import { CodingAgentPRAndStatus, CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { extractTitle, formatBodyPlaceholder, truncatePrompt } from './copilotRemoteAgentUtils';
@@ -32,6 +33,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { chooseItem } from './quickPicks';
 import { RepositoriesManager } from './repositoriesManager';
 import { getRepositoryForFile } from './utils';
+import { PrsTreeModel } from '../view/prsTreeModel';
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
 // Without Pending Changes
@@ -42,6 +44,7 @@ const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
 const CONTINUE_AND_DO_NOT_ASK_AGAIN = vscode.l10n.t('Continue and don\'t ask again');
 
 const CONTINUE_TRUNCATION = vscode.l10n.t('Continue with truncation');
+const DELEGATE_MODAL_DETAILS = vscode.l10n.t('The agent will work asynchronously to create a pull request with your requested changes.');
 
 const COPILOT = '@copilot';
 
@@ -54,12 +57,14 @@ export namespace SessionIdForPr {
 
 	const prefix = 'pull-session-by-index';
 
-	export function getId(prNumber: number, sessionIndex: number): string {
-		return `${prefix}-${prNumber}-${sessionIndex}`;
+	export function getResource(prNumber: number, sessionIndex: number): vscode.Uri {
+		return vscode.Uri.from({
+			scheme: COPILOT_SWE_AGENT, path: `/${prefix}-${prNumber}-${sessionIndex}`,
+		});
 	}
 
-	export function parse(id: string): { prNumber: number; sessionIndex: number } | undefined {
-		const match = id.match(new RegExp(`^${prefix}-(\\d+)-(\\d+)$`));
+	export function parse(resource: vscode.Uri): { prNumber: number; sessionIndex: number } | undefined {
+		const match = resource.path.match(new RegExp(`^/${prefix}-(\\d+)-(\\d+)$`));
 		if (match) {
 			return {
 				prNumber: parseInt(match[1], 10),
@@ -70,47 +75,106 @@ export namespace SessionIdForPr {
 	}
 }
 
+type ConfirmationResult = { step: string; accepted: boolean; metadata?: CreatePromptMetadata /* | SomeOtherMetadata */ };
+
+interface CreatePromptMetadata {
+	prompt: string;
+	history?: string;
+	references?: ChatPromptReference[];
+}
+
 export class CopilotRemoteAgentManager extends Disposable {
 	async chatParticipantImpl(request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) {
-		const startSession = async (prompt: string, history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>, source: string) => {
+		const startSession = async (source: string, prompt: string, history?: string, references?: readonly vscode.ChatPromptReference[]) => {
 			/* __GDPR__
 				"copilot.remoteagent.editor.invoke" : {
 					"promptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"historyLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"referencesCount" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this.telemetry.sendTelemetryEvent('copilot.remoteagent.editor.invoke', {
-				promptLength: prompt.length.toString(),
-				historyLength: history?.length.toString(),
+				promptLength: prompt.length.toString() ?? '0',
+				historyLength: history?.length.toString() ?? '0',
+				referencesCount: references?.length.toString() ?? '0',
 				source,
 			});
-			stream.progress(vscode.l10n.t('Delegating to coding agent'));
 			const result = await this.invokeRemoteAgent(
 				prompt,
 				[
-					this.extractFileReferences(request.references),
-					await this.extractHistory(history)
+					this.extractFileReferences(references),
+					history
 				].join('\n\n').trim(),
 				token,
 				false,
+				stream,
 			);
 			if (result.state !== 'success') {
-				Logger.error(`Failed to provide new chat session item: ${result.error}`, CopilotRemoteAgentManager.ID);
-				stream.warning('Failed delegating to coding agent. Please try again later.');
+				Logger.error(`Failed to provide new chat session item: ${result.error}${result.innerError ? `\nInner Error: ${result.innerError}` : ''}`, CopilotRemoteAgentManager.ID);
+				stream.warning(result.error);
 				return;
 			}
 			return result.number;
 		};
 
+		const handleConfirmationData = async () => {
+			const results: ConfirmationResult[] = [];
+			results.push(...(request.acceptedConfirmationData?.map(data => ({ step: data.step, accepted: true, metadata: data?.metadata })) ?? []));
+			results.push(...((request.rejectedConfirmationData ?? []).filter(data => !results.some(r => r.step === data.step)).map(data => ({ step: data.step, accepted: false, metadata: data?.metadata }))));
+			for (const data of results) {
+				switch (data.step) {
+					case 'create':
+						if (!data.accepted) {
+							stream.markdown(vscode.l10n.t('Coding agent request cancelled.'));
+							return {};
+						}
+						const { prompt, history, references } = data.metadata as CreatePromptMetadata;
+						const number = await startSession('chat', prompt, history, references);
+						if (!number) {
+							return {};
+						}
+						const pullRequest = await this.findPullRequestById(number, true);
+						if (!pullRequest) {
+							stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', number));
+							return {};
+						}
+						const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
+						const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(true), smartypants: true }).trim();
+						const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, plaintextBody, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
+						stream.push(card);
+						stream.markdown(vscode.l10n.t('GitHub Copilot coding agent has begun working on your request. Follow its progress in the associated chat and pull request.'));
+						vscode.commands.executeCommand('vscode.open', vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/' + number }), { viewColumn: vscode.ViewColumn.Active });
+						break;
+					default:
+						stream.warning(`Unknown confirmation step: ${data.step}\n\n`);
+						break;
+				}
+			}
+			return {};
+		};
+
+		if (request.acceptedConfirmationData || request.rejectedConfirmationData) {
+			return await handleConfirmationData();
+		}
+
 		if (context.chatSessionContext?.isUntitled) {
 			/* Generate new coding agent session from an 'untitled' session */
-			const number = await startSession(request.prompt, context.history, 'untitledChatSession');
+			const number = await startSession(
+				'untitledChatSession',
+				context.chatSummary?.prompt ?? request.prompt,
+				context.chatSummary?.history,
+				request.references
+			);
 			if (!number) {
 				return {};
 			}
 			// Tell UI to the new chat session
-			this._onDidCommitChatSession.fire({ original: context.chatSessionContext.chatSessionItem, modified: { id: String(number), label: `Pull Request ${number}` } });
+			const modified: vscode.ChatSessionItem = {
+				resource: vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/' + number }),
+				label: `Pull Request ${number}`,
+			};
+			this._onDidCommitChatSession.fire({ original: context.chatSessionContext.chatSessionItem, modified });
 		} else if (context.chatSessionContext) {
 			/* Follow up to an existing coding agent session */
 			try {
@@ -127,9 +191,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 				stream.progress(vscode.l10n.t('Preparing'));
 
-				const pullRequest = await this.findPullRequestById(parseInt(context.chatSessionContext.chatSessionItem.id, 10), true);
+				const pullRequest = await this.findPullRequestById(parseInt(context.chatSessionContext.chatSessionItem.resource.path.slice(1), 10), true);
 				if (!pullRequest) {
-					stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', context.chatSessionContext.chatSessionItem.id));
+					stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', context.chatSessionContext.chatSessionItem.resource.toString));
 					return {};
 				}
 
@@ -146,7 +210,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				stream.markdown(result);
 				stream.markdown('\n\n');
 
-				stream.progress(vscode.l10n.t('Waiting for coding agent to respond'));
+				stream.progress(vscode.l10n.t('Attaching to session'));
 
 				// Wait for new session and stream its progress
 				const newSession = await this.waitForNewSession(pullRequest, stream, token, true);
@@ -167,33 +231,25 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return { errorDetails: { message: error.message } };
 			}
 		} else {
-			/* @copilot invoked from a 'normal' chat */
-
-			// TODO(jospicer): Use confirmations to guide users
-
-			const number = await startSession(request.prompt, context.history, 'chat'); // TODO(jospicer): 'All of the chat messages so far in the current chat session. Currently, only chat messages for the current participant are included'
-			if (!number) {
-				return {};
-			}
-			const pullRequest = await this.findPullRequestById(number, true);
-			if (!pullRequest) {
-				stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', number));
-				return {};
-			}
-
-			const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
-			const plaintextBody = marked.parse(pullRequest.body, { renderer: new PlainTextRenderer(true), smartypants: true }).trim();
-
-			const card = new vscode.ChatResponsePullRequestPart(uri, pullRequest.title, plaintextBody, pullRequest.author.specialDisplayName ?? pullRequest.author.login, `#${pullRequest.number}`);
-			stream.push(card);
-			stream.markdown(vscode.l10n.t('GitHub Copilot coding agent has begun working on your request. Follow its progress in the associated chat and pull request.'));
-			vscode.window.showChatSession(COPILOT_SWE_AGENT, String(number), { viewColumn: vscode.ViewColumn.Active });
+			/* @copilot invoked from a 'normal' chat or 'cloud button' */
+			stream.confirmation(
+				vscode.l10n.t('Delegate to agent'),
+				DELEGATE_MODAL_DETAILS,
+				{
+					step: 'create',
+					metadata: {
+						prompt: context.chatSummary?.prompt ?? request.prompt,
+						history: context.chatSummary?.history,
+						references: request.references,
+					}
+				},
+				['Delegate', 'Cancel']
+			);
 		}
 	}
 
 	public static ID = 'CopilotRemoteAgentManager';
 
-	private readonly _stateModel: CopilotStateModel;
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeStates = this._onDidChangeStates.event;
 	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<PullRequestModel[]>());
@@ -206,11 +262,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidCommitChatSession = this._onDidCommitChatSession.event;
 
 	private readonly gitOperationsManager: GitOperationsManager;
-
-	private codingAgentPRsPromise: Promise<{
-		item: PullRequestModel;
-		status: CopilotPRStatus;
-	}[]> | undefined;
+	private _isAssignable: boolean | undefined;
 
 	constructor(
 		private credentialStore: CredentialStore,
@@ -218,6 +270,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		private telemetry: ITelemetry,
 		private context: vscode.ExtensionContext,
 		private gitAPI: GitApiImpl,
+		private readonly prsTreeModel: PrsTreeModel,
 	) {
 		super();
 		this.gitOperationsManager = new GitOperationsManager(CopilotRemoteAgentManager.ID);
@@ -227,13 +280,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}));
 
-		this._stateModel = new CopilotStateModel();
-		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
-		this._register(this._stateModel.onDidChangeStates(() => {
+		this._register(new CopilotPRWatcher(this.repositoriesManager, this.prsTreeModel));
+		this._register(this.prsTreeModel.onDidChangeCopilotStates(() => {
 			this._onDidChangeStates.fire();
 			this._onDidChangeChatSessions.fire();
 		}));
-		this._register(this._stateModel.onDidChangeNotifications(items => this._onDidChangeNotifications.fire(items)));
+		this._register(this.prsTreeModel.onDidChangeCopilotNotifications(items => this._onDidChangeNotifications.fire(items)));
 
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
 			if (event.added) {
@@ -299,9 +351,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async isAssignable(): Promise<boolean> {
+		const setCachedResult = (b: boolean) => {
+			this._isAssignable = b;
+			return b;
+		};
+
+		if (this._isAssignable !== undefined) {
+			return this._isAssignable;
+		}
+
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return false;
+			return setCachedResult(false);
 		}
 
 		const { fm } = repoInfo;
@@ -312,14 +373,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const allAssignableUsers = fm.getAllAssignableUsers();
 
 			if (!allAssignableUsers) {
-				return false;
+				return setCachedResult(false);
 			}
-
-			// Check if any of the copilot logins are in the assignable users
-			return allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login));
+			return setCachedResult(allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login)));
 		} catch (error) {
 			// If there's an error fetching assignable users, assume not assignable
-			return false;
+			return setCachedResult(false);
 		}
 	}
 
@@ -349,6 +408,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async updateAssignabilityContext(): Promise<void> {
 		try {
+			this._isAssignable = undefined; // Invalidate cache
 			const available = await this.isAvailable();
 			commands.setContext('copilotCodingAgentAssignable', available);
 		} catch (error) {
@@ -367,7 +427,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private chooseFolderManager(): Promise<FolderRepositoryManager | undefined> {
 		return chooseItem<FolderRepositoryManager>(
 			this.repositoriesManager.folderManagers,
-			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
+			itemValue => ({ label: pathLib.basename(itemValue.repository.rootUri.fsPath) }),
 		);
 	}
 
@@ -402,7 +462,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const result = await chooseItem<GitHubRemote>(
 			ghRemotes,
-			itemValue => `${itemValue.remoteName} (${itemValue.owner}/${itemValue.repositoryName})`,
+			itemValue => ({ label: itemValue.remoteName, description: `(${itemValue.owner}/${itemValue.repositoryName})` }),
 			{
 				title: vscode.l10n.t('Coding agent will create pull requests against the selected remote.'),
 			}
@@ -543,7 +603,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		let autoPushAndCommit = false;
 		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
-		const detail = vscode.l10n.t('Your chat context will be used to continue work in a new pull request.');
+		const detail = DELEGATE_MODAL_DETAILS;
 		if (source !== 'prompt' && hasChanges && CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
 			// Pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
@@ -606,6 +666,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			summary,
 			undefined,
 			autoPushAndCommit,
+			undefined,
+			fm
 		);
 
 		if (result.state !== 'success') {
@@ -649,7 +711,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} else {
 			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
 			if (pr) {
-				vscode.window.showChatSession(COPILOT_SWE_AGENT, `${pr.number}`, {});
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/' + pr.number }));
 			}
 		}
 
@@ -669,19 +731,50 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
 	}
 
-	async invokeRemoteAgent(prompt: string, problemContext?: string, token?: vscode.CancellationToken, autoPushAndCommit = true): Promise<RemoteAgentResult> {
+	async invokeRemoteAgent(prompt: string, problemContext?: string, token?: vscode.CancellationToken, autoPushAndCommit = true, chatStream?: vscode.ChatResponseStream, fm?: FolderRepositoryManager): Promise<RemoteAgentResult> {
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
-			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
+			return { error: vscode.l10n.t('Failed to initialize Copilot API. Please try again later.'), state: 'error' };
 		}
 
 		await this.promptAndUpdatePreferredGitHubRemote(true);
 
-		const repoInfo = await this.repoInfo();
+		const repoInfo = await this.repoInfo(fm);
 		if (!repoInfo) {
 			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
 		const { owner, repo, remote, repository, ghRepository, baseRef } = repoInfo;
+
+		// Check if user has permission to access the repository
+		try {
+			await ghRepository.octokit.api.repos.get({ owner, repo });
+		} catch (error) {
+			if (error.status === 404 || error.status === 403) {
+				const currentUser = await this.credentialStore.getCurrentUser(remote.authProviderId);
+				return {
+					error: vscode.l10n.t(
+						'Unable to access {0} as user {1}. Please check your permissions and try again.',
+						`\`${owner}/${repo}\``,
+						`\`${currentUser.login}\``,
+					),
+					state: 'error',
+				};
+			}
+
+			// Re-throw other errors to be handled by the outer catch block
+			throw error;
+		}
+
+		// Check if user has permission to assign Copilot in repository
+		if (!(await this.isAssignable())) {
+			return {
+				error: vscode.l10n.t(
+					'Unable to assign GitHub Copilot coding agent in {0}. Please check your permissions and try again.',
+					`\`${owner}/${repo}\``
+				),
+				state: 'error',
+			};
+		}
 
 		// NOTE: This is as unobtrusive as possible with the current high-level APIs.
 		// We only create a new branch and commit if there are staged or working changes.
@@ -695,9 +788,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
 			try {
+				chatStream?.progress(vscode.l10n.t('Waiting for local changes'));
 				head_ref = await this.gitOperationsManager.commitAndPushChanges(repoInfo);
 			} catch (error) {
-				return { error: error.message, state: 'error' };
+				return { error: vscode.l10n.t('Failed to commit and push changes. Please try again later.'), innerError: error.message, state: 'error' };
 			}
 		}
 
@@ -719,6 +813,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const { problemStatement, isTruncated } = truncatePrompt(prompt, problemContext);
 
 		if (isTruncated) {
+			chatStream?.progress(vscode.l10n.t('Truncating context'));
 			const truncationResult = await vscode.window.showWarningMessage(
 				vscode.l10n.t('Prompt size exceeded'), { modal: true, detail: vscode.l10n.t('Your prompt will be truncated to fit within coding agent\'s context window. This may affect the quality of the response.') }, CONTINUE_TRUNCATION);
 			const userCancelled = token?.isCancellationRequested || !truncationResult || truncationResult !== CONTINUE_TRUNCATION;
@@ -731,7 +826,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				isCancelled: String(userCancelled),
 			});
 			if (userCancelled) {
-				return { error: vscode.l10n.t('User cancelled due to truncation'), state: 'error' };
+				return { error: vscode.l10n.t('User cancelled due to truncation.'), state: 'error' };
 			}
 		}
 
@@ -748,22 +843,36 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 
 		try {
-			const { pull_request, session_id } = await capiClient.postRemoteAgentJob(owner, repo, payload, isTruncated);
-			this._onDidCreatePullRequest.fire(pull_request.number);
-			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
+			chatStream?.progress(vscode.l10n.t('Delegating to coding agent'));
+			const response = await capiClient.postRemoteAgentJob(owner, repo, payload, isTruncated);
+
+			// For v1 API, we need to fetch the job details to get the PR info
+			// Since the PR might not be created immediately, we need to poll for it
+			chatStream?.progress(vscode.l10n.t('Creating pull request'));
+			const jobInfo = await this.waitForJobWithPullRequest(capiClient, owner, repo, response.job_id, token);
+			if (!jobInfo || !jobInfo.pull_request) {
+				return { error: vscode.l10n.t('Failed to retrieve pull request information from job'), state: 'error' };
+			}
+
+			const { number } = jobInfo.pull_request;
+
+			// Find the actual PR to get the HTML URL
+			const pullRequest = await this.findPullRequestById(number, true);
+			const htmlUrl = pullRequest?.html_url || `https://github.com/${owner}/${repo}/pull/${number}`;
+
+			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: number });
 			const prLlmString = `The remote agent has begun work and has created a pull request. Details about the pull request are being shown to the user. If the user wants to track progress or iterate on the agent's work, they should use the pull request.`;
 
-			await this.waitForQueuedToInProgress(session_id, token);
 			return {
 				state: 'success',
-				number: pull_request.number,
-				link: pull_request.html_url,
+				number,
+				link: htmlUrl,
 				webviewUri,
 				llmDetails: head_ref ? `Local pending changes have been pushed to branch '${head_ref}'. ${prLlmString}` : prLlmString,
-				sessionId: session_id
+				sessionId: response.session_id
 			};
 		} catch (error) {
-			return { error: error.message, state: 'error' };
+			return { error: vscode.l10n.t('Failed delegating to coding agent. Please try again later.'), innerError: error.message, state: 'error' };
 		}
 	}
 
@@ -876,39 +985,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			})[0];
 	}
 
-	getNotificationsCount(owner: string, repo: string): number {
-		return this._stateModel.getNotificationsCount(owner, repo);
-	}
-
-	get notificationsCount(): number {
-		return this._stateModel.notifications.size;
-	}
-
-
-	public clearAllNotifications(owner?: string, repo?: string): void {
-		this._stateModel.clearAllNotifications(owner, repo);
-	}
-
-	hasNotification(owner: string, repo: string, pullRequestNumber?: number): boolean {
-		if (pullRequestNumber !== undefined) {
-			const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
-			return this._stateModel.notifications.has(key);
-		} else {
-			const partialKey = this._stateModel.makeKey(owner, repo);
-			return Array.from(this._stateModel.notifications.keys()).some(key => {
-				return key.startsWith(partialKey);
-			});
-		}
-	}
-
-	getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
-		return this._stateModel.get(owner, repo, prNumber);
-	}
-
-	getCounts(owner: string, repo: string): { total: number; inProgress: number; error: number } {
-		return this._stateModel.getCounts(owner, repo);
-	}
-
 	async extractHistory(history: ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn>): Promise<string | undefined> {
 		if (!history) {
 			return;
@@ -968,29 +1044,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			await this.waitRepoManagerInitialization();
 
-			let codingAgentPRs: CodingAgentPRAndStatus[] = [];
-			if (this._stateModel.isInitialized) {
-				codingAgentPRs = this._stateModel.all;
-				Logger.debug(`Fetched PRs from state model: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
-			} else {
-				this.codingAgentPRsPromise = this.codingAgentPRsPromise ?? new Promise<CodingAgentPRAndStatus[]>(async (resolve) => {
-					try {
-						const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-						const prAndStatus = await Promise.all(sessions.map(async pr => {
-							const timeline = await pr.getCopilotTimelineEvents(pr);
-							const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
-							return { item: pr, status };
-						}));
+			let codingAgentPRs: CodingAgentPRAndStatus[] = await this.prsTreeModel.getCopilotPullRequests();
+			Logger.debug(`Fetched PRs from API: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
 
-						resolve(prAndStatus);
-					} catch (error) {
-						Logger.error(`Failed to fetch coding agent PRs: ${error}`, CopilotRemoteAgentManager.ID);
-						resolve([]);
-					}
-				});
-				codingAgentPRs = await this.codingAgentPRsPromise;
-				Logger.debug(`Fetched PRs from API: ${codingAgentPRs.length}`, CopilotRemoteAgentManager.ID);
-			}
 			return await Promise.all(codingAgentPRs.map(async prAndStatus => {
 				const timestampNumber = new Date(prAndStatus.item.createdAt).getTime();
 				const status = copilotPRStatusToSessionStatus(prAndStatus.status);
@@ -999,9 +1055,19 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 				const uri = await toOpenPullRequestWebviewUri({ owner: pullRequest.remote.owner, repo: pullRequest.remote.repositoryName, pullRequestNumber: pullRequest.number });
 				const prLinkTitle = vscode.l10n.t('Open pull request in VS Code');
-				const description = new vscode.MarkdownString(`[#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
-				return {
-					id: `${pullRequest.number}`,
+
+				// If we have multiple repositories, include the repo name in the link text
+				// e.g., 'owner/repo #123' instead of just '#123'
+				let repoInfo = '';
+				if (this.repositoriesManager.folderManagers.length > 1) {
+					const owner = pullRequest.remote.owner;
+					const repo = pullRequest.remote.repositoryName;
+					repoInfo = `${owner}/${repo} `;
+				}
+				const fileCount = pullRequest.fileChanges.size === 0 ? (await pullRequest.getFileChangesInfo()).length : pullRequest.fileChanges.size;
+				const description = new vscode.MarkdownString(`[${repoInfo}#${pullRequest.number}](${uri.toString()} "${prLinkTitle}")`); //  pullRequest.base.ref === defaultBranch ? `PR #${pullRequest.number}`: `PR #${pullRequest.number} → ${pullRequest.base.ref}`;
+				const chatSession: ChatSessionWithPR = {
+					resource: vscode.Uri.from({ scheme: COPILOT_SWE_AGENT, path: '/' + pullRequest.number }),
 					label: pullRequest.title || `Session ${pullRequest.number}`,
 					iconPath: this.getIconForSession(status),
 					pullRequest: pullRequest,
@@ -1013,19 +1079,19 @@ export class CopilotRemoteAgentManager extends Disposable {
 					},
 					statistics: pullRequest.item.additions !== undefined && pullRequest.item.deletions !== undefined && (pullRequest.item.additions > 0 || pullRequest.item.deletions > 0) ? {
 						insertions: pullRequest.item.additions,
-						deletions: pullRequest.item.deletions
+						deletions: pullRequest.item.deletions,
+						files: fileCount
 					} : undefined
 				};
+				return chatSession;
 			}));
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
-		} finally {
-			this.codingAgentPRsPromise = undefined;
 		}
 		return [];
 	}
 
-	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
+	public async provideChatSessionContent(resource: URI, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
 		try {
 			const capi = await this.copilotApi;
 			if (!capi || token.isCancellationRequested) {
@@ -1037,16 +1103,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 			let pullRequestNumber: number | undefined;
 			let sessionIndex: number | undefined;
 
-			const indexedSessionId = SessionIdForPr.parse(id);
+			const indexedSessionId = SessionIdForPr.parse(resource);
 			if (indexedSessionId) {
 				pullRequestNumber = indexedSessionId.prNumber;
 				sessionIndex = indexedSessionId.sessionIndex;
 			}
 
 			if (typeof pullRequestNumber === 'undefined') {
-				pullRequestNumber = parseInt(id);
+				pullRequestNumber = parseInt(resource.path.slice(1));
 				if (isNaN(pullRequestNumber)) {
-					Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
+					Logger.error(`Invalid pull request number: ${resource}`, CopilotRemoteAgentManager.ID);
 					return this.createEmptySession();
 				}
 			}
@@ -1102,14 +1168,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 		sessions: SessionInfo[],
 		pullRequest: PullRequestModel
 	): ((stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void>) | undefined {
-		// Only the latest in-progress session gets activeResponseCallback
-		const inProgressSession = sessions
+		// Only the latest in-progress or queued session gets activeResponseCallback
+		const pendingSession = sessions
 			.slice()
 			.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-			.find(session => session.state === 'in_progress');
+			.find(session => session.state === 'in_progress' || session.state === 'queued');
 
-		if (inProgressSession) {
-			return this.createActiveResponseCallback(pullRequest, inProgressSession.id);
+		if (pendingSession) {
+			return this.createActiveResponseCallback(pullRequest, pendingSession.id);
 		}
 		return undefined;
 	}
@@ -1124,6 +1190,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private createActiveResponseCallback(pullRequest: PullRequestModel, sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
 		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
 			// Use the shared streaming logic
+			await this.waitForQueuedToInProgress(sessionId, stream, token);
+			this._onDidCreatePullRequest.fire(pullRequest.number);
 			return this.streamSessionLogs(stream, pullRequest, sessionId, token);
 		};
 	}
@@ -1439,6 +1507,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async waitForQueuedToInProgress(
 		sessionId: string,
+		stream?: vscode.ChatResponseStream,
 		token?: vscode.CancellationToken
 	): Promise<SessionInfo | undefined> {
 		const capi = await this.copilotApi;
@@ -1456,6 +1525,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		do {
 			sessionInfo = await capi.getSessionInfo(sessionId);
 			if (sessionInfo && sessionInfo.state === 'queued') {
+				stream?.progress(vscode.l10n.t('Attaching to session'));
 				Logger.trace('Queued session found', CopilotRemoteAgentManager.ID);
 				break;
 			}
@@ -1467,6 +1537,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} while (waitForQueuedCount <= waitForQueuedMaxRetries && (!token || !token.isCancellationRequested));
 
 		if (!sessionInfo || sessionInfo.state !== 'queued') {
+			if (sessionInfo?.state === 'in_progress') {
+				Logger.trace('Session already in progress', CopilotRemoteAgentManager.ID);
+				return sessionInfo;
+			}
 			// Failure
 			Logger.trace('Failed to find queued session', CopilotRemoteAgentManager.ID);
 			return;
@@ -1485,6 +1559,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 			await new Promise(resolve => setTimeout(resolve, pollInterval));
 		}
+		Logger.warn(`Timed out waiting for session ${sessionId} to transition from queued to in_progress`, CopilotRemoteAgentManager.ID);
 	}
 
 	private async waitForNewSession(
@@ -1518,7 +1593,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				if (!waitForTransitionToInProgress) {
 					return newSession;
 				}
-				const inProgressSession = await this.waitForQueuedToInProgress(newSession.id, token);
+				const inProgressSession = await this.waitForQueuedToInProgress(newSession.id, stream, token);
 				if (!inProgressSession) {
 					stream.markdown(vscode.l10n.t('Timed out waiting for coding agent to begin work. Please try again shortly.'));
 					return;
@@ -1546,7 +1621,34 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	public refreshChatSessions(): void {
-		this._stateModel.clear();
+		this.prsTreeModel.clearCopilotCaches();
+		this._onDidChangeChatSessions.fire();
+	}
+
+	private async waitForJobWithPullRequest(
+		capiClient: CopilotApi,
+		owner: string,
+		repo: string,
+		jobId: string,
+		token?: vscode.CancellationToken
+	): Promise<JobInfo | undefined> {
+		const maxWaitTime = 30 * 1000; // 30 seconds
+		const pollInterval = 2000; // 2 seconds
+		const startTime = Date.now();
+
+		Logger.appendLine(`Waiting for job ${jobId} to have pull request information...`, CopilotRemoteAgentManager.ID);
+
+		while (Date.now() - startTime < maxWaitTime && (!token || !token.isCancellationRequested)) {
+			const jobInfo = await capiClient.getJobByJobId(owner, repo, jobId);
+			if (jobInfo && jobInfo.pull_request && jobInfo.pull_request.number) {
+				Logger.appendLine(`Job ${jobId} now has pull request #${jobInfo.pull_request.number}`, CopilotRemoteAgentManager.ID);
+				return jobInfo;
+			}
+			await new Promise(resolve => setTimeout(resolve, pollInterval));
+		}
+
+		Logger.warn(`Timed out waiting for job ${jobId} to have pull request information`, CopilotRemoteAgentManager.ID);
+		return undefined;
 	}
 
 	public async cancelMostRecentChatSession(pullRequest: PullRequestModel): Promise<void> {

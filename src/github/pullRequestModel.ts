@@ -8,24 +8,12 @@ import * as path from 'path';
 import equals from 'fast-deep-equal';
 import gql from 'graphql-tag';
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
-import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
-import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
-import { commands } from '../common/executeCommands';
-import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
-import { GitHubRef } from '../common/githubRef';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
-import { formatError, isDescendant } from '../common/utils';
-import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
+import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, GraphQLError, GraphQLErrorType } from './githubRepository';
 import {
 	AddCommentResponse,
 	AddReactionResponse,
@@ -37,8 +25,11 @@ import {
 	EnqueuePullRequestResponse,
 	FileContentResponse,
 	GetReviewRequestsResponse,
+	MergeMethod as GraphQLMergeMethod,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
+	MergePullRequestInput,
+	MergePullRequestResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
@@ -88,6 +79,20 @@ import {
 	RestAccount,
 	restPaginate,
 } from './utils';
+import { Repository } from '../api/api';
+import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
+import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
+import { formatError, isDescendant } from '../common/utils';
+import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -111,6 +116,8 @@ export interface FileViewedStateChangeEvent {
 }
 
 export type FileViewedState = { [key: string]: ViewedState };
+
+type TreeDataMode = '100644' | '100755' | '120000';
 
 const BATCH_SIZE = 50;
 
@@ -374,6 +381,100 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return action;
 	}
 
+	async merge(
+		repository: Repository,
+		title?: string,
+		description?: string,
+		method?: 'merge' | 'squash' | 'rebase',
+		email?: string
+	): Promise<{ merged: boolean, message: string, timeline?: TimelineEvent[] }> {
+		Logger.debug(`Merging PR: ${this.number} method: ${method} for user: "${email}" - enter`, PullRequestModel.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		const workingDirectorySHA = repository.state.HEAD?.commit;
+		const mergingPRSHA = this.head?.sha;
+		const workingDirectoryIsDirty = repository.state.workingTreeChanges.length > 0;
+		let expectedHeadOid: string | undefined = this.head?.sha;
+
+		if (this.isActive) {
+			// We're on the branch of the pr being merged.
+			expectedHeadOid = workingDirectorySHA;
+			if (workingDirectorySHA !== mergingPRSHA) {
+				// We are looking at different commit than what will be merged
+				const { ahead } = repository.state.HEAD!;
+				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
+				if (ahead &&
+					(await vscode.window.showWarningMessage(
+						ahead > 1 ? pluralMessage : singularMessage,
+						{ modal: true },
+						vscode.l10n.t('Yes'),
+					)) === undefined) {
+
+					return {
+						merged: false,
+						message: vscode.l10n.t('unpushed changes'),
+					};
+				}
+			}
+
+			if (workingDirectoryIsDirty) {
+				// We have made changes to the PR that are not committed
+				if (
+					(await vscode.window.showWarningMessage(
+						vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
+						{ modal: true },
+						vscode.l10n.t('Yes'),
+					)) === undefined
+				) {
+					return {
+						merged: false,
+						message: vscode.l10n.t('uncommitted changes'),
+					};
+				}
+			}
+		}
+		const input: MergePullRequestInput = {
+			pullRequestId: this.graphNodeId,
+			commitHeadline: title,
+			commitBody: description,
+			expectedHeadOid,
+			authorEmail: email,
+			mergeMethod:
+				(method?.toUpperCase() ??
+					vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,
+		};
+
+		return mutate<MergePullRequestResponse>({
+			mutation: schema.MergePullRequest,
+			variables: {
+				input
+			}
+		})
+			.then(async (result) => {
+				Logger.debug(`Merging PR: ${this.number} - done`, PullRequestModel.ID);
+
+				/* __GDPR__
+					"pr.merge.success" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.merge.success');
+				this._onDidChange.fire({ state: true });
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await this.getCopilotTimelineEvents(this), this.githubRepository) };
+			})
+			.catch(e => {
+				/* __GDPR__
+					"pr.merge.failure" : {}
+				*/
+				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure');
+				const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
+				if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
+					return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
+				} else {
+					throw e;
+				}
+			});
+	}
+
 	/**
 	 * Close the pull request.
 	 */
@@ -428,7 +529,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		this._onDidChange.fire({ timeline: true });
-		return convertRESTReviewEvent(data, this.githubRepository);
+		return convertRESTReviewEvent(data as OctokitCommon.PullsCreateReviewResponseData, this.githubRepository);
 	}
 
 	/**
@@ -526,6 +627,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async deleteReview(): Promise<{ deletedReviewId: number; deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId();
+		if (!pendingReviewId) {
+			throw new Error(`No pending review found for pull request #${this.number}.`);
+		}
+
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
 			mutation: schema.DeleteReview,
@@ -535,15 +640,41 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
+		const deletedReviewComments = comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository));
+
+		// Update local state: remove all draft comments (and their threads if emptied) that belonged to the deleted review
+		const deletedCommentIds = new Set(deletedReviewComments.map(c => c.id));
+		const changedThreads: IReviewThread[] = [];
+		const removedThreads: IReviewThread[] = [];
+		for (let i = this._reviewThreadsCache.length - 1; i >= 0; i--) {
+			const thread = this._reviewThreadsCache[i];
+			const originalLength = thread.comments.length;
+			thread.comments = thread.comments.filter(c => !deletedCommentIds.has(c.id));
+			if (thread.comments.length === 0 && originalLength > 0) {
+				// Entire thread was composed only of comments from the deleted review; remove it.
+				this._reviewThreadsCache.splice(i, 1);
+				removedThreads.push(thread);
+			} else if (thread.comments.length !== originalLength) {
+				changedThreads.push(thread);
+			}
+		}
+		if (changedThreads.length > 0 || removedThreads.length > 0) {
+			this._onDidChangeReviewThreads.fire({ added: [], changed: changedThreads, removed: removedThreads });
+		}
+
+		// Remove from flat comments collection
+		if (this._comments) {
+			this.comments = this._comments.filter(c => !deletedCommentIds.has(c.id));
+		}
 
 		this.hasPendingReview = false;
 		await this.updateDraftModeContext();
 
-		this.getReviewThreads();
-		this._onDidChange.fire({ timeline: true });
+		// Fire change event to update timeline & comment views
+		this._onDidChange.fire({ timeline: true, comments: true });
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository)),
+			deletedReviewComments,
 		};
 	}
 
@@ -747,6 +878,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
 			getTimelineEvents(),
 			this.getViewerLatestReviewCommit(),
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			(await this.githubRepository.getAuthenticatedUser()).login,
 			this.getReviewThreads()
 		]);
@@ -955,11 +1087,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 
 			const baseTreeData = baseTree.data.tree.find(f => f.path === file.filename);
-			const baseMode: '100644' | '100755' | '120000' = baseTreeData?.mode as any ?? '100644';
+			const baseMode: TreeDataMode = (baseTreeData?.mode as TreeDataMode | undefined) ?? '100644';
 
 			const headTree = await octokit.call(octokit.api.git.getTree, { owner: model.prHeadOwner, repo: model.repositoryName, tree_sha: headTreeSha, recursive: 'true' });
 			const headTreeData = headTree.data.tree.find(f => f.path === file.filename);
-			const headMode: '100644' | '100755' | '120000' = headTreeData?.mode as any ?? '100644';
+			const headMode: TreeDataMode = (headTreeData?.mode as TreeDataMode | undefined) ?? '100644';
 
 			if (file.status === 'removed') {
 				// The file was removed so we use a null sha to indicate that (per GitHub's API).
@@ -1099,16 +1231,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async requestReview(reviewers: IAccount[], teamReviewers: ITeam[], union: boolean = false): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		const input: { pullRequestId: string, teamIds: string[], userIds: string[], botIds?: string[], union: boolean } = {
+			pullRequestId: this.graphNodeId,
+			teamIds: teamReviewers.map(t => t.id),
+			userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
+			union
+		};
+		if (!this.githubRepository.areQueriesLimited) {
+			input.botIds = reviewers.filter(r => r.accountType === AccountType.Bot).map(r => r.id);
+		}
+
 		const { data } = await mutate<GetReviewRequestsResponse>({
 			mutation: schema.AddReviewers,
 			variables: {
-				input: {
-					pullRequestId: this.graphNodeId,
-					teamIds: teamReviewers.map(t => t.id),
-					userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
-					botIds: reviewers.filter(r => r.accountType === AccountType.Bot).map(r => r.id),
-					union
-				},
+				input
 			},
 		});
 
@@ -1129,6 +1265,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param reviewer A GitHub Login
 	 */
 	async deleteReviewRequest(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
+		if (reviewers.length === 0 && teamReviewers.length === 0) {
+			return;
+		}
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
@@ -1327,7 +1466,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openCommitChanges(githubRepository: GitHubRepository, commitSha: string) {
+	static async openCommitChanges(extensionUri: vscode.Uri, githubRepository: GitHubRepository, commitSha: string) {
 		try {
 			const parentCommit = await githubRepository.getCommitParent(commitSha);
 			if (!parentCommit) {
@@ -1337,7 +1476,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const changes = await githubRepository.compareCommits(parentCommit, commitSha);
 			if (!changes?.files || changes.files.length === 0) {
-				vscode.window.showInformationMessage(vscode.l10n.t('No changes found in commit {0}', commitSha.substring(0, 7)));
+				// Show a webview with the empty commit message instead of a notification
+				showEmptyCommitWebview(extensionUri, commitSha);
 				return;
 			}
 

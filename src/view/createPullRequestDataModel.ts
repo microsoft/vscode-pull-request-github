@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ChangesContentProvider, GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 import { Change, Commit } from '../api/api';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
-import { ChangesContentProvider, GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 
 export interface CreateModelChangeEvent {
 	baseOwner?: string;
