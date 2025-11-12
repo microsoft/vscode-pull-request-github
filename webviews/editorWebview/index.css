@@ -155,7 +155,7 @@ body .comment-container.review {
 	position: relative;
 }
 
-body #main>.comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
+body #main .comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -314,6 +314,12 @@ button.input-box {
 	align-items: center;
 }
 
+.ready-for-review-container .button-container {
+	flex-direction: row;
+	display: flex;
+	align-items: center;
+}
+
 .ready-for-review-icon {
 	width: 16px;
 	height: 16px;
@@ -437,6 +443,7 @@ body .comment-container .review-comment-container .review-comment-body {
 
 body .comment-container .comment-body>p,
 body .comment-container .comment-body>div>p,
+body .comment-container .comment-body>div>ul,
 .comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;

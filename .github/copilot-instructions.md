@@ -5,6 +5,7 @@
 - **Strictness**: Some strictness is disabled in `tsconfig.base.json` (e.g., `strictNullChecks: false`), but new code should avoid unsafe patterns.
 - **Testing**: Place tests under `src/test`. Do not include test code in production files.
 - **Localization**: Use `%key%` syntax for strings that require localization. See `package.nls.json`.
+- **Regular Expressions**: Use named capture groups for clarity when working with complex regex patterns.
 
 ## Extension-Specific Practices
 - **VS Code API**: Use the official VS Code API for all extension points. Register commands, views, and menus via `package.json`.

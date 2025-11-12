@@ -30,7 +30,6 @@ import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { ReviewModel } from '../../view/reviewModel';
-import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
@@ -41,6 +40,8 @@ import { AccountType } from '../../github/interface';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { asPromise } from '../../common/utils';
+import { PrsTreeModel } from '../../view/prsTreeModel';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -66,6 +67,7 @@ describe('ReviewCommentController', function () {
 	let gitApiImpl: GitApiImpl;
 	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
+	let mockPrsTreeModel: PrsTreeModel;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -80,11 +82,11 @@ describe('ReviewCommentController', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager = new RepositoriesManager(credentialStore, telemetry);
 		gitApiImpl = new GitApiImpl(reposManager);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitApiImpl);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
+		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitApiImpl, mockPrsTreeModel);
+		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager, copilotManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
-		Resource.initialize(context);
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper, mockThemeWatcher);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);

@@ -40,4 +40,8 @@ export namespace commands {
 	export function setContext(context: string, value: any) {
 		return executeCommand('setContext', context, value);
 	}
+
+	export function openFolder(ur: vscode.Uri, options: { forceNewWindow?: boolean, forceReuseWindow?: boolean }) {
+		return executeCommand('vscode.openFolder', ur, options);
+	}
 }

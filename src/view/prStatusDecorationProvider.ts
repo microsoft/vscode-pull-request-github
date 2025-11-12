@@ -121,7 +121,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 			return;
 		}
 		const protocol = new Protocol(idParts.remote);
-		if (this._copilotManager.hasNotification(protocol.owner, protocol.repositoryName, idParts.prNumber)) {
+		if (this._prsTreeModel.hasCopilotNotification(protocol.owner, protocol.repositoryName, idParts.prNumber)) {
 			return {
 				badge: new vscode.ThemeIcon('copilot') as unknown as string,
 				color: new vscode.ThemeColor('pullRequests.notification')
@@ -134,7 +134,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		if (!params?.isCopilot || !params.remote) {
 			return;
 		}
-		const counts = this._copilotManager.getNotificationsCount(params.remote.owner, params.remote.repositoryName);
+		const counts = this._prsTreeModel.getCopilotNotificationsCount(params.remote.owner, params.remote.repositoryName);
 		if (counts === 0) {
 			return;
 		}

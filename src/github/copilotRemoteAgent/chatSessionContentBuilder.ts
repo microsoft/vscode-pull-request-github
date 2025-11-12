@@ -95,9 +95,9 @@ export class ChatSessionContentBuilder {
 	private async createResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		if (logs.trim().length > 0) {
 			return await this.parseSessionLogsIntoResponseTurn(pullRequest, logs, session);
-		} else if (session.state === 'in_progress') {
+		} else if (session.state === 'in_progress' || session.state === 'queued') {
 			// For in-progress sessions without logs, create a placeholder response
-			const placeholderParts = [new vscode.ChatResponseProgressPart('Session is initializing...')];
+			const placeholderParts = [new vscode.ChatResponseProgressPart('Initializing session')];
 			const responseResult: vscode.ChatResult = {};
 			return new vscode.ChatResponseTurn2(placeholderParts, responseResult, COPILOT_SWE_AGENT);
 		} else {

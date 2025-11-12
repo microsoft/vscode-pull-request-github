@@ -134,8 +134,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		existingPanel?: vscode.WebviewPanel
 	) {
 		super(telemetry, extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel.viewType, existingPanel, {
-			light: 'resources/icons/pr_webview.svg',
-			dark: 'resources/icons/dark/pr_webview.svg'
+			light: 'resources/icons/git-pull-request_webview.svg',
+			dark: 'resources/icons/dark/git-pull-request_webview.svg'
 		});
 
 		this.registerPrListeners();
@@ -217,6 +217,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
+		if (this._isUpdating) {
+			throw new Error('Already updating pull request webview');
+		}
 		this._isUpdating = true;
 		try {
 			const [
@@ -361,6 +364,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
+			case 'pr.readyForReviewAndMerge':
+				return this.setReadyForReviewAndMerge(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
@@ -506,7 +511,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			return vscode.window.showChatSession(COPILOT_SWE_AGENT, SessionIdForPr.getId(this._item.number, message.args.link.sessionIndex), {});
+			const resource = SessionIdForPr.getResource(this._item.number, message.args.link.sessionIndex);
+			return vscode.commands.executeCommand('vscode.open', resource);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
@@ -550,7 +556,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
-			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
+			await PullRequestModel.openCommitChanges(this._extensionUri, this._item.githubRepository, commitSha);
 			this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
@@ -643,6 +649,33 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
 				this._throwError(message, '');
 			});
+	}
+
+	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
+		try {
+			const readyResult = await this._item.setReadyForReview();
+
+			try {
+				await this._item.approve(this._folderRepositoryManager.repository, '');
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
+
+			try {
+				await this._item.enableAutoMerge(message.args.mergeMethod);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
+
+			this._replyMessage(message, readyResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {

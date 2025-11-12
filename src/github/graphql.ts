@@ -262,7 +262,7 @@ export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | null)[];
 			};
 		};
 	} | null;

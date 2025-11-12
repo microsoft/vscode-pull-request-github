@@ -190,7 +190,9 @@ export class TemporaryComment extends CommentBase {
 	}
 
 	get body(): string | vscode.MarkdownString {
-		return new vscode.MarkdownString(this.input);
+		const s = new vscode.MarkdownString(this.input);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	get author(): vscode.CommentAuthorInformation {
@@ -477,11 +479,15 @@ ${lineContents}
 		if (this.mode === vscode.CommentMode.Editing) {
 			return this._rawBody;
 		}
-		return new vscode.MarkdownString(this.replacedBody);
+		const s = new vscode.MarkdownString(this.replacedBody);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	protected getCancelEditBody() {
-		return new vscode.MarkdownString(this.rawComment.body);
+		const s = new vscode.MarkdownString(this.rawComment.body);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 }
 

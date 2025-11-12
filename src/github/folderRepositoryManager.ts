@@ -489,8 +489,10 @@ export class FolderRepositoryManager extends Disposable {
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
-			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
-			if (areAllNeverGitHub) {
+			const allUnknownRemotes = await this.computeAllUnknownRemotes();
+			const areAllNeverGitHub = allUnknownRemotes.every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
+			if ((allUnknownRemotes.length > 0) && areAllNeverGitHub) {
+				Logger.appendLine('No GitHub remotes found and all remotes are marked as never GitHub.', this.id);
 				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
 			}
@@ -1082,7 +1084,13 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		};
 
+		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
+			if (!activeGitHubRemotes.find(r => r.equals(repo.remote))) {
+				return false;
+			}
+
 			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
 			// If we are in case 1 or 3, don't filter out repos that are out of pages, as we will be querying from the start.
 			return info && (options.fetchNextPage === false || info.hasMorePages !== false);

@@ -329,8 +329,9 @@ export class PullRequestGitHelper {
 	): Promise<PullRequestMetadata | undefined> {
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
-			const configValue = await repository.getConfig(configKey);
-			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
+			const allConfigs = await repository.getConfigs();
+			const matchingConfigs = allConfigs.filter(config => config.key === configKey).sort((a, b) => b.value < a.value ? 1 : -1);
+			return PullRequestGitHelper.parsePullRequestMetadata(matchingConfigs[0].value);
 		} catch (_) {
 			return;
 		}

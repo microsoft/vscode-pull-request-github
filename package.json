@@ -14,7 +14,7 @@
 		"activeComment",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider@2",
+		"chatSessionsProvider@3",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -29,18 +29,19 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
-		"languageModelDataPart",
 		"languageModelToolResultAudience",
+		"markdownAlertSyntax",
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
+		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
 	"version": "0.120.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.105.0"
+		"vscode": "^1.106.0"
 	},
 	"categories": [
 		"Other",
@@ -76,7 +77,7 @@
 				"name": "copilot",
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Delegate tasks to the GitHub Copilot coding agent. The agent works asynchronously to implement changes, iterates via chat, and can create or update pull requests as needed.",
-				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled'",
+				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled' && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled",
 				"capabilities": {
 					"supportsFileAttachments": true
 				}
@@ -89,7 +90,7 @@
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
 				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
-				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
+				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled"
 			}
 		],
 		"chatParticipants": [
@@ -609,7 +610,6 @@
 					"default": [
 						"TODO",
 						"todo",
-						"BUG",
 						"FIXME",
 						"ISSUE",
 						"HACK"
@@ -967,7 +967,7 @@
 			},
 			{
 				"command": "pr.markAllCopilotNotificationsAsRead",
-				"title": "Mark All as Read",
+				"title": "%command.pr.markAllCopilotNotificationsAsRead.title%",
 				"category": "%command.pull.request.category%",
 				"enablement": "viewItem == copilot-query-with-notifications"
 			},
@@ -1795,11 +1795,6 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "codingAgent.openSessionLog",
-				"title": "%command.codingAgent.openSessionLog.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
 				"command": "pr.refreshChatSessions",
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
@@ -1841,8 +1836,13 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "gitNotInstalled",
+				"when": "gitNotInstalled && config.git.enabled != false",
 				"contents": "%welcome.github.noGit.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "gitNotInstalled && config.git.enabled == false",
+				"contents": "%welcome.github.noGitDisabled.contents%"
 			},
 			{
 				"view": "github:login",
@@ -2618,6 +2618,14 @@
 				{
 					"command": "pr.preferredCodingAgentGitHubRemote",
 					"when": "false"
+				},
+				{
+					"command": "pr.closeChatSessionPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "pr.cancelCodingAgent",
+					"when": "false"
 				}
 			],
 			"view/title": [
@@ -3138,6 +3146,13 @@
 					"group": "1_modification@5"
 				}
 			],
+			"scm/repository": [
+				{
+					"command": "pr.create",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
+					"group": "inline"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",
@@ -3526,12 +3541,12 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
@@ -3547,12 +3562,10 @@
 			],
 			"chat/multiDiff/context": [
 				{
-					"command": "pr.checkoutFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"command": "pr.checkoutFromDescription"
 				},
 				{
-					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"command": "pr.applyChangesFromDescription"
 				}
 			]
 		},
@@ -4175,18 +4188,18 @@
 										"type": "number",
 										"description": "The number of comments on the issue."
 									}
-								}
-							},
-							"required": [
-								"title",
-								"number",
-								"url",
-								"state",
-								"createdAt",
-								"author",
-								"commentCount",
-								"reactionCount"
-							]
+								},
+								"required": [
+									"title",
+									"number",
+									"url",
+									"state",
+									"createdAt",
+									"author",
+									"commentCount",
+									"reactionCount"
+								]
+							}
 						},
 						"totalIssues": {
 							"type": "number",
@@ -4254,7 +4267,8 @@
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
-		"prepare": "husky install"
+		"prepare": "husky install",
+		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.36.0",
@@ -4318,6 +4332,7 @@
 		"terser-webpack-plugin": "5.1.1",
 		"timers-browserify": "^2.0.12",
 		"ts-loader": "9.5.2",
+		"ts-node": "^10.9.2",
 		"tty": "1.0.1",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.44.0",
