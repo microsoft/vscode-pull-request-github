@@ -460,11 +460,11 @@ export function AddComment({
 					defaultOptionValue={() => currentSelection}
 					allOptions={() => {
 						const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
-						if (availableActions.approve) {
-							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
-						}
 						if (availableActions.comment) {
 							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
+						}
+						if (availableActions.approve) {
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
 						}
 						if (availableActions.requestChanges) {
 							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
@@ -475,6 +475,7 @@ export function AddComment({
 					disabled={isBusy || busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
+					primaryOptionValue={ReviewType.Comment}
 				/>
 			</div>
 		</form>
@@ -608,11 +609,11 @@ export const AddCommentSimple = (pr: PullRequest) => {
 					defaultOptionValue={() => currentSelection}
 					allOptions={() => {
 						const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
-						if (availableActions.approve) {
-							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
-						}
 						if (availableActions.comment) {
 							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
+						}
+						if (availableActions.approve) {
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
 						}
 						if (availableActions.requestChanges) {
 							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
@@ -623,6 +624,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 					spreadable={true}
+					primaryOptionValue={ReviewType.Comment}
 				/>
 			</div>
 		</span>

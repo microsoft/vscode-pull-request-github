@@ -3480,16 +3480,19 @@
 					"group": "1_create@2"
 				},
 				{
-					"command": "review.approve",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove"
+					"command": "review.comment",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment",
+					"group": "1_review@1"
 				},
 				{
-					"command": "review.comment",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment"
+					"command": "review.approve",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove",
+					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChanges",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotCom",
@@ -3500,16 +3503,19 @@
 					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				},
 				{
-					"command": "review.approveDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove"
+					"command": "review.commentDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment",
+					"group": "1_review@1"
 				},
 				{
-					"command": "review.commentDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment"
+					"command": "review.approveDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove",
+					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChangesDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotComDescription",
