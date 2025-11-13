@@ -126,6 +126,13 @@ export interface SubmitReviewReply {
 	reviewers?: ReviewState[];
 }
 
+export interface ReadyForReviewReply {
+	isDraft: boolean;
+	reviewEvent?: ReviewEvent;
+	reviewers?: ReviewState[];
+	autoMerge?: boolean;
+}
+
 export interface MergeArguments {
 	title: string | undefined;
 	description: string | undefined;

@@ -27,7 +27,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
 import { IComment } from '../common/comment';
 import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -142,10 +142,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		this.setVisibilityContext();
 
-		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
+		this._register(vscode.commands.registerCommand('pr.readyForReviewDescription', async () => {
 			return this.readyForReviewCommand();
 		}));
-		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (context?: { mergeMethod: MergeMethod }) => {
+		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMergeDescription', async (context: { mergeMethod: MergeMethod }) => {
 			return this.readyForReviewAndMergeCommand(context);
 		}));
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
@@ -685,19 +685,48 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async readyForReviewCommand(): Promise<void> {
-		// Trigger the webview action by posting a message
-		// This will use the existing webview logic which handles busy state
 		this._postMessage({
-			command: 'pr.readyForReview-trigger'
+			command: 'pr.readying-for-review'
 		});
+		try {
+			const result = await this._item.setReadyForReview();
+
+			const readiedResult: ReadyForReviewReply = {
+				isDraft: result.isDraft
+			};
+			await this._postMessage({
+				command: 'pr.readied-for-review',
+				result: readiedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			this._throwError(undefined, e.message);
+		}
 	}
 
-	private async readyForReviewAndMergeCommand(_context?: { mergeMethod: MergeMethod }): Promise<void> {
-		// Trigger the webview action by posting a message
-		// This will use the existing webview logic which handles busy state
+	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
 		this._postMessage({
-			command: 'pr.readyForReviewAndMerge-trigger'
+			command: 'pr.readying-for-review'
 		});
+		try {
+			const [readyResult, approveResult] = await Promise.all([this._item.setReadyForReview(), this._item.approve(this._folderRepositoryManager.repository)]);
+			await this._item.enableAutoMerge(context.mergeMethod);
+			this.updateReviewers(approveResult);
+
+			const readiedResult: ReadyForReviewReply = {
+				isDraft: readyResult.isDraft,
+				autoMerge: true,
+				reviewEvent: approveResult,
+				reviewers: this._existingReviewers
+			};
+			await this._postMessage({
+				command: 'pr.readied-for-review',
+				result: readiedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			this._throwError(undefined, e.message);
+		}
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {

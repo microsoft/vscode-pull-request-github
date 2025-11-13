@@ -10,7 +10,7 @@ import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
 
 export class PRContext {
 	constructor(
@@ -245,6 +245,32 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
+	private readyForReviewComplete(reply: ReadyForReviewReply) {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no pull request when trying to ready for review');
+		}
+		const { isDraft, reviewEvent, reviewers } = reply;
+		state.busy = false;
+		state.isDraft = isDraft;
+		if (!reviewEvent) {
+			this.updatePR(state);
+			return;
+		}
+		if (reviewers) {
+			state.reviewers = reviewers;
+		}
+		state.events = [...state.events, reviewEvent];
+		if (reviewEvent.event === EventType.Reviewed) {
+			state.currentUserReviewState = reviewEvent.state;
+		}
+		if (reply.autoMerge !== undefined) {
+			state.autoMerge = reply.autoMerge;
+			state.autoMergeMethod = state.defaultMergeMethod;
+		}
+		this.updatePR(state);
+	}
+
 	public reRequestReview = async (reviewerId: string) => {
 		const { pr: state } = this;
 		if (!state) {
@@ -388,20 +414,10 @@ export class PRContext {
 				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
 			case 'pr.append-review':
 				return this.appendReview(message);
-			case 'pr.readyForReview-trigger':
-				// Trigger the ready for review action by simulating a button click
-				const readyButton = document.querySelector('[value="ready"]') as HTMLButtonElement;
-				if (readyButton) {
-					readyButton.click();
-				}
-				return;
-			case 'pr.readyForReviewAndMerge-trigger':
-				// Trigger the ready and merge action by simulating a button click
-				const readyMergeButton = document.querySelector('[value="readyAndMerge"]') as HTMLButtonElement;
-				if (readyMergeButton) {
-					readyMergeButton.click();
-				}
-				return;
+			case 'pr.readying-for-review':
+				return this.updatePR({ busy: true });
+			case 'pr.readied-for-review':
+				return this.readyForReviewComplete(message);
 		}
 	};
 

@@ -285,8 +285,8 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 };
 
 export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
-	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const { readyForReview, readyForReviewAndMerge, updatePR, pr } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(pr?.busy ?? false);
 
 	const markReadyForReview = useCallback(async () => {
 		try {
@@ -342,14 +342,15 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 					optionsContext={() => JSON.stringify({
 						'preventDefaultContextMenuItems': true,
 						'github:readyForReviewMenu': true,
-						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf
+						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf,
+						'mergeMethod': mergeMethod
 					})}
 					defaultAction={markReadyForReview}
 					defaultOptionLabel={() => 'Ready for Review'}
 					defaultOptionValue={() => 'ready'}
 					allOptions={allOptions}
 					optionsTitle='Ready for Review'
-					disabled={isBusy}
+					disabled={isBusy || pr?.busy}
 					hasSingleAction={!isCopilotOnMyBehalf}
 					spreadable={false}
 				/>
