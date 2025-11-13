@@ -142,6 +142,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		this.setVisibilityContext();
 
+		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
+			return this.readyForReviewCommand();
+		}));
+		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (context?: { mergeMethod: MergeMethod }) => {
+			return this.readyForReviewAndMergeCommand(context);
+		}));
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
@@ -676,6 +682,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
 			this._throwError(message, '');
 		}
+	}
+
+	private async readyForReviewCommand(): Promise<void> {
+		// Trigger the webview action by posting a message
+		// This will use the existing webview logic which handles busy state
+		this._postMessage({
+			command: 'pr.readyForReview-trigger'
+		});
+	}
+
+	private async readyForReviewAndMergeCommand(_context?: { mergeMethod: MergeMethod }): Promise<void> {
+		// Trigger the webview action by posting a message
+		// This will use the existing webview logic which handles busy state
+		this._postMessage({
+			command: 'pr.readyForReviewAndMerge-trigger'
+		});
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {

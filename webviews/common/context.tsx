@@ -388,6 +388,20 @@ export class PRContext {
 				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
 			case 'pr.append-review':
 				return this.appendReview(message);
+			case 'pr.readyForReview-trigger':
+				// Trigger the ready for review action by simulating a button click
+				const readyButton = document.querySelector('[value="ready"]') as HTMLButtonElement;
+				if (readyButton) {
+					readyButton.click();
+				}
+				return;
+			case 'pr.readyForReviewAndMerge-trigger':
+				// Trigger the ready and merge action by simulating a button click
+				const readyMergeButton = document.querySelector('[value="readyAndMerge"]') as HTMLButtonElement;
+				if (readyMergeButton) {
+					readyMergeButton.click();
+				}
+				return;
 		}
 	};
 
