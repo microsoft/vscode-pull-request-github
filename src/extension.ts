@@ -41,6 +41,7 @@ import { NotificationsProvider } from './notifications/notificationsProvider';
 import { ThemeWatcher } from './themeWatcher';
 import { resumePendingCheckout, UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
+import { CommitsDecorationProvider } from './view/commitsDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { EmojiCompletionProvider } from './view/emojiCompletionProvider';
@@ -171,7 +172,7 @@ async function init(
 	);
 	const treeDecorationProviders = new TreeDecorationProviders(reposManager);
 	context.subscriptions.push(treeDecorationProviders);
-	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager)]);
+	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager), new CommitsDecorationProvider(reposManager)]);
 
 	const notificationsProvider = new NotificationsProvider(credentialStore, reposManager);
 	context.subscriptions.push(notificationsProvider);
