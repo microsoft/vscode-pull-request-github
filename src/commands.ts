@@ -22,7 +22,7 @@ import { ChatSessionWithPR, CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
-import { Issue } from './github/interface';
+import { Issue, MergeMethod } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
@@ -815,6 +815,14 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.readyForReview', async (pr?: PRNode) => {
+			// When called from webview context menu (no PRNode), trigger the webview action
+			if (!pr && PullRequestOverviewPanel.currentPanel) {
+				PullRequestOverviewPanel.currentPanel['_postMessage']({
+					command: 'pr.readyForReview-trigger'
+				});
+				return;
+			}
+
 			const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
 			if (!folderManager) {
 				return;
@@ -841,6 +849,17 @@ export function registerCommands(
 						}
 					}
 				});
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (_context?: { mergeMethod: MergeMethod }) => {
+			// This command is only called from webview context menu
+			if (PullRequestOverviewPanel.currentPanel) {
+				PullRequestOverviewPanel.currentPanel['_postMessage']({
+					command: 'pr.readyForReviewAndMerge-trigger'
+				});
+			}
 		}),
 	);
 
