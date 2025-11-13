@@ -310,21 +310,21 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 
 	const allOptions = useCallback(() => {
 		const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [
-			{ 
-				label: 'Ready for Review', 
-				value: 'ready', 
-				action: markReadyForReview 
+			{
+				label: 'Ready for Review',
+				value: 'ready',
+				action: markReadyForReview
 			}
 		];
-		
+
 		if (isCopilotOnMyBehalf) {
-			actions.push({ 
-				label: 'Ready, Approve, and Auto-Merge', 
-				value: 'readyAndMerge', 
-				action: markReadyAndMerge 
+			actions.push({
+				label: 'Ready, Approve, and Auto-Merge',
+				value: 'readyAndMerge',
+				action: markReadyAndMerge
 			});
 		}
-		
+
 		return actions;
 	}, [isCopilotOnMyBehalf, markReadyForReview, markReadyAndMerge]);
 

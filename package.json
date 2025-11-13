@@ -2065,6 +2065,10 @@
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "false"
+				},
+				{
 					"command": "pr.openPullRequestOnGitHub",
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
@@ -3534,11 +3538,11 @@
 				},
 				{
 					"command": "pr.readyForReview",
-					"when": "webviewId == PullRequestOverview && github:readyForReviewMenu"
+					"when": "(webviewId == PullRequestOverview || webviewId == 'github:activePullRequest') && github:readyForReviewMenu"
 				},
 				{
 					"command": "pr.readyForReviewAndMerge",
-					"when": "webviewId == PullRequestOverview && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+					"when": "(webviewId == PullRequestOverview || webviewId == 'github:activePullRequest') && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
 				},
 				{
 					"command": "pr.openChanges",

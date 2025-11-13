@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
@@ -212,7 +212,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this.registerPrSpecificListeners(pullRequestModel);
 			}
 			this._item = pullRequestModel;
-			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = await Promise.all([
+			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
@@ -226,6 +226,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 				pullRequestModel.canEdit(),
 				pullRequestModel.validateDraftMode(),
+				pullRequestModel.getCoAuthors(),
 				ensureEmojis(this._folderRepositoryManager.context)
 			]);
 
@@ -308,7 +309,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 				isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
 				hasReviewDraft,
-				currentUserReviewState: reviewState
+				currentUserReviewState: reviewState,
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
 			};
 
 			this._postMessage({
