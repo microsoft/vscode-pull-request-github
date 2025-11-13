@@ -81,7 +81,7 @@ export interface CommitEvent {
 	message: string;
 	bodyHTML?: string;
 	committedDate: Date;
-	status: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS' | null;
+	status?: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 }
 
 export interface NewCommitsSinceReviewEvent {
