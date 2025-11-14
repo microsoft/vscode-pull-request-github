@@ -6,8 +6,8 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, ReviewEventEnum, ReviewState } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import { GithubItemStateEnum, IAccount, MergeMethod, ReviewEventEnum, ReviewState } from './interface';
+import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
@@ -34,6 +34,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super(extensionUri);
 
+		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
+			return this.readyForReviewCommand();
+		}));
+		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (context: { mergeMethod: MergeMethod }) => {
+			return this.readyForReviewAndMergeCommand(context);
+		}));
 		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
@@ -171,7 +177,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this.registerPrSpecificListeners(pullRequestModel);
 			}
 			this._item = pullRequestModel;
-			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = await Promise.all([
+			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
@@ -185,6 +191,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 				pullRequestModel.canEdit(),
 				pullRequestModel.validateDraftMode(),
+				pullRequestModel.getCoAuthors(),
 				ensureEmojis(this._folderRepositoryManager.context)
 			]);
 
@@ -267,7 +274,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 				isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
 				hasReviewDraft,
-				currentUserReviewState: reviewState
+				currentUserReviewState: reviewState,
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
 			};
 
 			this._postMessage({
@@ -371,6 +379,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private async setReadyForReview(message: IRequestMessage<Record<string, unknown>>): Promise<void> {
 		return PullRequestReviewCommon.setReadyForReview(this.getReviewContext(), message);
+	}
+
+	private async readyForReviewCommand(): Promise<void> {
+		return PullRequestReviewCommon.readyForReviewCommand(this.getReviewContext());
+	}
+
+	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
+		return PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
 	}
 
 	private async mergePullRequest(

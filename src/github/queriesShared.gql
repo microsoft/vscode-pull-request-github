@@ -123,6 +123,9 @@ fragment Commit on PullRequestCommit {
 		oid
 		message
 		committedDate
+		statusCheckRollup {
+			state
+		}
 	}
 	url
 }

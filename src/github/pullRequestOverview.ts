@@ -140,6 +140,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		this.setVisibilityContext();
 
+		this._register(vscode.commands.registerCommand('pr.readyForReviewDescription', async () => {
+			return this.readyForReviewCommand();
+		}));
+		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMergeDescription', async (context: { mergeMethod: MergeMethod }) => {
+			return this.readyForReviewAndMergeCommand(context);
+		}));
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
@@ -655,30 +661,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
-		try {
-			const readyResult = await this._item.setReadyForReview();
+		return PullRequestReviewCommon.setReadyForReviewAndMerge(this.getReviewContext(), message);
+	}
 
-			try {
-				await this._item.approve(this._folderRepositoryManager.repository, '');
-			} catch (e) {
-				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
-				this._replyMessage(message, readyResult);
-				return;
-			}
+	private async readyForReviewCommand(): Promise<void> {
+		return PullRequestReviewCommon.readyForReviewCommand(this.getReviewContext());
+	}
 
-			try {
-				await this._item.enableAutoMerge(message.args.mergeMethod);
-			} catch (e) {
-				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
-				this._replyMessage(message, readyResult);
-				return;
-			}
-
-			this._replyMessage(message, readyResult);
-		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
-			this._throwError(message, '');
-		}
+	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
+		return PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {

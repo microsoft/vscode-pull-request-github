@@ -814,37 +814,6 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.readyForReview', async (pr?: PRNode) => {
-			const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
-			if (!folderManager) {
-				return;
-			}
-			const pullRequest = ensurePR(folderManager, pr);
-			const yes = vscode.l10n.t('Yes');
-			return vscode.window
-				.showWarningMessage(
-					vscode.l10n.t('Are you sure you want to mark this pull request as ready to review on GitHub?'),
-					{ modal: true },
-					yes,
-				)
-				.then(async value => {
-					let isDraft;
-					if (value === yes) {
-						try {
-							isDraft = (await pullRequest.setReadyForReview()).isDraft;
-							return isDraft;
-						} catch (e) {
-							vscode.window.showErrorMessage(
-								`Unable to mark pull request as ready to review. ${formatError(e)}`,
-							);
-							return isDraft;
-						}
-					}
-				});
-		}),
-	);
-
-	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.dismissNotification', node => {
 			if (node instanceof PRNode) {
 				notificationManager.markPrNotificationsAsRead(node.pullRequestModel);

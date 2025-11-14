@@ -983,6 +983,21 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.readyForReviewAndMerge",
+				"title": "%command.pr.readyForReviewAndMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewDescription",
+				"title": "%command.pr.readyForReview.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewAndMergeDescription",
+				"title": "%command.pr.readyForReviewAndMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openPullRequestOnGitHub",
 				"title": "%command.pr.openPullRequestOnGitHub.title%",
 				"category": "%command.pull.request.category%",
@@ -2058,7 +2073,19 @@
 				},
 				{
 					"command": "pr.readyForReview",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "false"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
@@ -3533,6 +3560,22 @@
 				{
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.readyForReviewDescription",
+					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu"
+				},
+				{
+					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+				},
+				{
+					"command": "pr.readyForReview",
+					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu"
+				},
+				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
 				},
 				{
 					"command": "pr.openChanges",

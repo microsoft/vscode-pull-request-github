@@ -1200,6 +1200,7 @@ export async function parseCombinedTimelineEvents(
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
+					status: commitEv.commit.statusCheckRollup?.state
 				} as Common.CommitEvent); // TODO remove cast
 				break;
 			case Common.EventType.Merged:

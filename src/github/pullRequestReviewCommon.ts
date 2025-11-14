@@ -6,9 +6,9 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewState } from './interface';
+import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
-import { PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
 import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
@@ -22,7 +22,7 @@ export interface ReviewContext {
 	item: PullRequestModel;
 	folderRepositoryManager: FolderRepositoryManager;
 	existingReviewers: ReviewState[];
-	postMessage(message: any): void;
+	postMessage(message: any): Promise<void>;
 	replyMessage(message: IRequestMessage<any>, response: any): void;
 	throwError(message: IRequestMessage<any> | undefined, error: string): void;
 	getTimeline(): Promise<TimelineEvent[]>;
@@ -80,12 +80,12 @@ export namespace PullRequestReviewCommon {
 				events: allEvents,
 				reviewers: ctx.existingReviewers
 			};
-			ctx.postMessage(reviewMessage);
+			await ctx.postMessage(reviewMessage);
 			return review;
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			ctx.throwError(undefined, `${formatError(e)}`);
-			ctx.postMessage({ command: 'pr.append-review' });
+			await ctx.postMessage({ command: 'pr.append-review' });
 		}
 	}
 
@@ -199,6 +199,78 @@ export namespace PullRequestReviewCommon {
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Unable to set pull request ready for review. {0}', formatError(e)));
 			ctx.throwError(message, '');
+		}
+	}
+
+	export async function setReadyForReviewAndMerge(ctx: ReviewContext, message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
+		try {
+			const readyResult = await ctx.item.setReadyForReview();
+
+			try {
+				await ctx.item.approve(ctx.folderRepositoryManager.repository, '');
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
+				ctx.replyMessage(message, readyResult);
+				return;
+			}
+
+			try {
+				await ctx.item.enableAutoMerge(message.args.mergeMethod);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
+				ctx.replyMessage(message, readyResult);
+				return;
+			}
+
+			ctx.replyMessage(message, readyResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
+			ctx.throwError(message, '');
+		}
+	}
+
+	export async function readyForReviewCommand(ctx: ReviewContext): Promise<void> {
+		ctx.postMessage({
+			command: 'pr.readying-for-review'
+		});
+		try {
+			const result = await ctx.item.setReadyForReview();
+
+			const readiedResult: ReadyForReviewReply = {
+				isDraft: result.isDraft
+			};
+			await ctx.postMessage({
+				command: 'pr.readied-for-review',
+				result: readiedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			ctx.throwError(undefined, e.message);
+		}
+	}
+
+	export async function readyForReviewAndMergeCommand(ctx: ReviewContext, context: { mergeMethod: MergeMethod }): Promise<void> {
+		ctx.postMessage({
+			command: 'pr.readying-for-review'
+		});
+		try {
+			const [readyResult, approveResult] = await Promise.all([ctx.item.setReadyForReview(), ctx.item.approve(ctx.folderRepositoryManager.repository)]);
+			await ctx.item.enableAutoMerge(context.mergeMethod);
+			updateReviewers(ctx.existingReviewers, approveResult);
+
+			const readiedResult: ReadyForReviewReply = {
+				isDraft: readyResult.isDraft,
+				autoMerge: true,
+				reviewEvent: approveResult,
+				reviewers: ctx.existingReviewers
+			};
+			await ctx.postMessage({
+				command: 'pr.readied-for-review',
+				result: readiedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			ctx.throwError(undefined, e.message);
 		}
 	}
 
