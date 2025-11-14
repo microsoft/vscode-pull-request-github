@@ -27,7 +27,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
 import { IComment } from '../common/comment';
 import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -142,6 +142,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		this.setVisibilityContext();
 
+		this._register(vscode.commands.registerCommand('pr.readyForReviewDescription', async () => {
+			return this.readyForReviewCommand();
+		}));
+		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMergeDescription', async (context: { mergeMethod: MergeMethod }) => {
+			return this.readyForReviewAndMergeCommand(context);
+		}));
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
@@ -364,6 +370,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
+			case 'pr.readyForReviewAndMerge':
+				return this.setReadyForReviewAndMerge(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
@@ -647,6 +655,78 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
 				this._throwError(message, '');
 			});
+	}
+
+	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
+		try {
+			const readyResult = await this._item.setReadyForReview();
+
+			try {
+				await this._item.approve(this._folderRepositoryManager.repository, '');
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
+
+			try {
+				await this._item.enableAutoMerge(message.args.mergeMethod);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
+				this._replyMessage(message, readyResult);
+				return;
+			}
+
+			this._replyMessage(message, readyResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
+	}
+
+	private async readyForReviewCommand(): Promise<void> {
+		this._postMessage({
+			command: 'pr.readying-for-review'
+		});
+		try {
+			const result = await this._item.setReadyForReview();
+
+			const readiedResult: ReadyForReviewReply = {
+				isDraft: result.isDraft
+			};
+			await this._postMessage({
+				command: 'pr.readied-for-review',
+				result: readiedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			this._throwError(undefined, e.message);
+		}
+	}
+
+	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
+		this._postMessage({
+			command: 'pr.readying-for-review'
+		});
+		try {
+			const [readyResult, approveResult] = await Promise.all([this._item.setReadyForReview(), this._item.approve(this._folderRepositoryManager.repository)]);
+			await this._item.enableAutoMerge(context.mergeMethod);
+			this.updateReviewers(approveResult);
+
+			const readiedResult: ReadyForReviewReply = {
+				isDraft: readyResult.isDraft,
+				autoMerge: true,
+				reviewEvent: approveResult,
+				reviewers: this._existingReviewers
+			};
+			await this._postMessage({
+				command: 'pr.readied-for-review',
+				result: readiedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			this._throwError(undefined, e.message);
+		}
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {

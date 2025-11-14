@@ -10,7 +10,7 @@ import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
 
 export class PRContext {
 	constructor(
@@ -88,6 +88,8 @@ export class PRContext {
 	};
 
 	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReview' });
+
+	public readyForReviewAndMerge = (args: { mergeMethod: MergeMethod }): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReviewAndMerge', args });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
@@ -243,6 +245,32 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
+	private readyForReviewComplete(reply: ReadyForReviewReply) {
+		const { pr: state } = this;
+		if (!state) {
+			throw new Error('Unexpectedly no pull request when trying to ready for review');
+		}
+		const { isDraft, reviewEvent, reviewers } = reply;
+		state.busy = false;
+		state.isDraft = isDraft;
+		if (!reviewEvent) {
+			this.updatePR(state);
+			return;
+		}
+		if (reviewers) {
+			state.reviewers = reviewers;
+		}
+		state.events = [...state.events, reviewEvent];
+		if (reviewEvent.event === EventType.Reviewed) {
+			state.currentUserReviewState = reviewEvent.state;
+		}
+		if (reply.autoMerge !== undefined) {
+			state.autoMerge = reply.autoMerge;
+			state.autoMergeMethod = state.defaultMergeMethod;
+		}
+		this.updatePR(state);
+	}
+
 	public reRequestReview = async (reviewerId: string) => {
 		const { pr: state } = this;
 		if (!state) {
@@ -386,6 +414,10 @@ export class PRContext {
 				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
 			case 'pr.append-review':
 				return this.appendReview(message);
+			case 'pr.readying-for-review':
+				return this.updatePR({ busy: true });
+			case 'pr.readied-for-review':
+				return this.readyForReviewComplete(message);
 		}
 	};
 

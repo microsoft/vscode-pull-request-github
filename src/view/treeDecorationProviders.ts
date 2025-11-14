@@ -11,7 +11,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export abstract class TreeDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
-	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = this._register(new vscode.EventEmitter<
+	protected _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = this._register(new vscode.EventEmitter<
 		vscode.Uri | vscode.Uri[]
 	>());
 	onDidChangeFileDecorations?: vscode.Event<vscode.Uri | vscode.Uri[] | undefined> | undefined = this._onDidChangeFileDecorations.event;
