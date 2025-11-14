@@ -9,7 +9,9 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 
@@ -30,7 +32,7 @@ export interface ReviewContext {
  * Utility functions for handling pull request reviews.
  * These are shared between PullRequestOverviewPanel and PullRequestViewProvider.
  */
-export namespace PullRequestReviewHelpers {
+export namespace PullRequestReviewCommon {
 	/**
 	 * Find currently configured user's review status for the current PR
 	 */
@@ -40,9 +42,6 @@ export namespace PullRequestReviewHelpers {
 		return review?.state;
 	}
 
-	/**
-	 * Update the reviewers list with a new review
-	 */
 	function updateReviewers(existingReviewers: ReviewState[], review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = existingReviewers.find(
@@ -59,13 +58,11 @@ export namespace PullRequestReviewHelpers {
 		}
 	}
 
-	/**
-	 * Handle review command submission
-	 */
 	export async function doReviewCommand(
 		ctx: ReviewContext,
 		context: { body: string },
 		reviewType: ReviewType,
+		needsTimelineRefresh: boolean,
 		action: (body: string) => Promise<ReviewEvent>,
 	): Promise<ReviewEvent | undefined> {
 		const submittingMessage = {
@@ -76,7 +73,7 @@ export namespace PullRequestReviewHelpers {
 		try {
 			const review = await action(context.body);
 			updateReviewers(ctx.existingReviewers, review);
-			const allEvents = await ctx.getTimeline(); // activity bar view doesn't do this.
+			const allEvents = needsTimelineRefresh ? await ctx.getTimeline() : [];
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
 				reviewedEvent: review,
@@ -92,18 +89,16 @@ export namespace PullRequestReviewHelpers {
 		}
 	}
 
-	/**
-	 * Handle review message submission
-	 */
 	export async function doReviewMessage(
 		ctx: ReviewContext,
 		message: IRequestMessage<string>,
+		needsTimelineRefresh: boolean,
 		action: (body: string) => Promise<ReviewEvent>,
 	): Promise<ReviewEvent | undefined> {
 		try {
 			const review = await action(message.args);
 			updateReviewers(ctx.existingReviewers, review);
-			const allEvents = await ctx.getTimeline(); // activity bar view doesn't do this.
+			const allEvents = needsTimelineRefresh ? await ctx.getTimeline() : [];
 			const reply: SubmitReviewReply = {
 				reviewedEvent: review,
 				events: allEvents,
@@ -117,9 +112,6 @@ export namespace PullRequestReviewHelpers {
 		}
 	}
 
-	/**
-	 * Re-request a review from a specific reviewer
-	 */
 	export function reRequestReview(ctx: ReviewContext, message: IRequestMessage<string>): void {
 		let targetReviewer: ReviewState | undefined;
 		const userReviewers: IAccount[] = [];
@@ -150,13 +142,10 @@ export namespace PullRequestReviewHelpers {
 		});
 	}
 
-	/**
-	 * Checkout the default branch
-	 */
 	export async function checkoutDefaultBranch(ctx: ReviewContext, message: IRequestMessage<string>): Promise<void> {
 		try {
 			const prBranch = ctx.folderRepositoryManager.repository.state.HEAD?.name;
-			await ctx.folderRepositoryManager.checkoutDefaultBranch(message.args); // test that this works with activity bar
+			await ctx.folderRepositoryManager.checkoutDefaultBranch(message.args);
 			if (prBranch) {
 				await ctx.folderRepositoryManager.cleanupAfterPullRequest(prBranch, ctx.item);
 			}
@@ -166,9 +155,6 @@ export namespace PullRequestReviewHelpers {
 		}
 	}
 
-	/**
-	 * Update the PR branch with the base branch
-	 */
 	export async function updateBranch(
 		ctx: ReviewContext,
 		message: IRequestMessage<string>,
@@ -206,9 +192,6 @@ export namespace PullRequestReviewHelpers {
 		ctx.replyMessage(message, result);
 	}
 
-	/**
-	 * Set the PR as ready for review
-	 */
 	export async function setReadyForReview(ctx: ReviewContext, message: IRequestMessage<{}>): Promise<void> {
 		try {
 			const result = await ctx.item.setReadyForReview();
@@ -216,6 +199,136 @@ export namespace PullRequestReviewHelpers {
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Unable to set pull request ready for review. {0}', formatError(e)));
 			ctx.throwError(message, '');
+		}
+	}
+
+	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
+		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
+		const actions: (vscode.QuickPickItem & { type: 'remoteHead' | 'local' | 'remote' | 'suspend' })[] = [];
+		const defaultBranch = await folderRepositoryManager.getPullRequestRepositoryDefaultBranch(item);
+
+		if (item.isResolved()) {
+			const branchHeadRef = item.head.ref;
+			const headRepo = folderRepositoryManager.findRepo(repo => repo.remote.owner === item.head.owner && repo.remote.repositoryName === item.remote.repositoryName);
+
+			const isDefaultBranch = defaultBranch === item.head.ref;
+			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
+				actions.push({
+					label: vscode.l10n.t('Delete remote branch {0}', `${headRepo?.remote.remoteName}/${branchHeadRef}`),
+					description: `${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.remote.repositoryName}`,
+					type: 'remoteHead',
+					picked: true,
+				});
+			}
+		}
+
+		if (branchInfo) {
+			const preferredLocalBranchDeletionMethod = vscode.workspace
+				.getConfiguration(PR_SETTINGS_NAMESPACE)
+				.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_LOCAL_BRANCH}`);
+			actions.push({
+				label: vscode.l10n.t('Delete local branch {0}', branchInfo.branch),
+				type: 'local',
+				picked: !!preferredLocalBranchDeletionMethod,
+			});
+
+			const preferredRemoteDeletionMethod = vscode.workspace
+				.getConfiguration(PR_SETTINGS_NAMESPACE)
+				.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_REMOTE}`);
+
+			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
+				actions.push({
+					label: vscode.l10n.t('Delete remote {0}, which is no longer used by any other branch', branchInfo.remote),
+					type: 'remote',
+					picked: !!preferredRemoteDeletionMethod,
+				});
+			}
+		}
+
+		if (vscode.env.remoteName === 'codespaces') {
+			actions.push({
+				label: vscode.l10n.t('Suspend Codespace'),
+				type: 'suspend'
+			});
+		}
+
+		if (!actions.length) {
+			vscode.window.showWarningMessage(
+				vscode.l10n.t('There is no longer an upstream or local branch for Pull Request #{0}', item.number),
+			);
+			return {
+				isReply: true,
+				message: {
+					cancelled: true
+				}
+			};
+		}
+
+		const selectedActions = await vscode.window.showQuickPick(actions, {
+			canPickMany: true,
+			ignoreFocusOut: true,
+		});
+
+		const deletedBranchTypes: string[] = [];
+
+		if (selectedActions) {
+			const isBranchActive = item.equals(folderRepositoryManager.activePullRequest) || (folderRepositoryManager.repository.state.HEAD?.name && folderRepositoryManager.repository.state.HEAD.name === branchInfo?.branch);
+
+			const promises = selectedActions.map(async action => {
+				switch (action.type) {
+					case 'remoteHead':
+						await folderRepositoryManager.deleteBranch(item);
+						deletedBranchTypes.push(action.type);
+						await folderRepositoryManager.repository.fetch({ prune: true });
+						// If we're in a remote repository, then we should checkout the default branch.
+						if (folderRepositoryManager.repository.rootUri.scheme === Schemes.VscodeVfs) {
+							await folderRepositoryManager.repository.checkout(defaultBranch);
+						}
+						return;
+					case 'local':
+						if (isBranchActive) {
+							if (folderRepositoryManager.repository.state.workingTreeChanges.length) {
+								const yes = vscode.l10n.t('Yes');
+								const response = await vscode.window.showWarningMessage(
+									vscode.l10n.t('Your local changes will be lost, do you want to continue?'),
+									{ modal: true },
+									yes,
+								);
+								if (response === yes) {
+									await vscode.commands.executeCommand('git.cleanAll');
+								} else {
+									return;
+								}
+							}
+							await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+						}
+						await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
+						return deletedBranchTypes.push(action.type);
+					case 'remote':
+						deletedBranchTypes.push(action.type);
+						return folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
+					case 'suspend':
+						deletedBranchTypes.push(action.type);
+						return vscode.commands.executeCommand('github.codespaces.disconnectSuspend');
+				}
+			});
+
+			await Promise.all(promises);
+
+			return {
+				isReply: false,
+				message: {
+					command: 'pr.deleteBranch',
+					branchTypes: deletedBranchTypes
+				}
+			};
+		} else {
+			return {
+				isReply: true,
+				message: {
+					cancelled: true
+				}
+			};
 		}
 	}
 }

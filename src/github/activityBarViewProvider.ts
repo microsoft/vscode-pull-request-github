@@ -9,8 +9,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { PullRequestView } from './pullRequestOverviewCommon';
-import { PullRequestReviewHelpers, ReviewContext } from './pullRequestReviewCommon';
+import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
@@ -58,7 +57,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
-		return PullRequestReviewHelpers.updateBranch(
+		return PullRequestReviewCommon.updateBranch(
 			this.getReviewContext(),
 			message,
 			() => this.refresh()
@@ -105,11 +104,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
-		return PullRequestReviewHelpers.checkoutDefaultBranch(this.getReviewContext(), message);
+		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		return PullRequestReviewHelpers.reRequestReview(this.getReviewContext(), message);
+		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
 	}
 
 	public async refresh(): Promise<void> {
@@ -120,7 +119,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
-		return PullRequestReviewHelpers.getCurrentUserReviewState(reviewers, currentUser);
+		return PullRequestReviewCommon.getCurrentUserReviewState(reviewers, currentUser);
 	}
 
 	/**
@@ -307,18 +306,20 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 
 	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
-		return PullRequestReviewHelpers.doReviewCommand(
+		return PullRequestReviewCommon.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
+			false,
 			action
 		);
 	}
 
 	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
-		return PullRequestReviewHelpers.doReviewMessage(
+		return PullRequestReviewCommon.doReviewMessage(
 			this.getReviewContext(),
 			message,
+			false,
 			action
 		);
 	}
@@ -360,7 +361,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
+		const result = await PullRequestReviewCommon.deleteBranch(this._folderRepositoryManager, this._item);
 		if (result.isReply) {
 			this._replyMessage(message, result.message);
 		} else {
@@ -369,7 +370,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async setReadyForReview(message: IRequestMessage<Record<string, unknown>>): Promise<void> {
-		return PullRequestReviewHelpers.setReadyForReview(this.getReviewContext(), message);
+		return PullRequestReviewCommon.setReadyForReview(this.getReviewContext(), message);
 	}
 
 	private async mergePullRequest(

@@ -22,8 +22,7 @@ import {
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
-import { PullRequestView } from './pullRequestOverviewCommon';
-import { PullRequestReviewHelpers, ReviewContext } from './pullRequestReviewCommon';
+import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
@@ -193,7 +192,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * @param pullRequestModel Model of the PR
 	 */
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
-		return PullRequestReviewHelpers.getCurrentUserReviewState(reviewers, currentUser);
+		return PullRequestReviewCommon.getCurrentUserReviewState(reviewers, currentUser);
 	}
 
 	/**
@@ -642,7 +641,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
+		const result = await PullRequestReviewCommon.deleteBranch(this._folderRepositoryManager, this._item);
 		if (result.isReply) {
 			this._replyMessage(message, result.message);
 		} else {
@@ -652,7 +651,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async setReadyForReview(message: IRequestMessage<{}>): Promise<void> {
-		return PullRequestReviewHelpers.setReadyForReview(this.getReviewContext(), message);
+		return PullRequestReviewCommon.setReadyForReview(this.getReviewContext(), message);
 	}
 
 	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
@@ -683,14 +682,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
-		return PullRequestReviewHelpers.checkoutDefaultBranch(this.getReviewContext(), message);
+		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
 	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
-		const result = await PullRequestReviewHelpers.doReviewCommand(
+		const result = await PullRequestReviewCommon.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
+			true,
 			action,
 		);
 		if (result) {
@@ -699,9 +699,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
-		const result = await PullRequestReviewHelpers.doReviewMessage(
+		const result = await PullRequestReviewCommon.doReviewMessage(
 			this.getReviewContext(),
 			message,
+			true,
 			action,
 		);
 		if (result) {
@@ -746,7 +747,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		return PullRequestReviewHelpers.reRequestReview(this.getReviewContext(), message);
+		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
 	}
 
 	private async revert(message: IRequestMessage<string>): Promise<void> {
@@ -784,7 +785,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
-		return PullRequestReviewHelpers.updateBranch(
+		return PullRequestReviewCommon.updateBranch(
 			this.getReviewContext(),
 			message,
 			() => this.refreshPanel(),
