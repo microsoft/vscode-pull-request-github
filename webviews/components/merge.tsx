@@ -13,8 +13,9 @@ import React, {
 	useState,
 } from 'react';
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
+import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
-import { checkAllIcon, checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -284,9 +285,8 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 };
 
 export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
-	const [isBusy, setBusy] = useState(false);
-	const [isMergeBusy, setMergeBusy] = useState(false);
-	const { readyForReview, readyForReviewAndMerge, updatePR } = useContext(PullRequestContext);
+	const { readyForReview, readyForReviewAndMerge, updatePR, pr } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(pr?.busy ?? false);
 
 	const markReadyForReview = useCallback(async () => {
 		try {
@@ -296,19 +296,37 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 		} finally {
 			setBusy(false);
 		}
-	}, [setBusy, readyForReview, updatePR]);
+	}, [readyForReview, updatePR]);
 
 	const markReadyAndMerge = useCallback(async () => {
 		try {
 			setBusy(true);
-			setMergeBusy(true);
 			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
 			updatePR(result);
 		} finally {
 			setBusy(false);
-			setMergeBusy(false);
 		}
 	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+
+	const allOptions = useCallback(() => {
+		const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [
+			{
+				label: 'Ready for Review',
+				value: 'ready',
+				action: markReadyForReview
+			}
+		];
+
+		if (isCopilotOnMyBehalf) {
+			actions.push({
+				label: 'Ready, Approve, and Auto-Merge',
+				value: 'readyAndMerge',
+				action: markReadyAndMerge
+			});
+		}
+
+		return actions;
+	}, [isCopilotOnMyBehalf, markReadyForReview, markReadyAndMerge]);
 
 	return (
 		<div className="ready-for-review-container">
@@ -320,18 +338,22 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 				</div>
 			</div>
 			<div className='button-container'>
-				{isCopilotOnMyBehalf && (
-					<button
-						className="icon-button"
-						disabled={isBusy}
-						onClick={markReadyAndMerge}
-						title="Mark as ready for review, approve, and enable auto-merge with default merge method"
-						aria-label="Ready for Review, Approve, and Auto-Merge"
-					>
-						{isMergeBusy ? loadingIcon : checkAllIcon}
-					</button>
-				)}
-				<button disabled={isBusy} onClick={markReadyForReview}>Ready for Review</button>
+				<ContextDropdown
+					optionsContext={() => JSON.stringify({
+						'preventDefaultContextMenuItems': true,
+						'github:readyForReviewMenu': true,
+						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf,
+						'mergeMethod': mergeMethod
+					})}
+					defaultAction={markReadyForReview}
+					defaultOptionLabel={() => 'Ready for Review'}
+					defaultOptionValue={() => 'ready'}
+					allOptions={allOptions}
+					optionsTitle='Ready for Review'
+					disabled={isBusy || pr?.busy}
+					hasSingleAction={!isCopilotOnMyBehalf}
+					spreadable={false}
+				/>
 			</div>
 		</div>
 	);
