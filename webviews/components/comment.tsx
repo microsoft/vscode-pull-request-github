@@ -5,7 +5,7 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { editIcon, quoteIcon, trashIcon } from './icon';
+import { copyIcon, editIcon, quoteIcon, trashIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -48,6 +48,7 @@ export function CommentView(commentProps: Props) {
 	const currentDraft = pr?.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
+	const commentUrl = (comment as Partial<IComment | ReviewEvent | CommentEvent>).htmlUrl || (comment as PullRequest).url;
 
 	if (inEditMode) {
 		return React.cloneElement(headerInEditMode ? <CommentBox for={comment} /> : <></>, {}, [
@@ -96,6 +97,15 @@ export function CommentView(commentProps: Props) {
 				>
 					{quoteIcon}
 				</button>
+				{commentUrl ? (
+					<button
+						title="Copy Comment Link"
+						className="icon-button"
+						onClick={() => navigator.clipboard.writeText(commentUrl)}
+					>
+						{copyIcon}
+					</button>
+				) : null}
 				{canEdit ? (
 					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
 						{editIcon}
