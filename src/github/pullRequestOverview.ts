@@ -17,17 +17,15 @@ import {
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
-	PullRequestMergeability,
-	reviewerId,
 	ReviewEventEnum,
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
-import { PullRequestView } from './pullRequestOverviewCommon';
+import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
+import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -200,9 +198,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * @param pullRequestModel Model of the PR
 	 */
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
-		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
-		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
-		return review?.state;
+		return PullRequestReviewCommon.getCurrentUserReviewState(reviewers, currentUser);
+	}
+
+	/**
+	 * Get the review context for helper functions
+	 */
+	private getReviewContext(): ReviewContext {
+		return {
+			item: this._item,
+			folderRepositoryManager: this._folderRepositoryManager,
+			existingReviewers: this._existingReviewers,
+			postMessage: (message: any) => this._postMessage(message),
+			replyMessage: (message: IRequestMessage<any>, response: any) => this._replyMessage(message, response),
+			throwError: (message: IRequestMessage<any> | undefined, error: string) => this._throwError(message, error),
+			getTimeline: () => this._getTimeline()
+		};
 	}
 
 	private isUpdateBranchWithGitHubEnabled(): boolean {
@@ -636,7 +647,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
+		const result = await PullRequestReviewCommon.deleteBranch(this._folderRepositoryManager, this._item);
 		if (result.isReply) {
 			this._replyMessage(message, result.message);
 		} else {
@@ -645,160 +656,48 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private setReadyForReview(message: IRequestMessage<{}>): void {
-		this._item
-			.setReadyForReview()
-			.then(result => {
-				this._replyMessage(message, result);
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
-				this._throwError(message, '');
-			});
+	private async setReadyForReview(message: IRequestMessage<{}>): Promise<void> {
+		return PullRequestReviewCommon.setReadyForReview(this.getReviewContext(), message);
 	}
 
 	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
-		try {
-			const readyResult = await this._item.setReadyForReview();
-
-			try {
-				await this._item.approve(this._folderRepositoryManager.repository, '');
-			} catch (e) {
-				vscode.window.showErrorMessage(`Pull request marked as ready for review, but failed to approve. ${formatError(e)}`);
-				this._replyMessage(message, readyResult);
-				return;
-			}
-
-			try {
-				await this._item.enableAutoMerge(message.args.mergeMethod);
-			} catch (e) {
-				vscode.window.showErrorMessage(`Pull request marked as ready and approved, but failed to enable auto-merge. ${formatError(e)}`);
-				this._replyMessage(message, readyResult);
-				return;
-			}
-
-			this._replyMessage(message, readyResult);
-		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
-			this._throwError(message, '');
-		}
+		return PullRequestReviewCommon.setReadyForReviewAndMerge(this.getReviewContext(), message);
 	}
 
 	private async readyForReviewCommand(): Promise<void> {
-		this._postMessage({
-			command: 'pr.readying-for-review'
-		});
-		try {
-			const result = await this._item.setReadyForReview();
-
-			const readiedResult: ReadyForReviewReply = {
-				isDraft: result.isDraft
-			};
-			await this._postMessage({
-				command: 'pr.readied-for-review',
-				result: readiedResult
-			});
-		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
-			this._throwError(undefined, e.message);
-		}
+		return PullRequestReviewCommon.readyForReviewCommand(this.getReviewContext());
 	}
 
 	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
-		this._postMessage({
-			command: 'pr.readying-for-review'
-		});
-		try {
-			const [readyResult, approveResult] = await Promise.all([this._item.setReadyForReview(), this._item.approve(this._folderRepositoryManager.repository)]);
-			await this._item.enableAutoMerge(context.mergeMethod);
-			this.updateReviewers(approveResult);
-
-			const readiedResult: ReadyForReviewReply = {
-				isDraft: readyResult.isDraft,
-				autoMerge: true,
-				reviewEvent: approveResult,
-				reviewers: this._existingReviewers
-			};
-			await this._postMessage({
-				command: 'pr.readied-for-review',
-				result: readiedResult
-			});
-		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
-			this._throwError(undefined, e.message);
-		}
+		return PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
-		try {
-			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
-			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
-			if (prBranch) {
-				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
-			}
-		} finally {
-			// Complete webview promise so that button becomes enabled again
-			this._replyMessage(message, {});
-		}
-	}
-
-	private updateReviewers(review?: ReviewEvent): void {
-		if (review && review.state) {
-			const existingReviewer = this._existingReviewers.find(
-				reviewer => review.user.login === (reviewer.reviewer as IAccount).login,
-			);
-			if (existingReviewer) {
-				existingReviewer.state = review.state;
-			} else {
-				this._existingReviewers.push({
-					reviewer: review.user,
-					state: review.state,
-				});
-			}
-		}
+		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
 	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
-		const submittingMessage = {
-			command: 'pr.submitting-review',
-			lastReviewType: reviewType
-		};
-		this._postMessage(submittingMessage);
-		try {
-			const review = await action(context.body);
-			this.updateReviewers(review);
-			const allEvents = await this._getTimeline();
-			const reviewMessage: SubmitReviewReply & { command: string } = {
-				command: 'pr.append-review',
-				reviewedEvent: review,
-				events: allEvents,
-				reviewers: this._existingReviewers
-			};
-			this.tryScheduleCopilotRefresh(review.body, review.state);
-			await this._postMessage(reviewMessage);
-		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
-			this._throwError(undefined, `${formatError(e)}`);
-		} finally {
-			this._postMessage({ command: 'pr.append-review' });
+		const result = await PullRequestReviewCommon.doReviewCommand(
+			this.getReviewContext(),
+			context,
+			reviewType,
+			true,
+			action,
+		);
+		if (result) {
+			this.tryScheduleCopilotRefresh(result.body, result.state);
 		}
 	}
 
 	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
-		try {
-			const review = await action(message.args);
-			this.updateReviewers(review);
-			const allEvents = await this._getTimeline();
-			const reply: SubmitReviewReply = {
-				reviewedEvent: review,
-				events: allEvents,
-				reviewers: this._existingReviewers,
-			};
-			this.tryScheduleCopilotRefresh(review.body, review.state);
-			this._replyMessage(message, reply);
-		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
-			this._throwError(message, `${formatError(e)}`);
+		const result = await PullRequestReviewCommon.doReviewMessage(
+			this.getReviewContext(),
+			message,
+			true,
+			action,
+		);
+		if (result) {
+			this.tryScheduleCopilotRefresh(result.body, result.state);
 		}
 	}
 
@@ -839,33 +738,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		let targetReviewer: ReviewState | undefined;
-		const userReviewers: IAccount[] = [];
-		const teamReviewers: ITeam[] = [];
-
-		for (const reviewer of this._existingReviewers) {
-			let id = reviewer.reviewer.id;
-			if (id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
-				if (id === message.args) {
-					targetReviewer = reviewer;
-				}
-			}
-		}
-
-		if (targetReviewer && isITeam(targetReviewer.reviewer)) {
-			teamReviewers.push(targetReviewer.reviewer);
-		} else if (targetReviewer && !isITeam(targetReviewer.reviewer)) {
-			userReviewers.push(targetReviewer.reviewer);
-		}
-
-		this._item.requestReview(userReviewers, teamReviewers, true).then(() => {
-			if (targetReviewer) {
-				targetReviewer.state = 'REQUESTED';
-			}
-			this._replyMessage(message, {
-				reviewers: this._existingReviewers,
-			});
-		});
+		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
 	}
 
 	private async revert(message: IRequestMessage<string>): Promise<void> {
@@ -903,35 +776,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
-		if (!this.isUpdateBranchWithGitHubEnabled()) {
-			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch must be checked out to be updated.'), { modal: true });
-			return this._replyMessage(message, {});
-		}
-
-		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
-			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
-			return this._replyMessage(message, {});
-		}
-		const mergeSucceeded = await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
-		if (!mergeSucceeded) {
-			this._replyMessage(message, {});
-		}
-		// The mergability of the PR doesn't update immediately. Poll.
-		let mergability = PullRequestMergeability.Unknown;
-		let attemptsRemaining = 5;
-		do {
-			mergability = (await this._item.getMergeability()).mergeability;
-			attemptsRemaining--;
-			await new Promise(c => setTimeout(c, 1000));
-		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
-
-		const result: Partial<PullRequest> = {
-			events: await this._getTimeline(),
-			mergeable: mergability,
-		};
-		await this.refreshPanel();
-
-		this._replyMessage(message, result);
+		return PullRequestReviewCommon.updateBranch(
+			this.getReviewContext(),
+			message,
+			() => this.refreshPanel(),
+			() => this.isUpdateBranchWithGitHubEnabled()
+		);
 	}
 
 	protected override editCommentPromise(comment: IComment, text: string): Promise<IComment> {
