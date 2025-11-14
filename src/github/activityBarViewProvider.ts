@@ -6,12 +6,13 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
+import { IAccount, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
+import { PullRequestReviewHelpers, ReviewContext } from './pullRequestReviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { MergeArguments, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
@@ -57,29 +58,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
-		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
-			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
-			return this._replyMessage(message, {});
-		}
-		const mergeSucceeded = await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
-		if (!mergeSucceeded) {
-			this._replyMessage(message, {});
-		}
-		// The mergability of the PR doesn't update immediately. Poll.
-		let mergability = PullRequestMergeability.Unknown;
-		let attemptsRemaining = 5;
-		do {
-			mergability = (await this._item.getMergeability()).mergeability;
-			attemptsRemaining--;
-			await new Promise(c => setTimeout(c, 1000));
-		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
-
-		const result: Partial<PullRequest> = {
-			events: await this._item.getTimelineEvents(),
-			mergeable: mergability,
-		};
-		await this.refresh();
-		this._replyMessage(message, result);
+		return PullRequestReviewHelpers.updateBranch(
+			this.getReviewContext(),
+			message,
+			() => this.refresh()
+		);
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -122,47 +105,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
-		try {
-			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
-			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
-			await this._folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
-			if (prBranch) {
-				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
-			}
-		} finally {
-			// Complete webview promise so that button becomes enabled again
-			this._replyMessage(message, {});
-		}
+		return PullRequestReviewHelpers.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		let targetReviewer: ReviewState | undefined;
-		const userReviewers: IAccount[] = [];
-		const teamReviewers: ITeam[] = [];
-
-		for (const reviewer of this._existingReviewers) {
-			let id = reviewer.reviewer.id;
-			if (id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
-				if (id === message.args) {
-					targetReviewer = reviewer;
-				}
-			}
-		}
-
-		if (targetReviewer && isITeam(targetReviewer.reviewer)) {
-			teamReviewers.push(targetReviewer.reviewer);
-		} else if (targetReviewer && !isITeam(targetReviewer.reviewer)) {
-			userReviewers.push(targetReviewer.reviewer);
-		}
-
-		this._item.requestReview(userReviewers, teamReviewers, true).then(() => {
-			if (targetReviewer) {
-				targetReviewer.state = 'REQUESTED';
-			}
-			this._replyMessage(message, {
-				reviewers: this._existingReviewers,
-			});
-		});
+		return PullRequestReviewHelpers.reRequestReview(this.getReviewContext(), message);
 	}
 
 	public async refresh(): Promise<void> {
@@ -173,9 +120,22 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
-		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
-		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
-		return review?.state;
+		return PullRequestReviewHelpers.getCurrentUserReviewState(reviewers, currentUser);
+	}
+
+	/**
+	 * Get the review context for helper functions
+	 */
+	private getReviewContext(): ReviewContext {
+		return {
+			item: this._item,
+			folderRepositoryManager: this._folderRepositoryManager,
+			existingReviewers: this._existingReviewers,
+			postMessage: (message: any) => this._postMessage(message),
+			replyMessage: (message: IRequestMessage<any>, response: any) => this._replyMessage(message, response),
+			throwError: (message: IRequestMessage<any> | undefined, error: string) => this._throwError(message, error),
+			getTimeline: () => this._item.getTimelineEvents()
+		};
 	}
 
 	private _prDisposables: vscode.Disposable[] | undefined = undefined;
@@ -346,58 +306,24 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private updateReviewers(review?: ReviewEvent): void {
-		if (review && review.state) {
-			const existingReviewer = this._existingReviewers.find(
-				reviewer => review.user.login === reviewerId(reviewer.reviewer),
-			);
-			if (existingReviewer) {
-				existingReviewer.state = review.state;
-			} else {
-				this._existingReviewers.push({
-					reviewer: review.user,
-					state: review.state,
-				});
-			}
-		}
+		PullRequestReviewHelpers.updateReviewers(this._existingReviewers, review);
 	}
 
 	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
-		const submittingMessage = {
-			command: 'pr.submitting-review',
-			lastReviewType: reviewType
-		};
-		this._postMessage(submittingMessage);
-		try {
-			const review = await action(context.body);
-			this.updateReviewers(review);
-			const reviewMessage: SubmitReviewReply & { command: string } = {
-				command: 'pr.append-review',
-				events: [],
-				reviewers: this._existingReviewers,
-				reviewedEvent: review,
-			};
-			await this._postMessage(reviewMessage);
-		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
-			this._throwError(undefined, `${formatError(e)}`);
-			this._postMessage({ command: 'pr.append-review' });
-		}
+		return PullRequestReviewHelpers.doReviewCommand(
+			this.getReviewContext(),
+			context,
+			reviewType,
+			action
+		);
 	}
 
 	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
-		try {
-			const review = await action(message.args);
-			this.updateReviewers(review);
-			const reviewMessage: SubmitReviewReply = {
-				events: [],
-				reviewedEvent: review,
-				reviewers: this._existingReviewers,
-			};
-			this._replyMessage(message, reviewMessage);
-		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
-			this._throwError(message, `${formatError(e)}`);
-		}
+		return PullRequestReviewHelpers.doReviewMessage(
+			this.getReviewContext(),
+			message,
+			action
+		);
 	}
 
 	private approvePullRequest(body: string): Promise<ReviewEvent> {
@@ -446,47 +372,27 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
-		this._item
-			.setReadyForReview()
-			.then(result => {
-				this._replyMessage(message, result);
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set pull request ready for review. {0}', formatError(e)));
-				this._throwError(message, '');
-			});
+		return PullRequestReviewHelpers.setReadyForReview(this.getReviewContext(), message);
 	}
 
 	private async mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
-		const { title, description, method } = message.args;
-		const email = await this._folderRepositoryManager.getPreferredEmail(this._item);
-		const yes = vscode.l10n.t('Yes');
-		const confirmation = await vscode.window.showInformationMessage(
-			vscode.l10n.t('Merge this pull request?'),
-			{ modal: true },
-			yes,
-		);
-		if (confirmation !== yes) {
-			this._replyMessage(message, { state: GithubItemStateEnum.Open });
-			return;
-		}
-		try {
-			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
-
-			if (!result.merged) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
+		return PullRequestReviewHelpers.mergePullRequest(
+			this.getReviewContext(),
+			message,
+			{
+				confirmMerge: async () => {
+					const yes = vscode.l10n.t('Yes');
+					const confirmation = await vscode.window.showInformationMessage(
+						vscode.l10n.t('Merge this pull request?'),
+						{ modal: true },
+						yes,
+					);
+					return confirmation === yes;
+				}
 			}
-
-			this._replyMessage(message, {
-				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-			});
-
-		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
-			this._throwError(message, '');
-		}
+		);
 	}
 
 	private _getHtmlForWebview() {
