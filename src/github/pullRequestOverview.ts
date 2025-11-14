@@ -26,7 +26,7 @@ import { PullRequestView } from './pullRequestOverviewCommon';
 import { PullRequestReviewHelpers, ReviewContext } from './pullRequestReviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, PullRequest, ReviewType } from './views';
+import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -613,17 +613,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
-		return PullRequestReviewHelpers.mergePullRequest(
-			this.getReviewContext(),
-			message,
-			{
-				getMergeResponse: (result) => ({
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-					revertable: result.merged,
-					events: result.timeline
-				})
+		const { title, description, method, email } = message.args;
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
+
+			if (!result.merged) {
+				vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
 			}
-		);
+
+			const mergeResult: MergeResult = {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+				revertable: result.merged,
+				events: result.timeline
+			};
+			this._replyMessage(message, mergeResult);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, '');
+		}
 	}
 
 	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
@@ -644,7 +651,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private setReadyForReview(message: IRequestMessage<{}>): void {
+	private async setReadyForReview(message: IRequestMessage<{}>): Promise<void> {
 		return PullRequestReviewHelpers.setReadyForReview(this.getReviewContext(), message);
 	}
 
@@ -679,27 +686,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestReviewHelpers.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
-	private updateReviewers(review?: ReviewEvent): void {
-		PullRequestReviewHelpers.updateReviewers(this._existingReviewers, review);
-	}
-
 	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
-		return PullRequestReviewHelpers.doReviewCommand(
+		const result = await PullRequestReviewHelpers.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
 			action,
-			(body, state) => this.tryScheduleCopilotRefresh(body, state)
 		);
+		if (result) {
+			this.tryScheduleCopilotRefresh(result.body, result.state);
+		}
 	}
 
 	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
-		return PullRequestReviewHelpers.doReviewMessage(
+		const result = await PullRequestReviewHelpers.doReviewMessage(
 			this.getReviewContext(),
 			message,
 			action,
-			(body, state) => this.tryScheduleCopilotRefresh(body, state)
 		);
+		if (result) {
+			this.tryScheduleCopilotRefresh(result.body, result.state);
+		}
 	}
 
 	private approvePullRequest(body: string): Promise<ReviewEvent> {

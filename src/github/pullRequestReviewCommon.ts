@@ -6,10 +6,10 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewState } from './interface';
+import { IAccount, isITeam, ITeam, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
-import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
-import { ReviewEvent, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
+import { PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 
@@ -43,7 +43,7 @@ export namespace PullRequestReviewHelpers {
 	/**
 	 * Update the reviewers list with a new review
 	 */
-	export function updateReviewers(existingReviewers: ReviewState[], review?: ReviewEvent): void {
+	function updateReviewers(existingReviewers: ReviewState[], review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = existingReviewers.find(
 				reviewer => review.user.login === reviewerId(reviewer.reviewer),
@@ -67,8 +67,7 @@ export namespace PullRequestReviewHelpers {
 		context: { body: string },
 		reviewType: ReviewType,
 		action: (body: string) => Promise<ReviewEvent>,
-		onReviewSubmitted?: (body: string, state: ReviewStateValue | undefined) => void
-	): Promise<void> {
+	): Promise<ReviewEvent | undefined> {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -77,21 +76,18 @@ export namespace PullRequestReviewHelpers {
 		try {
 			const review = await action(context.body);
 			updateReviewers(ctx.existingReviewers, review);
-			const allEvents = await ctx.getTimeline();
+			const allEvents = await ctx.getTimeline(); // activity bar view doesn't do this.
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
 				reviewedEvent: review,
 				events: allEvents,
 				reviewers: ctx.existingReviewers
 			};
-			if (onReviewSubmitted) {
-				onReviewSubmitted(review.body, review.state);
-			}
 			ctx.postMessage(reviewMessage);
+			return review;
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			ctx.throwError(undefined, `${formatError(e)}`);
-		} finally {
 			ctx.postMessage({ command: 'pr.append-review' });
 		}
 	}
@@ -103,21 +99,18 @@ export namespace PullRequestReviewHelpers {
 		ctx: ReviewContext,
 		message: IRequestMessage<string>,
 		action: (body: string) => Promise<ReviewEvent>,
-		onReviewSubmitted?: (body: string, state: ReviewStateValue | undefined) => void
-	): Promise<void> {
+	): Promise<ReviewEvent | undefined> {
 		try {
 			const review = await action(message.args);
 			updateReviewers(ctx.existingReviewers, review);
-			const allEvents = await ctx.getTimeline();
+			const allEvents = await ctx.getTimeline(); // activity bar view doesn't do this.
 			const reply: SubmitReviewReply = {
 				reviewedEvent: review,
 				events: allEvents,
 				reviewers: ctx.existingReviewers,
 			};
-			if (onReviewSubmitted) {
-				onReviewSubmitted(review.body, review.state);
-			}
 			ctx.replyMessage(message, reply);
+			return review;
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			ctx.throwError(message, `${formatError(e)}`);
@@ -162,9 +155,8 @@ export namespace PullRequestReviewHelpers {
 	 */
 	export async function checkoutDefaultBranch(ctx: ReviewContext, message: IRequestMessage<string>): Promise<void> {
 		try {
-			const defaultBranch = await ctx.folderRepositoryManager.getPullRequestRepositoryDefaultBranch(ctx.item);
 			const prBranch = ctx.folderRepositoryManager.repository.state.HEAD?.name;
-			await ctx.folderRepositoryManager.checkoutDefaultBranch(defaultBranch ?? message.args);
+			await ctx.folderRepositoryManager.checkoutDefaultBranch(message.args); // test that this works with activity bar
 			if (prBranch) {
 				await ctx.folderRepositoryManager.cleanupAfterPullRequest(prBranch, ctx.item);
 			}
@@ -217,51 +209,12 @@ export namespace PullRequestReviewHelpers {
 	/**
 	 * Set the PR as ready for review
 	 */
-	export function setReadyForReview(ctx: ReviewContext, message: IRequestMessage<{}>): void {
-		ctx.item
-			.setReadyForReview()
-			.then(result => {
-				ctx.replyMessage(message, result);
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set pull request ready for review. {0}', formatError(e)));
-				ctx.throwError(message, '');
-			});
-	}
-
-	/**
-	 * Merge the pull request
-	 */
-	export async function mergePullRequest(
-		ctx: ReviewContext,
-		message: IRequestMessage<MergeArguments>,
-		options: {
-			confirmMerge?: () => Promise<boolean>;
-			getMergeResponse?: (result: any) => any;
-		} = {}
-	): Promise<void> {
-		const { title, description, method, email: providedEmail } = message.args;
-		const email = providedEmail ?? await ctx.folderRepositoryManager.getPreferredEmail(ctx.item);
-
-		const confirmed = options.confirmMerge ? await options.confirmMerge() : true;
-		if (!confirmed) {
-			ctx.replyMessage(message, { state: GithubItemStateEnum.Open });
-			return;
-		}
-
+	export async function setReadyForReview(ctx: ReviewContext, message: IRequestMessage<{}>): Promise<void> {
 		try {
-			const result = await ctx.item.merge(ctx.folderRepositoryManager.repository, title, description, method, email);
-
-			if (!result.merged) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
-			}
-
-			const response = options.getMergeResponse
-				? options.getMergeResponse(result)
-				: { state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open };
-			ctx.replyMessage(message, response);
+			const result = await ctx.item.setReadyForReview();
+			ctx.replyMessage(message, result);
 		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to set pull request ready for review. {0}', formatError(e)));
 			ctx.throwError(message, '');
 		}
 	}

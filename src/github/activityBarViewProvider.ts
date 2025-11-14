@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IAccount, ReviewEventEnum, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -305,9 +305,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private updateReviewers(review?: ReviewEvent): void {
-		PullRequestReviewHelpers.updateReviewers(this._existingReviewers, review);
-	}
 
 	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		return PullRequestReviewHelpers.doReviewCommand(
@@ -330,24 +327,24 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
-	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
-		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
+	private async approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
+		await this.doReviewMessage(message, (body) => this.approvePullRequest(body));
 	}
 
-	private approvePullRequestCommand(context: { body: string }): Promise<void> {
-		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	private async approvePullRequestCommand(context: { body: string }): Promise<void> {
+		await this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
 	private requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
-	private requestChangesCommand(context: { body: string }): Promise<void> {
-		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
+	private async requestChangesCommand(context: { body: string }): Promise<void> {
+		await this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
 	}
 
-	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
-		return this.doReviewMessage(message, (body) => this.requestChanges(body));
+	private async requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
+		await this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
 	private submitReview(body: string): Promise<ReviewEvent> {
@@ -371,28 +368,40 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
+	private async setReadyForReview(message: IRequestMessage<Record<string, unknown>>): Promise<void> {
 		return PullRequestReviewHelpers.setReadyForReview(this.getReviewContext(), message);
 	}
 
 	private async mergePullRequest(
 		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
-		return PullRequestReviewHelpers.mergePullRequest(
-			this.getReviewContext(),
-			message,
-			{
-				confirmMerge: async () => {
-					const yes = vscode.l10n.t('Yes');
-					const confirmation = await vscode.window.showInformationMessage(
-						vscode.l10n.t('Merge this pull request?'),
-						{ modal: true },
-						yes,
-					);
-					return confirmation === yes;
-				}
-			}
+		const { title, description, method } = message.args;
+		const email = await this._folderRepositoryManager.getPreferredEmail(this._item);
+		const yes = vscode.l10n.t('Yes');
+		const confirmation = await vscode.window.showInformationMessage(
+			vscode.l10n.t('Merge this pull request?'),
+			{ modal: true },
+			yes,
 		);
+		if (confirmation !== yes) {
+			this._replyMessage(message, { state: GithubItemStateEnum.Open });
+			return;
+		}
+		try {
+			const result = await this._item.merge(this._folderRepositoryManager.repository, title, description, method, email);
+
+			if (!result.merged) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
+			}
+
+			this._replyMessage(message, {
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+			});
+
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
+			this._throwError(message, '');
+		}
 	}
 
 	private _getHtmlForWebview() {
