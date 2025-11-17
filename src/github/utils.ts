@@ -653,7 +653,7 @@ export function parseAccount(
 
 		// In some places, Copilot comes in as a user, and in others as a bot
 
-		const finalAvatarUrl = githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl;
+		const finalAvatarUrl = githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, author.email ?? undefined, githubRepository.remote.isEnterprise) : avatarUrl;
 
 		return {
 			login: author.login,
