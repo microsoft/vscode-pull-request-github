@@ -15,6 +15,9 @@ jobs:
       - script: npm run lint
         displayName: Run lint
 
+      - script: yarn run check:commands
+        displayName: Verify command registrations
+
       - script: yarn run test
         displayName: Run test suite
         env:
