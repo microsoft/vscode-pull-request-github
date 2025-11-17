@@ -4317,6 +4317,7 @@
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
+		"check:commands": "node scripts/check-commands.js",
 		"prepare": "husky install",
 		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},
