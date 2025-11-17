@@ -3529,6 +3529,10 @@
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@1",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
 			],
 			"chat/chatSessions": [
