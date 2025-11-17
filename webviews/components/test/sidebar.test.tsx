@@ -8,11 +8,11 @@ import * as React from 'react';
 import { cleanup, render } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { PRContext } from '../../common/context';
-import { CollapsibleSidebar } from '../sidebar';
-import { PullRequestBuilder } from '../../editorWebview/test/builder/pullRequest';
-import { AccountBuilder } from '../../editorWebview/test/builder/account';
 import { ReviewState } from '../../../src/github/interface';
+import { PRContext, default as PullRequestContext } from '../../common/context';
+import { AccountBuilder } from '../../editorWebview/test/builder/account';
+import { PullRequestBuilder } from '../../editorWebview/test/builder/pullRequest';
+import { CollapsibleSidebar } from '../sidebar';
 
 describe('CollapsibleSidebar', function () {
 	let sinon: SinonSandbox;
@@ -42,9 +42,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that the avatar stack is rendered
@@ -67,9 +67,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that the avatar stack is rendered
@@ -96,9 +96,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that the avatar stack is rendered
@@ -118,9 +118,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that avatar stacks are rendered (there should be one for assignees)
@@ -145,9 +145,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that the pill container is rendered
@@ -168,9 +168,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that the pill container is rendered
@@ -196,9 +196,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// The overflow indicator may or may not be present depending on container size
@@ -212,16 +212,17 @@ describe('CollapsibleSidebar', function () {
 				title: 'v1.0.0',
 				dueOn: '2024-12-31',
 				createdAt: '2024-01-01',
-				id: '123'
+				id: '123',
+				number: 1
 			};
 
 			const pr = new PullRequestBuilder().milestone(milestone).build();
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that the pill container is rendered for milestone
@@ -237,11 +238,11 @@ describe('CollapsibleSidebar', function () {
 			const projectItems = [
 				{
 					id: '1',
-					project: { title: 'Project Alpha' }
+					project: { title: 'Project Alpha', id: 'proj-1' }
 				},
 				{
 					id: '2',
-					project: { title: 'Project Beta' }
+					project: { title: 'Project Beta', id: 'proj-2' }
 				}
 			];
 
@@ -249,9 +250,9 @@ describe('CollapsibleSidebar', function () {
 			const context = new PRContext(pr);
 
 			const out = render(
-				<PRContext.Provider value={context}>
+				<PullRequestContext.Provider value={context}>
 					<CollapsibleSidebar {...pr} />
-				</PRContext.Provider>
+				</PullRequestContext.Provider>
 			);
 
 			// Check that pill containers are rendered

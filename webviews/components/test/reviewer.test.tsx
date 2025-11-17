@@ -8,11 +8,11 @@ import * as React from 'react';
 import { cleanup, render } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { PRContext } from '../../common/context';
-import { Reviewer } from '../reviewer';
-import { PullRequestBuilder } from '../../editorWebview/test/builder/pullRequest';
+import { AccountType, ReviewState } from '../../../src/github/interface';
+import { PRContext, default as PullRequestContext } from '../../common/context';
 import { AccountBuilder } from '../../editorWebview/test/builder/account';
-import { ReviewState, AccountType } from '../../../src/github/interface';
+import { PullRequestBuilder } from '../../editorWebview/test/builder/pullRequest';
+import { Reviewer } from '../reviewer';
 
 describe('Reviewer', function () {
 	let sinon: SinonSandbox;
@@ -38,9 +38,9 @@ describe('Reviewer', function () {
 		const context = new PRContext(pr);
 
 		const out = render(
-			<PRContext.Provider value={context}>
+			<PullRequestContext.Provider value={context}>
 				<Reviewer reviewState={reviewState} />
-			</PRContext.Provider>
+			</PullRequestContext.Provider>
 		);
 
 		// Check that reviewer name is displayed
@@ -63,9 +63,9 @@ describe('Reviewer', function () {
 		const context = new PRContext(pr);
 
 		const out = render(
-			<PRContext.Provider value={context}>
+			<PullRequestContext.Provider value={context}>
 				<Reviewer reviewState={reviewState} />
-			</PRContext.Provider>
+			</PullRequestContext.Provider>
 		);
 
 		// Check that reviewer name is displayed
@@ -88,9 +88,9 @@ describe('Reviewer', function () {
 		const context = new PRContext(pr);
 
 		const out = render(
-			<PRContext.Provider value={context}>
+			<PullRequestContext.Provider value={context}>
 				<Reviewer reviewState={reviewState} />
-			</PRContext.Provider>
+			</PullRequestContext.Provider>
 		);
 
 		// Check that reviewer name is displayed
@@ -113,9 +113,9 @@ describe('Reviewer', function () {
 		const context = new PRContext(pr);
 
 		const out = render(
-			<PRContext.Provider value={context}>
+			<PullRequestContext.Provider value={context}>
 				<Reviewer reviewState={reviewState} />
-			</PRContext.Provider>
+			</PullRequestContext.Provider>
 		);
 
 		// Check that reviewer name is displayed
@@ -139,9 +139,9 @@ describe('Reviewer', function () {
 		const context = new PRContext(pr);
 
 		const out = render(
-			<PRContext.Provider value={context}>
+			<PullRequestContext.Provider value={context}>
 				<Reviewer reviewState={reviewState} />
-			</PRContext.Provider>
+			</PullRequestContext.Provider>
 		);
 
 		// Check that reviewer name is displayed
@@ -168,9 +168,9 @@ describe('Reviewer', function () {
 		context.reRequestReview = reRequestReviewStub;
 
 		const out = render(
-			<PRContext.Provider value={context}>
+			<PullRequestContext.Provider value={context}>
 				<Reviewer reviewState={reviewState} />
-			</PRContext.Provider>
+			</PullRequestContext.Provider>
 		);
 
 		// Find and click the re-request button
