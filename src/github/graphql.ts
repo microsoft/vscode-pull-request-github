@@ -122,12 +122,12 @@ export interface Account extends Actor {
 
 export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
 	const asAccount = x as Partial<Account>;
-	return !!asAccount && !!asAccount?.name && (asAccount?.email !== undefined);
+	return !!asAccount && (asAccount?.name !== undefined) && (asAccount?.email !== undefined);
 }
 
 export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
 	const asTeam = x as Partial<Team>;
-	return !!asTeam && !!asTeam?.slug;
+	return !!asTeam && (asTeam?.slug !== undefined);
 }
 
 export interface Team {
@@ -188,6 +188,9 @@ export interface Commit {
 		oid: string;
 		message: string;
 		committedDate: Date;
+		statusCheckRollup?: {
+			state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+		};
 	};
 
 	url: string;

@@ -75,7 +75,17 @@ form,
 	width: 100%;
 }
 
-.button-container button {
+.button-container>button {
+	width: 100%;
+}
+
+.button-container:has(> .dropdown-container) {
+	display: flex;
+	min-width: 0;
+}
+
+.dropdown-container {
+	flex-grow: 1;
 	width: 100%;
 }
 

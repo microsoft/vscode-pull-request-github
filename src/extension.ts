@@ -39,8 +39,9 @@ import { NotificationsFeatureRegister } from './notifications/notificationsFeatu
 import { NotificationsManager } from './notifications/notificationsManager';
 import { NotificationsProvider } from './notifications/notificationsProvider';
 import { ThemeWatcher } from './themeWatcher';
-import { UriHandler } from './uriHandler';
+import { resumePendingCheckout, UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
+import { CommitsDecorationProvider } from './view/commitsDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { EmojiCompletionProvider } from './view/emojiCompletionProvider';
@@ -171,7 +172,7 @@ async function init(
 	);
 	const treeDecorationProviders = new TreeDecorationProviders(reposManager);
 	context.subscriptions.push(treeDecorationProviders);
-	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager)]);
+	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager), new CommitsDecorationProvider(reposManager)]);
 
 	const notificationsProvider = new NotificationsProvider(credentialStore, reposManager);
 	context.subscriptions.push(notificationsProvider);
@@ -265,10 +266,13 @@ async function init(
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
-	registerPostCommitCommandsProvider(reposManager, git);
+	registerPostCommitCommandsProvider(context, reposManager, git);
+
+	// Resume any pending checkout request stored before workspace reopened.
+	await resumePendingCheckout(reviewsManager, context, reposManager);
 
 	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry, prsTreeModel);
-	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context)));
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
@@ -347,12 +351,12 @@ async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, cr
 	return false;
 }
 
-function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, git: GitApiImpl) {
+function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, reposManager: RepositoriesManager, git: GitApiImpl) {
 	const componentId = 'GitPostCommitCommands';
 	class Provider implements PostCommitCommandsProvider {
 
 		getCommands(repository: Repository) {
-			Logger.debug(`Looking for remote. Comparing ${repository.state.remotes.length} local repo remotes with ${reposManager.folderManagers.reduce((prev, curr) => prev + curr.gitHubRepositories.length, 0)} GitHub repositories.`, componentId);
+			Logger.appendLine(`Looking for remote. Comparing ${repository.state.remotes.length} local repo remotes with ${reposManager.folderManagers.reduce((prev, curr) => prev + curr.gitHubRepositories.length, 0)} GitHub repositories.`, componentId);
 			const repoRemotes = parseRepositoryRemotes(repository);
 
 			const found = reposManager.folderManagers.find(folderManager => folderManager.findRepo(githubRepo => {
@@ -360,7 +364,7 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 					return remote.equals(githubRepo.remote);
 				});
 			}));
-			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
+			Logger.appendLine(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
 			return found ? [{
 				command: 'pr.pushAndCreate',
 				title: vscode.l10n.t('{0} Commit & Create Pull Request', '$(git-pull-request-create)'),
@@ -373,10 +377,10 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 		return reposManager.folderManagers.some(folderManager => folderManager.gitHubRepositories.length > 0);
 	}
 	function tryRegister(): boolean {
-		Logger.debug('Trying to register post commit commands.', 'GitPostCommitCommands');
+		Logger.appendLine('Trying to register post commit commands.', 'GitPostCommitCommands');
 		if (hasGitHubRepos()) {
-			Logger.debug('GitHub remote(s) found, registering post commit commands.', componentId);
-			git.registerPostCommitCommandsProvider(new Provider());
+			Logger.appendLine('GitHub remote(s) found, registering post commit commands.', componentId);
+			context.subscriptions.push(git.registerPostCommitCommandsProvider(new Provider()));
 			return true;
 		}
 		return false;
@@ -392,7 +396,7 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 }
 
 async function deferredActivateRegisterBuiltInGitProvider(context: vscode.ExtensionContext, apiImpl: GitApiImpl, credentialStore: CredentialStore) {
-	Logger.debug('Registering built in git provider.', 'Activation');
+	Logger.appendLine('Registering built in git provider.', 'Activation');
 	if (!(await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl))) {
 		const extensionsChangedDisposable = vscode.extensions.onDidChange(async () => {
 			if (await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl)) {

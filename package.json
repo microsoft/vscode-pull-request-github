@@ -20,6 +20,7 @@
 		"commentingRangeHint",
 		"commentReactor",
 		"commentReveal",
+		"commentsDraftState",
 		"commentThreadApplicability",
 		"contribAccessibilityHelpContent",
 		"contribCommentEditorActionsMenu",
@@ -30,13 +31,15 @@
 		"contribShareMenu",
 		"diffCommand",
 		"languageModelToolResultAudience",
+		"markdownAlertSyntax",
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
+		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.120.0",
+	"version": "0.122.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.106.0"
@@ -980,6 +983,21 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.readyForReviewAndMerge",
+				"title": "%command.pr.readyForReviewAndMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewDescription",
+				"title": "%command.pr.readyForReview.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewAndMergeDescription",
+				"title": "%command.pr.readyForReviewAndMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openPullRequestOnGitHub",
 				"title": "%command.pr.openPullRequestOnGitHub.title%",
 				"category": "%command.pull.request.category%",
@@ -1793,11 +1811,6 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "codingAgent.openSessionLog",
-				"title": "%command.codingAgent.openSessionLog.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
 				"command": "pr.refreshChatSessions",
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
@@ -2060,7 +2073,19 @@
 				},
 				{
 					"command": "pr.readyForReview",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "false"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
@@ -2621,6 +2646,14 @@
 				{
 					"command": "pr.preferredCodingAgentGitHubRemote",
 					"when": "false"
+				},
+				{
+					"command": "pr.closeChatSessionPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "pr.cancelCodingAgent",
+					"when": "false"
 				}
 			],
 			"view/title": [
@@ -3141,6 +3174,13 @@
 					"group": "1_modification@5"
 				}
 			],
+			"scm/repository": [
+				{
+					"command": "pr.create",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
+					"group": "inline"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",
@@ -3468,16 +3508,19 @@
 					"group": "1_create@2"
 				},
 				{
-					"command": "review.approve",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove"
+					"command": "review.comment",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment",
+					"group": "1_review@1"
 				},
 				{
-					"command": "review.comment",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment"
+					"command": "review.approve",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove",
+					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChanges",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotCom",
@@ -3488,16 +3531,19 @@
 					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				},
 				{
-					"command": "review.approveDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove"
+					"command": "review.commentDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment",
+					"group": "1_review@1"
 				},
 				{
-					"command": "review.commentDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment"
+					"command": "review.approveDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove",
+					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChangesDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotComDescription",
@@ -3516,6 +3562,22 @@
 					"when": "webviewId == PullRequestOverview && github:copyMenu"
 				},
 				{
+					"command": "pr.readyForReviewDescription",
+					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu"
+				},
+				{
+					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+				},
+				{
+					"command": "pr.readyForReview",
+					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu"
+				},
+				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+				},
+				{
 					"command": "pr.openChanges",
 					"group": "checkout@0",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
@@ -3524,27 +3586,31 @@
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@1",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
 			],
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "resourceScheme == copilot-swe-agent || resourceScheme == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "resourceScheme == copilot-swe-agent || resourceScheme == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
 					"command": "pr.closeChatSessionPullRequest",
-					"when": "resourceScheme == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent",
 					"group": "context"
 				},
 				{
 					"command": "pr.cancelCodingAgent",
-					"when": "resourceScheme == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent",
 					"group": "context"
 				}
 			],
@@ -3554,9 +3620,6 @@
 				},
 				{
 					"command": "pr.applyChangesFromDescription"
-				},
-				{
-					"command": "pr.openChanges"
 				}
 			]
 		},
@@ -4258,6 +4321,7 @@
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
+		"check:commands": "node scripts/check-commands.js",
 		"prepare": "husky install",
 		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},
