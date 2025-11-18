@@ -14,7 +14,7 @@ import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_CLOUD_AGENT, COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -60,7 +60,7 @@ export namespace SessionIdForPr {
 
 	export function getResource(prNumber: number, sessionIndex: number): vscode.Uri {
 		return vscode.Uri.from({
-			scheme: COPILOT_SWE_AGENT, path: `/${prefix}-${prNumber}-${sessionIndex}`,
+			scheme: COPILOT_CLOUD_AGENT, path: `/${prefix}-${prNumber}-${sessionIndex}`,
 		});
 	}
 
