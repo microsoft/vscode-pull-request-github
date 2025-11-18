@@ -528,7 +528,7 @@ export class PrsTreeModel extends Disposable {
 
 					for (const pr of items) {
 						unseenKeys.delete(this.copilotStateModel.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
-						const copilotEvents = await pr.getCopilotTimelineEvents(pr, false, !this.copilotStateModel.isInitialized);
+						const copilotEvents = await pr.getCopilotTimelineEvents(false, !this.copilotStateModel.isInitialized);
 						let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
 						if (latestEvent === CopilotPRStatus.None) {
 							if (!COPILOT_ACCOUNTS[pr.author.login]) {

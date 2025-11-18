@@ -137,7 +137,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = this._register(new vscode.EventEmitter<boolean>());
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
 
-	private _reviewThreadsCache: IReviewThread[] = [];
+	private _reviewThreadsCache: IReviewThread[] | undefined;
 	private _reviewThreadsCacheInitialized = false;
 	private _onDidChangeReviewThreads = this._register(new vscode.EventEmitter<ReviewThreadChangeEvent>());
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
@@ -184,7 +184,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public clear() {
 		this.comments = [];
 		this._reviewThreadsCacheInitialized = false;
-		this._reviewThreadsCache = [];
+		this._reviewThreadsCache = undefined;
 	}
 
 	public async initializeReviewThreadCache(): Promise<void> {
@@ -193,7 +193,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	public get reviewThreadsCache(): IReviewThread[] {
-		return this._reviewThreadsCache;
+		return this._reviewThreadsCache ?? [];
 	}
 
 	public get reviewThreadsCacheReady(): boolean {
@@ -459,7 +459,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				*/
 				this._telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidChange.fire({ state: true });
-				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await this.getCopilotTimelineEvents(this), this.githubRepository) };
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await this.getCopilotTimelineEvents(), this.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__
@@ -560,7 +560,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			await this.updateDraftModeContext();
 			const reviewEvent = parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, this.githubRepository);
 
-			const threadWithComment = this._reviewThreadsCache.find(thread =>
+			const threadWithComment = (this._reviewThreadsCache ?? []).find(thread =>
 				thread.comments.length ? (thread.comments[0].pullRequestReviewId === reviewEvent.id) : undefined,
 			);
 			if (threadWithComment) {
@@ -646,6 +646,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const deletedCommentIds = new Set(deletedReviewComments.map(c => c.id));
 		const changedThreads: IReviewThread[] = [];
 		const removedThreads: IReviewThread[] = [];
+		if (!this._reviewThreadsCache) {
+			this._reviewThreadsCache = [];
+		}
 		for (let i = this._reviewThreadsCache.length - 1; i >= 0; i--) {
 			const thread = this._reviewThreadsCache[i];
 			const originalLength = thread.comments.length;
@@ -761,6 +764,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const thread = data.addPullRequestReviewThread.thread;
 		const newThread = parseGraphQLReviewThread(thread, this.githubRepository);
+		if (!this._reviewThreadsCache) {
+			this._reviewThreadsCache = [];
+		}
 		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		this._onDidChange.fire({ timeline: true });
@@ -815,7 +821,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			newComment.isDraft = false;
 		}
 
-		const threadWithComment = this._reviewThreadsCache.find(thread =>
+		const threadWithComment = this._reviewThreadsCache?.find(thread =>
 			thread.comments.some(comment => comment.graphNodeId === inReplyTo),
 		);
 		if (threadWithComment) {
@@ -885,7 +891,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 
 		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(this, true), this.githubRepository);
+		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(true), this.githubRepository);
 
 		this.addReviewTimelineEventComments(events, reviewThreads);
 		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
@@ -961,7 +967,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async editReviewComment(comment: IComment, text: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
-		let threadWithComment = this._reviewThreadsCache.find(thread =>
+		let threadWithComment = this._reviewThreadsCache?.find(thread =>
 			thread.comments.some(c => c.graphNodeId === comment.graphNodeId),
 		);
 
@@ -1006,7 +1012,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { octokit, remote } = await this.githubRepository.ensure();
 			const id = Number(commentId);
-			const threadIndex = this._reviewThreadsCache.findIndex(thread => thread.comments.some(c => c.id === id));
+			const threadIndex = this._reviewThreadsCache?.findIndex(thread => thread.comments.some(c => c.id === id)) ?? -1;
 
 			if (threadIndex === -1) {
 				this.deleteIssueComment(commentId);
@@ -1018,11 +1024,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				});
 
 				if (threadIndex > -1) {
-					const threadWithComment = this._reviewThreadsCache[threadIndex];
+					const threadWithComment = this._reviewThreadsCache![threadIndex];
 					const index = threadWithComment.comments.findIndex(c => c.id === id);
 					threadWithComment.comments.splice(index, 1);
 					if (threadWithComment.comments.length === 0) {
-						this._reviewThreadsCache.splice(threadIndex, 1);
+						this._reviewThreadsCache?.splice(threadIndex, 1);
 						this._onDidChangeReviewThreads.fire({ added: [], changed: [], removed: [threadWithComment] });
 					} else {
 						this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
@@ -1327,7 +1333,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	private setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
 		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository));
-		const oldReviewThreads = this._reviewThreadsCache;
+		const oldReviewThreads = this._reviewThreadsCache ?? [];
 		this._reviewThreadsCache = reviewThreads;
 		this.diffThreads(oldReviewThreads, reviewThreads);
 		return reviewThreads;
@@ -1614,6 +1620,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this._fileChanges;
 	}
 
+	private _rawFileChangesCache: IRawFileChange[] | undefined;
+	get rawFileChanges(): IRawFileChange[] | undefined {
+		return this._rawFileChangesCache;
+	}
+
 	async getFileChangesInfo() {
 		this._fileChanges.clear();
 		const data = await this.getRawFileChangesInfo();
@@ -1664,7 +1675,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * List the changed files in a pull request.
 	 */
-	private async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
+	public async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.number} - enter`, PullRequestModel.ID);
 
 		const githubRepository = this.githubRepository;
@@ -1700,7 +1711,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			// Use the original base to compare against for merged PRs
 			this.mergeBase = this.base.sha;
-
+			this._rawFileChangesCache = response;
 			return response;
 		}
 
@@ -1713,6 +1724,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID,);
+		this._rawFileChangesCache = files;
 		return files;
 	}
 
@@ -1826,7 +1838,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private updateCommentReactions(graphNodeId: string, reactionGroups: ReactionGroup[]) {
-		const reviewThread = this._reviewThreadsCache.find(thread =>
+		const reviewThread = this._reviewThreadsCache?.find(thread =>
 			thread.comments.some(c => c.graphNodeId === graphNodeId),
 		);
 		if (reviewThread) {
@@ -1903,7 +1915,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async resolveReviewThread(threadId: string): Promise<void> {
-		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
+		const oldThread = this._reviewThreadsCache?.find(thread => thread.id === threadId);
 
 		try {
 			Logger.debug(`Resolve review thread - enter`, PullRequestModel.ID);
@@ -1932,10 +1944,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				throw new Error('Resolve review thread failed.');
 			}
 
-			const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+			const index = this._reviewThreadsCache?.findIndex(thread => thread.id === threadId) ?? -1;
 			if (index > -1) {
 				const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
-				this._reviewThreadsCache.splice(index, 1, thread);
+				this._reviewThreadsCache?.splice(index, 1, thread);
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 			}
 			Logger.debug(`Resolve review thread - done`, PullRequestModel.ID);
@@ -1946,7 +1958,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async unresolveReviewThread(threadId: string): Promise<void> {
-		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
+		const oldThread = this._reviewThreadsCache?.find(thread => thread.id === threadId);
 
 		try {
 			Logger.debug(`Unresolve review thread - enter`, PullRequestModel.ID);
@@ -1975,10 +1987,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				throw new Error('Unresolve review thread failed.');
 			}
 
-			const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+			const index = this._reviewThreadsCache?.findIndex(thread => thread.id === threadId) ?? -1;
 			if (index > -1) {
 				const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
-				this._reviewThreadsCache.splice(index, 1, thread);
+				this._reviewThreadsCache?.splice(index, 1, thread);
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 			}
 			Logger.debug(`Unresolve review thread - done`, PullRequestModel.ID);
