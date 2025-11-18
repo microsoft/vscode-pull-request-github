@@ -12,6 +12,7 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"chatContextProvider",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
 		"chatSessionsProvider@3",
@@ -42,7 +43,7 @@
 	"version": "0.122.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.106.0"
+		"vscode": "^1.107.0"
 	},
 	"categories": [
 		"Other",
@@ -60,7 +61,9 @@
 		"onFileSystem:githubcommit",
 		"onFileSystem:review",
 		"onWebviewPanel:IssueOverview",
-		"onWebviewPanel:PullRequestOverview"
+		"onWebviewPanel:PullRequestOverview",
+		"onChatContextProvider:githubpr",
+		"onChatContextProvider:githubissue"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -72,6 +75,18 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatContext": [
+			{
+				"id": "githubpr",
+				"icon": "$(github)",
+				"displayName": "GitHub Pull Requests"
+			},
+			{
+				"id": "githubissue",
+				"icon": "$(issues)",
+				"displayName": "GitHub Issues"
+			}
+		],
 		"chatSessions": [
 			{
 				"type": "copilot-swe-agent",

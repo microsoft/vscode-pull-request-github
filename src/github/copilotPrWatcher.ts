@@ -268,7 +268,7 @@ export class CopilotPRWatcher extends Disposable {
 	private async _updateSingleState(pr: PullRequestModel): Promise<void> {
 		const changes: CodingAgentPRAndStatus[] = [];
 
-		const copilotEvents = await pr.getCopilotTimelineEvents(pr, false, !this._model.isInitialized);
+		const copilotEvents = await pr.getCopilotTimelineEvents(false, !this._model.isInitialized);
 		let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
 		if (latestEvent === CopilotPRStatus.None) {
 			if (!COPILOT_ACCOUNTS[pr.author.login]) {

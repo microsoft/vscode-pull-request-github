@@ -85,8 +85,8 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		}
 	}
 
-	get timelineEvents(): readonly TimelineEvent[] {
-		return this._timelineEvents ?? [];
+	get timelineEvents(): readonly TimelineEvent[] | undefined {
+		return this._timelineEvents;
 	}
 
 	protected set timelineEvents(timelineEvents: readonly TimelineEvent[]) {
@@ -469,8 +469,8 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		}
 	}
 
-	async getIssueTimelineEvents(issueModel: IssueModel): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, GitHubRepository.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
 
 		try {
@@ -479,7 +479,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					number: issueModel.number,
+					number: this.number,
 				},
 			});
 
@@ -489,11 +489,11 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			}
 
 			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel, true), this.githubRepository);
+			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(true), this.githubRepository);
 
 			const crossRefs = events.filter((event): event is CrossReferencedEvent => {
 				if ((event.event === EventType.CrossReferenced) && !event.source.isIssue) {
-					return !this.githubRepository.getExistingPullRequestModel(event.source.number) && (compareIgnoreCase(event.source.owner, issueModel.remote.owner) === 0 && compareIgnoreCase(event.source.repo, issueModel.remote.repositoryName) === 0);
+					return !this.githubRepository.getExistingPullRequestModel(event.source.number) && (compareIgnoreCase(event.source.owner, this.remote.owner) === 0 && compareIgnoreCase(event.source.repo, this.remote.repositoryName) === 0);
 				}
 				return false;
 
@@ -504,7 +504,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 				this.githubRepository.getPullRequest(unseenPrs.source.number);
 			}
 
-			issueModel.timelineEvents = events;
+			this.timelineEvents = events;
 			return events;
 		} catch (e) {
 			console.log(e);
@@ -515,15 +515,15 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	/**
 	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
 	 */
-	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false, useCache: boolean = false): Promise<TimelineEvent[]> {
-		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
+	async getCopilotTimelineEvents(skipMerge: boolean = false, useCache: boolean = false): Promise<TimelineEvent[]> {
+		if (!COPILOT_ACCOUNTS[this.author.login]) {
 			return [];
 		}
 
-		Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+		Logger.debug(`Fetch Copilot timeline events of issue #${this.number} - enter`, GitHubRepository.ID);
 
 		if (useCache && this._copilotTimelineEvents) {
-			Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} (used cache) - exit`, GitHubRepository.ID);
+			Logger.debug(`Fetch Copilot timeline events of issue #${this.number} (used cache) - exit`, GitHubRepository.ID);
 
 			return this._copilotTimelineEvents;
 		}
@@ -531,39 +531,39 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		try {
 			const timeline = await restPaginate<typeof octokit.api.issues.listEventsForTimeline, OctokitCommon.ListEventsForTimelineResponse>(octokit.api.issues.listEventsForTimeline, {
-				issue_number: issueModel.number,
+				issue_number: this.number,
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				per_page: 100
 			});
 
-			const timelineEvents = parseSelectRestTimelineEvents(issueModel, timeline);
+			const timelineEvents = parseSelectRestTimelineEvents(this, timeline);
 			this._copilotTimelineEvents = timelineEvents;
 			if (timelineEvents.length === 0) {
 				return [];
 			}
 			if (!skipMerge) {
-				const oldLastEvent = issueModel.timelineEvents.length > 0 ? issueModel.timelineEvents[issueModel.timelineEvents.length - 1] : undefined;
+				const oldLastEvent = this.timelineEvents ? (this.timelineEvents.length > 0 ? this.timelineEvents[this.timelineEvents.length - 1] : undefined) : undefined;
 				let allEvents: TimelineEvent[];
 				if (!oldLastEvent) {
 					allEvents = timelineEvents;
 				} else {
 					const oldEventTime = (eventTime(oldLastEvent) ?? 0);
 					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
-					allEvents = [...issueModel.timelineEvents, ...newEvents];
+					allEvents = [...(this.timelineEvents ?? []), ...newEvents];
 				}
-				issueModel.timelineEvents = allEvents;
+				this.timelineEvents = allEvents;
 			}
-			Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - exit`, GitHubRepository.ID);
+			Logger.debug(`Fetch Copilot timeline events of issue #${this.number} - exit`, GitHubRepository.ID);
 			return timelineEvents;
 		} catch (e) {
-			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);
+			Logger.error(`Error fetching Copilot timeline events of issue #${this.number} - ${formatError(e)}`, GitHubRepository.ID);
 			return [];
 		}
 	}
 
-	async copilotWorkingStatus(issueModel: IssueModel): Promise<CopilotWorkingStatus | undefined> {
-		const copilotEvents = await this.getCopilotTimelineEvents(issueModel);
+	async copilotWorkingStatus(): Promise<CopilotWorkingStatus | undefined> {
+		const copilotEvents = await this.getCopilotTimelineEvents();
 		if (copilotEvents.length > 0) {
 			const lastEvent = copilotEvents[copilotEvents.length - 1];
 			if (lastEvent.event === EventType.CopilotFinished) {
