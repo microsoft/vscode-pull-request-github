@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as https from 'https';
 
 const CODICONS_DIR = path.join(__dirname, '..', 'resources', 'icons', 'codicons');
-const BASE_URL = 'https://raw.githubusercontent.com/microsoft/vscode-codicons/refs/heads/mrleemurray/new-icons/src/icons';
+const BASE_URL = 'https://raw.githubusercontent.com/microsoft/vscode-codicons/refs/heads/main/src/icons';
 
 interface UpdateResult {
 	filename: string;
