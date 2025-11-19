@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.122.1
+
+### Fixes
+
+- Only one reviewer can be seen on the PR page. https://github.com/microsoft/vscode-pull-request-github/issues/8131
+- Drop down not doing anything. https://github.com/microsoft/vscode-pull-request-github/issues/8149
+- Pull in icon fixes. https://github.com/microsoft/vscode-pull-request-github/issues/8159
+
 ## 0.122.0
 
 ### Changes
