@@ -14,7 +14,7 @@ import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { CopilotRemoteAgentConfig } from '../common/config';
-import { COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_CLOUD_AGENT, COPILOT_LOGINS, COPILOT_SWE_AGENT } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -45,6 +45,7 @@ const CONTINUE_AND_DO_NOT_ASK_AGAIN = vscode.l10n.t('Continue and don\'t ask aga
 
 const CONTINUE_TRUNCATION = vscode.l10n.t('Continue with truncation');
 const DELEGATE_MODAL_DETAILS = vscode.l10n.t('The agent will work asynchronously to create a pull request with your requested changes.');
+const DISABLE_CODELENS = vscode.l10n.t('Disable Code Lens');
 
 const COPILOT = '@copilot';
 
@@ -59,7 +60,7 @@ export namespace SessionIdForPr {
 
 	export function getResource(prNumber: number, sessionIndex: number): vscode.Uri {
 		return vscode.Uri.from({
-			scheme: COPILOT_SWE_AGENT, path: `/${prefix}-${prNumber}-${sessionIndex}`,
+			scheme: COPILOT_CLOUD_AGENT, path: `/${prefix}-${prNumber}-${sessionIndex}`,
 		});
 	}
 
@@ -605,16 +606,19 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
 		const detail = DELEGATE_MODAL_DETAILS;
 		if (source !== 'prompt' && hasChanges && CopilotRemoteAgentConfig.getAutoCommitAndPushEnabled()) {
-			// Pending changes modal
+
+			const buttons = [PUSH_CHANGES, CONTINUE_WITHOUT_PUSHING, LEARN_MORE];
+			if (source === 'todo') {
+				buttons.push(DISABLE_CODELENS);
+			}
+
 			const modalResult = await vscode.window.showInformationMessage(
 				message,
 				{
 					modal: true,
 					detail,
 				},
-				PUSH_CHANGES,
-				CONTINUE_WITHOUT_PUSHING,
-				LEARN_MORE,
+				...buttons,
 			);
 
 			if (!modalResult) {
@@ -629,6 +633,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			if (modalResult === LEARN_MORE) {
 				learnMoreCb();
+				return;
+			}
+
+			if (modalResult === DISABLE_CODELENS) {
+				vscode.commands.executeCommand('workbench.action.openSettings', 'githubPullRequests.codingAgent.codeLens');
 				return;
 			}
 

@@ -48,7 +48,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		const addUriForRefresh = (uris: vscode.Uri[], pullRequest: unknown) => {
 			if (pullRequest instanceof PullRequestModel) {
 				uris.push(createPRNodeUri(pullRequest));
-				if (pullRequest.timelineEvents.some(t => t.event === EventType.CopilotStarted)) {
+				if (pullRequest.timelineEvents?.some(t => t.event === EventType.CopilotStarted)) {
 					// The pr nodes in the Copilot category have a different uri so we need to refresh those too
 					uris.push(createPRNodeUri(pullRequest, true));
 				}

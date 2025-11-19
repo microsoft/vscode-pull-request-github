@@ -234,6 +234,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
+		this._item = pullRequestModel;
+
 		if (this._isUpdating) {
 			throw new Error('Already updating pull request webview');
 		}

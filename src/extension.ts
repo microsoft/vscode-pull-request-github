@@ -32,7 +32,10 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
+import { StateManager } from './issues/stateManager';
+import { IssueContextProvider } from './lm/issueContextProvider';
 import { ChatParticipant, ChatParticipantState } from './lm/participants';
+import { PullRequestContextProvider } from './lm/pullRequestContextProvider';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
@@ -253,9 +256,15 @@ async function init(
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, copilotRemoteAgentManager);
+	const issueStateManager = new StateManager(git, reposManager, context);
+	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, issueStateManager, copilotRemoteAgentManager);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
+
+	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, git);
+	vscode.chat.registerChatContextProvider({ scheme: 'webview-panel', pattern: '**/webview-PullRequestOverview**' }, 'githubpr', pullRequestContextProvider);
+	vscode.chat.registerChatContextProvider({ scheme: 'webview-panel', pattern: '**/webview-IssueOverview**' }, 'githubissue', new IssueContextProvider(issueStateManager, reposManager));
+	pullRequestContextProvider.initialize();
 
 	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, notificationsManager);
 	context.subscriptions.push(notificationsFeatures);

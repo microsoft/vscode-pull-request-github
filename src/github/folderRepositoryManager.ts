@@ -2499,7 +2499,7 @@ export class FolderRepositoryManager extends Disposable {
 	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
 		if (!this._updateMessageShown || autoStashSetting) {
 			// When the PR is from Copilot, we only want to show the notification when Copilot is done working
-			const copilotStatus = await pr.copilotWorkingStatus(pr);
+			const copilotStatus = await pr.copilotWorkingStatus();
 			if (copilotStatus === CopilotWorkingStatus.InProgress) {
 				return;
 			}

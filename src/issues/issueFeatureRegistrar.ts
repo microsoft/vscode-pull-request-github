@@ -75,7 +75,6 @@ const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
 export class IssueFeatureRegistrar extends Disposable {
 	private static readonly ID = 'IssueFeatureRegistrar';
-	private _stateManager: StateManager;
 	private _newIssueCache: NewIssueCache;
 
 	private createIssueInfo:
@@ -93,10 +92,10 @@ export class IssueFeatureRegistrar extends Disposable {
 		private reviewsManager: ReviewsManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
+		private readonly _stateManager: StateManager,
 		private copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	) {
 		super();
-		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 		this._newIssueCache = new NewIssueCache(context);
 	}
 
