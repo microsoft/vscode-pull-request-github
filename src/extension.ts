@@ -261,8 +261,10 @@ async function init(
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	vscode.chat.registerChatContextProvider({ scheme: 'webview-panel', pattern: '**/webview-PullRequestOverview**' }, 'githubpr', new PullRequestContextProvider(prsTreeModel, reposManager));
+	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, git);
+	vscode.chat.registerChatContextProvider({ scheme: 'webview-panel', pattern: '**/webview-PullRequestOverview**' }, 'githubpr', pullRequestContextProvider);
 	vscode.chat.registerChatContextProvider({ scheme: 'webview-panel', pattern: '**/webview-IssueOverview**' }, 'githubissue', new IssueContextProvider(issueStateManager, reposManager));
+	pullRequestContextProvider.initialize();
 
 	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, notificationsManager);
 	context.subscriptions.push(notificationsFeatures);
