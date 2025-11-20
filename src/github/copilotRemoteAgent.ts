@@ -163,8 +163,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			/* Generate new coding agent session from an 'untitled' session */
 			const number = await startSession(
 				'untitledChatSession',
-				context.chatSummary?.prompt ?? request.prompt,
-				context.chatSummary?.history,
+				request.prompt,
+				undefined,
 				request.references
 			);
 			if (!number) {
@@ -239,8 +239,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				{
 					step: 'create',
 					metadata: {
-						prompt: context.chatSummary?.prompt ?? request.prompt,
-						history: context.chatSummary?.history,
+						prompt: request.prompt,
+						history: undefined,
 						references: request.references,
 					}
 				},

@@ -324,9 +324,11 @@ export namespace DataUri {
 					if (!response.ok) {
 						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 					}
-					const buffer = await response.arrayBuffer();
-					await writeAvatarToCache(context, user, new Uint8Array(buffer));
-					innerImageContents = Buffer.from(buffer);
+					if (response.headers.get('content-type')?.startsWith('image/')) {
+						const buffer = await response.arrayBuffer();
+						await writeAvatarToCache(context, user, new Uint8Array(buffer));
+						innerImageContents = Buffer.from(buffer);
+					}
 				};
 				try {
 					await doFetch();
