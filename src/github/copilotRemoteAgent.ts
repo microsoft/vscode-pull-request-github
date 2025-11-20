@@ -194,7 +194,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 				const pullRequest = await this.findPullRequestById(parseInt(context.chatSessionContext.chatSessionItem.resource.path.slice(1), 10), true);
 				if (!pullRequest) {
-					stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', context.chatSessionContext.chatSessionItem.resource.toString));
+					stream.warning(vscode.l10n.t('Could not find the associated pull request {0} for this chat session.', context.chatSessionContext.chatSessionItem.resource.toString()));
 					return {};
 				}
 
