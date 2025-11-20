@@ -40,7 +40,7 @@ describe('GitHubRepository', function () {
 			const url = 'https://github.com/some/repo';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
+			const dotcomRepository = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
 			assert(GitHubManager.isGithubDotCom(Uri.parse(remote.url).authority));
 		});
 
@@ -48,7 +48,7 @@ describe('GitHubRepository', function () {
 			const url = 'https://github.enterprise.horse/some/repo';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
+			const dotcomRepository = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
 			// assert(! dotcomRepository.isGitHubDotCom);
 		});
 	});

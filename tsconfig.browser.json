@@ -1,7 +1,20 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"lib": ["dom", "dom.iterable", "es2019"],
-		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
-	}
+		"jsx": "react",
+		"jsxFactory": "vscpp",
+		"jsxFragmentFactory": "vscppf",
+		"lib": [
+			"dom",
+			"dom.iterable",
+			"es2019"
+		],
+		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo",
+		"types": []
+	},
+	"exclude": [
+		"node_modules",
+		"src/test",
+		"webviews"
+	]
 }

@@ -3,12 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, ILabel, IMilestone, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
-
-export interface RemoteInfo {
-	owner: string;
-	repositoryName: string;
-}
+import { RemoteInfo } from './types';
+import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
+import { DisplayLabel, PreReviewState } from '../src/github/views';
 
 export interface CreateParams {
 	availableBaseRemotes: RemoteInfo[];
@@ -79,6 +77,7 @@ export interface CreatePullRequestNew {
 	autoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
 	labels: ILabel[];
+	projects: IProject[];
 	assignees: IAccount[];
 	reviewers: (IAccount | ITeam)[];
 	milestone?: IMilestone;
@@ -87,6 +86,9 @@ export interface CreatePullRequestNew {
 // #region new create view
 
 export interface CreateParamsNew {
+	canModifyBranches: boolean;
+	actionDetail?: string;
+	associatedExistingPullRequest?: number;
 	defaultBaseRemote?: RemoteInfo;
 	defaultBaseBranch?: string;
 	defaultCompareRemote?: RemoteInfo;
@@ -102,17 +104,21 @@ export interface CreateParamsNew {
 	compareBranch?: string;
 	isDraftDefault: boolean;
 	isDraft?: boolean;
-	labels?: ILabel[];
+	labels?: DisplayLabel[];
+	projects?: IProject[];
 	assignees?: IAccount[];
 	reviewers?: (IAccount | ITeam)[];
 	milestone?: IMilestone;
 	isDarkTheme?: boolean;
 	generateTitleAndDescriptionTitle: string | undefined;
 	initializeWithGeneratedTitleAndDescription: boolean;
+	preReviewState: PreReviewState;
+	preReviewer: string | undefined;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;
 	createError?: string;
+	warning?: string;
 
 	autoMergeDefault: boolean;
 	autoMerge?: boolean;
@@ -123,6 +129,7 @@ export interface CreateParamsNew {
 	baseHasMergeQueue: boolean;
 
 	creating: boolean;
+	reviewing: boolean;
 }
 
 export interface ChooseRemoteAndBranchArgs {
@@ -156,6 +163,16 @@ export interface TitleAndDescriptionArgs {
 export interface TitleAndDescriptionResult {
 	title: string | undefined;
 	description: string | undefined;
+}
+
+export interface CloseResult {
+	state: GithubItemStateEnum;
+	commentEvent?: CommentEvent;
+	closeEvent: ClosedEvent;
+}
+
+export interface OpenCommitChangesArgs {
+	commitSha: string;
 }
 
 // #endregion

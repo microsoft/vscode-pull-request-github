@@ -3,7 +3,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: '0 9 * * Mon-Thu'
+  - cron: '0 4 * * Mon-Fri'
     displayName: Nightly Release Schedule
     always: true
     branches:
@@ -27,8 +27,11 @@ parameters:
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
+    ghCreateRelease: false
+
     l10nSourcePaths: ./src
-    customNPMRegistry: ''
+
+    nodeVersion: "20.x"
 
     buildSteps:
       - script: yarn install --frozen-lockfile --check-files
@@ -40,7 +43,6 @@ extends:
 
       - script: >
           node ./scripts/prepare-nightly-build.js
-          -v "$VERSION"
         displayName: Generate package.json
 
       - script: |
@@ -81,5 +83,11 @@ extends:
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+
+    tsa:
+      config:
+        areaPath: 'Visual Studio Code Web Extensions'
+        serviceTreeID: '1788a767-5861-45fb-973b-c686b67c5541'
+      enabled: true
 
     publishExtension: ${{ parameters.publishExtension }}

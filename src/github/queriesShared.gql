@@ -3,6 +3,41 @@
 #  *  Licensed under the MIT License. See License.txt in the project root for license information.
 #  *--------------------------------------------------------------------------------------------*/
 
+fragment Node on Node {
+	id
+}
+
+fragment Actor on Actor { # We don't want to reference Bot because it is not available on older GHE, so we use Actor instead as it gets us most of the way there.
+	__typename
+	login
+	avatarUrl
+	url
+}
+
+fragment User on User {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Organization on Organization {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Team on Team { # Team is not an Actor
+	name
+	avatarUrl
+	url
+	slug
+	...Node
+}
+
 fragment RateLimit on RateLimit {
 	limit
 	cost
@@ -13,9 +48,8 @@ fragment RateLimit on RateLimit {
 fragment Merged on MergedEvent {
 	id
 	actor {
-		login
-		avatarUrl
-		url
+		...Node
+		...Actor
 	}
 	createdAt
 	mergeRef {
@@ -31,9 +65,8 @@ fragment Merged on MergedEvent {
 fragment HeadRefDeleted on HeadRefDeletedEvent {
 	id
 	actor {
-		login
-		avatarUrl
-		url
+		...Node
+		...Actor
 	}
 	createdAt
 	headRefName
@@ -57,17 +90,10 @@ fragment Comment on IssueComment {
 	databaseId
 	authorAssociation
 	author {
-		login
-		avatarUrl
-		url
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
+		...Node
+		...Actor
+		...User
+		...Organization
 	}
 	url
 	body
@@ -77,6 +103,7 @@ fragment Comment on IssueComment {
 	viewerCanUpdate
 	viewerCanReact
 	viewerCanDelete
+	...Reactable
 }
 
 fragment Commit on PullRequestCommit {
@@ -84,11 +111,9 @@ fragment Commit on PullRequestCommit {
 	commit {
 		author {
 			user {
-				login
-				avatarUrl
-				id
-				url
-				email
+				...Node
+				...Actor
+				...User
 			}
 		}
 		committer {
@@ -97,7 +122,10 @@ fragment Commit on PullRequestCommit {
 		}
 		oid
 		message
-		authoredDate
+		committedDate
+		statusCheckRollup {
+			state
+		}
 	}
 	url
 }
@@ -105,16 +133,81 @@ fragment Commit on PullRequestCommit {
 fragment AssignedEvent on AssignedEvent {
 	id
 	actor {
-		login
-		avatarUrl
-		url
+		...Node
+		...Actor
 	}
 	user {
-		login
-		avatarUrl
-		id
-		url
+		...Node
+		...Actor
+		...User
 	}
+	createdAt
+}
+
+fragment UnassignedEvent on UnassignedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	user {
+		...Node
+		...Actor
+		...User
+	}
+	createdAt
+}
+
+fragment CrossReferencedEvent on CrossReferencedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	source {
+		... on PullRequest {
+			number
+			url
+			title
+			repository: baseRepository {
+				owner {
+					login
+				}
+				name
+			}
+		}
+		... on Issue {
+			number
+			url
+			title
+			repository {
+				owner {
+					login
+				}
+				name
+			}
+		}
+	}
+	willCloseTarget
+}
+
+fragment ClosedEvent on ClosedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment ReopenedEvent on ReopenedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
 }
 
 fragment Review on PullRequestReview {
@@ -123,17 +216,10 @@ fragment Review on PullRequestReview {
 	authorAssociation
 	url
 	author {
-		login
-		avatarUrl
-		url
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
+		...User
+		...Organization
+		...Node
+		...Actor
 	}
 	state
 	body
@@ -141,6 +227,7 @@ fragment Review on PullRequestReview {
 	submittedAt
 	updatedAt
 	createdAt
+	...Reactable
 }
 
 fragment Reactable on Reactable {
@@ -150,6 +237,9 @@ fragment Reactable on Reactable {
 		reactors(first: 10) {
 			nodes {
 				... on User {
+					login
+				}
+				... on Actor {
 					login
 				}
 			}
@@ -217,7 +307,11 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...Review
 					...Commit
 					...AssignedEvent
+					...UnassignedEvent
 					...HeadRefDeleted
+					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}
@@ -235,6 +329,10 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					__typename
 					...Comment
 					...AssignedEvent
+					...UnassignedEvent
+					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}
@@ -289,16 +387,12 @@ query GetOrganizationTeams($login: String!, $after: String, $repoName: String!) 
 	organization(login: $login) {
 		teams(first: 100, after: $after, privacy: VISIBLE) {
 			nodes {
-				name
-				avatarUrl
-				url
+				...Team
 				repositories(first: 5, query: $repoName) {
 					nodes {
 						name
 					}
 				}
-				slug
-				id
 			}
 			totalCount
 			pageInfo {
@@ -318,21 +412,10 @@ query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number
 			reviewRequests(first: 100) {
 				nodes {
 					requestedReviewer {
-						... on User {
-							login
-							avatarUrl
-							id
-							url
-							email
-							name
-						}
-						... on Team {
-							name
-							avatarUrl
-							url
-							slug
-							id
-						}
+						...Node
+						...Actor
+						...User
+						...Team
 					}
 				}
 			}
@@ -349,14 +432,9 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 			reviewRequests(first: 100) {
 				nodes {
 					requestedReviewer {
-						... on User {
-							login
-							avatarUrl
-							id
-							url
-							email
-							name
-						}
+						...Node
+						...Actor
+						...User
 					}
 				}
 			}
@@ -372,17 +450,10 @@ fragment ReviewComment on PullRequestReviewComment {
 	databaseId
 	url
 	author {
-		login
-		avatarUrl
-		url
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
+		...Actor
+		...Node
+		...User
+		...Organization
 	}
 	path
 	originalPosition
@@ -414,12 +485,10 @@ query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: In
 		pullRequest(number: $number) {
 			participants(first: $first) {
 				nodes {
-					login
-					avatarUrl
-					id
-					name
-					url
-					email
+					...Node
+					...Actor
+					...User
+					...Organization
 				}
 			}
 		}
@@ -486,10 +555,10 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after
 	}
 }
 
-query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int = 100) {
+query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviewThreads(first: $first) {
+			reviewThreads(first: 20, after: $after) {
 				nodes {
 					id
 					isResolved
@@ -529,12 +598,7 @@ query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, 
 
 query Viewer {
 	viewer {
-		login
-		avatarUrl
-		id
-		name
-		url
-		email
+		...User
 	}
 	rateLimit {
 		...RateLimit
@@ -552,103 +616,6 @@ query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: S
 				pageInfo {
 					hasNextPage
 					endCursor
-				}
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query Issue($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest: issue(number: $number) {
-			number
-			url
-			state
-			body
-			bodyHTML
-			title
-			author {
-				login
-				url
-				avatarUrl
-				... on User {
-					email
-					id
-				}
-				... on Organization {
-					email
-					id
-				}
-			}
-			createdAt
-			updatedAt
-			labels(first: 50) {
-				nodes {
-					name
-					color
-				}
-			}
-			id
-			databaseId
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest: issue(number: $number) {
-			number
-			url
-			state
-			body
-			bodyHTML
-			title
-			author {
-				login
-				url
-				avatarUrl
-				... on User {
-					email
-					id
-				}
-				... on Organization {
-					email
-					id
-				}
-			}
-			createdAt
-			updatedAt
-			labels(first: 50) {
-				nodes {
-					name
-					color
-				}
-			}
-			id
-			databaseId
-			comments(first: 50) {
-				nodes {
-					author {
-						login
-						url
-						avatarUrl
-						... on User {
-							email
-							id
-						}
-						... on Organization {
-							email
-							id
-						}
-					}
-					body
-					databaseId
 				}
 			}
 		}
@@ -711,6 +678,14 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestTemplates($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		pullRequestTemplates {
+			body
+		}
+	}
+}
+
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {
@@ -755,6 +730,10 @@ mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
 	markPullRequestReadyForReview(input: $input) {
 		pullRequest {
 			isDraft
+			mergeable
+			mergeStateStatus
+			viewerCanEnableAutoMerge
+			viewerCanDisableAutoMerge
 		}
 	}
 }
@@ -815,13 +794,38 @@ mutation DeleteReaction($input: RemoveReactionInput!) {
 	}
 }
 
-mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
-	updatePullRequest(input: $input) {
-		pullRequest {
+mutation UpdateIssue($input: UpdateIssueInput!) {
+	updateIssue(input: $input) {
+		issue {
 			body
 			bodyHTML
 			title
 			titleHTML
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
+		}
+	}
+}
+
+mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
+	updateIssue: updatePullRequest(input: $input) {
+		issue: pullRequest {
+			body
+			bodyHTML
+			title
+			titleHTML
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
 		}
 	}
 }
@@ -848,34 +852,9 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 	repository(owner: $owner, name: $name) {
 		mentionableUsers(first: $first, after: $after) {
 			nodes {
-				login
-				avatarUrl
-				name
-				url
-				email
-				id
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
-	repository(owner: $owner, name: $name) {
-		assignableUsers(first: $first, after: $after) {
-			nodes {
-				login
-				avatarUrl
-				name
-				url
-				email
-				id
+				...Node
+				...Actor
+				...User
 			}
 			pageInfo {
 				hasNextPage
@@ -918,61 +897,15 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 	}
 }
 
-query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
+query MaxIssue($owner: String!, $name: String!) {
 	repository(owner: $owner, name: $name) {
-		issues(
-			first: 100
-			states: OPEN
-			filterBy: { assignee: $assignee, milestone: null }
-			orderBy: { direction: DESC, field: UPDATED_AT }
-		) {
+		issues(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
 			edges {
 				node {
 					... on Issue {
 						number
-						url
-						state
-						body
-						bodyHTML
-						title
-						assignees(first: 10) {
-							nodes {
-								login
-								url
-								email
-							}
-						}
-						author {
-							login
-							url
-							avatarUrl(size: 50)
-							... on User {
-								email
-							}
-							... on Organization {
-								email
-							}
-						}
-						createdAt
-						updatedAt
-						labels(first: 50) {
-							nodes {
-								name
-								color
-							}
-						}
-						id
-						databaseId
-						milestone {
-							title
-							dueOn
-						}
 					}
 				}
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
 			}
 		}
 	}
@@ -981,12 +914,12 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 	}
 }
 
-query MaxIssue($owner: String!, $name: String!) {
+query MaxPullRequest($owner: String!, $name: String!) {
 	repository(owner: $owner, name: $name) {
-		issues(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
+		issues: pullRequests(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
 			edges {
 				node {
-					... on Issue {
+					... on PullRequest {
 						number
 					}
 				}
@@ -1007,151 +940,6 @@ query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!
 				createdAt
 				id
 				number
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String!) {
-	repository(owner: $owner, name: $name) {
-		milestones(first: 12, orderBy: { direction: DESC, field: DUE_DATE }, states: OPEN) {
-			nodes {
-				dueOn
-				title
-				createdAt
-				id
-				issues(
-					first: 100
-					filterBy: { assignee: $assignee }
-					orderBy: { direction: DESC, field: UPDATED_AT }
-					states: OPEN
-				) {
-					edges {
-						node {
-							... on Issue {
-								number
-								url
-								state
-								body
-								bodyHTML
-								title
-								assignees(first: 10) {
-									nodes {
-										avatarUrl
-										email
-										login
-										url
-										id
-									}
-								}
-								author {
-									login
-									url
-									avatarUrl(size: 50)
-									... on User {
-										email
-										id
-									}
-									... on Organization {
-										email
-										id
-									}
-								}
-								createdAt
-								updatedAt
-								labels(first: 50) {
-									nodes {
-										name
-										color
-									}
-								}
-								id
-								databaseId
-								milestone {
-									title
-									dueOn
-								}
-							}
-						}
-					}
-				}
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query Issues($query: String!) {
-	search(first: 100, type: ISSUE, query: $query) {
-		issueCount
-		pageInfo {
-			hasNextPage
-			endCursor
-		}
-		edges {
-			node {
-				... on Issue {
-					number
-					url
-					state
-					body
-					bodyHTML
-					title
-					assignees(first: 10) {
-						nodes {
-							avatarUrl
-							email
-							login
-							url
-							id
-						}
-					}
-					author {
-						login
-						url
-						avatarUrl(size: 50)
-						... on User {
-							email
-							id
-						}
-						... on Organization {
-							email
-							id
-						}
-					}
-					createdAt
-					updatedAt
-					labels(first: 50) {
-						nodes {
-							name
-							color
-						}
-					}
-					id
-					databaseId
-					milestone {
-						title
-						dueOn
-						id
-						createdAt
-					}
-					repository {
-						name
-						owner {
-							login
-						}
-						url
-					}
-				}
 			}
 		}
 	}
@@ -1245,6 +1033,12 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 											app {
 												logoUrl
 												url
+											}
+											workflowRun {
+												event
+												workflow {
+													name
+												}
 											}
 										}
 									}
@@ -1415,6 +1209,29 @@ mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
 	unmarkFileAsViewed(input: $input) {
 		pullRequest {
 			id
+		}
+	}
+}
+
+mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
+	mergePullRequest(input: $input) {
+		pullRequest {
+			id
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...AssignedEvent
+					...UnassignedEvent
+					...HeadRefDeleted
+					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
+				}
+			}
 		}
 	}
 }

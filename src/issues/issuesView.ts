@@ -5,29 +5,19 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { commands, contexts } from '../common/executeCommands';
-import { groupBy } from '../common/utils';
-import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
-import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
-import { issueMarkdown } from './util';
+import { commands, contexts } from '../common/executeCommands';
+import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { DataUri } from '../common/uri';
+import { groupBy } from '../common/utils';
+import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { IAccount } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
+import { issueMarkdown } from '../github/markdownUtils';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
-export class IssueUriTreeItem extends vscode.TreeItem {
-	constructor(
-		public readonly repoRootUri: vscode.Uri | undefined,
-		label: string,
-		collapsibleState?: vscode.TreeItemCollapsibleState,
-	) {
-		super(label, collapsibleState);
-	}
-
-	get labelAsString(): string | undefined {
-		return typeof this.label === 'string' ? this.label : this.label?.label;
-	}
-}
-
-class QueryNode {
+export class QueryNode {
 	constructor(
 		public readonly repoRootUri: vscode.Uri,
 		public readonly queryLabel: string,
@@ -71,6 +61,15 @@ export class IssuesTreeData
 				this._onDidChangeTreeData.fire();
 			}),
 		);
+
+		// Listen for changes to the avatar display setting
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration(change => {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)) {
+					this._onDidChangeTreeData.fire();
+				}
+			}),
+		);
 	}
 
 	private getFolderRepoItem(element: FolderRepositoryManager): vscode.TreeItem {
@@ -87,13 +86,43 @@ export class IssuesTreeData
 		return new vscode.TreeItem(element.group, getQueryExpandState(this.context, element, element.isInFirstQuery ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed));
 	}
 
-	private getIssueTreeItem(element: IssueItem): vscode.TreeItem {
-		const treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-		treeItem.iconPath = element.isOpen
-			? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-			: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
+		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
+
+		const avatarDisplaySetting = vscode.workspace
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+			.get<'author' | 'assignee'>(ISSUE_AVATAR_DISPLAY, 'author');
+
+		let avatarUser: IAccount | undefined;
+		if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
+			avatarUser = element.assignees[0];
+		} else if (avatarDisplaySetting === 'author') {
+			avatarUser = element.author;
+		}
+
+		if (avatarUser) {
+			treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
+				(element.isOpen
+					? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+		} else {
+			// Use GitHub codicon when assignee setting is selected but no assignees exist
+			treeItem.iconPath = new vscode.ThemeIcon('github');
+		}
+
+		treeItem.command = {
+			command: 'issue.openDescription',
+			title: vscode.l10n.t('View Issue Description'),
+			arguments: [element]
+		};
+
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
-			treeItem.label = `✓ ${treeItem.label as string}`;
+			// Escape any $(...) syntax to avoid rendering issue titles as icons.
+			const escapedTitle = element.title.replace(/\$\([a-zA-Z0-9~-]+\)/g, '\\$&');
+			const label: vscode.TreeItemLabel2 = {
+				label: new vscode.MarkdownString(`$(check) ${escapedTitle}`, true)
+			};
+			treeItem.label = label as vscode.TreeItemLabel;
 			treeItem.contextValue = 'currentissue';
 		} else {
 			const savedState = this.stateManager.getSavedIssueState(element.number);
@@ -109,7 +138,7 @@ export class IssuesTreeData
 		return treeItem;
 	}
 
-	getTreeItem(element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem): vscode.TreeItem {
+	async getTreeItem(element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem): Promise<vscode.TreeItem> {
 		if (element instanceof FolderRepositoryManager) {
 			return this.getFolderRepoItem(element);
 		} else if (element instanceof QueryNode) {
@@ -135,7 +164,7 @@ export class IssuesTreeData
 		item: vscode.TreeItem,
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem,
 	): Promise<vscode.TreeItem> {
-		if (element instanceof IssueItem) {
+		if (element instanceof IssueModel) {
 			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
 		return item;
@@ -180,14 +209,18 @@ export class IssuesTreeData
 		if (!issueQueryResult) {
 			return [];
 		}
-		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues);
+		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues ?? []);
 	}
 
-	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], index: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
-		if (groupByOrder.length <= index) {
+	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], indexInGroupByOrder: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
+		if (groupByOrder.length <= indexInGroupByOrder) {
 			return issues;
 		}
-		const groupByValue = groupByOrder[index];
+		const groupByValue = groupByOrder[indexInGroupByOrder];
+		if ((groupByValue !== 'milestone' && groupByValue !== 'repository') || groupByOrder.findIndex(groupBy => groupBy === groupByValue) !== indexInGroupByOrder) {
+			return this.getIssueGroupsForGroupIndex(repoRootUri, queryLabel, isFirst, groupByOrder, indexInGroupByOrder + 1, issues);
+		}
+
 		const groups = groupBy(issues, issue => {
 			if (groupByValue === 'repository') {
 				return `${issue.remote.owner}/${issue.remote.repositoryName}`;
@@ -197,7 +230,7 @@ export class IssuesTreeData
 		});
 		const nodes: IssueGroupNode[] = [];
 		for (const group in groups) {
-			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, index, group, groupByOrder, groups[group]));
+			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, indexInGroupByOrder, group, groupByOrder, groups[group]));
 		}
 		return nodes;
 	}

@@ -21,21 +21,27 @@ import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
 import { GitHubServerType } from '../../common/authentication';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: FolderRepositoryManager;
 	let telemetry: MockTelemetry;
+	let mockThemeWatcher: MockThemeWatcher;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
+		mockThemeWatcher = new MockThemeWatcher();
 		const repository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
+		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
 	});
 
 	afterEach(function () {
@@ -53,7 +59,7 @@ describe('PullRequestManager', function () {
 			const protocol = new Protocol(url);
 			const remote = new GitHubRemote('origin', url, protocol, GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry);
+			const repository = new GitHubRepository(1, remote, rootUri, manager.credentialStore, telemetry);
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
 

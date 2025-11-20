@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
+import { combinedDisposable } from './lifecycle';
 // TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
@@ -65,19 +66,6 @@ export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	});
 }
 
-export function dispose<T extends Disposable>(disposables: T[]): T[] {
-	disposables.forEach(d => d.dispose());
-	return [];
-}
-
-export function toDisposable(d: () => void): Disposable {
-	return { dispose: d };
-}
-
-export function combinedDisposable(disposables: Disposable[]): Disposable {
-	return toDisposable(() => dispose(disposables));
-}
-
 export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
 		const result = combinedDisposable(events.map(event => event(i => listener.call(thisArgs, i))));
@@ -114,13 +102,13 @@ function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }
 
-export function isDescendant(parent: string, descendant: string): boolean {
+export function isDescendant(parent: string, descendant: string, separator: string = sep): boolean {
 	if (parent === descendant) {
 		return true;
 	}
 
-	if (parent.charAt(parent.length - 1) !== sep) {
-		parent += sep;
+	if (parent.charAt(parent.length - 1) !== separator) {
+		parent += separator;
 	}
 
 	// Windows is case insensitive
@@ -147,18 +135,18 @@ export class UnreachableCaseError extends Error {
 }
 
 interface HookError extends Error {
-	errors: any;
+	errors: (string | { message: string })[];
 }
 
 function isHookError(e: Error): e is HookError {
-	return !!(e as any).errors;
+	return !!(e as Partial<HookError>).errors;
 }
 
-function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; status: string }[] } {
 	let areFieldErrors = true;
 	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
-			if (!error.field || !error.value || !error.code) {
+			if (!error.field || !error.value || !error.status) {
 				areFieldErrors = false;
 				break;
 			}
@@ -189,14 +177,14 @@ export function formatError(e: HookError | any): string {
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
 		furtherInfo = e.errors
 			.map(error => {
-				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.status})`;
 			})
 			.join(', ');
 	} else if (e.message.startsWith('Validation Failed:')) {
 		return e.message;
 	} else if (isHookError(e) && e.errors) {
 		return e.errors
-			.map((error: any) => {
+			.map((error) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {
@@ -210,10 +198,6 @@ export function formatError(e: HookError | any): string {
 	}
 
 	return errorMessage;
-}
-
-export interface PromiseAdapter<T, U> {
-	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 // Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136
@@ -380,6 +364,10 @@ function contrastColor(rgbColor: { r: number, g: number, b: number }) {
 
 export interface Predicate<T> {
 	(input: T): boolean;
+}
+
+export interface AsyncPredicate<T> {
+	(input: T): Promise<boolean>;
 }
 
 export const enum CharCode {
@@ -996,4 +984,34 @@ export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (s
 	const data = await Promise.all(promises);
 	let offset = 0;
 	return str.replace(regex, () => data[offset++]);
+}
+
+export async function arrayFindIndexAsync<T>(arr: T[], predicate: (value: T, index: number, array: T[]) => Promise<boolean>): Promise<number> {
+	for (let i = 0; i < arr.length; i++) {
+		// Evaluate predicate sequentially to allow early exit on first match
+		if (await predicate(arr[i], i, arr)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+export async function batchPromiseAll<T>(items: readonly T[], batchSize: number, processFn: (item: T) => Promise<void>): Promise<void> {
+	const batches = Math.ceil(items.length / batchSize);
+
+	for (let i = 0; i < batches; i++) {
+		const batch = items.slice(i * batchSize, (i + 1) * batchSize);
+		await Promise.all(batch.map(processFn));
+	}
+}
+
+export function escapeRegExp(string: string) {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function truncate(value: string, maxLength: number, suffix = '...'): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	return `${value.substr(0, maxLength)}${suffix}`;
 }

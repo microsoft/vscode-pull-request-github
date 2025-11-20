@@ -4,32 +4,42 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable, disposeAll } from '../../common/lifecycle';
 import Logger from '../../common/logger';
-import { dispose } from '../../common/utils';
 
 export interface BaseTreeNode {
 	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
 	refresh(treeNode?: TreeNode): void;
-	children: TreeNode[] | undefined;
+	children: readonly TreeNode[] | undefined;
 	view: vscode.TreeView<TreeNode>;
 }
 
 export type TreeNodeParent = TreeNode | BaseTreeNode;
 
-export abstract class TreeNode implements vscode.Disposable {
-	protected children: TreeNode[] | undefined;
-	childrenDisposables: vscode.Disposable[];
-	parent: TreeNodeParent;
+export abstract class TreeNode extends Disposable {
+	protected _children: TreeNode[] | undefined;
+	childrenDisposables: vscode.Disposable[] = [];
 	label?: string;
 	accessibilityInformation?: vscode.AccessibilityInformation;
 	id?: string;
+	description?: string | boolean;
 
-	constructor() { }
+	constructor(public parent: TreeNodeParent) {
+		super();
+	}
+
 	abstract getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem>;
 	getParent(): TreeNode | undefined {
 		if (this.parent instanceof TreeNode) {
 			return this.parent;
 		}
+	}
+
+	get children(): readonly TreeNode[] | undefined {
+		if (this._children && this._children.length) {
+			return this._children;
+		}
+		return undefined;
 	}
 
 	async reveal(
@@ -48,34 +58,33 @@ export abstract class TreeNode implements vscode.Disposable {
 	}
 
 	async cachedChildren(): Promise<TreeNode[]> {
-		if (this.children && this.children.length) {
-			return this.children;
+		if (this._children && this._children.length) {
+			return this._children;
 		}
 		return this.getChildren();
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
-		if (this.children && this.children.length) {
-			dispose(this.children);
-			this.children = [];
+	async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
+		if (this._children && this._children.length && shouldDispose) {
+			disposeAll(this._children);
 		}
 		return [];
 	}
 
 	updateFromCheckboxChanged(_newState: vscode.TreeItemCheckboxState): void { }
 
-	dispose(): void {
+	override dispose(): void {
+		super.dispose();
 		if (this.childrenDisposables) {
-			dispose(this.childrenDisposables);
-			this.childrenDisposables = [];
+			disposeAll(this.childrenDisposables);
 		}
 	}
 }
 
 export class LabelOnlyNode extends TreeNode {
-	public readonly label: string = '';
-	constructor(label: string) {
-		super();
+	public override readonly label: string = '';
+	constructor(parent: TreeNodeParent, label: string) {
+		super(parent);
 		this.label = label;
 	}
 	getTreeItem(): vscode.TreeItem {

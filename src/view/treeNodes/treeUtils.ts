@@ -8,7 +8,9 @@ import { FileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 
 export namespace TreeUtils {
-	export function processCheckboxUpdates(checkboxUpdates: vscode.TreeCheckboxChangeEvent<TreeNode>) {
+	export function processCheckboxUpdates(checkboxUpdates: vscode.TreeCheckboxChangeEvent<TreeNode>, selection: readonly TreeNode[]) {
+		const selectionContainsUpdates = selection.some(node => checkboxUpdates.items.some(update => update[0] === node));
+
 		const checkedNodes: FileChangeNode[] = [];
 		const uncheckedNodes: FileChangeNode[] = [];
 
@@ -26,6 +28,21 @@ export namespace TreeUtils {
 
 			node.updateFromCheckboxChanged(newState);
 		});
+
+		if (selectionContainsUpdates) {
+			for (const selected of selection) {
+				if (!(selected instanceof FileChangeNode)) {
+					continue;
+				}
+				if (!checkedNodes.includes(selected) && !uncheckedNodes.includes(selected)) {
+					if (selected.checkboxState.state === vscode.TreeItemCheckboxState.Unchecked) {
+						checkedNodes.push(selected);
+					} else {
+						uncheckedNodes.push(selected);
+					}
+				}
+			}
+		}
 
 		if (checkedNodes.length > 0) {
 			const prModel = checkedNodes[0].pullRequest;

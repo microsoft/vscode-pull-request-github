@@ -3,27 +3,28 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
+import { disposeAll } from './lifecycle';
 import Logger from './logger';
-import { dispose } from './utils';
 
 let tempState: TemporaryState | undefined;
 
 export class TemporaryState extends vscode.Disposable {
+	static readonly ID = 'TemporaryState';
 	private readonly SUBPATH = 'temp';
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly persistInSessionDisposables: vscode.Disposable[] = [];
 
-	constructor(private _storageUri: vscode.Uri) {
-		super(() => this.disposables.forEach(disposable => disposable.dispose()));
+	constructor(private readonly _storageUri: vscode.Uri) {
+		super(() => disposeAll(this.disposables));
 	}
 
 	private get path(): vscode.Uri {
 		return vscode.Uri.joinPath(this._storageUri, this.SUBPATH);
 	}
 
-	dispose() {
-		dispose(this.disposables);
-		dispose(this.persistInSessionDisposables);
+	override dispose() {
+		disposeAll(this.disposables);
+		disposeAll(this.persistInSessionDisposables);
 	}
 
 	private addDisposable(disposable: vscode.Disposable, persistInSession: boolean) {
@@ -86,12 +87,12 @@ export class TemporaryState extends vscode.Disposable {
 			try {
 				await vscode.workspace.fs.delete(tempState.path, { recursive: true });
 			} catch (e) {
-				Logger.appendLine(`TemporaryState> Error in initialization: ${e.message}`);
+				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
 			}
 			try {
 				await vscode.workspace.fs.createDirectory(tempState.path);
 			} catch (e) {
-				Logger.appendLine(`TemporaryState> Error in initialization: ${e.message}`);
+				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
 			}
 			context.subscriptions.push(tempState);
 			return tempState;

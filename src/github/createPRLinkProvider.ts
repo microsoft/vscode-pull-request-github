@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PR_SETTINGS_NAMESPACE, TERMINAL_LINK_HANDLER } from '../common/settingKeys';
 import { ReviewManager } from '../view/reviewManager';
-import { FolderRepositoryManager } from './folderRepositoryManager';
 
 interface GitHubCreateTerminalLink extends vscode.TerminalLink {
 	url: string;
@@ -24,11 +24,9 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 			.get<'vscode' | 'github' | undefined>(TERMINAL_LINK_HANDLER);
 	}
 
-	static registerProvider(disposables: vscode.Disposable[], reviewManager: ReviewManager, folderManager: FolderRepositoryManager) {
-		disposables.push(
-			vscode.window.registerTerminalLinkProvider(
-				new GitHubCreatePullRequestLinkProvider(reviewManager, folderManager),
-			)
+	static registerProvider(reviewManager: ReviewManager, folderManager: FolderRepositoryManager): vscode.Disposable {
+		return vscode.window.registerTerminalLinkProvider(
+			new GitHubCreatePullRequestLinkProvider(reviewManager, folderManager),
 		);
 	}
 

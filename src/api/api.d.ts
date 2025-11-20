@@ -153,6 +153,7 @@ export interface Repository {
 	 * The counterpart of `getConfig`
 	 */
 	setConfig(key: string, value: string): Promise<string>;
+	unsetConfig?(key: string): Promise<string>;
 	getGlobalConfig(key: string): Promise<string>;
 
 	getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }>;
@@ -183,10 +184,11 @@ export interface Repository {
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
 	getBranches(query: BranchQuery): Promise<Ref[]>;
+	getBranchBase(name: string): Promise<Branch | undefined>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
-	getRefs(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
+	getRefs?(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>; // Optional, because Remote Hub doesn't support this
 
-	getMergeBase(ref1: string, ref2: string): Promise<string>;
+	getMergeBase(ref1: string, ref2: string): Promise<string | undefined>;
 
 	status(): Promise<void>;
 	checkout(treeish: string): Promise<void>;
@@ -237,11 +239,36 @@ export interface IGit {
 	readonly onDidPublish?: Event<PublishEvent>;
 
 	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
+	getRepositoryWorkspace?(uri: Uri): Promise<Uri[] | null>;
+	clone?(uri: Uri, options?: CloneOptions): Promise<Uri | null>;
 }
 
 export interface TitleAndDescriptionProvider {
-	provideTitleAndDescription(commitMessages: string[], patches: string[], token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
-	provideTitleAndDescription(context: { commitMessages: string[], patches: string[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[], template?: string }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+}
+
+export interface ReviewerComments {
+	// To tell which files we should add a comment icon in the "Files Changed" view
+	files: Uri[];
+	succeeded: boolean;
+	// For removing comments
+	disposable?: Disposable;
+}
+
+export interface ReviewerCommentsProvider {
+	provideReviewerComments(context: { repositoryRoot: string, commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }, token: CancellationToken): Promise<ReviewerComments>;
+}
+
+export interface RepositoryDescription {
+	owner: string;
+	repositoryName: string;
+	defaultBranch: string;
+	pullRequest?: {
+		title: string;
+		url: string;
+		number: number;
+		id: number;
+	};
 }
 
 export interface API {
@@ -262,4 +289,18 @@ export interface API {
 	 * Register a PR title and description provider.
 	 */
 	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): Disposable;
+
+	/**
+	 * Register a PR reviewer comments provider.
+	 */
+	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): Disposable;
+
+	/**
+	 * Get the repository description for a given URI, where the URI is a subpath of one of the workspace folders.
+	 * This includes the owner, repository name, default branch,
+	 * and pull request information (if applicable).
+	 *
+	 * @returns A promise that resolves to a `RepositoryDescription` object or `undefined` if no repository is found.
+	 */
+	getRepositoryDescription(uri: vscode.Uri): Promise<RepositoryDescription | undefined>;
 }

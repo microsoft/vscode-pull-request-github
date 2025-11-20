@@ -4,29 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CategoryTreeNode } from './categoryNode';
 import { Repository } from '../../api/api';
+import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
-import { dispose } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { NotificationProvider } from '../../github/notifications';
+import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
-import { DescriptionNode } from './descriptionNode';
+import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../theme';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
+import { PrsTreeModel } from '../prsTreeModel';
 
 export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 {
 	static ID = 'PRNode';
 
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[] | undefined;
 	private _commentController?: vscode.CommentController;
-	private _disposables: vscode.Disposable[] = [];
 
 	private _inMemPRContentProvider?: vscode.Disposable;
 
@@ -45,39 +47,35 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
-		private _notificationProvider: NotificationProvider
+		private _notificationProvider: NotificationsManager,
+		private _prsTreeModel: PrsTreeModel,
 	) {
-		super();
+		super(parent);
 		this.registerSinceReviewChange();
 		this.registerConfigurationChange();
-		this._disposables.push(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
-		this._disposables.push(this._folderReposManager.onDidChangeActivePullRequest(e => {
-			if (e.new === this.pullRequestModel.number || e.old === this.pullRequestModel.number) {
+		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
+			if (e.new?.number === this.pullRequestModel.number || e.old?.number === this.pullRequestModel.number) {
 				this.refresh(this);
 			}
 		}));
+		this._register(this._folderReposManager.themeWatcher.onDidChangeTheme(() => {
+			this.refresh(this);
+		}));
+		this.resolvePRCommentController();
 	}
 
 	// #region Tree
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
 
 		try {
-			const descriptionNode = new DescriptionNode(
-				this,
-				vscode.l10n.t('Description'),
-				this.pullRequestModel,
-				this.repository,
-				this._folderReposManager
-			);
-
 			if (!this.pullRequestModel.isResolved()) {
-				return [descriptionNode];
+				return [];
 			}
 
 			[, this._fileChanges, ,] = await Promise.all([
@@ -92,9 +90,12 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 					this.pullRequestModel.number,
 					this.provideDocumentContent.bind(this),
 				);
+				if (this._inMemPRContentProvider) {
+					this._register(this._inMemPRContentProvider);
+				}
 			}
 
-			const result: TreeNode[] = [descriptionNode];
+			const result: TreeNode[] = [];
 			const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 			if (layout === 'tree') {
 				// tree view
@@ -103,7 +104,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				dirNode.finalize();
 				if (dirNode.label === '') {
 					// nothing on the root changed, pull children to parent
-					result.push(...dirNode.children);
+					result.push(...dirNode._children);
 				} else {
 					result.push(dirNode);
 				}
@@ -116,7 +117,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				this.reopenNewPrDiffs(this.pullRequestModel);
 			}
 
-			this.children = result;
+			this._children = result;
 
 			// Kick off review thread initialization but don't await it.
 			// Events will be fired later that will cause the tree to update when this is ready.
@@ -124,27 +125,23 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 			return result;
 		} catch (e) {
-			Logger.error(e);
+			Logger.error(`Error getting children ${e}: ${e.message}`, PRNode.ID);
 			return [];
 		}
 	}
 
 	protected registerSinceReviewChange() {
-		this._disposables.push(
-			this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
-				this.refresh(this);
-			})
-		);
+		this._register(this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
+			this.refresh(this);
+		}));
 	}
 
 	protected registerConfigurationChange() {
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
-					this.refresh();
-				}
-			})
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
+				this.refresh();
+			}
+		}));
 	}
 
 	public async reopenNewPrDiffs(pullRequest: PullRequestModel) {
@@ -190,36 +187,30 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		await this.pullRequestModel.githubRepository.ensureCommentsController();
 		this._commentController = this.pullRequestModel.githubRepository.commentsController!;
 
-		this._disposables.push(
-			this.pullRequestModel.githubRepository.commentsHandler!.registerCommentingRangeProvider(
-				this.pullRequestModel.number,
-				this,
-			),
-		);
+		this._register(this.pullRequestModel.githubRepository.commentsHandler!.registerCommentingRangeProvider(
+			this.pullRequestModel.number,
+			this
+		));
 
-		this._disposables.push(
-			this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(
-				this.pullRequestModel.number,
-				this.pullRequestModel,
-				this._folderReposManager,
-			),
-		);
+		this._register(this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(
+			this.pullRequestModel.number,
+			this.pullRequestModel,
+			this._folderReposManager,
+		));
 
 		this.registerListeners();
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(
-			this.pullRequestModel.onDidChangePendingReviewState(async newDraftMode => {
-				if (!newDraftMode) {
-					(await this.getFileChanges()).forEach(fileChange => {
-						if (fileChange instanceof InMemFileChangeNode) {
-							fileChange.comments.forEach(c => (c.isDraft = newDraftMode));
-						}
-					});
-				}
-			}),
-		);
+		this._register(this.pullRequestModel.onDidChangePendingReviewState(async newDraftMode => {
+			if (!newDraftMode) {
+				(await this.getFileChanges()).forEach(fileChange => {
+					if (fileChange instanceof InMemFileChangeNode) {
+						fileChange.comments.forEach(c => (c.isDraft = newDraftMode));
+					}
+				});
+			}
+		}));
 	}
 
 	public async getFileChanges(noCache: boolean | void): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
@@ -277,53 +268,102 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
-	async getTreeItem(): Promise<vscode.TreeItem> {
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }> {
+		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus();
+		const theme = this._folderReposManager.themeWatcher.themeData;
+		if (copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
+			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+				?? new vscode.ThemeIcon('github');
+		}
+		switch (copilotWorkingStatus) {
+			case CopilotWorkingStatus.InProgress:
+				return {
+					light: DataUri.copilotInProgressAsImageDataURI(getIconForeground(theme, 'light'), getListWarningForeground(theme, 'light')),
+					dark: DataUri.copilotInProgressAsImageDataURI(getIconForeground(theme, 'dark'), getListWarningForeground(theme, 'dark'))
+				};
+			case CopilotWorkingStatus.Done:
+				return {
+					light: DataUri.copilotSuccessAsImageDataURI(getIconForeground(theme, 'light'), getNotebookStatusSuccessIconForeground(theme, 'light')),
+					dark: DataUri.copilotSuccessAsImageDataURI(getIconForeground(theme, 'dark'), getNotebookStatusSuccessIconForeground(theme, 'dark'))
+				};
+			case CopilotWorkingStatus.Error:
+				return {
+					light: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'light'), getListErrorForeground(theme, 'light')),
+					dark: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'dark'), getListErrorForeground(theme, 'dark'))
+				};
+			default:
+				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+					?? new vscode.ThemeIcon('github');
+		}
+	}
+
+	private _getLabel(): string {
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
+		const { title, number, author, isDraft } = this.pullRequestModel;
+		let label = '';
 
-		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
-
-		const { login } = author;
-
-		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
-
-		const formattedPRNumber = number.toString();
-		let labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
-		let tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
+		if (currentBranchIsForThisPR) {
+			label += '$(check) ';
+		}
 
 		if (
 			vscode.workspace
 				.getConfiguration(PR_SETTINGS_NAMESPACE)
 				.get<boolean>(SHOW_PULL_REQUEST_NUMBER_IN_TREE, false)
 		) {
-			labelPrefix += `#${formattedPRNumber}: `;
-			tooltipPrefix += `#${formattedPRNumber}: `;
+			label += `#${number}: `;
 		}
 
-		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${title}`;
-		const tooltip = `${tooltipPrefix}${title} by @${login}`;
+		let labelTitle = title.length > 50 ? `${title.substring(0, 50)}...` : title;
+		if (COPILOT_ACCOUNTS[author.login]) {
+			labelTitle = labelTitle.replace('[WIP]', '');
+		}
+		// Escape any $(...) syntax to avoid rendering PR titles as icons.
+		label += labelTitle.replace(/\$\([a-zA-Z0-9~-]+\)/g, '\\$&');
+
+		if (isDraft) {
+			label = `_${label}_`;
+		}
+
+		return label;
+	}
+
+	async getTreeItem(): Promise<vscode.TreeItem> {
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
+		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
+		const login = author.specialDisplayName ?? author.login;
+		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel) || this._prsTreeModel.hasCopilotNotification(this.pullRequestModel.remote.owner, this.pullRequestModel.remote.repositoryName, this.pullRequestModel.number);
+		const label: vscode.TreeItemLabel2 = {
+			label: new vscode.MarkdownString(this._getLabel(), true)
+		};
 		const description = `by @${login}`;
+		const command = {
+			title: vscode.l10n.t('View Pull Request Description'),
+			command: 'pr.openDescription',
+			arguments: [this],
+		};
 
 		return {
-			label,
+			label: label as vscode.TreeItemLabel,
 			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}${this._isLocal ? this.pullRequestModel.localBranchName : ''}`, // unique id stable across checkout status
-			tooltip,
 			description,
 			collapsibleState: 1,
 			contextValue:
 				'pullrequest' +
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
-				(hasNotification ? ':notification' : ''),
-			iconPath: (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-				?? new vscode.ThemeIcon('github'),
+				(hasNotification ? ':notification' : '') +
+				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
+			iconPath: await this._getIcon(),
 			accessibilityInformation: {
-				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
+				label: `${isDraft ? 'Draft ' : ''}Pull request number ${number}: ${title} by ${login}`
 			},
-			resourceUri: createPRNodeUri(this.pullRequestModel),
+			resourceUri: createPRNodeUri(this.pullRequestModel, this.parent instanceof CategoryTreeNode && this.parent.isCopilot ? true : undefined),
+			command
 		};
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { fileComments: boolean; ranges?: vscode.Range[] } | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
@@ -337,14 +377,14 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				return undefined;
 			}
 
-			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), fileComments: true };
+			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), enableFileComments: true };
 		}
 
 		return undefined;
 	}
 
 	// #region Document Content Provider
-	private async provideDocumentContent(uri: vscode.Uri): Promise<string> {
+	private async provideDocumentContent(uri: vscode.Uri): Promise<string | Uint8Array> {
 		const params = fromPRUri(uri);
 		if (!params) {
 			return '';
@@ -362,16 +402,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		return provideDocumentContentForChangeModel(this._folderReposManager, this.pullRequestModel, params, fileChange);
 	}
 
-	dispose(): void {
+	override dispose(): void {
 		super.dispose();
-
-		if (this._inMemPRContentProvider) {
-			this._inMemPRContentProvider.dispose();
-		}
-
 		this._commentController = undefined;
-
-		dispose(this._disposables);
-		this._disposables = [];
 	}
 }

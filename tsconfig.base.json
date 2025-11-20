@@ -4,7 +4,6 @@
 		"forceConsistentCasingInFileNames": true,
 		"incremental": true,
 		"isolatedModules": false,
-		"jsx": "react",
 		"lib": ["es2019"],
 		"module": "esnext",
 		"moduleResolution": "node",
@@ -20,7 +19,8 @@
 		"strict": false,
 		"strictNullChecks": false,
 		"target": "es2019",
-		"useDefineForClassFields": true
+		"useDefineForClassFields": true,
+		"noImplicitOverride": true
 	},
 	"include": ["src", "webviews"],
 	"exclude": ["node_modules"]

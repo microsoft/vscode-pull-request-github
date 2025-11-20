@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -16,8 +15,12 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	Reaction,
 	ReviewState,
+	StateReason,
 } from './interface';
+import { IComment } from '../common/comment';
+import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
 export enum ReviewType {
 	Comment = 'comment',
@@ -25,7 +28,13 @@ export enum ReviewType {
 	RequestChanges = 'requestChanges',
 }
 
-export interface PullRequest {
+export interface DisplayLabel extends ILabel {
+	displayName: string;
+}
+
+export interface Issue {
+	owner: string;
+	repo: string;
 	number: number;
 	title: string;
 	titleHTML: string;
@@ -34,20 +43,13 @@ export interface PullRequest {
 	body: string;
 	bodyHTML?: string;
 	author: IAccount;
-	state: GithubItemStateEnum;
+	state: GithubItemStateEnum; // TODO: don't allow merged
+	stateReason?: StateReason;
 	events: TimelineEvent[];
-	isCurrentlyCheckedOut: boolean;
-	isRemoteBaseDeleted?: boolean;
-	base: string;
-	isRemoteHeadDeleted?: boolean;
-	isLocalHeadDeleted?: boolean;
-	head: string;
-	labels: ILabel[];
+	labels: DisplayLabel[];
 	assignees: IAccount[];
-	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
-	repositoryDefaultBranch: string;
 	/**
 	 * User can edit PR title and description (author or user with push access)
 	 */
@@ -59,6 +61,28 @@ export interface PullRequest {
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
+	isIssue: boolean;
+	isAuthor: boolean;
+	continueOnGitHub: boolean;
+	isDarkTheme: boolean;
+	isEnterprise: boolean;
+	canAssignCopilot: boolean;
+	reactions: Reaction[];
+	busy?: boolean;
+}
+
+export interface PullRequest extends Issue {
+	isCopilotOnMyBehalf: boolean;
+	isCurrentlyCheckedOut: boolean;
+	isRemoteBaseDeleted?: boolean;
+	base: string;
+	isRemoteHeadDeleted?: boolean;
+	isLocalHeadDeleted?: boolean;
+	head: string;
+	commitsCount: number;
+	projectItems: IProjectItem[] | undefined;
+	repositoryDefaultBranch: string;
+	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
@@ -79,18 +103,74 @@ export interface PullRequest {
 	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];
 	isDraft?: boolean;
-	isIssue: boolean;
-	isAuthor?: boolean;
-	continueOnGitHub: boolean;
-	currentUserReviewState: string;
-	isDarkTheme: boolean;
-	isEnterprise: boolean;
+	currentUserReviewState?: string;
 	hasReviewDraft: boolean;
-
 	lastReviewType?: ReviewType;
+	revertable?: boolean;
 	busy?: boolean;
+	loadingCommit?: string;
 }
 
 export interface ProjectItemsReply {
 	projectItems: IProjectItem[] | undefined;
+}
+
+export interface ChangeAssigneesReply {
+	assignees: IAccount[];
+	events: TimelineEvent[];
+}
+
+export interface SubmitReviewReply {
+	events?: TimelineEvent[];
+	reviewedEvent: ReviewEvent | CommentEvent;
+	reviewers?: ReviewState[];
+}
+
+export interface ReadyForReviewReply {
+	isDraft: boolean;
+	reviewEvent?: ReviewEvent;
+	reviewers?: ReviewState[];
+	autoMerge?: boolean;
+}
+
+export interface MergeArguments {
+	title: string | undefined;
+	description: string | undefined;
+	method: MergeMethod;
+	email?: string;
+}
+
+export interface MergeResult {
+	state: GithubItemStateEnum;
+	revertable: boolean;
+	events?: TimelineEvent[];
+}
+
+export interface DeleteReviewResult {
+	deletedReviewId: number;
+	deletedReviewComments: IComment[];
+}
+
+export enum PreReviewState {
+	None = 0,
+	Available,
+	ReviewedWithComments,
+	ReviewedWithoutComments
+}
+
+export interface CancelCodingAgentReply {
+	events: TimelineEvent[];
+}
+
+export interface OverviewContext {
+	'preventDefaultContextMenuItems': true;
+	owner: string;
+	repo: string;
+	number: number;
+	[key: string]: boolean | string | number;
+}
+
+export interface CodingAgentContext extends SessionLinkInfo {
+	'preventDefaultContextMenuItems': true;
+	[key: string]: boolean | string | number | undefined;
 }

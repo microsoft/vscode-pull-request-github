@@ -31,12 +31,16 @@ textarea:disabled {
 
 .group-branches {
 	margin-top: 20px;
-	margin-bottom: 10px;
+	margin-bottom: 2px;
 }
 
-.base,
-.merge {
-	display: block !important;
+.input-label.base,
+.input-label.merge {
+	display: block;
+}
+
+.pr-link {
+	cursor: pointer;
 }
 
 .base .deco,
@@ -47,39 +51,9 @@ textarea:disabled {
 	user-select: none;
 }
 
-.base button,
-.merge button {
-	display: block;
-	float: left;
+button.input-box {
 	width: 100%;
-	height: 24px;
-	margin-top: -4px;
-	padding-top: 2px;
-	padding-left: 8px;
-	text-align: left;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-	color: var(--vscode-input-foreground) !important;
-	background-color: var(--vscode-input-background) !important;
-}
-
-.base button:active,
-.base button:focus,
-.merge button:active,
-.merge button:focus {
-	color: var(--vscode-inputOption-activeForeground) !important;
-	background-color: var(--vscode-inputOption-activeBackground) !important;
-}
-
-.base button:hover:not(:disabled),
-.merge button:hover:not(:disabled) {
-	background-color: var(--vscode-inputOption-hoverBackground) !important;
-}
-
-.base button:focus,
-.merge button:focus {
-	border-color: var(--vscode-focusBorder) !important;
+	float: left;
 }
 
 .merge {
@@ -98,8 +72,8 @@ textarea:disabled {
 .input-label {
 	display: flex;
 	align-items: center;
-	font-variant-caps: all-small-caps;
-	font-size: small;
+	font-size: 11px;
+	text-transform: uppercase;
 	margin-bottom: 14px;
 }
 
@@ -112,13 +86,23 @@ textarea:disabled {
 
 /* Title, Description */
 
+.input-title {
+	display: block;
+	font-size: 11px;
+	margin-bottom: 4px;
+	text-transform: uppercase;
+}
+
 #title {
-	padding-right: 23px;
+	padding-right: 24px;
+	text-overflow: ellipsis;
 }
 
 .group-title {
 	position: relative;
 	display: flex;
+	flex-direction: column;
+	margin-bottom: 12px;
 }
 
 .group-title .title-action:hover {
@@ -148,7 +132,7 @@ textarea:disabled {
 	padding: 2px;
 }
 
-.group-title .title-action.disabled svg path  {
+.group-title .disabled svg path  {
 	fill: var(--vscode-disabledForeground);
 }
 
@@ -165,7 +149,7 @@ textarea:disabled {
 
 .group-description {
 	flex-grow: 1;
-	margin-top: 10px;
+	max-height: 500px;
 }
 
 input[type=text],
@@ -184,6 +168,13 @@ textarea {
 	border: 1px solid var(--vscode-inputValidation-errorBorder);
 	background-color: var(--vscode-inputValidation-errorBackground);
 	color: var(--vscode-inputValidation-errorForeground);
+}
+
+.validation-warning {
+	padding: 5px;
+	border: 1px solid var(--vscode-inputValidation-warningBorder);
+	background-color: var(--vscode-inputValidation-warningBackground);
+	color: var(--vscode-inputValidation-warningForeground);
 }
 
 .below-input-error {
@@ -264,6 +255,10 @@ textarea {
 	padding: 2px;
 }
 
+.group-additions ul li .sep {
+	padding-right: 7px;
+}
+
 .labels ul li {
 	border: 1px solid var(--vscode-menu-separatorBackground);
 	border-radius: 2px;
@@ -279,4 +274,35 @@ textarea {
 	padding-top: 10px;
 	padding-bottom: 20px;
 	width: 100%;
+}
+
+.dropdown-container {
+	justify-content: right;
+}
+
+/* Auto review */
+.pre-review {
+	display: flex;
+	flex-direction: column;
+}
+
+.auto-review {
+	display: flex;
+	justify-content: right;
+	cursor: pointer;
+}
+
+.auto-review.disabled:hover,
+.auto-review.disabled {
+	cursor: default;
+	color: var(--vscode-disabledForeground);
+	text-decoration: none;
+}
+
+.pre-review svg path {
+	fill: currentColor;
+}
+
+button.split-left {
+	display: block;
 }

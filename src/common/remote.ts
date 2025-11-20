@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Repository } from '../api/api';
-import { getEnterpriseUri, isEnterprise } from '../github/utils';
 import { AuthProvider, GitHubServerType } from './authentication';
 import { Protocol } from './protocol';
+import { Repository } from '../api/api';
+import { getEnterpriseUri, isEnterprise } from '../github/utils';
 
 export class Remote {
 	public get host(): string {
@@ -42,7 +42,7 @@ export class Remote {
 		if (this.remoteName !== remote.remoteName) {
 			return false;
 		}
-		if (this.host !== remote.host) {
+		if (!this.host.includes(remote.host) && !remote.host.includes(this.host)) {
 			return false;
 		}
 		if (this.owner.toLocaleLowerCase() !== remote.owner.toLocaleLowerCase()) {

@@ -4,25 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ProgressHelper } from './progress';
+import { ReviewModel } from './reviewModel';
 import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
 import Logger, { PR_TREE } from '../common/logger';
-import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { FILE_LIST_LAYOUT, GIT, HIDE_VIEWED_FILES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { isDescendant } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ProgressHelper } from './progress';
-import { ReviewModel } from './reviewModel';
-import { DescriptionNode } from './treeNodes/descriptionNode';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 
-export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
+export class PullRequestChangesTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-	private _disposables: vscode.Disposable[] = [];
 
 	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
@@ -32,15 +32,15 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return this._view;
 	}
 
-	constructor(private _context: vscode.ExtensionContext, private _git: GitApiImpl, private _reposManager: RepositoriesManager) {
-		super(() => this.dispose());
-		this._view = vscode.window.createTreeView('prStatus:github', {
+	constructor(private _git: GitApiImpl, private _reposManager: RepositoriesManager) {
+		super();
+		this._view = this._register(vscode.window.createTreeView('prStatus:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
-		});
-		this._context.subscriptions.push(this._view);
+			canSelectMany: true
+		}));
 
-		this._disposables.push(
+		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
@@ -50,11 +50,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 				} else if (e.affectsConfiguration(`${GIT}.${OPEN_DIFF_ON_CLICK}`)) {
 					this._onDidChangeTreeData.fire();
+				} else if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${HIDE_VIEWED_FILES}`)) {
+					this._onDidChangeTreeData.fire();
 				}
 			}),
 		);
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
+		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, this._view.selection)));
 	}
 
 	refresh(treeNode?: TreeNode) {
@@ -163,11 +165,38 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return this._children;
 	}
 
+	private sortMap() {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		const compareFolders = (a: vscode.Uri, b: vscode.Uri) => {
+			const aFolder = a.fsPath.toLowerCase();
+			const bFolder = b.fsPath.toLowerCase();
+
+			return isDescendant(aFolder, bFolder) || isDescendant(bFolder, aFolder);
+		};
+
+		return Array.from(this._pullRequestManagerMap.entries()).sort((a, b) => {
+			if (a[0].repository.rootUri.toString() === b[0].repository.rootUri.toString()) {
+				return 0;
+			}
+			if (!workspaceFolders) return 0;
+			const aIndex = workspaceFolders.findIndex(folder => compareFolders(folder.uri, a[0].repository.rootUri));
+			const bIndex = workspaceFolders.findIndex(folder => compareFolders(folder.uri, b[0].repository.rootUri));
+			if (aIndex === -1) {
+				return 1;
+			}
+			if (bIndex === -1) {
+				return -1;
+			}
+			return aIndex - bIndex;
+		}).map(([_, value]) => value);
+	}
+
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
 			this._children = [];
 			if (this._pullRequestManagerMap.size >= 1) {
-				for (const item of this._pullRequestManagerMap.values()) {
+				const sortedValues = this.sortMap();
+				for (const item of sortedValues) {
 					this._children.push(item);
 				}
 			}
@@ -177,7 +206,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 	}
 
-	getDescriptionNode(folderRepoManager: FolderRepositoryManager): DescriptionNode | undefined {
+	getDescriptionNode(folderRepoManager: FolderRepositoryManager): RepositoryChangesNode | undefined {
 		return this._pullRequestManagerMap.get(folderRepoManager);
 	}
 
@@ -186,9 +215,5 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			await element.resolve();
 		}
 		return element;
-	}
-
-	dispose() {
-		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }

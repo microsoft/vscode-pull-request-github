@@ -23,6 +23,9 @@ import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
 import { CheckState } from '../../github/interface';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -34,6 +37,7 @@ describe('PullRequestOverview', function () {
 	let repo: MockGitHubRepository;
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
+	let mockThemeWatcher: MockThemeWatcher;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -43,7 +47,10 @@ describe('PullRequestOverview', function () {
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
 		credentialStore = new CredentialStore(telemetry, context);
-		pullRequestManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
+		mockThemeWatcher = new MockThemeWatcher();
+		const createPrHelper = new CreatePullRequestHelper();
+		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		pullRequestManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, createPrHelper, mockThemeWatcher);
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
@@ -76,13 +83,14 @@ describe('PullRequestOverview', function () {
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
 
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
 
 			assert(
 				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
 					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist')],
+					enableFindWidget: true
 				}),
 			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
@@ -111,8 +119,9 @@ describe('PullRequestOverview', function () {
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel0, 'validateDraftMode').resolves(true);
 			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel0);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
@@ -124,8 +133,9 @@ describe('PullRequestOverview', function () {
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel1, 'validateDraftMode').resolves(true);
 			sinon.stub(prModel1, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel1);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);

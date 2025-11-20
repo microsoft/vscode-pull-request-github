@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { commands } from './executeCommands';
+import { Disposable } from './lifecycle';
 
 export const PULL_REQUEST_OVERVIEW_VIEW_TYPE = 'PullRequestOverview';
 
@@ -16,29 +17,21 @@ export interface IRequestMessage<T> {
 
 export interface IReplyMessage {
 	seq?: string;
-	err?: any;
+	err?: string;
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	res?: any;
 }
 
-export function getNonce() {
-	let text = '';
-	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	for (let i = 0; i < 32; i++) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
-	}
-	return text;
-}
-
-export class WebviewBase {
+export class WebviewBase extends Disposable {
 	protected _webview?: vscode.Webview;
-	protected _disposables: vscode.Disposable[] = [];
 
 	private _waitForReady: Promise<void>;
-	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private _onIsReady: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
 	constructor() {
+		super();
 		this._waitForReady = new Promise(resolve => {
 			const disposable = this._onIsReady.event(() => {
 				disposable.dispose();
@@ -51,12 +44,9 @@ export class WebviewBase {
 		const disposable = this._webview?.onDidReceiveMessage(
 			async message => {
 				await this._onDidReceiveMessage(message as IRequestMessage<any>);
-			},
-			null,
-			this._disposables,
-		);
+			});
 		if (disposable) {
-			this._disposables.push(disposable);
+			this._register(disposable);
 		}
 	}
 
@@ -87,16 +77,12 @@ export class WebviewBase {
 		this._webview?.postMessage(reply);
 	}
 
-	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: any) {
+	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: string) {
 		const reply: IReplyMessage = {
 			seq: originalMessage?.req,
 			err: error,
 		};
 		this._webview?.postMessage(reply);
-	}
-
-	public dispose() {
-		this._disposables.forEach(d => d.dispose());
 	}
 }
 
@@ -122,7 +108,7 @@ export class WebviewViewBase extends WebviewBase {
 
 			localResourceRoots: [this._extensionUri],
 		};
-		this._disposables.push(this._view.onDidDispose(() => {
+		this._register(this._view.onDidDispose(() => {
 			this._webview = undefined;
 			this._view = undefined;
 		}));

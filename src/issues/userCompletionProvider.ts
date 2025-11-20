@@ -8,16 +8,17 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
-import { fromPRUri, Schemes } from '../common/uri';
-import { compareIgnoreCase } from '../common/utils';
+import { fromNewIssueUri, fromPRUri, Schemes } from '../common/uri';
+import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
+import { ASSIGNEES } from './issueFile';
+import { StateManager } from './stateManager';
+import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IAccount, User } from '../github/interface';
+import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRelatedUsersFromTimelineEvents } from '../github/utils';
-import { ASSIGNEES, extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
-import { StateManager } from './stateManager';
-import { getRootUriFromScmInputUri, isComment, UserCompletion, userMarkdown } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private static readonly ID: string = 'UserCompletionProvider';
@@ -49,7 +50,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
 		if (
 			document.languageId !== 'scminput' &&
-			document.uri.scheme !== NEW_ISSUE_SCHEME &&
+			document.uri.scheme !== Schemes.NewIssue &&
 			position.character > 0 &&
 			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
 			wordAtPos?.charAt(0) !== '@'
@@ -59,7 +60,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 		// If the suggest was not triggered  by the trigger character and it's in a new issue file, make sure it's on the Assignees line.
 		if (
-			(document.uri.scheme === NEW_ISSUE_SCHEME) &&
+			(document.uri.scheme === Schemes.NewIssue) &&
 			(context.triggerKind === vscode.CompletionTriggerKind.Invoke) &&
 			(document.getText(new vscode.Range(position.with(undefined, 0), position.with(undefined, ASSIGNEES.length))) !== ASSIGNEES)
 		) {
@@ -76,7 +77,9 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
+		const isPositionComment = document.languageId === 'plaintext' || document.languageId === 'markdown' || await isComment(document, position);
+
+		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !isPositionComment) {
 			return [];
 		}
 
@@ -88,13 +91,22 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		let uri: vscode.Uri | undefined = document.uri;
-		if (document.uri.scheme === NEW_ISSUE_SCHEME) {
-			uri = extractIssueOriginFromQuery(document.uri) ?? document.uri;
+		if (document.uri.scheme === Schemes.NewIssue) {
+			const params = fromNewIssueUri(document.uri);
+			uri = params?.originUri ?? document.uri;
 		} else if (document.languageId === 'scminput') {
 			uri = getRootUriFromScmInputUri(document.uri);
 		} else if (document.uri.scheme === Schemes.Comment) {
 			const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-			uri = activeTab instanceof vscode.TabInputText ? activeTab.uri : (activeTab instanceof vscode.TabInputTextDiff ? activeTab.modified : undefined);
+			if (activeTab instanceof vscode.TabInputText) {
+				uri = activeTab.uri;
+			} else if (activeTab instanceof vscode.TabInputTextDiff) {
+				uri = activeTab.modified;
+			} else if ((activeTab as { textDiffs?: { modified: vscode.Uri, original: vscode.Uri }[] }).textDiffs) {
+				uri = (activeTab as { textDiffs: { modified: vscode.Uri, original: vscode.Uri }[] }).textDiffs[0].modified;
+			} else {
+				uri = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : undefined;
+			}
 		}
 
 		if (!uri) {
@@ -106,15 +118,16 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		let completionItems: vscode.CompletionItem[] = [];
 		const userMap = await this.stateManager.getUserMap(repoUri);
 		userMap.forEach(item => {
+			const login = item.specialDisplayName ?? item.login;
 			const completionItem: UserCompletion = new UserCompletion(
-				{ label: item.login, description: item.name }, vscode.CompletionItemKind.User);
-			completionItem.insertText = `@${item.login}`;
+				{ label: login, description: item.name }, vscode.CompletionItemKind.User);
+			completionItem.insertText = `@${login}`;
 			completionItem.login = item.login;
 			completionItem.uri = repoUri;
 			completionItem.range = range;
 			completionItem.detail = item.name;
 			completionItem.filterText = `@ ${item.login} ${item.name}`;
-			if (document.uri.scheme === NEW_ISSUE_SCHEME) {
+			if (document.uri.scheme === Schemes.NewIssue) {
 				completionItem.commitCharacters = [' ', ','];
 			}
 			completionItems.push(completionItem);
@@ -128,7 +141,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 	private isCodeownersFiles(uri: vscode.Uri): boolean {
 		const repositoryManager = this.manager.getManagerForFile(uri);
-		if (!repositoryManager || !uri.path.startsWith(repositoryManager.repository.rootUri.path)) {
+		if (!repositoryManager || !isDescendant(repositoryManager.repository.rootUri.fsPath, uri.fsPath)) {
 			return false;
 		}
 		const subpath = uri.path.substring(repositoryManager.repository.rootUri.path.length).toLowerCase();
@@ -317,7 +330,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 						completionItem.detail = user.name;
 						completionItem.filterText = `@ ${user.login} ${user.name}`;
 						completionItem.sortText = `${priority}_${user.login}`;
-						if (activeTextEditor?.document.uri.scheme === NEW_ISSUE_SCHEME) {
+						if (activeTextEditor?.document.uri.scheme === Schemes.NewIssue) {
 							completionItem.commitCharacters = [' ', ','];
 						}
 						this.cachedPrUsers.push(completionItem);

@@ -56,13 +56,15 @@ function hygiene(some) {
 	const indentation = es.through(function (file) {
 		const lines = file.__lines;
 
-		lines.forEach((line, i) => {
+		lines?.forEach((line, i) => {
 			if (/^\s*$/.test(line)) {
 				// empty or whitespace lines are OK
 			} else if (/^[\t]*[^\s]/.test(line)) {
 				// good indent
 			} else if (/^[\t]* \*/.test(line)) {
 				// block comment using an extra space
+			} else if (/^[\s]*- /.test(line)) {
+				// multiline string using extra space
 			} else {
 				console.error(
 					file.relative + '(' + (i + 1) + ',1): Bad whitespace indentation'

@@ -3,22 +3,24 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ReviewStateValue } from '../common/timelineEvent';
+
 export enum PRType {
 	Query,
 	All,
 	LocalPullRequest,
 }
 
-export enum ReviewEvent {
+export enum ReviewEventEnum {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
 	Comment = 'COMMENT',
 }
 
 export enum GithubItemStateEnum {
-	Open,
-	Merged,
-	Closed,
+	Open = 'OPEN',
+	Merged = 'MERGED',
+	Closed = 'CLOSED',
 }
 
 export enum PullRequestMergeability {
@@ -39,13 +41,39 @@ export enum MergeQueueState {
 
 export interface ReviewState {
 	reviewer: IAccount | ITeam;
-	state: string;
+	state: ReviewStateValue;
+}
+
+export interface ReadyForReview {
+	isDraft: boolean;
+	mergeable: PullRequestMergeability;
+	allowAutoMerge: boolean;
 }
 
 export interface IActor {
 	login: string;
 	avatarUrl?: string;
 	url: string;
+}
+
+export enum AccountType {
+	User = 'User',
+	Organization = 'Organization',
+	Mannequin = 'Mannequin',
+	Bot = 'Bot'
+}
+
+export function toAccountType(type: string): AccountType {
+	switch (type) {
+		case 'Organization':
+			return AccountType.Organization;
+		case 'Mannequin':
+			return AccountType.Mannequin;
+		case 'Bot':
+			return AccountType.Bot;
+		default:
+			return AccountType.User;
+	}
 }
 
 export interface IAccount extends IActor {
@@ -55,13 +83,15 @@ export interface IAccount extends IActor {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
+	specialDisplayName?: string;
+	accountType: AccountType;
 }
 
 export interface ITeam {
 	name?: string;
 	avatarUrl?: string;
 	url: string;
-	slug: string;
+	slug?: string;
 	org: string;
 	id: string;
 }
@@ -73,15 +103,17 @@ export interface MergeQueueEntry {
 }
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
-	return isTeam(reviewer) ? reviewer.id : reviewer.login;
+	// We can literally get different login values for copilot depending on where it's coming from (already assignee vs suggested assingee)
+	return isITeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
-export function reviewerLabel(reviewer: ITeam | IAccount | IActor): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
+export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
+	return isITeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
-export function isTeam(reviewer: ITeam | IAccount | IActor): reviewer is ITeam {
-	return 'org' in reviewer;
+export function isITeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
+	const asITeam = reviewer as Partial<ITeam>;
+	return !!asITeam.org;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -89,10 +121,11 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
-export function isSuggestedReviewer(
+export function isISuggestedReviewer(
 	reviewer: IAccount | ISuggestedReviewer | ITeam
 ): reviewer is ISuggestedReviewer {
-	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
+	const asISuggestedReviewer = reviewer as Partial<ISuggestedReviewer>;
+	return !!asISuggestedReviewer.isAuthor && !!asISuggestedReviewer.isCommenter;
 }
 
 export interface IProject {
@@ -140,12 +173,31 @@ export interface ILabel {
 	description?: string;
 }
 
+export interface IIssueComment {
+	author: IAccount;
+	body: string;
+	databaseId: number;
+	reactionCount: number;
+	createdAt: string;
+}
+
+export interface Reaction {
+	label: string;
+	count: number;
+	icon?: string;
+	viewerHasReacted: boolean;
+	reactors: readonly string[];
+}
+
+export type StateReason = 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
+
 export interface Issue {
 	id: number;
 	graphNodeId: string;
 	url: string;
 	number: number;
 	state: string;
+	stateReason?: StateReason;
 	body: string;
 	bodyHTML?: string;
 	title: string;
@@ -160,11 +212,10 @@ export interface Issue {
 	repositoryOwner?: string;
 	repositoryName?: string;
 	repositoryUrl?: string;
-	comments?: {
-		author: IAccount;
-		body: string;
-		databaseId: number;
-	}[];
+	comments?: IIssueComment[];
+	commentCount: number;
+	reactionCount: number;
+	reactions: Reaction[];
 }
 
 export interface PullRequest extends Issue {
@@ -186,18 +237,66 @@ export interface PullRequest extends Issue {
 	mergeCommitMeta?: { title: string, description: string };
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
+	hasComments?: boolean;
+	additions?: number;
+	deletions?: number;
+}
+
+export enum NotificationSubjectType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest'
+}
+
+export interface Notification {
+	owner: string;
+	name: string;
+	key: string;
+	id: string,
+	itemID: string;
+	subject: {
+		title: string;
+		type: NotificationSubjectType;
+		url: string;
+	};
+	reason: string;
+	unread: boolean;
+	updatedAt: Date;
+	lastReadAt: Date | undefined;
 }
 
 export interface IRawFileChange {
+	sha: string;
 	filename: string;
-	previous_filename?: string;
+	previous_filename?: string | undefined;
 	additions: number;
 	deletions: number;
 	changes: number;
-	status: string;
+	status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed' | 'unchanged';
 	raw_url: string;
 	blob_url: string;
-	patch: string;
+	contents_url: string;
+	patch?: string | undefined;
+}
+
+export interface IRawFileContent {
+	type: string;
+	size: number;
+	name: string;
+	path: string;
+	content?: string | undefined;
+	sha: string;
+	url: string;
+	git_url: string | null;
+	html_url: string | null;
+	download_url: string | null;
+}
+
+export interface IGitTreeItem {
+	path: string;
+	mode: '100644' | '100755' | '120000';
+	// Must contain a content or a sha.
+	content?: string;
+	sha?: string | null;
 }
 
 export interface IPullRequestsPagingOptions {
@@ -205,7 +304,7 @@ export interface IPullRequestsPagingOptions {
 	fetchOnePagePerRepo?: boolean;
 }
 
-export interface IPullRequestEditData {
+export interface IIssueEditData {
 	body?: string;
 	title?: string;
 }
@@ -247,7 +346,9 @@ export interface PullRequestCheckStatus {
 	state: CheckState;
 	description: string | null;
 	targetUrl: string | null;
-	context: string;
+	context: string; // Job name
+	workflowName: string | undefined;
+	event: string | undefined;
 	isRequired: boolean;
 }
 

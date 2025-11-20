@@ -11,6 +11,7 @@ import {
 	IExperimentationTelemetry,
 	TargetPopulation,
 } from 'vscode-tas-client';
+import { Disposable } from './common/lifecycle';
 
 /* __GDPR__
 	"query-expfeature" : {
@@ -18,10 +19,15 @@ import {
 	}
 */
 
-export class ExperimentationTelemetry implements IExperimentationTelemetry {
+export class ExperimentationTelemetry extends Disposable implements IExperimentationTelemetry {
 	private sharedProperties: Record<string, string> = {};
 
-	constructor(private baseReporter: TelemetryReporter | undefined) { }
+	constructor(private baseReporter: TelemetryReporter | undefined) {
+		super();
+		if (baseReporter) {
+			this._register(baseReporter);
+		}
+	}
 
 	sendTelemetryEvent(eventName: string, properties?: Record<string, string>, measurements?: Record<string, number>) {
 		this.baseReporter?.sendTelemetryEvent(
@@ -55,10 +61,6 @@ export class ExperimentationTelemetry implements IExperimentationTelemetry {
 			event[key] = value;
 		}
 		this.sendTelemetryEvent(eventName, event);
-	}
-
-	async dispose(): Promise<any> {
-		return this.baseReporter?.dispose();
 	}
 }
 

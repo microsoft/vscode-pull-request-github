@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 
@@ -15,7 +20,7 @@ export const TeamBuilder = createBuilderClass<TeamUnion>()({
 	members_url: { default: 'https://api.github.com/teams/1/members{/member}' },
 	repositories_url: { default: 'https://api.github.com/teams/1/repos' },
 	html_url: { default: 'https://api.github.com/teams/1' },
-	ldap_dn: { default: '' },
+	parent: { default: null }
 });
 
 export type TeamBuilder = InstanceType<typeof TeamBuilder>;

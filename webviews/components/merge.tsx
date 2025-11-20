@@ -12,6 +12,12 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
+import { AutoMerge, QueuedToMerge } from './automergeSelect';
+import { ContextDropdown } from './contextDropdown';
+import { Dropdown } from './dropdown';
+import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { nbsp } from './space';
+import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { groupBy } from '../../src/common/utils';
 import {
@@ -27,16 +33,11 @@ import {
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
-import { AutoMerge, QueuedToMerge } from './automergeSelect';
-import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
-import { nbsp } from './space';
-import { Avatar } from './user';
 
 const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return pr.state === GithubItemStateEnum.Merged ? (
 		<div className="branch-status-message">
-			<div className="branch-status-icon">{isSimple ? mergeIcon : null}</div>{' '}
+			<div className="branch-status-icon">{isSimple ? gitMergeIcon : null}</div>{' '}
 			{'Pull request successfully merged.'}
 		</div>
 	) : pr.state === GithubItemStateEnum.Closed ? (
@@ -77,6 +78,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 						id="status-checks-display-button"
 						className="secondary small-button"
 						onClick={toggleDetails}
+						aria-expanded={showDetails}
 					>
 						{showDetails ? 'Hide' : 'Show'}
 					</button>
@@ -199,7 +201,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	return (
 		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
+			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch} />
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 		</div>
@@ -208,10 +210,16 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
+	const [busy, setBusy] = useState(false);
 
-	let icon: JSX.Element | null = pendingIcon;
+	const onClick = () => {
+		setBusy(true);
+		updateBranch().finally(() => setBusy(false));
+	};
+
+	let icon: JSX.Element | null = circleFilledIcon;
 	let summary: string = 'Checking if this branch can be merged...';
 	let action: string | null = null;
 	if (mergeable === PullRequestMergeability.Mergeable) {
@@ -232,58 +240,120 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 
 	if (isSimple) {
 		icon = null;
+		if (mergeable !== PullRequestMergeability.Conflict) {
+			action = null;
+		}
 	}
 	return (
-		<div className="status-item status-section">
-			{icon}
-			<p>
-				{summary}
-			</p>
-			{(action && !isSimple && canUpdateBranch && isCurrentlyCheckedOut) ? <button className="secondary" onClick={updateBranch} >{action}</button> : null}
+		<div className="status-section">
+			<div className="status-item">
+				{icon}
+				<p>
+					{summary}
+				</p>
+				{(action && canUpdateBranch) ?
+					<div className="button-container">
+						<button className="secondary" onClick={onClick} disabled={busy} >
+							{action}
+						</button>
+					</div>
+				: null}
+			</div>
 		</div>
 	);
 };
 
 export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
-	if (!canUpdateBranch || !isCurrentlyCheckedOut || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
+	const [isBusy, setBusy] = useState(false);
+	const update = () => {
+		setBusy(true);
+		updateBranch().finally(() => setBusy(false));
+	};
+	const isNotCheckedoutWithConflicts = !isCurrentlyCheckedOut && mergeable === PullRequestMergeability.Conflict;
+	if (!canUpdateBranch || isNotCheckedoutWithConflicts || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
 		return null;
 	}
 	return (
 		<div className="status-item status-section">
-			{alertIcon}
+			{warningIcon}
 			<p>This branch is out-of-date with the base branch.</p>
-			<button className="secondary" onClick={updateBranch} >Update with merge commit</button>
+			<button className="secondary" onClick={update} disabled={isBusy} >Update with Merge Commit</button>
 		</div>
 	);
 
 };
 
-export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
-	const [isBusy, setBusy] = useState(false);
-	const { readyForReview, updatePR } = useContext(PullRequestContext);
+export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
+	const { readyForReview, readyForReviewAndMerge, updatePR, pr } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(pr?.busy ?? false);
 
 	const markReadyForReview = useCallback(async () => {
 		try {
 			setBusy(true);
-			await readyForReview();
-			updatePR({ isDraft: false });
+			const result = await readyForReview();
+			updatePR(result);
 		} finally {
 			setBusy(false);
 		}
-	}, [setBusy, readyForReview, updatePR]);
+	}, [readyForReview, updatePR]);
+
+	const markReadyAndMerge = useCallback(async () => {
+		try {
+			setBusy(true);
+			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
+			updatePR(result);
+		} finally {
+			setBusy(false);
+		}
+	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+
+	const allOptions = useCallback(() => {
+		const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [
+			{
+				label: 'Ready for Review',
+				value: 'ready',
+				action: markReadyForReview
+			}
+		];
+
+		if (isCopilotOnMyBehalf) {
+			actions.push({
+				label: 'Ready, Approve, and Auto-Merge',
+				value: 'readyAndMerge',
+				action: markReadyAndMerge
+			});
+		}
+
+		return actions;
+	}, [isCopilotOnMyBehalf, markReadyForReview, markReadyAndMerge]);
 
 	return (
 		<div className="ready-for-review-container">
 			<div className='ready-for-review-text-wrapper'>
-				<div className="ready-for-review-icon">{isSimple ? null : alertIcon}</div>
+				<div className="ready-for-review-icon">{isSimple ? null : warningIcon}</div>
 				<div>
 					<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
 					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
 				</div>
 			</div>
 			<div className='button-container'>
-				<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+				<ContextDropdown
+					optionsContext={() => JSON.stringify({
+						'preventDefaultContextMenuItems': true,
+						'github:readyForReviewMenu': true,
+						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf,
+						'mergeMethod': mergeMethod
+					})}
+					defaultAction={markReadyForReview}
+					defaultOptionLabel={() => 'Ready for Review'}
+					defaultOptionValue={() => 'ready'}
+					allOptions={allOptions}
+					optionsTitle='Ready for Review'
+					disabled={isBusy || pr?.busy}
+					hasSingleAction={!isCopilotOnMyBehalf}
+					spreadable={false}
+				/>
 			</div>
 		</div>
 	);
@@ -316,18 +386,19 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable, continueOnGitHub } = pr;
-	if (continueOnGitHub) {
-		return canEdit ? <MergeOnGitHub /> : null;
-	}
+	const { hasWritePermission, canEdit, isDraft, mergeable, isCopilotOnMyBehalf, defaultMergeMethod } = pr;
 	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
-		return canEdit ? <ReadyForReview isSimple={isSimple} /> : null;
+		if (!canEdit) {
+			return null;
+		}
+
+		return <ReadyForReview isSimple={isSimple} isCopilotOnMyBehalf={isCopilotOnMyBehalf} mergeMethod={defaultMergeMethod} />;
 	}
 
 	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
 		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
-	} else if (hasWritePermission && !pr.mergeQueueEntry) {
+	} else if (!isSimple && hasWritePermission && !pr.mergeQueueEntry) {
 		const ctx = useContext(PullRequestContext);
 		return (
 			<AutoMerge
@@ -358,12 +429,12 @@ export const MergeOnGitHub = () => {
 export const MergeSimple = (pr: PullRequest) => {
 	const { merge, updatePR } = useContext(PullRequestContext);
 	async function submitAction(selected: MergeMethod): Promise<void> {
-		const { state } = await merge({
+		const newContext = await merge({
 			title: '',
 			description: '',
 			method: selected,
 		});
-		updatePR({ state });
+		updatePR(newContext);
 	}
 
 	const availableOptions = Object.keys(MERGE_METHODS)
@@ -401,7 +472,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 					}}
 				>
 					<button disabled={isBusy} className="secondary" type="submit">
-						Delete branch...
+						Delete Branch...
 					</button>
 				</form>
 			</div>
@@ -410,9 +481,9 @@ export const DeleteBranch = (pr: PullRequest) => {
 };
 
 function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMethod; cancel: () => void }) {
-	const { merge, updatePR } = useContext(PullRequestContext);
+	const { merge, updatePR, changeEmail } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-
+	const emailForCommit = pr.emailForCommit;
 	return (
 		<div>
 			<form id='merge-comment-form'
@@ -422,12 +493,13 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 					try {
 						setBusy(true);
 						const { title, description }: any = event.target;
-						const { state } = await merge({
+						const mergeResult = await merge({
 							title: title?.value,
 							description: description?.value,
 							method,
+							email: emailForCommit
 						});
-						updatePR({ state });
+						updatePR(mergeResult);
 					} finally {
 						setBusy(false);
 					}
@@ -435,6 +507,16 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 			>
 				{method === 'rebase' ? null : (<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />)}
 				{method === 'rebase' ? null : (<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />)}
+				{(method === 'rebase' || !emailForCommit) ? null : (
+					<div className='commit-association'>
+						<span>
+							Commit will be associated with <button className='input-box' title='Change email' aria-label='Change email' disabled={isBusy} onClick={() => {
+								setBusy(true);
+								changeEmail(emailForCommit).finally(() => setBusy(false));
+							}}>{emailForCommit}</button>
+						</span>
+					</div>
+				)}
 				<div className="form-actions" id={method === 'rebase' ? 'rebase-actions' : ''}>
 					<button className="secondary" onClick={cancel}>Cancel</button>
 					<button disabled={isBusy} type="submit" id="confirm-merge">{method === 'rebase' ? 'Confirm ' : ''}{MERGE_METHODS[method]}</button>
@@ -489,7 +571,7 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 );
 
 const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (
-	<div>
+	<div className='status-scroll'>
 		{statuses.map(s => (
 			<div key={s.id} className="status-check">
 				<div className="status-check-details">
@@ -497,7 +579,7 @@ const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] 
 					<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
 					<span className="status-check-detail-text">
 						{/* allow-any-unicode-next-line */}
-						{s.context} {s.description ? `— ${s.description}` : ''}
+						{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
 					</span>
 				</div>
 				<div>
@@ -562,13 +644,13 @@ function StateIcon({ state }: { state: CheckState }) {
 		case CheckState.Failure:
 			return closeIcon;
 	}
-	return pendingIcon;
+	return circleFilledIcon;
 }
 
 function RequiredReviewStateIcon({ state }: { state: CheckState }) {
 	switch (state) {
 		case CheckState.Pending:
-			return requestChanges;
+			return requestChangesIcon;
 		case CheckState.Failure:
 			return closeIcon;
 	}

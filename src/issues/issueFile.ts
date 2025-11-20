@@ -4,23 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Remote } from '../api/api';
+import { fromNewIssueUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { IProject } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
-export const NEW_ISSUE_SCHEME = 'newIssue';
-export const NEW_ISSUE_FILE = 'NewIssue.md';
+export interface NewIssueFileOptions {
+	title?: string;
+	body?: string;
+	assignees?: string[] | undefined,
+	remote?: Remote,
+}
+
 export const ASSIGNEES = vscode.l10n.t('Assignees:');
 export const LABELS = vscode.l10n.t('Labels:');
 export const MILESTONE = vscode.l10n.t('Milestone:');
+export const PROJECTS = vscode.l10n.t('Projects:');
 
 const NEW_ISSUE_CACHE = 'newIssue.cache';
-
-export function extractIssueOriginFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
-	const query = JSON.parse(uri.query);
-	if (query.origin) {
-		return vscode.Uri.parse(query.origin);
-	}
-}
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private content: Uint8Array | undefined;
@@ -91,10 +93,10 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		_context: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
 		const line = document.lineAt(position.line).text;
-		if (!line.startsWith(LABELS) && !line.startsWith(MILESTONE)) {
+		if (!line.startsWith(LABELS) && !line.startsWith(MILESTONE) && !line.startsWith(PROJECTS)) {
 			return [];
 		}
-		const originFile = extractIssueOriginFromQuery(document.uri);
+		const originFile = fromNewIssueUri(document.uri)?.repoUriParams?.repoRootUri;
 		if (!originFile) {
 			return [];
 		}
@@ -108,6 +110,8 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 			return this.provideLabelCompletionItems(folderManager, defaults);
 		} else if (line.startsWith(MILESTONE)) {
 			return this.provideMilestoneCompletionItems(folderManager);
+		} else if (line.startsWith(PROJECTS)) {
+			return this.provideProjectCompletionItems(folderManager);
 		} else {
 			return [];
 		}
@@ -127,6 +131,16 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		const milestones = await (await folderManager.getPullRequestDefaultRepo())?.getMilestones() ?? [];
 		return milestones.map(milestone => {
 			const item = new vscode.CompletionItem(milestone.title, vscode.CompletionItemKind.Event);
+			item.commitCharacters = [' ', ','];
+			return item;
+		});
+	}
+
+	private async provideProjectCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
+		const repo = await folderManager.getPullRequestDefaultRepo();
+		const projects = await folderManager.getAllProjects(repo) ?? [];
+		return projects.map(project => {
+			const item = new vscode.CompletionItem(project.title, vscode.CompletionItemKind.Event);
 			item.commitCharacters = [' ', ','];
 			return item;
 		});
@@ -154,19 +168,25 @@ export class NewIssueCache {
 	}
 }
 
-export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri } | undefined> {
+export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, projects: IProject[] | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri, repoUri?: vscode.Uri } | undefined> {
 	let text: string;
 	if (
 		!vscode.window.activeTextEditor ||
-		vscode.window.activeTextEditor.document.uri.scheme !== NEW_ISSUE_SCHEME
+		vscode.window.activeTextEditor.document.uri.scheme !== Schemes.NewIssue
 	) {
 		return;
 	}
-	const originUri = extractIssueOriginFromQuery(vscode.window.activeTextEditor.document.uri);
+	const params = fromNewIssueUri(vscode.window.activeTextEditor.document.uri);
+	const originUri = params?.originUri;
 	if (!originUri) {
 		return;
 	}
-	const folderManager = repositoriesManager.getManagerForFile(originUri);
+	let folderManager: FolderRepositoryManager | undefined;
+	if (params.repoUriParams?.repoRootUri) {
+		folderManager = repositoriesManager.getManagerForFile(params.repoUriParams.repoRootUri);
+	} else {
+		folderManager = repositoriesManager.getManagerForFile(originUri);
+	}
 	if (!folderManager) {
 		return;
 	}
@@ -192,6 +212,14 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	}
 	let assignees: string[] | undefined;
 	text = text.substring(indexOfEmptyLine + 2).trim();
+	if (text.startsWith('<!--')) {
+		const indexOfCommentEnd = text.indexOf('-->');
+		if (indexOfCommentEnd < 0) {
+			return;
+		} else {
+			text = text.substring(indexOfCommentEnd + 3).trim();
+		}
+	}
 	if (text.startsWith(ASSIGNEES)) {
 		const lines = text.split(/\r\n|\n/, 1);
 		if (lines.length === 1) {
@@ -232,6 +260,23 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 			text = text.substring(lines[0].length).trim();
 		}
 	}
+	let projects: IProject[] | undefined;
+	if (text.startsWith(PROJECTS)) {
+		const lines = text.split(/\r\n|\n/, 1);
+		if (lines.length === 1) {
+			if (await repo.canGetProjectsNow()) {
+				const repoProjects = await folderManager.getAllProjects(repo);
+				projects = lines[0].substring(PROJECTS.length)
+					.split(',')
+					.map(value => {
+						value = value.trim();
+						return repoProjects.find(project => project.title === value);
+					})
+					.filter<IProject>((project): project is IProject => !!project);
+			}
+			text = text.substring(lines[0].length).trim();
+		}
+	}
 	const body = text ?? '';
-	return { labels, milestone, assignees, title, body, originUri };
+	return { labels, milestone, projects, assignees, title, body, originUri };
 }

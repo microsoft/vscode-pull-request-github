@@ -4,24 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ViewedState } from '../../common/comment';
 import Logger, { PR_TREE } from '../../common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { compareIgnoreCase } from '../../common/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
-	public label: string = vscode.l10n.t('Files');
+	public override readonly label: string = vscode.l10n.t('Files');
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private directories: TreeNode[] = [];
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private _reviewModel: ReviewModel,
 		_pullRequestModel: PullRequestModel
 	) {
-		super();
+		super(parent);
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		this.childrenDisposables = [];
 		this.childrenDisposables.push(this._reviewModel.onDidChangeLocalFileChanges(() => {
@@ -32,9 +34,21 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Review threads have changed, refreshing Files node`, PR_TREE);
 			this.refresh(this);
 		}));
-		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => {
-			Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
+		this.childrenDisposables.push(_pullRequestModel.onDidChange(e => {
+			if (e.comments) {
+				Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
+				this.refresh(this);
+			}
+		}));
+		this.childrenDisposables.push(_pullRequestModel.onDidChangeFileViewedState(() => {
+			Logger.appendLine(`File viewed state has changed, refreshing Files node`, PR_TREE);
 			this.refresh(this);
+		}));
+		this.childrenDisposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${HIDE_VIEWED_FILES}`)) {
+				Logger.appendLine(`Hide viewed files setting has changed, refreshing Files node`, PR_TREE);
+				this.refresh(this);
+			}
 		}));
 	}
 
@@ -42,8 +56,8 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
-		super.getChildren();
+	override async getChildren(): Promise<TreeNode[]> {
+		super.getChildren(false);
 
 		Logger.appendLine(`Getting children for Files node`, PR_TREE);
 		if (!this._reviewModel.hasLocalFileChanges) {
@@ -57,18 +71,28 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this._reviewModel.localFileChanges.length === 0) {
-			return [new LabelOnlyNode(vscode.l10n.t('No changed files'))];
+			return [new LabelOnlyNode(this, vscode.l10n.t('No changed files'))];
 		}
 
 		let nodes: TreeNode[];
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		const hideViewedFiles = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(HIDE_VIEWED_FILES, false);
+
+		// Filter files based on hideViewedFiles setting
+		const filesToShow = hideViewedFiles
+			? this._reviewModel.localFileChanges.filter(f => f.changeModel.viewed !== ViewedState.VIEWED)
+			: this._reviewModel.localFileChanges;
+
+		if (filesToShow.length === 0 && hideViewedFiles) {
+			return [new LabelOnlyNode(this, vscode.l10n.t('All files viewed'))];
+		}
 
 		const dirNode = new DirectoryTreeNode(this, '');
-		this._reviewModel.localFileChanges.forEach(f => dirNode.addFile(f));
+		filesToShow.forEach(f => dirNode.addFile(f));
 		dirNode.finalize();
 		if (dirNode.label === '') {
 			// nothing on the root changed, pull children to parent
-			this.directories = dirNode.children;
+			this.directories = dirNode._children;
 		} else {
 			this.directories = [dirNode];
 		}
@@ -76,10 +100,12 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		if (layout === 'tree') {
 			nodes = this.directories;
 		} else {
-			nodes = this._reviewModel.localFileChanges;
+			const fileNodes = [...filesToShow];
+			fileNodes.sort((a, b) => compareIgnoreCase(a.fileChangeResourceUri.toString(), b.fileChangeResourceUri.toString()));
+			nodes = fileNodes;
 		}
 		Logger.appendLine(`Got all children for Files node`, PR_TREE);
-		this.children = nodes;
+		this._children = nodes;
 		return nodes;
 	}
 }

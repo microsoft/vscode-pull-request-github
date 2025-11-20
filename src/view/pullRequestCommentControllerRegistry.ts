@@ -5,25 +5,33 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { fromPRUri } from '../common/uri';
+import { PullRequestCommentController } from './pullRequestCommentController';
+import { Disposable } from '../common/lifecycle';
+import { ITelemetry } from '../common/telemetry';
+import { fromPRUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CommentReactionHandler } from '../github/utils';
-import { PullRequestCommentController } from './pullRequestCommentController';
 
-interface PullRequestCommentHandlerInfo {
+interface PullRequestCommentHandlerInfo extends vscode.Disposable {
 	handler: PullRequestCommentController & CommentReactionHandler;
 	refCount: number;
-	dispose: () => void;
 }
 
-export class PRCommentControllerRegistry implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
-	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
-	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider2 } = {};
-	private _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
+interface PRCommentingRangeProviderInfo extends vscode.Disposable {
+	provider: vscode.CommentingRangeProvider2;
+	refCount: number;
+}
 
-	constructor(public commentsController: vscode.CommentController) {
+export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
+	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
+	private _prCommentingRangeProviders: { [key: number]: PRCommentingRangeProviderInfo } = {};
+	private readonly _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
+	public readonly resourceHints = { schemes: [Schemes.Pr] };
+
+	constructor(public readonly commentsController: vscode.CommentController, private readonly _telemetry: ITelemetry) {
+		super();
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
@@ -36,8 +44,8 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 			return;
 		}
 
-		const provideCommentingRanges = this._prCommentingRangeProviders[params.prNumber].provideCommentingRanges.bind(
-			this._prCommentingRangeProviders[params.prNumber],
+		const provideCommentingRanges = this._prCommentingRangeProviders[params.prNumber].provider.provideCommentingRanges.bind(
+			this._prCommentingRangeProviders[params.prNumber].provider,
 		);
 
 		return provideCommentingRanges(document, token);
@@ -78,12 +86,12 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 		if (!this._activeChangeListeners.has(folderRepositoryManager)) {
 			this._activeChangeListeners.set(folderRepositoryManager, folderRepositoryManager.onDidChangeActivePullRequest(e => {
 				if (e.old) {
-					this._prCommentHandlers[e.old]?.dispose();
+					this._prCommentHandlers[e.old.number]?.dispose();
 				}
 			}));
 		}
 
-		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController);
+		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController, this._telemetry);
 		this._prCommentHandlers[prNumber] = {
 			handler,
 			refCount: 1,
@@ -104,16 +112,31 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 	}
 
 	public registerCommentingRangeProvider(prNumber: number, provider: vscode.CommentingRangeProvider2): vscode.Disposable {
-		this._prCommentingRangeProviders[prNumber] = provider;
+		if (this._prCommentingRangeProviders[prNumber]) {
+			this._prCommentingRangeProviders[prNumber].refCount += 1;
+			return this._prCommentingRangeProviders[prNumber];
+		}
 
-		return {
+		this._prCommentingRangeProviders[prNumber] = {
+			provider,
+			refCount: 1,
 			dispose: () => {
-				delete this._prCommentingRangeProviders[prNumber];
+				if (!this._prCommentingRangeProviders[prNumber]) {
+					return;
+				}
+
+				this._prCommentingRangeProviders[prNumber].refCount -= 1;
+				if (this._prCommentingRangeProviders[prNumber].refCount === 0) {
+					delete this._prCommentingRangeProviders[prNumber];
+				}
 			}
 		};
+
+		return this._prCommentingRangeProviders[prNumber];
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		Object.keys(this._prCommentHandlers).forEach(key => {
 			this._prCommentHandlers[key].handler.dispose();
 		});

@@ -5,6 +5,7 @@
 
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
+import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
@@ -18,19 +19,14 @@ import {
 } from '../common/settingKeys';
 import {
 	FolderRepositoryManager,
-	NO_MILESTONE,
 	PullRequestDefaults,
 	ReposManagerState,
 } from '../github/folderRepositoryManager';
 import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
-import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
-import { CurrentIssue } from './currentIssue';
 
-// TODO: make exclude from date words configurable
-const excludeFromDate: string[] = ['Recovery'];
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
@@ -52,10 +48,6 @@ interface IssuesState {
 // eslint-disable-next-line no-template-curly-in-string
 const DEFAULT_QUERY_CONFIGURATION_VALUE: { label: string, query: string, groupBy: QueryGroup[] }[] = [{ label: vscode.l10n.t('My Issues'), query: 'is:open assignee:@me repo:${owner}/${repository}', groupBy: ['milestone'] }];
 
-export interface MilestoneItem extends MilestoneModel {
-	uri: vscode.Uri;
-}
-
 export class IssueItem extends IssueModel {
 	uri: vscode.Uri;
 }
@@ -74,7 +66,7 @@ export type QueryGroup = 'repository' | 'milestone';
 
 export interface IssueQueryResult {
 	groupBy: QueryGroup[];
-	issues: IssueItem[];
+	issues: IssueItem[] | undefined;
 }
 
 export class StateManager {
@@ -107,13 +99,16 @@ export class StateManager {
 		private context: vscode.ExtensionContext,
 	) { }
 
-	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
+	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState | undefined {
 		let state = this._singleRepoStates.get(uri.path);
 		if (state) {
 			return state;
 		}
 		if (!folderManager) {
-			folderManager = this.manager.getManagerForFile(uri)!;
+			folderManager = this.manager.getManagerForFile(uri);
+		}
+		if (!folderManager) {
+			return undefined;
 		}
 		state = {
 			issueCollection: new Map(),
@@ -155,6 +150,9 @@ export class StateManager {
 	private registerRepositoryChangeEvent() {
 		async function updateRepository(that: StateManager, repository: Repository) {
 			const state = that.getOrCreateSingleRepoState(repository.rootUri);
+			if (!state) {
+				return;
+			}
 			// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
 			const oldHead = state.lastHead;
 			const oldBranch = state.lastBranch;
@@ -173,7 +171,7 @@ export class StateManager {
 						await that.setCurrentIssueFromBranch(state, newBranch, true);
 					}
 				} else {
-					await that.setCurrentIssue(state, undefined, true);
+					await that.setCurrentIssue(state, undefined, !!newBranch);
 				}
 			}
 			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
@@ -201,8 +199,12 @@ export class StateManager {
 		this._onRefreshCacheNeeded.fire();
 	}
 
-	async refresh() {
-		return this.setAllIssueData();
+	async refresh(folderManager?: FolderRepositoryManager) {
+		if (folderManager) {
+			return this.setIssueData(folderManager);
+		} else {
+			return this.setAllIssueData();
+		}
 	}
 
 	private async doInitialize() {
@@ -234,12 +236,23 @@ export class StateManager {
 		);
 
 		for (const folderManager of this.manager.folderManagers) {
-			this.context.subscriptions.push(folderManager.onDidChangeRepositories(() => this.refresh()));
+			this.context.subscriptions.push(folderManager.onDidChangeRepositories(async (e) => {
+				if (e.added) {
+					const state = this.getOrCreateSingleRepoState(folderManager.repository.rootUri);
 
-			const singleRepoState: SingleRepoState = this.getOrCreateSingleRepoState(
+					if (state && ((state.issueCollection.size === 0) || (await Promise.all(state.issueCollection.values())).some(collection => collection.issues === undefined))) {
+						this.refresh(folderManager);
+					}
+				}
+			}));
+
+			const singleRepoState: SingleRepoState | undefined = this.getOrCreateSingleRepoState(
 				folderManager.repository.rootUri,
 				folderManager,
 			);
+			if (!singleRepoState) {
+				continue;
+			}
 			singleRepoState.lastHead = folderManager.repository.state.HEAD
 				? folderManager.repository.state.HEAD.commit
 				: undefined;
@@ -278,10 +291,10 @@ export class StateManager {
 	}
 
 	async getUserMap(uri: vscode.Uri): Promise<Map<string, IAccount>> {
-		if (!this.initializePromise) {
+		const state = this.getOrCreateSingleRepoState(uri);
+		if (!this.initializePromise || !state) {
 			return Promise.resolve(new Map());
 		}
-		const state = this.getOrCreateSingleRepoState(uri);
 		if (!state.userMap || (await state.userMap).size === 0) {
 			state.userMap = this.getUsers(uri);
 		}
@@ -298,6 +311,9 @@ export class StateManager {
 
 	private async setIssueData(folderManager: FolderRepositoryManager) {
 		const singleRepoState = this.getOrCreateSingleRepoState(folderManager.repository.rootUri, folderManager);
+		if (!singleRepoState) {
+			return;
+		}
 		singleRepoState.issueCollection.clear();
 		const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
 			remote => remote.isEnterprise
@@ -313,7 +329,7 @@ export class StateManager {
 			items = this.setIssues(
 				folderManager,
 				// Do not resolve pull request defaults as they will get resolved in the query later per repository
-				await variableSubstitution(query.query, undefined, undefined, user),
+				variableSubstitution(query.query, undefined, undefined, user),
 			).then(issues => ({ groupBy: query.groupBy ?? [], issues }));
 
 			if (items) {
@@ -325,12 +341,12 @@ export class StateManager {
 		singleRepoState.lastBranch = folderManager.repository.state.HEAD?.name;
 	}
 
-	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[]> {
+	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
-			const issues = await folderManager.getIssues(query);
+			const issues = await folderManager.getIssues(query, { fetchNextPage: false, fetchOnePagePerRepo: true });
 			this._onDidChangeIssueData.fire();
 			resolve(
-				issues.items.map(item => {
+				issues?.items.map(item => {
 					const issueItem: IssueItem = item as IssueItem;
 					issueItem.uri = folderManager.repository.rootUri;
 					return issueItem;
@@ -384,65 +400,6 @@ export class StateManager {
 		}
 	}
 
-	private setMilestones(folderManager: FolderRepositoryManager): Promise<MilestoneItem[]> {
-		return new Promise(async resolve => {
-			const now = new Date();
-			const skipMilestones: string[] = vscode.workspace
-				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
-				.get(IGNORE_MILESTONES, []);
-			const milestones = await folderManager.getMilestoneIssues(
-				{ fetchNextPage: false },
-				skipMilestones.indexOf(NO_MILESTONE) < 0,
-			);
-			let mostRecentPastTitleTime: Date | undefined = undefined;
-			const milestoneDateMap: Map<string, Date> = new Map();
-			const milestonesToUse: MilestoneItem[] = [];
-
-			// The number of milestones is expected to be very low, so two passes through is negligible
-			for (let i = 0; i < milestones.items.length; i++) {
-				const item: MilestoneItem = milestones.items[i] as MilestoneItem;
-				item.uri = folderManager.repository.rootUri;
-				const milestone = milestones.items[i].milestone;
-				if ((item.issues && item.issues.length <= 0) || skipMilestones.indexOf(milestone.title) >= 0) {
-					continue;
-				}
-
-				milestonesToUse.push(item);
-				let milestoneDate = milestone.dueOn ? new Date(milestone.dueOn) : undefined;
-				if (!milestoneDate) {
-					milestoneDate = new Date(this.removeDateExcludeStrings(milestone.title));
-					if (isNaN(milestoneDate.getTime())) {
-						milestoneDate = new Date(milestone.createdAt!);
-					}
-				}
-				if (
-					milestoneDate < now &&
-					(mostRecentPastTitleTime === undefined || milestoneDate > mostRecentPastTitleTime)
-				) {
-					mostRecentPastTitleTime = milestoneDate;
-				}
-				milestoneDateMap.set(milestone.id ? milestone.id : milestone.title, milestoneDate);
-			}
-
-			milestonesToUse.sort((a: MilestoneModel, b: MilestoneModel): number => {
-				const dateA = milestoneDateMap.get(a.milestone.id ? a.milestone.id : a.milestone.title)!;
-				const dateB = milestoneDateMap.get(b.milestone.id ? b.milestone.id : b.milestone.title)!;
-				if (mostRecentPastTitleTime && dateA >= mostRecentPastTitleTime && dateB >= mostRecentPastTitleTime) {
-					return dateA <= dateB ? -1 : 1;
-				} else {
-					return dateA >= dateB ? -1 : 1;
-				}
-			});
-			this._onDidChangeIssueData.fire();
-			resolve(milestonesToUse);
-		});
-	}
-
-	private removeDateExcludeStrings(possibleDate: string): string {
-		excludeFromDate.forEach(exclude => (possibleDate = possibleDate.replace(exclude, '')));
-		return possibleDate;
-	}
-
 	currentIssue(uri: vscode.Uri): CurrentIssue | undefined {
 		return this._singleRepoStates.get(uri.path)?.currentIssue;
 	}
@@ -474,8 +431,12 @@ export class StateManager {
 			if (repoState.currentIssue && issue?.issue.number === repoState.currentIssue.issue.number) {
 				return;
 			}
+			// Check if branch management is disabled
+			const createBranchConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
+			const shouldCheckoutDefaultBranch = createBranchConfig === 'off' ? false : checkoutDefaultBranch;
+
 			if (repoState.currentIssue) {
-				await repoState.currentIssue.stopWorking(checkoutDefaultBranch);
+				await repoState.currentIssue.stopWorking(shouldCheckoutDefaultBranch);
 			}
 			if (issue) {
 				this.context.subscriptions.push(issue.onDidChangeCurrentIssueState(() => this.updateStatusBar()));

@@ -2,12 +2,21 @@ jobs:
   - job: test_suite
     displayName: Test suite
     pool:
-      vmImage: 'macos-12'
+      vmImage: 'macos-15'
     steps:
       - template: scripts/ci/common-setup.yml
 
       - script: yarn run compile
         displayName: Compile
+
+      - script: npm run hygiene
+        displayName: Run hygiene checks
+
+      - script: npm run lint
+        displayName: Run lint
+
+      - script: yarn run check:commands
+        displayName: Verify command registrations
 
       - script: yarn run test
         displayName: Run test suite

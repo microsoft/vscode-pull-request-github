@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { IssueState, StateManager } from './stateManager';
 import { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
+import { Disposable } from '../common/lifecycle';
 import { Remote } from '../common/remote';
 import {
 	ASSIGN_WHEN_WORKING,
@@ -14,19 +16,18 @@ import {
 	USE_BRANCH_FOR_ISSUES,
 	WORKING_ISSUE_FORMAT_SCM,
 } from '../common/settingKeys';
+import { escapeRegExp } from '../common/utils';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { variableSubstitution } from '../github/utils';
-import { IssueState, StateManager } from './stateManager';
 
-export class CurrentIssue {
-	private repoChangeDisposable: vscode.Disposable | undefined;
+export class CurrentIssue extends Disposable {
 	private _branchName: string | undefined;
 	private user: string | undefined;
 	private repo: Repository | undefined;
 	private _repoDefaults: PullRequestDefaults | undefined;
-	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
 	public readonly onDidChangeCurrentIssueState: vscode.Event<void> = this._onDidChangeCurrentIssueState.event;
 	constructor(
 		private issueModel: IssueModel,
@@ -35,6 +36,7 @@ export class CurrentIssue {
 		remote?: Remote,
 		private shouldPromptForBranch?: boolean,
 	) {
+		super();
 		this.setRepo(remote ?? this.issueModel.githubRepository.remote);
 	}
 
@@ -85,7 +87,7 @@ export class CurrentIssue {
 					)) {
 						await this.manager.assignIssue(this.issueModel, login);
 					}
-					await this.stateManager.refresh();
+					await this.stateManager.refresh(this.manager);
 				}
 				return true;
 			}
@@ -94,10 +96,6 @@ export class CurrentIssue {
 			vscode.window.showErrorMessage(vscode.l10n.t('There is no remote. Can\'t start working on an issue.'));
 		}
 		return false;
-	}
-
-	public dispose() {
-		this.repoChangeDisposable?.dispose();
 	}
 
 	public async stopWorking(checkoutDefaultBranch: boolean) {
@@ -153,7 +151,7 @@ export class CurrentIssue {
 
 	private async getUser(): Promise<string> {
 		if (!this.user) {
-			this.user = await this.issueModel.githubRepository.getAuthenticatedUser();
+			this.user = (await this.issueModel.githubRepository.getAuthenticatedUser()).login;
 		}
 		return this.user;
 	}
@@ -215,13 +213,13 @@ export class CurrentIssue {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		const branchNameConfig = await variableSubstitution(
+		const branchNameConfig = variableSubstitution(
 			await this.getBranchTitle(),
 			this.issue,
 			undefined,
 			await this.getUser(),
 		);
-		const branchNameMatch = this._branchName?.match(new RegExp('^(' + branchNameConfig + ')(_)?(\\d*)'));
+		const branchNameMatch = this._branchName?.match(new RegExp('^(' + escapeRegExp(branchNameConfig) + ')(_)?(\\d*)'));
 		if ((createBranchConfig === 'on')) {
 			const branch = await this.getBranch(this._branchName!);
 			if (!branch) {

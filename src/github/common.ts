@@ -4,6 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
+import { DocumentNode } from 'graphql';
+import { ChatSessionStatus, Uri } from 'vscode';
+import { SessionInfo, SessionSetupStep } from './copilotApi';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
+import { Repository } from '../api/api';
+import { CopilotPRStatus } from '../common/copilot';
+import { GitHubRemote } from '../common/remote';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
 
 export namespace OctokitCommon {
 	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];
@@ -11,11 +20,37 @@ export namespace OctokitCommon {
 	export type IssuesCreateResponseData = OctokitRest.RestEndpointMethodTypes['issues']['create']['response']['data'];
 	export type IssuesListCommentsResponseData = OctokitRest.RestEndpointMethodTypes['issues']['listComments']['response']['data'];
 	export type IssuesListEventsForTimelineResponseData = Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/timeline']['response']['data'];
-	export type IssuesListEventsForTimelineResponseItemActor = IssuesListEventsForTimelineResponseData[0]['actor'];
+	export type IssuesListEventsForTimelineResponseItemActor = {
+		name?: string | null;
+		email?: string | null;
+		login: string;
+		id: number;
+		node_id: string;
+		avatar_url: string;
+		gravatar_id: string;
+		url: string;
+		html_url: string;
+		followers_url: string;
+		following_url: string;
+		gists_url: string;
+		starred_url: string;
+		subscriptions_url: string;
+		organizations_url: string;
+		repos_url: string;
+		events_url: string;
+		received_events_url: string;
+		type: string;
+		site_admin: boolean;
+		starred_at: string;
+		user_view_type: string;
+	}
 	export type PullsCreateParams = OctokitRest.RestEndpointMethodTypes['pulls']['create']['parameters'];
-	export type PullsCreateReviewResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews']['response']['data'];
+	export type PullsCreateReviewResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews']['response']['data'] & {
+		submitted_at: string;
+	};
 	export type PullsCreateReviewCommentResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/comments']['response']['data'];
 	export type PullsGetResponseData = OctokitRest.RestEndpointMethodTypes['pulls']['get']['response']['data'];
+	export type IssuesGetResponseData = OctokitRest.RestEndpointMethodTypes['issues']['get']['response']['data'];
 	export type PullsGetResponseUser = Exclude<PullsGetResponseData['user'], null>;
 	export type PullsListCommitsResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/commits']['response']['data'];
 	export type PullsListRequestedReviewersResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers']['response']['data'];
@@ -33,7 +68,6 @@ export namespace OctokitCommon {
 	export type PullsListResponseItemHeadUser = PullsListResponseItemHead['user'];
 	export type PullsListResponseItemHeadRepoOwner = PullsListResponseItemHead['repo']['owner'];
 	export type PullsListReviewRequestsResponseTeamsItem = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers']['response']['data']['teams'][0];
-	export type PullsListResponseItemHeadRepoTemplateRepository = PullsListResponseItem['head']['repo']['template_repository'];
 	export type PullsListCommitsResponseItem = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/commits']['response']['data'][0];
 	export type ReposCompareCommitsResponseData = OctokitRest.RestEndpointMethodTypes['repos']['compareCommits']['response']['data'];
 	export type ReposGetCombinedStatusForRefResponseStatusesItem = Endpoints['GET /repos/{owner}/{repo}/commits/{ref}/status']['response']['data']['statuses'][0];
@@ -46,11 +80,16 @@ export namespace OctokitCommon {
 	export type SearchReposResponseItem = Endpoints['GET /search/repositories']['response']['data']['items'][0];
 	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
 	export type Commit = CompareCommits['commits'][0];
-	export type CommitFile = CompareCommits['files'][0];
+	export type CommitFiles = CompareCommits['files']
+	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
+	export type ListEventsForTimelineResponse = Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/timeline']['response']['data'][0];
+	export type ListWorkflowRunsForRepo = Endpoints['GET /repos/{owner}/{repo}/actions/runs']['response']['data'];
+	export type WorkflowRun = Endpoints['GET /repos/{owner}/{repo}/actions/runs']['response']['data']['workflow_runs'][0];
+	export type WorkflowJob = Endpoints['GET /repos/{owner}/{repo}/actions/jobs/{job_id}']['response']['data'];
+	export type WorkflowJobs = Endpoints['GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs']['response']['data'];
 }
 
-export type Schema = { [key: string]: any, definitions: any[]; };
-export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema) {
+export function mergeQuerySchemaWithShared(sharedSchema: DocumentNode, schema: DocumentNode) {
 	const sharedSchemaDefinitions = sharedSchema.definitions;
 	const schemaDefinitions = schema.definitions;
 	const mergedDefinitions = schemaDefinitions.concat(sharedSchemaDefinitions);
@@ -59,4 +98,95 @@ export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema)
 		...sharedSchema,
 		definitions: mergedDefinitions
 	};
+}
+
+type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: Uri; llmDetails: string; sessionId: string };
+type RemoteAgentErrorResult = { error: string; innerError?: string; state: 'error' };
+export type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
+
+export interface IAPISessionLogs {
+	readonly info: SessionInfo;
+	readonly logs: string;
+	readonly setupSteps: SessionSetupStep[] | undefined;
+}
+
+export interface ICopilotRemoteAgentCommandArgs {
+	userPrompt: string;
+	summary?: string;
+	source?: 'prompt' | (string & {});
+	followup?: string;
+	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
+}
+
+export interface ICopilotRemoteAgentCommandResponse {
+	uri: string;
+	title: string;
+	description: string;
+	author: string;
+	linkTag: string;
+}
+
+export interface ToolCall {
+	function: {
+		arguments: string;
+		name: 'bash' | 'reply_to_comment' | (string & {});
+	};
+	id: string;
+	type: string;
+	index: number;
+}
+
+export interface AssistantDelta {
+	content?: string;
+	role: 'assistant' | (string & {});
+	tool_calls?: ToolCall[];
+}
+
+export interface Choice {
+	finish_reason?: 'tool_calls' | (string & {});
+	delta: {
+		content?: string;
+		role: 'assistant' | (string & {});
+		tool_calls?: ToolCall[];
+	};
+}
+
+export interface RepoInfo {
+	owner: string;
+	repo: string;
+	baseRef: string;
+	remote: GitHubRemote;
+	repository: Repository;
+	ghRepository: GitHubRepository;
+	fm: FolderRepositoryManager;
+}
+
+export function copilotEventToSessionStatus(event: TimelineEvent | undefined): ChatSessionStatus {
+	if (!event) {
+		return ChatSessionStatus.InProgress;
+	}
+
+	switch (event.event) {
+		case EventType.CopilotStarted:
+			return ChatSessionStatus.InProgress;
+		case EventType.CopilotFinished:
+			return ChatSessionStatus.Completed;
+		case EventType.CopilotFinishedError:
+			return ChatSessionStatus.Failed;
+		default:
+			return ChatSessionStatus.InProgress;
+	}
+}
+
+export function copilotPRStatusToSessionStatus(event: CopilotPRStatus): ChatSessionStatus {
+	switch (event) {
+		case CopilotPRStatus.Started:
+			return ChatSessionStatus.InProgress;
+		case CopilotPRStatus.Completed:
+			return ChatSessionStatus.Completed;
+		case CopilotPRStatus.Failed:
+			return ChatSessionStatus.Failed;
+		default:
+			return ChatSessionStatus.InProgress;
+	}
 }
