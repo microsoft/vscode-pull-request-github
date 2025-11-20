@@ -56,33 +56,6 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 		this._onDidChangeWorkspaceChatContext.fire();
 	}
 
-	async provideWorkspaceChatContext(_token: vscode.CancellationToken): Promise<vscode.ChatContextItem[]> {
-		const modelDescription = this._reposManager.folderManagers.length > 1 ? 'Information about one of the current repositories. You can use this information when you need to calculate diffs or compare changes with the default branch' : 'Information about the current repository. You can use this information when you need to calculate diffs or compare changes with the default branch';
-		const contexts: vscode.ChatContextItem[] = [];
-		for (const folderManager of this._reposManager.folderManagers) {
-			if (folderManager.gitHubRepositories.length === 0) {
-				continue;
-			}
-			const defaults = await folderManager.getPullRequestDefaults();
-
-			let value = `Repository name: ${defaults.repo}
-Owner: ${defaults.owner}
-Current branch: ${folderManager.repository.state.HEAD?.name ?? 'unknown'}
-Default branch: ${defaults.base}`;
-			if (folderManager.activePullRequest) {
-				value = `${value}
-Active pull request (may not be the same as open pull request): #${folderManager.activePullRequest.number} ${folderManager.activePullRequest.html_url}`;
-			}
-			contexts.push({
-				icon: new vscode.ThemeIcon('github-alt'),
-				label: `${defaults.owner}/${defaults.repo}`,
-				modelDescription,
-				value
-			});
-		}
-		return contexts;
-	}
-
 	async provideChatContextForResource(_options: { resource: vscode.Uri }, _token: vscode.CancellationToken): Promise<PRChatContextItem | undefined> {
 		const item = PullRequestOverviewPanel.currentPanel?.getCurrentItem();
 		if (item) {
