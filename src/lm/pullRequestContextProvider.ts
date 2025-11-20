@@ -71,7 +71,7 @@ Current branch: ${folderManager.repository.state.HEAD?.name ?? 'unknown'}
 Default branch: ${defaults.base}`;
 			if (folderManager.activePullRequest) {
 				value = `${value}
-Active pull request (may not be the same as open pull request): #${folderManager.activePullRequest.number} ${folderManager.activePullRequest.html_url}`;
+Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
 			}
 			contexts.push({
 				icon: new vscode.ThemeIcon('github-alt'),
