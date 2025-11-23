@@ -582,7 +582,7 @@ const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] 
 						{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
 					</span>
 				</div>
-				<div>
+				<div className='status-check-detail-links'>
 				{s.isRequired ? (
 					<span className="label">Required</span>
 				) : null }

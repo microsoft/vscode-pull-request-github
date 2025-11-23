@@ -230,6 +230,11 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
+.status-check-detail-links {
+	display: flex;
+	align-items: center;
+}
+
 #merge-on-github {
 	margin-top: 10px;
 }
