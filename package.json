@@ -4253,7 +4253,7 @@
 											}
 										}
 									},
-									"commentsCount": {
+									"commentCount": {
 										"type": "number",
 										"description": "The number of comments on the issue."
 									}
