@@ -4253,9 +4253,13 @@
 											}
 										}
 									},
-									"commentsCount": {
+									"commentCount": {
 										"type": "number",
 										"description": "The number of comments on the issue."
+									},
+									"reactionCount": {
+										"type": "number",
+										"description": "The number of reactions on the issue."
 									}
 								},
 								"required": [
