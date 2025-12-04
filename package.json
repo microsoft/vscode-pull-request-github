@@ -3631,10 +3631,12 @@
 			],
 			"chat/multiDiff/context": [
 				{
-					"command": "pr.checkoutFromDescription"
+					"command": "pr.checkoutFromDescription",
+					"when": "chatSessionType == copilot-cloud-agent"
 				},
 				{
-					"command": "pr.applyChangesFromDescription"
+					"command": "pr.applyChangesFromDescription",
+					"when": "chatSessionType == copilot-cloud-agent"
 				}
 			]
 		},
