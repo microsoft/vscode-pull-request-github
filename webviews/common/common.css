@@ -133,7 +133,8 @@ input[type='checkbox'] {
 	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-svg path:first-of-type {
+:not(.copilot-icon) > svg path,
+.copilot-icon svg path:first-of-type {
 	fill: var(--vscode-foreground);
 }
 
