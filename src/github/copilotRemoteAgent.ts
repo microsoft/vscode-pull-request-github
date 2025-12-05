@@ -1086,7 +1086,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					timing: {
 						startTime: timestampNumber
 					},
-					statistics: pullRequest.item.additions !== undefined && pullRequest.item.deletions !== undefined && (pullRequest.item.additions > 0 || pullRequest.item.deletions > 0) ? {
+					changes: pullRequest.item.additions !== undefined && pullRequest.item.deletions !== undefined && (pullRequest.item.additions > 0 || pullRequest.item.deletions > 0) ? {
 						insertions: pullRequest.item.additions,
 						deletions: pullRequest.item.deletions,
 						files: fileCount
