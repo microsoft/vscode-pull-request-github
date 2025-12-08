@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.124.0
+
+### Changes
+
+- The active pull request or issue webview title is now included as implicit context when using Copilot Chat. You can click on the implicit context item to include all the PR information in your prompt.
+
+![Pull request title as implicit context in Chat](./documentation/changelog/0.124.0/pull-request-implicit-context.png)
+
+- Pull request and issue context can also be manually added to Chat from the "Add Context" menu.
+
+![Explicit Chat context](./documentation/changelog/0.124.0/explicit-chat-context.png)
+
+- Single button for marking Copilot pull requests as ready for review, approved, and automerge (if enabled).
+
+![Single button to mark Copilot pull requests](./documentation/changelog/0.124.0/single-button-copilot-pr.png)
+
+- The "Copy link" action for individual comments shows in the pull request description webview.
+- Comments that are part of an un-submitted review (only visible to you) now show with at "comment draft" icon in the editor gutter and in the Comments view.
+- For commits where checks have run, the commit status icon now shows next to each commit in the pull request description webview.
+
+### Fixes
+
+- Comments don't show when PR is on non-default repo. https://github.com/microsoft/vscode-pull-request-github/issues/8050
+- ignoreSubmodules is honored differently for Pull Requests and Issues view. https://github.com/microsoft/vscode-pull-request-github/issues/7741
+
+**_Thank You_**
+
+* [@vicky1999 (Vignesh)](https://github.com/vicky1999)
+  * fix: message wrapping in narrow editor panes [PR #8121](https://github.com/microsoft/vscode-pull-request-github/pull/8121)
+  * feat: Display commit status icon for each commit [PR #8142](https://github.com/microsoft/vscode-pull-request-github/pull/8142)
+  * feat: Add copy comment link button in PR overview [PR #8150](https://github.com/microsoft/vscode-pull-request-github/pull/8150)
+
 ## 0.122.1
 
 ### Fixes
