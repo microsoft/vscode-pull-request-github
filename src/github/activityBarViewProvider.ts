@@ -415,7 +415,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
 				if (deleteBranchAfterMerge) {
 					// Automatically delete the branch after successful merge
-					await PullRequestReviewCommon.deleteBranch(this._folderRepositoryManager, this._item);
+					await PullRequestReviewCommon.autoDeleteBranchesAfterMerge(this._folderRepositoryManager, this._item);
 				}
 			}
 
