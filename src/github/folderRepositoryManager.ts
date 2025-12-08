@@ -1086,6 +1086,10 @@ export class FolderRepositoryManager extends Disposable {
 
 		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
+		// Check if user has explicitly configured remotes (not using defaults)
+		const remotesConfig = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(REMOTES);
+		const hasExplicitRemotesConfig = !!(remotesConfig?.globalValue || remotesConfig?.workspaceValue || remotesConfig?.workspaceFolderValue);
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
 			if (!activeGitHubRemotes.find(r => r.equals(repo.remote))) {
 				return false;
@@ -1152,10 +1156,12 @@ export class FolderRepositoryManager extends Disposable {
 			// 1) we've received data AND
 			// 2) either we're fetching just the next page (case 2)
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
+			// 3) AND the user hasn't explicitly configured remotes (if they have, we should search all of them)
 			if (
 				itemData.items.length &&
 				(options.fetchNextPage ||
-					((options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages())))
+					((options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages()))) &&
+				!hasExplicitRemotesConfig
 			) {
 				if (getTotalFetchedPages() === 0) {
 					// We're in case 1, manually set number of pages we looked through until we found first results.
