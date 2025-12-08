@@ -345,7 +345,7 @@ export namespace PullRequestReviewCommon {
 		const deletedBranchTypes: string[] = [];
 
 		if (selectedActions) {
-			const isBranchActive = item.equals(folderRepositoryManager.activePullRequest) || (folderRepositoryManager.repository.state.HEAD?.name && folderRepositoryManager.repository.state.HEAD.name === branchInfo?.branch);
+			const isBranchActiveForDeletion = branchInfo && isBranchActive(folderRepositoryManager, item, branchInfo.branch);
 
 			const promises = selectedActions.map(async action => {
 				switch (action.type) {
@@ -359,7 +359,7 @@ export namespace PullRequestReviewCommon {
 						}
 						return;
 					case 'local':
-						if (isBranchActive) {
+						if (isBranchActiveForDeletion) {
 							if (folderRepositoryManager.repository.state.workingTreeChanges.length) {
 								const yes = vscode.l10n.t('Yes');
 								const response = await vscode.window.showWarningMessage(
@@ -406,6 +406,14 @@ export namespace PullRequestReviewCommon {
 	}
 
 	/**
+	 * Check if a pull request's branch is currently active (checked out).
+	 */
+	function isBranchActive(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel, branchName: string): boolean {
+		return item.equals(folderRepositoryManager.activePullRequest) ||
+			(folderRepositoryManager.repository.state.HEAD?.name === branchName);
+	}
+
+	/**
 	 * Automatically delete branches after merge based on user preferences.
 	 * This function does not show any prompts - it uses the default deletion method preferences.
 	 */
@@ -422,50 +430,41 @@ export namespace PullRequestReviewCommon {
 			.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_REMOTE}`, true);
 
-		const promises: Promise<void>[] = [];
+		const deletionTasks: Promise<void>[] = [];
 
 		// Delete remote head branch if it's not the default branch
 		if (item.isResolved()) {
 			const isDefaultBranch = defaultBranch === item.head.ref;
 			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
-				promises.push(
-					folderRepositoryManager.deleteBranch(item).then(() => {
-						return folderRepositoryManager.repository.fetch({ prune: true });
-					}).catch(e => {
-						Logger.warn(`Failed to delete remote branch for PR #${item.number}: ${e}`, 'PullRequestReviewCommon');
-					})
+				deletionTasks.push(
+					folderRepositoryManager.deleteBranch(item)
+						.then(() => folderRepositoryManager.repository.fetch({ prune: true }))
+						.catch(e => Logger.warn(`Failed to delete remote branch for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
 				);
 			}
 		}
 
 		// Delete local branch if preference is set
 		if (branchInfo && deleteLocalBranch) {
-			const isBranchActive = item.equals(folderRepositoryManager.activePullRequest) ||
-				(folderRepositoryManager.repository.state.HEAD?.name && folderRepositoryManager.repository.state.HEAD.name === branchInfo.branch);
-
-			promises.push(
+			deletionTasks.push(
 				(async () => {
-					if (isBranchActive) {
-						// Checkout default branch before deleting the active branch
+					if (isBranchActive(folderRepositoryManager, item, branchInfo.branch)) {
 						await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
 					}
 					await folderRepositoryManager.repository.deleteBranch(branchInfo.branch, true);
-				})().catch(e => {
-					Logger.warn(`Failed to delete local branch ${branchInfo.branch} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon');
-				})
+				})().catch(e => Logger.warn(`Failed to delete local branch ${branchInfo.branch} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
 			);
 		}
 
 		// Delete remote if it's no longer used and preference is set
 		if (branchInfo && branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse && deleteRemote) {
-			promises.push(
-				folderRepositoryManager.repository.removeRemote(branchInfo.remote).catch(e => {
-					Logger.warn(`Failed to delete remote ${branchInfo.remote} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon');
-				})
+			deletionTasks.push(
+				folderRepositoryManager.repository.removeRemote(branchInfo.remote)
+					.catch(e => Logger.warn(`Failed to delete remote ${branchInfo.remote} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
 			);
 		}
 
 		// Execute all deletions in parallel
-		await Promise.all(promises);
+		await Promise.all(deletionTasks);
 	}
 }
