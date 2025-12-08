@@ -58,7 +58,7 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 			return new TextEncoder().encode('');
 		}
 
-		const { path, commit, rootPath } = fromReviewUri(uri.query);
+		const { path, commit, rootPath, isOutdated } = fromReviewUri(uri.query);
 
 		if (!path || !commit) {
 			return new TextEncoder().encode('');
@@ -94,7 +94,7 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 				} catch (err) {
 					Logger.error(err, GitContentFileSystemProvider.ID);
 					// Only show the error if we know it's not an outdated commit
-					if (!this.getOutdatedChangeModelForFile(uri)) {
+					if (!isOutdated && !this.getOutdatedChangeModelForFile(uri)) {
 						vscode.window.showErrorMessage(
 							`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`,
 						);
