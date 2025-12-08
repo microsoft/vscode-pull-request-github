@@ -321,6 +321,11 @@
 					"default": true,
 					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
 				},
+				"githubPullRequests.deleteBranchAfterMerge": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
+				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
 					"enum": [
