@@ -21,6 +21,34 @@ export function Root({ children }) {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
 	}, []);
+
+	// Track focus on the comment textarea to restore it when the webview regains focus
+	useEffect(() => {
+		const handleFocusIn = (e: FocusEvent) => {
+			if (e.target instanceof HTMLTextAreaElement && e.target.id === 'comment-textarea') {
+				sessionStorage.setItem('comment-textarea-had-focus', 'true');
+			}
+		};
+
+		const handleFocusOut = (e: FocusEvent) => {
+			if (e.target instanceof HTMLTextAreaElement && e.target.id === 'comment-textarea') {
+				// Only clear the flag if we're switching to a non-textarea element
+				// This prevents clearing when the webview loses focus
+				if (e.relatedTarget instanceof HTMLElement) {
+					sessionStorage.setItem('comment-textarea-had-focus', 'false');
+				}
+			}
+		};
+
+		document.addEventListener('focusin', handleFocusIn);
+		document.addEventListener('focusout', handleFocusOut);
+
+		return () => {
+			document.removeEventListener('focusin', handleFocusIn);
+			document.removeEventListener('focusout', handleFocusOut);
+		};
+	}, []);
+
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',

@@ -410,6 +410,17 @@ export class PRContext {
 					pendingReview.focus();
 				}
 				return;
+			case 'pr.restoreFocus':
+				// Restore focus to the comment textarea if it had focus before the webview lost focus
+				const commentTextarea = document.getElementById('comment-textarea');
+				if (commentTextarea instanceof HTMLTextAreaElement) {
+					// Check if there's a stored focus state
+					const shouldRestoreFocus = sessionStorage.getItem('comment-textarea-had-focus') === 'true';
+					if (shouldRestoreFocus) {
+						commentTextarea.focus();
+					}
+				}
+				return;
 			case 'pr.submitting-review':
 				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
 			case 'pr.append-review':
