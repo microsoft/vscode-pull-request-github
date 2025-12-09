@@ -1629,8 +1629,8 @@ ${contents}
 				quickPick.busy = false;
 
 				// Handle selection
-				let acceptDisposable: vscode.Disposable;
-				let hideDisposable: vscode.Disposable;
+				let acceptDisposable: vscode.Disposable | undefined;
+				let hideDisposable: vscode.Disposable | undefined;
 				const selected = await new Promise<(vscode.QuickPickItem & { pr?: PullRequestModel }) | string | undefined>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
 						if (quickPick.selectedItems.length > 0) {
@@ -1638,14 +1638,17 @@ ${contents}
 						} else if (quickPick.value) {
 							// User typed something but didn't select from list
 							resolve(quickPick.value);
+						} else {
+							// User pressed Enter with no selection and no input
+							resolve(undefined);
 						}
 					});
 					hideDisposable = quickPick.onDidHide(() => resolve(undefined));
 				});
 
 				// Clean up event listeners
-				acceptDisposable.dispose();
-				hideDisposable.dispose();
+				acceptDisposable?.dispose();
+				hideDisposable?.dispose();
 
 				quickPick.hide();
 				quickPick.dispose();
