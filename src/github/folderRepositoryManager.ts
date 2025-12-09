@@ -2492,6 +2492,61 @@ export class FolderRepositoryManager extends Disposable {
 
 	private async pullBranch(branch: Branch) {
 		if (this._repository.state.HEAD?.name === branch.name) {
+			// Check if the branch has diverged (ahead > 0 && behind > 0)
+			// This typically happens when the remote has been force-pushed or rebased
+			if (branch.ahead !== undefined && branch.ahead > 0 && branch.behind !== undefined && branch.behind > 0) {
+				const resetToRemote = vscode.l10n.t('Reset to Remote');
+				const cancel = vscode.l10n.t('Cancel');
+				const result = await vscode.window.showWarningMessage(
+					vscode.l10n.t('The pull request branch has diverged from the remote (you have {0} local commit(s), remote has {1} new commit(s)).\n\nThis usually happens when the remote branch has been force-pushed or rebased. You can reset your local branch to match the remote (this will discard your {0} local commit(s)), or cancel and resolve manually.', branch.ahead, branch.behind),
+					{ modal: true },
+					resetToRemote,
+					cancel
+				);
+
+				if (result === resetToRemote) {
+					try {
+						if (branch.upstream) {
+							// Fetch to ensure we have the latest remote state
+							await this._repository.fetch(branch.upstream.remote, branch.name);
+
+							// Get the remote branch reference
+							const remoteBranchRef = `refs/remotes/${branch.upstream.remote}/${branch.upstream.name}`;
+							const remoteBranch = await this._repository.getBranch(remoteBranchRef);
+							const currentBranchName = branch.name!;
+
+							// Create a temp branch at the remote commit
+							const tempBranchName = `temp-pr-update-${Date.now()}`;
+							await this._repository.createBranch(tempBranchName, false, remoteBranch.commit);
+							await this._repository.setBranchUpstream(tempBranchName, remoteBranchRef);
+
+							// Checkout the temp branch
+							await this._repository.checkout(tempBranchName);
+
+							// Delete the old branch (force delete since it has un-merged commits)
+							await this._repository.deleteBranch(currentBranchName, true);
+
+							// Recreate the original branch at the same commit
+							await this._repository.createBranch(currentBranchName, false, remoteBranch.commit);
+							await this._repository.setBranchUpstream(currentBranchName, remoteBranchRef);
+
+							// Checkout the recreated branch
+							await this._repository.checkout(currentBranchName);
+
+							// Delete the temp branch
+							await this._repository.deleteBranch(tempBranchName, true);
+
+							Logger.appendLine(`Successfully reset branch ${currentBranchName} to remote ${remoteBranchRef}`, this.id);
+						}
+					} catch (e) {
+						Logger.error(`Error resetting branch to remote: ${e}`, this.id);
+						vscode.window.showErrorMessage(vscode.l10n.t('Failed to reset branch to remote: {0}', e.message || e));
+					}
+				}
+				// If cancel, do nothing
+				return;
+			}
+
 			await this._repository.pull();
 		}
 	}
