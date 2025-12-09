@@ -1445,6 +1445,7 @@ ${options?.body ?? ''}\n
 		}
 
 		// If a specific range is provided (e.g., from a gutter click), use that
+		// Note: NotebookRange is excluded because getText() only accepts vscode.Range
 		if (range && !(range instanceof vscode.NotebookRange)) {
 			const text = vscode.window.activeTextEditor.document.getText(range);
 			if (text) {
