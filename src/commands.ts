@@ -1616,7 +1616,9 @@ ${contents}
 			// Fetch all open PRs
 			try {
 				const prs = await githubRepo.manager.getPullRequests(PRType.All, { fetchNextPage: false });
-				const prItems: (vscode.QuickPickItem & { pr: PullRequestModel })[] = prs.items.map(pr => ({
+				// Sort PRs by number in descending order (most recent first)
+				const sortedPRs = prs.items.sort((a, b) => b.number - a.number);
+				const prItems: (vscode.QuickPickItem & { pr: PullRequestModel })[] = sortedPRs.map(pr => ({
 					label: `#${pr.number}`,
 					description: pr.title,
 					detail: `by @${pr.author.login}`,
