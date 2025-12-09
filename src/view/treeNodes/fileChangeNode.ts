@@ -168,6 +168,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			return '';
 		}
 
+		// Only show non-zero values (e.g., "+5", "-3", "+5 -3")
+		// This matches GitHub's standard display format
 		const parts: string[] = [];
 		if (additions !== undefined && additions > 0) {
 			parts.push(`+${additions}`);
