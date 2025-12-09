@@ -7,6 +7,7 @@ import { basename } from 'path';
 import * as vscode from 'vscode';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
+import { IssueTodoDiagnosticProvider } from './issueTodoDiagnosticProvider';
 import { Remote } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { COPILOT_ACCOUNTS } from '../common/comment';
@@ -581,6 +582,10 @@ export class IssueFeatureRegistrar extends Disposable {
 			);
 			this._register(
 				vscode.languages.registerCodeLensProvider('*', todoProvider),
+			);
+			// Register diagnostic provider for TODO comments with closed issues
+			this._register(
+				new IssueTodoDiagnosticProvider(this.context, this.manager, this._stateManager),
 			);
 		});
 	}
