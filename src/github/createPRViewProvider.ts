@@ -522,7 +522,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 		// Construct the GitHub URL for creating a PR
 		// Format: https://github.com/{owner}/{repo}/pull/new/{branch}
-		const url = `${baseRepo.remote.normalizedHost}/${baseRepo.remote.owner}/${baseRepo.remote.repositoryName}/pull/new/${compareBranch}`;
+		const url = `${baseRepo.remote.normalizedHost}/${baseRepo.remote.owner}/${baseRepo.remote.repositoryName}/pull/new/${encodeURIComponent(compareBranch)}`;
 
 		await vscode.env.openExternal(vscode.Uri.parse(url));
 	}
