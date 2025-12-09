@@ -173,8 +173,15 @@ export function main() {
 				}
 
 				function openDescriptionSettings(event: React.MouseEvent | React.KeyboardEvent): void {
-					event.preventDefault();
-					ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+					if (event.type === 'keydown') {
+						const keyEvent = event as React.KeyboardEvent;
+						if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+							event.preventDefault();
+							ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+						}
+					} else {
+						ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+					}
 				}
 
 				async function generateTitle(useCopilot?: boolean) {
