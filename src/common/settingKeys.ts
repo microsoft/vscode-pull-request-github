@@ -49,6 +49,7 @@ export const IGNORE_USER_COMPLETION_TRIGGER = 'ignoreUserCompletionTrigger';
 export const CREATE_INSERT_FORMAT = 'createInsertFormat';
 export const ISSUE_BRANCH_TITLE = 'issueBranchTitle';
 export const USE_BRANCH_FOR_ISSUES = 'useBranchForIssues';
+export const WORKING_BASE_BRANCH = 'workingBaseBranch';
 export const WORKING_ISSUE_FORMAT_SCM = 'workingIssueFormatScm';
 export const IGNORE_COMPLETION_TRIGGER = 'ignoreCompletionTrigger';
 export const ISSUE_COMPLETION_FORMAT_SCM = 'issueCompletionFormatScm';

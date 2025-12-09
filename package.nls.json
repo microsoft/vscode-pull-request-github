@@ -130,6 +130,15 @@
 	"githubIssues.useBranchForIssues.on": "A branch will always be checked out when you start working on an issue. If the branch doesn't exist, it will be created.",
 	"githubIssues.useBranchForIssues.off": "A branch will not be created when you start working on an issue. If you have worked on an issue before and a branch was created for it, that same branch will be checked out.",
 	"githubIssues.useBranchForIssues.prompt": "A prompt will show for setting the name of the branch that will be created and checked out.",
+	"githubIssues.workingBaseBranch.markdownDescription": {
+		"message": "Determines which branch to use as the base when creating a new branch for an issue. This setting controls what branch the new issue branch is created from.",
+		"comment": [
+			"Describes the base branch selection for issue branches"
+		]
+	},
+	"githubIssues.workingBaseBranch.currentBranch": "Create the issue branch from the current branch without switching to the default branch first.",
+	"githubIssues.workingBaseBranch.defaultBranch": "Always switch to the default branch before creating the issue branch.",
+	"githubIssues.workingBaseBranch.prompt": "Prompt which branch to use as the base when creating an issue branch.",
 	"githubIssues.issueCompletionFormatScm.markdownDescription": {
 		"message": "Sets the format of issue completions in the SCM inputbox. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository",
 		"comment": [
