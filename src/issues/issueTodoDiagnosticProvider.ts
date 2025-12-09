@@ -14,6 +14,7 @@ import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/u
 export class IssueTodoDiagnosticProvider {
 	private diagnosticCollection: vscode.DiagnosticCollection;
 	private expression: RegExp | undefined;
+	private validationTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
 	constructor(
 		context: vscode.ExtensionContext,
@@ -27,24 +28,29 @@ export class IssueTodoDiagnosticProvider {
 			vscode.workspace.onDidChangeConfiguration(e => {
 				if (e.affectsConfiguration(ISSUES_SETTINGS_NAMESPACE)) {
 					this.updateTriggers();
+					// Re-validate all open documents when triggers change
+					vscode.workspace.textDocuments.forEach(document => {
+						this.scheduleValidation(document);
+					});
 				}
 			}),
 		);
 
 		context.subscriptions.push(
 			vscode.workspace.onDidOpenTextDocument(document => {
-				this.validateDocument(document);
+				this.scheduleValidation(document);
 			}),
 		);
 
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeTextDocument(e => {
-				this.validateDocument(e.document);
+				this.scheduleValidation(e.document);
 			}),
 		);
 
 		context.subscriptions.push(
 			vscode.workspace.onDidCloseTextDocument(document => {
+				this.cancelValidation(document);
 				this.diagnosticCollection.delete(document.uri);
 			}),
 		);
@@ -53,13 +59,42 @@ export class IssueTodoDiagnosticProvider {
 
 		// Validate all currently open documents
 		vscode.workspace.textDocuments.forEach(document => {
-			this.validateDocument(document);
+			this.scheduleValidation(document);
 		});
 	}
 
 	private updateTriggers() {
 		const triggers = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_ISSUE_TRIGGERS, []);
 		this.expression = triggers.length > 0 ? new RegExp(triggers.map(trigger => escapeRegExp(trigger)).join('|')) : undefined;
+	}
+
+	private scheduleValidation(document: vscode.TextDocument): void {
+		// Skip validation for non-file schemes and certain document types
+		if (document.uri.scheme !== 'file' && document.uri.scheme !== 'untitled') {
+			return;
+		}
+
+		const key = document.uri.toString();
+
+		// Cancel any existing timeout for this document
+		this.cancelValidation(document);
+
+		// Schedule validation with a small delay to avoid excessive validation
+		const timeout = setTimeout(() => {
+			this.validationTimeouts.delete(key);
+			this.validateDocument(document);
+		}, 500);
+
+		this.validationTimeouts.set(key, timeout);
+	}
+
+	private cancelValidation(document: vscode.TextDocument): void {
+		const key = document.uri.toString();
+		const timeout = this.validationTimeouts.get(key);
+		if (timeout) {
+			clearTimeout(timeout);
+			this.validationTimeouts.delete(key);
+		}
 	}
 
 	private async validateDocument(document: vscode.TextDocument): Promise<void> {
