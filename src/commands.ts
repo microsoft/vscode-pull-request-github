@@ -1613,6 +1613,9 @@ ${contents}
 			quickPick.show();
 			quickPick.busy = true;
 
+			let acceptDisposable: vscode.Disposable | undefined;
+			let hideDisposable: vscode.Disposable | undefined;
+
 			// Fetch all open PRs
 			try {
 				const prs = await githubRepo.manager.getPullRequests(PRType.All, { fetchNextPage: false });
@@ -1629,8 +1632,6 @@ ${contents}
 				quickPick.busy = false;
 
 				// Handle selection
-				let acceptDisposable: vscode.Disposable | undefined;
-				let hideDisposable: vscode.Disposable | undefined;
 				const selected = await new Promise<(vscode.QuickPickItem & { pr?: PullRequestModel }) | string | undefined>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
 						if (quickPick.selectedItems.length > 0) {
@@ -1645,13 +1646,6 @@ ${contents}
 					});
 					hideDisposable = quickPick.onDidHide(() => resolve(undefined));
 				});
-
-				// Clean up event listeners
-				acceptDisposable?.dispose();
-				hideDisposable?.dispose();
-
-				quickPick.hide();
-				quickPick.dispose();
 
 				if (!selected) {
 					return;
@@ -1676,9 +1670,13 @@ ${contents}
 					return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
 				}
 			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests: {0}', formatError(e)));
+			} finally {
+				// Clean up event listeners and QuickPick
+				acceptDisposable?.dispose();
+				hideDisposable?.dispose();
 				quickPick.hide();
 				quickPick.dispose();
-				return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests: {0}', formatError(e)));
 			}
 		}));
 
