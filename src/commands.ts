@@ -23,7 +23,7 @@ import { ChatSessionWithPR, CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
-import { Issue } from './github/interface';
+import { Issue, PRType } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
@@ -1604,26 +1604,70 @@ ${contents}
 			if (!githubRepo) {
 				return;
 			}
-			const prNumber = await vscode.window.showInputBox({
-				ignoreFocusOut: true, prompt: vscode.l10n.t('Enter the pull request number or URL'),
-				validateInput: (input: string) => {
-					const result = validateAndParseInput(input, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-					return result.isValid ? undefined : result.errorMessage;
+
+			// Create QuickPick to show all PRs
+			const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pr?: PullRequestModel }>();
+			quickPick.placeholder = vscode.l10n.t('Select a pull request or enter a pull request number/URL');
+			quickPick.matchOnDescription = true;
+			quickPick.matchOnDetail = true;
+			quickPick.show();
+			quickPick.busy = true;
+
+			// Fetch all open PRs
+			try {
+				const prs = await githubRepo.manager.getPullRequests(PRType.All, { fetchNextPage: false });
+				const prItems: (vscode.QuickPickItem & { pr: PullRequestModel })[] = prs.items.map(pr => ({
+					label: `#${pr.number}`,
+					description: pr.title,
+					detail: `by @${pr.author.login}`,
+					pr
+				}));
+
+				quickPick.items = prItems;
+				quickPick.busy = false;
+
+				// Handle selection
+				const selected = await new Promise<(vscode.QuickPickItem & { pr?: PullRequestModel }) | string | undefined>((resolve) => {
+					quickPick.onDidAccept(() => {
+						if (quickPick.selectedItems.length > 0) {
+							resolve(quickPick.selectedItems[0]);
+						} else if (quickPick.value) {
+							// User typed something but didn't select from list
+							resolve(quickPick.value);
+						}
+					});
+					quickPick.onDidHide(() => resolve(undefined));
+				});
+
+				quickPick.hide();
+				quickPick.dispose();
+
+				if (!selected) {
+					return;
 				}
-			});
-			if ((prNumber === undefined) || prNumber === '#') {
-				return;
-			}
 
-			// Extract PR number from input (either direct number or URL)
-			const parseResult = validateAndParseInput(prNumber, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-			if (!parseResult.isValid) {
-				return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
-			}
+				let prModel: PullRequestModel | undefined;
 
-			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-			if (prModel) {
-				return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
+				// Check if user selected from the list or typed a custom value
+				if (typeof selected === 'string') {
+					// User typed a PR number or URL
+					const parseResult = validateAndParseInput(selected, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
+					if (!parseResult.isValid) {
+						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
+					}
+					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
+				} else if (selected.pr) {
+					// User selected from the list
+					prModel = selected.pr;
+				}
+
+				if (prModel) {
+					return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
+				}
+			} catch (e) {
+				quickPick.hide();
+				quickPick.dispose();
+				return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests: {0}', formatError(e)));
 			}
 		}));
 
