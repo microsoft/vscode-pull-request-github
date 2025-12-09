@@ -534,12 +534,36 @@ export class FolderRepositoryManager extends Disposable {
 				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
 				// Make a test call to see if the user has SAML enabled.
 				if (stillMissing.length > 0) {
+					const reauthenticate = vscode.l10n.t('Reauthenticate');
 					if (stillMissing.length === repositories.length) {
-						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
+						const choice = await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true }, reauthenticate);
+						if (choice === reauthenticate) {
+							const retryResult = await this._credentialStore.showSamlMessageAndAuth(stillMissing.map(repo => repo.remote.owner));
+							if (!retryResult.canceled) {
+								const retryTest = await Promise.all(stillMissing.map(repo => repo.resolveRemote()));
+								const stillMissingAfterRetry = retryTest.map((result, index) => !result ? stillMissing[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+								if (stillMissingAfterRetry.length === 0) {
+									// Success! Continue with initialization
+									return false;
+								}
+							}
+						}
 						this.dispose();
 						return true;
 					}
-					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
+					const choice = await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true }, reauthenticate);
+					if (choice === reauthenticate) {
+						const retryResult = await this._credentialStore.showSamlMessageAndAuth(stillMissing.map(repo => repo.remote.owner));
+						if (!retryResult.canceled) {
+							const retryTest = await Promise.all(stillMissing.map(repo => repo.resolveRemote()));
+							const stillMissingAfterRetry = retryTest.map((result, index) => !result ? stillMissing[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+							if (stillMissingAfterRetry.length < stillMissing.length) {
+								// Some repos now have access, update stillMissing
+								cleanUpMissingSaml(stillMissingAfterRetry);
+								return false;
+							}
+						}
+					}
 					cleanUpMissingSaml(stillMissing);
 				}
 			}
