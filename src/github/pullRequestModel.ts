@@ -1200,6 +1200,37 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	/**
+	 * Update the base branch of the pull request.
+	 * @param newBaseBranch The new base branch name
+	 */
+	async updateBaseBranch(newBaseBranch: string): Promise<void> {
+		Logger.debug(`Updating base branch to ${newBaseBranch} - enter`, PullRequestModel.ID);
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			const { data } = await mutate({
+				mutation: schema.UpdatePullRequest,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId,
+						baseRefName: newBaseBranch,
+					},
+				},
+			});
+
+			if (data?.updateIssue?.issue) {
+				// Update the local base branch reference
+				this.base.name = newBaseBranch;
+				this._onDidChange.fire({ base: true });
+			}
+			Logger.debug(`Updating base branch to ${newBaseBranch} - done`, PullRequestModel.ID);
+		} catch (e) {
+			Logger.error(`Updating base branch to ${newBaseBranch} failed: ${e}`, PullRequestModel.ID);
+			throw e;
+		}
+	}
+
+	/**
 	 * Get existing requests to review.
 	 */
 	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {

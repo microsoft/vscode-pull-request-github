@@ -425,6 +425,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openCommitChanges(message);
 			case 'pr.delete-review':
 				return this.deleteReview(message);
+			case 'pr.change-base-branch':
+				return this.changeBaseBranch(message);
 		}
 	}
 
@@ -802,6 +804,59 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Deleting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
+		}
+	}
+
+	private async changeBaseBranch(message: IRequestMessage<void>): Promise<void> {
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { branch?: string }>();
+
+		try {
+			quickPick.busy = true;
+			quickPick.canSelectMany = false;
+			quickPick.placeholder = 'Select a new base branch';
+			quickPick.show();
+
+			// List branches from the repository
+			const branches = await this._item.githubRepository.listBranches(
+				this._item.remote.owner,
+				this._item.remote.repositoryName
+			);
+
+			quickPick.items = branches
+				.filter(branch => branch !== this._item.base.name)
+				.map(branch => ({
+					label: branch,
+					branch: branch
+				}));
+
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick.selectedItems[0]?.branch;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const selectedBranch = await Promise.race<string | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
+			quickPick.enabled = false;
+
+			if (selectedBranch) {
+				try {
+					// Update the base branch using GraphQL mutation
+					await this._item.updateBaseBranch(selectedBranch);
+					// Refresh the panel to reflect the changes
+					await this.refreshPanel();
+					await this._replyMessage(message, {});
+				} catch (e) {
+					Logger.error(formatError(e), PullRequestOverviewPanel.ID);
+					vscode.window.showErrorMessage(vscode.l10n.t('Changing base branch failed. {0}', formatError(e)));
+					this._throwError(message, `${formatError(e)}`);
+				}
+			}
+		} catch (e) {
+			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
 		}
 	}
 
