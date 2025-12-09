@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { StateManager } from './stateManager';
 import { getIssue } from './util';
+import Logger from '../common/logger';
 import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -143,7 +144,7 @@ export class IssueTodoDiagnosticProvider {
 
 						const diagnostic = new vscode.Diagnostic(
 							range,
-							vscode.l10n.t('Issue #{0} is closed. Consider removing this TODO comment.', issue.number),
+							vscode.l10n.t('Issue #{0} "{1}" is closed. Consider removing this TODO comment.', issue.number, issue.title),
 							vscode.DiagnosticSeverity.Warning
 						);
 						diagnostic.source = 'GitHub Issues';
@@ -151,7 +152,8 @@ export class IssueTodoDiagnosticProvider {
 					}
 				}
 			} catch (error) {
-				// Silently ignore errors fetching issues
+				// Log errors for debugging but don't block validation of other lines
+				Logger.debug(`Error fetching issue for validation: ${error}`, 'IssueTodoDiagnosticProvider');
 			}
 		}
 
