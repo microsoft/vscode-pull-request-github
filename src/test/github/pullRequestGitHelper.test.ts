@@ -157,8 +157,10 @@ describe('PullRequestGitHelper', function () {
 				gitHubRepository,
 			);
 
-			repository.expectFetch('you', 'my-branch:pr/me/100');
-			repository.expectPull(true);
+			// Setup: Create remote tracking branch that will be created by fetch
+			await repository.createBranch('refs/remotes/you/my-branch', false, 'remote-commit-hash');
+
+			repository.expectFetch('you', 'my-branch');
 
 			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
 
@@ -179,7 +181,7 @@ describe('PullRequestGitHelper', function () {
 			assert.deepStrictEqual(repository.state.HEAD, {
 				type: RefType.Head,
 				name: 'pr/me/100',
-				commit: undefined,
+				commit: 'remote-commit-hash',
 				upstream: {
 					remote: 'you',
 					name: 'my-branch',

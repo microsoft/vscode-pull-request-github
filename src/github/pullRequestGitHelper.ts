@@ -59,15 +59,21 @@ export class PullRequestGitHelper {
 		}
 
 		// fetch the branch
-		const ref = `${pullRequest.head.ref}:${localBranchName}`;
-		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - start`, PullRequestGitHelper.ID);
-		progress.report({ message: vscode.l10n.t('Fetching branch {0}', ref) });
-		await repository.fetch(remoteName, ref);
-		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - done`, PullRequestGitHelper.ID);
-		progress.report({ message: vscode.l10n.t('Checking out {0}', ref) });
+		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref} - start`, PullRequestGitHelper.ID);
+		progress.report({ message: vscode.l10n.t('Fetching branch {0}', pullRequest.head.ref) });
+		await repository.fetch(remoteName, pullRequest.head.ref);
+		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref} - done`, PullRequestGitHelper.ID);
+
+		// Create local branch from the remote tracking branch
+		const trackedBranchName = `refs/remotes/${remoteName}/${pullRequest.head.ref}`;
+		const trackedBranch = await repository.getBranch(trackedBranchName);
+		progress.report({ message: vscode.l10n.t('Creating branch {0}', localBranchName) });
+		await repository.createBranch(localBranchName, false, trackedBranch.commit);
+
+		progress.report({ message: vscode.l10n.t('Checking out {0}', localBranchName) });
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
-		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
+		await repository.setBranchUpstream(localBranchName, trackedBranchName);
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
