@@ -21,6 +21,8 @@ export interface SimpleFileChange {
 	readonly fileName: string;
 	readonly blobUrl: string | undefined;
 	readonly diffHunks?: DiffHunk[];
+	readonly additions?: number;
+	readonly deletions?: number;
 }
 
 export class InMemFileChange implements SimpleFileChange {
@@ -32,6 +34,8 @@ export class InMemFileChange implements SimpleFileChange {
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[] | undefined,
 		public readonly blobUrl: string,
+		public readonly additions?: number,
+		public readonly deletions?: number,
 	) { }
 }
 
@@ -42,5 +46,7 @@ export class SlimFileChange implements SimpleFileChange {
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly previousFileName: string | undefined,
+		public readonly additions?: number,
+		public readonly deletions?: number,
 	) { }
 }

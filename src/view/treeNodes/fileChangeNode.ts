@@ -148,10 +148,27 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	protected _getDescription(): string | true {
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		const additions = this.changeModel.change.additions;
+		const deletions = this.changeModel.change.deletions;
+		let changesText = '';
+
+		if (additions !== undefined || deletions !== undefined) {
+			const parts: string[] = [];
+			if (additions !== undefined && additions > 0) {
+				parts.push(`+${additions}`);
+			}
+			if (deletions !== undefined && deletions > 0) {
+				parts.push(`-${deletions}`);
+			}
+			if (parts.length > 0) {
+				changesText = parts.join(' ');
+			}
+		}
+
 		if (layout === 'flat') {
-			return true;
+			return changesText ? changesText : true;
 		} else {
-			return '';
+			return changesText;
 		}
 	}
 
@@ -227,6 +244,24 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 		if (description === '.') {
 			description = '';
 		}
+
+		const additions = this.changeModel.change.additions;
+		const deletions = this.changeModel.change.deletions;
+
+		if (additions !== undefined || deletions !== undefined) {
+			const parts: string[] = [];
+			if (additions !== undefined && additions > 0) {
+				parts.push(`+${additions}`);
+			}
+			if (deletions !== undefined && deletions > 0) {
+				parts.push(`-${deletions}`);
+			}
+			if (parts.length > 0) {
+				const changesText = parts.join(' ');
+				description = description ? `${description} ${changesText}` : changesText;
+			}
+		}
+
 		return description;
 	}
 
