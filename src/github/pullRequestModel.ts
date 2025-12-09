@@ -1220,8 +1220,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			if (data?.updateIssue?.issue) {
-				// Update the local base branch reference
-				this.base.ref = newBaseBranch;
+				// Update the local base branch reference by creating a new GitHubRef instance
+				const cloneUrl = this.base.repositoryCloneUrl.toString() || '';
+				this.base = new GitHubRef(
+					newBaseBranch,
+					`${this.base.owner}:${newBaseBranch}`,
+					this.base.sha,
+					cloneUrl,
+					this.base.owner,
+					this.base.name,
+					this.base.isInOrganization
+				);
 				this._onDidChange.fire({ base: true });
 			}
 			Logger.debug(`Updating base branch to ${newBaseBranch} - done`, PullRequestModel.ID);
