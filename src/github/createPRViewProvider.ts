@@ -505,6 +505,29 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return this._replyMessage(message, undefined);
 	}
 
+	private async openCreateInBrowser(): Promise<void> {
+		// Get the base repository info
+		const baseRepo = this.getBaseGitHubRepo();
+		if (!baseRepo) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository to create pull request in.'));
+			return;
+		}
+
+		// Get the compare branch name - this is the branch we want to create a PR from
+		const compareBranch = this._defaultCompareBranch;
+		if (!compareBranch) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to determine branch to create pull request from.'));
+			return;
+		}
+
+		// Construct the GitHub URL for creating a PR
+		// Format: https://github.com/{owner}/{repo}/pull/new/{branch}
+		// or https://github.com/{owner}/{repo}/compare/{base}...{head} for cross-repo PRs
+		const url = `${baseRepo.remote.url}/pull/new/${compareBranch}`;
+
+		await vscode.env.openExternal(vscode.Uri.parse(url));
+	}
+
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -538,6 +561,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
+
+			case 'pr.openCreateInBrowser':
+				return this.openCreateInBrowser();
 
 			default:
 				return this.MESSAGE_UNHANDLED;

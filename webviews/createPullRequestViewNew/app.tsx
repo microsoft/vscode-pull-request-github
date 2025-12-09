@@ -354,6 +354,10 @@ export function main() {
 							Cancel
 						</button>
 
+						<button disabled={isBusy || !ctx.initialized} className='secondary' onClick={() => ctx.openCreateInBrowser()} title='Create pull request on GitHub.com'>
+							Create in Browser
+						</button>
+
 						<ContextDropdown optionsContext={() => makeCreateMenuContext(params)}
 							defaultAction={onCreateButton}
 							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}

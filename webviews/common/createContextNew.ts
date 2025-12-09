@@ -97,6 +97,10 @@ export class CreatePRContextNew {
 		return this.postMessage({ command: 'pr.cancelCreate', args });
 	};
 
+	public openCreateInBrowser = (): Promise<void> => {
+		return this.postMessage({ command: 'pr.openCreateInBrowser' });
+	};
+
 	public updateState = (params: Partial<CreateParamsNew>, reset: boolean = false): void => {
 		this.createParams = reset ? { ...defaultCreateParams, ...params } : { ...this.createParams, ...params };
 		vscode.setState(this.createParams);
