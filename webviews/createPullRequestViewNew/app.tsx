@@ -179,7 +179,7 @@ export function main() {
 							event.preventDefault();
 							ctx.postMessage({ command: 'pr.openDescriptionSettings' });
 						}
-					} else {
+					} else if (event.type === 'click') {
 						ctx.postMessage({ command: 'pr.openDescriptionSettings' });
 					}
 				}
@@ -339,7 +339,7 @@ export function main() {
 
 					<div className='group-description-header'>
 						<label htmlFor='description' className='input-title'>Description</label>
-						<a title='Open pull request description settings' className='description-settings-action icon-button' onClick={openDescriptionSettings} onKeyDown={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
+						<button type='button' title='Open pull request description settings' className='description-settings-action icon-button' onClick={openDescriptionSettings} onKeyDown={openDescriptionSettings} tabIndex={0}>{settingsIcon}</button>
 					</div>
 					<div className='group-description'>
 						<textarea
