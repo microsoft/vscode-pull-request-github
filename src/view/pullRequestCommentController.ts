@@ -12,7 +12,7 @@ import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
-import { groupBy } from '../common/utils';
+import { formatError, groupBy } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
@@ -559,12 +559,12 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		} catch (e) {
 			// Ignore permission errors when removing reactions due to race conditions
 			// See: https://github.com/microsoft/vscode/issues/69321
-			const errorMessage = (e as Error).message || String(e);
+			const errorMessage = formatError(e);
 			if (errorMessage.includes('does not have the correct permissions to execute \'RemoveReaction\'')) {
 				// Silently ignore this error - it occurs when quickly toggling reactions
 				return;
 			}
-			throw e;
+			throw new Error(errorMessage);
 		}
 	}
 
