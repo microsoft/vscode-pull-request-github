@@ -546,14 +546,25 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			return;
 		}
 
-		if (
-			comment.reactions &&
-			!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
-		) {
-			// add reaction
-			await this.pullRequestModel.addCommentReaction(comment.rawComment.graphNodeId, reaction);
-		} else {
-			await this.pullRequestModel.deleteCommentReaction(comment.rawComment.graphNodeId, reaction);
+		try {
+			if (
+				comment.reactions &&
+				!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
+			) {
+				// add reaction
+				await this.pullRequestModel.addCommentReaction(comment.rawComment.graphNodeId, reaction);
+			} else {
+				await this.pullRequestModel.deleteCommentReaction(comment.rawComment.graphNodeId, reaction);
+			}
+		} catch (e) {
+			// Ignore permission errors when removing reactions due to race conditions
+			// See: https://github.com/microsoft/vscode/issues/69321
+			const errorMessage = (e as Error).message || String(e);
+			if (errorMessage.includes('does not have the correct permissions to execute \'RemoveReaction\'')) {
+				// Silently ignore this error - it occurs when quickly toggling reactions
+				return;
+			}
+			throw e;
 		}
 	}
 
