@@ -41,6 +41,7 @@ import {
 	SubmitReviewResponse,
 	TimelineEventsResponse,
 	UnresolveReviewThreadResponse,
+	UpdateIssueResponse,
 } from './graphql';
 import {
 	AccountType,
@@ -1208,7 +1209,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate({
+			const { data } = await mutate<UpdateIssueResponse>({
 				mutation: schema.UpdatePullRequest,
 				variables: {
 					input: {
@@ -1220,7 +1221,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			if (data?.updateIssue?.issue) {
 				// Update the local base branch reference
-				this.base.name = newBaseBranch;
+				this.base.ref = newBaseBranch;
 				this._onDidChange.fire({ base: true });
 			}
 			Logger.debug(`Updating base branch to ${newBaseBranch} - done`, PullRequestModel.ID);
