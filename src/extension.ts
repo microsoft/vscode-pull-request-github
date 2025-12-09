@@ -232,7 +232,9 @@ async function init(
 		}
 
 		// Check if repo is in one of the workspace folders or vice versa
-		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath) || isDescendant(repo.rootUri.fsPath, folder.uri.fsPath))) {
+		Logger.debug(`Checking if repo ${repo.rootUri.fsPath} is in a workspace folder.`, ACTIVATION);
+		Logger.debug(`Workspace folders: ${workspaceFolders?.map(folder => folder.uri.fsPath).join(', ')}`, ACTIVATION);
+		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath, true) || isDescendant(repo.rootUri.fsPath, folder.uri.fsPath, true))) {
 			Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
 			return;
 		}
