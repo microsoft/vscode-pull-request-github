@@ -173,13 +173,19 @@ export function main() {
 				}
 
 				function openDescriptionSettings(event: React.MouseEvent | React.KeyboardEvent): void {
+					let shouldExecute = false;
+
 					if (event.type === 'keydown') {
 						const keyEvent = event as React.KeyboardEvent;
 						if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
 							event.preventDefault();
-							ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+							shouldExecute = true;
 						}
 					} else if (event.type === 'click') {
+						shouldExecute = true;
+					}
+
+					if (shouldExecute) {
 						ctx.postMessage({ command: 'pr.openDescriptionSettings' });
 					}
 				}
@@ -339,7 +345,7 @@ export function main() {
 
 					<div className='group-description-header'>
 						<label htmlFor='description' className='input-title'>Description</label>
-						<button type='button' title='Open pull request description settings' className='description-settings-action icon-button' onClick={openDescriptionSettings} onKeyDown={openDescriptionSettings} tabIndex={0}>{settingsIcon}</button>
+						<button type='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='description-settings-action icon-button' onClick={openDescriptionSettings} onKeyDown={openDescriptionSettings} tabIndex={0}>{settingsIcon}</button>
 					</div>
 					<div className='group-description'>
 						<textarea
