@@ -440,12 +440,27 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
+			quickPick.placeholder = vscode.l10n.t('Select labels');
 			quickPick.show();
 			quickPick.items = await (getLabelOptions(this._folderRepositoryManager, this._item.item.labels, this._item.remote.owner, this._item.remote.repositoryName).then(options => {
 				newLabels = options.newLabels;
 				return options.labelPicks;
 			}));
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+
+			// Update placeholder based on selection
+			const updatePlaceholder = () => {
+				if (quickPick.selectedItems.length === 0) {
+					quickPick.placeholder = vscode.l10n.t('No labels selected');
+				} else {
+					quickPick.placeholder = vscode.l10n.t('Select labels');
+				}
+			};
+			updatePlaceholder();
+
+			quickPick.onDidChangeSelection(() => {
+				updatePlaceholder();
+			});
 
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
@@ -519,9 +534,25 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
 			quickPick.matchOnDescription = true;
+			quickPick.placeholder = vscode.l10n.t('Select assignees');
 			quickPick.show();
 			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, undefined, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+
+			// Update placeholder based on selection
+			const updatePlaceholder = () => {
+				const selectedAssignees = quickPick.selectedItems.filter(item => item.user);
+				if (selectedAssignees.length === 0) {
+					quickPick.placeholder = vscode.l10n.t('No assignees selected');
+				} else {
+					quickPick.placeholder = vscode.l10n.t('Select assignees');
+				}
+			};
+			updatePlaceholder();
+
+			quickPick.onDidChangeSelection(() => {
+				updatePlaceholder();
+			});
 
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {

@@ -248,6 +248,22 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 	};
 
 	await updateItems((teamsCount !== 0 && teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
+
+	// Update placeholder based on selection
+	const updatePlaceholder = () => {
+		const selectedReviewers = quickPick.selectedItems.filter(item => item.user);
+		if (selectedReviewers.length === 0) {
+			quickPick.placeholder = vscode.l10n.t('No reviewers selected');
+		} else {
+			quickPick.placeholder = defaultPlaceholder;
+		}
+	};
+	updatePlaceholder();
+
+	quickPick.onDidChangeSelection(() => {
+		updatePlaceholder();
+	});
+
 	quickPick.onDidTriggerButton(() => {
 		quickPick.busy = true;
 		quickPick.ignoreFocusOut = true;
