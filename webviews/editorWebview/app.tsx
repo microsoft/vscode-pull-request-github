@@ -8,11 +8,8 @@ import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
+import { COMMENT_TEXTAREA_FOCUS_KEY } from '../common/constants';
 import PullRequestContext from '../common/context';
-
-// Key for tracking comment textarea focus state in sessionStorage
-// Also used in webviews/common/context.tsx
-const COMMENT_TEXTAREA_FOCUS_KEY = 'comment-textarea-had-focus';
 
 export function main() {
 	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));

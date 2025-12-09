@@ -5,16 +5,13 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
+import { COMMENT_TEXTAREA_FOCUS_KEY } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
-
-// Key for tracking comment textarea focus state in sessionStorage
-// Also used in webviews/editorWebview/app.tsx
-const COMMENT_TEXTAREA_FOCUS_KEY = 'comment-textarea-had-focus';
 
 export class PRContext {
 	constructor(
