@@ -225,6 +225,7 @@ export interface PermalinkInfo {
 	permalink: string | undefined;
 	error: string | undefined;
 	originalFile: vscode.Uri | undefined;
+	range: vscode.Range | vscode.NotebookRange | undefined;
 }
 
 export function getSimpleUpstream(repository: Repository) {
@@ -284,12 +285,12 @@ export async function createSinglePermalink(
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
-		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined, range: undefined };
 	}
 
 	const repository = getRepositoryForFile(gitAPI, uri);
 	if (!repository) {
-		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
+		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri, range };
 	}
 
 	let commitHash: string | undefined;
@@ -301,7 +302,7 @@ export async function createSinglePermalink(
 		try {
 			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
 			if (log.length === 0) {
-				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
+				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri, range };
 			}
 			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
 			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
@@ -318,7 +319,7 @@ export async function createSinglePermalink(
 
 	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
-		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
+		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri, range };
 	}
 	const upstream: Remote & { fetchUrl: string } = rawUpstream as Remote & { fetchUrl: string };
 
@@ -330,7 +331,8 @@ export async function createSinglePermalink(
 		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
 			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
 		error: undefined,
-		originalFile: uri
+		originalFile: uri,
+		range
 	};
 	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
 	return result;
@@ -404,11 +406,11 @@ export async function createSingleGitHubLink(
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context);
 	if (!uri) {
-		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined, range: undefined };
 	}
 	const folderManager = managers.getManagerForFile(uri);
 	if (!folderManager) {
-		return { permalink: undefined, error: vscode.l10n.t('Current file does not belong to an open repository.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('Current file does not belong to an open repository.'), originalFile: undefined, range: undefined };
 	}
 	let branchName = folderManager.repository.state.HEAD?.name;
 	if (!branchName) {
@@ -419,7 +421,7 @@ export async function createSingleGitHubLink(
 	}
 	const upstream = getSimpleUpstream(folderManager.repository);
 	if (!upstream?.fetchUrl) {
-		return { permalink: undefined, error: vscode.l10n.t('Repository does not have any remotes.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('Repository does not have any remotes.'), originalFile: undefined, range: undefined };
 	}
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
@@ -428,7 +430,8 @@ export async function createSingleGitHubLink(
 		permalink: (`${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${encodedBranchAndFilePath
 			}${includeRange ? rangeString(range) : ''}`),
 		error: undefined,
-		originalFile: uri
+		originalFile: uri,
+		range
 	};
 }
 
