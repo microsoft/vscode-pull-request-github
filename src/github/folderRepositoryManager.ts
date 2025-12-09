@@ -2498,7 +2498,7 @@ export class FolderRepositoryManager extends Disposable {
 				const resetToRemote = vscode.l10n.t('Reset to Remote');
 				const cancel = vscode.l10n.t('Cancel');
 				const result = await vscode.window.showWarningMessage(
-					vscode.l10n.t('The pull request branch has diverged from the remote (you have {0} local commit(s), remote has {1} new commit(s)).\n\nThis usually happens when the remote branch has been force-pushed or rebased. You can reset your local branch to match the remote (this will discard your {0} local commit(s)), or cancel and resolve manually.', branch.ahead, branch.behind),
+					vscode.l10n.t('The pull request branch has diverged from the remote (you have {0} local commit(s), remote has {1} new commit(s)).\n\nThis usually happens when the remote branch has been force-pushed or rebased. You can reset your local branch to match the remote (this will discard your local changes), or cancel and resolve manually.', branch.ahead, branch.behind),
 					{ modal: true },
 					resetToRemote,
 					cancel
@@ -2561,7 +2561,7 @@ export class FolderRepositoryManager extends Disposable {
 							}
 						}
 
-						vscode.window.showErrorMessage(vscode.l10n.t('Failed to reset branch to remote: {0}', e?.message || String(e)));
+						vscode.window.showErrorMessage(vscode.l10n.t('Failed to reset branch to remote: {0}', formatError(e)));
 					}
 				}
 				// If cancel, do nothing
