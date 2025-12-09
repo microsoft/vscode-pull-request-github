@@ -1629,8 +1629,10 @@ ${contents}
 				quickPick.busy = false;
 
 				// Handle selection
+				let acceptDisposable: vscode.Disposable;
+				let hideDisposable: vscode.Disposable;
 				const selected = await new Promise<(vscode.QuickPickItem & { pr?: PullRequestModel }) | string | undefined>((resolve) => {
-					quickPick.onDidAccept(() => {
+					acceptDisposable = quickPick.onDidAccept(() => {
 						if (quickPick.selectedItems.length > 0) {
 							resolve(quickPick.selectedItems[0]);
 						} else if (quickPick.value) {
@@ -1638,8 +1640,12 @@ ${contents}
 							resolve(quickPick.value);
 						}
 					});
-					quickPick.onDidHide(() => resolve(undefined));
+					hideDisposable = quickPick.onDidHide(() => resolve(undefined));
 				});
+
+				// Clean up event listeners
+				acceptDisposable.dispose();
+				hideDisposable.dispose();
 
 				quickPick.hide();
 				quickPick.dispose();
