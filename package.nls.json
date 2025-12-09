@@ -304,6 +304,7 @@
 	"command.issue.startWorkingBranchDescriptiveTitle.title": "Start Working on Issue and Checkout Topic Branch",
 	"command.issue.continueWorking.title": "Continue Working on Issue",
 	"command.issue.startWorkingBranchPrompt.title": "Start Working and Set Branch...",
+	"command.issue.startWorkingByNumber.title": "Start Working on Issue by Number...",
 	"command.issue.stopWorking.title": "Stop Working on Issue",
 	"command.issue.stopWorkingBranchDescriptiveTitle.title": "Stop Working on Issue and Leave Topic Branch",
 	"command.issue.statusBar.title": "Current Issue Options",

@@ -362,6 +362,19 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
+				'issue.startWorkingByNumber',
+				() => {
+					/* __GDPR__
+				"issue.startWorkingByNumber" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.startWorkingByNumber');
+					return this.startWorkingByNumber();
+				},
+				this,
+			),
+		);
+		this._register(
+			vscode.commands.registerCommand(
 				'issue.stopWorking',
 				(issueModel: any) => {
 					/* __GDPR__
@@ -853,6 +866,70 @@ export class IssueFeatureRegistrar extends Disposable {
 			return;
 		}
 		this.doStartWorking(this.manager.getManagerForIssueModel(issueModel), issueModel, true);
+	}
+
+	async startWorkingByNumber() {
+		// Choose repository if multiple are available
+		const folderManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on an issue in'));
+		if (!folderManager) {
+			return;
+		}
+
+		// Get repository defaults for owner and name
+		let defaults: PullRequestDefaults | undefined;
+		try {
+			defaults = await folderManager.getPullRequestDefaults();
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to get repository information'));
+			return;
+		}
+
+		// Prompt for issue number or URL
+		const issueInput = await vscode.window.showInputBox({
+			ignoreFocusOut: true,
+			prompt: vscode.l10n.t('Enter the issue number or URL'),
+			validateInput: (input: string) => {
+				if (!input) {
+					return vscode.l10n.t('Issue number or URL is required');
+				}
+				const match = input.match(ISSUE_OR_URL_EXPRESSION);
+				const parsed = parseIssueExpressionOutput(match);
+				if (!parsed || !parsed.issueNumber) {
+					return vscode.l10n.t('Invalid issue number or URL');
+				}
+				return undefined;
+			}
+		});
+
+		if (!issueInput) {
+			return;
+		}
+
+		// Parse the input
+		const match = issueInput.match(ISSUE_OR_URL_EXPRESSION);
+		const parsed = parseIssueExpressionOutput(match);
+		if (!parsed || !parsed.issueNumber) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Invalid issue number or URL'));
+			return;
+		}
+
+		// Use repository defaults if owner/name not specified
+		if (!parsed.owner && defaults) {
+			parsed.owner = defaults.owner;
+		}
+		if (!parsed.name && defaults) {
+			parsed.name = defaults.repo;
+		}
+
+		// Fetch the issue
+		const issueModel = await getIssue(this._stateManager, folderManager, issueInput, parsed);
+		if (!issueModel) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to find issue {0}', issueInput));
+			return;
+		}
+
+		// Start working on the issue
+		return this.doStartWorking(folderManager, issueModel);
 	}
 
 	async stopWorking(issueModel: any) {
