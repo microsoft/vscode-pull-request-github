@@ -1210,6 +1210,36 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.createCommentAndResolve', async (reply: CommentReply) => {
+			/* __GDPR__
+			"pr.createCommentAndResolve" : {}
+		*/
+			telemetry.sendTelemetryEvent('pr.createCommentAndResolve');
+			const handler = resolveCommentHandler(reply.thread);
+
+			if (handler) {
+				await handler.createOrReplyComment(reply.thread, reply.text, false);
+				await handler.resolveReviewThread(reply.thread);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.createSingleCommentAndResolve', async (reply: CommentReply) => {
+			/* __GDPR__
+			"pr.createSingleCommentAndResolve" : {}
+		*/
+			telemetry.sendTelemetryEvent('pr.createSingleCommentAndResolve');
+			const handler = resolveCommentHandler(reply.thread);
+
+			if (handler) {
+				await handler.createOrReplyComment(reply.thread, reply.text, true);
+				await handler.resolveReviewThread(reply.thread);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment | undefined) => {
 			let potentialThread: GHPRCommentThread | undefined;
 			if (reply === undefined) {
