@@ -12,7 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -172,6 +172,11 @@ export function main() {
 					}
 				}
 
+				function openDescriptionSettings(event: React.MouseEvent | React.KeyboardEvent): void {
+					event.preventDefault();
+					ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+				}
+
 				async function generateTitle(useCopilot?: boolean) {
 					setGeneratingTitle(true);
 					await ctx.generateTitle(!!useCopilot);
@@ -325,7 +330,10 @@ export function main() {
 							: null}
 					</div>
 
-					<label htmlFor='description' className='input-title'>Description</label>
+					<div className='group-description-header'>
+						<label htmlFor='description' className='input-title'>Description</label>
+						<a title='Open pull request description settings' className='description-settings-action icon-button' onClick={openDescriptionSettings} onKeyDown={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
+					</div>
 					<div className='group-description'>
 						<textarea
 							id='description'
