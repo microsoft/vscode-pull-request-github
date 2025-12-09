@@ -12,6 +12,10 @@ import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../sr
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
 
+// Key for tracking comment textarea focus state in sessionStorage
+// Also used in webviews/editorWebview/app.tsx
+const COMMENT_TEXTAREA_FOCUS_KEY = 'comment-textarea-had-focus';
+
 export class PRContext {
 	constructor(
 		public pr: PullRequest | undefined = getState(),
@@ -415,7 +419,7 @@ export class PRContext {
 				const commentTextarea = document.getElementById('comment-textarea');
 				if (commentTextarea instanceof HTMLTextAreaElement) {
 					// Check if there's a stored focus state
-					const shouldRestoreFocus = sessionStorage.getItem('comment-textarea-had-focus') === 'true';
+					const shouldRestoreFocus = sessionStorage.getItem(COMMENT_TEXTAREA_FOCUS_KEY) === 'true';
 					if (shouldRestoreFocus) {
 						commentTextarea.focus();
 					}

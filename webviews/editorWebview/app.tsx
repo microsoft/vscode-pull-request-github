@@ -10,6 +10,10 @@ import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
+// Key for tracking comment textarea focus state in sessionStorage
+// Also used in webviews/common/context.tsx
+const COMMENT_TEXTAREA_FOCUS_KEY = 'comment-textarea-had-focus';
+
 export function main() {
 	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
 }
@@ -26,16 +30,16 @@ export function Root({ children }) {
 	useEffect(() => {
 		const handleFocusIn = (e: FocusEvent) => {
 			if (e.target instanceof HTMLTextAreaElement && e.target.id === 'comment-textarea') {
-				sessionStorage.setItem('comment-textarea-had-focus', 'true');
+				sessionStorage.setItem(COMMENT_TEXTAREA_FOCUS_KEY, 'true');
 			}
 		};
 
 		const handleFocusOut = (e: FocusEvent) => {
 			if (e.target instanceof HTMLTextAreaElement && e.target.id === 'comment-textarea') {
-				// Only clear the flag if we're switching to a non-textarea element
-				// This prevents clearing when the webview loses focus
+				// Only clear the flag if we're switching to another element within the webview
+				// When switching to another editor group, relatedTarget will be null and we want to keep the flag
 				if (e.relatedTarget instanceof HTMLElement) {
-					sessionStorage.setItem('comment-textarea-had-focus', 'false');
+					sessionStorage.setItem(COMMENT_TEXTAREA_FOCUS_KEY, 'false');
 				}
 			}
 		};
