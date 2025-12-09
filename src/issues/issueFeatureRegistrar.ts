@@ -810,7 +810,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		let githubRepository = issueModel.githubRepository;
 		let remote = issueModel.remote;
 		if (!repoManager) {
-			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this isssue in.'));
+			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this issue in.'));
 			if (!repoManager) {
 				return;
 			}
