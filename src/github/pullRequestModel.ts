@@ -2160,7 +2160,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async markFiles(filePathOrSubpaths: string[], event: boolean, state: 'viewed' | 'unviewed'): Promise<void> {
 		const allFilenames = filePathOrSubpaths
 			.map((f) =>
-				isDescendant(this.githubRepository.rootUri.path, f, '/')
+				isDescendant(this.githubRepository.rootUri.path, f, false, '/')
 					? f.substring(this.githubRepository.rootUri.path.length + 1)
 					: f
 			);

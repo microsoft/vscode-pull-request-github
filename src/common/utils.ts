@@ -102,9 +102,9 @@ function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }
 
-export function isDescendant(parent: string, descendant: string, separator: string = sep): boolean {
+export function isDescendant(parent: string, descendant: string, caseInsensitive: boolean = false, separator: string = sep): boolean {
 	// Windows is case insensitive
-	if (isWindowsPath(parent)) {
+	if (isWindowsPath(parent) || caseInsensitive) {
 		parent = parent.toLowerCase();
 		descendant = descendant.toLowerCase();
 	}
