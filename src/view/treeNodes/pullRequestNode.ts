@@ -57,6 +57,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		super(parent);
 		this.registerSinceReviewChange();
 		this.registerConfigurationChange();
+		this.registerNotificationChanges();
 		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
 			if (e.new?.number === this.pullRequestModel.number || e.old?.number === this.pullRequestModel.number) {
 				this.refresh(this);
@@ -140,6 +141,37 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
 				this.refresh();
+			}
+		}));
+	}
+
+	protected registerNotificationChanges() {
+		// Listen for regular notification changes
+		this._register(this._notificationProvider.onDidChangeNotifications(notifications => {
+			// Check if any of the changed notifications are for this PR
+			const affectsThisPR = notifications.some(notification => {
+				if (notification.model instanceof PullRequestModel) {
+					return notification.model.number === this.pullRequestModel.number &&
+						notification.model.remote.owner === this.pullRequestModel.remote.owner &&
+						notification.model.remote.repositoryName === this.pullRequestModel.remote.repositoryName;
+				}
+				return false;
+			});
+			if (affectsThisPR) {
+				this.refresh(this);
+			}
+		}));
+
+		// Listen for Copilot notification changes
+		this._register(this._prsTreeModel.onDidChangeCopilotNotifications(pullRequests => {
+			// Check if any of the changed notifications are for this PR
+			const affectsThisPR = pullRequests.some(pr =>
+				pr.number === this.pullRequestModel.number &&
+				pr.remote.owner === this.pullRequestModel.remote.owner &&
+				pr.remote.repositoryName === this.pullRequestModel.remote.repositoryName
+			);
+			if (affectsThisPR) {
+				this.refresh(this);
 			}
 		}));
 	}
