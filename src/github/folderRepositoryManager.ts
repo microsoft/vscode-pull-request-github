@@ -54,7 +54,7 @@ import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { AsyncPredicate, batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
+import { BRANCHES_ASSOCIATED_WITH_PRS, LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
@@ -576,6 +576,11 @@ export class FolderRepositoryManager extends Disposable {
 			this.getAssignableUsers(repositoriesAdded.length > 0);
 			if (isAuthenticated && activeRemotes.length) {
 				this.state = ReposManagerState.RepositoriesLoaded;
+				// On first activation, associate local branches with PRs
+				// Do this asynchronously to not block the main flow
+				this.associateLocalBranchesWithPRsOnFirstActivation().catch(e => {
+					Logger.error(`Failed to associate branches with PRs: ${e}`, this.id);
+				});
 			} else if (!isAuthenticated) {
 				this.state = ReposManagerState.NeedsAuthentication;
 			}
@@ -951,6 +956,111 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		return models.filter(value => value !== undefined) as PullRequestModel[];
+	}
+
+	/**
+	 * On first activation, iterate through local branches and associate them with PRs if they match.
+	 * This helps discover PRs that were created before the extension was installed or in other ways.
+	 */
+	private async associateLocalBranchesWithPRsOnFirstActivation(): Promise<void> {
+		const stateKey = `${BRANCHES_ASSOCIATED_WITH_PRS}.${this.repository.rootUri.fsPath}`;
+		const hasRun = this.context.globalState.get<boolean>(stateKey, false);
+
+		if (hasRun) {
+			Logger.debug('Branch association has already run for this workspace folder', this.id);
+			return;
+		}
+
+		Logger.appendLine('First activation: associating local branches with PRs', this.id);
+
+		const githubRepositories = this._githubRepositories;
+		if (!githubRepositories || !githubRepositories.length || !this.repository.getRefs) {
+			Logger.debug('No GitHub repositories or getRefs not available, skipping branch association', this.id);
+			await this.context.globalState.update(stateKey, true);
+			return;
+		}
+
+		try {
+			const localBranches = (await this.repository.getRefs({ pattern: 'refs/heads/' }))
+				.filter(r => r.name !== undefined)
+				.map(r => r.name!);
+
+			Logger.debug(`Found ${localBranches.length} local branches to check`, this.id);
+
+			// Process branches in chunks to avoid overwhelming the system
+			const chunkSize = 10;
+			const associationResults: boolean[] = [];
+
+			for (let i = 0; i < localBranches.length; i += chunkSize) {
+				const chunk = localBranches.slice(i, i + chunkSize);
+				const chunkResults = await Promise.all(chunk.map(async branchName => {
+					try {
+						// Check if this branch already has PR metadata
+						const existingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+							this.repository,
+							branchName,
+						);
+
+						if (existingMetadata) {
+							// Branch already has PR metadata, skip
+							return false;
+						}
+
+						// Get the branch to check its upstream
+						const branch = await this.repository.getBranch(branchName);
+						if (!branch.upstream) {
+							// No upstream, can't match to a PR
+							return false;
+						}
+
+						// Try to find a matching PR on GitHub
+						const remoteName = branch.upstream.remote;
+						const upstreamBranchName = branch.upstream.name;
+
+						const githubRepo = githubRepositories.find(
+							repo => repo.remote.remoteName === remoteName,
+						);
+
+						if (!githubRepo) {
+							return false;
+						}
+
+						// Get the metadata of the GitHub repository to find owner
+						const metadata = await githubRepo.getMetadata();
+						if (!metadata?.owner) {
+							return false;
+						}
+
+						// Search for a PR with this head branch
+						const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
+
+						if (matchingPR) {
+							Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
+							await PullRequestGitHelper.associateBranchWithPullRequest(
+								this.repository,
+								matchingPR,
+								branchName,
+							);
+							return true;
+						}
+						return false;
+					} catch (e) {
+						Logger.debug(`Error checking branch ${branchName}: ${e}`, this.id);
+						// Continue with other branches even if one fails
+						return false;
+					}
+				}));
+				associationResults.push(...chunkResults);
+			}
+
+			const associatedCount = associationResults.filter(r => r).length;
+			Logger.appendLine(`Branch association complete: ${associatedCount} branches associated with PRs`, this.id);
+		} catch (e) {
+			Logger.error(`Error during branch association: ${e}`, this.id);
+		} finally {
+			// Mark as complete even if there were errors
+			await this.context.globalState.update(stateKey, true);
+		}
 	}
 
 	async getLabels(issue?: IssueModel, repoInfo?: { owner: string; repo: string }): Promise<ILabel[]> {
