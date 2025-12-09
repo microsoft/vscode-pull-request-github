@@ -2505,42 +2505,63 @@ export class FolderRepositoryManager extends Disposable {
 				);
 
 				if (result === resetToRemote) {
+					if (!branch.upstream || !branch.name) {
+						vscode.window.showErrorMessage(vscode.l10n.t('Cannot reset branch: missing upstream or branch name'));
+						return;
+					}
+
+					let tempBranchName: string | undefined;
+					let originalBranchDeleted = false;
 					try {
-						if (branch.upstream) {
-							// Fetch to ensure we have the latest remote state
-							await this._repository.fetch(branch.upstream.remote, branch.name);
+						// Fetch to ensure we have the latest remote state
+						await this._repository.fetch(branch.upstream.remote, branch.name);
 
-							// Get the remote branch reference
-							const remoteBranchRef = `refs/remotes/${branch.upstream.remote}/${branch.upstream.name}`;
-							const remoteBranch = await this._repository.getBranch(remoteBranchRef);
-							const currentBranchName = branch.name!;
+						// Get the remote branch reference
+						const remoteBranchRef = `refs/remotes/${branch.upstream.remote}/${branch.upstream.name}`;
+						const remoteBranch = await this._repository.getBranch(remoteBranchRef);
+						const currentBranchName = branch.name;
 
-							// Create a temp branch at the remote commit
-							const tempBranchName = `temp-pr-update-${Date.now()}`;
-							await this._repository.createBranch(tempBranchName, false, remoteBranch.commit);
-							await this._repository.setBranchUpstream(tempBranchName, remoteBranchRef);
+						// Create a temp branch at the remote commit with better uniqueness
+						tempBranchName = `temp-pr-update-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+						await this._repository.createBranch(tempBranchName, false, remoteBranch.commit);
+						await this._repository.setBranchUpstream(tempBranchName, remoteBranchRef);
 
-							// Checkout the temp branch
-							await this._repository.checkout(tempBranchName);
+						// Checkout the temp branch
+						await this._repository.checkout(tempBranchName);
 
-							// Delete the old branch (force delete since it has un-merged commits)
-							await this._repository.deleteBranch(currentBranchName, true);
+						// Delete the old branch (force delete since it has un-merged commits)
+						await this._repository.deleteBranch(currentBranchName, true);
+						originalBranchDeleted = true;
 
-							// Recreate the original branch at the same commit
-							await this._repository.createBranch(currentBranchName, false, remoteBranch.commit);
-							await this._repository.setBranchUpstream(currentBranchName, remoteBranchRef);
+						// Recreate the original branch at the same commit
+						await this._repository.createBranch(currentBranchName, false, remoteBranch.commit);
+						await this._repository.setBranchUpstream(currentBranchName, remoteBranchRef);
 
-							// Checkout the recreated branch
-							await this._repository.checkout(currentBranchName);
+						// Checkout the recreated branch
+						await this._repository.checkout(currentBranchName);
 
-							// Delete the temp branch
-							await this._repository.deleteBranch(tempBranchName, true);
+						// Delete the temp branch
+						await this._repository.deleteBranch(tempBranchName, true);
+						tempBranchName = undefined;
 
-							Logger.appendLine(`Successfully reset branch ${currentBranchName} to remote ${remoteBranchRef}`, this.id);
-						}
+						Logger.appendLine(`Successfully reset branch ${currentBranchName} to remote ${remoteBranchRef}`, this.id);
 					} catch (e) {
 						Logger.error(`Error resetting branch to remote: ${e}`, this.id);
-						vscode.window.showErrorMessage(vscode.l10n.t('Failed to reset branch to remote: {0}', e.message || e));
+
+						// Attempt cleanup of any created resources
+						if (tempBranchName) {
+							try {
+								// If we're still on the temp branch, try to get back to a safe state
+								if (!originalBranchDeleted) {
+									await this._repository.checkout(branch.name);
+								}
+								await this._repository.deleteBranch(tempBranchName, true);
+							} catch (cleanupError) {
+								Logger.error(`Error during cleanup: ${cleanupError}`, this.id);
+							}
+						}
+
+						vscode.window.showErrorMessage(vscode.l10n.t('Failed to reset branch to remote: {0}', e?.message || String(e)));
 					}
 				}
 				// If cancel, do nothing
