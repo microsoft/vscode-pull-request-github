@@ -311,6 +311,11 @@
 					"default": false,
 					"description": "%githubPullRequests.hideViewedFiles.description%"
 				},
+				"githubPullRequests.markAsViewedOnOpen": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.markAsViewedOnOpen.description%"
+				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,
