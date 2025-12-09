@@ -988,6 +988,10 @@ export class FolderRepositoryManager extends Disposable {
 			Logger.debug(`Found ${localBranches.length} local branches to check`, this.id);
 
 			// Process branches in chunks to avoid overwhelming the system
+			// Using a smaller chunk size (10) compared to getLocalPullRequests (100) because:
+			// - This operation makes GitHub API calls for each branch that doesn't have metadata
+			// - getLocalPullRequests only reads local config, which is much faster
+			// - We want to be conservative on first activation to avoid rate limiting
 			const chunkSize = 10;
 			const associationResults: boolean[] = [];
 
