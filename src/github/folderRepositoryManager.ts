@@ -2513,16 +2513,33 @@ export class FolderRepositoryManager extends Disposable {
 					let tempBranchName: string | undefined;
 					let originalBranchDeleted = false;
 					try {
-						// Fetch to ensure we have the latest remote state
-						await this._repository.fetch(branch.upstream.remote, branch.name);
+						// Fetch to ensure we have the latest remote state (using upstream name for correct refspec)
+						await this._repository.fetch(branch.upstream.remote, branch.upstream.name);
 
 						// Get the remote branch reference
 						const remoteBranchRef = `refs/remotes/${branch.upstream.remote}/${branch.upstream.name}`;
 						const remoteBranch = await this._repository.getBranch(remoteBranchRef);
 						const currentBranchName = branch.name;
 
-						// Create a temp branch at the remote commit with better uniqueness
-						tempBranchName = `temp-pr-update-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+						// Create a temp branch at the remote commit with uniqueness guarantee
+						let tempCounter = 0;
+						do {
+							tempBranchName = `temp-pr-update-${Date.now()}-${Math.random().toString(36).substring(7)}${tempCounter > 0 ? `-${tempCounter}` : ''}`;
+							tempCounter++;
+							try {
+								await this._repository.getBranch(tempBranchName);
+								// Branch exists, try again with different name
+								tempBranchName = undefined;
+							} catch {
+								// Branch doesn't exist, we can use this name
+								break;
+							}
+						} while (tempCounter < 10); // Safety limit
+
+						if (!tempBranchName) {
+							throw new Error('Could not generate unique temporary branch name');
+						}
+
 						await this._repository.createBranch(tempBranchName, false, remoteBranch.commit);
 						await this._repository.setBranchUpstream(tempBranchName, remoteBranchRef);
 
@@ -2551,11 +2568,23 @@ export class FolderRepositoryManager extends Disposable {
 						// Attempt cleanup of any created resources
 						if (tempBranchName) {
 							try {
-								// If we're still on the temp branch, try to get back to a safe state
-								if (!originalBranchDeleted) {
+								// Check current HEAD to see where we are
+								const currentHead = this._repository.state.HEAD;
+
+								// If original branch wasn't deleted yet, we can safely checkout and cleanup
+								if (!originalBranchDeleted && currentHead?.name !== branch.name) {
 									await this._repository.checkout(branch.name);
 								}
-								await this._repository.deleteBranch(tempBranchName, true);
+								// If original was deleted and we're on temp branch, we need to notify user
+								// The temp branch is now the only reference to their work
+								if (originalBranchDeleted) {
+									vscode.window.showWarningMessage(
+										vscode.l10n.t('Branch reset partially completed. You are on temporary branch "{0}". Your original branch has been deleted but not recreated. Please manually resolve this state.', tempBranchName)
+									);
+								} else {
+									// Clean up temp branch if we successfully returned to original
+									await this._repository.deleteBranch(tempBranchName, true);
+								}
 							} catch (cleanupError) {
 								Logger.error(`Error during cleanup: ${cleanupError}`, this.id);
 							}
