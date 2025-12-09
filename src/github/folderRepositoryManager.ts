@@ -989,9 +989,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			// Process branches in chunks to avoid overwhelming the system
 			// Using a smaller chunk size (10) compared to getLocalPullRequests (100) because:
-			// - This operation makes GitHub API calls for each branch that doesn't have metadata
-			// - getLocalPullRequests only reads local config, which is much faster
-			// - We want to be conservative on first activation to avoid rate limiting
+			// - This runs on first activation when we don't know how many branches need API calls
+			// - We want to be conservative to avoid rate limiting
+			// - The operation is async and non-blocking, so lower throughput is acceptable
 			const chunkSize = 10;
 			const associationResults: boolean[] = [];
 
