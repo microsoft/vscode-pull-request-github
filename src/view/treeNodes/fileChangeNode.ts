@@ -150,26 +150,32 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		const additions = this.changeModel.change.additions;
 		const deletions = this.changeModel.change.deletions;
-		let changesText = '';
 
-		if (additions !== undefined || deletions !== undefined) {
-			const parts: string[] = [];
-			if (additions !== undefined && additions > 0) {
-				parts.push(`+${additions}`);
-			}
-			if (deletions !== undefined && deletions > 0) {
-				parts.push(`-${deletions}`);
-			}
-			if (parts.length > 0) {
-				changesText = parts.join(' ');
-			}
-		}
+		// Build the changes text (+X -Y format)
+		const changesText = this._buildChangesText(additions, deletions);
 
 		if (layout === 'flat') {
-			return changesText ? changesText : true;
+			// In flat layout, show changes if available, otherwise show full path
+			return changesText || true;
 		} else {
+			// In tree layout, just show changes (path is in tree structure)
 			return changesText;
 		}
+	}
+
+	protected _buildChangesText(additions: number | undefined, deletions: number | undefined): string {
+		if (additions === undefined && deletions === undefined) {
+			return '';
+		}
+
+		const parts: string[] = [];
+		if (additions !== undefined && additions > 0) {
+			parts.push(`+${additions}`);
+		}
+		if (deletions !== undefined && deletions > 0) {
+			parts.push(`-${deletions}`);
+		}
+		return parts.join(' ');
 	}
 
 	updateViewed(viewed: ViewedState) {
@@ -245,21 +251,10 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 			description = '';
 		}
 
-		const additions = this.changeModel.change.additions;
-		const deletions = this.changeModel.change.deletions;
+		const changesText = this._buildChangesText(this.changeModel.change.additions, this.changeModel.change.deletions);
 
-		if (additions !== undefined || deletions !== undefined) {
-			const parts: string[] = [];
-			if (additions !== undefined && additions > 0) {
-				parts.push(`+${additions}`);
-			}
-			if (deletions !== undefined && deletions > 0) {
-				parts.push(`-${deletions}`);
-			}
-			if (parts.length > 0) {
-				const changesText = parts.join(' ');
-				description = description ? `${description} ${changesText}` : changesText;
-			}
+		if (changesText) {
+			description = description ? `${description} ${changesText}` : changesText;
 		}
 
 		return description;
