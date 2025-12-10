@@ -1498,6 +1498,7 @@ export class FolderRepositoryManager extends Disposable {
 				// No GitHubRepository? Fall back to using configured GitHub remotes
 				// instead of failing, to support scenarios where the upstream is set to
 				// a non-GitHub remote but GitHub remotes are configured separately.
+				// Fallback logic follows below (lines 1507-1514).
 			} else {
 				// Otherwise, we'll push upstream.
 				return upstream;
