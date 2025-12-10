@@ -39,10 +39,22 @@ export class TemporaryState extends vscode.Disposable {
 		}
 	}
 
-	private async writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean): Promise<vscode.Uri> {
+	private async writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean, repositoryUri?: vscode.Uri): Promise<vscode.Uri> {
 		let filePath: vscode.Uri = this.path;
-		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
-			? vscode.workspace.workspaceFolders[0].name : undefined;
+		let workspace: string | undefined;
+
+		// If repositoryUri is provided, find the matching workspace folder
+		if (repositoryUri && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			const matchingFolder = vscode.workspace.workspaceFolders.find(folder =>
+				folder.uri.toString() === repositoryUri.toString()
+			);
+			workspace = matchingFolder?.name;
+		}
+
+		// Fall back to the first workspace folder if no match found
+		if (!workspace && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			workspace = vscode.workspace.workspaceFolders[0].name;
+		}
 
 		if (workspace) {
 			filePath = vscode.Uri.joinPath(filePath, workspace);
@@ -99,12 +111,12 @@ export class TemporaryState extends vscode.Disposable {
 		}
 	}
 
-	static async write(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean = false): Promise<vscode.Uri | undefined> {
+	static async write(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean = false, repositoryUri?: vscode.Uri): Promise<vscode.Uri | undefined> {
 		if (!tempState) {
 			return;
 		}
 
-		return tempState.writeState(subpath, filename, contents, persistInSession);
+		return tempState.writeState(subpath, filename, contents, persistInSession, repositoryUri);
 	}
 
 	static async read(subpath: string, filename: string): Promise<Uint8Array | undefined> {
