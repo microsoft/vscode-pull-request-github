@@ -47,7 +47,6 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _fetchNotifications: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
 
-	private _pollingDuration: number = 60; // Default polling duration
 	private _pollingHandler: NodeJS.Timeout | null;
 	private _pollingLastModified: string;
 
@@ -202,7 +201,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	}
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
-		let pollInterval = this._pollingDuration;
+		let pollInterval = this._getRefreshInterval();
 		let lastModified = this._pollingLastModified;
 		if (this._fetchNotifications) {
 			// Get raw notifications
