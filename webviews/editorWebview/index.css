@@ -501,6 +501,10 @@ body button .icon {
 	margin-right: 6px;
 }
 
+.overview-title h2 a {
+	user-select: text;
+}
+
 .overview-title textarea {
 	min-height: 50px;
 }
