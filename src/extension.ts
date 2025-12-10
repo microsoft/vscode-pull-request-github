@@ -98,7 +98,9 @@ async function init(
 				return;
 			}
 
-			if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'ask' | 'never' | undefined>(BRANCH_PUBLISH) !== 'ask') {
+			const createOnPublishBranch = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'ask' | 'never' | 'always' | undefined>(BRANCH_PUBLISH);
+
+			if (createOnPublishBranch === 'never') {
 				return;
 			}
 
@@ -118,6 +120,11 @@ async function init(
 
 			const defaults = await folderManager.getPullRequestDefaults();
 			if (defaults.base === e.branch) {
+				return;
+			}
+
+			if (createOnPublishBranch === 'always') {
+				reviewManager?.createPullRequest(e.branch);
 				return;
 			}
 
