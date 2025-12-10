@@ -459,13 +459,17 @@ const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent
 	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={`${a.id}a`} for={a} />));
 	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={`${a.id}u`} for={a} />));
 
+	// Check if actor is assigning/unassigning themselves
+	const isSelfAssign = assignees.length === 1 && assignees[0].login === actor.login;
+	const isSelfUnassign = unassignees.length === 1 && unassignees[0].login === actor.login;
+
 	let message: JSX.Element;
 	if (assignees.length > 0 && unassignees.length > 0) {
 		message = <>assigned {joinedAssignees} and unassigned {joinedUnassignees}</>;
 	} else if (assignees.length > 0) {
-		message = <>assigned {joinedAssignees}</>;
+		message = isSelfAssign ? <>assigned themselves</> : <>assigned {joinedAssignees}</>;
 	} else {
-		message = <>unassigned {joinedUnassignees}</>;
+		message = isSelfUnassign ? <>removed their assignment</> : <>unassigned {joinedUnassignees}</>;
 	}
 
 	return (
