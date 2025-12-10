@@ -340,7 +340,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					return;
 				}
 
-				const issue = await getIssue(this.stateManager, folderManager, word, parsed);
+				const issue = await getIssue(this._stateManager, folderManager, word, parsed);
 				if (!issue) {
 					vscode.window.showWarningMessage(vscode.l10n.t('Unable to resolve issue.'));
 					return;
