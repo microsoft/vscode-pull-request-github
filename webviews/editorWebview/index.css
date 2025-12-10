@@ -872,6 +872,52 @@ textarea {
 	max-height: 500px;
 }
 
+.textarea-wrapper {
+	position: relative;
+	display: flex;
+	width: 100%;
+}
+
+.textarea-wrapper textarea {
+	flex: 1;
+	padding-right: 40px;
+}
+
+.textarea-wrapper .title-action {
+	position: absolute;
+	top: 6px;
+	right: 5px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+}
+
+.textarea-wrapper .title-action:hover {
+	outline-style: none;
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .title-action:focus {
+	outline-style: none;
+}
+
+.textarea-wrapper .title-action:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	background: unset;
+}
+
+.textarea-wrapper .title-action svg {
+	padding: 2px;
+}
+
 .editing-form {
 	padding: 5px 0;
 	display: flex;

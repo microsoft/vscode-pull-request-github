@@ -109,6 +109,7 @@ export interface PullRequest extends Issue {
 	revertable?: boolean;
 	busy?: boolean;
 	loadingCommit?: string;
+	generateDescriptionTitle?: string;
 }
 
 export interface ProjectItemsReply {

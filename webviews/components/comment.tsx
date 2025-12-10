@@ -5,7 +5,7 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copyIcon, editIcon, quoteIcon, trashIcon } from './icon';
+import { copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -56,6 +56,7 @@ export function CommentView(commentProps: Props) {
 				id={id}
 				key={`editComment${id}`}
 				body={currentDraft || bodyMd}
+				isPRDescription={isPRDescription}
 				onCancel={() => {
 					if (pr?.pendingCommentDrafts) {
 						delete pr.pendingCommentDrafts[id];
@@ -208,14 +209,17 @@ type FormInputSet = {
 type EditCommentProps = {
 	id: number;
 	body: string;
+	isPRDescription?: boolean;
 	onCancel: () => void;
 	onSave: (body: string) => Promise<any>;
 };
 
-function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
-	const { updateDraft } = useContext(PullRequestContext);
+function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommentProps) {
+	const { updateDraft, pr, generateDescription, cancelGenerateDescription } = useContext(PullRequestContext);
 	const draftComment = useRef<{ body: string; dirty: boolean }>({ body, dirty: false });
 	const form = useRef<HTMLFormElement>();
+	const [isGenerating, setIsGenerating] = useState(false);
+	const [canGenerate, setCanGenerate] = useState(false);
 
 	useEffect(() => {
 		const interval = setInterval(() => {
@@ -226,6 +230,13 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 		}, 500);
 		return () => clearInterval(interval);
 	}, [draftComment]);
+
+	useEffect(() => {
+		// Check if description generation is available
+		if (isPRDescription && pr?.generateDescriptionTitle) {
+			setCanGenerate(true);
+		}
+	}, [isPRDescription, pr?.generateDescriptionTitle]);
 
 	const submit = useCallback(async () => {
 		const { markdown, submitButton }: FormInputSet = form.current!;
@@ -263,9 +274,57 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 		[draftComment],
 	);
 
+	const handleGenerateDescription = useCallback(async () => {
+		if (!generateDescription) {
+			return;
+		}
+		setIsGenerating(true);
+		try {
+			const generated = await generateDescription();
+			if (generated?.description && form.current) {
+				const textarea = form.current.markdown as HTMLTextAreaElement;
+				textarea.value = generated.description;
+				draftComment.current.body = generated.description;
+				draftComment.current.dirty = true;
+			}
+		} finally {
+			setIsGenerating(false);
+		}
+	}, [generateDescription]);
+
+	const handleCancelGenerate = useCallback(() => {
+		if (cancelGenerateDescription) {
+			cancelGenerateDescription();
+		}
+		setIsGenerating(false);
+	}, [cancelGenerateDescription]);
+
 	return (
 		<form ref={form as React.MutableRefObject<HTMLFormElement>} onSubmit={onSubmit}>
-			<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} />
+			<div className="textarea-wrapper">
+				<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} disabled={isGenerating} />
+				{canGenerate && isPRDescription ? (
+					isGenerating ? (
+						<button 
+							type="button"
+							title="Cancel" 
+							className="title-action icon-button" 
+							onClick={handleCancelGenerate}
+						>
+							{stopCircleIcon}
+						</button>
+					) : (
+						<button 
+							type="button"
+							title={pr?.generateDescriptionTitle || 'Generate description'} 
+							className="title-action icon-button" 
+							onClick={handleGenerateDescription}
+						>
+							{sparkleIcon}
+						</button>
+					)
+				) : null}
+			</div>
 			<div className="form-actions">
 				<button className="secondary" onClick={onCancel}>
 					Cancel
