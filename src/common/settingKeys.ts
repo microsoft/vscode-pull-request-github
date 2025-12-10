@@ -23,6 +23,7 @@ export type NotificationVariants = 'off' | 'pullRequests';
 export const POST_CREATE = 'postCreate';
 export const POST_DONE = 'postDone';
 export const QUERIES = 'queries';
+export const QUERIES_REFRESH_INTERVAL = 'queries.refreshInterval';
 export const PULL_REQUEST_LABELS = 'labelCreated';
 export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';

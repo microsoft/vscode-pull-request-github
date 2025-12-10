@@ -11,7 +11,7 @@ import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, QUERIES_REFRESH_INTERVAL, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
@@ -47,6 +47,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private _initialized: boolean = false;
 	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
+	private _autoRefreshTimer: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -93,6 +94,10 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				if (this._notificationClearTimeout) {
 					clearTimeout(this._notificationClearTimeout);
 					this._notificationClearTimeout = undefined;
+				}
+				if (this._autoRefreshTimer) {
+					clearInterval(this._autoRefreshTimer);
+					this._autoRefreshTimer = undefined;
 				}
 			}
 		});
@@ -150,6 +155,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 				this.refreshAll();
 			}
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES_REFRESH_INTERVAL}`)) {
+				this.setupAutoRefresh();
+			}
 		}));
 
 		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
@@ -160,6 +168,39 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+
+		// Initialize auto-refresh timer
+		this.setupAutoRefresh();
+	}
+
+	private setupAutoRefresh(): void {
+		// Clear existing timer if any
+		if (this._autoRefreshTimer) {
+			clearInterval(this._autoRefreshTimer);
+			this._autoRefreshTimer = undefined;
+		}
+
+		// Get the refresh interval setting in minutes
+		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+		const intervalMinutes = config.get<number>(QUERIES_REFRESH_INTERVAL, 0);
+
+		// If interval is 0, auto-refresh is disabled
+		if (intervalMinutes === 0) {
+			return;
+		}
+
+		// Enforce minimum of 5 minutes
+		const actualIntervalMinutes = Math.max(intervalMinutes, 5);
+		const intervalMs = actualIntervalMinutes * 60 * 1000;
+
+		// Set up the timer
+		this._autoRefreshTimer = setInterval(() => {
+			Logger.appendLine('Auto-refreshing pull requests queries', 'PullRequestsTreeDataProvider');
+			this.prsTreeModel.forceClearCache();
+			this.refreshAllQueryResults(true);
+		}, intervalMs);
+
+		Logger.appendLine(`Auto-refresh enabled with interval of ${actualIntervalMinutes} minutes`, 'PullRequestsTreeDataProvider');
 	}
 
 	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {
