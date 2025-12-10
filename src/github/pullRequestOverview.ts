@@ -54,6 +54,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
 	private _teamsCount = 0;
+	private _assignableUsers: { [key: string]: IAccount[] } = {};
 
 	private _prListeners: vscode.Disposable[] = [];
 	private _isUpdating: boolean = false;
@@ -292,6 +293,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
 			this._teamsCount = orgTeamsCount;
+			this._assignableUsers = assignableUsers;
 			this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
@@ -304,7 +306,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const users = assignableUsers[pullRequestModel.remote.remoteName] ?? [];
+			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
 			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && COPILOT_ACCOUNTS[reviewer.reviewer.login]);
 			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
@@ -753,7 +755,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async addReviewerCopilot(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const copilotUser = (await this._folderRepositoryManager.getAssignableUsers())[this._item.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
+			const copilotUser = this._assignableUsers[this._item.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
 			if (copilotUser) {
 				await this._item.requestReview([copilotUser], []);
 				const newReviewers = await this._item.getReviewRequests();
