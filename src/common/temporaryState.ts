@@ -82,6 +82,9 @@ export class TemporaryState extends vscode.Disposable {
 
 	private async readState(subpath: string, filename: string): Promise<Uint8Array> {
 		let filePath: vscode.Uri = this.path;
+		// Note: readState currently only supports the first workspace folder
+		// If this method is needed for multi-root workspace support in the future,
+		// it should accept a repositoryUri parameter like writeState does
 		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
 			? vscode.workspace.workspaceFolders[0].name : undefined;
 
