@@ -233,9 +233,7 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 
 	useEffect(() => {
 		// Check if description generation is available
-		if (isPRDescription && pr?.generateDescriptionTitle) {
-			setCanGenerate(true);
-		}
+		setCanGenerate(isPRDescription === true && !!pr?.generateDescriptionTitle);
 	}, [isPRDescription, pr?.generateDescriptionTitle]);
 
 	const submit = useCallback(async () => {
