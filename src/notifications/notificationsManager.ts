@@ -323,6 +323,18 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 	}
 
+	private _isBot(user: { login: string, accountType?: AccountType }): boolean {
+		// Check if accountType indicates this is a bot
+		if (user.accountType === AccountType.Bot) {
+			return true;
+		}
+		// Check for common bot naming patterns
+		if (user.login.endsWith('[bot]') || user.login === 'vs-code-engineering') {
+			return true;
+		}
+		return false;
+	}
+
 	private _getMeaningfulEventTime(event: TimelineEvent, currentUser: string, isCurrentUser: boolean): Date | undefined {
 		const userCheck = (testUser?: string) => {
 			if (isCurrentUser) {
@@ -332,40 +344,25 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			}
 		};
 
-		// Helper to check if a user is a bot
-		const isBot = (user: { login: string, accountType?: AccountType }): boolean => {
-			// Check if accountType indicates this is a bot
-			if (user.accountType === AccountType.Bot) {
-				return true;
-			}
-			// Check for common bot naming patterns
-			if (user.login.endsWith('[bot]') || user.login === 'vs-code-engineering') {
-				return true;
-			}
-			return false;
-		};
-
 		if (event.event === EventType.Committed) {
-			if (!isBot(event.author) && userCheck(event.author.login)) {
+			if (!this._isBot(event.author) && userCheck(event.author.login)) {
 				return new Date(event.committedDate);
 			}
 		} else if (event.event === EventType.Commented) {
-			if (event.user && !isBot(event.user) && userCheck(event.user.login)) {
+			if (event.user && !this._isBot(event.user) && userCheck(event.user.login)) {
 				return new Date(event.createdAt);
 			}
 		} else if (event.event === EventType.Reviewed) {
 			// We only count empty reviews as meaningful if the user is the current user
 			if (isCurrentUser || (event.comments.length > 0 || event.body.length > 0)) {
-				if (event.user && !isBot(event.user) && userCheck(event.user.login)) {
+				if (event.user && !this._isBot(event.user) && userCheck(event.user.login)) {
 					return new Date(event.submittedAt);
 				}
 			}
 		} else if (event.event === EventType.Merged) {
 			// Merging a PR is a meaningful event
-			// Note: MergedEvent.user is IActor (not IAccount), so we check login patterns
-			const login = event.user.login;
-			const isBotByName = login.endsWith('[bot]') || login === 'vs-code-engineering';
-			if (!isBotByName && userCheck(login)) {
+			// Note: MergedEvent.user is IActor (not IAccount), so accountType is undefined
+			if (!this._isBot(event.user) && userCheck(event.user.login)) {
 				return new Date(event.createdAt);
 			}
 		}
