@@ -15,6 +15,7 @@ const RefRepositoryBuilder = createBuilderClass<RefRepository>()({
 		login: { default: 'me' },
 	}),
 	url: { default: 'https://github.com/owner/repo' },
+	name: { default: 'repo' },
 });
 
 const BaseRefRepositoryBuilder = createBuilderClass<BaseRefRepository>()({
@@ -23,6 +24,7 @@ const BaseRefRepositoryBuilder = createBuilderClass<BaseRefRepository>()({
 		login: { default: 'me' },
 	}),
 	url: { default: 'https://github.com/owner/repo' },
+	name: { default: 'repo' },
 	mergeCommitMessage: { default: DefaultCommitMessage.commitMessages },
 	mergeCommitTitle: { default: DefaultCommitTitle.mergeMessage },
 	squashMergeCommitMessage: { default: DefaultCommitMessage.prBody },
