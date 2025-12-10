@@ -13,7 +13,7 @@ import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } fro
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
-import { NotificationSubjectType } from '../github/interface';
+import { AccountType, NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -332,20 +332,38 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			}
 		};
 
+		// Helper to check if a user is a bot
+		const isBot = (user: { login: string, accountType?: AccountType }): boolean => {
+			// Check if accountType indicates this is a bot
+			if (user.accountType === AccountType.Bot) {
+				return true;
+			}
+			// Check for common bot naming patterns
+			if (user.login.endsWith('[bot]') || user.login === 'vs-code-engineering') {
+				return true;
+			}
+			return false;
+		};
+
 		if (event.event === EventType.Committed) {
-			if (userCheck(event.author.login)) {
+			if (!isBot(event.author) && userCheck(event.author.login)) {
 				return new Date(event.committedDate);
 			}
 		} else if (event.event === EventType.Commented) {
-			if (userCheck(event.user?.login)) {
+			if (event.user && !isBot(event.user) && userCheck(event.user.login)) {
 				return new Date(event.createdAt);
 			}
 		} else if (event.event === EventType.Reviewed) {
 			// We only count empty reviews as meaningful if the user is the current user
 			if (isCurrentUser || (event.comments.length > 0 || event.body.length > 0)) {
-				if (userCheck(event.user?.login)) {
+				if (event.user && !isBot(event.user) && userCheck(event.user.login)) {
 					return new Date(event.submittedAt);
 				}
+			}
+		} else if (event.event === EventType.Merged) {
+			// Merging a PR is a meaningful event
+			if (userCheck(event.user.login)) {
+				return new Date(event.createdAt);
 			}
 		}
 	}
