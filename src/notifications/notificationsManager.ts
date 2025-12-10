@@ -362,7 +362,10 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			}
 		} else if (event.event === EventType.Merged) {
 			// Merging a PR is a meaningful event
-			if (userCheck(event.user.login)) {
+			// Note: MergedEvent.user is IActor (not IAccount), so we check login patterns
+			const login = event.user.login;
+			const isBotByName = login.endsWith('[bot]') || login === 'vs-code-engineering';
+			if (!isBotByName && userCheck(login)) {
 				return new Date(event.createdAt);
 			}
 		}
