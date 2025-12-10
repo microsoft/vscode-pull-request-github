@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { onceEvent } from '../common/utils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -17,6 +18,7 @@ interface PRChatContextItem extends vscode.ChatContextItem {
 }
 
 export class PullRequestContextProvider extends Disposable implements vscode.ChatContextProvider {
+	private static readonly ID = 'PullRequestContextProvider';
 	private readonly _onDidChangeWorkspaceChatContext = new vscode.EventEmitter<void>();
 	readonly onDidChangeWorkspaceChatContext = this._onDidChangeWorkspaceChatContext.event;
 
@@ -79,6 +81,7 @@ Current user: ${currentUser.login}`;
 				}
 			} catch (e) {
 				// If we can't get the current user, continue without it
+				Logger.debug(`Failed to get current user for workspace context: ${e}`, PullRequestContextProvider.ID);
 			}
 
 			if (folderManager.activePullRequest) {
