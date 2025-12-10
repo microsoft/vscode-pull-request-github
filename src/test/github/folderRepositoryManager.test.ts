@@ -30,6 +30,7 @@ describe('PullRequestManager', function () {
 	let manager: FolderRepositoryManager;
 	let telemetry: MockTelemetry;
 	let mockThemeWatcher: MockThemeWatcher;
+	let mockRepository: MockRepository;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -37,11 +38,11 @@ describe('PullRequestManager', function () {
 
 		telemetry = new MockTelemetry();
 		mockThemeWatcher = new MockThemeWatcher();
-		const repository = new MockRepository();
+		mockRepository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+		manager = new FolderRepositoryManager(0, context, mockRepository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
 	});
 
 	afterEach(function () {
@@ -66,6 +67,38 @@ describe('PullRequestManager', function () {
 			manager.activePullRequest = pr;
 			assert(changeFired.called);
 			assert.deepStrictEqual(manager.activePullRequest, pr);
+		});
+	});
+
+	describe('getOrigin', function () {
+		it('falls back to configured GitHub remote when upstream is not GitHub', async function () {
+			// Setup: Add a GitHub remote
+			const githubUrl = 'https://github.com/test/repo.git';
+			await mockRepository.addRemote('github', githubUrl);
+
+			const githubProtocol = new Protocol(githubUrl);
+			const githubRemote = new GitHubRemote('github', githubUrl, githubProtocol, GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('/test/repo');
+			const githubRepository = new GitHubRepository(1, githubRemote, rootUri, manager.credentialStore, telemetry);
+
+			// Manually set up the GitHub repository in the manager (simulating successful initialization)
+			(manager as any)._githubRepositories = [githubRepository];
+
+			// Add a non-GitHub remote (simulating the scenario from the bug)
+			await mockRepository.addRemote('origin', 'https://example.com/git/repo.git');
+
+			// Create a branch with upstream set to non-GitHub remote
+			await mockRepository.createBranch('test-branch', true);
+			await mockRepository.setBranchUpstream('test-branch', 'refs/remotes/origin/main');
+
+			// Mock getAllGitHubRemotes to return only the github remote
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([githubRemote]);
+
+			// Act: getOrigin should fall back to the configured GitHub remote instead of throwing
+			const result = await manager.getOrigin();
+
+			// Assert: Should return the GitHub repository, not throw an error
+			assert.strictEqual(result, githubRepository);
 		});
 	});
 });
