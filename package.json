@@ -3632,11 +3632,11 @@
 			"chat/multiDiff/context": [
 				{
 					"command": "pr.checkoutFromDescription",
-					"when": "chatSessionType == copilot-cloud-agent"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-cloud-agent"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
 				}
 			]
 		},
