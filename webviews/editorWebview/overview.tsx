@@ -29,18 +29,27 @@ const useMediaQuery = (query: string) => {
 	return matches;
 };
 
+const STICKY_THRESHOLD = 80;
+
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	const [isSticky, setIsSticky] = React.useState(false);
 
 	React.useEffect(() => {
+		let ticking = false;
+
 		const handleScroll = () => {
-			// Make header sticky when scrolled past 80px
-			const scrolled = window.scrollY > 80;
-			setIsSticky(scrolled);
+			if (!ticking) {
+				window.requestAnimationFrame(() => {
+					const scrolled = window.scrollY > STICKY_THRESHOLD;
+					setIsSticky(scrolled);
+					ticking = false;
+				});
+				ticking = true;
+			}
 		};
 
-		window.addEventListener('scroll', handleScroll);
+		window.addEventListener('scroll', handleScroll, { passive: true });
 		return () => window.removeEventListener('scroll', handleScroll);
 	}, []);
 
