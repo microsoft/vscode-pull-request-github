@@ -829,10 +829,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this._replyMessage(message, { description: undefined });
 			}
 
-			// Get commits and patches for the PR
-			const commits = await this._item.getCommits();
+			// Get commits and raw file changes for the PR
+			const [commits, rawFileChanges] = await Promise.all([
+				this._item.getCommits(),
+				this._item.getRawFileChangesInfo()
+			]);
+
 			const commitMessages = commits.map(commit => commit.commit.message);
-			const patches: string[] = [];
+			const patches = rawFileChanges
+				.filter(file => file.patch !== undefined)
+				.map(file => {
+					const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
+					const previousFileUri = file.previous_filename ?
+						vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() :
+						undefined;
+					return { patch: file.patch!, fileUri, previousFileUri };
+				});
 
 			// Get the PR template
 			const templateContent = await this._folderRepositoryManager.getPullRequestTemplateBody(this._item.remote.owner);
