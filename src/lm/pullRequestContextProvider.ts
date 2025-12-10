@@ -69,6 +69,18 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 Owner: ${defaults.owner}
 Current branch: ${folderManager.repository.state.HEAD?.name ?? 'unknown'}
 Default branch: ${defaults.base}`;
+
+			// Add current user information
+			try {
+				const currentUser = await folderManager.getCurrentUser();
+				if (currentUser?.login) {
+					value = `${value}
+Current user: ${currentUser.login}`;
+				}
+			} catch (e) {
+				// If we can't get the current user, continue without it
+			}
+
 			if (folderManager.activePullRequest) {
 				value = `${value}
 Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
