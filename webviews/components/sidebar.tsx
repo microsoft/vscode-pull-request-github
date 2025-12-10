@@ -8,7 +8,7 @@ import { closeIcon, copilotIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IAccount, IMilestone, IProjectItem, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
+import { IAccount, IMilestone, IProjectItem, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
@@ -53,9 +53,10 @@ function Section({
 	);
 }
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
+export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot, canRequestCopilotReview }: PullRequest) {
 	const {
 		addReviewers,
+		addReviewerCopilot,
 		addAssignees,
 		addAssigneeYourself,
 		addAssigneeCopilot,
@@ -68,8 +69,10 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 	} = useContext(PullRequestContext);
 
 	const [assigningCopilot, setAssigningCopilot] = useState(false);
+	const [requestingCopilotReview, setRequestingCopilotReview] = useState(false);
 
 	const shouldShowCopilotButton = canAssignCopilot && assignees.every(assignee => !COPILOT_LOGINS.includes(assignee.login));
+	const shouldShowCopilotReviewButton = canRequestCopilotReview && reviewers.every(reviewer => !isITeam(reviewer.reviewer) && !COPILOT_LOGINS.includes(reviewer.reviewer.login));
 
 	const updateProjects = async () => {
 		const newProjects = await changeProjects();
@@ -83,10 +86,43 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					id="reviewers"
 					title="Reviewers"
 					hasWritePermission={hasWritePermission}
-					onHeaderClick={async () => {
+					onHeaderClick={async (e) => {
+						const target = e?.target as HTMLElement;
+						if (target?.closest && target.closest('#request-copilot-review-btn')) {
+							return;
+						}
 						const newReviewers = await addReviewers();
 						updatePR({ reviewers: newReviewers.reviewers });
 					}}
+					iconButtonGroup={hasWritePermission && (
+						<div className="icon-button-group">
+							{shouldShowCopilotReviewButton ? (
+								<button
+									id="request-copilot-review-btn"
+									className="icon-button"
+									title="Request review from Copilot"
+									disabled={requestingCopilotReview}
+									onClick={async (e) => {
+										e.stopPropagation();
+										setRequestingCopilotReview(true);
+										try {
+											const newReviewers = await addReviewerCopilot();
+											updatePR({ reviewers: newReviewers.reviewers });
+										} finally {
+											setRequestingCopilotReview(false);
+										}
+									}}>
+									{copilotIcon}
+								</button>
+							) : null}
+							<button
+								className="icon-button"
+								title="Add Reviewers"
+							>
+								{settingsIcon}
+							</button>
+						</div>
+					)}
 				>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (

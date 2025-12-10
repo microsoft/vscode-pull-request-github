@@ -26,7 +26,7 @@ import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommo
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
-import { IComment } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
@@ -257,7 +257,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				mergeability,
 				emailForCommit,
 				coAuthors,
-				hasReviewDraft
+				hasReviewDraft,
+				assignableUsers
 			] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
@@ -279,6 +280,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
 				pullRequestModel.getCoAuthors(),
 				pullRequestModel.validateDraftMode(),
+				this._folderRepositoryManager.getAssignableUsers()
 			]);
 			if (!pullRequest) {
 				throw new Error(
@@ -302,12 +304,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
+			const users = assignableUsers[pullRequestModel.remote.remoteName] ?? [];
+			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
+			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && COPILOT_ACCOUNTS[reviewer.reviewer.login]);
+			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
+				canRequestCopilotReview: copilotUser !== undefined && !isCopilotAlreadyReviewer,
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 				base: pullRequest.base.label,
@@ -415,6 +421,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.gotoChangesSinceReview(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
+			case 'pr.add-reviewer-copilot':
+				return this.addReviewerCopilot(message);
 			case 'pr.revert':
 				return this.revert(message);
 			case 'pr.open-session-log':
@@ -741,6 +749,26 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private reRequestReview(message: IRequestMessage<string>): void {
 		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
+	}
+
+	private async addReviewerCopilot(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const copilotUser = (await this._folderRepositoryManager.getAssignableUsers())[this._item.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
+			if (copilotUser) {
+				await this._item.requestReview([copilotUser], []);
+				const newReviewers = await this._item.getReviewRequests();
+				this._existingReviewers = parseReviewers(newReviewers!, await this._item.getTimelineEvents(), this._item.author);
+				const reply = {
+					reviewers: this._existingReviewers
+				};
+				this._replyMessage(message, reply);
+			} else {
+				this._throwError(message, 'Copilot reviewer not found.');
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+			this._throwError(message, formatError(e));
+		}
 	}
 
 	private async revert(message: IRequestMessage<string>): Promise<void> {

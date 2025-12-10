@@ -67,6 +67,7 @@ export interface Issue {
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
+	canRequestCopilotReview: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
 }
