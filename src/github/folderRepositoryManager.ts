@@ -2891,6 +2891,12 @@ function unwrapCommitMessageBody(body: string): string {
 		return body;
 	}
 
+	// Pattern to detect lines that should be preserved (not joined):
+	// - Lines starting with whitespace (indented/code blocks)
+	// - Lines starting with list markers (*, -, +, >)
+	// - Lines starting with numbered list items (e.g., "1. ")
+	const PRESERVE_LINE_PATTERN = /^[ \t*\-+>]|^\d+\./;
+
 	const lines = body.split('\n');
 	const result: string[] = [];
 	let i = 0;
@@ -2907,7 +2913,7 @@ function unwrapCommitMessageBody(body: string): string {
 
 		// Check if this line should NOT be joined with the next
 		// Lines that start with special formatting characters should be preserved
-		const shouldPreserveLine = /^[\s*\-+>]|^\d+\./.test(line);
+		const shouldPreserveLine = PRESERVE_LINE_PATTERN.test(line);
 
 		if (shouldPreserveLine) {
 			result.push(line);
@@ -2929,7 +2935,7 @@ function unwrapCommitMessageBody(body: string): string {
 			}
 
 			// Stop at lines that start with special formatting
-			if (/^[\s*\-+>]|^\d+\./.test(nextLine)) {
+			if (PRESERVE_LINE_PATTERN.test(nextLine)) {
 				break;
 			}
 
@@ -2952,7 +2958,7 @@ export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Pr
 	const idxLineBreak = message.indexOf('\n');
 	const rawBody = idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim();
 	return {
-		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),
+		title: idxLineBreak === -1 ? message : message.slice(0, idxLineBreak),
 
 		body: unwrapCommitMessageBody(rawBody),
 	};
