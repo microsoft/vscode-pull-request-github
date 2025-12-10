@@ -4351,6 +4351,7 @@
 		"@shikijs/monaco": "^3.7.0",
 		"@types/chai": "^4.1.4",
 		"@types/glob": "7.1.3",
+		"@types/js-yaml": "^4.0.9",
 		"@types/lru-cache": "^5.1.0",
 		"@types/marked": "^0.7.2",
 		"@types/mocha": "^8.2.2",
