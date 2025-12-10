@@ -682,8 +682,17 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
 		if (descrptionSource === 'none') {
+			return { title, description };
+		}
+
+		// If branchName is selected, use the branch name as the title
+		if (descrptionSource === 'branchName') {
+			const name = compareBranch.name;
+			if (name) {
+				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+			}
 			return { title, description };
 		}
 
