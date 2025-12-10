@@ -24,7 +24,6 @@ import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
-import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
@@ -35,6 +34,8 @@ import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
+import { PrsTreeModel } from '../../view/prsTreeModel';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -48,6 +49,7 @@ describe('GitHub Pull Requests view', function () {
 	let mockThemeWatcher: MockThemeWatcher;
 	let gitAPI: GitApiImpl;
 	let mockNotificationsManager: MockNotificationManager;
+	let prsTreeModel: PrsTreeModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -61,10 +63,11 @@ describe('GitHub Pull Requests view', function () {
 			credentialStore,
 			telemetry,
 		);
+		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
 		credentialStore = new CredentialStore(telemetry, context);
 		gitAPI = new GitApiImpl(reposManager);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI, prsTreeModel);
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager, copilotManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
 
@@ -83,8 +86,6 @@ describe('GitHub Pull Requests view', function () {
 
 			return github;
 		});
-
-		Resource.initialize(context);
 	});
 
 	afterEach(function () {
@@ -138,6 +139,40 @@ describe('GitHub Pull Requests view', function () {
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
 			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+		);
+	});
+
+	it('refreshes tree when GitHub repositories are discovered in existing folder manager', async function () {
+		const repository = new MockRepository();
+		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
+		reposManager.insertFolderManager(folderManager);
+		provider.initialize([], mockNotificationsManager as NotificationsManager);
+
+		// Initially no children because no GitHub repositories are loaded yet
+		let rootNodes = await provider.getChildren();
+		assert.strictEqual(rootNodes.length, 0);
+
+		// Listen to the prsTreeModel's onDidChangeData event which is what actually drives the tree refresh
+		const onDidChangeDataSpy = sinon.spy();
+		provider.prsTreeModel.onDidChangeData(onDidChangeDataSpy);
+
+		// Simulate GitHub repositories being discovered (as happens when remotes load after activation)
+		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+		await folderManager.updateRepositories();
+
+		// Verify that the tree model's data change event was triggered
+		assert(onDidChangeDataSpy.calledWith(folderManager),
+			'Tree model should fire data change event with the folder manager when GitHub repositories are discovered');
+
+		// Verify tree now has content
+		rootNodes = await provider.getChildren();
+		const treeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+		assert.deepStrictEqual(
+			treeItems.map(n => n.label),
+			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+			'Tree should display categories after GitHub repositories are discovered',
 		);
 	});
 
@@ -221,14 +256,18 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
 
-			assert.strictEqual(localItem0.label, 'zero');
+			const label0 = (localItem0.label as vscode.TreeItemLabel2).label;
+			assert.ok(label0 instanceof vscode.MarkdownString);
+			assert.equal(label0.value, 'zero');
 			assert.strictEqual(localItem0.tooltip, undefined);
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive:hasHeadRef');
 			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
-			assert.strictEqual(localItem1.label, '✓ one');
+			const label1 = (localItem1.label as vscode.TreeItemLabel2).label;
+			assert.ok(label1 instanceof vscode.MarkdownString);
+			assert.equal(label1.value, '$(check) one');
 			assert.strictEqual(localItem1.tooltip, undefined);
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);

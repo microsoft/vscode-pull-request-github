@@ -132,7 +132,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		}
 
 		const status = await pullRequest.getStatusChecks();
-		const timeline = pullRequest.timelineEvents.length > 0 ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
+		const timeline = (pullRequest.timelineEvents && pullRequest.timelineEvents.length > 0) ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
 		const pullRequestInfo = {
 			title: pullRequest.title,
 			body: pullRequest.body,

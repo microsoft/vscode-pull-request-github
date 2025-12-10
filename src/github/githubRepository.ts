@@ -177,6 +177,13 @@ export class GitHubRepository extends Disposable {
 			value.model.dispose();
 		}
 	});
+	private _issueModelsByNumber: LRUCache<number, { model: IssueModel, disposables: vscode.Disposable[] }> = new LRUCache({
+		maxAge: 1000 * 60 * 60 * 4 /* 4 hours */, stale: true, updateAgeOnGet: true,
+		dispose: (_key, value) => {
+			disposeAll(value.disposables);
+			value.model.dispose();
+		}
+	});
 	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
@@ -206,19 +213,26 @@ export class GitHubRepository extends Disposable {
 		return this._pullRequestModelsByNumber.get(prNumber)?.model;
 	}
 
+	getExistingIssueModel(issueNumber: number): IssueModel | undefined {
+		return this._issueModelsByNumber.get(issueNumber)?.model;
+	}
+
 	get pullRequestModels(): PullRequestModel[] {
 		return Array.from(this._pullRequestModelsByNumber.values().map(value => value.model));
 	}
 
+	get issueModels(): IssueModel[] {
+		return Array.from(this._issueModelsByNumber.values().map(value => value.model));
+	}
+
 	public async ensureCommentsController(): Promise<void> {
 		try {
+			await this.ensure();
 			if (this.commentsController) {
 				return;
 			}
-
-			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.remoteName}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
@@ -1009,6 +1023,19 @@ export class GitHubRepository extends Disposable {
 		return model;
 	}
 
+	private createOrUpdateIssueModel(issue: Issue): IssueModel {
+		let model = this._issueModelsByNumber.get(issue.number)?.model;
+		if (model) {
+			model.update(issue);
+		} else {
+			model = new IssueModel(this.telemetry, this, this.remote, issue);
+			// No issue-specific event emitters yet; store empty disposables list for symmetry/cleanup
+			const disposables: vscode.Disposable[] = [];
+			this._issueModelsByNumber.set(issue.number, { model, disposables });
+		}
+		return model;
+	}
+
 	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
 		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
@@ -1094,14 +1121,23 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			return this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			return pr;
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, this.id);
 			return;
 		}
 	}
 
-	async getIssue(id: number, withComments: boolean = false): Promise<IssueModel | undefined> {
+	async getIssue(id: number, withComments: boolean = false, useCache: boolean = false): Promise<IssueModel | undefined> {
+		if (useCache) {
+			const cached = this._issueModelsByNumber.get(id)?.model;
+			if (cached) {
+				Logger.debug(`Using cached issue model for ${id}`, this.id);
+				return cached;
+			}
+		}
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
@@ -1121,7 +1157,9 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this.telemetry, this, remote, await parseGraphQLIssue(data.repository.issue, this));
+			const issue = this.createOrUpdateIssueModel(await parseGraphQLIssue(data.repository.issue, this));
+			await issue.getLastUpdateTime(new Date(issue.item.updatedAt));
+			return issue;
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;

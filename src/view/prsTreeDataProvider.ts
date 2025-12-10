@@ -45,17 +45,15 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 	private readonly _view: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
-	private _notificationsProvider: NotificationsManager;
-	public readonly prsTreeModel: PrsTreeModel;
+	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
+	constructor(public readonly prsTreeModel: PrsTreeModel, private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
-		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
 		this._register(this.prsTreeModel.onDidChangeData(e => {
 			if (e instanceof FolderRepositoryManager) {
 				this.refreshRepo(e);
@@ -104,15 +102,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(this._copilotManager.onDidChangeNotifications(() => {
-			if (this._copilotManager.notificationsCount > 0) {
-				this._view.badge = {
-					tooltip: this._copilotManager.notificationsCount === 1 ? vscode.l10n.t('Coding agent has 1 pull request to view') : vscode.l10n.t('Coding agent has {0} pull requests to view', this._copilotManager.notificationsCount),
-					value: this._copilotManager.notificationsCount
-				};
-			} else {
-				this._view.badge = undefined;
-			}
+			this.updateBadge();
 		}));
+		this.updateBadge();
 
 		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refreshAllQueryResults(true)));
 
@@ -168,6 +160,80 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+	}
+
+	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {
+		return notifications.filter(notification => {
+			if (!this.prsTreeModel.hasPullRequest(notification)) {
+				return false;
+			}
+			return !this.prsTreeModel.hasCopilotNotification(notification.remote.owner, notification.remote.repositoryName, notification.number);
+		});
+	}
+
+	private updateBadge() {
+		const isPRNotificationsOn = this._notificationsProvider?.isPRNotificationsOn();
+
+		const prNotificationsCount = isPRNotificationsOn ? this.filterNotificationsToKnown(this._notificationsProvider!.prNotifications).length : 0;
+		const copilotCount = this.prsTreeModel.copilotNotificationsCount;
+		const totalCount = prNotificationsCount + copilotCount;
+
+		if (totalCount === 0) {
+			this._view.badge = undefined;
+			return;
+		}
+
+		if (prNotificationsCount > 0 && copilotCount > 0) {
+			if (copilotCount === 1) {
+				if (prNotificationsCount === 1) {
+					this._view.badge = {
+						tooltip: vscode.l10n.t('Coding agent has 1 pull request to view, plus 1 other pull request notification'),
+						value: totalCount
+					};
+				} else {
+					this._view.badge = {
+						tooltip: vscode.l10n.t(`Coding agent has 1 pull request to view, plus {0} other pull request notifications`, prNotificationsCount),
+						value: totalCount
+					};
+				}
+			} else {
+				if (prNotificationsCount === 1) {
+					this._view.badge = {
+						tooltip: vscode.l10n.t('Coding agent has {0} pull requests to view, plus 1 other pull request notification', copilotCount),
+						value: totalCount
+					};
+				} else {
+					this._view.badge = {
+						tooltip: vscode.l10n.t(`Coding agent has {0} pull requests to view, plus {1} other pull request notifications`, copilotCount, prNotificationsCount),
+						value: totalCount
+					};
+				}
+			}
+		} else if (copilotCount > 0) {
+			if (copilotCount === 1) {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`Coding agent has 1 pull request to view`),
+					value: totalCount
+				};
+			} else {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`Coding agent has {0} pull requests to view`, copilotCount),
+					value: totalCount
+				};
+			}
+		} else if (prNotificationsCount > 0) {
+			if (prNotificationsCount === 1) {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`1 pull request notification`),
+					value: totalCount
+				};
+			} else {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`{0} pull request notifications`, prNotificationsCount),
+					value: totalCount
+				};
+			}
+		}
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel) {
@@ -279,6 +345,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		this._notificationsProvider = notificationsManager;
+		this._register(this._notificationsProvider.onDidChangeNotifications(() => {
+			this.updateBadge();
+		}));
 		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager, this._notificationsProvider));
 
 		this.initializeCategories();
@@ -494,7 +563,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
-					this._notificationsProvider,
+					this._notificationsProvider!,
 					this._context,
 					this.prsTreeModel,
 					this._copilotManager,
@@ -507,7 +576,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 							folderManager.repository.rootUri,
 							folderManager,
 							this._telemetry,
-							this._notificationsProvider,
+							this._notificationsProvider!,
 							this._context,
 							this.prsTreeModel,
 							this._copilotManager

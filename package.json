@@ -12,14 +12,16 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"chatContextProvider",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider@2",
+		"chatSessionsProvider@3",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
 		"commentReactor",
 		"commentReveal",
+		"commentsDraftState",
 		"commentThreadApplicability",
 		"contribAccessibilityHelpContent",
 		"contribCommentEditorActionsMenu",
@@ -29,18 +31,19 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
-		"languageModelDataPart",
 		"languageModelToolResultAudience",
+		"markdownAlertSyntax",
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
+		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.120.0",
+	"version": "0.122.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.105.0"
+		"vscode": "^1.107.0"
 	},
 	"categories": [
 		"Other",
@@ -58,7 +61,9 @@
 		"onFileSystem:githubcommit",
 		"onFileSystem:review",
 		"onWebviewPanel:IssueOverview",
-		"onWebviewPanel:PullRequestOverview"
+		"onWebviewPanel:PullRequestOverview",
+		"onChatContextProvider:githubpr",
+		"onChatContextProvider:githubissue"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -70,13 +75,25 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatContext": [
+			{
+				"id": "githubpr",
+				"icon": "$(github)",
+				"displayName": "GitHub Pull Requests"
+			},
+			{
+				"id": "githubissue",
+				"icon": "$(issues)",
+				"displayName": "GitHub Issues"
+			}
+		],
 		"chatSessions": [
 			{
 				"type": "copilot-swe-agent",
 				"name": "copilot",
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Delegate tasks to the GitHub Copilot coding agent. The agent works asynchronously to implement changes, iterates via chat, and can create or update pull requests as needed.",
-				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled'",
+				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled' && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled",
 				"capabilities": {
 					"supportsFileAttachments": true
 				}
@@ -89,7 +106,7 @@
 				"displayName": "GitHub Copilot coding agent",
 				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
 				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
-				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
+				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled"
 			}
 		],
 		"chatParticipants": [
@@ -609,7 +626,6 @@
 					"default": [
 						"TODO",
 						"todo",
-						"BUG",
 						"FIXME",
 						"ISSUE",
 						"HACK"
@@ -967,7 +983,7 @@
 			},
 			{
 				"command": "pr.markAllCopilotNotificationsAsRead",
-				"title": "Mark All as Read",
+				"title": "%command.pr.markAllCopilotNotificationsAsRead.title%",
 				"category": "%command.pull.request.category%",
 				"enablement": "viewItem == copilot-query-with-notifications"
 			},
@@ -979,6 +995,21 @@
 			{
 				"command": "pr.readyForReview",
 				"title": "%command.pr.readyForReview.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewAndMerge",
+				"title": "%command.pr.readyForReviewAndMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewDescription",
+				"title": "%command.pr.readyForReview.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.readyForReviewAndMergeDescription",
+				"title": "%command.pr.readyForReviewAndMerge.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1795,11 +1826,6 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "codingAgent.openSessionLog",
-				"title": "%command.codingAgent.openSessionLog.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
 				"command": "pr.refreshChatSessions",
 				"title": "%command.pr.refreshChatSessions.title%",
 				"icon": "$(refresh)",
@@ -1841,8 +1867,13 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "gitNotInstalled",
+				"when": "gitNotInstalled && config.git.enabled != false",
 				"contents": "%welcome.github.noGit.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "gitNotInstalled && config.git.enabled == false",
+				"contents": "%welcome.github.noGitDisabled.contents%"
 			},
 			{
 				"view": "github:login",
@@ -2064,7 +2095,19 @@
 				},
 				{
 					"command": "pr.readyForReview",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "false"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
@@ -2625,6 +2668,14 @@
 				{
 					"command": "pr.preferredCodingAgentGitHubRemote",
 					"when": "false"
+				},
+				{
+					"command": "pr.closeChatSessionPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "pr.cancelCodingAgent",
+					"when": "false"
 				}
 			],
 			"view/title": [
@@ -3145,6 +3196,13 @@
 					"group": "1_modification@5"
 				}
 			],
+			"scm/repository": [
+				{
+					"command": "pr.create",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
+					"group": "inline"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",
@@ -3472,16 +3530,19 @@
 					"group": "1_create@2"
 				},
 				{
-					"command": "review.approve",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove"
+					"command": "review.comment",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment",
+					"group": "1_review@1"
 				},
 				{
-					"command": "review.comment",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment"
+					"command": "review.approve",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove",
+					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChanges",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotCom",
@@ -3492,16 +3553,19 @@
 					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				},
 				{
-					"command": "review.approveDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove"
+					"command": "review.commentDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment",
+					"group": "1_review@1"
 				},
 				{
-					"command": "review.commentDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment"
+					"command": "review.approveDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove",
+					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChangesDescription",
-					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotComDescription",
@@ -3520,6 +3584,22 @@
 					"when": "webviewId == PullRequestOverview && github:copyMenu"
 				},
 				{
+					"command": "pr.readyForReviewDescription",
+					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu"
+				},
+				{
+					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+				},
+				{
+					"command": "pr.readyForReview",
+					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu"
+				},
+				{
+					"command": "pr.readyForReviewAndMerge",
+					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+				},
+				{
 					"command": "pr.openChanges",
 					"group": "checkout@0",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
@@ -3528,17 +3608,21 @@
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@1",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
 			],
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				},
 				{
@@ -3555,11 +3639,11 @@
 			"chat/multiDiff/context": [
 				{
 					"command": "pr.checkoutFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"when": "chatSessionType == copilot-cloud-agent"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-swe-agent"
+					"when": "chatSessionType == copilot-cloud-agent"
 				}
 			]
 		},
@@ -4178,22 +4262,26 @@
 											}
 										}
 									},
-									"commentsCount": {
+									"commentCount": {
 										"type": "number",
 										"description": "The number of comments on the issue."
+									},
+									"reactionCount": {
+										"type": "number",
+										"description": "The number of reactions on the issue."
 									}
-								}
-							},
-							"required": [
-								"title",
-								"number",
-								"url",
-								"state",
-								"createdAt",
-								"author",
-								"commentCount",
-								"reactionCount"
-							]
+								},
+								"required": [
+									"title",
+									"number",
+									"url",
+									"state",
+									"createdAt",
+									"author",
+									"commentCount",
+									"reactionCount"
+								]
+							}
 						},
 						"totalIssues": {
 							"type": "number",
@@ -4261,7 +4349,9 @@
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
-		"prepare": "husky install"
+		"check:commands": "node scripts/check-commands.js",
+		"prepare": "husky install",
+		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.36.0",
@@ -4325,6 +4415,7 @@
 		"terser-webpack-plugin": "5.1.1",
 		"timers-browserify": "^2.0.12",
 		"ts-loader": "9.5.2",
+		"ts-node": "^10.9.2",
 		"tty": "1.0.1",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.44.0",

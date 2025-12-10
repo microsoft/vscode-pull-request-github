@@ -11,6 +11,7 @@ import { toOpenPullRequestWebviewUri } from '../../common/uri';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PlainTextRenderer } from '../../github/markdownUtils';
+import { PrsTreeModel } from '../../view/prsTreeModel';
 
 export interface CopilotRemoteAgentToolParameters {
 	// The LLM is inconsistent in providing repo information.
@@ -27,7 +28,7 @@ export interface CopilotRemoteAgentToolParameters {
 export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotRemoteAgentToolParameters> {
 	public static readonly toolId = 'github-pull-request_copilot-coding-agent';
 
-	constructor(private manager: CopilotRemoteAgentManager, private telemetry: ITelemetry) { }
+	constructor(private manager: CopilotRemoteAgentManager, private telemetry: ITelemetry, private prsTreeModel: PrsTreeModel) { }
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title, existingPullRequest } = options.input;
@@ -141,12 +142,12 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		return new vscode.LanguageModelToolResult2(lmResult);
 	}
 
-	private async getActivePullRequestWithSession(repoInfo: { repo: string; owner: string; fm: FolderRepositoryManager } | undefined): Promise<number | undefined> {
+	protected async getActivePullRequestWithSession(repoInfo: { repo: string; owner: string; fm: FolderRepositoryManager } | undefined): Promise<number | undefined> {
 		if (!repoInfo) {
 			return;
 		}
 		const activePR = repoInfo.fm.activePullRequest;
-		if (activePR && this.manager.getStateForPR(repoInfo.owner, repoInfo.repo, activePR.number)) {
+		if (activePR && this.prsTreeModel.getCopilotStateForPR(repoInfo.owner, repoInfo.repo, activePR.number)) {
 			return activePR.number;
 		}
 	}

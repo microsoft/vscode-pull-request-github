@@ -20,7 +20,8 @@ import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/setti
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewBase } from '../common/webview';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -254,7 +255,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.getIssueTimelineEvents(issueModel),
+				issueModel.getIssueTimelineEvents(),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -508,7 +509,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.getIssueTimelineEvents(this._item);
+		return this._item.getIssueTimelineEvents();
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
@@ -705,7 +706,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected getHtmlForWebview() {
-		const nonce = getNonce();
+		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-pr-description.js');
 

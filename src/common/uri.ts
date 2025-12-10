@@ -53,7 +53,8 @@ export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
 }
 
 export interface PRNodeUriParams {
-	prIdentifier: string
+	prIdentifier: string;
+	showCopilot?: boolean;
 }
 
 export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
@@ -323,9 +324,11 @@ export namespace DataUri {
 					if (!response.ok) {
 						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 					}
-					const buffer = await response.arrayBuffer();
-					await writeAvatarToCache(context, user, new Uint8Array(buffer));
-					innerImageContents = Buffer.from(buffer);
+					if (response.headers.get('content-type')?.startsWith('image/')) {
+						const buffer = await response.arrayBuffer();
+						await writeAvatarToCache(context, user, new Uint8Array(buffer));
+						innerImageContents = Buffer.from(buffer);
+					}
 				};
 				try {
 					await doFetch();
@@ -501,12 +504,15 @@ export function parsePRNodeIdentifier(identifier: string): { remote: string, prN
 }
 
 export function createPRNodeUri(
-	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
+	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string, showCopilot?: boolean
 ): vscode.Uri {
 	const identifier = createPRNodeIdentifier(pullRequest);
 	const params: PRNodeUriParams = {
 		prIdentifier: identifier,
 	};
+	if (showCopilot !== undefined) {
+		params.showCopilot = showCopilot;
+	}
 
 	const uri = vscode.Uri.parse(`PRNode:${identifier}`);
 
@@ -514,6 +520,36 @@ export function createPRNodeUri(
 		scheme: Schemes.PRNode,
 		query: JSON.stringify(params)
 	});
+}
+
+export interface CommitsNodeUriParams {
+	owner: string;
+	repo: string;
+	prNumber: number;
+}
+
+export function createCommitsNodeUri(owner: string, repo: string, prNumber: number): vscode.Uri {
+	const params: CommitsNodeUriParams = {
+		owner,
+		repo,
+		prNumber
+	};
+
+	return vscode.Uri.parse(`${Schemes.CommitsNode}:${owner}/${repo}/${prNumber}`).with({
+		scheme: Schemes.CommitsNode,
+		query: JSON.stringify(params)
+	});
+}
+
+export function fromCommitsNodeUri(uri: vscode.Uri): CommitsNodeUriParams | undefined {
+	if (uri.scheme !== Schemes.CommitsNode) {
+		return undefined;
+	}
+	try {
+		return JSON.parse(uri.query) as CommitsNodeUriParams;
+	} catch (e) {
+		return undefined;
+	}
 }
 
 export interface NotificationUriParams {
@@ -632,6 +668,7 @@ function validateOpenWebviewParams(owner?: string, repo?: string, number?: strin
 export enum UriHandlerPaths {
 	OpenIssueWebview = '/open-issue-webview',
 	OpenPullRequestWebview = '/open-pull-request-webview',
+	CheckoutPullRequest = '/checkout-pull-request'
 }
 
 export interface OpenIssueWebviewUriParams {
@@ -672,14 +709,37 @@ export async function toOpenPullRequestWebviewUri(params: OpenPullRequestWebview
 	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestWebview, query }));
 }
 
-export function fromOpenPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
+export function fromOpenOrCheckoutPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
 	if (compareIgnoreCase(uri.authority, EXTENSION_ID) !== 0) {
 		return;
 	}
-	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview) {
+	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview && uri.path !== UriHandlerPaths.CheckoutPullRequest) {
 		return;
 	}
 	try {
+		// Check if the query uses the new simplified format: uri=https://github.com/owner/repo/pull/number
+		const queryParams = new URLSearchParams(uri.query);
+		const uriParam = queryParams.get('uri');
+		if (uriParam) {
+			// Parse the GitHub PR URL - match only exact format ending with the PR number
+			// Use named regex groups for clarity
+			const prUrlRegex = /^https?:\/\/github\.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/pull\/(?<pullRequestNumber>\d+)$/;
+			const match = prUrlRegex.exec(uriParam);
+			if (match && match.groups) {
+				const { owner, repo, pullRequestNumber } = match.groups;
+				const params = {
+					owner,
+					repo,
+					pullRequestNumber: parseInt(pullRequestNumber, 10)
+				};
+				if (!validateOpenWebviewParams(params.owner, params.repo, params.pullRequestNumber.toString())) {
+					return;
+				}
+				return params;
+			}
+		}
+
+		// Fall back to the old JSON format for backward compatibility
 		const query = JSON.parse(uri.query.split('&')[0]);
 		if (!validateOpenWebviewParams(query.owner, query.repo, query.pullRequestNumber)) {
 			return;
@@ -722,7 +782,8 @@ export enum Schemes {
 	Repo = 'repo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
 	PRQuery = 'prquery', // PR query tree item
-	GitHubCommit = 'githubcommit' // file content from GitHub for a commit
+	GitHubCommit = 'githubcommit', // file content from GitHub for a commit
+	CommitsNode = 'commitsnode' // Commits tree node, for decorations
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

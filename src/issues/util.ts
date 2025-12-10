@@ -517,12 +517,11 @@ export async function pushAndCreatePR(
 }
 
 export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
-	if (document.languageId !== 'markdown' && document.languageId !== 'plaintext') {
-		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
-		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
-			return false;
-		}
+	const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+	if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+		return false;
 	}
+
 	return true;
 }
 

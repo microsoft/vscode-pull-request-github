@@ -6,7 +6,7 @@
 import React, { useContext, useRef, useState } from 'react';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
+import { addIcon, checkIcon, circleFilledIcon, closeIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -105,6 +105,20 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 
 export default Timeline;
 
+
+function CommitStateIcon({ status }: { status: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS' | undefined; }) {
+	switch (status) {
+		case 'PENDING':
+			return circleFilledIcon;
+		case 'SUCCESS':
+			return checkIcon;
+		case 'FAILURE':
+		case 'ERROR':
+			return closeIcon;
+	}
+	return null;
+}
+
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
 	const [clickedElement, setClickedElement] = useState<'title' | 'sha' | undefined>(undefined);
@@ -122,7 +136,7 @@ const CommitEventView = (event: CommitEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{commitIcon}
+				{gitCommitIcon}
 				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.author} />
@@ -139,6 +153,9 @@ const CommitEventView = (event: CommitEvent) => {
 				</div>
 			</div>
 			<div className="timeline-detail">
+				<div className='status-section'>
+					<CommitStateIcon status={event.status} />
+				</div>
 				<a
 					className="sha"
 					onClick={(e) => handleCommitClick(e, 'sha')}
@@ -169,7 +186,7 @@ const NewCommitsSinceReviewEventView = () => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{plusIcon}
+				{addIcon}
 				{nbsp}
 				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
 			</div>
@@ -368,7 +385,7 @@ const MergedEventView = (event: MergedEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{mergeIcon}
+				{gitMergeIcon}
 				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.user} />

@@ -1,5 +1,96 @@
 # Changelog
 
+## 0.124.0
+
+### Changes
+
+- The active pull request or issue webview title is now included as implicit context when using Copilot Chat. You can click on the implicit context item to include all the PR information in your prompt.
+
+![Pull request title as implicit context in Chat](./documentation/changelog/0.124.0/pull-request-implicit-context.png)
+
+- Pull request and issue context can also be manually added to Chat from the "Add Context" menu.
+
+![Explicit Chat context](./documentation/changelog/0.124.0/explicit-chat-context.png)
+
+- Single button for marking Copilot pull requests as ready for review, approved, and automerge (if enabled).
+
+![Single button to mark Copilot pull requests](./documentation/changelog/0.124.0/single-button-copilot-pr.png)
+
+- The "Copy link" action for individual comments shows in the pull request description webview.
+- Comments that are part of an un-submitted review (only visible to you) now show with at "comment draft" icon in the editor gutter and in the Comments view.
+- For commits where checks have run, the commit status icon now shows next to each commit in the pull request description webview.
+
+### Fixes
+
+- Comments don't show when PR is on non-default repo. https://github.com/microsoft/vscode-pull-request-github/issues/8050
+- ignoreSubmodules is honored differently for Pull Requests and Issues view. https://github.com/microsoft/vscode-pull-request-github/issues/7741
+
+**_Thank You_**
+
+* [@vicky1999 (Vignesh)](https://github.com/vicky1999)
+  * fix: message wrapping in narrow editor panes [PR #8121](https://github.com/microsoft/vscode-pull-request-github/pull/8121)
+  * feat: Display commit status icon for each commit [PR #8142](https://github.com/microsoft/vscode-pull-request-github/pull/8142)
+  * feat: Add copy comment link button in PR overview [PR #8150](https://github.com/microsoft/vscode-pull-request-github/pull/8150)
+
+## 0.122.1
+
+### Fixes
+
+- Only one reviewer can be seen on the PR page. https://github.com/microsoft/vscode-pull-request-github/issues/8131
+- Drop down not doing anything. https://github.com/microsoft/vscode-pull-request-github/issues/8149
+- Pull in icon fixes. https://github.com/microsoft/vscode-pull-request-github/issues/8159
+
+## 0.122.0
+
+### Changes
+
+- Auto-generated PR descriptions (via `githubPullRequests.pullRequestDescription`) will respect the repository PR template if there is one.
+- Icons in the Pull Requests view now render with codicons instead of Unicode characters.
+- Drafts in the Pull Requests view now render in italics instead of having a `[DRAFT]` prefix.
+
+![Pull Requests view showing codicon labels and italic draft PR titles](./documentation/changelog/0.122.0/pr-labels.png)
+
+- Emoji completions for `:smile:` style emojis are now available in review comments.
+
+![Emoji completions in review comments](./documentation/changelog/0.122.0/emoji-completions.gif)
+
+- [Markdown alert syntax](https://github.com/orgs/community/discussions/16925) is now rendered in review comments.
+
+![Markdown alerts in review comments](./documentation/changelog/0.122.0/markdown-alerts.png)
+
+- Opening an empty commit from a pull request webview shows an editor with a message instead of showing a notification.
+- Pull requests can be opened from from a url, for example: `vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460`
+- Icons are up-to-date with VS Code's latest icons.
+- If you start a review and want to cancel it, there's now a "Cancel Review" button in the pull request webview.
+
+![Cancel review button](./documentation/changelog/0.122.0/cancel-review.png)
+
+### Fixes
+
+- Reactions to code comments are not showing up (Web). https://github.com/microsoft/vscode-pull-request-github/issues/2195
+- Editing a comment freezes VS Code. https://github.com/microsoft/vscode/issues/274455
+- Github Pull Request tab won't open if branch names are reused. https://github.com/microsoft/vscode-pull-request-github/issues/8007
+- Icons are misaligned. https://github.com/microsoft/vscode-pull-request-github/issues/7998
+- "Git is not installed or otherwise not available" even though it is. https://github.com/microsoft/vscode-pull-request-github/issues/5454
+
+**_Thank You_**
+
+* [@bendrucker (Ben Drucker)](https://github.com/bendrucker): Enable all LLM tools in prompts (agent mode) [PR #6956](https://github.com/microsoft/vscode-pull-request-github/pull/6956)
+* [@gerardbalaoro (Gerard Balaoro)](https://github.com/gerardbalaoro): Make branch list timeout configurable (#2840) [PR #7927](https://github.com/microsoft/vscode-pull-request-github/pull/7927)
+* [@wankun-tcj](https://github.com/wankun-tcj): Fix avatar display issue in Pull Request tree view [PR #7851](https://github.com/microsoft/vscode-pull-request-github/pull/7851)
+
+## 0.120.2
+
+### Fixes
+
+- Unable to open PR webview within VSCode. https://github.com/microsoft/vscode-pull-request-github/issues/8028
+
+## 0.120.1
+
+### Fixes
+
+- Extension cannot find git repo when VS Code didn't open the git root directory. https://github.com/microsoft/vscode-pull-request-github/issues/7964
+
 ## 0.120.0
 
 ### Changes

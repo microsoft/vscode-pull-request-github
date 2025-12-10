@@ -38,21 +38,17 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 		importAll(require.context('./', true, /\.test$/));
 	} catch (e) {
 		// Fallback if 'require.context' is not available (e.g., in non-webpack environments)
-		try {
-			const files = glob.sync('**/*.test.js', {
-				cwd: testsRoot,
-				absolute: true,
-				// Browser/webview tests are loaded via the separate browser runner
-				ignore: ['browser/**']
-			});
-			if (!files.length) {
-				console.log('Fallback test discovery found no test files. Original error:', e);
-			}
-			for (const f of files) {
-				mocha.addFile(f);
-			}
-		} catch (fallbackErr) {
-			console.log('Both require.context and glob fallback failed to load tests', fallbackErr);
+		const files = glob.sync('**/*.test.js', {
+			cwd: testsRoot,
+			absolute: true,
+			// Browser/webview tests are loaded via the separate browser runner
+			ignore: ['browser/**']
+		});
+		if (!files.length) {
+			console.log('Fallback test discovery found no test files. Original error:', e);
+		}
+		for (const f of files) {
+			mocha.addFile(f);
 		}
 	}
 

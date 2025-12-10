@@ -489,8 +489,10 @@ export class FolderRepositoryManager extends Disposable {
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
-			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
-			if (areAllNeverGitHub) {
+			const allUnknownRemotes = await this.computeAllUnknownRemotes();
+			const areAllNeverGitHub = allUnknownRemotes.every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
+			if ((allUnknownRemotes.length > 0) && areAllNeverGitHub) {
+				Logger.appendLine('No GitHub remotes found and all remotes are marked as never GitHub.', this.id);
 				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
 			}
@@ -1082,7 +1084,13 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		};
 
+		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
+			if (!activeGitHubRemotes.find(r => r.equals(repo.remote))) {
+				return false;
+			}
+
 			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
 			// If we are in case 1 or 3, don't filter out repos that are out of pages, as we will be querying from the start.
 			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
@@ -2130,10 +2138,10 @@ export class FolderRepositoryManager extends Disposable {
 		useCache: boolean = false,
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
-		Logger.appendLine(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
+		Logger.trace(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
 			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
-			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
+			Logger.trace(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}
 		return undefined;
@@ -2144,10 +2152,14 @@ export class FolderRepositoryManager extends Disposable {
 		repositoryName: string,
 		pullRequestNumber: number,
 		withComments: boolean = false,
+		useCache: boolean = false
 	): Promise<IssueModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
+		Logger.trace(`Found GitHub repo for issue #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			return githubRepo.getIssue(pullRequestNumber, withComments);
+			const issue = await githubRepo.getIssue(pullRequestNumber, withComments, useCache);
+			Logger.trace(`Found GitHub issue repo for issue #${pullRequestNumber}: ${issue ? 'yes' : 'no'}`, this.id);
+			return issue;
 		}
 		return undefined;
 	}
@@ -2487,7 +2499,7 @@ export class FolderRepositoryManager extends Disposable {
 	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
 		if (!this._updateMessageShown || autoStashSetting) {
 			// When the PR is from Copilot, we only want to show the notification when Copilot is done working
-			const copilotStatus = await pr.copilotWorkingStatus(pr);
+			const copilotStatus = await pr.copilotWorkingStatus();
 			if (copilotStatus === CopilotWorkingStatus.InProgress) {
 				return;
 			}

@@ -50,7 +50,6 @@ import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -1121,6 +1120,7 @@ export async function parseCombinedTimelineEvents(
 		| GraphQL.AssignedEvent
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
+		| null
 	)[],
 	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
@@ -1150,6 +1150,9 @@ export async function parseCombinedTimelineEvents(
 
 	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
+		if (!event) {
+			continue;
+		}
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
@@ -1197,6 +1200,7 @@ export async function parseCombinedTimelineEvents(
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
+					status: commitEv.commit.statusCheckRollup?.state
 				} as Common.CommitEvent); // TODO remove cast
 				break;
 			case Common.EventType.Merged:
@@ -1338,50 +1342,42 @@ export function getReactionGroup(): { title: string; label: string; icon?: strin
 		{
 			title: 'THUMBS_UP',
 			// allow-any-unicode-next-line
-			label: '👍',
-			icon: Resource.icons.reactions.THUMBS_UP,
+			label: '👍'
 		},
 		{
 			title: 'THUMBS_DOWN',
 			// allow-any-unicode-next-line
-			label: '👎',
-			icon: Resource.icons.reactions.THUMBS_DOWN,
+			label: '👎'
 		},
 		{
 			title: 'LAUGH',
 			// allow-any-unicode-next-line
-			label: '😄',
-			icon: Resource.icons.reactions.LAUGH,
+			label: '😄'
 		},
 		{
 			title: 'HOORAY',
 			// allow-any-unicode-next-line
-			label: '🎉',
-			icon: Resource.icons.reactions.HOORAY,
+			label: '🎉'
 		},
 		{
 			title: 'CONFUSED',
 			// allow-any-unicode-next-line
-			label: '😕',
-			icon: Resource.icons.reactions.CONFUSED,
+			label: '😕'
 		},
 		{
 			title: 'HEART',
 			// allow-any-unicode-next-line
-			label: '❤️',
-			icon: Resource.icons.reactions.HEART,
+			label: '❤️'
 		},
 		{
 			title: 'ROCKET',
 			// allow-any-unicode-next-line
-			label: '🚀',
-			icon: Resource.icons.reactions.ROCKET,
+			label: '🚀'
 		},
 		{
 			title: 'EYES',
 			// allow-any-unicode-next-line
-			label: '👀',
-			icon: Resource.icons.reactions.EYES,
+			label: '👀'
 		},
 	];
 
@@ -1561,7 +1557,7 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 		lastReadAt: notification.last_read_at ? new Date(notification.last_read_at) : undefined,
 		reason: notification.reason,
 		unread: notification.unread,
-		updatedAd: new Date(notification.updated_at),
+		updatedAt: new Date(notification.updated_at),
 	};
 }
 

@@ -320,8 +320,10 @@ export function parseSessionLogs(rawText: string): SessionResponseLogChunk[] {
 	const parts = rawText
 		.split(/\r?\n/)
 		.filter(part => part.startsWith('data: '))
-		.map(part => part.slice('data: '.length).trim())
-		.map(part => JSON.parse(part));
+		.map(part => {
+			const trimmed = part.slice('data: '.length).trim();
+			return JSON.parse(trimmed);
+		});
 
 	return parts as SessionResponseLogChunk[];
 }

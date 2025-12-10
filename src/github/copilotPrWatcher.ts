@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PRType } from './interface';
+import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { RepositoriesManager } from './repositoriesManager';
@@ -12,12 +12,17 @@ import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
+import { PrsTreeModel } from '../view/prsTreeModel';
 
 export function isCopilotQuery(query: string): boolean {
 	const lowerQuery = query.toLowerCase();
 	return COPILOT_LOGINS.some(login => lowerQuery.includes(`author:${login.toLowerCase()}`));
+}
+
+export function getCopilotQuery(): string | undefined {
+	const queries = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<{ label: string; query: string }[]>(QUERIES, []);
+	return queries.find(query => isCopilotQuery(query.query))?.query;
 }
 
 export interface CodingAgentPRAndStatus {
@@ -31,15 +36,9 @@ export class CopilotStateModel extends Disposable {
 	private readonly _states: Map<string, CodingAgentPRAndStatus> = new Map();
 	private readonly _showNotification: Set<string> = new Set();
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
-	readonly onDidChangeStates = this._onDidChangeStates.event;
+	readonly onDidChangeCopilotStates = this._onDidChangeStates.event;
 	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<PullRequestModel[]>());
-	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
-	private readonly _onRefresh = this._register(new vscode.EventEmitter<void>());
-	readonly onRefresh = this._onRefresh.event;
-
-	clear(): void {
-		this._onRefresh.fire();
-	}
+	readonly onDidChangeCopilotNotifications = this._onDidChangeNotifications.event;
 
 	makeKey(owner: string, repo: string, prNumber?: number): string {
 		if (prNumber === undefined) {
@@ -60,17 +59,17 @@ export class CopilotStateModel extends Disposable {
 		}
 	}
 
-	set(statuses: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[]): void {
+	set(statuses: CodingAgentPRAndStatus[]): void {
 		const changedModels: PullRequestModel[] = [];
 		const changedKeys: string[] = [];
-		for (const { pullRequestModel, status } of statuses) {
-			const key = this.makeKey(pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName, pullRequestModel.number);
+		for (const { item, status } of statuses) {
+			const key = this.makeKey(item.remote.owner, item.remote.repositoryName, item.number);
 			const currentStatus = this._states.get(key);
 			if (currentStatus?.status === status) {
 				continue;
 			}
-			this._states.set(key, { item: pullRequestModel, status });
-			changedModels.push(pullRequestModel);
+			this._states.set(key, { item, status });
+			changedModels.push(item);
 			changedKeys.push(key);
 		}
 		if (changedModels.length > 0) {
@@ -188,9 +187,11 @@ export class CopilotStateModel extends Disposable {
 }
 
 export class CopilotPRWatcher extends Disposable {
+	private readonly _model: CopilotStateModel;
 
-	constructor(private readonly _reposManager: RepositoriesManager, private readonly _model: CopilotStateModel) {
+	constructor(private readonly _reposManager: RepositoriesManager, private readonly _prsTreeModel: PrsTreeModel) {
 		super();
+		this._model = _prsTreeModel.copilotStateModel;
 		if (this._reposManager.folderManagers.length === 0) {
 			const initDisposable = this._reposManager.onDidChangeAnyGitHubRepository(() => {
 				initDisposable.dispose();
@@ -199,16 +200,18 @@ export class CopilotPRWatcher extends Disposable {
 		} else {
 			this._initialize();
 		}
-		this._register(this._model.onRefresh(() => this._getStateChanges()));
 	}
 
 	private _initialize() {
-		this._getStateChanges();
+		this._prsTreeModel.refreshCopilotStateChanges(true);
 		this._pollForChanges();
-		const updateFullState = debounce(() => this._getStateChanges(), 50);
+		const updateFullState = debounce(() => this._prsTreeModel.refreshCopilotStateChanges(true), 50);
 		this._register(this._reposManager.onDidChangeAnyPullRequests(e => {
 			if (e.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
-				if (this._model.isInitialized && e.some(pr => this._model.get(pr.model.remote.owner, pr.model.remote.repositoryName, pr.model.number) === CopilotPRStatus.None)) {
+				if (!this._model.isInitialized) {
+					return;
+				}
+				if (e.some(pr => this._model.get(pr.model.remote.owner, pr.model.remote.repositoryName, pr.model.number) === CopilotPRStatus.None)) {
 					// A PR we don't know about was updated
 					updateFullState();
 				} else {
@@ -238,11 +241,6 @@ export class CopilotPRWatcher extends Disposable {
 		this._register({ dispose: () => this._pollTimeout && clearTimeout(this._pollTimeout) });
 	}
 
-	private _queriesIncludeCopilot(): string | undefined {
-		const queries = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<{ label: string; query: string }[]>(QUERIES, []);
-		return queries.find(query => isCopilotQuery(query.query))?.query;
-	}
-
 	private get _pollInterval(): number {
 		if (vscode.window.state.active || vscode.window.state.focused) {
 			return 60 * 1000 * 2; // Poll every 2 minutes
@@ -258,7 +256,7 @@ export class CopilotPRWatcher extends Disposable {
 			this._pollTimeout = undefined;
 		}
 		this._lastPollTime = Date.now();
-		const shouldContinue = await this._getStateChanges();
+		const shouldContinue = await this._prsTreeModel.refreshCopilotStateChanges(true);
 
 		if (shouldContinue) {
 			this._pollTimeout = setTimeout(() => {
@@ -268,9 +266,9 @@ export class CopilotPRWatcher extends Disposable {
 	}
 
 	private async _updateSingleState(pr: PullRequestModel): Promise<void> {
-		const changes: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[] = [];
+		const changes: CodingAgentPRAndStatus[] = [];
 
-		const copilotEvents = await pr.getCopilotTimelineEvents(pr);
+		const copilotEvents = await pr.getCopilotTimelineEvents(false, !this._model.isInitialized);
 		let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
 		if (latestEvent === CopilotPRStatus.None) {
 			if (!COPILOT_ACCOUNTS[pr.author.login]) {
@@ -278,76 +276,19 @@ export class CopilotPRWatcher extends Disposable {
 			}
 			latestEvent = CopilotPRStatus.Started;
 		}
+
+		if (pr.state !== GithubItemStateEnum.Open) {
+			// PR has been closed or merged, time to remove it.
+			const key = this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number);
+			this._model.deleteKey(key);
+			return;
+		}
+
 		const lastStatus = this._model.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
 		if (latestEvent !== lastStatus) {
-			changes.push({ pullRequestModel: pr, status: latestEvent });
+			changes.push({ item: pr, status: latestEvent });
 		}
 		this._model.set(changes);
 	}
 
-	private _getStateChangesPromise: Promise<boolean> | undefined;
-	private async _getStateChanges(): Promise<boolean> {
-		// Return the existing in-flight promise if one exists
-		if (this._getStateChangesPromise) {
-			return this._getStateChangesPromise;
-		}
-
-		// Create and store the in-flight promise, and ensure it's cleared when done
-		this._getStateChangesPromise = (async () => {
-			try {
-				const query = this._queriesIncludeCopilot();
-				if (!query) {
-					return false;
-				}
-				const unseenKeys: Set<string> = new Set(this._model.keys());
-				let initialized = 0;
-
-				const changes: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[] = [];
-				for (const folderManager of this._reposManager.folderManagers) {
-					initialized++;
-					const items: PullRequestModel[] = [];
-					let hasMore = true;
-					do {
-						const prs = await folderManager.getPullRequests(PRType.Query, { fetchOnePagePerRepo: true, fetchNextPage: !this._model.isInitialized }, query);
-						items.push(...prs.items);
-						hasMore = prs.hasMorePages;
-					} while (hasMore);
-
-					for (const pr of items) {
-						unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
-						const copilotEvents = await pr.getCopilotTimelineEvents(pr);
-						let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
-						if (latestEvent === CopilotPRStatus.None) {
-							if (!COPILOT_ACCOUNTS[pr.author.login]) {
-								continue;
-							}
-							latestEvent = CopilotPRStatus.Started;
-						}
-						const lastStatus = this._model.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
-						if (latestEvent !== lastStatus) {
-							changes.push({ pullRequestModel: pr, status: latestEvent });
-						}
-					}
-				}
-				for (const key of unseenKeys) {
-					this._model.deleteKey(key);
-				}
-				this._model.set(changes);
-				if (!this._model.isInitialized) {
-					if ((initialized === this._reposManager.folderManagers.length) && (this._reposManager.folderManagers.length > 0)) {
-						Logger.debug(`Copilot PR state initialized with ${this._model.keys().length} PRs`, CopilotStateModel.ID);
-						this._model.setInitialized();
-					}
-					return true;
-				} else {
-					return true;
-				}
-			} finally {
-				// Ensure the stored promise is cleared so subsequent calls start a new run
-				this._getStateChangesPromise = undefined;
-			}
-		})();
-
-		return this._getStateChangesPromise;
-	}
 }

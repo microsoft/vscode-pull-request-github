@@ -107,6 +107,11 @@ abstract class CommentBase implements vscode.Comment {
 	 */
 	public contextValue: string;
 
+	/**
+	 * The state of the comment (Published or Draft)
+	 */
+	public state?: vscode.CommentState;
+
 	constructor(
 		parent: GHPRCommentThread,
 	) {
@@ -173,6 +178,7 @@ export class TemporaryComment extends CommentBase {
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
+		this.state = isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
 		this.contextValue = 'temporary,canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment.rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
@@ -190,7 +196,9 @@ export class TemporaryComment extends CommentBase {
 	}
 
 	get body(): string | vscode.MarkdownString {
-		return new vscode.MarkdownString(this.input);
+		const s = new vscode.MarkdownString(this.input);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	get author(): vscode.CommentAuthorInformation {
@@ -247,6 +255,7 @@ export class GHPRComment extends CommentBase {
 		updateCommentReactions(this, comment.reactions);
 
 		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
+		this.state = comment.isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
 
 		const contextValues: string[] = [];
 		if (comment.canEdit) {
@@ -286,7 +295,9 @@ export class GHPRComment extends CommentBase {
 
 		const oldLabel = this.label;
 		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
-		if (this.label !== oldLabel) {
+		const newState = comment.isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
+		if (this.label !== oldLabel || this.state !== newState) {
+			this.state = newState;
 			refresh = true;
 		}
 
@@ -477,11 +488,15 @@ ${lineContents}
 		if (this.mode === vscode.CommentMode.Editing) {
 			return this._rawBody;
 		}
-		return new vscode.MarkdownString(this.replacedBody);
+		const s = new vscode.MarkdownString(this.replacedBody);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	protected getCancelEditBody() {
-		return new vscode.MarkdownString(this.rawComment.body);
+		const s = new vscode.MarkdownString(this.rawComment.body);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 }
 
