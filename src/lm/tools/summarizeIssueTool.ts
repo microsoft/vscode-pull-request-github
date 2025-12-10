@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { FetchIssueResult } from './fetchIssueTool';
-import { concatAsyncIterable } from './toolsUtils';
+import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 
 export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	public static readonly toolId = 'github-pull-request_issue_summarize';
@@ -58,6 +58,22 @@ Body: ${comment.body}
 		const model = models[0];
 		const repo = options.input.repo;
 		const owner = options.input.owner;
+		const content: vscode.LanguageModelTextPart[] = [];
+
+		// Add Open command if we have the necessary information
+		const issueNumber = options.input.issueNumber;
+		const itemType = options.input.itemType;
+		if (owner && repo && issueNumber && itemType) {
+			const type = itemType === 'issue' ? 'issues' : 'pull';
+			const url = `https://github.com/${owner}/${repo}/${type}/${issueNumber}`;
+			const openCommand: vscode.Command = {
+				title: 'Open',
+				command: 'vscode.open',
+				arguments: [vscode.Uri.parse(url)]
+			};
+			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+			content.push(new vscode.LanguageModelTextPart(JSON.stringify(openCommand)));
+		}
 
 		if (model && repo && owner) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(repo, owner))];
@@ -65,10 +81,11 @@ Body: ${comment.body}
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(responseText)]);
+			content.push(new vscode.LanguageModelTextPart(responseText));
 		} else {
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(issueOrPullRequestInfo)]);
+			content.push(new vscode.LanguageModelTextPart(issueOrPullRequestInfo));
 		}
+		return new vscode.LanguageModelToolResult(content);
 	}
 
 	private summarizeInstructions(repo: string, owner: string): string {
