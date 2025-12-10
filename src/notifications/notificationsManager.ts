@@ -48,6 +48,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _notifications = new Map<string, NotificationTreeItem>();
 
 	private _pollingHandler: NodeJS.Timeout | null;
+	private _pollingDisposable: vscode.Disposable | null;
 	private _pollingLastModified: string;
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
@@ -70,7 +71,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 				}
 			}
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATIONS_REFRESH_INTERVAL}`)) {
-				if (this.isPRNotificationsOn() && this._pollingHandler) {
+				if (this.isPRNotificationsOn()) {
 					// Restart polling with new interval
 					this._stopPolling();
 					this._startPolling();
@@ -447,6 +448,10 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			clearInterval(this._pollingHandler);
 			this._pollingHandler = null;
 		}
+		if (this._pollingDisposable) {
+			this._pollingDisposable.dispose();
+			this._pollingDisposable = null;
+		}
 	}
 
 	private _startPolling() {
@@ -463,7 +468,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			refreshInterval * 1000,
 			this
 		);
-		this._register({ dispose: () => clearInterval(this._pollingHandler!) });
+		this._pollingDisposable = this._register({ dispose: () => clearInterval(this._pollingHandler!) });
 	}
 
 	private _findNotificationKeyForIssueModel(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): string | undefined {
