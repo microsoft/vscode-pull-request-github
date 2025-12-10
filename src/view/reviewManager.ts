@@ -3,40 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nodePath from "path";
-import * as vscode from "vscode";
-import type { Branch, Change, Repository } from "../api/api";
-import { GitApiImpl, GitErrorCodes, Status } from "../api/api1";
-import { openDescription } from "../commands";
-import { CreatePullRequestHelper } from "./createPullRequestHelper";
+import * as nodePath from 'path';
+import * as vscode from 'vscode';
+import type { Branch, Change, Repository } from '../api/api';
+import { GitApiImpl, GitErrorCodes, Status } from '../api/api1';
+import { openDescription } from '../commands';
+import { CreatePullRequestHelper } from './createPullRequestHelper';
 import {
 	GitFileChangeModel,
 	InMemFileChangeModel,
 	RemoteFileChangeModel,
-} from "./fileChangeModel";
+} from './fileChangeModel';
 import {
 	getInMemPRFileSystemProvider,
 	provideDocumentContentForChangeModel,
-} from "./inMemPRContentProvider";
-import { PullRequestChangesTreeDataProvider } from "./prChangesTreeDataProvider";
-import { ProgressHelper } from "./progress";
-import { PullRequestsTreeDataProvider } from "./prsTreeDataProvider";
+} from './inMemPRContentProvider';
+import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
+import { ProgressHelper } from './progress';
+import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import {
 	ReviewCommentController,
 	SuggestionInformation,
-} from "./reviewCommentController";
-import { ReviewModel } from "./reviewModel";
+} from './reviewCommentController';
+import { ReviewModel } from './reviewModel';
 import {
 	DiffChangeType,
 	DiffHunk,
 	parsePatch,
 	splitIntoSmallerHunks,
-} from "../common/diffHunk";
-import { commands } from "../common/executeCommands";
-import { GitChangeType, InMemFileChange, SlimFileChange } from "../common/file";
-import { Disposable, disposeAll, toDisposable } from "../common/lifecycle";
-import Logger from "../common/logger";
-import { parseRepositoryRemotes, Remote } from "../common/remote";
+} from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import { Disposable, disposeAll, toDisposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { parseRepositoryRemotes, Remote } from '../common/remote';
 import {
 	COMMENTS,
 	FOCUSED_MODE,
@@ -48,9 +48,9 @@ import {
 	PULL_PR_BRANCH_BEFORE_CHECKOUT,
 	PullPRBranchVariants,
 	QUICK_DIFF,
-} from "../common/settingKeys";
-import { getReviewMode } from "../common/settingsUtils";
-import { ITelemetry } from "../common/telemetry";
+} from '../common/settingKeys';
+import { getReviewMode } from '../common/settingsUtils';
+import { ITelemetry } from '../common/telemetry';
 import {
 	fromPRUri,
 	fromReviewUri,
@@ -58,30 +58,30 @@ import {
 	PRUriParams,
 	Schemes,
 	toReviewUri,
-} from "../common/uri";
-import { formatError, groupBy, onceEvent } from "../common/utils";
-import { FOCUS_REVIEW_MODE } from "../constants";
-import { GitHubCreatePullRequestLinkProvider } from "../github/createPRLinkProvider";
-import { FolderRepositoryManager } from "../github/folderRepositoryManager";
-import { GitHubRepository } from "../github/githubRepository";
-import { GithubItemStateEnum } from "../github/interface";
+} from '../common/uri';
+import { formatError, groupBy, onceEvent } from '../common/utils';
+import { FOCUS_REVIEW_MODE } from '../constants';
+import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { GitHubRepository } from '../github/githubRepository';
+import { GithubItemStateEnum } from '../github/interface';
 import {
 	PullRequestGitHelper,
 	PullRequestMetadata,
-} from "../github/pullRequestGitHelper";
+} from '../github/pullRequestGitHelper';
 import {
 	IResolvedPullRequestModel,
 	PullRequestModel,
-} from "../github/pullRequestModel";
+} from '../github/pullRequestModel';
 import {
 	GitFileChangeNode,
 	gitFileChangeNodeFilter,
 	RemoteFileChangeNode,
-} from "./treeNodes/fileChangeNode";
-import { WebviewViewCoordinator } from "./webviewViewCoordinator";
+} from './treeNodes/fileChangeNode';
+import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
 export class ReviewManager extends Disposable {
-	public static ID = "Review";
+	public static ID = 'Review';
 	private readonly _localToDispose: vscode.Disposable[] = [];
 
 	private readonly _reviewModel: ReviewModel = new ReviewModel();
@@ -151,7 +151,7 @@ export class ReviewManager extends Disposable {
 
 		this.registerListeners();
 
-		if (_gitApi.state === "initialized") {
+		if (_gitApi.state === 'initialized') {
 			this.updateState(true);
 		}
 	}
@@ -292,13 +292,13 @@ export class ReviewManager extends Disposable {
 			}
 			const label = this._folderRepoManager.activePullRequest
 				? vscode.l10n.t(
-					"GitHub pull request #{0}",
+					'GitHub pull request #{0}',
 					this._folderRepoManager.activePullRequest.number,
 				)
-				: vscode.l10n.t("GitHub pull request");
+				: vscode.l10n.t('GitHub pull request');
 			this._register(
 				(this._quickDiffProvider = vscode.window.registerQuickDiffProvider(
-					{ scheme: "file" },
+					{ scheme: 'file' },
 					{
 						provideOriginalResource: (uri: vscode.Uri) => {
 							const changeNode = this.reviewModel.localFileChanges.find(
@@ -310,7 +310,7 @@ export class ReviewManager extends Disposable {
 							}
 						},
 					},
-					"github-pr",
+					'github-pr',
 					label,
 					this.repository.rootUri,
 				)),
@@ -321,10 +321,10 @@ export class ReviewManager extends Disposable {
 	get statusBarItem() {
 		if (!this._statusBarItem) {
 			this._statusBarItem = vscode.window.createStatusBarItem(
-				"github.pullrequest.status",
+				'github.pullrequest.status',
 				vscode.StatusBarAlignment.Left,
 			);
-			this._statusBarItem.name = vscode.l10n.t("GitHub Active Pull Request");
+			this._statusBarItem.name = vscode.l10n.t('GitHub Active Pull Request');
 		}
 
 		return this._statusBarItem;
@@ -350,14 +350,14 @@ export class ReviewManager extends Disposable {
 			return;
 		}
 		if (!this._validateStatusInProgress) {
-			Logger.appendLine("Validate state in progress", this.id);
+			Logger.appendLine('Validate state in progress', this.id);
 			this._validateStatusInProgress = this.validateStatusAndSetContext(
 				silent,
 				updateLayout,
 			);
 			return this._validateStatusInProgress;
 		} else {
-			Logger.appendLine("Queuing additional validate state", this.id);
+			Logger.appendLine('Queuing additional validate state', this.id);
 			this._validateStatusInProgress = this._validateStatusInProgress.then(
 				async (_) => {
 					return await this.validateStatusAndSetContext(silent, updateLayout);
@@ -380,13 +380,13 @@ export class ReviewManager extends Disposable {
 					if (timeout) {
 						clearTimeout(timeout);
 						timeout = undefined;
-						Logger.error("Timeout occurred while validating state.", this.id);
+						Logger.error('Timeout occurred while validating state.', this.id);
 						/* __GDPR__
 									"pr.checkout" : {
 										"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 									}
 								*/
-						this._telemetry.sendTelemetryErrorEvent("pr.validateStateTimeout", {
+						this._telemetry.sendTelemetryErrorEvent('pr.validateStateTimeout', {
 							version: this._context.extension.packageJSON.version,
 						});
 					}
@@ -399,7 +399,7 @@ export class ReviewManager extends Disposable {
 		const validatePromise = new Promise<void>((resolve) => {
 			this.validateStateAndResetPromise(silent, updateLayout).then(() => {
 				vscode.commands
-					.executeCommand("setContext", "github:stateValidated", true)
+					.executeCommand('setContext', 'github:stateValidated', true)
 					.then(() => {
 						if (timeout) {
 							clearTimeout(timeout);
@@ -414,7 +414,7 @@ export class ReviewManager extends Disposable {
 	}
 
 	private async offerIgnoreBranch(currentBranchName): Promise<boolean> {
-		const ignoreBranchStateKey = "githubPullRequest.showOfferIgnoreBranch";
+		const ignoreBranchStateKey = 'githubPullRequest.showOfferIgnoreBranch';
 		const showOffer = this._context.workspaceState.get(
 			ignoreBranchStateKey,
 			true,
@@ -423,7 +423,7 @@ export class ReviewManager extends Disposable {
 			return false;
 		}
 		// Only show once per day.
-		const lastOfferTimeKey = "githubPullRequest.offerIgnoreBranchTime";
+		const lastOfferTimeKey = 'githubPullRequest.offerIgnoreBranchTime';
 		const lastOfferTime = this._context.workspaceState.get<number>(
 			lastOfferTimeKey,
 			0,
@@ -439,7 +439,7 @@ export class ReviewManager extends Disposable {
 			return false;
 		}
 		await this._context.workspaceState.update(lastOfferTimeKey, currentTime);
-		const ignore = vscode.l10n.t("Ignore Pull Request");
+		const ignore = vscode.l10n.t('Ignore Pull Request');
 		const dontShow = vscode.l10n.t("Don't Show Again");
 		const offerResult = await vscode.window.showInformationMessage(
 			vscode.l10n.t(
@@ -495,7 +495,7 @@ export class ReviewManager extends Disposable {
 				);
 				let upstreamBranchName: string | undefined;
 				if (upstreamBranch) {
-					upstreamBranchName = upstreamBranch.substring("refs/heads/".length);
+					upstreamBranchName = upstreamBranch.substring('refs/heads/'.length);
 				}
 				Logger.debug(
 					`Upstream for branch ${branch.name} is ${upstreamBranchName} at ${remoteUrl}`,
@@ -574,7 +574,7 @@ export class ReviewManager extends Disposable {
 			this._prNumber = metadata.prNumber;
 
 			const { owner, repositoryName } = metadata;
-			Logger.appendLine("Resolving pull request", this.id);
+			Logger.appendLine('Resolving pull request', this.id);
 			let pr = await this._folderRepoManager.resolvePullRequest(
 				owner,
 				repositoryName,
@@ -589,7 +589,7 @@ export class ReviewManager extends Disposable {
 			) {
 				await this.clear(true);
 				this._prNumber = undefined;
-				Logger.appendLine("This PR is no longer valid", this.id);
+				Logger.appendLine('This PR is no longer valid', this.id);
 				return;
 			}
 			return pr;
@@ -611,7 +611,7 @@ export class ReviewManager extends Disposable {
 	}
 
 	private async validateState(silent: boolean, updateLayout: boolean) {
-		Logger.appendLine("Validating state...", this.id);
+		Logger.appendLine('Validating state...', this.id);
 		const oldLastCommitSha = this._lastCommitSha;
 		this._lastCommitSha = undefined;
 		if (!(await this._folderRepoManager.updateRepositories(false))) {
@@ -630,7 +630,7 @@ export class ReviewManager extends Disposable {
 		const remoteName = branch.remote ?? branch.upstream?.remote;
 		if (
 			ignoreBranches?.find((value) => value === branch.name) &&
-			(remoteName === "origin" ||
+			(remoteName === 'origin' ||
 				!(
 					await this._folderRepoManager.gitHubRepositories
 						.find((repo) => repo.remote.remoteName === remoteName)
@@ -737,7 +737,7 @@ export class ReviewManager extends Disposable {
 			!useReviewConfiguration.closed &&
 			!isSwitchedToPullRequest
 		) {
-			Logger.appendLine("This PR is closed", this.id);
+			Logger.appendLine('This PR is closed', this.id);
 			await this.clear(true);
 			return;
 		}
@@ -747,7 +747,7 @@ export class ReviewManager extends Disposable {
 			!useReviewConfiguration.merged &&
 			!isSwitchedToPullRequest
 		) {
-			Logger.appendLine("This PR is merged", this.id);
+			Logger.appendLine('This PR is merged', this.id);
 			await this.clear(true);
 			return;
 		}
@@ -769,7 +769,7 @@ export class ReviewManager extends Disposable {
 			this._folderRepoManager.checkBranchUpToDate(pr, true);
 		}
 
-		Logger.appendLine("Fetching pull request data", this.id);
+		Logger.appendLine('Fetching pull request data', this.id);
 		if (!silent) {
 			onceEvent(this._reviewModel.onDidChangeLocalFileChanges)(() => {
 				if (pr) {
@@ -814,10 +814,10 @@ export class ReviewManager extends Disposable {
 		}
 
 		this.statusBarItem.text =
-			"$(git-pull-request) " + vscode.l10n.t("Pull Request #{0}", pr.number);
+			'$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = {
-			command: "pr.openDescription",
-			title: vscode.l10n.t("View Pull Request Description"),
+			command: 'pr.openDescription',
+			title: vscode.l10n.t('View Pull Request Description'),
 			arguments: [pr],
 		};
 		Logger.appendLine(`Display pull request status bar indicator.`, this.id);
@@ -934,25 +934,25 @@ export class ReviewManager extends Disposable {
 		// Respect the setting 'comments.openView' when it's 'never'.
 		const shouldShowCommentsView = vscode.workspace
 			.getConfiguration(COMMENTS)
-			.get<"never" | string>(OPEN_VIEW);
-		if (shouldShowCommentsView !== "never" && pr.hasComments) {
-			commands.executeCommand("workbench.action.focusCommentsPanel");
+			.get<'never' | string>(OPEN_VIEW);
+		if (shouldShowCommentsView !== 'never' && pr.hasComments) {
+			commands.executeCommand('workbench.action.focusCommentsPanel');
 		}
 		this._activePrViewCoordinator.show(pr);
 		if (updateLayout) {
 			const focusedMode = vscode.workspace
 				.getConfiguration(PR_SETTINGS_NAMESPACE)
-				.get<"firstDiff" | "overview" | "multiDiff" | false>(FOCUSED_MODE);
+				.get<'firstDiff' | 'overview' | 'multiDiff' | false>(FOCUSED_MODE);
 			if (focusedMode && pr.fileChanges.size === 0) {
 				// If there are no file changes, the only useful thing to show is the overview
 				return this.openDescription();
 			}
 
-			if (focusedMode === "firstDiff") {
+			if (focusedMode === 'firstDiff') {
 				return this._openFirstDiff();
-			} else if (focusedMode === "overview") {
+			} else if (focusedMode === 'overview') {
 				return this.openDescription();
-			} else if (focusedMode === "multiDiff") {
+			} else if (focusedMode === 'multiDiff') {
 				if (pr.fileChanges.size < 400) {
 					return PullRequestModel.openChanges(this._folderRepoManager, pr);
 				} else {
@@ -962,6 +962,18 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
+	private isKnownTabInputType(tabInput: unknown): boolean {
+		return (
+			tabInput instanceof vscode.TabInputText ||
+			tabInput instanceof vscode.TabInputTextDiff ||
+			tabInput instanceof vscode.TabInputCustom ||
+			tabInput instanceof vscode.TabInputWebview ||
+			tabInput instanceof vscode.TabInputNotebook ||
+			tabInput instanceof vscode.TabInputNotebookDiff ||
+			tabInput instanceof vscode.TabInputTerminal
+		);
+	}
+
 	private async _closeOutdatedMultiDiffEditors(
 		pullRequest: PullRequestModel,
 	): Promise<void> {
@@ -969,37 +981,28 @@ export class ReviewManager extends Disposable {
 		// Since TabInputMultiDiff is not yet available in the VS Code API (https://github.com/microsoft/vscode/issues/206411),
 		// we identify multidiff editors by their label pattern
 		const multiDiffLabel = vscode.l10n.t(
-			"Changes in Pull Request #{0}",
+			'Changes in Pull Request #{0}',
 			pullRequest.number,
 		);
 
-		await Promise.all(
-			vscode.window.tabGroups.all
-				.map((tabGroup) => {
-					return tabGroup.tabs.map((tab) => {
-						// Multidiff editors have a specific label pattern and the input type is unknown
-						// since TabInputMultiDiff doesn't exist yet
-						if (
-							tab.label === multiDiffLabel &&
-							!(tab.input instanceof vscode.TabInputText) &&
-							!(tab.input instanceof vscode.TabInputTextDiff) &&
-							!(tab.input instanceof vscode.TabInputCustom) &&
-							!(tab.input instanceof vscode.TabInputWebview) &&
-							!(tab.input instanceof vscode.TabInputNotebook) &&
-							!(tab.input instanceof vscode.TabInputNotebookDiff) &&
-							!(tab.input instanceof vscode.TabInputTerminal)
-						) {
-							Logger.appendLine(
-								`Closing outdated multidiff editor for PR #${pullRequest.number}`,
-								this.id,
-							);
-							return vscode.window.tabGroups.close(tab);
-						}
-						return Promise.resolve(undefined);
-					});
-				})
-				.flat(),
-		);
+		const closePromises: Thenable<boolean>[] = [];
+		for (const tabGroup of vscode.window.tabGroups.all) {
+			for (const tab of tabGroup.tabs) {
+				// Multidiff editors have a specific label pattern and the input type is unknown
+				// since TabInputMultiDiff doesn't exist yet
+				if (
+					tab.label === multiDiffLabel &&
+					!this.isKnownTabInputType(tab.input)
+				) {
+					Logger.appendLine(
+						`Closing outdated multidiff editor for PR #${pullRequest.number}`,
+						this.id,
+					);
+					closePromises.push(vscode.window.tabGroups.close(tab));
+				}
+			}
+		}
+		await Promise.all(closePromises);
 	}
 
 	public async _upgradePullRequestEditors(pullRequest: PullRequestModel) {
@@ -1100,12 +1103,12 @@ export class ReviewManager extends Disposable {
 						suggestion,
 					);
 					await vscode.commands.executeCommand(
-						"git.revertSelectedRanges",
+						'git.revertSelectedRanges',
 						suggestion.diffLine,
 					);
 				} catch (e) {
 					vscode.window.showErrorMessage(
-						vscode.l10n.t("The change is outside the commenting range."),
+						vscode.l10n.t('The change is outside the commenting range.'),
 						{ modal: true },
 					);
 				}
@@ -1176,7 +1179,7 @@ export class ReviewManager extends Disposable {
 						line.type == DiffChangeType.Context,
 				)
 				.map((line) => line.text)
-				.join("\n"),
+				.join('\n'),
 			originalLineLength: hunk.oldLength,
 			originalStartLine: hunk.oldLineNumber,
 		};
@@ -1240,7 +1243,7 @@ export class ReviewManager extends Disposable {
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Window,
-				title: "Converting changes to suggestions",
+				title: 'Converting changes to suggestions',
 			},
 			async () => {
 				// We need to create one suggestion first. This let's us ensure that only one review will be created.
@@ -1274,13 +1277,13 @@ export class ReviewManager extends Disposable {
 			},
 		);
 		if (!hasError) {
-			const checkoutAllFilesResponse = vscode.l10n.t("Reset all changes");
+			const checkoutAllFilesResponse = vscode.l10n.t('Reset all changes');
 			vscode.window
 				.showInformationMessage(
-					vscode.l10n.t("All changes have been converted to suggestions."),
+					vscode.l10n.t('All changes have been converted to suggestions.'),
 					{
 						modal: true,
-						detail: vscode.l10n.t("Do you want to reset your local changes?"),
+						detail: vscode.l10n.t('Do you want to reset your local changes?'),
 					},
 					checkoutAllFilesResponse,
 				)
@@ -1295,10 +1298,10 @@ export class ReviewManager extends Disposable {
 				});
 		} else if (convertedFiles.length) {
 			vscode.window.showWarningMessage(
-				vscode.l10n.t("Not all changes could be converted to suggestions."),
+				vscode.l10n.t('Not all changes could be converted to suggestions.'),
 				{
 					detail: vscode.l10n.t(
-						"{0} of {1} changes converted. Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.",
+						'{0} of {1} changes converted. Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.',
 						convertedFiles.length,
 						diffCount,
 					),
@@ -1307,10 +1310,10 @@ export class ReviewManager extends Disposable {
 			);
 		} else {
 			vscode.window.showWarningMessage(
-				vscode.l10n.t("No changes could be converted to suggestions."),
+				vscode.l10n.t('No changes could be converted to suggestions.'),
 				{
 					detail: vscode.l10n.t(
-						"All of the changes are outside of commenting ranges.",
+						'All of the changes are outside of commenting ranges.',
 					),
 					modal: true,
 				},
@@ -1349,7 +1352,7 @@ export class ReviewManager extends Disposable {
 		);
 
 		if (!pr || !pr.isResolved()) {
-			Logger.warn("This PR is no longer valid", this.id);
+			Logger.warn('This PR is no longer valid', this.id);
 			return;
 		}
 
@@ -1373,7 +1376,7 @@ export class ReviewManager extends Disposable {
 			const change = contentChanges[i];
 			const filePath = nodePath
 				.join(this._repository.rootUri.path, change.fileName)
-				.replace(/\\/g, "/");
+				.replace(/\\/g, '/');
 			const uri = this._repository.rootUri.with({ path: filePath });
 
 			const modifiedFileUri =
@@ -1382,7 +1385,7 @@ export class ReviewManager extends Disposable {
 						uri,
 						undefined,
 						undefined,
-						"",
+						'',
 						false,
 						{ base: false },
 						this._repository.rootUri,
@@ -1395,7 +1398,7 @@ export class ReviewManager extends Disposable {
 					? change.previousFileName
 					: change.fileName,
 				undefined,
-				change.status === GitChangeType.ADD ? "" : mergeBase,
+				change.status === GitChangeType.ADD ? '' : mergeBase,
 				false,
 				{ base: true },
 				this._repository.rootUri,
@@ -1539,7 +1542,7 @@ export class ReviewManager extends Disposable {
 					async (uri: vscode.Uri): Promise<string | Uint8Array> => {
 						const params = fromPRUri(uri);
 						if (!params) {
-							return "";
+							return '';
 						}
 						const fileChange = changes.find(
 							(contentChange) => contentChange.fileName === params.fileName,
@@ -1548,9 +1551,9 @@ export class ReviewManager extends Disposable {
 						if (!fileChange) {
 							Logger.error(
 								`Cannot find content for document ${uri.toString()}`,
-								"PR",
+								'PR',
 							);
-							return "";
+							return '';
 						}
 
 						return provideDocumentContentForChangeModel(
@@ -1606,8 +1609,8 @@ export class ReviewManager extends Disposable {
 	public async switch(pr: PullRequestModel): Promise<void> {
 		Logger.appendLine(`Switch to Pull Request #${pr.number} - start`, this.id);
 		this.statusBarItem.text = vscode.l10n.t(
-			"{0} Switching to Review Mode",
-			"$(sync~spin)",
+			'{0} Switching to Review Mode',
+			'$(sync~spin)',
 		);
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
@@ -1631,21 +1634,21 @@ export class ReviewManager extends Disposable {
 			);
 			const updateBaseSetting = vscode.workspace
 				.getConfiguration(PR_SETTINGS_NAMESPACE)
-				.get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, "pull");
+				.get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull');
 			if (
-				updateBaseSetting === "pullAndMergeBase" ||
-				updateBaseSetting === "pullAndUpdateBase"
+				updateBaseSetting === 'pullAndMergeBase' ||
+				updateBaseSetting === 'pullAndUpdateBase'
 			) {
 				await this._folderRepoManager.tryMergeBaseIntoHead(
 					pr,
-					updateBaseSetting === "pullAndUpdateBase",
+					updateBaseSetting === 'pullAndUpdateBase',
 				);
 			}
 		} catch (e) {
 			Logger.error(`Checkout failed #${JSON.stringify(e)}`, this.id);
 			this.switchingToReviewMode = false;
 
-			if (e.message === "User aborted") {
+			if (e.message === 'User aborted') {
 				// The user cancelled the action
 			} else if (
 				e.gitErrorCode &&
@@ -1655,16 +1658,16 @@ export class ReviewManager extends Disposable {
 				// for known git errors, we should provide actions for users to continue.
 				vscode.window.showErrorMessage(
 					vscode.l10n.t(
-						"Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches",
+						'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
 					),
 				);
 			} else if (
 				(e.stderr as string)?.startsWith("fatal: couldn't find remote ref") &&
-				e.gitCommand === "fetch"
+				e.gitCommand === 'fetch'
 			) {
 				// The pull request was checked out, but the upstream branch was deleted
 				vscode.window.showInformationMessage(
-					"The remote branch for this pull request has been deleted. The file contents may not match the remote.",
+					'The remote branch for this pull request has been deleted. The file contents may not match the remote.',
 				);
 			} else {
 				vscode.window.showErrorMessage(
@@ -1682,8 +1685,8 @@ export class ReviewManager extends Disposable {
 
 		try {
 			this.statusBarItem.text =
-				"$(sync~spin) " +
-				vscode.l10n.t("Fetching additional data: {0}", `pr/${pr.number}`);
+				'$(sync~spin) ' +
+				vscode.l10n.t('Fetching additional data: {0}', `pr/${pr.number}`);
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
@@ -1693,7 +1696,7 @@ export class ReviewManager extends Disposable {
 			/* __GDPR__
 				"pr.checkout" : {}
 			*/
-			this._telemetry.sendTelemetryEvent("pr.checkout");
+			this._telemetry.sendTelemetryEvent('pr.checkout');
 			Logger.appendLine(`Switch to Pull Request #${pr.number} - done`, this.id);
 		} finally {
 			this.setStatusForPr(pr);
@@ -1704,7 +1707,7 @@ export class ReviewManager extends Disposable {
 	private setStatusForPr(pr: PullRequestModel) {
 		this.switchingToReviewMode = false;
 		this.justSwitchedToReviewMode = true;
-		this.statusBarItem.text = vscode.l10n.t("Pull Request #{0}", pr.number);
+		this.statusBarItem.text = vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
 	}
@@ -1718,13 +1721,13 @@ export class ReviewManager extends Disposable {
 			const postCreate = vscode.workspace
 				.getConfiguration(PR_SETTINGS_NAMESPACE)
 				.get<
-					| "none"
-					| "openOverview"
-					| "checkoutDefaultBranch"
-					| "checkoutDefaultBranchAndShow"
-					| "checkoutDefaultBranchAndCopy"
-				>(POST_CREATE, "openOverview");
-			if (postCreate === "openOverview") {
+					| 'none'
+					| 'openOverview'
+					| 'checkoutDefaultBranch'
+					| 'checkoutDefaultBranchAndShow'
+					| 'checkoutDefaultBranchAndCopy'
+				>(POST_CREATE, 'openOverview');
+			if (postCreate === 'openOverview') {
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(
 					this._folderRepoManager,
 				);
@@ -1735,20 +1738,20 @@ export class ReviewManager extends Disposable {
 					this._folderRepoManager,
 					true,
 				);
-			} else if (postCreate.startsWith("checkoutDefaultBranch")) {
+			} else if (postCreate.startsWith('checkoutDefaultBranch')) {
 				const defaultBranch =
 					await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(
 						createdPR,
 					);
 				if (defaultBranch) {
-					if (postCreate === "checkoutDefaultBranch") {
+					if (postCreate === 'checkoutDefaultBranch') {
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 					}
-					if (postCreate === "checkoutDefaultBranchAndShow") {
-						await commands.executeCommand("pr:github.focus");
+					if (postCreate === 'checkoutDefaultBranchAndShow') {
+						await commands.executeCommand('pr:github.focus');
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 						await this._pullRequestsTree.expandPullRequest(createdPR);
-					} else if (postCreate === "checkoutDefaultBranchAndCopy") {
+					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {
 						await Promise.all([
 							this._folderRepoManager.checkoutDefaultBranch(defaultBranch),
 							vscode.env.clipboard.writeText(createdPR.html_url),
@@ -1795,10 +1798,10 @@ export class ReviewManager extends Disposable {
 			.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get(FOCUSED_MODE);
 		if (focusedSetting) {
-			vscode.commands.executeCommand("setContext", FOCUS_REVIEW_MODE, true);
+			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
 			await this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
-			vscode.commands.executeCommand("setContext", FOCUS_REVIEW_MODE, false);
+			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, false);
 			this._context.workspaceState.update(FOCUS_REVIEW_MODE, false);
 		}
 	}
@@ -1862,7 +1865,7 @@ export class ReviewManager extends Disposable {
 					.filter((diffLine) => diffLine.type !== diffChangeTypeFilter)
 					.map((diffLine) => diffLine.text),
 			);
-			return ret.reduce((prev, curr) => prev.concat(...curr), []).join("\n");
+			return ret.reduce((prev, curr) => prev.concat(...curr), []).join('\n');
 		}
 
 		changedItems = gitFileChangeNodeFilter(
@@ -1899,7 +1902,7 @@ export class ReviewManager extends Disposable {
 				ret.push(...lines);
 			}
 
-			return ret.join("\n");
+			return ret.join('\n');
 		} else if (base && commit && this._folderRepoManager.activePullRequest) {
 			// We can't get the content from git. Try to get it from github.
 			const content =
