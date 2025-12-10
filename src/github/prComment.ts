@@ -217,6 +217,7 @@ export class TemporaryComment extends CommentBase {
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
+export const COMMIT_SHA_EXPRESSION = /(?<![`\/\w])([0-9a-f]{7})([0-9a-f]{33})?(?![`\/\w])/g;
 
 export class GHPRComment extends CommentBase {
 	private static ID = 'GHPRComment';
@@ -431,9 +432,7 @@ ${lineContents}
 		// - Either 7 or 40 hex characters
 		// - Not already part of a URL or markdown link
 		// - Not inside code blocks (backticks)
-		const commitShaRegex = /(?<![`\/\w])([0-9a-f]{7})([0-9a-f]{33})?(?![`\/\w])/g;
-
-		return body.replace(commitShaRegex, (match, shortSha, remaining, offset) => {
+		return body.replace(COMMIT_SHA_EXPRESSION, (match, shortSha, remaining, offset) => {
 			// Don't replace if inside code blocks
 			const beforeMatch = body.substring(0, offset);
 			const backtickCount = (beforeMatch.match(/`/g)?.length ?? 0);
