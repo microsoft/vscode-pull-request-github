@@ -2877,15 +2877,83 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
 
+/**
+ * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
+ * Similar to GitHub's behavior when converting commit messages to PR descriptions.
+ * 
+ * Rules:
+ * - Preserves blank lines as paragraph breaks
+ * - Preserves lines that start with special characters (list items, quotes, indentation)
+ * - Joins consecutive lines that appear to be wrapped mid-sentence
+ */
+function unwrapCommitMessageBody(body: string): string {
+	if (!body) {
+		return body;
+	}
+
+	const lines = body.split('\n');
+	const result: string[] = [];
+	let i = 0;
+
+	while (i < lines.length) {
+		const line = lines[i];
+
+		// Preserve blank lines
+		if (line.trim() === '') {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Check if this line should NOT be joined with the next
+		// Lines that start with special formatting characters should be preserved
+		const shouldPreserveLine = /^[\s*\-+>]|^\d+\./.test(line);
+
+		if (shouldPreserveLine) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Start accumulating lines that should be joined
+		let joinedLine = line;
+		i++;
+
+		// Keep joining lines until we hit a blank line or a line that shouldn't be joined
+		while (i < lines.length) {
+			const nextLine = lines[i];
+
+			// Stop at blank lines
+			if (nextLine.trim() === '') {
+				break;
+			}
+
+			// Stop at lines that start with special formatting
+			if (/^[\s*\-+>]|^\d+\./.test(nextLine)) {
+				break;
+			}
+
+			// Join this line with a space
+			joinedLine += ' ' + nextLine;
+			i++;
+		}
+
+		result.push(joinedLine);
+	}
+
+	return result.join('\n');
+}
+
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;
 	if (!message) {
 		return;
 	}
 	const idxLineBreak = message.indexOf('\n');
+	const rawBody = idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim();
 	return {
 		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),
 
-		body: idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim(),
+		body: unwrapCommitMessageBody(rawBody),
 	};
 };
