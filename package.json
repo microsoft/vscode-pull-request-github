@@ -1034,6 +1034,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.revealFileInOS",
+				"title": "%command.pr.revealFileInOS.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.copyCommitHash",
 				"title": "%command.pr.copyCommitHash.title%",
 				"category": "%command.pull.request.category%"
@@ -2119,6 +2124,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.revealFileInOS",
+					"when": "false"
+				},
+				{
 					"command": "pr.openOriginalFile",
 					"when": "false"
 				},
@@ -2964,14 +2973,19 @@
 					"group": "0_open@0"
 				},
 				{
+					"command": "pr.revealFileInOS",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange.*:local/ && viewItem !~ /filechange:DELETE/",
+					"group": "0_open@1"
+				},
+				{
 					"command": "pr.openOriginalFile",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
-					"group": "0_open@1"
+					"group": "0_open@2"
 				},
 				{
 					"command": "pr.openModifiedFile",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
-					"group": "0_open@2"
+					"group": "0_open@3"
 				},
 				{
 					"command": "review.diffWithPrHead",

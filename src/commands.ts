@@ -233,6 +233,16 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.revealFileInOS', (e: GitFileChangeNode) => {
+			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
+			if (folderManager) {
+				const filePath = vscode.Uri.joinPath(folderManager.repository.rootUri, e.changeModel.fileName);
+				vscode.commands.executeCommand('revealFileInOS', filePath);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
 			// if this is an image, encode it as a base64 data URI
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
