@@ -66,7 +66,6 @@ import { IssueModel } from '../github/issueModel';
 import { IssueOverviewPanel } from '../github/issueOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
-import { chatCommand } from '../lm/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { ReviewsManager } from '../view/reviewsManager';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
@@ -523,7 +522,6 @@ export class IssueFeatureRegistrar extends Disposable {
 				return openCodeLink(issueModel, this.manager);
 			}),
 		);
-		const chatCommandID = chatCommand();
 		this._register(
 			vscode.commands.registerCommand('issue.chatSummarizeIssue', (issue: any) => {
 				if (!(issue instanceof IssueModel || issue instanceof PRNode)) {
@@ -534,11 +532,11 @@ export class IssueFeatureRegistrar extends Disposable {
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
 				if (issue instanceof IssueModel) {
-					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
 				} else {
 					const pullRequestModel = issue.pullRequestModel;
 					const remote = pullRequestModel.githubRepository.remote;
-					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
+					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number) });
 				}
 			}),
 		);
@@ -551,7 +549,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				"issue.chatSuggestFix" : {}
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
-				commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+				commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
 			}),
 		);
 		this._register(vscode.commands.registerCommand('issues.configureIssuesViewlet', async () => {
