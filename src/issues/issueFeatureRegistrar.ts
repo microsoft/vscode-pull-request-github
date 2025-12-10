@@ -1255,7 +1255,8 @@ ${options?.body ?? ''}\n
 		// Try to parse as YAML first (YAML templates have a different structure)
 		try {
 			const parsed = yaml.load(template);
-			if (parsed && typeof parsed === 'object' && (parsed as YamlIssueTemplate).name) {
+			// Check if it looks like a YAML issue template (has name and body fields)
+			if (parsed && typeof parsed === 'object' && (parsed as YamlIssueTemplate).name && (parsed as YamlIssueTemplate).body) {
 				// This is a YAML template
 				return this.parseYamlTemplate(parsed as YamlIssueTemplate);
 			}
@@ -1306,7 +1307,7 @@ ${options?.body ?? ''}\n
 						body += `${field.attributes.description}\n\n`;
 					}
 					if (field.attributes.options && Array.isArray(field.attributes.options)) {
-						body += field.attributes.options.map((opt: string) => `- ${opt}`).join('\n') + '\n\n';
+						body += field.attributes.options.map((opt: string | { label?: string }) => typeof opt === 'string' ? `- ${opt}` : `- ${opt.label || ''}`).join('\n') + '\n\n';
 					}
 				} else if (field.type === 'checkboxes' && field.attributes?.label) {
 					body += `## ${field.attributes.label}\n\n`;
