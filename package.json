@@ -646,6 +646,11 @@
 					"default": "number",
 					"description": "%githubIssues.createInsertFormat.description%"
 				},
+				"githubIssues.assignToMeOnCreate": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubIssues.assignToMeOnCreate.description%"
+				},
 				"githubIssues.issueCompletions.enabled": {
 					"type": "boolean",
 					"default": true,

@@ -15,6 +15,7 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import {
 	ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO,
+	ASSIGN_TO_ME_ON_CREATE,
 	CREATE_INSERT_FORMAT,
 	ENABLED,
 	ISSUE_COMPLETIONS,
@@ -1000,6 +1001,30 @@ export class IssueFeatureRegistrar extends Disposable {
 		if (matches && matches.length === 2 && (await this._stateManager.getUserMap(document.uri)).has(matches[1])) {
 			assignees = [matches[1]];
 		}
+
+		// Check if we should auto-assign to the current user
+		const assignToMe = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<boolean>(ASSIGN_TO_ME_ON_CREATE, false);
+		if (assignToMe) {
+			// Get the folder manager to access the current user
+			const folderManager = this.manager.getManagerForFile(document.uri);
+			if (folderManager) {
+				try {
+					const currentUser = await folderManager.getCurrentUser();
+					if (currentUser?.login) {
+						// Add current user to assignees if not already included
+						if (!assignees) {
+							assignees = [currentUser.login];
+						} else if (!assignees.includes(currentUser.login)) {
+							assignees.push(currentUser.login);
+						}
+					}
+				} catch (error) {
+					// If we can't get the current user, just continue without auto-assignment
+					Logger.debug(`Failed to get current user for auto-assignment: ${error}`, IssueFeatureRegistrar.ID);
+				}
+			}
+		}
+
 		let title: string | undefined;
 		const body: string | undefined = await this.createTodoIssueBody(newIssue, issueBody);
 
