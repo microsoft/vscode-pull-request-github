@@ -2895,7 +2895,7 @@ function unwrapCommitMessageBody(body: string): string {
 	// - Lines starting with whitespace (indented/code blocks)
 	// - Lines starting with list markers (*, -, +, >)
 	// - Lines starting with numbered list items (e.g., "1. ")
-	const PRESERVE_LINE_PATTERN = /^[ \t*\-+>]|^\d+\./;
+	const PRESERVE_LINE_PATTERN = /^[ \t*+>\-]|^\d+\./;
 
 	const lines = body.split('\n');
 	const result: string[] = [];
@@ -2956,9 +2956,10 @@ export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Pr
 		return;
 	}
 	const idxLineBreak = message.indexOf('\n');
-	const rawBody = idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim();
+	const hasBody = idxLineBreak !== -1;
+	const rawBody = hasBody ? message.slice(idxLineBreak + 1).trim() : '';
 	return {
-		title: idxLineBreak === -1 ? message : message.slice(0, idxLineBreak),
+		title: hasBody ? message.slice(0, idxLineBreak) : message,
 
 		body: unwrapCommitMessageBody(rawBody),
 	};
