@@ -53,6 +53,45 @@ textarea:focus,
 	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	transition: all 0.2s ease;
+}
+
+.title.sticky {
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	background: var(--vscode-editor-background);
+	margin: 0;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.title.sticky .details {
+	width: 100%;
+}
+
+.title.sticky .overview-title h2 {
+	font-size: 18px;
+	margin: 0;
+}
+
+.title.sticky .header-actions {
+	padding-top: 0;
+}
+
+.overview-title.compact {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.overview-title.compact h2 {
+	font-size: 18px;
+	margin: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .title .pr-number {
@@ -563,6 +602,16 @@ small-button {
 	display: flex;
 	gap: 8px;
 	padding-top: 4px;
+	align-items: center;
+}
+
+.title.sticky .header-actions {
+	flex-wrap: nowrap;
+}
+
+.title.sticky .header-actions #status {
+	margin-right: 0;
+	flex-shrink: 0;
 }
 
 .header-actions>div:first-of-type {

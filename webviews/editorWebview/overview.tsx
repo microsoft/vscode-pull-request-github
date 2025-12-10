@@ -31,11 +31,23 @@ const useMediaQuery = (query: string) => {
 
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
+	const [isSticky, setIsSticky] = React.useState(false);
+
+	React.useEffect(() => {
+		const handleScroll = () => {
+			// Make header sticky when scrolled past 80px
+			const scrolled = window.scrollY > 80;
+			setIsSticky(scrolled);
+		};
+
+		window.addEventListener('scroll', handleScroll);
+		return () => window.removeEventListener('scroll', handleScroll);
+	}, []);
 
 	return <>
-		<div id="title" className="title">
+		<div id="title" className={`title ${isSticky ? 'sticky' : ''}`}>
 			<div className="details">
-				<Header {...pr} />
+				<Header {...pr} isCompact={isSticky} />
 			</div>
 		</div>
 		{isSingleColumnLayout ?
