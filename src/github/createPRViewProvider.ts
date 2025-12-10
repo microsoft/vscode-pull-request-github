@@ -218,7 +218,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
-		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
+		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
 		const defaultTitleAndDescriptionProvider = this.getTitleAndDescriptionProvider()?.title;
 		if (defaultTitleAndDescriptionProvider) {
 			/* __GDPR__
@@ -682,13 +682,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
-		if (descrptionSource === 'none') {
+		const descriptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		if (descriptionSource === 'none') {
 			return { title, description };
 		}
 
 		// If branchName is selected, use the branch name as the title
-		if (descrptionSource === 'branchName') {
+		if (descriptionSource === 'branchName') {
 			const name = compareBranch.name;
 			if (name) {
 				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
@@ -708,7 +708,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descrptionSource === 'template' ? this.getPullRequestTemplate() : undefined
+				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
