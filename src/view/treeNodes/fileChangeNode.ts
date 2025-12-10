@@ -299,14 +299,17 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		private _comments?: IComment[]
 	) {
 		super(parent, pullRequestManager, pullRequest, changeModel);
+		this._appendLocalSuffix();
+	}
+
+	private _appendLocalSuffix() {
 		// Mark as local file to distinguish from remote files
 		this.contextValue = `${this.contextValue}:local`;
 	}
 
 	override updateViewed(viewed: ViewedState) {
 		super.updateViewed(viewed);
-		// Re-append the :local suffix after parent updates contextValue
-		this.contextValue = `${this.contextValue}:local`;
+		this._appendLocalSuffix();
 	}
 
 	get comments(): IComment[] {
