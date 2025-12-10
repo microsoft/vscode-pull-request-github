@@ -345,7 +345,7 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 query LatestReviewCommit($owner: String!, $name: String!, $number: Int!, $author: String!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviews(first: 1, author: $author, states: [APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED]) {
+			reviews(last: 1, author: $author, states: [APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED]) {
 				nodes {
 					commit {
 						oid
