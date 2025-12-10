@@ -1261,6 +1261,11 @@ code {
 	border-bottom: 1px solid var(--vscode-contrastBorder);
 }
 
+.vscode-high-contrast .title.sticky {
+	border: 1px solid var(--vscode-contrastBorder);
+	box-shadow: none;
+}
+
 .vscode-high-contrast .diff .diffLine {
 	background: none;
 }
@@ -1285,6 +1290,19 @@ code {
 	.title {
 		border-bottom: none;
 		padding-bottom: 0px;
+	}
+
+	.title.sticky {
+		padding: 8px 0;
+		border-bottom: 1px solid var(--vscode-panel-border);
+	}
+
+	.title.sticky .overview-title h2 {
+		font-size: 16px;
+	}
+
+	.title.sticky .button-group {
+		flex-wrap: nowrap;
 	}
 
 	#app {
