@@ -35,6 +35,9 @@ export enum NotificationsSortMethod {
 export class NotificationsManager extends Disposable implements vscode.TreeDataProvider<NotificationTreeDataItem> {
 	private static ID = 'NotificationsManager';
 
+	// List of automated users that should be ignored when determining meaningful events
+	private static readonly AUTOMATED_USERS = ['vs-code-engineering'];
+
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = this._register(new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>());
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
@@ -329,7 +332,11 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			return true;
 		}
 		// Check for common bot naming patterns
-		if (user.login.endsWith('[bot]') || user.login === 'vs-code-engineering') {
+		if (user.login.endsWith('[bot]')) {
+			return true;
+		}
+		// Check for specific automated users
+		if (NotificationsManager.AUTOMATED_USERS.includes(user.login)) {
 			return true;
 		}
 		return false;
