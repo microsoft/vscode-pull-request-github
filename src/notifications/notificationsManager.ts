@@ -433,7 +433,8 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			return;
 		}
 
-		// Note: We ignore the pollInterval from GitHub's response and use the user-configured interval instead
+		// Use the user-configured interval instead of GitHub's poll interval to respect user preferences.
+		// This allows users to control notification refresh frequency for managing notification volume and API rate limits.
 		if (response.lastModified !== this._pollingLastModified) {
 			this._pollingLastModified = response.lastModified;
 			this._onDidChangeTreeData.fire();
@@ -470,7 +471,13 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			refreshInterval * 1000,
 			this
 		);
-		this._pollingDisposable = this._register({ dispose: () => clearInterval(this._pollingHandler!) });
+		this._pollingDisposable = this._register({
+			dispose: () => {
+				if (this._pollingHandler) {
+					clearInterval(this._pollingHandler);
+				}
+			}
+		});
 	}
 
 	private _findNotificationKeyForIssueModel(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): string | undefined {
