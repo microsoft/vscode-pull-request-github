@@ -1009,7 +1009,9 @@ export class IssueFeatureRegistrar extends Disposable {
 			const folderManager = this.manager.getManagerForFile(document.uri);
 			if (folderManager) {
 				try {
-					const currentUser = await folderManager.getCurrentUser();
+					// Get the GitHub repository for the document to ensure we get the correct user
+					const githubRepository = folderManager.gitHubRepositories[0];
+					const currentUser = await folderManager.getCurrentUser(githubRepository);
 					if (currentUser?.login) {
 						// Add current user to assignees if not already included
 						if (!assignees) {
@@ -1020,7 +1022,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					}
 				} catch (error) {
 					// If we can't get the current user, just continue without auto-assignment
-					Logger.debug(`Failed to get current user for auto-assignment: ${error}`, IssueFeatureRegistrar.ID);
+					Logger.debug('Failed to get current user for auto-assignment', IssueFeatureRegistrar.ID, error);
 				}
 			}
 		}
