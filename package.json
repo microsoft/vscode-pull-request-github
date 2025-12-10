@@ -297,6 +297,12 @@
 					"default": "off",
 					"description": "%githubPullRequests.notifications.description%"
 				},
+				"githubPullRequests.notificationsRefreshInterval": {
+					"type": "number",
+					"default": 600,
+					"minimum": 60,
+					"description": "%githubPullRequests.notificationsRefreshInterval.description%"
+				},
 				"githubPullRequests.fileListLayout": {
 					"type": "string",
 					"enum": [
