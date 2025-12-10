@@ -304,7 +304,10 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 
 	private _appendLocalSuffix() {
 		// Mark as local file to distinguish from remote files
-		this.contextValue = `${this.contextValue}:local`;
+		// Only append if not already present to avoid duplication
+		if (!this.contextValue.endsWith(':local')) {
+			this.contextValue = `${this.contextValue}:local`;
+		}
 	}
 
 	override updateViewed(viewed: ViewedState) {
