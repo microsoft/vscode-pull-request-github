@@ -133,6 +133,10 @@ export interface ReadyForReviewReply {
 	autoMerge?: boolean;
 }
 
+export interface ConvertToDraftReply {
+	isDraft: boolean;
+}
+
 export interface MergeArguments {
 	title: string | undefined;
 	description: string | undefined;

@@ -18,6 +18,7 @@ import {
 	AddCommentResponse,
 	AddReactionResponse,
 	AddReviewThreadResponse,
+	ConvertPullRequestToDraftResponse,
 	DeleteReactionResponse,
 	DeleteReviewResponse,
 	DequeuePullRequestResponse,
@@ -44,6 +45,7 @@ import {
 } from './graphql';
 import {
 	AccountType,
+	ConvertToDraft,
 	GithubItemStateEnum,
 	IAccount,
 	IGitTreeItem,
@@ -1833,6 +1835,44 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				"pr.readyForReview.failure" : {}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure');
+			throw e;
+		}
+	}
+
+	/**
+	 * Convert a pull request to draft.
+	 */
+	async convertToDraft(): Promise<ConvertToDraft> {
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			const { data } = await mutate<ConvertPullRequestToDraftResponse>({
+				mutation: schema.ConvertToDraft,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId,
+					},
+				},
+			});
+
+			/* __GDPR__
+				"pr.convertToDraft.success" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.convertToDraft.success');
+
+			const result: ConvertToDraft = {
+				isDraft: data!.convertPullRequestToDraft.pullRequest.isDraft,
+				mergeable: parseMergeability(data!.convertPullRequestToDraft.pullRequest.mergeable, data!.convertPullRequestToDraft.pullRequest.mergeStateStatus),
+			};
+			this.item.isDraft = result.isDraft;
+			this.item.mergeable = result.mergeable;
+			this._onDidChange.fire({ draft: true });
+			return result;
+		} catch (e) {
+			/* __GDPR__
+				"pr.convertToDraft.failure" : {}
+			*/
+			this._telemetry.sendTelemetryErrorEvent('pr.convertToDraft.failure');
 			throw e;
 		}
 	}

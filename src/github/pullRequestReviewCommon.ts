@@ -229,6 +229,16 @@ export namespace PullRequestReviewCommon {
 		}
 	}
 
+	export async function setConvertToDraft(ctx: ReviewContext, _message: IRequestMessage<{}>): Promise<void> {
+		try {
+			const result = await ctx.item.convertToDraft();
+			ctx.replyMessage(_message, result);
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to convert pull request to draft. {0}', formatError(e)));
+			ctx.throwError(_message, '');
+		}
+	}
+
 	export async function readyForReviewCommand(ctx: ReviewContext): Promise<void> {
 		ctx.postMessage({
 			command: 'pr.readying-for-review'
@@ -270,6 +280,26 @@ export namespace PullRequestReviewCommon {
 			});
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unable to set pull request ready for review. ${formatError(e)}`);
+			ctx.throwError(undefined, e.message);
+		}
+	}
+
+	export async function convertToDraftCommand(ctx: ReviewContext): Promise<void> {
+		ctx.postMessage({
+			command: 'pr.converting-to-draft'
+		});
+		try {
+			const result = await ctx.item.convertToDraft();
+
+			const convertedResult = {
+				isDraft: result.isDraft
+			};
+			await ctx.postMessage({
+				command: 'pr.converted-to-draft',
+				result: convertedResult
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to convert pull request to draft. ${formatError(e)}`);
 			ctx.throwError(undefined, e.message);
 		}
 	}

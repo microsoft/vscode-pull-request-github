@@ -491,6 +491,16 @@ export interface MarkPullRequestReadyForReviewResponse {
 	};
 }
 
+export interface ConvertPullRequestToDraftResponse {
+	convertPullRequestToDraft: {
+		pullRequest: {
+			isDraft: boolean;
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+		};
+	};
+}
+
 export interface MergeQueueForBranchResponse {
 	repository: {
 		mergeQueue?: {

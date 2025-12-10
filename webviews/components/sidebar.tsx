@@ -95,6 +95,9 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					) : (
 						<div className="section-placeholder">None yet</div>
 					)}
+					{!pr!.isDraft && (hasWritePermission || pr!.isAuthor) && (
+						<ConvertToDraft />
+					)}
 				</Section>
 			)}
 
@@ -504,6 +507,36 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 					</button>
 				) : null}
 			</div>
+		</div>
+	);
+}
+
+function ConvertToDraft() {
+	const { convertToDraft, updatePR, pr } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+
+	const handleConvertToDraft = async () => {
+		try {
+			setBusy(true);
+			const result = await convertToDraft();
+			updatePR({ isDraft: result.isDraft });
+		} catch (e) {
+			// Error handling is done in the backend
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<div className="section-item">
+			<button
+				className="secondary"
+				onClick={handleConvertToDraft}
+				disabled={isBusy || pr?.busy}
+				style={{ width: '100%', marginTop: '8px' }}
+			>
+				Convert to draft
+			</button>
 		</div>
 	);
 }
