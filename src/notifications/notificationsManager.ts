@@ -72,8 +72,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			}
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATIONS_REFRESH_INTERVAL}`)) {
 				if (this.isPRNotificationsOn()) {
-					// Restart polling with new interval
-					this._stopPolling();
+					// Restart polling with new interval (stopPolling is called inside startPolling)
 					this._startPolling();
 				}
 			}
@@ -443,14 +442,14 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	}
 
 	private _stopPolling() {
+		if (this._pollingDisposable) {
+			this._pollingDisposable.dispose();
+			this._pollingDisposable = null;
+		}
 		if (this._pollingHandler) {
 			Logger.appendLine('Notifications: Clearing interval', NotificationsManager.ID);
 			clearInterval(this._pollingHandler);
 			this._pollingHandler = null;
-		}
-		if (this._pollingDisposable) {
-			this._pollingDisposable.dispose();
-			this._pollingDisposable = null;
 		}
 	}
 
@@ -458,6 +457,9 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		if (!this.isPRNotificationsOn()) {
 			return;
 		}
+		// Stop any existing polling to prevent resource leaks
+		this._stopPolling();
+
 		const refreshInterval = this._getRefreshInterval();
 		Logger.appendLine(`Notifications: Starting polling with interval ${refreshInterval} seconds`, NotificationsManager.ID);
 		this._pollForNewNotifications();
