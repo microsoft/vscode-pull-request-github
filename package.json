@@ -1539,6 +1539,12 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.openIssueOnGitHub",
+				"title": "%command.issue.openIssueOnGitHub.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"

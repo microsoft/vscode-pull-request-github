@@ -309,6 +309,52 @@ export class IssueFeatureRegistrar extends Disposable {
 			}),
 		);
 		this._register(
+			vscode.commands.registerCommand('issue.openIssueOnGitHub', async () => {
+				const editor = vscode.window.activeTextEditor;
+				if (!editor) {
+					vscode.window.showWarningMessage(vscode.l10n.t('No active editor. Open a file and place the cursor on an issue reference.'));
+					return;
+				}
+
+				const document = editor.document;
+				const position = editor.selection.active;
+
+				const wordRange = document.getWordRangeAtPosition(position, ISSUE_OR_URL_EXPRESSION);
+				if (!wordRange) {
+					vscode.window.showWarningMessage(vscode.l10n.t('No issue reference found at cursor position.'));
+					return;
+				}
+
+				const word = document.getText(wordRange);
+				const match = word.match(ISSUE_OR_URL_EXPRESSION);
+				const parsed = parseIssueExpressionOutput(match);
+
+				if (!parsed) {
+					vscode.window.showWarningMessage(vscode.l10n.t('Invalid issue reference.'));
+					return;
+				}
+
+				const folderManager = this.manager.getManagerForFile(document.uri) ?? this.manager.folderManagers[0];
+				if (!folderManager) {
+					vscode.window.showWarningMessage(vscode.l10n.t('No repository found for current file.'));
+					return;
+				}
+
+				const issue = await getIssue(this.stateManager, folderManager, word, parsed);
+				if (!issue) {
+					vscode.window.showWarningMessage(vscode.l10n.t('Unable to resolve issue.'));
+					return;
+				}
+
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(issue.html_url));
+
+				/* __GDPR__
+					"issue.openOnGitHub" : {}
+				*/
+				this.telemetry.sendTelemetryEvent('issue.openOnGitHub');
+			}),
+		);
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.startWorking',
 				(issue: any) => {
