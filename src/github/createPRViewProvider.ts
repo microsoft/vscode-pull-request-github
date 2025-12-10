@@ -757,7 +757,41 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
-		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		const createFromTemplate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'first' | 'prompt'>('createFromTemplate', 'first');
+
+		if (createFromTemplate === 'none') {
+			return undefined;
+		}
+
+		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
+
+		if (!templates || templates.length === 0) {
+			return undefined;
+		}
+
+		if (templates.length === 1 || createFromTemplate === 'first') {
+			return templates[0];
+		}
+
+		// createFromTemplate === 'prompt' and multiple templates exist
+		const selectedTemplate = await vscode.window.showQuickPick(
+			templates.map((template, index) => {
+				// Try to extract a meaningful name from the template (first line or first few chars)
+				const firstLine = template.split('\n')[0].trim();
+				const label = firstLine || `Template ${index + 1}`;
+				return {
+					label: label.substring(0, 50) + (label.length > 50 ? '...' : ''),
+					description: `${template.length} characters`,
+					template: template
+				};
+			}),
+			{
+				placeHolder: vscode.l10n.t('Select a pull request template'),
+				ignoreFocusOut: true
+			}
+		);
+
+		return selectedTemplate?.template;
 	}
 
 	protected async detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined> {
