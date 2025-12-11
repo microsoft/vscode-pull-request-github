@@ -981,81 +981,78 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		try {
-			const localBranches = (await this.repository.getRefs({ pattern: 'refs/heads/' }))
+			// Only check the 3 most recently used branches to minimize API calls
+			const localBranches = (await this.repository.getRefs({
+				pattern: 'refs/heads/',
+				sort: 'committerdate',
+				count: 3
+			}))
 				.filter(r => r.name !== undefined)
 				.map(r => r.name!);
 
 			Logger.debug(`Found ${localBranches.length} local branches to check`, this.id);
 
-			// Process branches in chunks to avoid overwhelming the system
-			// Using a smaller chunk size (10) compared to getLocalPullRequests (100) because:
-			// - This runs on first activation when we don't know how many branches need API calls
-			// - We want to be conservative to avoid rate limiting
-			// - The operation is async and non-blocking, so lower throughput is acceptable
-			const chunkSize = 10;
 			const associationResults: boolean[] = [];
 
-			for (let i = 0; i < localBranches.length; i += chunkSize) {
-				const chunk = localBranches.slice(i, i + chunkSize);
-				const chunkResults = await Promise.all(chunk.map(async branchName => {
-					try {
-						// Check if this branch already has PR metadata
-						const existingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-							this.repository,
-							branchName,
-						);
+			// Process all branches (max 3) in parallel
+			const chunkResults = await Promise.all(localBranches.map(async branchName => {
+				try {
+					// Check if this branch already has PR metadata
+					const existingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+						this.repository,
+						branchName,
+					);
 
-						if (existingMetadata) {
-							// Branch already has PR metadata, skip
-							return false;
-						}
-
-						// Get the branch to check its upstream
-						const branch = await this.repository.getBranch(branchName);
-						if (!branch.upstream) {
-							// No upstream, can't match to a PR
-							return false;
-						}
-
-						// Try to find a matching PR on GitHub
-						const remoteName = branch.upstream.remote;
-						const upstreamBranchName = branch.upstream.name;
-
-						const githubRepo = githubRepositories.find(
-							repo => repo.remote.remoteName === remoteName,
-						);
-
-						if (!githubRepo) {
-							return false;
-						}
-
-						// Get the metadata of the GitHub repository to find owner
-						const metadata = await githubRepo.getMetadata();
-						if (!metadata?.owner) {
-							return false;
-						}
-
-						// Search for a PR with this head branch
-						const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
-
-						if (matchingPR) {
-							Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
-							await PullRequestGitHelper.associateBranchWithPullRequest(
-								this.repository,
-								matchingPR,
-								branchName,
-							);
-							return true;
-						}
-						return false;
-					} catch (e) {
-						Logger.debug(`Error checking branch ${branchName}: ${e}`, this.id);
-						// Continue with other branches even if one fails
+					if (existingMetadata) {
+						// Branch already has PR metadata, skip
 						return false;
 					}
-				}));
-				associationResults.push(...chunkResults);
-			}
+
+					// Get the branch to check its upstream
+					const branch = await this.repository.getBranch(branchName);
+					if (!branch.upstream) {
+						// No upstream, can't match to a PR
+						return false;
+					}
+
+					// Try to find a matching PR on GitHub
+					const remoteName = branch.upstream.remote;
+					const upstreamBranchName = branch.upstream.name;
+
+					const githubRepo = githubRepositories.find(
+						repo => repo.remote.remoteName === remoteName,
+					);
+
+					if (!githubRepo) {
+						return false;
+					}
+
+					// Get the metadata of the GitHub repository to find owner
+					const metadata = await githubRepo.getMetadata();
+					if (!metadata?.owner) {
+						return false;
+					}
+
+					// Search for a PR with this head branch
+					const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
+
+					if (matchingPR) {
+						Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
+						await PullRequestGitHelper.associateBranchWithPullRequest(
+							this.repository,
+							matchingPR,
+							branchName,
+						);
+						return true;
+					}
+					return false;
+				} catch (e) {
+					Logger.debug(`Error checking branch ${branchName}: ${e}`, this.id);
+					// Continue with other branches even if one fails
+					return false;
+				}
+			}));
+			associationResults.push(...chunkResults);
 
 			const associatedCount = associationResults.filter(r => r).length;
 			Logger.appendLine(`Branch association complete: ${associatedCount} branches associated with PRs`, this.id);
