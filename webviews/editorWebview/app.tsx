@@ -25,14 +25,15 @@ export function Root({ children }) {
 	// Restore focus to comment textarea when window regains focus if user was typing
 	useEffect(() => {
 		const handleWindowFocus = () => {
-			// Give the focus event time to settle
+			// Delay to let the focus event settle before checking focus state
+			const FOCUS_SETTLE_DELAY_MS = 100;
 			setTimeout(() => {
 				const commentTextarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
 				// Only restore focus if there's content and nothing else has focus
 				if (commentTextarea && commentTextarea.value && document.activeElement === document.body) {
 					commentTextarea.focus();
 				}
-			}, 100);
+			}, FOCUS_SETTLE_DELAY_MS);
 		};
 
 		window.addEventListener('focus', handleWindowFocus);
