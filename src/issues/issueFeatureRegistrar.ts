@@ -839,6 +839,9 @@ export class IssueFeatureRegistrar extends Disposable {
 			if (!currentBranchName) {
 				// If we can't determine the current branch, default to the default branch
 				checkoutDefaultBranch = true;
+			} else if (currentBranchName === defaultBranchName) {
+				// If already on the default branch, no need to prompt
+				checkoutDefaultBranch = false;
 			} else {
 				const choice = await vscode.window.showQuickPick([currentBranchName, defaultBranchName], {
 					placeHolder: vscode.l10n.t('Which branch should be used as the base for the new issue branch?'),
