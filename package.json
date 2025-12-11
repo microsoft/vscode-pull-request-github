@@ -3704,8 +3704,8 @@
 			{
 				"id": "pullRequests.closed",
 				"defaults": {
-					"dark": "#cb2431",
-					"light": "#cb2431",
+					"dark": "#8957e5",
+					"light": "#8957e5",
 					"highContrast": "editor.background",
 					"highContrastLight": "editor.background"
 				},
