@@ -13,6 +13,7 @@ export const NEVER_SHOW_PULL_NOTIFICATION = 'github.pullRequest.pullNotification
 export const REPO_KEYS = 'github.pullRequest.repos';
 export const PREVIOUS_CREATE_METHOD = 'github.pullRequest.previousCreateMethod';
 export const LAST_USED_EMAIL = 'github.pullRequest.lastUsedEmail';
+export const BRANCHES_ASSOCIATED_WITH_PRS = 'github.pullRequest.branchesAssociatedWithPRs';
 
 export interface RepoState {
 	mentionableUsers?: IAccount[];
