@@ -34,6 +34,7 @@
 		"languageModelToolResultAudience",
 		"markdownAlertSyntax",
 		"quickDiffProvider",
+		"quickPickPrompt",
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",

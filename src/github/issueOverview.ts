@@ -448,18 +448,18 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}));
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
-			// Update placeholder based on selection
-			const updatePlaceholder = () => {
+			// Update prompt based on selection
+			const updatePrompt = () => {
 				if (quickPick.selectedItems.length === 0) {
-					quickPick.placeholder = vscode.l10n.t('No labels selected');
+					quickPick.prompt = vscode.l10n.t('No labels selected');
 				} else {
-					quickPick.placeholder = vscode.l10n.t('Select labels');
+					quickPick.prompt = undefined;
 				}
 			};
-			updatePlaceholder();
+			updatePrompt();
 
 			quickPick.onDidChangeSelection(() => {
-				updatePlaceholder();
+				updatePrompt();
 			});
 
 			quickPick.busy = false;
@@ -539,19 +539,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, undefined, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
-			// Update placeholder based on selection
-			const updatePlaceholder = () => {
+			// Update prompt based on selection
+			const updatePrompt = () => {
 				const selectedAssignees = quickPick.selectedItems.filter(item => item.user);
 				if (selectedAssignees.length === 0) {
-					quickPick.placeholder = vscode.l10n.t('No assignees selected');
+					quickPick.prompt = vscode.l10n.t('No assignees selected');
 				} else {
-					quickPick.placeholder = vscode.l10n.t('Select assignees');
+					quickPick.prompt = undefined;
 				}
 			};
-			updatePlaceholder();
+			updatePrompt();
 
 			quickPick.onDidChangeSelection(() => {
-				updatePlaceholder();
+				updatePrompt();
 			});
 
 			quickPick.busy = false;

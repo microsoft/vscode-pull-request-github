@@ -249,19 +249,19 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 
 	await updateItems((teamsCount !== 0 && teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
 
-	// Update placeholder based on selection
-	const updatePlaceholder = () => {
+	// Update prompt based on selection
+	const updatePrompt = () => {
 		const selectedReviewers = quickPick.selectedItems.filter(item => item.user);
 		if (selectedReviewers.length === 0) {
-			quickPick.placeholder = vscode.l10n.t('No reviewers selected');
+			quickPick.prompt = vscode.l10n.t('No reviewers selected');
 		} else {
-			quickPick.placeholder = defaultPlaceholder;
+			quickPick.prompt = undefined;
 		}
 	};
-	updatePlaceholder();
+	updatePrompt();
 
 	quickPick.onDidChangeSelection(() => {
-		updatePlaceholder();
+		updatePrompt();
 	});
 
 	quickPick.onDidTriggerButton(() => {
