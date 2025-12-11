@@ -985,7 +985,7 @@ export class FolderRepositoryManager extends Disposable {
 			const localBranches = (await this.repository.getRefs({
 				pattern: 'refs/heads/',
 				sort: 'committerdate',
-				count: 3
+				count: 10
 			}))
 				.filter(r => r.name !== undefined)
 				.map(r => r.name!);
