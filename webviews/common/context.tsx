@@ -5,7 +5,6 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
-import { COMMENT_TEXTAREA_FOCUS_KEY } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
@@ -409,17 +408,6 @@ export class PRContext {
 				if (pendingReview) {
 					pendingReview.scrollIntoView();
 					pendingReview.focus();
-				}
-				return;
-			case 'pr.restoreFocus':
-				// Restore focus to the comment textarea if it had focus before the webview lost focus
-				const commentTextarea = document.getElementById('comment-textarea');
-				if (commentTextarea instanceof HTMLTextAreaElement) {
-					// Check if there's a stored focus state
-					const shouldRestoreFocus = sessionStorage.getItem(COMMENT_TEXTAREA_FOCUS_KEY) === 'true';
-					if (shouldRestoreFocus) {
-						commentTextarea.focus();
-					}
 				}
 				return;
 			case 'pr.submitting-review':

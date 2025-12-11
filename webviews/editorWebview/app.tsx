@@ -8,7 +8,6 @@ import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
-import { COMMENT_TEXTAREA_FOCUS_KEY } from '../common/constants';
 import PullRequestContext from '../common/context';
 
 export function main() {
@@ -23,31 +22,21 @@ export function Root({ children }) {
 		setPR(ctx.pr);
 	}, []);
 
-	// Track focus on the comment textarea to restore it when the webview regains focus
+	// Restore focus to comment textarea when window regains focus if user was typing
 	useEffect(() => {
-		const handleFocusIn = (e: FocusEvent) => {
-			if (e.target instanceof HTMLTextAreaElement && e.target.id === 'comment-textarea') {
-				sessionStorage.setItem(COMMENT_TEXTAREA_FOCUS_KEY, 'true');
-			}
-		};
-
-		const handleFocusOut = (e: FocusEvent) => {
-			if (e.target instanceof HTMLTextAreaElement && e.target.id === 'comment-textarea') {
-				// Only clear the flag if we're switching to another element within the webview
-				// When switching to another editor group, relatedTarget will be null and we want to keep the flag
-				if (e.relatedTarget instanceof HTMLElement) {
-					sessionStorage.setItem(COMMENT_TEXTAREA_FOCUS_KEY, 'false');
+		const handleWindowFocus = () => {
+			// Give the focus event time to settle
+			setTimeout(() => {
+				const commentTextarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
+				// Only restore focus if there's content and nothing else has focus
+				if (commentTextarea && commentTextarea.value && document.activeElement === document.body) {
+					commentTextarea.focus();
 				}
-			}
+			}, 100);
 		};
 
-		document.addEventListener('focusin', handleFocusIn);
-		document.addEventListener('focusout', handleFocusOut);
-
-		return () => {
-			document.removeEventListener('focusin', handleFocusIn);
-			document.removeEventListener('focusout', handleFocusOut);
-		};
+		window.addEventListener('focus', handleWindowFocus);
+		return () => window.removeEventListener('focus', handleWindowFocus);
 	}, []);
 
 	window.onscroll = debounce(() => {

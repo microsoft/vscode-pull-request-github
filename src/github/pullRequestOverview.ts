@@ -186,11 +186,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		if (this._panel.visible && this._item) {
 			PullRequestOverviewPanel._onVisible.fire(this._item);
 		}
-
-		// If the panel becomes active, send a message to restore focus to the comment textarea if needed
-		if (this._panel.active) {
-			this._postMessage({ command: 'pr.restoreFocus' });
-		}
 	}
 
 	private setVisibilityContext() {
