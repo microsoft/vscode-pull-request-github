@@ -31,7 +31,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
+import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
@@ -723,6 +723,20 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: OverviewContext | undefined) => {
+		if (!context) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
+		}
+		const resolved = await resolvePr(context);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
+		}
+		if (!resolved.pr.head) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
+		}
+		return vscode.env.openExternal(vscode.Uri.parse(codespacesPrLink(resolved.pr)));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openSessionLogFromDescription', async (context: SessionLinkInfo | undefined) => {

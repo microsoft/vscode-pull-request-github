@@ -1418,6 +1418,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.checkoutOnCodespacesFromDescription",
+				"title": "%command.pr.checkoutOnCodespacesFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openSessionLogFromDescription",
 				"title": "%command.pr.openSessionLogFromDescription.title%",
 				"category": "%command.pull.request.category%"
@@ -3600,6 +3605,11 @@
 				{
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.checkoutOnCodespacesFromDescription",
+					"group": "checkout@2",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
