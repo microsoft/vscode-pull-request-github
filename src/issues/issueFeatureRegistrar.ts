@@ -832,16 +832,23 @@ export class IssueFeatureRegistrar extends Disposable {
 		if (workingBaseBranchConfig === 'defaultBranch') {
 			checkoutDefaultBranch = true;
 		} else if (workingBaseBranchConfig === 'prompt') {
-			const currentBranchOption = vscode.l10n.t('Current Branch');
-			const defaultBranchOption = vscode.l10n.t('Default Branch');
-			const choice = await vscode.window.showQuickPick([currentBranchOption, defaultBranchOption], {
-				placeHolder: vscode.l10n.t('Which branch should be used as the base for the new issue branch?'),
-			});
-			if (choice === undefined) {
-				// User cancelled the prompt
-				return;
+			const currentBranchName = repoManager.repository.state.HEAD?.name;
+			const defaults = await repoManager.getPullRequestDefaults();
+			const defaultBranchName = defaults.base;
+
+			if (!currentBranchName) {
+				// If we can't determine the current branch, default to the default branch
+				checkoutDefaultBranch = true;
+			} else {
+				const choice = await vscode.window.showQuickPick([currentBranchName, defaultBranchName], {
+					placeHolder: vscode.l10n.t('Which branch should be used as the base for the new issue branch?'),
+				});
+				if (choice === undefined) {
+					// User cancelled the prompt
+					return;
+				}
+				checkoutDefaultBranch = choice === defaultBranchName;
 			}
-			checkoutDefaultBranch = choice === defaultBranchOption;
 		}
 		// else workingBaseBranchConfig === 'currentBranch', checkoutDefaultBranch remains false
 
