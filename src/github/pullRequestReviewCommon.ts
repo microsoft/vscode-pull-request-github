@@ -350,11 +350,15 @@ export namespace PullRequestReviewCommon {
 			const promises = selectedActions.map(async action => {
 				switch (action.type) {
 					case 'remoteHead':
-						await performBranchDeletion(folderRepositoryManager, item, branchInfo, defaultBranch, 'remoteHead');
+						await folderRepositoryManager.deleteBranch(item);
 						deletedBranchTypes.push(action.type);
+						await folderRepositoryManager.repository.fetch({ prune: true });
+						// If we're in a remote repository, then we should checkout the default branch.
+						if (folderRepositoryManager.repository.rootUri.scheme === Schemes.VscodeVfs) {
+							await folderRepositoryManager.repository.checkout(defaultBranch);
+						}
 						return;
 					case 'local':
-						// Interactive deletion has special handling for dirty working tree
 						if (isBranchActiveForDeletion) {
 							if (folderRepositoryManager.repository.state.workingTreeChanges.length) {
 								const yes = vscode.l10n.t('Yes');
@@ -369,18 +373,16 @@ export namespace PullRequestReviewCommon {
 									return;
 								}
 							}
+							await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
 						}
-						await performBranchDeletion(folderRepositoryManager, item, branchInfo, defaultBranch, 'local', isBranchActiveForDeletion);
-						deletedBranchTypes.push(action.type);
-						return;
+						await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
+						return deletedBranchTypes.push(action.type);
 					case 'remote':
-						await performBranchDeletion(folderRepositoryManager, item, branchInfo, defaultBranch, 'remote');
 						deletedBranchTypes.push(action.type);
-						return;
+						return folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
 					case 'suspend':
-						await performBranchDeletion(folderRepositoryManager, item, branchInfo, defaultBranch, 'suspend');
 						deletedBranchTypes.push(action.type);
-						return;
+						return vscode.commands.executeCommand('github.codespaces.disconnectSuspend');
 				}
 			});
 
@@ -412,47 +414,6 @@ export namespace PullRequestReviewCommon {
 	}
 
 	/**
-	 * Core branch deletion logic shared between interactive and automatic deletion.
-	 * @param folderRepositoryManager The folder repository manager
-	 * @param item The pull request model
-	 * @param branchInfo Branch information for the pull request
-	 * @param defaultBranch The default branch name
-	 * @param actionType The type of deletion action to perform
-	 * @param checkoutBeforeDelete If true, checkout default branch before deleting local branch (for active branches)
-	 */
-	async function performBranchDeletion(
-		folderRepositoryManager: FolderRepositoryManager,
-		item: PullRequestModel,
-		branchInfo: { branch: string; remote?: string; createdForPullRequest?: boolean; remoteInUse?: boolean } | undefined,
-		defaultBranch: string,
-		actionType: 'remoteHead' | 'local' | 'remote' | 'suspend',
-		checkoutBeforeDelete: boolean = false
-	): Promise<void> {
-		switch (actionType) {
-			case 'remoteHead':
-				await folderRepositoryManager.deleteBranch(item);
-				await folderRepositoryManager.repository.fetch({ prune: true });
-				// If we're in a remote repository, then we should checkout the default branch.
-				if (folderRepositoryManager.repository.rootUri.scheme === Schemes.VscodeVfs) {
-					await folderRepositoryManager.repository.checkout(defaultBranch);
-				}
-				break;
-			case 'local':
-				if (checkoutBeforeDelete) {
-					await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
-				}
-				await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
-				break;
-			case 'remote':
-				await folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
-				break;
-			case 'suspend':
-				await vscode.commands.executeCommand('github.codespaces.disconnectSuspend');
-				break;
-		}
-	}
-
-	/**
 	 * Automatically delete branches after merge based on user preferences.
 	 * This function does not show any prompts - it uses the default deletion method preferences.
 	 */
@@ -469,38 +430,41 @@ export namespace PullRequestReviewCommon {
 			.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_REMOTE}`, true);
 
-		// Build list of actions to execute based on preferences
-		const actions: Array<{ type: 'remoteHead' | 'local' | 'remote'; checkoutFirst?: boolean }> = [];
+		const deletionTasks: Promise<void>[] = [];
 
 		// Delete remote head branch if it's not the default branch
 		if (item.isResolved()) {
 			const isDefaultBranch = defaultBranch === item.head.ref;
 			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
-				actions.push({ type: 'remoteHead' });
+				deletionTasks.push(
+					folderRepositoryManager.deleteBranch(item)
+						.then(() => folderRepositoryManager.repository.fetch({ prune: true }))
+						.catch(e => Logger.warn(`Failed to delete remote branch for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
+				);
 			}
 		}
 
 		// Delete local branch if preference is set
 		if (branchInfo && deleteLocalBranch) {
-			const needsCheckout = isBranchActive(folderRepositoryManager, item, branchInfo.branch);
-			actions.push({ type: 'local', checkoutFirst: needsCheckout });
+			deletionTasks.push(
+				(async () => {
+					if (isBranchActive(folderRepositoryManager, item, branchInfo.branch)) {
+						await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+					}
+					await folderRepositoryManager.repository.deleteBranch(branchInfo.branch, true);
+				})().catch(e => Logger.warn(`Failed to delete local branch ${branchInfo.branch} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
+			);
 		}
 
 		// Delete remote if it's no longer used and preference is set
 		if (branchInfo && branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse && deleteRemote) {
-			actions.push({ type: 'remote' });
+			deletionTasks.push(
+				folderRepositoryManager.repository.removeRemote(branchInfo.remote)
+					.catch(e => Logger.warn(`Failed to delete remote ${branchInfo.remote} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
+			);
 		}
 
-		// Execute deletions with error handling
-		try {
-			await Promise.all(
-				actions.map(action =>
-					performBranchDeletion(folderRepositoryManager, item, branchInfo, defaultBranch, action.type, action.checkoutFirst)
-						.catch(e => Logger.warn(`Failed to delete ${action.type} for PR #${item.number}: ${e}`, 'PullRequestReviewCommon'))
-				)
-			);
-		} catch (e) {
-			Logger.warn(`Failed to auto-delete branches for PR #${item.number}: ${e}`, 'PullRequestReviewCommon');
-		}
+		// Execute all deletions in parallel
+		await Promise.all(deletionTasks);
 	}
 }
