@@ -2493,12 +2493,39 @@ export class FolderRepositoryManager extends Disposable {
 	private async pullBranch(branch: Branch) {
 		if (this._repository.state.HEAD?.name === branch.name) {
 			// Check if the branch has diverged (ahead > 0 && behind > 0)
-			// This typically happens when the remote has been force-pushed or rebased
 			if (branch.ahead !== undefined && branch.ahead > 0 && branch.behind !== undefined && branch.behind > 0) {
+				// Use merge-base analysis to distinguish between force-push and normal divergence
+				// If remote was force-pushed, the merge-base will be at or near the current HEAD
+				// If it's normal divergence, the merge-base will be older than both HEAD and remote
+				let isForcePush = false;
+
+				if (branch.upstream && branch.commit) {
+					try {
+						const remoteBranchRef = `${branch.upstream.remote}/${branch.upstream.name}`;
+						const mergeBase = await this._repository.getMergeBase(branch.commit, remoteBranchRef);
+
+						// If merge-base equals the current HEAD commit, it means the remote history
+						// was rewritten (force-push/rebase), and local commits don't exist in remote
+						if (mergeBase === branch.commit) {
+							isForcePush = true;
+						}
+					} catch (e) {
+						// If we can't determine merge-base, fall back to treating it as normal divergence
+						Logger.debug(`Could not determine merge-base: ${e}`, this.id);
+					}
+				}
+
+				// Only show the reset dialog for force-push scenarios
+				if (!isForcePush) {
+					// Normal divergence - let the default pull behavior handle it
+					await this._repository.pull();
+					return;
+				}
+
 				const resetToRemote = vscode.l10n.t('Reset to Remote');
 				const cancel = vscode.l10n.t('Cancel');
 				const result = await vscode.window.showWarningMessage(
-					vscode.l10n.t('The pull request branch has diverged from the remote (you have {0} local commit(s), remote has {1} new commit(s)).\n\nThis usually happens when the remote branch has been force-pushed or rebased. You can reset your local branch to match the remote (this will discard your local changes), or cancel and resolve manually.', branch.ahead, branch.behind),
+					vscode.l10n.t('The remote branch has been force-pushed or rebased. Your local branch has {0} commit(s) that no longer exist in the remote history.\n\nYou can reset your local branch to match the remote (this will discard your local commits), or cancel and resolve manually.', branch.ahead),
 					{ modal: true },
 					resetToRemote,
 					cancel
