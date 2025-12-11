@@ -570,32 +570,46 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 	},
 );
 
-const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (
-	<div className='status-scroll'>
-		{statuses.map(s => (
-			<div key={s.id} className="status-check">
-				<div className="status-check-details">
-					<StateIcon state={s.state} />
-					<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
-					<span className="status-check-detail-text">
-						{/* allow-any-unicode-next-line */}
-						{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
-					</span>
+const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => {
+	// Sort statuses to group by state: failure first, then pending, neutral, and success
+	const sortedStatuses = [...statuses].sort((a, b) => {
+		const stateOrder: Record<CheckState, number> = {
+			[CheckState.Failure]: 0,
+			[CheckState.Pending]: 1,
+			[CheckState.Neutral]: 2,
+			[CheckState.Success]: 3,
+			[CheckState.Unknown]: 4,
+		};
+		return stateOrder[a.state] - stateOrder[b.state];
+	});
+
+	return (
+		<div className='status-scroll'>
+			{sortedStatuses.map(s => (
+				<div key={s.id} className="status-check">
+					<div className="status-check-details">
+						<StateIcon state={s.state} />
+						<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
+						<span className="status-check-detail-text">
+							{/* allow-any-unicode-next-line */}
+							{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
+						</span>
+					</div>
+					<div>
+					{s.isRequired ? (
+						<span className="label">Required</span>
+					) : null }
+					{!!s.targetUrl ? (
+						<a href={s.targetUrl} title={s.targetUrl}>
+							Details
+						</a>
+					) : null}
+					</div>
 				</div>
-				<div>
-				{s.isRequired ? (
-					<span className="label">Required</span>
-				) : null }
-				{!!s.targetUrl ? (
-					<a href={s.targetUrl} title={s.targetUrl}>
-						Details
-					</a>
-				) : null}
-				</div>
-			</div>
-		))}
-	</div>
-);
+			))}
+		</div>
+	);
+};
 
 function getSummaryLabel(statuses: PullRequestCheckStatus[]) {
 	const statusTypes = groupBy(statuses, (status: PullRequestCheckStatus) => {
