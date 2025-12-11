@@ -385,6 +385,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.setReadyForReview(message);
 			case 'pr.readyForReviewAndMerge':
 				return this.setReadyForReviewAndMerge(message);
+			case 'pr.convertToDraft':
+				return this.setConvertToDraft(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
@@ -666,12 +668,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestReviewCommon.setReadyForReviewAndMerge(this.getReviewContext(), message);
 	}
 
+	private async setConvertToDraft(message: IRequestMessage<{}>): Promise<void> {
+		return PullRequestReviewCommon.setConvertToDraft(this.getReviewContext(), message);
+	}
+
 	private async readyForReviewCommand(): Promise<void> {
 		return PullRequestReviewCommon.readyForReviewCommand(this.getReviewContext());
 	}
 
 	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
 		return PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
+	}
+
+	private async convertToDraftCommand(): Promise<void> {
+		return PullRequestReviewCommon.convertToDraftCommand(this.getReviewContext());
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
