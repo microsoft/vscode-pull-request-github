@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { toOpenPullRequestWebviewUri } from '../common/uri';
+import { convertIssuePRReferencesToLinks, toOpenPullRequestWebviewUri } from '../common/uri';
 import { ChatSessionContentBuilder } from './copilotRemoteAgent/chatSessionContentBuilder';
 import { GitOperationsManager } from './copilotRemoteAgent/gitOperationsManager';
 import { extractTitle, formatBodyPlaceholder, truncatePrompt } from './copilotRemoteAgentUtils';
@@ -1246,7 +1246,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 						} else {
 							if (delta.content) {
 								if (!delta.content.startsWith('<pr_title>')) {
-									stream.markdown(delta.content);
+									const convertedContent = convertIssuePRReferencesToLinks(
+										delta.content,
+										pullRequest.remote.owner,
+										pullRequest.remote.repositoryName
+									);
+									stream.markdown(convertedContent);
 									hasStreamedContent = true;
 								}
 							}

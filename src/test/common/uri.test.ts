@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import { fromOpenOrCheckoutPullRequestWebviewUri } from '../../common/uri';
+import { convertIssuePRReferencesToLinks, fromOpenOrCheckoutPullRequestWebviewUri } from '../../common/uri';
 
 describe('uri', () => {
 	describe('fromOpenOrCheckoutPullRequestWebviewUri', () => {
@@ -108,6 +108,77 @@ describe('uri', () => {
 			const uri2 = vscode.Uri.parse('vscode://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/owner/repo/pull/456/commits');
 			const result2 = fromOpenOrCheckoutPullRequestWebviewUri(uri2);
 			assert.strictEqual(result2, undefined);
+		});
+	});
+
+	describe('convertIssuePRReferencesToLinks', () => {
+		const owner = 'microsoft';
+		const repo = 'vscode-pull-request-github';
+
+		it('should convert standalone issue numbers with # prefix', () => {
+			const text = 'This PR addresses issue #7280.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'This PR addresses issue [#7280](https://github.com/microsoft/vscode-pull-request-github/issues/7280).');
+		});
+
+		it('should convert issue references without # prefix', () => {
+			const text = 'This fixes issue 123.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'This fixes [issue 123](https://github.com/microsoft/vscode-pull-request-github/issues/123).');
+		});
+
+		it('should convert PR references with # prefix', () => {
+			const text = 'See PR #456 for details.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'See [PR #456](https://github.com/microsoft/vscode-pull-request-github/issues/456) for details.');
+		});
+
+		it('should convert PR references without # prefix', () => {
+			const text = 'Related to PR 789.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'Related to [PR 789](https://github.com/microsoft/vscode-pull-request-github/issues/789).');
+		});
+
+		it('should convert multiple issue/PR references in the same text', () => {
+			const text = 'This fixes issue #123 and PR #456.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'This fixes [issue #123](https://github.com/microsoft/vscode-pull-request-github/issues/123) and [PR #456](https://github.com/microsoft/vscode-pull-request-github/issues/456).');
+		});
+
+		it('should handle case-insensitive issue/PR keywords', () => {
+			const text = 'See Issue #100 and pr #200.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'See [Issue #100](https://github.com/microsoft/vscode-pull-request-github/issues/100) and [pr #200](https://github.com/microsoft/vscode-pull-request-github/issues/200).');
+		});
+
+		it('should not convert issue/PR references in the middle of words', () => {
+			const text = 'This is not#123 an issue.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'This is not#123 an issue.');
+		});
+
+		it('should not convert # followed by non-numeric characters', () => {
+			const text = 'This is #notanissue.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'This is #notanissue.');
+		});
+
+		it('should convert standalone # followed by number', () => {
+			const text = 'See #42 for more info.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'See [#42](https://github.com/microsoft/vscode-pull-request-github/issues/42) for more info.');
+		});
+
+		it('should handle text with no issue/PR references', () => {
+			const text = 'This is just regular text.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'This is just regular text.');
+		});
+
+		it('should handle empty text', () => {
+			const text = '';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, '');
 		});
 	});
 });
