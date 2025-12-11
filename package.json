@@ -243,7 +243,7 @@
 					"default": [
 						{
 							"label": "%githubPullRequests.queries.copilotOnMyBehalf%",
-							"query": "repo:${owner}/${repository} is:open author:copilot involves:${user}"
+							"query": "repo:${owner}/${repository} is:open author:copilot assignee:${user}"
 						},
 						{
 							"label": "Local Pull Request Branches",
