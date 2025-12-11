@@ -1086,6 +1086,10 @@ export class FolderRepositoryManager extends Disposable {
 
 		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
+		// Check if user has explicitly configured remotes (not using defaults)
+		const remotesConfig = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(REMOTES);
+		const hasUserConfiguredRemotes = !!(remotesConfig?.globalValue || remotesConfig?.workspaceValue || remotesConfig?.workspaceFolderValue);
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
 			if (!activeGitHubRemotes.find(r => r.equals(repo.remote))) {
 				return false;
@@ -1148,15 +1152,17 @@ export class FolderRepositoryManager extends Disposable {
 
 			pageInformation.hasMorePages = itemData.hasMorePages;
 
-			// Break early if
+			// Determine if we should break early from the loop:
 			// 1) we've received data AND
 			// 2) either we're fetching just the next page (case 2)
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
-			if (
-				itemData.items.length &&
-				(options.fetchNextPage ||
-					((options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages())))
-			) {
+			// 3) AND the user hasn't explicitly configured remotes (if they have, we should search all of them)
+			const hasReceivedData = itemData.items.length > 0;
+			const isFetchingNextPage = options.fetchNextPage;
+			const hasReachedPreviousFetchLimit = (options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages());
+			const shouldBreakEarly = hasReceivedData && (isFetchingNextPage || hasReachedPreviousFetchLimit) && !hasUserConfiguredRemotes;
+
+			if (shouldBreakEarly) {
 				if (getTotalFetchedPages() === 0) {
 					// We're in case 1, manually set number of pages we looked through until we found first results.
 					setTotalFetchedPages(pagesFetched);
@@ -1173,7 +1179,7 @@ export class FolderRepositoryManager extends Disposable {
 
 		return {
 			items: itemData.items,
-			hasMorePages: false,
+			hasMorePages: itemData.hasMorePages,
 			hasUnsearchedRepositories: false,
 			totalCount: itemData.totalCount
 		};
