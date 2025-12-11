@@ -570,17 +570,19 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 	},
 );
 
+// State order for sorting status checks: failure first, then pending, neutral, success, and unknown
+const CHECK_STATE_ORDER: Record<CheckState, number> = {
+	[CheckState.Failure]: 0,
+	[CheckState.Pending]: 1,
+	[CheckState.Neutral]: 2,
+	[CheckState.Success]: 3,
+	[CheckState.Unknown]: 4,
+};
+
 const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => {
 	// Sort statuses to group by state: failure first, then pending, neutral, and success
 	const sortedStatuses = [...statuses].sort((a, b) => {
-		const stateOrder: Record<CheckState, number> = {
-			[CheckState.Failure]: 0,
-			[CheckState.Pending]: 1,
-			[CheckState.Neutral]: 2,
-			[CheckState.Success]: 3,
-			[CheckState.Unknown]: 4,
-		};
-		return stateOrder[a.state] - stateOrder[b.state];
+		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
 
 	return (
