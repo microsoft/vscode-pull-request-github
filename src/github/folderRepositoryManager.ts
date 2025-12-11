@@ -1179,7 +1179,7 @@ export class FolderRepositoryManager extends Disposable {
 
 		return {
 			items: itemData.items,
-			hasMorePages: false,
+			hasMorePages: itemData.hasMorePages,
 			hasUnsearchedRepositories: false,
 			totalCount: itemData.totalCount
 		};
