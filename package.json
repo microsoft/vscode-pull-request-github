@@ -198,6 +198,13 @@
 					"minimum": 1000,
 					"markdownDescription": "%githubPullRequests.branchListTimeout.description%"
 				},
+				"githubPullRequests.recentlyUsedBranchesCount": {
+					"type": "number",
+					"default": 5,
+					"minimum": 0,
+					"maximum": 20,
+					"markdownDescription": "%githubPullRequests.recentlyUsedBranchesCount.description%"
+				},
 				"githubPullRequests.remotes": {
 					"type": "array",
 					"default": [
