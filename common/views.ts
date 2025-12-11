@@ -165,6 +165,10 @@ export interface TitleAndDescriptionResult {
 	description: string | undefined;
 }
 
+export interface DescriptionResult {
+	description: string | undefined;
+}
+
 export interface CloseResult {
 	state: GithubItemStateEnum;
 	commentEvent?: CommentEvent;
