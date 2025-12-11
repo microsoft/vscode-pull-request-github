@@ -12,7 +12,7 @@
 	"githubPullRequests.defaultCreateOption.createDraft": "The pull request will be created as a draft.",
 	"githubPullRequests.defaultCreateOption.createAutoMerge": "The pull request will be created with auto-merge enabled. The merge method selected will be the default for the repo or the value of `githubPullRequests.defaultMergeMethod` if set.",
 	"githubPullRequests.createDraft": "Whether the \"Draft\" checkbox will be checked by default when creating a pull request.",
-	"githubPullRequests.logLevel.description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request.",
+	"githubPullRequests.logLevel.description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named GitHub Pull Request.",
 	"githubPullRequests.logLevel.markdownDeprecationMessage": {
 		"message": "Log level is now controlled by the [Developer: Set Log Level...](command:workbench.action.setLogLevel) command. You can set the log level for the current session and also the default log level from there.",
 		"comment": [
@@ -95,7 +95,7 @@
 	"githubPullRequests.upstreamRemote.never": "An `upstream` remote will never be automatically added for forks",
 	"githubPullRequests.createDefaultBaseBranch.description": "Controls what the base branch picker defaults to when creating a pull request",
 	"githubPullRequests.createDefaultBaseBranch.repositoryDefault": "The default branch of the repository",
-	"githubPullRequests.createDefaultBaseBranch.createdFromBranch": "The branch that the current branch was created from, if known",
+	"githubPullRequests.createDefaultBaseBranch.createdFromBranch": "The branch that the current branch was created from, if known.",
 	"githubPullRequests.createDefaultBaseBranch.auto": "When the current repository is a fork, this will work like \"repositoryDefault\". Otherwise, it will work like \"createdFromBranch\".",
 	"githubPullRequests.experimental.chat.description": "Enables the `@githubpr` Copilot chat participant in the chat view. `@githubpr` can help search for issues and pull requests, suggest fixes for issues, and summarize issues, pull requests, and notifications.",
 	"githubPullRequests.experimental.notificationsView.description": "Enables the notifications view, which shows a list of your GitHub notifications. When combined with `#githubPullRequests.experimental.chat#`, you can have Copilot sort and summarize your notifications. View will not show in a Codespace accessed from the browser.",
