@@ -2495,7 +2495,7 @@ export class FolderRepositoryManager extends Disposable {
 			// Check if the branch has diverged (ahead > 0 && behind > 0)
 			if (branch.ahead !== undefined && branch.ahead > 0 && branch.behind !== undefined && branch.behind > 0) {
 				// Use merge-base analysis to distinguish between force-push and normal divergence
-				// If remote was force-pushed, the merge-base will be at or near the current HEAD
+				// If remote was force-pushed, the merge-base will equal the current HEAD
 				// If it's normal divergence, the merge-base will be older than both HEAD and remote
 				let isForcePush = false;
 
@@ -2506,7 +2506,7 @@ export class FolderRepositoryManager extends Disposable {
 
 						// If merge-base equals the current HEAD commit, it means the remote history
 						// was rewritten (force-push/rebase), and local commits don't exist in remote
-						if (mergeBase === branch.commit) {
+						if (mergeBase && mergeBase === branch.commit) {
 							isForcePush = true;
 						}
 					} catch (e) {
@@ -2549,6 +2549,7 @@ export class FolderRepositoryManager extends Disposable {
 						const currentBranchName = branch.name;
 
 						// Create a temp branch at the remote commit with uniqueness guarantee
+						const MAX_BRANCH_NAME_ATTEMPTS = 10;
 						let tempCounter = 0;
 						do {
 							tempBranchName = `temp-pr-update-${Date.now()}-${Math.random().toString(36).substring(7)}${tempCounter > 0 ? `-${tempCounter}` : ''}`;
@@ -2561,14 +2562,13 @@ export class FolderRepositoryManager extends Disposable {
 								// Branch doesn't exist, we can use this name
 								break;
 							}
-						} while (tempCounter < 10); // Safety limit
+						} while (tempCounter < MAX_BRANCH_NAME_ATTEMPTS);
 
 						if (!tempBranchName) {
 							throw new Error('Could not generate unique temporary branch name');
 						}
 
 						await this._repository.createBranch(tempBranchName, false, remoteBranch.commit);
-						await this._repository.setBranchUpstream(tempBranchName, remoteBranchRef);
 
 						// Checkout the temp branch
 						await this._repository.checkout(tempBranchName);
