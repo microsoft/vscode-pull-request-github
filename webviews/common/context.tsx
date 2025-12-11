@@ -5,6 +5,7 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
+import { COMMENT_TEXTAREA_ID } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
@@ -404,7 +405,7 @@ export class PRContext {
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 				return;
 			case 'pr.scrollToPendingReview':
-				const pendingReview = document.getElementById('pending-review') ?? document.getElementById('comment-textarea');
+				const pendingReview = document.getElementById('pending-review') ?? document.getElementById(COMMENT_TEXTAREA_ID);
 				if (pendingReview) {
 					pendingReview.scrollIntoView();
 					pendingReview.focus();
