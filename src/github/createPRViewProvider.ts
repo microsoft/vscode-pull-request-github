@@ -134,8 +134,12 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
+	private getRecentlyUsedBranchesMaxCount(): number {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(RECENTLY_USED_BRANCHES_COUNT, 5);
+	}
+
 	protected getRecentlyUsedBranches(owner: string, repositoryName: string): string[] {
-		const maxCount = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(RECENTLY_USED_BRANCHES_COUNT, 5);
+		const maxCount = this.getRecentlyUsedBranchesMaxCount();
 		if (maxCount === 0) {
 			return [];
 		}
@@ -146,7 +150,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	protected saveRecentlyUsedBranch(owner: string, repositoryName: string, branchName: string): void {
-		const maxCount = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(RECENTLY_USED_BRANCHES_COUNT, 5);
+		const maxCount = this.getRecentlyUsedBranchesMaxCount();
 		if (maxCount === 0) {
 			return;
 		}
