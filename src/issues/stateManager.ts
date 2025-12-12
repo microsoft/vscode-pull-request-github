@@ -12,8 +12,10 @@ import { AuthProvider } from '../common/authentication';
 import { parseRepositoryRemotes } from '../common/remote';
 import {
 	DEFAULT,
+	DEV_MODE,
 	IGNORE_MILESTONES,
 	ISSUES_SETTINGS_NAMESPACE,
+	PR_SETTINGS_NAMESPACE,
 	QUERIES,
 	USE_BRANCH_FOR_ISSUES,
 } from '../common/settingKeys';
@@ -310,6 +312,12 @@ export class StateManager {
 	}
 
 	private async setIssueData(folderManager: FolderRepositoryManager) {
+		// Skip fetching issues if dev mode is enabled
+		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
+		if (devMode) {
+			return;
+		}
+
 		const singleRepoState = this.getOrCreateSingleRepoState(folderManager.repository.rootUri, folderManager);
 		if (!singleRepoState) {
 			return;

@@ -65,6 +65,7 @@ export const EXPERIMENTAL_USE_QUICK_CHAT = 'experimental.useQuickChat';
 export const EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE = 'experimental.notificationsViewPageSize';
 export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore';
 export const WEBVIEW_REFRESH_INTERVAL = 'webviewRefreshInterval';
+export const DEV_MODE = 'devMode';
 
 // git
 export const GIT = 'git';
