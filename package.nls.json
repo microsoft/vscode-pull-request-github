@@ -211,6 +211,7 @@
 	"command.pr.openAllDiffs.title": "Open All Diffs",
 	"command.pr.refreshPullRequest.title": "Refresh Pull Request",
 	"command.pr.openFileOnGitHub.title": "Open File on GitHub",
+	"command.pr.revealFileInOS.title": "Reveal in File Explorer",
 	"command.pr.copyCommitHash.title": "Copy Commit Hash",
 	"command.pr.openOriginalFile.title": "Open Original File",
 	"command.pr.openModifiedFile.title": "Open Modified File",
