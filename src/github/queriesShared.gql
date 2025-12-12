@@ -210,6 +210,17 @@ fragment ReopenedEvent on ReopenedEvent {
 	createdAt
 }
 
+fragment BaseRefChangedEvent on BaseRefChangedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	currentRefName
+	previousRefName
+}
+
 fragment Review on PullRequestReview {
 	id
 	databaseId
@@ -312,6 +323,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
+					...BaseRefChangedEvent
 				}
 			}
 		}
@@ -1230,6 +1242,7 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
+					...BaseRefChangedEvent
 				}
 			}
 		}

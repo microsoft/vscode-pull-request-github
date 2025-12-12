@@ -177,4 +177,5 @@ export interface CodingAgentContext extends SessionLinkInfo {
 
 export interface ChangeBaseReply {
 	base: string;
+	events: TimelineEvent[];
 }

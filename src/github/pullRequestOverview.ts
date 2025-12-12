@@ -830,8 +830,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (selectedBranch) {
 				try {
 					await this._item.updateBaseBranch(selectedBranch);
+					const events = await this._getTimeline();
 					const reply: ChangeBaseReply = {
-						base: selectedBranch
+						base: selectedBranch,
+						events
 					};
 					await this._replyMessage(message, reply);
 				} catch (e) {

@@ -95,7 +95,7 @@ export class PRContext {
 	public changeBaseBranch = async () => {
 		const result: ChangeBaseReply = await this.postMessage({ command: 'pr.change-base-branch' });
 		if (result?.base) {
-			this.updatePR({ base: result.base });
+			this.updatePR({ base: result.base, events: result.events });
 		}
 	};
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
