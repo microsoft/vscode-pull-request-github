@@ -349,6 +349,11 @@
 					"default": "ask",
 					"description": "%githubPullRequests.createOnPublishBranch.description%"
 				},
+				"githubPullRequests.createInBrowser": {
+					"type": "boolean",
+					"default": false,
+					"description": "When true, the 'Create Pull Request' command opens GitHub in the browser instead of showing the create view in VS Code."
+				},
 				"githubPullRequests.commentExpandState": {
 					"type": "string",
 					"enum": [

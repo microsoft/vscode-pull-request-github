@@ -1170,6 +1170,15 @@ export class ReviewManager extends Disposable {
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
+		// Check if user wants to create PR in browser
+		const createInBrowser = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>('createInBrowser', false);
+
+		if (createInBrowser) {
+			// Open browser to create PR instead of showing the create view
+			await this.openCreatePullRequestInBrowser(compareBranch);
+			return;
+		}
+
 		const postCreate = async (createdPR: PullRequestModel | undefined) => {
 			if (!createdPR) {
 				return;
@@ -1206,6 +1215,46 @@ export class ReviewManager extends Disposable {
 		};
 
 		return this._createPullRequestHelper.create(this._telemetry, this._context.extensionUri, this._folderRepoManager, compareBranch, postCreate);
+	}
+
+	private async openCreatePullRequestInBrowser(compareBranch?: string): Promise<void> {
+		try {
+			// Get the current branch
+			const branch = compareBranch
+				? await this._folderRepoManager.repository.getBranch(compareBranch)
+				: this._folderRepoManager.repository.state.HEAD;
+
+			if (!branch?.name) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to determine the current branch.'));
+				return;
+			}
+
+			// Get pull request defaults which includes the base branch
+			const pullRequestDefaults = await this._folderRepoManager.getPullRequestDefaults(branch);
+
+			// Get the origin to determine the repository
+			const compareOrigin = await this._folderRepoManager.getOrigin(branch);
+
+			// Find the GitHub repository for the base
+			const baseRepo = this._folderRepoManager.gitHubRepositories.find(
+				repo => repo.remote.owner === pullRequestDefaults.owner &&
+					repo.remote.repositoryName === compareOrigin.remote.repositoryName
+			);
+
+			if (!baseRepo) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository to create pull request in.'));
+				return;
+			}
+
+			// Construct the GitHub URL
+			// Format: https://github.com/{owner}/{repo}/compare/{base}...{head}
+			const url = `${baseRepo.remote.normalizedHost}/${pullRequestDefaults.owner}/${compareOrigin.remote.repositoryName}/compare/${pullRequestDefaults.base}...${encodeURIComponent(branch.name)}`;
+
+			await vscode.env.openExternal(vscode.Uri.parse(url));
+		} catch (error) {
+			Logger.error(`Failed to open create pull request in browser: ${error}`, 'ReviewManager');
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open create pull request in browser: {0}', formatError(error)));
+		}
 	}
 
 	public async openDescription(): Promise<void> {
