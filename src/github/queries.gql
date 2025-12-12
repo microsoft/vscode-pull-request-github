@@ -207,6 +207,7 @@ fragment PullRequestFragment on PullRequest {
 			login
 		}
 		url
+		name
 	}
 	baseRef {
 		...Ref
@@ -219,6 +220,7 @@ fragment PullRequestFragment on PullRequest {
 			login
 		}
 		url
+		name
 		squashMergeCommitTitle
 		squashMergeCommitMessage
 		mergeCommitMessage
