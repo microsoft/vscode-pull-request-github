@@ -717,13 +717,13 @@ export function registerCommands(
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickOnVscodeDev', (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
+		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
 			pickPullRequest(pr, vscodeDevPrLink)
 		),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickOnCodespaces', (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
+		vscode.commands.registerCommand('pr.pickOnCodespaces', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
 			pickPullRequest(pr, codespacesPrLink, true)
 		),
 	);
