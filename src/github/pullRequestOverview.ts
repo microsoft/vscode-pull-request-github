@@ -23,7 +23,7 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
-import { pickEmail, reviewersQuickPick } from './quickPicks';
+import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
@@ -813,21 +813,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			quickPick.busy = true;
 			quickPick.canSelectMany = false;
-			quickPick.placeholder = 'Select a new base branch';
+			quickPick.placeholder = vscode.l10n.t('Select a new base branch');
 			quickPick.show();
 
-			// List branches from the repository
-			const branches = await this._item.githubRepository.listBranches(
-				this._item.remote.owner,
-				this._item.remote.repositoryName
-			);
-
-			quickPick.items = branches
-				.filter(branch => branch !== this._item.base.name)
-				.map(branch => ({
-					label: branch,
-					branch: branch
-				}));
+			quickPick.items = await branchPicks(this._item.githubRepository, this._folderRepositoryManager, undefined, true);
 
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
@@ -840,10 +829,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			if (selectedBranch) {
 				try {
-					// Update the base branch using GraphQL mutation
 					await this._item.updateBaseBranch(selectedBranch);
-					// Refresh the panel to reflect the changes
-					await this.refreshPanel();
 					await this._replyMessage(message, {});
 				} catch (e) {
 					Logger.error(formatError(e), PullRequestOverviewPanel.ID);
