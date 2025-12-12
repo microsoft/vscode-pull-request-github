@@ -997,6 +997,12 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "pr.pickOnCodespaces",
+				"title": "%command.pr.pickOnCodespaces.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(cloud)"
+			},
+			{
 				"command": "pr.exit",
 				"title": "%command.pr.exit.title%",
 				"category": "%command.pull.request.category%"
@@ -1440,6 +1446,11 @@
 			{
 				"command": "pr.checkoutOnVscodeDevFromDescription",
 				"title": "%command.pr.checkoutOnVscodeDevFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.checkoutOnCodespacesFromDescription",
+				"title": "%command.pr.checkoutOnCodespacesFromDescription.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2073,6 +2084,10 @@
 				},
 				{
 					"command": "pr.pickOnVscodeDev",
+					"when": "false"
+				},
+				{
+					"command": "pr.pickOnCodespaces",
 					"when": "false"
 				},
 				{
@@ -2875,6 +2890,11 @@
 					"group": "1_pullrequest@2"
 				},
 				{
+					"command": "pr.pickOnCodespaces",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"group": "1_pullrequest@3"
+				},
+				{
 					"command": "pr.openChanges",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "2_pullrequest@1"
@@ -3625,6 +3645,11 @@
 				{
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.checkoutOnCodespacesFromDescription",
+					"group": "checkout@2",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
