@@ -21,7 +21,6 @@
 		]
 	},
 	"githubPullRequests.branchListTimeout.description": "Maximum time in milliseconds to wait when fetching the list of branches for pull request creation. Repositories with thousands of branches may need a higher value to ensure all branches (including the default branch) are retrieved. Minimum value is 1000 (1 second).",
-	"githubPullRequests.recentlyUsedBranchesCount.description": "The maximum number of recently used base branches to track and show at the top of the branch picker when creating a pull request. Set to 0 to disable this feature.",
 	"githubPullRequests.codingAgent.description": "Enables integration with the asynchronous Copilot coding agent. The '#copilotCodingAgent' tool will be available in agent mode when this setting is enabled.",
 	"githubPullRequests.codingAgent.uiIntegration.description": "Enables UI integration within VS Code to create new coding agent sessions.",
 	"githubPullRequests.codingAgent.autoCommitAndPush.description": "Allow automatic git operations (commit, push) to be performed when starting a coding agent session",

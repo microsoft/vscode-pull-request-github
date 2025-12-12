@@ -34,8 +34,7 @@ import {
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
 	PULL_REQUEST_LABELS,
-	PUSH_BRANCH,
-	RECENTLY_USED_BRANCHES_COUNT
+	PUSH_BRANCH
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
@@ -134,27 +133,13 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
-	private getRecentlyUsedBranchesMaxCount(): number {
-		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(RECENTLY_USED_BRANCHES_COUNT, 5);
-	}
-
 	protected getRecentlyUsedBranches(owner: string, repositoryName: string): string[] {
-		const maxCount = this.getRecentlyUsedBranchesMaxCount();
-		if (maxCount === 0) {
-			return [];
-		}
-
 		const repoKey = `${owner}/${repositoryName}`;
 		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
 		return state.branches[repoKey] || [];
 	}
 
 	protected saveRecentlyUsedBranch(owner: string, repositoryName: string, branchName: string): void {
-		const maxCount = this.getRecentlyUsedBranchesMaxCount();
-		if (maxCount === 0) {
-			return;
-		}
-
 		const repoKey = `${owner}/${repositoryName}`;
 		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
 
@@ -167,8 +152,8 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		// Add it to the front
 		recentBranches.unshift(branchName);
 
-		// Limit to maxCount
-		recentBranches = recentBranches.slice(0, maxCount);
+		// Limit to 10 branches
+		recentBranches = recentBranches.slice(0, 10);
 
 		// Save back to state
 		state.branches[repoKey] = recentBranches;
@@ -871,9 +856,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		let otherBranches: string[] = branchNames;
 		if (isBase) {
 			const recentlyUsed = this.getRecentlyUsedBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
-			// Filter to only include branches that exist in the current branch list
-			recentBranches = recentlyUsed.filter(recent => branchNames.includes(recent));
-			// Remove recently used branches from the main list
+			// Include all recently used branches, even if they're not in the current branch list
+			// This allows showing branches that weren't fetched due to timeout
+			recentBranches = recentlyUsed;
+			// Remove recently used branches from the main list (if they exist there)
 			otherBranches = branchNames.filter(name => !recentBranches.includes(name));
 		}
 
