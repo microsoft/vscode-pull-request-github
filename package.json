@@ -1418,8 +1418,8 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
-				"command": "pr.checkoutInCodespacesFromDescription",
-				"title": "%command.pr.checkoutInCodespacesFromDescription.title%",
+				"command": "pr.checkoutOnCodespacesFromDescription",
+				"title": "%command.pr.checkoutOnCodespacesFromDescription.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -3608,7 +3608,7 @@
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
-					"command": "pr.checkoutInCodespacesFromDescription",
+					"command": "pr.checkoutOnCodespacesFromDescription",
 					"group": "checkout@2",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
