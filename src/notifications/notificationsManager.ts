@@ -9,7 +9,7 @@ import { NotificationsProvider } from './notificationsProvider';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { NOTIFICATION_SETTING, NOTIFICATIONS_REFRESH_INTERVAL, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
@@ -47,8 +47,8 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _fetchNotifications: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
 
-	private _pollingDuration: number = 60; // Default polling duration
 	private _pollingHandler: NodeJS.Timeout | null;
+	private _pollingDisposable: vscode.Disposable | null;
 	private _pollingLastModified: string;
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
@@ -67,6 +67,12 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
 				if (this.isPRNotificationsOn() && !this._pollingHandler) {
+					this._startPolling();
+				}
+			}
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATIONS_REFRESH_INTERVAL}`)) {
+				if (this.isPRNotificationsOn()) {
+					// Restart polling with new interval (stopPolling is called inside startPolling)
 					this._startPolling();
 				}
 			}
@@ -195,7 +201,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	}
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
-		let pollInterval = this._pollingDuration;
+		let pollInterval = this._getRefreshInterval();
 		let lastModified = this._pollingLastModified;
 		if (this._fetchNotifications) {
 			// Get raw notifications
@@ -412,6 +418,10 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		return (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<NotificationVariants>(NOTIFICATION_SETTING) === 'pullRequests');
 	}
 
+	private _getRefreshInterval(): number {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(NOTIFICATIONS_REFRESH_INTERVAL, 600);
+	}
+
 	private async _pollForNewNotifications() {
 		this._pageCount = 1;
 		this._dateTime = new Date();
@@ -423,16 +433,8 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			return;
 		}
 
-		// Adapt polling interval if it has changed.
-		if (response.pollInterval !== this._pollingDuration) {
-			this._pollingDuration = response.pollInterval;
-			if (this._pollingHandler && this.isPRNotificationsOn()) {
-				Logger.appendLine('Notifications: Clearing interval', NotificationsManager.ID);
-				clearInterval(this._pollingHandler);
-				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`, NotificationsManager.ID);
-				this._startPolling();
-			}
-		}
+		// Use the user-configured interval instead of GitHub's poll interval to respect user preferences.
+		// This allows users to control notification refresh frequency for managing notification volume and API rate limits.
 		if (response.lastModified !== this._pollingLastModified) {
 			this._pollingLastModified = response.lastModified;
 			this._onDidChangeTreeData.fire();
@@ -440,19 +442,42 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		// this._onDidChangeNotifications.fire(oldPRNodesToUpdate);
 	}
 
+	private _stopPolling() {
+		if (this._pollingDisposable) {
+			this._pollingDisposable.dispose();
+			this._pollingDisposable = null;
+		}
+		if (this._pollingHandler) {
+			Logger.appendLine('Notifications: Clearing interval', NotificationsManager.ID);
+			clearInterval(this._pollingHandler);
+			this._pollingHandler = null;
+		}
+	}
+
 	private _startPolling() {
 		if (!this.isPRNotificationsOn()) {
 			return;
 		}
+		// Stop any existing polling to prevent resource leaks
+		this._stopPolling();
+
+		const refreshInterval = this._getRefreshInterval();
+		Logger.appendLine(`Notifications: Starting polling with interval ${refreshInterval} seconds`, NotificationsManager.ID);
 		this._pollForNewNotifications();
 		this._pollingHandler = setInterval(
 			function (notificationProvider: NotificationsManager) {
 				notificationProvider._pollForNewNotifications();
 			},
-			this._pollingDuration * 1000,
+			refreshInterval * 1000,
 			this
 		);
-		this._register({ dispose: () => clearInterval(this._pollingHandler!) });
+		this._pollingDisposable = this._register({
+			dispose: () => {
+				if (this._pollingHandler) {
+					clearInterval(this._pollingHandler);
+				}
+			}
+		});
 	}
 
 	private _findNotificationKeyForIssueModel(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): string | undefined {
