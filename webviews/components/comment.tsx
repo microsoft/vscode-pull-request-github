@@ -14,6 +14,7 @@ import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineE
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest, ReviewType } from '../../src/github/views';
 import { ariaAnnouncementForReview } from '../common/aria';
+import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
@@ -435,7 +436,7 @@ export function AddComment({
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
 			<textarea
-				id="comment-textarea"
+				id={COMMENT_TEXTAREA_ID}
 				name="body"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
 				onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
@@ -602,7 +603,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	return (
 		<span className="comment-form">
 			<textarea
-				id="comment-textarea"
+				id={COMMENT_TEXTAREA_ID}
 				name="body"
 				placeholder="Leave a comment"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
