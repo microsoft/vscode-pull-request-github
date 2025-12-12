@@ -24,6 +24,7 @@ import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import {
 	COMMENTS,
+	CREATE_IN_BROWSER,
 	FOCUSED_MODE,
 	IGNORE_PR_BRANCHES,
 	NEVER_IGNORE_DEFAULT_BRANCH,
@@ -1171,7 +1172,7 @@ export class ReviewManager extends Disposable {
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
 		// Check if user wants to create PR in browser
-		const createInBrowser = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>('createInBrowser', false);
+		const createInBrowser = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(CREATE_IN_BROWSER, false);
 
 		if (createInBrowser) {
 			// Open browser to create PR instead of showing the create view
@@ -1236,6 +1237,8 @@ export class ReviewManager extends Disposable {
 			const compareOrigin = await this._folderRepoManager.getOrigin(branch);
 
 			// Find the GitHub repository for the base
+			// Note: pullRequestDefaults.owner is the target owner (may differ from current fork)
+			// compareOrigin.remote.repositoryName is the repository we're working in
 			const baseRepo = this._folderRepoManager.gitHubRepositories.find(
 				repo => repo.remote.owner === pullRequestDefaults.owner &&
 					repo.remote.repositoryName === compareOrigin.remote.repositoryName
