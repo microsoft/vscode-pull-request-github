@@ -288,7 +288,7 @@
 	"command.pr.checkoutFromDescription.title": "Checkout",
 	"command.pr.applyChangesFromDescription.title": "Apply Changes",
 	"command.pr.checkoutOnVscodeDevFromDescription.title": "Checkout on vscode.dev",
-	"command.pr.checkoutOnCodespacesFromDescription.title": "Checkout on Codespaces",
+	"command.pr.checkoutInCodespacesFromDescription.title": "Checkout in Codespaces",
 	"command.pr.openSessionLogFromDescription.title": "View Session",
 	"command.issue.openDescription.title": "View Issue Description",
 	"command.issue.copyGithubDevLink.title": "Copy github.dev Link",

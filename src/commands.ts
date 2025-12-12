@@ -725,7 +725,7 @@ export function registerCommands(
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutInCodespacesFromDescription', async (context: OverviewContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
