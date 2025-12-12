@@ -230,7 +230,11 @@ export class StateManager {
 			}),
 		);
 		this.registerRepositoryChangeEvent();
-		await this.setAllIssueData();
+		// Skip fetching issues if dev mode is enabled
+		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
+		if (!devMode) {
+			await this.setAllIssueData();
+		}
 		this.context.subscriptions.push(
 			this.onRefreshCacheNeeded(async () => {
 				await this.refresh();
@@ -312,12 +316,6 @@ export class StateManager {
 	}
 
 	private async setIssueData(folderManager: FolderRepositoryManager) {
-		// Skip fetching issues if dev mode is enabled
-		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
-		if (devMode) {
-			return;
-		}
-
 		const singleRepoState = this.getOrCreateSingleRepoState(folderManager.repository.rootUri, folderManager);
 		if (!singleRepoState) {
 			return;
