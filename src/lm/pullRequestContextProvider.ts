@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { onceEvent } from '../common/utils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -17,6 +18,7 @@ interface PRChatContextItem extends vscode.ChatContextItem {
 }
 
 export class PullRequestContextProvider extends Disposable implements vscode.ChatContextProvider {
+	private static readonly ID = 'PullRequestContextProvider';
 	private readonly _onDidChangeWorkspaceChatContext = new vscode.EventEmitter<void>();
 	readonly onDidChangeWorkspaceChatContext = this._onDidChangeWorkspaceChatContext.event;
 
@@ -69,6 +71,19 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 Owner: ${defaults.owner}
 Current branch: ${folderManager.repository.state.HEAD?.name ?? 'unknown'}
 Default branch: ${defaults.base}`;
+
+			// Add current user information
+			try {
+				const currentUser = await folderManager.getCurrentUser();
+				if (currentUser?.login) {
+					value = `${value}
+Current user: ${currentUser.login}`;
+				}
+			} catch (e) {
+				// If we can't get the current user, continue without it
+				Logger.debug(`Failed to get current user for workspace context: ${e}`, PullRequestContextProvider.ID);
+			}
+
 			if (folderManager.activePullRequest) {
 				value = `${value}
 Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
