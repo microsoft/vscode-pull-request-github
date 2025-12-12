@@ -7,8 +7,8 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 import { IRawFileChange } from '../github/interface';
+import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 
 export enum DiffChangeType {
 	Context,
@@ -18,8 +18,12 @@ export enum DiffChangeType {
 }
 
 export class DiffLine {
+	public get raw(): string {
+		return this._raw;
+	}
+
 	public get text(): string {
-		return this.raw.substr(1);
+		return this._raw.substr(1);
 	}
 
 	constructor(
@@ -27,7 +31,7 @@ export class DiffLine {
 		public oldLineNumber: number /* 1 based */,
 		public newLineNumber: number /* 1 based */,
 		public positionInHunk: number,
-		public readonly raw: string,
+		private _raw: string,
 		public endwithLineBreak: boolean = true,
 	) { }
 }

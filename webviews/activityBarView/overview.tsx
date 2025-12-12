@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { ExitSection } from './exit';
 import { PullRequest } from '../../src/github/views';
 
 import { AddCommentSimple } from '../components/comment';
 import { StatusChecksSection } from '../components/merge';
+import { ExitSection } from './exit';
 
 export const Overview = (pr: PullRequest) => {
 	return <>

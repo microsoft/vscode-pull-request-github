@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IAccount, IActor } from '../github/interface';
 import { IComment } from './comment';
-import { IAccount, IActor, Reaction } from '../github/interface';
 
 export enum EventType {
 	Committed,
@@ -16,15 +16,9 @@ export enum EventType {
 	Labeled,
 	Milestoned,
 	Assigned,
-	Unassigned,
 	HeadRefDeleted,
 	Merged,
 	CrossReferenced,
-	Closed,
-	Reopened,
-	CopilotStarted,
-	CopilotFinished,
-	CopilotFinishedError,
 	Other,
 }
 
@@ -45,7 +39,6 @@ export interface CommentEvent {
 	canEdit?: boolean;
 	canDelete?: boolean;
 	createdAt: string;
-	reactions?: Reaction[];
 }
 
 export interface ReviewResolveInfo {
@@ -69,7 +62,6 @@ export interface ReviewEvent {
 	user: IAccount;
 	authorAssociation: string;
 	state?: ReviewStateValue;
-	reactions?: Reaction[];
 }
 
 export interface CommitEvent {
@@ -80,8 +72,7 @@ export interface CommitEvent {
 	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;
-	committedDate: Date;
-	status?: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+	authoredDate: Date;
 }
 
 export interface NewCommitsSinceReviewEvent {
@@ -109,14 +100,6 @@ export interface AssignEvent {
 	createdAt: string;
 }
 
-export interface UnassignEvent {
-	id: number;
-	event: EventType.Unassigned;
-	unassignees: IAccount[];
-	actor: IActor;
-	createdAt: string;
-}
-
 export interface HeadRefDeleteEvent {
 	id: string;
 	event: EventType.HeadRefDeleted;
@@ -133,63 +116,9 @@ export interface CrossReferencedEvent {
 	source: {
 		number: number;
 		url: string;
-		extensionUrl: string;
 		title: string;
-		isIssue: boolean;
-		owner: string;
-		repo: string;
 	};
 	willCloseTarget: boolean;
 }
 
-export interface ClosedEvent {
-	id: string
-	event: EventType.Closed;
-	actor: IActor;
-	createdAt: string;
-}
-
-export interface ReopenedEvent {
-	id: string;
-	event: EventType.Reopened;
-	actor: IActor;
-	createdAt: string;
-}
-
-export interface SessionPullInfo {
-	id: number;
-	host: string;
-	owner: string;
-	repo: string;
-	pullNumber: number;
-}
-
-export interface SessionLinkInfo extends SessionPullInfo {
-	sessionIndex: number;
-	openToTheSide?: boolean;
-}
-
-export interface CopilotStartedEvent {
-	id: string;
-	event: EventType.CopilotStarted;
-	createdAt: string;
-	onBehalfOf: IAccount;
-	sessionLink: SessionLinkInfo;
-}
-
-export interface CopilotFinishedEvent {
-	id: string;
-	event: EventType.CopilotFinished;
-	createdAt: string;
-	onBehalfOf: IAccount;
-}
-
-export interface CopilotFinishedErrorEvent {
-	id: string;
-	event: EventType.CopilotFinishedError;
-	createdAt: string;
-	onBehalfOf: IAccount;
-	sessionLink: SessionLinkInfo;
-}
-
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent;
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent;

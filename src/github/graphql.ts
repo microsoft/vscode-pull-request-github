@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ForkDetails } from './githubRepository';
 import { DiffSide, SubjectType, ViewedState } from '../common/comment';
+import { ForkDetails } from './githubRepository';
 
 interface PageInfo {
 	hasNextPage: boolean;
@@ -40,32 +40,11 @@ export interface CrossReferencedEvent {
 	actor: Actor;
 	createdAt: string;
 	source: {
-		__typename: string;
 		number: number;
 		url: string;
 		title: string;
-		repository: {
-			name: string;
-			owner: {
-				login: string;
-			};
-		}
 	};
 	willCloseTarget: boolean;
-}
-
-export interface ClosedEvent {
-	__typename: string;
-	id: string;
-	actor: Actor;
-	createdAt: string;
-}
-
-export interface ReopenedEvent {
-	__typename: string;
-	id: string;
-	actor: Actor;
-	createdAt: string;
 }
 
 export interface AbbreviatedIssueComment {
@@ -75,7 +54,6 @@ export interface AbbreviatedIssueComment {
 	reactions: {
 		totalCount: number;
 	};
-	reactionGroups: ReactionGroup[]
 	createdAt: string;
 }
 
@@ -103,10 +81,6 @@ export interface ReactionGroup {
 	};
 }
 
-export interface Node {
-	id: string;
-}
-
 export interface Actor {
 	__typename: string;
 	id: string;
@@ -120,14 +94,12 @@ export interface Account extends Actor {
 	email: string;
 }
 
-export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
-	const asAccount = x as Partial<Account>;
-	return !!asAccount && (asAccount?.name !== undefined) && (asAccount?.email !== undefined);
+export function isAccount(x: Actor | Team | undefined | null): x is Account {
+	return !!x && 'name' in x && 'email' in x;
 }
 
-export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
-	const asTeam = x as Partial<Team>;
-	return !!asTeam && (asTeam?.slug !== undefined);
+export function isTeam(x: Actor | Team | undefined | null): x is Team {
+	return !!x && 'slug' in x;
 }
 
 export interface Team {
@@ -187,24 +159,13 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
-		committedDate: Date;
-		statusCheckRollup?: {
-			state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
-		};
+		authoredDate: Date;
 	};
 
 	url: string;
 }
 
 export interface AssignedEvent {
-	__typename: string;
-	id: number;
-	actor: Actor;
-	user: Account;
-	createdAt: string;
-}
-
-export interface UnassignedEvent {
 	__typename: string;
 	id: number;
 	actor: Actor;
@@ -233,7 +194,6 @@ export interface Review {
 	submittedAt: string;
 	updatedAt: string;
 	createdAt: string;
-	reactionGroups: ReactionGroup[];
 }
 
 export interface ReviewThread {
@@ -265,53 +225,11 @@ export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | null)[];
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
 			};
 		};
 	} | null;
 	rateLimit: RateLimit;
-}
-
-export interface LatestCommit {
-	commit: {
-		committedDate: string;
-	}
-}
-
-export interface LatestReviewThread {
-	comments: {
-		nodes: {
-			createdAt: string;
-		}[];
-	}
-}
-
-export interface LatestUpdatesResponse {
-	repository: {
-		pullRequest: {
-			reactions: {
-				nodes: {
-					createdAt: string;
-				}[];
-			}
-			updatedAt: string;
-			comments: {
-				nodes: {
-					updatedAt: string;
-					reactions: {
-						nodes: {
-							createdAt: string;
-						}[];
-					}
-				}[];
-			}
-			timelineItems: {
-				nodes: ({
-					createdAt: string;
-				} | LatestCommit | LatestReviewThread)[];
-			}
-		}
-	}
 }
 
 export interface LatestReviewCommitResponse {
@@ -340,7 +258,7 @@ export interface GetReviewRequestsResponse {
 		pullRequest: {
 			reviewRequests: {
 				nodes: {
-					requestedReviewer: Actor | Account | Team | Node | null;
+					requestedReviewer: Actor | Account | Team | null;
 				}[];
 			};
 		};
@@ -563,13 +481,6 @@ export interface UpdateIssueResponse {
 			bodyHTML: string;
 			title: string;
 			titleHTML: string;
-			milestone?: {
-				title: string;
-				dueOn?: string;
-				id: string;
-				createdAt: string;
-				number: number;
-			};
 		};
 	};
 }
@@ -588,7 +499,7 @@ export interface GetBranchResponse {
 			target: {
 				oid: string;
 			}
-		} | null;
+		}
 	} | null;
 }
 
@@ -641,7 +552,6 @@ export interface Issue {
 	number: number;
 	url: string;
 	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
-	stateReason?: 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
 	body: string;
 	bodyHTML: string;
 	title: string;
@@ -689,7 +599,6 @@ export interface Issue {
 	reactions: {
 		totalCount: number;
 	}
-	reactionGroups: ReactionGroup[];
 }
 
 
@@ -723,8 +632,6 @@ export interface PullRequest extends Issue {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
-	additions?: number;
-	deletions?: number;
 	closingIssuesReferences?: {
 		nodes: {
 			id: number,

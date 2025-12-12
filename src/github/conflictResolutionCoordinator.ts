@@ -5,8 +5,6 @@
 
 import * as buffer from 'buffer';
 import * as vscode from 'vscode';
-import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
-import { GitHubRepository } from './githubRepository';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
@@ -14,6 +12,8 @@ import { Schemes } from '../common/uri';
 import { asPromise } from '../common/utils';
 import { ConflictResolutionTreeView } from '../view/conflictResolution/conflictResolutionTreeView';
 import { GitHubContentProvider } from '../view/gitHubContentProvider';
+import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
+import { GitHubRepository } from './githubRepository';
 
 interface MergeEditorInputData { uri: vscode.Uri; title?: string; detail?: string; description?: string }
 const ORIGINAL_FILE =

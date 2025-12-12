@@ -6,8 +6,8 @@
 'use strict';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
-import { ParticipantsPrompt } from './participantsPrompt';
 import { Disposable } from '../common/lifecycle';
+import { ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
 export class ChatParticipantState {
@@ -36,7 +36,6 @@ export class ChatParticipantState {
 				}
 			}
 		}
-		return undefined;
 	}
 
 	get messages(): vscode.LanguageModelChatMessage[] {
@@ -82,16 +81,13 @@ export class ChatParticipant extends Disposable {
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-
-
-		const allTools: vscode.LanguageModelChatTool[] = [];
-		for (const tool of vscode.lm.tools) {
-			if (request.tools.has(tool.name) && request.tools.get(tool.name)) {
-				allTools.push(tool);
-			} else if (tool.name.startsWith('github-pull-request')) {
-				allTools.push(tool);
-			}
-		}
+		const allTools = vscode.lm.tools.map((tool): vscode.LanguageModelChatTool => {
+			return {
+				name: tool.name,
+				description: tool.description,
+				inputSchema: tool.inputSchema ?? {}
+			};
+		});
 
 		const { messages } = await renderPrompt(
 			ParticipantsPrompt,

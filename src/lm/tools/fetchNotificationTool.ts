@@ -5,10 +5,10 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { RepoToolBase } from './toolsUtils';
 import { InMemFileChange } from '../../common/file';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { getNotificationKey } from '../../github/utils';
+import { RepoToolBase } from './toolsUtils';
 
 interface FetchNotificationToolParameters {
 	thread_id?: number;

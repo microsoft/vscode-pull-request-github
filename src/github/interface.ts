@@ -11,7 +11,7 @@ export enum PRType {
 	LocalPullRequest,
 }
 
-export enum ReviewEventEnum {
+export enum ReviewEvent {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
 	Comment = 'COMMENT',
@@ -104,16 +104,15 @@ export interface MergeQueueEntry {
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
 	// We can literally get different login values for copilot depending on where it's coming from (already assignee vs suggested assingee)
-	return isITeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
+	return isTeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
-	return isITeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
-export function isITeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
-	const asITeam = reviewer as Partial<ITeam>;
-	return !!asITeam.org;
+export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
+	return 'org' in reviewer;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -121,11 +120,10 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
-export function isISuggestedReviewer(
+export function isSuggestedReviewer(
 	reviewer: IAccount | ISuggestedReviewer | ITeam
 ): reviewer is ISuggestedReviewer {
-	const asISuggestedReviewer = reviewer as Partial<ISuggestedReviewer>;
-	return !!asISuggestedReviewer.isAuthor && !!asISuggestedReviewer.isCommenter;
+	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
 }
 
 export interface IProject {
@@ -181,23 +179,12 @@ export interface IIssueComment {
 	createdAt: string;
 }
 
-export interface Reaction {
-	label: string;
-	count: number;
-	icon?: string;
-	viewerHasReacted: boolean;
-	reactors: readonly string[];
-}
-
-export type StateReason = 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
-
 export interface Issue {
 	id: number;
 	graphNodeId: string;
 	url: string;
 	number: number;
 	state: string;
-	stateReason?: StateReason;
 	body: string;
 	bodyHTML?: string;
 	title: string;
@@ -215,7 +202,6 @@ export interface Issue {
 	comments?: IIssueComment[];
 	commentCount: number;
 	reactionCount: number;
-	reactions: Reaction[];
 }
 
 export interface IssueReference {
@@ -246,8 +232,6 @@ export interface PullRequest extends Issue {
 	suggestedReviewers?: ISuggestedReviewer[];
 	closingIssues?: IssueReference[]
 	hasComments?: boolean;
-	additions?: number;
-	deletions?: number;
 }
 
 export enum NotificationSubjectType {
@@ -268,7 +252,7 @@ export interface Notification {
 	};
 	reason: string;
 	unread: boolean;
-	updatedAt: Date;
+	updatedAd: Date;
 	lastReadAt: Date | undefined;
 }
 

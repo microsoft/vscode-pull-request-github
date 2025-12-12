@@ -57,7 +57,7 @@ async function openDiffCommand(
 	return {
 		command: 'vscode.diff',
 		arguments: [parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts],
-		title: 'Open Changed File in pull request',
+		title: 'Open Changed File in PR',
 	};
 }
 
@@ -68,7 +68,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?:
 		| string
 		| vscode.Uri
-		| { light: vscode.Uri; dark: vscode.Uri }
+		| { light: string | vscode.Uri; dark: string | vscode.Uri }
 		| vscode.ThemeIcon;
 	public fileChangeResourceUri: vscode.Uri;
 	public contextValue: string;
@@ -139,14 +139,13 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		);
 
 		this.accessibilityInformation = { label: `${this.label} pull request diff`, role: 'link' };
-		this.description = this._getDescription();
 	}
 
 	get resourceUri(): vscode.Uri {
 		return this.changeModel.filePath.with({ query: this.fileChangeResourceUri.query });
 	}
 
-	protected _getDescription(): string | true {
+	get description(): string | true {
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		if (layout === 'flat') {
 			return true;
@@ -222,7 +221,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content can not be resolved locally and we direct users to GitHub.
  */
 export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeItem {
-	protected override _getDescription(): string {
+	override get description(): string {
 		let description = vscode.workspace.asRelativePath(path.dirname(this.changeModel.fileName), false);
 		if (description === '.') {
 			description = '';
@@ -407,6 +406,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
  * File change node whose content is resolved from GitHub. For files not yet associated with a pull request.
  */
 export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
+	public description: string;
 	public iconPath: vscode.ThemeIcon;
 	public fileChangeResourceUri: vscode.Uri;
 	public readonly tooltip: string;

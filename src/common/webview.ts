@@ -17,9 +17,17 @@ export interface IRequestMessage<T> {
 
 export interface IReplyMessage {
 	seq?: string;
-	err?: string;
-	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
+	err?: any;
 	res?: any;
+}
+
+export function getNonce() {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
 }
 
 export class WebviewBase extends Disposable {
@@ -77,7 +85,7 @@ export class WebviewBase extends Disposable {
 		this._webview?.postMessage(reply);
 	}
 
-	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: string) {
+	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: any) {
 		const reply: IReplyMessage = {
 			seq: originalMessage?.req,
 			err: error,

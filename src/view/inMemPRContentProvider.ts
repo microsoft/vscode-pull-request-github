@@ -5,8 +5,6 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { FileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
-import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 import { GitApiImpl } from '../api/api1';
 import { DiffChangeType, getModifiedContentFromDiffHunk } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -16,6 +14,8 @@ import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { FileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
+import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 
 export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string | Uint8Array> } = {};

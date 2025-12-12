@@ -5,7 +5,6 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { ensureEmojis } from '../../common/emoji';
 import Logger from '../../common/logger';
 import { reviewerLabel } from '../../github/interface';
 import { makeLabel } from '../../github/utils';
@@ -30,7 +29,7 @@ Here are the possible columns:
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 	public static readonly toolId = 'github-pull-request_renderIssues';
 	private static ID = 'DisplayIssuesTool';
-	constructor(private readonly context: vscode.ExtensionContext, chatParticipantState: ChatParticipantState) {
+	constructor(chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
 
@@ -145,7 +144,6 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		await ensureEmojis(this.context);
 		const issueItemsInfo: vscode.LanguageModelTextPart | undefined = this.chatParticipantState.firstUserMessage;
 		const issueItems: IssueSearchResultItem[] | undefined = options.input.arrayOfIssues;
 		if (!issueItems || issueItems.length === 0) {

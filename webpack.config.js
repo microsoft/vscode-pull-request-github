@@ -58,6 +58,11 @@ async function getWebviewConfig(mode, env, entry) {
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,
+			eslint: {
+				enabled: true,
+				files: path.join(basePath, '**', '*.ts'),
+				options: { cache: true, configFile: path.join(__dirname, '.eslintrc.webviews.json') },
+			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
@@ -74,9 +79,6 @@ async function getWebviewConfig(mode, env, entry) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
-			// Use absolute paths (file:///) in source maps instead of the default webpack:// scheme
-			devtoolModuleFilenameTemplate: info => 'file:///' + info.absoluteResourcePath.replace(/\\/g, '/'),
-			devtoolFallbackModuleFilenameTemplate: 'file:///[absolute-resource-path]'
 		},
 		optimization: {
 			minimizer: [
@@ -105,7 +107,7 @@ async function getWebviewConfig(mode, env, entry) {
 			rules: [
 				{
 					exclude: /node_modules/,
-					include: [basePath, path.join(__dirname, 'src'), path.join(__dirname, 'common')],
+					include: [basePath, path.join(__dirname, 'src')],
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
@@ -132,10 +134,6 @@ async function getWebviewConfig(mode, env, entry) {
 					test: /\.svg/,
 					use: ['svg-inline-loader'],
 				},
-				{
-					test: /\.ttf$/,
-					type: 'asset/resource'
-				},
 			],
 		},
 		resolve: {
@@ -159,58 +157,33 @@ async function getWebviewConfig(mode, env, entry) {
  */
 async function getExtensionConfig(target, mode, env) {
 	const basePath = path.join(__dirname, 'src');
-	const glob = require('glob');
 
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
+		new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
+			eslint: {
+				enabled: true,
+				files: path.join(basePath, '**', '*.ts'),
+				options: {
+					cache: true,
+					configFile: path.join(
+						__dirname,
+						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json',
+					),
+				},
+			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
 			},
-		}),
-		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
+		})
 	];
-
-	// Add fixtures copying plugin for node target (which has individual test files)
-	if (target === 'node') {
-		const fs = require('fs');
-		const srcRoot = 'src';
-		class CopyFixturesPlugin {
-			apply(compiler) {
-				compiler.hooks.afterEmit.tap('CopyFixturesPlugin', () => {
-					this.copyFixtures(srcRoot, compiler.options.output.path);
-				});
-			}
-
-			copyFixtures(inputDir, outputDir) {
-				try {
-					const files = fs.readdirSync(inputDir);
-					for (const file of files) {
-						const filePath = path.join(inputDir, file);
-						const stats = fs.statSync(filePath);
-						if (stats.isDirectory()) {
-							if (file === 'fixtures') {
-								const outputFilePath = path.join(outputDir, inputDir.substring(srcRoot.length), file);
-								const inputFilePath = path.join(inputDir, file);
-								fs.cpSync(inputFilePath, outputFilePath, { recursive: true, force: true });
-							} else {
-								this.copyFixtures(filePath, outputDir);
-							}
-						}
-					}
-				} catch (error) {
-					// Ignore errors during fixtures copying to not break the build
-					console.warn('Warning: Could not copy fixtures:', error.message);
-				}
-			}
-		}
-
-		plugins.push(new CopyFixturesPlugin());
-	}
 
 	if (target === 'webworker') {
 		plugins.push(new webpack.ProvidePlugin({
@@ -220,36 +193,13 @@ async function getExtensionConfig(target, mode, env) {
 				'process',
 				'browser.js')
 		}));
-		plugins.push(new webpack.ProvidePlugin({
-			Buffer: ['buffer', 'Buffer']
-		}));
 	}
 
 	const entry = {
 		extension: './src/extension.ts',
 	};
-
-	// Add test entry points
 	if (target === 'webworker') {
 		entry['test/index'] = './src/test/browser/index.ts';
-	} else if (target === 'node') {
-		// Add main test runner
-		entry['test/index'] = './src/test/index.ts';
-
-		// Add individual test files as separate entry points
-		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname });
-		testFiles.forEach(testFile => {
-			// Convert src/test/github/utils.test.ts -> test/github/utils.test
-			const entryName = testFile.replace('src/', '').replace('.ts', '');
-			entry[entryName] = `./${testFile}`;
-		});
-	}
-
-	// Don't limit chunks for node target when we have individual test files
-	if (target !== 'node' || !('test/index' in entry && Object.keys(entry).some(key => key.endsWith('.test')))) {
-		plugins.unshift(new webpack.optimize.LimitChunkCountPlugin({
-			maxChunks: 1
-		}));
 	}
 
 	return {
@@ -263,9 +213,6 @@ async function getExtensionConfig(target, mode, env) {
 			libraryTarget: 'commonjs2',
 			filename: '[name].js',
 			chunkFilename: 'feature-[name].js',
-			// Use absolute paths (file:///) in source maps for easier debugging of tests & sources
-			devtoolModuleFilenameTemplate: info => 'file:///' + info.absoluteResourcePath.replace(/\\/g, '/'),
-			devtoolFallbackModuleFilenameTemplate: 'file:///[absolute-resource-path]',
 		},
 		optimization: {
 			minimizer: [
@@ -295,7 +242,7 @@ async function getExtensionConfig(target, mode, env) {
 			rules: [
 				{
 					exclude: /node_modules/,
-					include: [path.join(__dirname, 'src'), path.join(__dirname, 'common')],
+					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
@@ -338,7 +285,11 @@ async function getExtensionConfig(target, mode, env) {
 					exclude: /node_modules/,
 					test: /\.(graphql|gql)$/,
 					loader: 'graphql-tag/loader',
-				}
+				},
+				// {
+				// 	test: /webview-*\.js/,
+				// 	use: 'raw-loader'
+				// },
 			],
 		},
 		resolve: {
@@ -392,7 +343,6 @@ async function getExtensionConfig(target, mode, env) {
 			'@opentelemetry/instrumentation': '@opentelemetry/instrumentation',
 			'@azure/opentelemetry-instrumentation-azure-sdk': '@azure/opentelemetry-instrumentation-azure-sdk',
 			'fs': 'fs',
-			'mocha': 'commonjs mocha',
 		},
 		plugins: plugins,
 		stats: {
@@ -403,7 +353,7 @@ async function getExtensionConfig(target, mode, env) {
 			errorsCount: true,
 			warningsCount: true,
 			timings: true,
-		}
+		},
 	};
 }
 

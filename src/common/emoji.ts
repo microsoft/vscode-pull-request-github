@@ -13,18 +13,17 @@ const emojiRegex = /:([-+_a-z0-9]+):/g;
 let emojiMap: Record<string, string> | undefined;
 let emojiMapPromise: Promise<void> | undefined;
 
-export async function ensureEmojis(context: ExtensionContext): Promise<Record<string, string>> {
+export async function ensureEmojis(context: ExtensionContext) {
 	if (emojiMap === undefined) {
 		if (emojiMapPromise === undefined) {
 			emojiMapPromise = loadEmojiMap(context);
 		}
 		await emojiMapPromise;
 	}
-	return emojiMap!;
 }
 
 async function loadEmojiMap(context: ExtensionContext) {
-	const uri = Uri.joinPath(context.extensionUri, 'resources', 'emojis.json');
+	const uri = (Uri as any).joinPath(context.extensionUri, 'resources', 'emojis.json');
 	emojiMap = JSON.parse(new TextDecoder('utf8').decode(await workspace.fs.readFile(uri)));
 }
 

@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChangesContentProvider, GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 import { Change, Commit } from '../api/api';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
+import { ChangesContentProvider, GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 
 export interface CreateModelChangeEvent {
 	baseOwner?: string;
@@ -155,11 +155,6 @@ export class CreatePullRequestDataModel extends Disposable {
 	private async updateHasUpstream(branch: string): Promise<boolean> {
 		const compareBranch = await this.folderRepositoryManager.repository.getBranch(branch);
 		this._compareHasUpstream = !!compareBranch.upstream;
-		// Check that the upstream head matches the local head
-		if (this._compareHasUpstream) {
-			const upstream = await this.gitHubRepository?.hasBranch(branch);
-			this._compareHasUpstream = upstream === compareBranch.commit;
-		}
 		return this._compareHasUpstream;
 	}
 

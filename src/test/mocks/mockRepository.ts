@@ -68,9 +68,7 @@ export class MockRepository implements Repository {
 	}
 
 	private _state: Mutable<RepositoryState & { refs: Ref[] }> = {
-		HEAD: {
-			type: RefType.Head
-		},
+		HEAD: undefined,
 		refs: [],
 		remotes: [],
 		submodules: [],
@@ -151,12 +149,8 @@ export class MockRepository implements Repository {
 		return Promise.reject(new Error('Unexpected hashObject(...)'));
 	}
 
-	private _hasBranch(ref: string) {
-		return this._branches.some(b => b.name === ref);
-	}
-
 	async createBranch(name: string, checkout: boolean, ref?: string | undefined): Promise<void> {
-		if (this._hasBranch(name)) {
+		if (this._branches.some(b => b.name === name)) {
 			throw new Error(`A branch named ${name} already exists`);
 		}
 
@@ -281,7 +275,7 @@ export class MockRepository implements Repository {
 			throw new Error(`Unexpected fetch(${remoteName}, ${ref}, ${depth})`);
 		}
 
-		if (ref && !this._hasBranch(ref)) {
+		if (ref) {
 			const match = /^(?:\+?[^:]+\:)?(.*)$/.exec(ref);
 			if (match) {
 				const [, localRef] = match;

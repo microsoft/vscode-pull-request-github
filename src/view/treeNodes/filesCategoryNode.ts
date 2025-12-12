@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ViewedState } from '../../common/comment';
 import Logger, { PR_TREE } from '../../common/logger';
-import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { compareIgnoreCase } from '../../common/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
@@ -34,21 +33,9 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Review threads have changed, refreshing Files node`, PR_TREE);
 			this.refresh(this);
 		}));
-		this.childrenDisposables.push(_pullRequestModel.onDidChange(e => {
-			if (e.comments) {
-				Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
-				this.refresh(this);
-			}
-		}));
-		this.childrenDisposables.push(_pullRequestModel.onDidChangeFileViewedState(() => {
-			Logger.appendLine(`File viewed state has changed, refreshing Files node`, PR_TREE);
+		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => {
+			Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
 			this.refresh(this);
-		}));
-		this.childrenDisposables.push(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${HIDE_VIEWED_FILES}`)) {
-				Logger.appendLine(`Hide viewed files setting has changed, refreshing Files node`, PR_TREE);
-				this.refresh(this);
-			}
 		}));
 	}
 
@@ -76,23 +63,13 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 
 		let nodes: TreeNode[];
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
-		const hideViewedFiles = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(HIDE_VIEWED_FILES, false);
-
-		// Filter files based on hideViewedFiles setting
-		const filesToShow = hideViewedFiles
-			? this._reviewModel.localFileChanges.filter(f => f.changeModel.viewed !== ViewedState.VIEWED)
-			: this._reviewModel.localFileChanges;
-
-		if (filesToShow.length === 0 && hideViewedFiles) {
-			return [new LabelOnlyNode(this, vscode.l10n.t('All files viewed'))];
-		}
 
 		const dirNode = new DirectoryTreeNode(this, '');
-		filesToShow.forEach(f => dirNode.addFile(f));
+		this._reviewModel.localFileChanges.forEach(f => dirNode.addFile(f));
 		dirNode.finalize();
 		if (dirNode.label === '') {
 			// nothing on the root changed, pull children to parent
-			this.directories = dirNode._children;
+			this.directories = dirNode.children;
 		} else {
 			this.directories = [dirNode];
 		}
@@ -100,12 +77,12 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		if (layout === 'tree') {
 			nodes = this.directories;
 		} else {
-			const fileNodes = [...filesToShow];
+			const fileNodes = [...this._reviewModel.localFileChanges];
 			fileNodes.sort((a, b) => compareIgnoreCase(a.fileChangeResourceUri.toString(), b.fileChangeResourceUri.toString()));
 			nodes = fileNodes;
 		}
 		Logger.appendLine(`Got all children for Files node`, PR_TREE);
-		this._children = nodes;
+		this.children = nodes;
 		return nodes;
 	}
 }

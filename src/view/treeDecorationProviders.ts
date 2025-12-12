@@ -11,7 +11,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export abstract class TreeDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
-	protected _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = this._register(new vscode.EventEmitter<
+	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = this._register(new vscode.EventEmitter<
 		vscode.Uri | vscode.Uri[]
 	>());
 	onDidChangeFileDecorations?: vscode.Event<vscode.Uri | vscode.Uri[] | undefined> | undefined = this._onDidChangeFileDecorations.event;
@@ -63,7 +63,7 @@ export class TreeDecorationProviders extends Disposable {
 			this._pullRequestListeners.push(gitHubRepo.onDidAddPullRequest(model => {
 				this._pullRequestPropertyChangeListeners.push(...this._registerPullRequestPropertyListeners(folderManager, model));
 			}));
-			const models = gitHubRepo.pullRequestModels;
+			const models = Array.from(gitHubRepo.pullRequestModels.values());
 			const listeners = models.map(model => {
 				return this._registerPullRequestPropertyListeners(folderManager, model);
 			}).flat();

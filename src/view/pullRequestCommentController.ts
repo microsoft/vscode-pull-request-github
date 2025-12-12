@@ -6,13 +6,12 @@
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { CommentControllerBase } from './commentControllBase';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
-import { formatError, groupBy } from '../common/utils';
+import { groupBy } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
@@ -22,18 +21,16 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
-	setReplyAuthor,
 	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
+import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private static ID = 'PullRequestCommentController';
-	static readonly PREFIX = 'github-browse';
-
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
@@ -227,8 +224,8 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		}
 	}
 
-	private async onDidChangeReviewThreads(e: ReviewThreadChangeEvent): Promise<void> {
-		for (const thread of e.added) {
+	private onDidChangeReviewThreads(e: ReviewThreadChangeEvent): void {
+		e.added.forEach(async (thread) => {
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this._folderRepoManager.gitRelativeRootPath(t.uri.path) === thread.path;
@@ -278,18 +275,18 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			} else {
 				this._commentThreadCache[key] = [newThread];
 			}
-		}
+		});
 
-		for (const thread of e.changed) {
+		e.changed.forEach(thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
 				updateThread(this._context, matchingThread, thread, this._githubRepositories);
 			}
-		}
+		});
 
-		for (const thread of e.removed) {
+		e.removed.forEach(async thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
 			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
 			if (index > -1) {
@@ -297,23 +294,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				this._commentThreadCache[key].splice(index, 1);
 				matchingThread.dispose();
 			}
-		}
-	}
-
-	protected override onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
-		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
-		const activeUri = activeTab?.input instanceof vscode.TabInputText ? activeTab.input.uri : (activeTab?.input instanceof vscode.TabInputTextDiff ? activeTab.input.original : undefined);
-
-		if (editor === undefined || !editor.document.uri.authority.startsWith(PullRequestCommentController.PREFIX) || !activeUri || (activeUri.scheme !== Schemes.Pr)) {
-			return;
-		}
-
-		const params = fromPRUri(activeUri);
-		if (!params || params.prNumber !== this.pullRequestModel.number) {
-			return;
-		}
-
-		return this.tryAddCopilotMention(editor, this.pullRequestModel);
+		});
 	}
 
 	hasCommentThread(thread: GHPRCommentThread): boolean {
@@ -356,15 +337,14 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await Promise.all([this.pullRequestModel.createReviewThread(
+				await this.pullRequestModel.createReviewThread(
 					input,
 					fileName,
 					thread.range ? (thread.range.start.line + 1) : undefined,
 					thread.range ? (thread.range.end.line + 1) : undefined,
 					side,
 					isSingleComment,
-				),
-				setReplyAuthor(thread, await this._folderRepoManager.getCurrentUser(this.pullRequestModel.githubRepository), this._context)]);
+				);
 			}
 
 			if (isSingleComment) {
@@ -374,7 +354,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
 					if (result === 'Refresh') {
-						this.pullRequestModel.githubRepository.getPullRequest(this.pullRequestModel.number);
+						this.pullRequestModel.invalidate();
 					}
 				});
 			} else {
@@ -546,25 +526,14 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			return;
 		}
 
-		try {
-			if (
-				comment.reactions &&
-				!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
-			) {
-				// add reaction
-				await this.pullRequestModel.addCommentReaction(comment.rawComment.graphNodeId, reaction);
-			} else {
-				await this.pullRequestModel.deleteCommentReaction(comment.rawComment.graphNodeId, reaction);
-			}
-		} catch (e) {
-			// Ignore permission errors when removing reactions due to race conditions
-			// See: https://github.com/microsoft/vscode/issues/69321
-			const errorMessage = formatError(e);
-			if (errorMessage.includes('does not have the correct permissions to execute `RemoveReaction`')) {
-				// Silently ignore this error - it occurs when quickly toggling reactions
-				return;
-			}
-			throw new Error(errorMessage);
+		if (
+			comment.reactions &&
+			!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
+		) {
+			// add reaction
+			await this.pullRequestModel.addCommentReaction(comment.rawComment.graphNodeId, reaction);
+		} else {
+			await this.pullRequestModel.deleteCommentReaction(comment.rawComment.graphNodeId, reaction);
 		}
 	}
 

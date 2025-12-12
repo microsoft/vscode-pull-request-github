@@ -5,14 +5,13 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { RemoteInfo } from '../../common/types';
-import { CreateParamsNew } from '../../common/views';
-import { isITeam, MergeMethod } from '../../src/github/interface';
+import { CreateParamsNew, RemoteInfo } from '../../common/views';
+import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, projectIcon, reviewerIcon, sparkleIcon, stopCircleIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -192,7 +191,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{gitCompareIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -220,7 +219,6 @@ export function main() {
 						</div>
 					</div>
 
-					<label htmlFor='title' className='input-title'>Title</label>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -232,6 +230,7 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
+							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -249,7 +248,7 @@ export function main() {
 					<div className='group-additions'>
 						{params.assignees && (params.assignees.length > 0) ?
 							<div className='assignees'>
-								<span title='Assignees' aria-hidden='true'>{accountIcon}</span>
+								<span title='Assignees' aria-hidden='true'>{assigneeIcon}</span>
 								<ul aria-label='Assignees' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
@@ -258,7 +257,7 @@ export function main() {
 										<li>
 											<span title={assignee.name} aria-label={assignee.name}>
 												<Avatar for={assignee} link={false} />
-												{assignee.specialDisplayName ?? assignee.login}
+												{assignee.login}
 											</span>
 										</li>)}
 								</ul>
@@ -267,7 +266,7 @@ export function main() {
 
 						{params.reviewers && (params.reviewers.length > 0) ?
 							<div className='reviewers'>
-								<span title='Reviewers' aria-hidden='true'>{feedbackIcon}</span>
+								<span title='Reviewers' aria-hidden='true'>{reviewerIcon}</span>
 								<ul aria-label='Reviewers' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
@@ -276,7 +275,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isITeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
+												{isTeam(reviewer) ? reviewer.slug : reviewer.login}
 											</span>
 										</li>)}
 								</ul>
@@ -285,7 +284,7 @@ export function main() {
 
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
-								<span title='Labels' aria-hidden='true'>{tagIcon}</span>
+								<span title='Labels' aria-hidden='true'>{labelIcon}</span>
 								<ul aria-label='Labels' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
@@ -325,12 +324,12 @@ export function main() {
 							: null}
 					</div>
 
-					<label htmlFor='description' className='input-title'>Description</label>
 					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
+							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
@@ -360,7 +359,6 @@ export function main() {
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
-							spreadable={true}
 						/>
 
 					</div>
@@ -371,9 +369,7 @@ export function main() {
 	);
 }
 
-interface RootProps { children: (params: CreateParamsNew) => JSX.Element }
-
-export function Root({ children }: RootProps): JSX.Element {
+export function Root({ children }) {
 	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
@@ -381,5 +377,5 @@ export function Root({ children }: RootProps): JSX.Element {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return <>{children(pr)}</>;
+	return children(pr);
 }

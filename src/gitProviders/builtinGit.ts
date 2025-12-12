@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { APIState, CloneOptions, GitAPI, GitExtension, PublishEvent } from '../@types/git';
+import { APIState, GitAPI, GitExtension, PublishEvent } from '../@types/git';
 import { IGit, Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -41,17 +41,10 @@ export class BuiltinGitProvider extends Disposable implements IGit {
 			throw e;
 		}
 
-		this._register(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
-		this._register(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
+		this._register(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e as any)));
+		this._register(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e as any)));
 		this._register(this._gitAPI.onDidChangeState(e => this._onDidChangeState.fire(e)));
 		this._register(this._gitAPI.onDidPublish(e => this._onDidPublish.fire(e)));
-	}
-	getRepositoryWorkspace(uri: vscode.Uri): Promise<vscode.Uri[] | null> {
-		return this._gitAPI.getRepositoryWorkspace(uri);
-	}
-
-	clone(uri: vscode.Uri, options?: CloneOptions): Promise<vscode.Uri | null> {
-		return this._gitAPI.clone(uri, options);
 	}
 
 	static async createProvider(): Promise<BuiltinGitProvider | undefined> {

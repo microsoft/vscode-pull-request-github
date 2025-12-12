@@ -8,14 +8,6 @@ import * as vscode from 'vscode';
 import type { Branch, Change, Repository } from '../api/api';
 import { GitApiImpl, GitErrorCodes, Status } from '../api/api1';
 import { openDescription } from '../commands';
-import { CreatePullRequestHelper } from './createPullRequestHelper';
-import { GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
-import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from './inMemPRContentProvider';
-import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { ProgressHelper } from './progress';
-import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { ReviewCommentController, SuggestionInformation } from './reviewCommentController';
-import { ReviewModel } from './reviewModel';
 import { DiffChangeType, DiffHunk, parsePatch, splitIntoSmallerHunks } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -45,6 +37,14 @@ import { GitHubRepository } from '../github/githubRepository';
 import { GithubItemStateEnum } from '../github/interface';
 import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
+import { CreatePullRequestHelper } from './createPullRequestHelper';
+import { GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
+import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from './inMemPRContentProvider';
+import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
+import { ProgressHelper } from './progress';
+import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
+import { ReviewCommentController, SuggestionInformation } from './reviewCommentController';
+import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
@@ -75,11 +75,6 @@ export class ReviewManager extends Disposable {
 	 * explicit user action from something like reloading on an existing PR branch.
 	 */
 	private justSwitchedToReviewMode: boolean = false;
-	/**
-	 * The last pull request the user explicitly switched to via the switch method.
-	 * Used to enter review mode for this PR regardless of its state (open/closed/merged).
-	 */
-	private _switchedToPullRequest?: PullRequestModel;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -362,37 +357,33 @@ export class ReviewManager extends Disposable {
 	}
 
 	private async checkGitHubForPrBranch(branch: Branch): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
-		try {
-			let branchToCheck: Branch;
-			if (this._repository.state.HEAD && (branch.name === this._repository.state.HEAD.name)) {
-				branchToCheck = this._repository.state.HEAD;
-			} else {
-				branchToCheck = branch;
-			}
-			const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
-			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
-			if (metadataFromGithub) {
-				Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
-				await PullRequestGitHelper.associateBranchWithPullRequest(
-					this._repository,
-					metadataFromGithub.model,
-					branch.name!,
-				);
-				return metadataFromGithub;
-			}
-		} catch (e) {
-			Logger.warn(`Failed to check GitHub for PR branch: ${e.message}`, this.id);
-			return undefined;
+
+		let branchToCheck: Branch;
+		if (this._repository.state.HEAD && (branch.name === this._repository.state.HEAD.name)) {
+			branchToCheck = this._repository.state.HEAD;
+		} else {
+			branchToCheck = branch;
+		}
+		const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
+		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
+		if (metadataFromGithub) {
+			Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
+			await PullRequestGitHelper.associateBranchWithPullRequest(
+				this._repository,
+				metadataFromGithub.model,
+				branch.name!,
+			);
+			return metadataFromGithub;
 		}
 	}
 
-	private async resolvePullRequest(metadata: PullRequestMetadata, useCache: boolean): Promise<(PullRequestModel & IResolvedPullRequestModel) | undefined> {
+	private async resolvePullRequest(metadata: PullRequestMetadata): Promise<(PullRequestModel & IResolvedPullRequestModel) | undefined> {
 		try {
 			this._prNumber = metadata.prNumber;
 
 			const { owner, repositoryName } = metadata;
 			Logger.appendLine('Resolving pull request', this.id);
-			let pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber, useCache);
+			let pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
 
 			if (!pr || !pr.isResolved() || !(await pr.githubRepository.hasBranch(pr.base.name))) {
 				await this.clear(true);
@@ -450,14 +441,19 @@ export class ReviewManager extends Disposable {
 		}
 		Logger.appendLine(`Found matching pull request metadata for current branch ${branch.name}. Repo: ${matchingPullRequestMetadata.owner}/${matchingPullRequestMetadata.repositoryName} PR: ${matchingPullRequestMetadata.prNumber}`, this.id);
 
+		const remote = branch.upstream ? branch.upstream.remote : null;
+		if (!remote) {
+			Logger.appendLine(`Current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`, this.id);
+			await this.clear(true);
+			return;
+		}
+
 		// we switch to another PR, let's clean up first.
 		Logger.appendLine(
 			`current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`, this.id
 		);
 		const previousPrNumber = this._prNumber;
-		// Use the cache if we just checked out the same PR as a small performance optimization.
-		const justCheckedOutSamePr = this.justSwitchedToReviewMode && (previousPrNumber === matchingPullRequestMetadata.prNumber);
-		let pr = await this.resolvePullRequest(matchingPullRequestMetadata, justCheckedOutSamePr);
+		let pr = await this.resolvePullRequest(matchingPullRequestMetadata);
 		if (!pr) {
 			Logger.appendLine(`Unable to resolve PR #${matchingPullRequestMetadata.prNumber}`, this.id);
 			return;
@@ -468,7 +464,7 @@ export class ReviewManager extends Disposable {
 		if (pr.state !== GithubItemStateEnum.Open) {
 			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
 			if (metadataFromGithub && metadataFromGithub?.prNumber !== pr.number) {
-				const prFromGitHub = await this.resolvePullRequest(metadataFromGithub, false);
+				const prFromGitHub = await this.resolvePullRequest(metadataFromGithub);
 				if (prFromGitHub) {
 					pr = prFromGitHub;
 				}
@@ -476,7 +472,7 @@ export class ReviewManager extends Disposable {
 		}
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
-		if (!this.justSwitchedToReviewMode && (previousPrNumber === pr.number) && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
+		if (previousPrNumber === pr.number && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
@@ -486,16 +482,13 @@ export class ReviewManager extends Disposable {
 
 		const useReviewConfiguration = getReviewMode();
 
-		// If this is the PR the user explicitly switched to, always use review mode regardless of state
-		const isSwitchedToPullRequest = this._switchedToPullRequest?.number === pr.number;
-
-		if (pr.isClosed && !useReviewConfiguration.closed && !isSwitchedToPullRequest) {
+		if (pr.isClosed && !useReviewConfiguration.closed) {
 			Logger.appendLine('This PR is closed', this.id);
 			await this.clear(true);
 			return;
 		}
 
-		if (pr.isMerged && !useReviewConfiguration.merged && !isSwitchedToPullRequest) {
+		if (pr.isMerged && !useReviewConfiguration.merged) {
 			Logger.appendLine('This PR is merged', this.id);
 			await this.clear(true);
 			return;
@@ -544,16 +537,11 @@ export class ReviewManager extends Disposable {
 				this.changesInPrDataProvider.refresh();
 				await this.updateComments();
 				await this.reopenNewReviewDiffs();
-				if (pr) {
-					PullRequestModel.openChanges(this._folderRepoManager, pr);
-				}
 				this._changesSinceLastReviewProgress.endProgress();
 			})
 		);
 		Logger.appendLine(`Register in memory content provider`, this.id);
-		if (previousPrNumber !== pr.number) {
-			await this.registerGitHubInMemContentProvider();
-		}
+		await this.registerGitHubInMemContentProvider();
 
 		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = {
@@ -635,18 +623,6 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
-	private _openFirstDiff() {
-		if (this._reviewModel.localFileChanges.length) {
-			this.openDiff();
-		} else {
-			const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
-				localFileChangesDisposable.dispose();
-				this.openDiff();
-			});
-		}
-	}
-
-
 	private _doFocusShow(pr: PullRequestModel, updateLayout: boolean) {
 		// Respect the setting 'comments.openView' when it's 'never'.
 		const shouldShowCommentsView = vscode.workspace.getConfiguration(COMMENTS).get<'never' | string>(OPEN_VIEW);
@@ -656,21 +632,19 @@ export class ReviewManager extends Disposable {
 		this._activePrViewCoordinator.show(pr);
 		if (updateLayout) {
 			const focusedMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | 'multiDiff' | false>(FOCUSED_MODE);
-			if (focusedMode && pr.fileChanges.size === 0) {
-				// If there are no file changes, the only useful thing to show is the overview
-				return this.openDescription();
-			}
-
 			if (focusedMode === 'firstDiff') {
-				return this._openFirstDiff();
+				if (this._reviewModel.localFileChanges.length) {
+					this.openDiff();
+				} else {
+					const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
+						localFileChangesDisposable.dispose();
+						this.openDiff();
+					});
+				}
 			} else if (focusedMode === 'overview') {
 				return this.openDescription();
 			} else if (focusedMode === 'multiDiff') {
-				if (pr.fileChanges.size < 400) {
-					return PullRequestModel.openChanges(this._folderRepoManager, pr);
-				} else {
-					return this._openFirstDiff();
-				}
+				return PullRequestModel.openChanges(this._folderRepoManager, pr);
 			}
 		}
 	}
@@ -1098,7 +1072,6 @@ export class ReviewManager extends Disposable {
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
 		this.switchingToReviewMode = true;
-		this._switchedToPullRequest = pr;
 
 		try {
 			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
@@ -1252,7 +1225,6 @@ export class ReviewManager extends Disposable {
 
 			this._prNumber = undefined;
 			this._folderRepoManager.activePullRequest = undefined;
-			this._switchedToPullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();

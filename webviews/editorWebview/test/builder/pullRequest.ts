@@ -3,16 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AccountBuilder } from './account';
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
 import { PullRequest } from '../../../../src/github/views';
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
 
+import { AccountBuilder } from './account';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
-	owner: { default: 'owner' },
-	repo: { default: 'name' },
 	number: { default: 1234 },
 	title: { default: 'the default title' },
 	titleHTML: { default: 'the default title' },
@@ -30,7 +28,6 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isLocalHeadDeleted: { default: false },
 	head: { default: 'my-fork:my-branch' },
 	labels: { default: [] },
-	isAuthor: { default: true },
 	commitsCount: { default: 10 },
 	repositoryDefaultBranch: { default: 'main' },
 	canEdit: { default: true },
@@ -62,6 +59,4 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	lastReviewType: { default: undefined },
 	closingIssues: { default: [] },
 	canAssignCopilot: { default: false },
-	isCopilotOnMyBehalf: { default: false },
-	reactions: { default: [] },
 });

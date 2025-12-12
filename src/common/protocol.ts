@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Logger from './logger';
 import { resolve } from '../env/node/ssh';
+import Logger from './logger';
 
 
 export enum ProtocolType {
@@ -32,7 +32,6 @@ export class Protocol {
 	public readonly url: vscode.Uri;
 	constructor(uriString: string) {
 		if (this.parseSshProtocol(uriString)) {
-			this.url = vscode.Uri.from({ scheme: 'ssh', authority: this.host, path: `/${this.nameWithOwner}` });
 			return;
 		}
 

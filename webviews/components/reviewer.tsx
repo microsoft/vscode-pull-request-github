@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement, useContext } from 'react';
-import { checkIcon, circleFilledIcon, commentIcon, requestChangesIcon, syncIcon } from './icon';
-import { AuthorLink, Avatar } from './user';
 import { ReviewEvent } from '../../src/common/timelineEvent';
-import { AccountType, isITeam, ReviewState } from '../../src/github/interface';
+import { AccountType, isTeam, ReviewState } from '../../src/github/interface';
 import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
+import { checkIcon, commentIcon, pendingIcon, requestChanges, syncIcon } from './icon';
+import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewEvent }) {
 	const { reviewer, state } = reviewInfo.reviewState;
@@ -24,7 +24,7 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 			</div>
 			<div className="reviewer-icons">
 				{
-					((state !== 'REQUESTED') && (isITeam(reviewer) ? true : (reviewer.accountType !== AccountType.Bot))) ?
+					((state !== 'REQUESTED') && (isTeam(reviewer) ? true : (reviewer.accountType !== AccountType.Bot))) ?
 						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewInfo.reviewState.reviewer.id)}>
 							{syncIcon}️
 						</button>) : null
@@ -37,8 +37,8 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 }
 
 const REVIEW_STATE: { [state: string]: React.ReactElement } = {
-	REQUESTED: cloneElement(circleFilledIcon, { className: 'section-icon requested', title: 'Awaiting requested review' }),
+	REQUESTED: cloneElement(pendingIcon, { className: 'section-icon requested', title: 'Awaiting requested review' }),
 	COMMENTED: cloneElement(commentIcon, { className: 'section-icon commented', Root: 'div', title: 'Left review comments' }),
 	APPROVED: cloneElement(checkIcon, { className: 'section-icon approved', title: 'Approved these changes' }),
-	CHANGES_REQUESTED: cloneElement(requestChangesIcon, { className: 'section-icon changes', title: 'Requested changes' }),
+	CHANGES_REQUESTED: cloneElement(requestChanges, { className: 'section-icon changes', title: 'Requested changes' }),
 };

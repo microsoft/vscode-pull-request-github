@@ -11,19 +11,17 @@ interface IRequestMessage<T> {
 
 interface IReplyMessage {
 	seq: string;
-	err: string;
-	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
+	err: any;
 	res: any;
 }
 
-// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 declare let acquireVsCodeApi: any;
 export const vscode = acquireVsCodeApi();
 
 export class MessageHandler {
 	private _commandHandler: ((message: any) => void) | null;
 	private lastSentReq: number;
-	private pendingReplies: Record<string, { resolve: (value: any) => void; reject: (reason?: string) => void }>;
+	private pendingReplies: any;
 	constructor(commandHandler: any) {
 		this._commandHandler = commandHandler;
 		this.lastSentReq = 0;

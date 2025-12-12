@@ -5,7 +5,6 @@
 
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
@@ -26,6 +25,7 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
+import { CurrentIssue } from './currentIssue';
 
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
@@ -99,16 +99,13 @@ export class StateManager {
 		private context: vscode.ExtensionContext,
 	) { }
 
-	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState | undefined {
+	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
 		let state = this._singleRepoStates.get(uri.path);
 		if (state) {
 			return state;
 		}
 		if (!folderManager) {
-			folderManager = this.manager.getManagerForFile(uri);
-		}
-		if (!folderManager) {
-			return undefined;
+			folderManager = this.manager.getManagerForFile(uri)!;
 		}
 		state = {
 			issueCollection: new Map(),
@@ -150,9 +147,6 @@ export class StateManager {
 	private registerRepositoryChangeEvent() {
 		async function updateRepository(that: StateManager, repository: Repository) {
 			const state = that.getOrCreateSingleRepoState(repository.rootUri);
-			if (!state) {
-				return;
-			}
 			// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
 			const oldHead = state.lastHead;
 			const oldBranch = state.lastBranch;
@@ -171,7 +165,7 @@ export class StateManager {
 						await that.setCurrentIssueFromBranch(state, newBranch, true);
 					}
 				} else {
-					await that.setCurrentIssue(state, undefined, !!newBranch);
+					await that.setCurrentIssue(state, undefined, true);
 				}
 			}
 			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
@@ -239,20 +233,16 @@ export class StateManager {
 			this.context.subscriptions.push(folderManager.onDidChangeRepositories(async (e) => {
 				if (e.added) {
 					const state = this.getOrCreateSingleRepoState(folderManager.repository.rootUri);
-
-					if (state && ((state.issueCollection.size === 0) || (await Promise.all(state.issueCollection.values())).some(collection => collection.issues === undefined))) {
+					if ((state.issueCollection.size === 0) || (await Promise.all(state.issueCollection.values())).some(collection => collection.issues === undefined)) {
 						this.refresh(folderManager);
 					}
 				}
 			}));
 
-			const singleRepoState: SingleRepoState | undefined = this.getOrCreateSingleRepoState(
+			const singleRepoState: SingleRepoState = this.getOrCreateSingleRepoState(
 				folderManager.repository.rootUri,
 				folderManager,
 			);
-			if (!singleRepoState) {
-				continue;
-			}
 			singleRepoState.lastHead = folderManager.repository.state.HEAD
 				? folderManager.repository.state.HEAD.commit
 				: undefined;
@@ -291,10 +281,10 @@ export class StateManager {
 	}
 
 	async getUserMap(uri: vscode.Uri): Promise<Map<string, IAccount>> {
-		const state = this.getOrCreateSingleRepoState(uri);
-		if (!this.initializePromise || !state) {
+		if (!this.initializePromise) {
 			return Promise.resolve(new Map());
 		}
+		const state = this.getOrCreateSingleRepoState(uri);
 		if (!state.userMap || (await state.userMap).size === 0) {
 			state.userMap = this.getUsers(uri);
 		}
@@ -311,9 +301,6 @@ export class StateManager {
 
 	private async setIssueData(folderManager: FolderRepositoryManager) {
 		const singleRepoState = this.getOrCreateSingleRepoState(folderManager.repository.rootUri, folderManager);
-		if (!singleRepoState) {
-			return;
-		}
 		singleRepoState.issueCollection.clear();
 		const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
 			remote => remote.isEnterprise
@@ -329,7 +316,7 @@ export class StateManager {
 			items = this.setIssues(
 				folderManager,
 				// Do not resolve pull request defaults as they will get resolved in the query later per repository
-				variableSubstitution(query.query, undefined, undefined, user),
+				await variableSubstitution(query.query, undefined, undefined, user),
 			).then(issues => ({ groupBy: query.groupBy ?? [], issues }));
 
 			if (items) {
@@ -343,7 +330,7 @@ export class StateManager {
 
 	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
-			const issues = await folderManager.getIssues(query, { fetchNextPage: false, fetchOnePagePerRepo: true });
+			const issues = await folderManager.getIssues(query);
 			this._onDidChangeIssueData.fire();
 			resolve(
 				issues?.items.map(item => {
@@ -431,12 +418,8 @@ export class StateManager {
 			if (repoState.currentIssue && issue?.issue.number === repoState.currentIssue.issue.number) {
 				return;
 			}
-			// Check if branch management is disabled
-			const createBranchConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
-			const shouldCheckoutDefaultBranch = createBranchConfig === 'off' ? false : checkoutDefaultBranch;
-
 			if (repoState.currentIssue) {
-				await repoState.currentIssue.stopWorking(shouldCheckoutDefaultBranch);
+				await repoState.currentIssue.stopWorking(checkoutDefaultBranch);
 			}
 			if (issue) {
 				this.context.subscriptions.push(issue.onDidChangeCurrentIssueState(() => this.updateStatusBar()));

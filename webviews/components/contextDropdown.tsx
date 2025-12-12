@@ -8,16 +8,13 @@ import { chevronDownIcon } from './icon';
 
 interface ContextDropdownProps {
 	optionsContext: () => string;
-	defaultOptionLabel: () => string | React.ReactNode;
+	defaultOptionLabel: () => string;
 	defaultOptionValue: () => string;
 	defaultAction: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
-	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void; optionDisabled?: boolean }[];
+	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[];
 	optionsTitle: string;
 	disabled?: boolean;
 	hasSingleAction?: boolean;
-	spreadable: boolean;
-	isSecondary?: boolean;
-	primaryOptionValue?: string;
 }
 
 function useWindowSize() {
@@ -33,7 +30,7 @@ function useWindowSize() {
 	return size;
 }
 
-export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction, spreadable, isSecondary, primaryOptionValue }: ContextDropdownProps) => {
+export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction }: ContextDropdownProps) => {
 	const [expanded, setExpanded] = useState(false);
 	const onHideAction = (e: MouseEvent | KeyboardEvent) => {
 		if (e.target instanceof HTMLElement && e.target.classList.contains('split-right')) {
@@ -55,23 +52,19 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 	const divRef = useRef<HTMLDivElement>();
 	useWindowSize();
 
-	return <div className={`dropdown-container${spreadable ? ' spreadable' : ''}`} ref={divRef}>
-		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action, optionDisabled }) => {
-			// Only the primary option should use the primary (blue) button style when expanded
-			const isPrimary = primaryOptionValue && value === primaryOptionValue;
-			return <button className={`inlined-dropdown${isPrimary ? '' : ' secondary'}`} key={value} title={label} disabled={optionDisabled || disabled} onClick={action} value={value}>{label}</button>;
+	return <div className='dropdown-container' ref={divRef}>
+		{divRef.current && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
+			return <button className='inlined-dropdown' key={value} title={label} disabled={disabled} onClick={action} value={value}>{label}</button>;
 		})
 			:
 			<div className='primary-split-button'>
-				<button className={`split-left${isSecondary ? ' secondary' : ''}`} disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
-					title={typeof defaultOptionLabel() === 'string' ? defaultOptionLabel() as string : optionsTitle}>
+				<button className='split-left' disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
+					title={defaultOptionLabel()}>
 					{defaultOptionLabel()}
 				</button>
+				<div className='split'></div>
 				{hasSingleAction ? null :
-					<div className={`split${isSecondary ? ' secondary' : ''}${disabled ? ' disabled' : ''}`}><div className={`separator${disabled ? ' disabled' : ''}`}></div></div>
-				}
-				{hasSingleAction ? null :
-					<button className={`split-right${isSecondary ? ' secondary' : ''}`} title={optionsTitle} disabled={disabled} aria-expanded={expanded} onClick={(e) => {
+					<button className='split-right' title={optionsTitle} disabled={disabled} aria-expanded={expanded} onClick={(e) => {
 						e.preventDefault();
 						const rect = (e.target as HTMLElement).getBoundingClientRect();
 						const x = rect.left;

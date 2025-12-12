@@ -7,12 +7,12 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from https://github.com/github/VisualStudio/blob/165a97bdcab7559e0c4393a571b9ff2aed4ba8a7/src/GitHub.App/Services/PullRequestService.cs
  */
 import * as vscode from 'vscode';
-import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 import { Branch, Repository } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
+import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 export const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -32,13 +32,6 @@ export interface BaseBranchMetadata {
 	repositoryName: string;
 	branch: string;
 }
-
-export type BranchInfo = {
-	branch: string;
-	remote?: string;
-	createdForPullRequest?: boolean;
-	remoteInUse?: boolean;
-};
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
@@ -94,67 +87,50 @@ export class PullRequestGitHelper {
 			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest, remote && remote.remoteName, progress);
 		}
 
-		const originalBranchName = pullRequest.head.ref;
+		const branchName = pullRequest.head.ref;
 		const remoteName = remote.remoteName;
 		let branch: Branch;
-		let localBranchName = originalBranchName; // This will be the branch we actually checkout
-
-		// Always fetch the remote branch first to ensure we have the latest commits
-		const trackedBranchName = `refs/remotes/${remoteName}/${originalBranchName}`;
-		Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
-		progress.report({ message: vscode.l10n.t('Fetching branch {0}', originalBranchName) });
-		await repository.fetch(remoteName, originalBranchName);
-		const trackedBranch = await repository.getBranch(trackedBranchName);
 
 		try {
-			branch = await repository.getBranch(localBranchName);
-			// Check if local branch is pointing to the same commit as the remote
-			if (branch.commit !== trackedBranch.commit) {
-				Logger.appendLine(`Local branch ${localBranchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Creating new branch to avoid overwriting user's work.`, PullRequestGitHelper.ID);
-				// Instead of deleting the user's branch, create a unique branch name to avoid conflicts
-				const uniqueBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
-				Logger.appendLine(`Creating branch ${uniqueBranchName} for PR checkout`, PullRequestGitHelper.ID);
-				progress.report({ message: vscode.l10n.t('Creating branch {0} for pull request', uniqueBranchName) });
-				await repository.createBranch(uniqueBranchName, false, trackedBranch.commit);
-				await repository.setBranchUpstream(uniqueBranchName, trackedBranchName);
-				// Use the unique branch name for checkout
-				localBranchName = uniqueBranchName;
-				branch = await repository.getBranch(localBranchName);
-			}
-
+			branch = await repository.getBranch(branchName);
 			// Make sure we aren't already on this branch
 			if (repository.state.HEAD?.name === branch.name) {
-				Logger.appendLine(`Tried to checkout ${localBranchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
+				Logger.appendLine(`Tried to checkout ${branchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
 				return;
 			}
-
-			Logger.debug(`Checkout ${localBranchName}`, PullRequestGitHelper.ID);
-			progress.report({ message: vscode.l10n.t('Checking out {0}', localBranchName) });
-			await repository.checkout(localBranchName);
+			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
+			progress.report({ message: vscode.l10n.t('Checking out {0}', branchName) });
+			await repository.checkout(branchName);
 
 			if (!branch.upstream) {
 				// this branch is not associated with upstream yet
-				await repository.setBranchUpstream(localBranchName, trackedBranchName);
+				const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
+				await repository.setBranchUpstream(branchName, trackedBranchName);
 			}
 
 			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
-				progress.report({ message: vscode.l10n.t('Pulling {0}', localBranchName) });
+				progress.report({ message: vscode.l10n.t('Pulling {0}', branchName) });
 				await repository.pull();
 			}
 		} catch (err) {
-			// there is no local branch with the same name, so we are good to create and checkout the remote branch.
+			// there is no local branch with the same name, so we are good to fetch, create and checkout the remote branch.
 			Logger.appendLine(
-				`Branch ${localBranchName} doesn't exist on local disk yet. Creating from remote.`,
+				`Branch ${remoteName}/${branchName} doesn't exist on local disk yet.`,
 				PullRequestGitHelper.ID,
 			);
+			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
+			Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
+			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
+			await repository.fetch(remoteName, branchName);
+			const trackedBranch = await repository.getBranch(trackedBranchName);
 			// create branch
-			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', localBranchName) });
-			await repository.createBranch(localBranchName, true, trackedBranch.commit);
-			await repository.setBranchUpstream(localBranchName, trackedBranchName);
+			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', branchName) });
+			await repository.createBranch(branchName, true, trackedBranch.commit);
+			await repository.setBranchUpstream(branchName, trackedBranchName);
 		}
 
-		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
+		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
 	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>) {
@@ -209,7 +185,12 @@ export class PullRequestGitHelper {
 	static async getBranchNRemoteForPullRequest(
 		repository: Repository,
 		pullRequest: PullRequestModel,
-	): Promise<BranchInfo | null> {
+	): Promise<{
+		branch: string;
+		remote?: string;
+		createdForPullRequest?: boolean;
+		remoteInUse?: boolean;
+	} | null> {
 		let branchName: string | null = null;
 		try {
 			const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
@@ -331,9 +312,8 @@ export class PullRequestGitHelper {
 	): Promise<PullRequestMetadata | undefined> {
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
-			const allConfigs = await repository.getConfigs();
-			const matchingConfigs = allConfigs.filter(config => config.key === configKey).sort((a, b) => b.value < a.value ? 1 : -1);
-			return PullRequestGitHelper.parsePullRequestMetadata(matchingConfigs[0].value);
+			const configValue = await repository.getConfig(configKey);
+			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 		} catch (_) {
 			return;
 		}
@@ -360,7 +340,10 @@ export class PullRequestGitHelper {
 
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
 		try {
-			Logger.debug(`Check if remote '${remoteName}' is created for pull request - start`, PullRequestGitHelper.ID);
+			Logger.debug(
+				`Check if remote '${remoteName}' is created for pull request - start`,
+				PullRequestGitHelper.ID,
+			);
 			const isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
 			Logger.debug(`Check if remote '${remoteName}' is created for pull request - end`, PullRequestGitHelper.ID);
 			return isForPR === 'true';

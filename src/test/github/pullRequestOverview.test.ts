@@ -24,8 +24,6 @@ import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
 import { CheckState } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
-import { RepositoriesManager } from '../../github/repositoriesManager';
-import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -37,7 +35,6 @@ describe('PullRequestOverview', function () {
 	let repo: MockGitHubRepository;
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
-	let mockThemeWatcher: MockThemeWatcher;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -47,10 +44,8 @@ describe('PullRequestOverview', function () {
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
 		credentialStore = new CredentialStore(telemetry, context);
-		mockThemeWatcher = new MockThemeWatcher();
 		const createPrHelper = new CreatePullRequestHelper();
-		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
-		pullRequestManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, createPrHelper, mockThemeWatcher);
+		pullRequestManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper);
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
@@ -119,7 +114,6 @@ describe('PullRequestOverview', function () {
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel0, 'validateDraftMode').resolves(true);
 			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel0);
 
@@ -133,7 +127,6 @@ describe('PullRequestOverview', function () {
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel1, 'validateDraftMode').resolves(true);
 			sinon.stub(prModel1, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel1);
 

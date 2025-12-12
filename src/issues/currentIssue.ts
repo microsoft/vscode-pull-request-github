@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IssueState, StateManager } from './stateManager';
 import { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
@@ -16,11 +15,11 @@ import {
 	USE_BRANCH_FOR_ISSUES,
 	WORKING_ISSUE_FORMAT_SCM,
 } from '../common/settingKeys';
-import { escapeRegExp } from '../common/utils';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { variableSubstitution } from '../github/utils';
+import { IssueState, StateManager } from './stateManager';
 
 export class CurrentIssue extends Disposable {
 	private _branchName: string | undefined;
@@ -151,7 +150,7 @@ export class CurrentIssue extends Disposable {
 
 	private async getUser(): Promise<string> {
 		if (!this.user) {
-			this.user = (await this.issueModel.githubRepository.getAuthenticatedUser()).login;
+			this.user = await this.issueModel.githubRepository.getAuthenticatedUser();
 		}
 		return this.user;
 	}
@@ -213,13 +212,13 @@ export class CurrentIssue extends Disposable {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		const branchNameConfig = variableSubstitution(
+		const branchNameConfig = await variableSubstitution(
 			await this.getBranchTitle(),
 			this.issue,
 			undefined,
 			await this.getUser(),
 		);
-		const branchNameMatch = this._branchName?.match(new RegExp('^(' + escapeRegExp(branchNameConfig) + ')(_)?(\\d*)'));
+		const branchNameMatch = this._branchName?.match(new RegExp('^(' + branchNameConfig + ')(_)?(\\d*)'));
 		if ((createBranchConfig === 'on')) {
 			const branch = await this.getBranch(this._branchName!);
 			if (!branch) {

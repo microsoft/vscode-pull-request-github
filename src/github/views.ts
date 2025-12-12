@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -15,12 +16,8 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
-	Reaction,
 	ReviewState,
-	StateReason,
 } from './interface';
-import { IComment } from '../common/comment';
-import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
 export enum ReviewType {
 	Comment = 'comment',
@@ -28,13 +25,7 @@ export enum ReviewType {
 	RequestChanges = 'requestChanges',
 }
 
-export interface DisplayLabel extends ILabel {
-	displayName: string;
-}
-
 export interface Issue {
-	owner: string;
-	repo: string;
 	number: number;
 	title: string;
 	titleHTML: string;
@@ -44,9 +35,8 @@ export interface Issue {
 	bodyHTML?: string;
 	author: IAccount;
 	state: GithubItemStateEnum; // TODO: don't allow merged
-	stateReason?: StateReason;
 	events: TimelineEvent[];
-	labels: DisplayLabel[];
+	labels: ILabel[];
 	assignees: IAccount[];
 	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
@@ -62,17 +52,15 @@ export interface Issue {
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	isIssue: boolean;
-	isAuthor: boolean;
+	isAuthor?: boolean;
 	continueOnGitHub: boolean;
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
-	reactions: Reaction[];
 	busy?: boolean;
 }
 
 export interface PullRequest extends Issue {
-	isCopilotOnMyBehalf: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
@@ -108,7 +96,6 @@ export interface PullRequest extends Issue {
 	lastReviewType?: ReviewType;
 	revertable?: boolean;
 	busy?: boolean;
-	loadingCommit?: string;
 	closingIssues: Pick<Issue, 'title' | 'number' | 'state'>[];
 }
 
@@ -119,19 +106,6 @@ export interface ProjectItemsReply {
 export interface ChangeAssigneesReply {
 	assignees: IAccount[];
 	events: TimelineEvent[];
-}
-
-export interface SubmitReviewReply {
-	events?: TimelineEvent[];
-	reviewedEvent: ReviewEvent | CommentEvent;
-	reviewers?: ReviewState[];
-}
-
-export interface ReadyForReviewReply {
-	isDraft: boolean;
-	reviewEvent?: ReviewEvent;
-	reviewers?: ReviewState[];
-	autoMerge?: boolean;
 }
 
 export interface MergeArguments {
@@ -147,31 +121,9 @@ export interface MergeResult {
 	events?: TimelineEvent[];
 }
 
-export interface DeleteReviewResult {
-	deletedReviewId: number;
-	deletedReviewComments: IComment[];
-}
-
 export enum PreReviewState {
 	None = 0,
 	Available,
 	ReviewedWithComments,
 	ReviewedWithoutComments
-}
-
-export interface CancelCodingAgentReply {
-	events: TimelineEvent[];
-}
-
-export interface OverviewContext {
-	'preventDefaultContextMenuItems': true;
-	owner: string;
-	repo: string;
-	number: number;
-	[key: string]: boolean | string | number;
-}
-
-export interface CodingAgentContext extends SessionLinkInfo {
-	'preventDefaultContextMenuItems': true;
-	[key: string]: boolean | string | number | undefined;
 }

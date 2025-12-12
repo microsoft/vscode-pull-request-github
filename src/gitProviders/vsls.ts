@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-
 import { LiveShare } from 'vsls/vscode.js';
-import { VSLSGuest } from './vslsguest';
-import { VSLSHost } from './vslshost';
 import { API } from '../api/api';
 import { Disposable, disposeAll } from '../common/lifecycle';
+import { VSLSGuest } from './vslsguest';
+import { VSLSHost } from './vslshost';
 
 /**
  * Should be removed once we fix the webpack bundling issue.

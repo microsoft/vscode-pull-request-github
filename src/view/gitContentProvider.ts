@@ -6,15 +6,15 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
-import { GitFileChangeModel } from './fileChangeModel';
-import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
-import { ReviewManager } from './reviewManager';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { fromReviewUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { getRepositoryForFile } from '../github/utils';
+import { GitFileChangeModel } from './fileChangeModel';
+import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
+import { ReviewManager } from './reviewManager';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
@@ -96,10 +96,8 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 					// Only show the error if we know it's not an outdated commit
 					if (!this.getOutdatedChangeModelForFile(uri)) {
 						vscode.window.showErrorMessage(
-							vscode.l10n.t('We couldn\'t find commit {0} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push.', commit),
+							`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`,
 						);
-					} else {
-						vscode.window.showInformationMessage(vscode.l10n.t('We couldn\'t find commit {0}. Sometimes commits can disappear after a force-push.', commit));
 					}
 				}
 			}

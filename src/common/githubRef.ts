@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Remote, Repository } from '../api/api';
 import { Protocol } from './protocol';
 import { parseRemote } from './remote';
-import { Remote, Repository } from '../api/api';
 
 export class GitHubRef {
 	public repositoryCloneUrl: Protocol;

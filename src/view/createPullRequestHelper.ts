@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CompareChanges } from './compareChangesTreeDataProvider';
-import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 import { Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
 import { addDisposable, Disposable, disposeAll } from '../common/lifecycle';
@@ -14,6 +12,8 @@ import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel, CreatePull
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RevertPullRequestViewProvider } from '../github/revertPRViewProvider';
+import { CompareChanges } from './compareChangesTreeDataProvider';
+import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 
 export class CreatePullRequestHelper extends Disposable {
 	private _currentDisposables: vscode.Disposable[] = [];

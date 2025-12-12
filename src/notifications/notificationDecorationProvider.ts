@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
 import { Disposable } from '../common/lifecycle';
 import { EXPERIMENTAL_NOTIFICATIONS_SCORE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { fromNotificationUri, toNotificationUri } from '../common/uri';
+import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
 
 export class NotificationsDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
 	private _readonlyOnDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri[]> = this._register(new vscode.EventEmitter<vscode.Uri[]>());

@@ -1,15 +1,8 @@
 We've added some experimental GitHub issue features.
 
-# Code actions and CodeLens
+# Code actions
 
-Wherever there is a `TODO` comment in your code, two actions are available:
-
-1. **CodeLens**: Clickable actions appear directly above the TODO comment line for quick access
-2. **Code actions**: The same actions are available via the lightbulb quick fix menu
-
-Both provide two options:
-- **Create Issue from Comment**: Takes your text selection and creates a GitHub issue with the selection as a permalink in the issue body. It also inserts the issue number after the `TODO`.
-- **Delegate to coding agent**: Starts a Copilot coding agent session to work on the TODO task (when available)
+Wherever there is a `TODO` comment in your code, the **Create Issue from Comment** code action will show. This takes your text selection, and creates a GitHub issue with the selection as a permalink in the issue body. It also inserts the issue number after the `TODO`.
 
 ![Create Issue from Comment](images/createIssueFromComment.gif)
 

@@ -5,11 +5,11 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { TreeDecorationProvider } from './treeDecorationProviders';
 import { GitChangeType } from '../common/file';
 import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { TreeDecorationProvider } from './treeDecorationProviders';
 
 export class FileTypeDecorationProvider extends TreeDecorationProvider {
 	constructor() {

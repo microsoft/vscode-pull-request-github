@@ -3,55 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { closeIcon, copilotIcon, settingsIcon } from './icon';
-import { Reviewer } from './reviewer';
+import React, { useContext } from 'react';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IAccount, IMilestone, IProjectItem, Issue, reviewerId, reviewerLabel, ReviewState, } from '../../src/github/interface';
+import { IMilestone, IProjectItem, Issue, reviewerId, } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
-
-function Section({
-	id,
-	title,
-	hasWritePermission,
-	onHeaderClick,
-	children,
-	iconButtonGroup,
-}: {
-	id: string,
-	title: string,
-	hasWritePermission: boolean,
-	onHeaderClick?: (e?: React.MouseEvent) => void | Promise<void>,
-	children: React.ReactNode,
-	iconButtonGroup?: React.ReactNode,
-}) {
-	return (
-		<div id={id} className="section">
-			<div
-				className={`section-header ${hasWritePermission ? 'clickable' : ''}`}
-				onClick={hasWritePermission ? onHeaderClick : undefined}
-			>
-				<div className="section-title">{title}</div>
-				{hasWritePermission ? (
-					iconButtonGroup ? iconButtonGroup : (
-						<button
-							className="icon-button"
-							title={`Add ${title}`}
-							onClick={onHeaderClick}
-						>
-							{settingsIcon}
-						</button>
-					)
-				) : null}
-			</div>
-			{children}
-		</div>
-	);
-}
+import { closeIcon, copilotIcon, settingsIcon } from './icon';
+import { Reviewer } from './reviewer';
 
 export default function Sidebar({ reviewers, labels, closingIssues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
 	const {
@@ -67,8 +28,6 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 		pr,
 	} = useContext(PullRequestContext);
 
-	const [assigningCopilot, setAssigningCopilot] = useState(false);
-
 	const shouldShowCopilotButton = canAssignCopilot && assignees.every(assignee => !COPILOT_LOGINS.includes(assignee.login));
 
 	const updateProjects = async () => {
@@ -78,16 +37,21 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 
 	return (
 		<div id="sidebar">
-			{!isIssue && (
-				<Section
-					id="reviewers"
-					title="Reviewers"
-					hasWritePermission={hasWritePermission}
-					onHeaderClick={async () => {
+			{!isIssue ? (
+				<div id="reviewers" className="section">
+					<div className="section-header" onClick={async () => {
 						const newReviewers = await addReviewers();
 						updatePR({ reviewers: newReviewers.reviewers });
-					}}
-				>
+					}}>
+						<div className="section-title">Reviewers</div>
+						{hasWritePermission ? (
+							<button
+								className="icon-button"
+								title="Add Reviewers">
+								{settingsIcon}
+							</button>
+						) : null}
+					</div>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (
 							<Reviewer key={reviewerId(state.reviewer)} {...{ reviewState: state }} />
@@ -95,64 +59,60 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 					) : (
 						<div className="section-placeholder">None yet</div>
 					)}
-				</Section>
+				</div>
+			) : (
+				''
 			)}
-
-			<Section
-				id="assignees"
-				title="Assignees"
-				hasWritePermission={hasWritePermission}
-				onHeaderClick={async (e) => {
-					const target = e?.target as HTMLElement;
-					if (target?.closest && target.closest('#assign-copilot-btn')) {
-						return;
-					}
-					const newAssignees = await addAssignees();
-					updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
-				}}
-				iconButtonGroup={hasWritePermission && (
-					<div className="icon-button-group">
-						{shouldShowCopilotButton ? (
-							<button
-								id="assign-copilot-btn"
-								className="icon-button"
-								title="Assign for Copilot to work on"
-								disabled={assigningCopilot}
-								onClick={async (e) => {
-									e.stopPropagation();
-									setAssigningCopilot(true);
-									try {
+			<div id="assignees" className="section">
+				<div
+					className="section-header"
+					onClick={async (e) => {
+						// Only prevent if the "Assign to Copilot" button is clicked (by id)
+						const target = e.target as HTMLElement;
+						if (target.closest('#assign-copilot-btn')) {
+							return;
+						}
+						const newAssignees = await addAssignees();
+						updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+					}}
+				>
+					<div className="section-title">Assignees</div>
+					{hasWritePermission ?
+						(<div className="icon-button-group">
+							{shouldShowCopilotButton ? (
+								<button
+									id="assign-copilot-btn"
+									className="icon-button"
+									title="Assign to Copilot"
+									onClick={async () => {
 										const newAssignees = await addAssigneeCopilot();
 										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
-									} finally {
-										setAssigningCopilot(false);
-									}
-								}}>
-								{copilotIcon}
+									}}>
+									{copilotIcon}
+								</button>
+							) : null}
+							<button
+								className="icon-button"
+								title="Add Assignees">
+								{settingsIcon}
 							</button>
-						) : null}
-						<button
-							className="icon-button"
-							title="Add Assignees"
-						>
-							{settingsIcon}
-						</button>
-					</div>
-				)}
-			>
+						</div>) : null}
+				</div>
 				{assignees && assignees.length ? (
-					assignees.map((x, i) => (
-						<div key={i} className="section-item reviewer">
-							<div className="avatar-with-author">
-								<Avatar for={x} />
-								<AuthorLink for={x} />
+					assignees.map((x, i) => {
+						return (
+							<div key={i} className="section-item reviewer">
+								<div className="avatar-with-author">
+									<Avatar for={x} />
+									<AuthorLink for={x} />
+								</div>
 							</div>
-						</div>
-					))
+						);
+					})
 				) : (
 					<div className="section-placeholder">
 						None yet
-						{pr!.hasWritePermission ? (
+						{pr.hasWritePermission ? (
 							<>
 								&mdash;
 								<a
@@ -168,21 +128,26 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 						) : null}
 					</div>
 				)}
-			</Section>
+			</div>
 
-			<Section
-				id="labels"
-				title="Labels"
-				hasWritePermission={hasWritePermission}
-				onHeaderClick={async () => {
+			<div id="labels" className="section">
+				<div className="section-header" onClick={async () => {
 					const newLabels = await addLabels();
 					updatePR({ labels: newLabels.added });
-				}}
-			>
+				}}>
+					<div className="section-title">Labels</div>
+					{hasWritePermission ? (
+						<button
+							className="icon-button"
+							title="Add Labels">
+							{settingsIcon}
+						</button>
+					) : null}
+				</div>
 				{labels.length ? (
 					<div className="labels-list">
 						{labels.map(label => (
-							<Label key={label.name} {...label} canDelete={hasWritePermission} isDarkTheme={pr!.isDarkTheme}>
+							<Label key={label.name} {...label} canDelete={hasWritePermission} isDarkTheme={pr.isDarkTheme}>
 								{hasWritePermission ? (
 									<button className="icon-button" onClick={() => removeLabel(label.name)}>
 										{closeIcon}️
@@ -194,42 +159,55 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 				) : (
 					<div className="section-placeholder">None yet</div>
 				)}
-			</Section>
-
-			{!pr!.isEnterprise && (
-				<Section
-					id="project"
-					title="Project"
-					hasWritePermission={hasWritePermission}
-					onHeaderClick={updateProjects}
-				>
+			</div>
+			{pr.isEnterprise ? null :
+				<div id="project" className="section">
+					<div className="section-header" onClick={updateProjects}>
+						<div className="section-title">Project</div>
+						{hasWritePermission ? (
+							<button
+								className="icon-button"
+								title="Add Project">
+								{settingsIcon}
+							</button>
+						) : null}
+					</div>
 					{!projects ?
 						<a onClick={updateProjects}>Sign in with more permissions to see projects</a>
 						: (projects.length > 0)
 							? projects.map(project => (
 								<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
 							)) :
-							<div className="section-placeholder">None yet</div>
+							<div className="section-placeholder">None Yet</div>
 					}
-				</Section>
-			)}
-
-			<Section
-				id="milestone"
-				title="Milestone"
-				hasWritePermission={hasWritePermission}
-				onHeaderClick={async () => {
+				</div>
+			}
+			<div id="milestone" className="section">
+				<div className="section-header" onClick={async () => {
 					const newMilestone = await addMilestone();
 					updatePR({ milestone: newMilestone.added });
-				}}
-			>
+				}}>
+					<div className="section-title">Milestone</div>
+					{hasWritePermission ? (
+						<button
+							className="icon-button"
+							title="Add Milestone">
+							{settingsIcon}
+						</button>
+					) : null}
+				</div>
 				{milestone ? (
 					<Milestone key={milestone.title} {...milestone} canDelete={hasWritePermission} />
 				) : (
-					<div className="section-placeholder">No milestone</div>
+					<>
+						<div className="section-placeholder">No milestone</div>
+					</>
 				)}
-			</Section>
-			<Section id="closingIssues" title="Linked Issues" hasWritePermission={false}>
+			</div>
+			<div id="closingIssues" className="section">
+				<div className="section-header">
+					<div className="section-title">Linked Issues</div>
+				</div>
 				{closingIssues.length > 0 ? (
 					<div className="p-2">
 						{closingIssues.map(issue => (
@@ -243,215 +221,8 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 				) : (
 					<div className="p-4 text-sm text-gray-500 text-center">None yet</div>
 				)}
-			</Section>
-		</div>
-	);
-}
-
-export function CollapsibleSidebar(props: PullRequest) {
-	const [expanded, setExpanded] = useState(false);
-	const contentRef = useRef<HTMLDivElement>(null);
-
-	return (
-		<div className="collapsible-sidebar">
-			<div
-				className={`collapsible-sidebar-header ${expanded ? 'expanded' : ''}`}
-				onClick={() => setExpanded(e => !e)}
-				tabIndex={0}
-				role="button"
-				aria-expanded={expanded}
-			>
-				<span className="collapsible-sidebar-title">{expanded ? null : <CollapsedLabel {...props} />}</span>
 			</div>
-			<div
-				className="collapsible-sidebar-content"
-				ref={contentRef}
-				style={{ display: expanded ? 'block' : 'none' }}
-			>
-				<Sidebar {...props} />
-			</div>
-			<a className='collapsible-label-see-more' onClick={() => setExpanded(e => !e)}>{expanded ? 'See less' : 'See more'}</a>
 		</div>
-	);
-}
-
-function CollapsedLabel(props: PullRequest) {
-	const { reviewers, assignees, labels, projectItems, milestone, isIssue } = props;
-	const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-
-	useEffect(() => {
-		const checkViewportWidth = () => {
-			setIsNarrowViewport(window.innerWidth <= 350);
-		};
-
-		checkViewportWidth();
-		window.addEventListener('resize', checkViewportWidth);
-		return () => window.removeEventListener('resize', checkViewportWidth);
-	}, []);
-
-	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
-		<span className="avatar-stack" style={{
-			width: `${Math.min(users.length, 10) * 10 + 10}px`
-		}}>
-			{users.slice(0, 10).map((u, i) => (
-				<span className='stacked-avatar' style={{
-					left: `${i * 10}px`,
-				}}>
-					<Avatar for={u} />
-				</span>
-			))}
-		</span>
-	);
-
-	interface PillContainerProps<T> {
-		items: T[];
-		getKey: (item: T) => string;
-		getColor: (item: T) => { backgroundColor: string; textColor: string; borderColor: string };
-		getText: (item: T) => string;
-	}
-
-	const PillContainer = <T,>({ items, getKey, getColor, getText }: PillContainerProps<T>) => {
-		const containerRef = useRef<HTMLSpanElement>(null);
-		const [visibleCount, setVisibleCount] = useState(items.length);
-
-		useEffect(() => {
-			if (!containerRef.current || items.length === 0) return;
-
-			const resizeObserver = new ResizeObserver(() => {
-				const container = containerRef.current;
-				if (!container) return;
-
-				const containerWidth = container.offsetWidth;
-				const overflowTextWidth = 60; // "+N more" text width estimate
-
-				// Start with all items and reduce until they fit
-				let testCount = items.length;
-				let characterCount = items.reduce((acc, item) => acc + getText(item).length, 0);
-				while (testCount > 0) {
-					const testWidth = ((characterCount * 6) + (14 * testCount)) + (testCount < items.length ? overflowTextWidth : 0);
-					if (testWidth <= containerWidth) {
-						break;
-					}
-					characterCount -= getText(items[testCount - 1]).length;
-					testCount--;
-				}
-
-				setVisibleCount(Math.max(1, testCount));
-			});
-
-			resizeObserver.observe(containerRef.current);
-			return () => resizeObserver.disconnect();
-		}, [items.length]);
-
-		const visibleItems = items.slice(0, visibleCount);
-		const hiddenCount = items.length - visibleCount;
-
-		return <span className="pill-container" ref={containerRef}>
-			{visibleItems.map((item) => {
-				const color = getColor(item);
-				return (
-					<span
-						key={getKey(item)}
-						className="pill-item label"
-						style={{
-							backgroundColor: color.backgroundColor,
-							color: color.textColor,
-							borderRadius: '20px',
-						}}
-						title={getText(item)}
-					>
-						{getText(item)}
-					</span>
-				);
-			})}
-			{hiddenCount > 0 && (
-				<span className="pill-overflow">+{hiddenCount} more</span>
-			)}
-		</span>;
-	};
-
-	// Collect non-empty sections in order, with custom rendering
-	const sections: { label: string; value: React.ReactNode; count: number }[] = [];
-
-	const reviewersWithAvatar = reviewers?.filter((r): r is ReviewState & { reviewer: { avatarUrl: string } } => !!r.reviewer.avatarUrl).map(r => ({ avatarUrl: r.reviewer.avatarUrl, name: reviewerLabel(r.reviewer) }));
-	if (!isIssue && reviewersWithAvatar && reviewersWithAvatar.length) {
-		sections.push({
-			label: 'Reviewers',
-			value: <AvatarStack users={reviewersWithAvatar} />,
-			count: reviewersWithAvatar.length
-		});
-	}
-
-	const assigneesWithAvatar = assignees?.filter((a): a is IAccount & { avatarUrl: string; login: string } => !!a.avatarUrl).map(a => ({ avatarUrl: a.avatarUrl, name: reviewerLabel(a) }));
-	if (assigneesWithAvatar && assigneesWithAvatar.length) {
-		sections.push({
-			label: 'Assignees',
-			value: <AvatarStack users={assigneesWithAvatar} />,
-			count: assigneesWithAvatar.length
-		});
-	}
-	if (labels && labels.length) {
-		sections.push({
-			label: 'Labels',
-			value: (
-				<PillContainer
-					items={labels}
-					getKey={l => l.name}
-					getColor={l => gitHubLabelColor(l.color, props?.isDarkTheme, false)}
-					getText={l => l.displayName}
-				/>
-			),
-			count: labels.length
-		});
-	}
-	if (projectItems && projectItems.length) {
-		sections.push({
-			label: 'Project',
-			value: (
-				<PillContainer
-					items={projectItems}
-					getKey={p => p.project.title}
-					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
-					getText={p => p.project.title}
-				/>
-			),
-			count: projectItems.length
-		});
-	}
-	if (milestone) {
-		sections.push({
-			label: 'Milestone',
-			value: (
-				<PillContainer
-					items={[milestone]}
-					getKey={m => m.title}
-					getColor={() => gitHubLabelColor('#ededed', props?.isDarkTheme, false)}
-					getText={m => m.title}
-				/>
-			),
-			count: 1
-		});
-	}
-
-	if (!sections.length) {
-		return <span className="collapsed-label">{isIssue ? 'Assignees, Labels, Project, and Milestone' : 'Reviewers, Assignees, Labels, Project, and Milestone'}</span>;
-	}
-
-	return (
-		<span className="collapsed-label">
-			{sections.map((s) => (
-				<span className='collapsed-section' key={s.label}>
-					<span className='collapsed-section-label'>{s.label}</span>
-					{isNarrowViewport ? (
-						<span className="collapsed-section-count">
-							{s.count}
-						</span>
-					) : (
-						s.value
-					)}
-				</span>
-			))}
-		</span>
 	);
 }
 
@@ -460,7 +231,7 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
 		'--vscode-badge-foreground',
 	);
-	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr!.isDarkTheme, false);
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
 	const { canDelete, title } = milestone;
 	return (
 		<div className="labels-list">
@@ -494,7 +265,7 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
 		'--vscode-badge-foreground',
 	);
-	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr!.isDarkTheme, false);
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
 	const { canDelete } = project;
 	return (
 		<div className="labels-list">
@@ -512,7 +283,7 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 						className="icon-button"
 						onClick={async () => {
 							await removeProject(project);
-							updatePR({ projectItems: pr!.projectItems?.filter(x => x.id !== project.id) });
+							updatePR({ projectItems: pr.projectItems?.filter(x => x.id !== project.id) });
 						}}
 					>
 						{closeIcon}️

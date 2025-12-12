@@ -103,7 +103,6 @@ fragment Comment on IssueComment {
 	viewerCanUpdate
 	viewerCanReact
 	viewerCanDelete
-	...Reactable
 }
 
 fragment Commit on PullRequestCommit {
@@ -122,29 +121,12 @@ fragment Commit on PullRequestCommit {
 		}
 		oid
 		message
-		committedDate
-		statusCheckRollup {
-			state
-		}
+		authoredDate
 	}
 	url
 }
 
 fragment AssignedEvent on AssignedEvent {
-	id
-	actor {
-		...Node
-		...Actor
-	}
-	user {
-		...Node
-		...Actor
-		...User
-	}
-	createdAt
-}
-
-fragment UnassignedEvent on UnassignedEvent {
 	id
 	actor {
 		...Node
@@ -170,44 +152,14 @@ fragment CrossReferencedEvent on CrossReferencedEvent {
 			number
 			url
 			title
-			repository: baseRepository {
-				owner {
-					login
-				}
-				name
-			}
 		}
 		... on Issue {
 			number
 			url
 			title
-			repository {
-				owner {
-					login
-				}
-				name
-			}
 		}
 	}
 	willCloseTarget
-}
-
-fragment ClosedEvent on ClosedEvent {
-	id
-	actor {
-		...Node
-		...Actor
-	}
-	createdAt
-}
-
-fragment ReopenedEvent on ReopenedEvent {
-	id
-	actor {
-		...Node
-		...Actor
-	}
-	createdAt
 }
 
 fragment Review on PullRequestReview {
@@ -227,7 +179,6 @@ fragment Review on PullRequestReview {
 	submittedAt
 	updatedAt
 	createdAt
-	...Reactable
 }
 
 fragment Reactable on Reactable {
@@ -237,9 +188,6 @@ fragment Reactable on Reactable {
 		reactors(first: 10) {
 			nodes {
 				... on User {
-					login
-				}
-				... on Actor {
 					login
 				}
 			}
@@ -307,11 +255,8 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...Review
 					...Commit
 					...AssignedEvent
-					...UnassignedEvent
 					...HeadRefDeleted
 					...CrossReferencedEvent
-					...ClosedEvent
-					...ReopenedEvent
 				}
 			}
 		}
@@ -329,10 +274,7 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					__typename
 					...Comment
 					...AssignedEvent
-					...UnassignedEvent
 					...CrossReferencedEvent
-					...ClosedEvent
-					...ReopenedEvent
 				}
 			}
 		}
@@ -801,13 +743,6 @@ mutation UpdateIssue($input: UpdateIssueInput!) {
 			bodyHTML
 			title
 			titleHTML
-			milestone {
-				title
-				dueOn
-				createdAt
-				id
-				number
-			}
 		}
 	}
 }
@@ -819,13 +754,6 @@ mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
 			bodyHTML
 			title
 			titleHTML
-			milestone {
-				title
-				dueOn
-				createdAt
-				id
-				number
-			}
 		}
 	}
 }
@@ -903,23 +831,6 @@ query MaxIssue($owner: String!, $name: String!) {
 			edges {
 				node {
 					... on Issue {
-						number
-					}
-				}
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query MaxPullRequest($owner: String!, $name: String!) {
-	repository(owner: $owner, name: $name) {
-		issues: pullRequests(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
-			edges {
-				node {
-					... on PullRequest {
 						number
 					}
 				}
@@ -1225,11 +1136,7 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 					...Review
 					...Commit
 					...AssignedEvent
-					...UnassignedEvent
 					...HeadRefDeleted
-					...CrossReferencedEvent
-					...ClosedEvent
-					...ReopenedEvent
 				}
 			}
 		}

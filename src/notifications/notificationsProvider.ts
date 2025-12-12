@@ -4,10 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { NotificationTreeItem } from './notificationItem';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
 import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { OctokitCommon } from '../github/common';
 import { CredentialStore, GitHub } from '../github/credentials';
@@ -17,12 +15,11 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
+import { NotificationTreeItem } from './notificationItem';
 
 export interface INotifications {
 	readonly notifications: Notification[];
 	readonly hasNextPage: boolean;
-	readonly pollInterval: number;
-	readonly lastModified: string;
 }
 
 export interface INotificationPriority {
@@ -32,25 +29,27 @@ export interface INotificationPriority {
 }
 
 export class NotificationsProvider extends Disposable {
-	private static readonly ID = 'NotificationsProvider';
 	private _authProvider: AuthProvider | undefined;
+
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager
 	) {
 		super();
-		const setAuthProvider = () => {
-			if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-				this._authProvider = AuthProvider.githubEnterprise;
-			} else if (_credentialStore.isAuthenticated(AuthProvider.github)) {
-				this._authProvider = AuthProvider.github;
-			}
-		};
-		setAuthProvider();
+		if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			this._authProvider = AuthProvider.githubEnterprise;
+		} else if (_credentialStore.isAuthenticated(AuthProvider.github)) {
+			this._authProvider = AuthProvider.github;
+		}
 		this._register(
 			_credentialStore.onDidChangeSessions(_ => {
-				setAuthProvider();
+				if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+					this._authProvider = AuthProvider.githubEnterprise;
+				}
+				if (_credentialStore.isAuthenticated(AuthProvider.github)) {
+					this._authProvider = AuthProvider.github;
+				}
 			})
 		);
 	}
@@ -102,9 +101,7 @@ export class NotificationsProvider extends Disposable {
 			.map((notification: OctokitCommon.Notification) => parseNotification(notification))
 			.filter(notification => !!notification) as Notification[];
 
-		const pollInterval = Number(headers['x-poll-interval']);
-		Logger.debug(`Notifications: Fetched ${notifications.length} notifications. Poll interval: ${pollInterval}`, NotificationsProvider.ID);
-		return { notifications, hasNextPage: headers.link?.includes(`rel="next"`) === true, pollInterval, lastModified: headers['last-modified'] ?? '' };
+		return { notifications, hasNextPage: headers.link?.includes(`rel="next"`) === true };
 	}
 
 	async getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
@@ -117,22 +114,9 @@ export class NotificationsProvider extends Disposable {
 			return undefined;
 		}
 		const folderManager = this._repositoriesManager.getManagerForRepository(notification.owner, notification.name) ?? this._repositoriesManager.folderManagers[0];
-		let model: IssueModel<Issue> | undefined;
-		const isIssue = notification.subject.type === NotificationSubjectType.Issue;
-
-		model = isIssue
-			? await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true, true)
-			: await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber), true);
-
-		if (model) {
-			const modelCheckedForUpdates = model.lastCheckedForUpdatesAt;
-			const notificationUpdated = notification.updatedAt;
-			if (notificationUpdated.getTime() > (modelCheckedForUpdates?.getTime() ?? 0)) {
-				model = isIssue
-					? await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true, false)
-					: await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber), false);
-			}
-		}
+		const model = notification.subject.type === NotificationSubjectType.Issue ?
+			await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true) :
+			await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber));
 		return model;
 	}
 

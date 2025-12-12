@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-
 import { LiveShare, SharedService } from 'vsls/vscode.js';
 import { API } from '../api/api';
 import { Disposable } from '../common/lifecycle';

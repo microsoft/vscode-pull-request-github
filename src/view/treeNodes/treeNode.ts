@@ -10,19 +10,18 @@ import Logger from '../../common/logger';
 export interface BaseTreeNode {
 	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
 	refresh(treeNode?: TreeNode): void;
-	children: readonly TreeNode[] | undefined;
+	children: TreeNode[] | undefined;
 	view: vscode.TreeView<TreeNode>;
 }
 
 export type TreeNodeParent = TreeNode | BaseTreeNode;
 
 export abstract class TreeNode extends Disposable {
-	protected _children: TreeNode[] | undefined;
+	protected children: TreeNode[] | undefined;
 	childrenDisposables: vscode.Disposable[] = [];
 	label?: string;
 	accessibilityInformation?: vscode.AccessibilityInformation;
 	id?: string;
-	description?: string | boolean;
 
 	constructor(public parent: TreeNodeParent) {
 		super();
@@ -33,13 +32,6 @@ export abstract class TreeNode extends Disposable {
 		if (this.parent instanceof TreeNode) {
 			return this.parent;
 		}
-	}
-
-	get children(): readonly TreeNode[] | undefined {
-		if (this._children && this._children.length) {
-			return this._children;
-		}
-		return undefined;
 	}
 
 	async reveal(
@@ -58,15 +50,15 @@ export abstract class TreeNode extends Disposable {
 	}
 
 	async cachedChildren(): Promise<TreeNode[]> {
-		if (this._children && this._children.length) {
-			return this._children;
+		if (this.children && this.children.length) {
+			return this.children;
 		}
 		return this.getChildren();
 	}
 
 	async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
-		if (this._children && this._children.length && shouldDispose) {
-			disposeAll(this._children);
+		if (this.children && this.children.length && shouldDispose) {
+			disposeAll(this.children);
 		}
 		return [];
 	}

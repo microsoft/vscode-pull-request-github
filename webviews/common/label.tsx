@@ -6,14 +6,14 @@
 
 import React, { ReactNode } from 'react';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { DisplayLabel } from '../../src/github/views';
+import { ILabel } from '../../src/github/interface';
 
 export interface LabelProps {
-	label: DisplayLabel & { canDelete: boolean; isDarkTheme: boolean };
+	label: ILabel & { canDelete: boolean; isDarkTheme: boolean };
 }
 
-export function Label(label: DisplayLabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
-	const { displayName, canDelete, color } = label;
+export function Label(label: ILabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
+	const { name, canDelete, color } = label;
 	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false);
 	return (
 		<div
@@ -25,13 +25,13 @@ export function Label(label: DisplayLabel & { canDelete: boolean; isDarkTheme: b
 				paddingRight: canDelete ? '2px' : '8px'
 			}}
 		>
-			{displayName}{label.children}
+			{name}{label.children}
 		</div>
 	);
 }
 
-export function LabelCreate(label: DisplayLabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
-	const { displayName, color } = label;
+export function LabelCreate(label: ILabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
+	const { name, color } = label;
 	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false);
 	return (
 		<li
@@ -40,6 +40,6 @@ export function LabelCreate(label: DisplayLabel & { canDelete: boolean; isDarkTh
 			color: labelColor.textColor,
 			borderColor: `${labelColor.borderColor}`
 		}}>
-			{displayName}{label.children}</li>
+			{name}{label.children}</li>
 	);
 }

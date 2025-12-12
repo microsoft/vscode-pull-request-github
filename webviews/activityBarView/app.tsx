@@ -5,9 +5,9 @@
 
 import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
-import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
+import { Overview } from './overview';
 
 export function main() {
 	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
