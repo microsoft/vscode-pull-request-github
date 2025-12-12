@@ -1463,10 +1463,13 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getIssueTemplates(): Promise<vscode.Uri[]> {
-		const pattern = '{docs,.github}/ISSUE_TEMPLATE/*.md';
-		return vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern), null
-		);
+		const mdPattern = '{docs,.github}/ISSUE_TEMPLATE/*.md';
+		const ymlPattern = '{docs,.github}/ISSUE_TEMPLATE/*.yml';
+		const [mdTemplates, ymlTemplates] = await Promise.all([
+			vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri, mdPattern), null),
+			vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri, ymlPattern), null)
+		]);
+		return [...mdTemplates, ...ymlTemplates];
 	}
 
 	async getPullRequestTemplateBody(owner: string): Promise<string | undefined> {
