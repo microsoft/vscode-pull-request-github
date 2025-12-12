@@ -243,7 +243,7 @@
 					"default": [
 						{
 							"label": "%githubPullRequests.queries.copilotOnMyBehalf%",
-							"query": "repo:${owner}/${repository} is:open author:copilot involves:${user}"
+							"query": "repo:${owner}/${repository} is:open author:copilot assignee:${user}"
 						},
 						{
 							"label": "Local Pull Request Branches",
@@ -320,6 +320,11 @@
 					"type": "boolean",
 					"default": true,
 					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
+				},
+				"githubPullRequests.deleteBranchAfterMerge": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
 				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
@@ -710,6 +715,21 @@
 					],
 					"default": "on",
 					"markdownDescription": "%githubIssues.useBranchForIssues.markdownDescription%"
+				},
+				"githubIssues.workingBaseBranch": {
+					"type": "string",
+					"enum": [
+						"currentBranch",
+						"defaultBranch",
+						"prompt"
+					],
+					"enumDescriptions": [
+						"%githubIssues.workingBaseBranch.currentBranch%",
+						"%githubIssues.workingBaseBranch.defaultBranch%",
+						"%githubIssues.workingBaseBranch.prompt%"
+					],
+					"default": "currentBranch",
+					"markdownDescription": "%githubIssues.workingBaseBranch.markdownDescription%"
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
