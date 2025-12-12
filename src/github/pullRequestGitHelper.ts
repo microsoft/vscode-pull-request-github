@@ -74,6 +74,8 @@ export class PullRequestGitHelper {
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, trackedBranchName);
+		// set push destination to allow `git push` without arguments even when branch names differ
+		await repository.setConfig(`branch.${localBranchName}.push`, `refs/heads/${pullRequest.head.ref}`);
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 

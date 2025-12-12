@@ -188,6 +188,7 @@ describe('PullRequestGitHelper', function () {
 				},
 			});
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
+			assert.strictEqual(await repository.getConfig('branch.pr/me/100.push'), 'refs/heads/my-branch');
 		});
 	});
 });
