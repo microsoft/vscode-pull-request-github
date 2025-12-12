@@ -30,6 +30,7 @@ const useMediaQuery = (query: string) => {
 };
 
 const STICKY_THRESHOLD = 80;
+const STICKY_THRESHOLD_BUFFER = 10;
 
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
@@ -41,8 +42,15 @@ export const Overview = (pr: PullRequest) => {
 		const handleScroll = () => {
 			if (!ticking) {
 				window.requestAnimationFrame(() => {
-					const scrolled = window.scrollY > STICKY_THRESHOLD;
-					setIsSticky(scrolled);
+					const scrollY = window.scrollY;
+					// Use hysteresis to prevent flickering at the threshold
+					// When not sticky, activate when scrollY > threshold
+					// When sticky, deactivate when scrollY < (threshold - buffer)
+					if (!isSticky && scrollY > STICKY_THRESHOLD) {
+						setIsSticky(true);
+					} else if (isSticky && scrollY < STICKY_THRESHOLD - STICKY_THRESHOLD_BUFFER) {
+						setIsSticky(false);
+					}
 					ticking = false;
 				});
 				ticking = true;
@@ -51,7 +59,7 @@ export const Overview = (pr: PullRequest) => {
 
 		window.addEventListener('scroll', handleScroll, { passive: true });
 		return () => window.removeEventListener('scroll', handleScroll);
-	}, []);
+	}, [isSticky]);
 
 	return <>
 		<div id="title" className={`title ${isSticky ? 'sticky' : ''}`}>
