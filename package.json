@@ -2974,7 +2974,7 @@
 				},
 				{
 					"command": "pr.revealFileInOS",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange.*:local/ && viewItem !~ /filechange:DELETE/",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/",
 					"group": "0_open@1"
 				},
 				{
