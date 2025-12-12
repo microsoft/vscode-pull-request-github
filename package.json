@@ -2039,6 +2039,13 @@
 				"mac": "cmd+k m",
 				"command": "pr.makeSuggestion",
 				"when": "commentEditorFocused"
+			},
+			{
+				"key": "ctrl+shift+v",
+				"mac": "cmd+shift+v",
+				"command": "pr.markFileAsViewed",
+				"args": { "dontCloseFile": true },
+				"when": "resourcePath in github:unviewedFiles"
 			}
 		],
 		"menus": {

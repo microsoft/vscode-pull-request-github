@@ -1448,7 +1448,7 @@ ${contents}
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined, options?: { dontCloseFile?: boolean }) => {
 			try {
 				if (treeNode === undefined) {
 					// Use the active editor to enable keybindings
@@ -1458,18 +1458,20 @@ ${contents}
 				if (treeNode instanceof FileChangeNode) {
 					await treeNode.markFileAsViewed(false);
 				} else if (treeNode) {
-					// When the argument is a uri it came from the editor menu and we should also close the file
-					// Do the close first to improve perceived performance of marking as viewed.
-					const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-					if (tab) {
-						let compareUri: vscode.Uri | undefined = undefined;
-						if (tab.input instanceof vscode.TabInputTextDiff) {
-							compareUri = tab.input.modified;
-						} else if (tab.input instanceof vscode.TabInputText) {
-							compareUri = tab.input.uri;
-						}
-						if (compareUri && treeNode.toString() === compareUri.toString()) {
-							vscode.window.tabGroups.close(tab);
+					// Only close the file when dontCloseFile is not true
+					if (!options?.dontCloseFile) {
+						// Do the close first to improve perceived performance of marking as viewed.
+						const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+						if (tab) {
+							let compareUri: vscode.Uri | undefined = undefined;
+							if (tab.input instanceof vscode.TabInputTextDiff) {
+								compareUri = tab.input.modified;
+							} else if (tab.input instanceof vscode.TabInputText) {
+								compareUri = tab.input.uri;
+							}
+							if (compareUri && treeNode.toString() === compareUri.toString()) {
+								vscode.window.tabGroups.close(tab);
+							}
 						}
 					}
 
