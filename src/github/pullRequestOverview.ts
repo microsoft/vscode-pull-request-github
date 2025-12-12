@@ -25,7 +25,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -830,7 +830,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (selectedBranch) {
 				try {
 					await this._item.updateBaseBranch(selectedBranch);
-					await this._replyMessage(message, { base: selectedBranch });
+					const reply: ChangeBaseReply = {
+						base: selectedBranch
+					};
+					await this._replyMessage(message, reply);
 				} catch (e) {
 					Logger.error(formatError(e), PullRequestOverviewPanel.ID);
 					vscode.window.showErrorMessage(vscode.l10n.t('Changing base branch failed. {0}', formatError(e)));

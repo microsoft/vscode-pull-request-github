@@ -174,3 +174,7 @@ export interface CodingAgentContext extends SessionLinkInfo {
 	'preventDefaultContextMenuItems': true;
 	[key: string]: boolean | string | number | undefined;
 }
+
+export interface ChangeBaseReply {
+	base: string;
+}

@@ -10,7 +10,7 @@ import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
 
 export class PRContext {
 	constructor(
@@ -93,7 +93,7 @@ export class PRContext {
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public changeBaseBranch = async () => {
-		const result = await this.postMessage({ command: 'pr.change-base-branch' });
+		const result: ChangeBaseReply = await this.postMessage({ command: 'pr.change-base-branch' });
 		if (result?.base) {
 			this.updatePR({ base: result.base });
 		}
