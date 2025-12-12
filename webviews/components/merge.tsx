@@ -574,9 +574,10 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 const CHECK_STATE_ORDER: Record<CheckState, number> = {
 	[CheckState.Failure]: 0,
 	[CheckState.Pending]: 1,
-	[CheckState.Neutral]: 2,
-	[CheckState.Success]: 3,
-	[CheckState.Unknown]: 4,
+	[CheckState.Unknown]: 2,
+	[CheckState.Neutral]: 3,
+	[CheckState.Success]: 4,
+
 };
 
 const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
@@ -598,14 +599,14 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 						</span>
 					</div>
 					<div>
-					{s.isRequired ? (
-						<span className="label">Required</span>
-					) : null }
-					{!!s.targetUrl ? (
-						<a href={s.targetUrl} title={s.targetUrl}>
-							Details
-						</a>
-					) : null}
+						{s.isRequired ? (
+							<span className="label">Required</span>
+						) : null}
+						{!!s.targetUrl ? (
+							<a href={s.targetUrl} title={s.targetUrl}>
+								Details
+							</a>
+						) : null}
 					</div>
 				</div>
 			))}
