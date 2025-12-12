@@ -158,6 +158,21 @@
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
+				"githubPullRequests.createFromTemplate": {
+					"type": "string",
+					"enum": [
+						"none",
+						"first",
+						"prompt"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.createFromTemplate.none%",
+						"%githubPullRequests.createFromTemplate.first%",
+						"%githubPullRequests.createFromTemplate.prompt%"
+					],
+					"default": "first",
+					"description": "%githubPullRequests.createFromTemplate.description%"
+				},
 				"githubPullRequests.defaultCreateOption": {
 					"type": "string",
 					"enum": [
