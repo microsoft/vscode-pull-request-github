@@ -23,7 +23,7 @@ import { ChatSessionWithPR, CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
-import { Issue, PRType } from './github/interface';
+import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
@@ -1616,23 +1616,26 @@ ${contents}
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
 
-			// Fetch all open PRs
+			// Fetch all open PRs (lightweight query)
 			try {
-				const prs = await githubRepo.manager.getPullRequests(PRType.All, { fetchNextPage: false });
+				const prs = await githubRepo.repo.getPullRequestNumbers();
+				if (!prs) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
+				}
 				// Sort PRs by number in descending order (most recent first)
-				const sortedPRs = prs.items.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { pr: PullRequestModel })[] = sortedPRs.map(pr => ({
+				const sortedPRs = prs.sort((a, b) => b.number - a.number);
+				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
 					label: `#${pr.number}`,
 					description: pr.title,
 					detail: `by @${pr.author.login}`,
-					pr
+					prNumber: pr.number
 				}));
 
 				quickPick.items = prItems;
 				quickPick.busy = false;
 
 				// Handle selection
-				const selected = await new Promise<(vscode.QuickPickItem & { pr?: PullRequestModel }) | string | undefined>((resolve) => {
+				const selected = await new Promise<(vscode.QuickPickItem & { prNumber?: number }) | string | undefined>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
 						if (quickPick.selectedItems.length > 0) {
 							resolve(quickPick.selectedItems[0]);
@@ -1661,9 +1664,9 @@ ${contents}
 						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 					}
 					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-				} else if (selected.pr) {
+				} else if (selected.prNumber) {
 					// User selected from the list
-					prModel = selected.pr;
+					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.prNumber);
 				}
 
 				if (prModel) {

@@ -844,6 +844,20 @@ export interface PullRequestsResponse {
 	} | null;
 }
 
+export interface PullRequestNumbersResponse {
+	repository: {
+		pullRequests: {
+			nodes: {
+				number: number;
+				title: string;
+				author: {
+					login: string;
+				};
+			}[]
+		}
+	} | null;
+}
+
 export interface MaxIssueResponse {
 	repository: {
 		issues: {

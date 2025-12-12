@@ -27,6 +27,7 @@ import {
 	OrganizationTeamsCountResponse,
 	OrganizationTeamsResponse,
 	OrgProjectsResponse,
+	PullRequestNumbersResponse,
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
@@ -660,6 +661,40 @@ export class GitHubRepository extends Disposable {
 				// not found
 				vscode.window.showWarningMessage(
 					`Fetching all pull requests for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
+				);
+			} else {
+				throw e;
+			}
+		}
+		return undefined;
+	}
+
+	async getPullRequestNumbers(): Promise<{ number: number; title: string; author: { login: string } }[] | undefined> {
+		let remote: GitHubRemote | undefined;
+		try {
+			Logger.debug(`Fetch pull request numbers - enter`, this.id);
+			const ensured = await this.ensure();
+			remote = ensured.remote;
+			const { query, schema } = ensured;
+			const { data } = await query<PullRequestNumbersResponse>({
+				query: schema.PullRequestNumbers,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					first: 100,
+				},
+			});
+			Logger.debug(`Fetch pull request numbers - done`, this.id);
+
+			if (data?.repository?.pullRequests) {
+				return data.repository.pullRequests.nodes;
+			}
+		} catch (e) {
+			Logger.error(`Fetching pull request numbers failed: ${e}`, this.id);
+			if (e.status === 404) {
+				// not found
+				vscode.window.showWarningMessage(
+					`Fetching pull request numbers for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
 				);
 			} else {
 				throw e;

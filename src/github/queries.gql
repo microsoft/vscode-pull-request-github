@@ -764,3 +764,24 @@ mutation ReplaceActorsForAssignable($input: ReplaceActorsForAssignableInput!) {
 		}
 	}
 }
+
+fragment PullRequestNumberFragment on PullRequest {
+	number
+	title
+	author {
+		login
+	}
+}
+
+query PullRequestNumbers($owner: String!, $name: String!, $first: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequests(first: $first, states: OPEN, orderBy: { field: CREATED_AT, direction: DESC }) {
+			nodes {
+				...PullRequestNumberFragment
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
