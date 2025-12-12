@@ -10,7 +10,7 @@ import { parseSessionLogs, parseToolCallDetails, StrReplaceEditorToolData } from
 import { COPILOT_SWE_AGENT } from '../../common/copilot';
 import Logger from '../../common/logger';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
-import { convertIssuePRReferencesToLinks, toOpenPullRequestWebviewUri } from '../../common/uri';
+import { toOpenPullRequestWebviewUri } from '../../common/uri';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../../view/fileChangeModel';
 import { AssistantDelta, Choice, ToolCall } from '../common';
 import { CopilotApi, SessionInfo } from '../copilotApi';
@@ -288,12 +288,7 @@ export class ChatSessionContentBuilder {
 			}
 
 			if (currentResponseContent.trim()) {
-				const convertedContent = convertIssuePRReferencesToLinks(
-					currentResponseContent.trim(),
-					pullRequest.remote.owner,
-					pullRequest.remote.repositoryName
-				);
-				responseParts.push(new vscode.ChatResponseMarkdownPart(convertedContent));
+				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 			}
 
 			if (session.state === 'completed' || session.state === 'failed' /** session can fail with proposed changes */) {
@@ -341,12 +336,7 @@ export class ChatSessionContentBuilder {
 				if (delta.content && delta.content.trim()) {
 					// Add any accumulated content as markdown first
 					if (currentResponseContent.trim()) {
-						const convertedContent = convertIssuePRReferencesToLinks(
-							currentResponseContent.trim(),
-							pullRequest.remote.owner,
-							pullRequest.remote.repositoryName
-						);
-						responseParts.push(new vscode.ChatResponseMarkdownPart(convertedContent));
+						responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 						currentResponseContent = '';
 					}
 
@@ -367,12 +357,7 @@ export class ChatSessionContentBuilder {
 				if (delta.tool_calls) {
 					// Add any accumulated content as markdown first
 					if (currentResponseContent.trim()) {
-						const convertedContent = convertIssuePRReferencesToLinks(
-							currentResponseContent.trim(),
-							pullRequest.remote.owner,
-							pullRequest.remote.repositoryName
-						);
-						responseParts.push(new vscode.ChatResponseMarkdownPart(convertedContent));
+						responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 						currentResponseContent = '';
 					}
 

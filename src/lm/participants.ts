@@ -9,6 +9,8 @@ import * as vscode from 'vscode';
 import { ParticipantsPrompt } from './participantsPrompt';
 import { Disposable } from '../common/lifecycle';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
+import { convertIssuePRReferencesToLinks } from '../common/uri';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class ChatParticipantState {
 	private _messages: vscode.LanguageModelChatMessage[] = [];
@@ -58,7 +60,7 @@ export class ChatParticipantState {
 
 export class ChatParticipant extends Disposable {
 
-	constructor(context: vscode.ExtensionContext, private readonly state: ChatParticipantState) {
+	constructor(context: vscode.ExtensionContext, private readonly state: ChatParticipantState, private readonly repositoriesManager: RepositoriesManager) {
 		super();
 		const ghprChatParticipant = this._register(vscode.chat.createChatParticipant('githubpr', (
 			request: vscode.ChatRequest,
@@ -124,7 +126,12 @@ export class ChatParticipant extends Disposable {
 			for await (const part of response.stream) {
 
 				if (part instanceof vscode.LanguageModelTextPart) {
-					stream.markdown(part.value);
+					const repoInfo = this.getActiveRepositoryInfo();
+					let markdown = part.value;
+					if (repoInfo) {
+						markdown = convertIssuePRReferencesToLinks(markdown, repoInfo.owner, repoInfo.repo);
+					}
+					stream.markdown(markdown);
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
 
 					const tool = vscode.lm.tools.find(tool => tool.name === part.name);
@@ -169,7 +176,12 @@ export class ChatParticipant extends Disposable {
 						}
 
 						if (part.value === TOOL_MARKDOWN_RESULT) {
-							const markdown = new vscode.MarkdownString((toolCallResult.content[++i] as vscode.LanguageModelTextPart).value);
+							const repoInfo = this.getActiveRepositoryInfo();
+							let markdownText = (toolCallResult.content[++i] as vscode.LanguageModelTextPart).value;
+							if (repoInfo) {
+								markdownText = convertIssuePRReferencesToLinks(markdownText, repoInfo.owner, repoInfo.repo);
+							}
+							const markdown = new vscode.MarkdownString(markdownText);
 							markdown.supportHtml = true;
 							stream.markdown(markdown);
 							shownToUser = true;
@@ -205,6 +217,31 @@ export class ChatParticipant extends Disposable {
 		for (const command of commands) {
 			stream.button(command);
 		}
+	}
+
+	private getActiveRepositoryInfo(): { owner: string; repo: string } | undefined {
+		// Try to get repository info from the active pull request first
+		const folderManager = this.repositoriesManager.folderManagers.find((manager) => manager.activePullRequest);
+		if (folderManager?.activePullRequest) {
+			return {
+				owner: folderManager.activePullRequest.remote.owner,
+				repo: folderManager.activePullRequest.remote.repositoryName
+			};
+		}
+
+		// Fallback to the first available folder manager with a GitHub repository
+		if (this.repositoriesManager.folderManagers.length > 0) {
+			const firstManager = this.repositoriesManager.folderManagers[0];
+			const ghRepo = firstManager.gitHubRepositories[0];
+			if (ghRepo) {
+				return {
+					owner: ghRepo.remote.owner,
+					repo: ghRepo.remote.repositoryName
+				};
+			}
+		}
+
+		return undefined;
 	}
 }
 

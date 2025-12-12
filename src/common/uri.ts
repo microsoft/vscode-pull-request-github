@@ -796,7 +796,7 @@ export function resolvePath(from: vscode.Uri, to: string) {
 
 /**
  * Converts issue and PR number references in text to clickable markdown links.
- * Matches patterns like "#123", "issue 123", "issue #123", "PR 123", "PR #123"
+ * Matches patterns like "#123", "issue 123", "issue #123", "PR 123", "PR #123", "pull request 123", "pull request #123"
  * @param text The text to process
  * @param owner The repository owner
  * @param repo The repository name
@@ -807,8 +807,9 @@ export function convertIssuePRReferencesToLinks(text: string, owner: string, rep
 	// - #123 (standalone hash with number)
 	// - issue 123 or issue #123 (case-insensitive)
 	// - PR 123 or PR #123 (case-insensitive)
+	// - pull request 123 or pull request #123 (case-insensitive)
 	// Uses word boundaries to avoid matching in the middle of words
-	const pattern = /\b(?:issue\s+#?|PR\s+#?|#)(\d+)\b/gi;
+	const pattern = /\b(?:pull\s+request\s+#?|issue\s+#?|PR\s+#?|#)(\d+)\b/gi;
 
 	return text.replace(pattern, (match, number) => {
 		const url = `https://github.com/${owner}/${repo}/issues/${number}`;

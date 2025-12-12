@@ -180,5 +180,23 @@ describe('uri', () => {
 			const result = convertIssuePRReferencesToLinks(text, owner, repo);
 			assert.strictEqual(result, '');
 		});
+
+		it('should convert pull request references with # prefix', () => {
+			const text = 'See pull request #789 for details.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'See [pull request #789](https://github.com/microsoft/vscode-pull-request-github/issues/789) for details.');
+		});
+
+		it('should convert pull request references without # prefix', () => {
+			const text = 'Related to pull request 456.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'Related to [pull request 456](https://github.com/microsoft/vscode-pull-request-github/issues/456).');
+		});
+
+		it('should handle case-insensitive pull request keyword', () => {
+			const text = 'See Pull Request #100 and PULL REQUEST 200.';
+			const result = convertIssuePRReferencesToLinks(text, owner, repo);
+			assert.strictEqual(result, 'See [Pull Request #100](https://github.com/microsoft/vscode-pull-request-github/issues/100) and [PULL REQUEST 200](https://github.com/microsoft/vscode-pull-request-github/issues/200).');
+		});
 	});
 });
