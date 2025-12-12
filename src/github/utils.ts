@@ -39,6 +39,7 @@ import {
 } from './interface';
 import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
+import { PullRequestModel } from './pullRequestModel';
 import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -1787,11 +1788,10 @@ export function vscodeDevPrLink(pullRequest: IssueModel) {
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }
 
-export function codespacesPrLink(pullRequest: { head: GitHubRef }): string {
-	// GitHub Codespaces URL format: https://github.com/codespaces/new?ref={branch}&repo={owner/repo}
-	const repoFullName = `${pullRequest.head.owner}/${pullRequest.head.name}`;
-	const branch = pullRequest.head.ref;
-	return `https://github.com/codespaces/new?ref=${encodeURIComponent(branch)}&repo=${encodeURIComponent(repoFullName)}`;
+export function codespacesPrLink(pullRequest: PullRequestModel): string {
+	const repoFullName = `${pullRequest.head!.owner}/${pullRequest.remote.repositoryName}`;
+	const branch = pullRequest.head!.ref;
+	return `https://github.com/codespaces/new/${encodeURIComponent(repoFullName)}/tree/${encodeURIComponent(branch)}`;
 }
 
 export function makeLabel(label: ILabel): string {
