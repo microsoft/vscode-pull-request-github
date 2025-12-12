@@ -70,6 +70,11 @@ Body: ${comment.body}
 		const content: vscode.LanguageModelTextPart[] = [];
 		const threadId = options.input.threadId;
 		const notificationKey = options.input.notificationKey;
+		const owner = options.input.owner;
+		const repo = options.input.repo;
+		const itemNumber = options.input.itemNumber;
+		const itemType = options.input.itemType;
+
 		if (threadId && notificationKey) {
 			const markAsReadCommand = {
 				title: 'Mark As Read',
@@ -85,9 +90,20 @@ Body: ${comment.body}
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
 			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)));
+
+			// Add Open command
+			if (owner && repo && itemNumber && itemType) {
+				const type = itemType === 'issue' ? 'issues' : 'pull';
+				const url = `https://github.com/${owner}/${repo}/${type}/${itemNumber}`;
+				const openCommand: vscode.Command = {
+					title: 'Open',
+					command: 'vscode.open',
+					arguments: [vscode.Uri.parse(url)]
+				};
+				content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+				content.push(new vscode.LanguageModelTextPart(JSON.stringify(openCommand)));
+			}
 		}
-		const owner = options.input.owner;
-		const repo = options.input.repo;
 		if (model && owner && repo) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(owner, repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
