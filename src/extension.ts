@@ -16,10 +16,10 @@ import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, MARK_AS_VIEWED_ON_OPEN, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
-import { Schemes } from './common/uri';
+import { fromPRUri, Schemes } from './common/uri';
 import { isDescendant } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
@@ -250,6 +250,60 @@ async function init(
 		reposManager.removeRepo(repo);
 		reviewsManager.removeReviewManager(repo);
 	});
+
+	// Auto-mark files as viewed when opened
+	context.subscriptions.push(
+		vscode.workspace.onDidOpenTextDocument(async (document) => {
+			// Check if the feature is enabled
+			if (!vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(MARK_AS_VIEWED_ON_OPEN, false)) {
+				return;
+			}
+
+			const uri = document.uri;
+
+			// Only process files that are part of a PR
+			if (uri.scheme !== Schemes.Pr && uri.scheme !== 'file') {
+				return;
+			}
+
+			try {
+				// Find the manager for this file
+				const manager = reposManager.getManagerForFile(uri);
+				if (!manager) {
+					return;
+				}
+
+				// Find the pull request from the URI
+				let pullRequest;
+				if (uri.scheme === Schemes.Pr) {
+					const prQuery = fromPRUri(uri);
+					if (prQuery) {
+						for (const githubRepo of manager.gitHubRepositories) {
+							const prNumber = Number(prQuery.prNumber);
+							pullRequest = githubRepo.getExistingPullRequestModel(prNumber);
+							if (pullRequest) {
+								break;
+							}
+						}
+					}
+				} else {
+					// For regular file scheme, use the active PR
+					pullRequest = manager.activePullRequest;
+				}
+
+				if (!pullRequest) {
+					return;
+				}
+
+				// Mark the file as viewed
+				await pullRequest.markFiles([uri.path], false, 'viewed');
+				manager.setFileViewedContext();
+			} catch (e) {
+				// Silently fail to avoid disrupting the user experience
+				Logger.debug(`Failed to auto-mark file as viewed: ${e}`, 'AutoMarkViewed');
+			}
+		})
+	);
 
 	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), notificationsManager);
 
