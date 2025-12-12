@@ -830,7 +830,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (selectedBranch) {
 				try {
 					await this._item.updateBaseBranch(selectedBranch);
-					await this._replyMessage(message, {});
+					await this._replyMessage(message, { base: selectedBranch });
 				} catch (e) {
 					Logger.error(formatError(e), PullRequestOverviewPanel.ID);
 					vscode.window.showErrorMessage(vscode.l10n.t('Changing base branch failed. {0}', formatError(e)));

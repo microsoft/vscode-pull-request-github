@@ -541,6 +541,10 @@ body button .icon {
 	border-radius: 4px;
 }
 
+.merge-branches .icon-button {
+	margin-top: 4px;
+}
+
 .subtitle .created-at {
 	margin-left: auto;
 	white-space: nowrap;
