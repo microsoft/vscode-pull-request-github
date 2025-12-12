@@ -617,6 +617,11 @@
 					"markdownDescription": "%githubPullRequests.webviewRefreshInterval.description%",
 					"default": 60
 				},
+				"githubPullRequests.devMode": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.devMode.description%",
+					"default": false
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
