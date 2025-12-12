@@ -94,4 +94,76 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.title, 'title');
 		assert.strictEqual(result?.body, '');
 	});
+
+	it('unwraps wrapped lines in body', async function () {
+		const message = Promise.resolve('title\n\nThis is a long line that has been wrapped at 72 characters\nto fit the conventional commit message format.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is a long line that has been wrapped at 72 characters to fit the conventional commit message format.');
+	});
+
+	it('preserves blank lines as paragraph breaks', async function () {
+		const message = Promise.resolve('title\n\nFirst paragraph that is wrapped\nacross multiple lines.\n\nSecond paragraph that is also wrapped\nacross multiple lines.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'First paragraph that is wrapped across multiple lines.\n\nSecond paragraph that is also wrapped across multiple lines.');
+	});
+
+	it('preserves list items', async function () {
+		const message = Promise.resolve('title\n\n- First item\n- Second item\n- Third item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '- First item\n- Second item\n- Third item');
+	});
+
+	it('preserves numbered list items', async function () {
+		const message = Promise.resolve('title\n\n1. First item\n2. Second item\n3. Third item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1. First item\n2. Second item\n3. Third item');
+	});
+
+	it('preserves indented lines', async function () {
+		const message = Promise.resolve('title\n\nNormal paragraph.\n\n    Indented code block\n    More code');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Normal paragraph.\n\n    Indented code block\n    More code');
+	});
+
+	it('unwraps but preserves asterisk list items', async function () {
+		const message = Promise.resolve('title\n\n* First item\n* Second item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '* First item\n* Second item');
+	});
+
+	it('handles mixed content with wrapped paragraphs and lists', async function () {
+		const message = Promise.resolve('title\n\nThis is a paragraph that has been wrapped\nat 72 characters.\n\n- Item 1\n- Item 2\n\nAnother wrapped paragraph\nthat continues here.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is a paragraph that has been wrapped at 72 characters.\n\n- Item 1\n- Item 2\n\nAnother wrapped paragraph that continues here.');
+	});
+
+	it('preserves lines with special characters at the start', async function () {
+		const message = Promise.resolve('title\n\n> Quote line 1\n> Quote line 2');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '> Quote line 1\n> Quote line 2');
+	});
+
+	it('handles wrapped lines with punctuation', async function () {
+		const message = Promise.resolve('title\n\nThis is a sentence.\nThis is another sentence on a new line.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is a sentence. This is another sentence on a new line.');
+	});
 });
