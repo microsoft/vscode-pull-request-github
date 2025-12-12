@@ -10,16 +10,13 @@ import { RateLimitBuilder } from './rateLimitBuilder';
 
 type Repository = NonNullable<LatestReviewCommitResponse['repository']>;
 type PullRequest = Repository['pullRequest'];
-type ViewerLatestReview = PullRequest['viewerLatestReview'];
-type Commit = ViewerLatestReview['commit'];
+type Reviews = PullRequest['reviews'];
 
 export const LatestReviewCommitBuilder = createBuilderClass<LatestReviewCommitResponse>()({
 	repository: createLink<Repository>()({
 		pullRequest: createLink<PullRequest>()({
-			viewerLatestReview: createLink<ViewerLatestReview>()({
-				commit: createLink<Commit>()({
-					oid: { default: 'abc' },
-				}),
+			reviews: createLink<Reviews>()({
+				nodes: { default: [] },
 			}),
 		}),
 	}),

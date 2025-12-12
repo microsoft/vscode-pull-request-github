@@ -342,12 +342,14 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 	}
 }
 
-query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
+query LatestReviewCommit($owner: String!, $name: String!, $number: Int!, $author: String!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			viewerLatestReview {
-				commit {
-					oid
+			reviews(last: 1, author: $author, states: [APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED]) {
+				nodes {
+					commit {
+						oid
+					}
 				}
 			}
 		}
