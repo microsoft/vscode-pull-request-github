@@ -35,6 +35,12 @@ const STICKY_THRESHOLD_BUFFER = 10;
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	const [isSticky, setIsSticky] = React.useState(false);
+	const isStickyRef = React.useRef(isSticky);
+
+	// Keep ref in sync with state
+	React.useEffect(() => {
+		isStickyRef.current = isSticky;
+	}, [isSticky]);
 
 	React.useEffect(() => {
 		let ticking = false;
@@ -43,12 +49,13 @@ export const Overview = (pr: PullRequest) => {
 			if (!ticking) {
 				window.requestAnimationFrame(() => {
 					const scrollY = window.scrollY;
+					const currentSticky = isStickyRef.current;
 					// Use hysteresis to prevent flickering at the threshold
 					// When not sticky, activate when scrollY > threshold
 					// When sticky, deactivate when scrollY < (threshold - buffer)
-					if (!isSticky && scrollY > STICKY_THRESHOLD) {
+					if (!currentSticky && scrollY > STICKY_THRESHOLD) {
 						setIsSticky(true);
-					} else if (isSticky && scrollY < STICKY_THRESHOLD - STICKY_THRESHOLD_BUFFER) {
+					} else if (currentSticky && scrollY < STICKY_THRESHOLD - STICKY_THRESHOLD_BUFFER) {
 						setIsSticky(false);
 					}
 					ticking = false;
@@ -59,7 +66,7 @@ export const Overview = (pr: PullRequest) => {
 
 		window.addEventListener('scroll', handleScroll, { passive: true });
 		return () => window.removeEventListener('scroll', handleScroll);
-	}, [isSticky]);
+	}, []);
 
 	return <>
 		<div id="title" className={`title ${isSticky ? 'sticky' : ''}`}>
