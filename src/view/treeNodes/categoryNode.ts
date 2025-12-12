@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { RemoteInfo } from '../../../common/types';
 import { AuthenticationError } from '../../common/authentication';
+import { DEV_MODE, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { toQueryUri } from '../../common/uri';
 import { formatError } from '../../common/utils';
@@ -169,13 +170,20 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
-			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		// Check if dev mode is enabled to collapse all queries
+		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
+
+		if (devMode) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		} else {
-			this.collapsibleState =
-				this._prsTreeModel.expandedQueries?.has(this.id)
-					? vscode.TreeItemCollapsibleState.Expanded
-					: vscode.TreeItemCollapsibleState.Collapsed;
+			if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+			} else {
+				this.collapsibleState =
+					this._prsTreeModel.expandedQueries?.has(this.id)
+						? vscode.TreeItemCollapsibleState.Expanded
+						: vscode.TreeItemCollapsibleState.Collapsed;
+			}
 		}
 
 		if (this._categoryQuery) {
