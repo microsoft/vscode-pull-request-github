@@ -4,23 +4,46 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { TimelineEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
+import { OctokitCommon } from './common';
+import { CopilotWorkingStatus, GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
 	AddPullRequestToProjectResponse,
 	EditIssueCommentResponse,
+	LatestCommit,
+	LatestReviewThread,
+	LatestUpdatesResponse,
 	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
-import { parseGraphQlIssueComment, parseGraphQLTimelineEvents, parsePullRequestState } from './utils';
+import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason } from './interface';
+import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parsePullRequestState, parseSelectRestTimelineEvents, restPaginate } from './utils';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { compareIgnoreCase, formatError } from '../common/utils';
 
-export class IssueModel<TItem extends Issue = Issue> {
+export interface IssueChangeEvent {
+	title?: true;
+	body?: true;
+	milestone?: true;
+	// updatedAt?: true;
+	state?: true;
+	labels?: true;
+	assignees?: true;
+	projects?: true;
+	comments?: true;
+
+	timeline?: true;
+
+	draft?: true;
+	reviewers?: true;
+}
+
+export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	static ID = 'IssueModel';
 	public id: number;
 	public graphNodeId: string;
@@ -29,20 +52,30 @@ export class IssueModel<TItem extends Issue = Issue> {
 	public titleHTML: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
+	public stateReason?: StateReason;
 	public author: IAccount;
 	public assignees?: IAccount[];
 	public createdAt: string;
 	public updatedAt: string;
 	public milestone?: IMilestone;
 	public readonly githubRepository: GitHubRepository;
+	protected readonly _telemetry: ITelemetry;
 	public readonly remote: Remote;
 	public item: TItem;
+	public body: string;
 	public bodyHTML?: string;
 
-	private _onDidInvalidate = new vscode.EventEmitter<void>();
-	public onDidInvalidate = this._onDidInvalidate.event;
+	private _lastCheckedForUpdatesAt?: Date;
 
-	constructor(githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
+	private _timelineEvents: readonly TimelineEvent[] | undefined;
+	private _copilotTimelineEvents: TimelineEvent[] | undefined;
+
+	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
+	public onDidChange = this._onDidChange.event;
+
+	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
+		super();
+		this._telemetry = telemetry;
 		this.githubRepository = githubRepository;
 		this.remote = remote;
 		this.item = item;
@@ -52,9 +85,19 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	public invalidate() {
-		// Something about the PR data is stale
-		this._onDidInvalidate.fire();
+	get timelineEvents(): readonly TimelineEvent[] | undefined {
+		return this._timelineEvents;
+	}
+
+	protected set timelineEvents(timelineEvents: readonly TimelineEvent[]) {
+		if (!this._timelineEvents || this._timelineEvents.length !== timelineEvents.length) {
+			this._timelineEvents = timelineEvents;
+			this._onDidChange.fire({ timeline: true });
+		}
+	}
+
+	public get lastCheckedForUpdatesAt(): Date | undefined {
+		return this._lastCheckedForUpdatesAt;
 	}
 
 	public get isOpen(): boolean {
@@ -96,41 +139,59 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return undefined;
 	}
 
-	public get body(): string {
-		if (this.item) {
-			return this.item.body;
-		}
-		return '';
-	}
+	protected doUpdate(issue: TItem): IssueChangeEvent {
+		const changes: IssueChangeEvent = {};
 
-	protected updateState(state: string) {
-		this.state = parsePullRequestState(state);
-	}
-
-	update(issue: TItem): void {
 		this.id = issue.id;
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
-		this.title = issue.title;
-		if (issue.titleHTML) {
-			this.titleHTML = issue.titleHTML;
-		}
-		if (!this.bodyHTML || (issue.body !== this.body)) {
-			this.bodyHTML = issue.bodyHTML;
-		}
 		this.html_url = issue.url;
 		this.author = issue.user;
-		this.milestone = issue.milestone;
 		this.createdAt = issue.createdAt;
-		this.updatedAt = issue.updatedAt;
 
-		this.updateState(issue.state);
-
-		if (issue.assignees) {
+		if (this.title !== issue.title) {
+			changes.title = true;
+			this.title = issue.title;
+		}
+		if (issue.titleHTML && this.titleHTML !== issue.titleHTML) {
+			this.titleHTML = issue.titleHTML;
+		}
+		if ((!this.bodyHTML || (issue.body !== this.body)) && this.bodyHTML !== issue.bodyHTML) {
+			this.bodyHTML = issue.bodyHTML;
+		}
+		if (this.body !== issue.body) {
+			changes.body = true;
+			this.body = issue.body;
+		}
+		if (this.milestone?.id !== issue.milestone?.id) {
+			changes.milestone = true;
+			this.milestone = issue.milestone;
+		}
+		if (this.updatedAt !== issue.updatedAt) {
+			this.updatedAt = issue.updatedAt;
+		}
+		const newState = parsePullRequestState(issue.state);
+		if (this.state !== newState) {
+			changes.state = true;
+			this.state = newState;
+		}
+		if ((this.stateReason !== issue.stateReason) && issue.stateReason) {
+			changes.state = true;
+			this.stateReason = issue.stateReason;
+		}
+		if (issue.assignees && (issue.assignees.length !== (this.assignees?.length ?? 0) || issue.assignees.some(assignee => this.assignees?.every(a => a.id !== assignee.id)))) {
+			changes.assignees = true;
 			this.assignees = issue.assignees;
 		}
+		return changes;
+	}
 
+	update(issue: TItem): void {
+		const changes = this.doUpdate(issue);
 		this.item = issue;
+		if (Object.keys(changes).length > 0) {
+			this._onDidChange.fire(changes);
+		}
 	}
 
 	equals(other: IssueModel<TItem> | undefined): boolean {
@@ -174,11 +235,18 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 			if (data?.updateIssue.issue) {
-				this.item.body = data.updateIssue.issue.body;
-				this.bodyHTML = data.updateIssue.issue.bodyHTML;
-				this.title = data.updateIssue.issue.title;
-				this.titleHTML = data.updateIssue.issue.titleHTML;
-				this.invalidate();
+				const changes: IssueChangeEvent = {};
+				if (this.body !== data.updateIssue.issue.body) {
+					changes.body = true;
+					this.item.body = data.updateIssue.issue.body;
+					this.bodyHTML = data.updateIssue.issue.bodyHTML;
+				}
+				if (this.title !== data.updateIssue.issue.title) {
+					changes.title = true;
+					this.title = data.updateIssue.issue.title;
+					this.titleHTML = data.updateIssue.issue.titleHTML;
+				}
+				this._onDidChange.fire(changes);
 			}
 			return data!.updateIssue.issue;
 		} catch (e) {
@@ -188,7 +256,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	canEdit(): Promise<boolean> {
 		const username = this.author && this.author.login;
-		return this.githubRepository.isCurrentUser(username);
+		return this.githubRepository.isCurrentUser(this.remote.authProviderId, username);
 	}
 
 	async createIssueComment(text: string): Promise<IComment> {
@@ -203,6 +271,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			},
 		});
 
+		this._onDidChange.fire({ timeline: true });
 		return parseGraphQlIssueComment(data!.addComment.commentEdge.node, this.githubRepository);
 	}
 
@@ -220,6 +289,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
+			this._onDidChange.fire({ timeline: true });
 			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment, this.githubRepository);
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -235,6 +305,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				repo: remote.repositoryName,
 				comment_id: Number(commentId),
 			});
+			this._onDidChange.fire({ timeline: true });
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -243,12 +314,18 @@ export class IssueModel<TItem extends Issue = Issue> {
 	async setLabels(labels: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		try {
-			await octokit.call(octokit.api.issues.setLabels, {
+			const result = await octokit.call(octokit.api.issues.setLabels, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				issue_number: this.number,
 				labels,
 			});
+			this.item.labels = result.data.map(label => ({
+				name: label.name,
+				color: label.color,
+				description: label.description ?? undefined
+			}));
+			this._onDidChange.fire({ labels: true });
 		} catch (e) {
 			// We don't get a nice error message from the API when setting labels fails.
 			// Since adding labels isn't a critical part of the PR creation path it's safe to catch all errors that come from setting labels.
@@ -259,15 +336,30 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	async removeLabel(label: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.issues.removeLabel, {
+		const result = await octokit.call(octokit.api.issues.removeLabel, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
 			name: label,
 		});
+		this.item.labels = result.data.map(label => ({
+			name: label.name,
+			color: label.color,
+			description: label.description ?? undefined
+		}));
+		this._onDidChange.fire({ labels: true });
 	}
 
 	public async removeProjects(projectItems: IProjectItem[]): Promise<void> {
+		const result = await this.doRemoveProjects(projectItems);
+		if (!result) {
+			// If we failed to remove the projects, we don't want to update the model.
+			return;
+		}
+		this._onDidChange.fire({ projects: true });
+	}
+
+	private async doRemoveProjects(projectItems: IProjectItem[]): Promise<boolean> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 
 		try {
@@ -282,8 +374,10 @@ export class IssueModel<TItem extends Issue = Issue> {
 					},
 				})));
 			this.item.projectItems = this.item.projectItems?.filter(project => !projectItems.find(p => p.project.id === project.project.id));
+			return true;
 		} catch (err) {
 			Logger.error(err, IssueModel.ID);
+			return false;
 		}
 	}
 
@@ -315,13 +409,61 @@ export class IssueModel<TItem extends Issue = Issue> {
 		const projectsToRemove: IProjectItem[] = this.item.projectItems?.filter(project => !projects.find(p => p.id === project.project.id)) ?? [];
 		await this.removeProjects(projectsToRemove);
 		await this.addProjects(projectsToAdd);
+		this._onDidChange.fire({ projects: true });
 		return this.item.projectItems;
 	}
 
-	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
+	protected getUpdatesQuery(schema: any): any {
+		return schema.LatestIssueUpdates;
+	}
+
+	async getLastUpdateTime(time: Date): Promise<Date> {
 		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
+		// Record when we initiated this check regardless of outcome so callers can know staleness.
+		this._lastCheckedForUpdatesAt = new Date();
 		const githubRepository = this.githubRepository;
 		const { query, remote, schema } = await githubRepository.ensure();
+		try {
+			const { data } = await query<LatestUpdatesResponse>({
+				query: this.getUpdatesQuery(schema),
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+					since: new Date(time),
+				}
+			});
+
+			const times = [
+				time,
+				new Date(data.repository.pullRequest.updatedAt),
+				...(data.repository.pullRequest.reactions.nodes.map(node => new Date(node.createdAt))),
+				...(data.repository.pullRequest.comments.nodes.map(node => new Date(node.updatedAt))),
+				...(data.repository.pullRequest.comments.nodes.flatMap(node => node.reactions.nodes.map(reaction => new Date(reaction.createdAt)))),
+				...(data.repository.pullRequest.timelineItems.nodes.map(node => {
+					const latestCommit = node as Partial<LatestCommit>;
+					if (latestCommit.commit?.committedDate) {
+						return new Date(latestCommit.commit.committedDate);
+					}
+					const latestReviewThread = node as Partial<LatestReviewThread>;
+					if ((latestReviewThread.comments?.nodes.length ?? 0) > 0) {
+						return new Date(latestReviewThread.comments!.nodes[0].createdAt);
+					}
+					return new Date((node as { createdAt: string }).createdAt);
+				}))
+			];
+
+			// Sort times and return the most recent one
+			return new Date(Math.max(...times.map(t => t.getTime())));
+		} catch (e) {
+			Logger.error(`Error fetching timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
+			return time; // Return the original time in case of an error
+		}
+	}
+
+	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
 
 		try {
 			const { data } = await query<TimelineEventsResponse>({
@@ -334,12 +476,27 @@ export class IssueModel<TItem extends Issue = Issue> {
 			});
 
 			if (data.repository === null) {
-				Logger.error('Unexpected null repository when getting issue timeline events', IssueModel.ID);
+				Logger.error('Unexpected null repository when getting issue timeline events', GitHubRepository.ID);
 				return [];
 			}
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 
+			const ret = data.repository.pullRequest.timelineItems.nodes;
+			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(true), this.githubRepository);
+
+			const crossRefs = events.filter((event): event is CrossReferencedEvent => {
+				if ((event.event === EventType.CrossReferenced) && !event.source.isIssue) {
+					return !this.githubRepository.getExistingPullRequestModel(event.source.number) && (compareIgnoreCase(event.source.owner, this.remote.owner) === 0 && compareIgnoreCase(event.source.repo, this.remote.repositoryName) === 0);
+				}
+				return false;
+
+			});
+
+			for (const unseenPrs of crossRefs) {
+				// Kick off getting the new PRs so that the system knows about them (and refreshes the tree when they're found)
+				this.githubRepository.getPullRequest(unseenPrs.source.number);
+			}
+
+			this.timelineEvents = events;
 			return events;
 		} catch (e) {
 			console.log(e);
@@ -347,12 +504,77 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
+	/**
+	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
+	 */
+	async getCopilotTimelineEvents(skipMerge: boolean = false, useCache: boolean = false): Promise<TimelineEvent[]> {
+		if (!COPILOT_ACCOUNTS[this.author.login]) {
+			return [];
+		}
+
+		Logger.debug(`Fetch Copilot timeline events of issue #${this.number} - enter`, GitHubRepository.ID);
+
+		if (useCache && this._copilotTimelineEvents) {
+			Logger.debug(`Fetch Copilot timeline events of issue #${this.number} (used cache) - exit`, GitHubRepository.ID);
+
+			return this._copilotTimelineEvents;
+		}
+
+		const { octokit, remote } = await this.githubRepository.ensure();
+		try {
+			const timeline = await restPaginate<typeof octokit.api.issues.listEventsForTimeline, OctokitCommon.ListEventsForTimelineResponse>(octokit.api.issues.listEventsForTimeline, {
+				issue_number: this.number,
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				per_page: 100
+			});
+
+			const timelineEvents = parseSelectRestTimelineEvents(this, timeline);
+			this._copilotTimelineEvents = timelineEvents;
+			if (timelineEvents.length === 0) {
+				return [];
+			}
+			if (!skipMerge) {
+				const oldLastEvent = this.timelineEvents ? (this.timelineEvents.length > 0 ? this.timelineEvents[this.timelineEvents.length - 1] : undefined) : undefined;
+				let allEvents: TimelineEvent[];
+				if (!oldLastEvent) {
+					allEvents = timelineEvents;
+				} else {
+					const oldEventTime = (eventTime(oldLastEvent) ?? 0);
+					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
+					allEvents = [...(this.timelineEvents ?? []), ...newEvents];
+				}
+				this.timelineEvents = allEvents;
+			}
+			Logger.debug(`Fetch Copilot timeline events of issue #${this.number} - exit`, GitHubRepository.ID);
+			return timelineEvents;
+		} catch (e) {
+			Logger.error(`Error fetching Copilot timeline events of issue #${this.number} - ${formatError(e)}`, GitHubRepository.ID);
+			return [];
+		}
+	}
+
+	async copilotWorkingStatus(): Promise<CopilotWorkingStatus | undefined> {
+		const copilotEvents = await this.getCopilotTimelineEvents();
+		if (copilotEvents.length > 0) {
+			const lastEvent = copilotEvents[copilotEvents.length - 1];
+			if (lastEvent.event === EventType.CopilotFinished) {
+				return CopilotWorkingStatus.Done;
+			} else if (lastEvent.event === EventType.CopilotStarted) {
+				return CopilotWorkingStatus.InProgress;
+			} else if (lastEvent.event === EventType.CopilotFinishedError) {
+				return CopilotWorkingStatus.Error;
+			}
+		}
+		return CopilotWorkingStatus.NotCopilotIssue;
+	}
+
 	async updateMilestone(id: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const finalId = id === 'null' ? null : id;
 
 		try {
-			await mutate<UpdateIssueResponse>({
+			const result = await mutate<UpdateIssueResponse>({
 				mutation: this.updateIssueSchema(schema),
 				variables: {
 					input: {
@@ -361,6 +583,8 @@ export class IssueModel<TItem extends Issue = Issue> {
 					},
 				},
 			});
+			this.milestone = parseMilestone(result.data!.updateIssue.issue.milestone);
+			this._onDidChange.fire({ milestone: true });
 		} catch (err) {
 			Logger.error(err, IssueModel.ID);
 		}
@@ -372,6 +596,15 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 		try {
 			if (schema.ReplaceActorsForAssignable) {
+				const assignToCopilot = allAssignees.find(assignee => COPILOT_ACCOUNTS[assignee.login]);
+				const alreadyHasCopilot = this.assignees?.find(assignee => COPILOT_ACCOUNTS[assignee.login]) !== undefined;
+				if (assignToCopilot && !alreadyHasCopilot) {
+					/* __GDPR__
+						"pr.assignCopilot" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('pr.assignCopilot');
+				}
+
 				const assigneeIds = allAssignees.map(assignee => assignee.id);
 				await mutate({
 					mutation: schema.ReplaceActorsForAssignable,
@@ -389,13 +622,14 @@ export class IssueModel<TItem extends Issue = Issue> {
 				await this.deleteAssignees(removeAssignees);
 			}
 			this.assignees = allAssignees;
+			this._onDidChange.fire({ assignees: true });
 		} catch (e) {
 			Logger.error(e, IssueModel.ID);
 		}
 		Logger.debug(`Replace assignees of issue #${this.number} - done`, IssueModel.ID);
 	}
 
-	async addAssignees(assigneesToAdd: string[]): Promise<void> {
+	private async addAssignees(assigneesToAdd: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.addAssignees, {
 			owner: remote.owner,
@@ -413,5 +647,31 @@ export class IssueModel<TItem extends Issue = Issue> {
 			issue_number: this.number,
 			assignees,
 		});
+	}
+
+	async close(): Promise<{ item: Issue, closedEvent: ClosedEvent }> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const ret = await octokit.call(octokit.api.issues.update, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			state: 'closed'
+		});
+
+		this.state = GithubItemStateEnum.Closed;
+		this._onDidChange.fire({ state: true });
+		return {
+			item: convertRESTIssueToRawPullRequest(ret.data, this.githubRepository),
+			closedEvent: {
+				createdAt: ret.data.closed_at ?? '',
+				event: EventType.Closed,
+				id: `${ret.data.id}`,
+				actor: {
+					login: ret.data.closed_by!.login,
+					avatarUrl: ret.data.closed_by!.avatar_url,
+					url: ret.data.closed_by!.url
+				}
+			}
+		};
 	}
 }

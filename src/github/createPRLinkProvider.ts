@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PR_SETTINGS_NAMESPACE, TERMINAL_LINK_HANDLER } from '../common/settingKeys';
 import { ReviewManager } from '../view/reviewManager';
-import { FolderRepositoryManager } from './folderRepositoryManager';
 
 interface GitHubCreateTerminalLink extends vscode.TerminalLink {
 	url: string;

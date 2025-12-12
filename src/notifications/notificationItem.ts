@@ -20,6 +20,11 @@ export interface NotificationTreeItem {
 	readonly kind: 'notification';
 }
 
-export function isNotificationTreeItem(item: any): item is NotificationTreeItem {
-	return item.kind === 'notification';
+export function isNotificationTreeItem(item: unknown): item is NotificationTreeItem {
+	return !!item && (item as Partial<NotificationTreeItem>).kind === 'notification';
+}
+
+export interface NotificationID {
+	threadId: string;
+	notificationKey: string;
 }

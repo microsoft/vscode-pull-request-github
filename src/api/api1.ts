@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { APIState, PublishEvent } from '../@types/git';
+import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
+import { APIState, CloneOptions, PublishEvent } from '../@types/git';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
-import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export const enum RefType {
 	Head,
@@ -77,6 +78,30 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	static readonly ID = 'GitAPI';
 	private static _handlePool: number = 0;
 	private _providers = new Map<number, IGit>();
+
+	public constructor(
+		private readonly repositoriesManager: RepositoriesManager) {
+		super();
+	}
+
+	async getRepositoryWorkspace(uri: vscode.Uri): Promise<vscode.Uri[] | null> {
+		for (const [, provider] of this._providers) {
+			if (provider.getRepositoryWorkspace) {
+				return provider.getRepositoryWorkspace(uri);
+			}
+		}
+		return null;
+	}
+
+	async clone(uri: vscode.Uri, options?: CloneOptions): Promise<vscode.Uri | null> {
+		for (const [, provider] of this._providers) {
+			if (provider.clone) {
+				return provider.clone(uri, options);
+			}
+		}
+		return null;
+	}
+
 
 	public get repositories(): Repository[] {
 		const ret: Repository[] = [];
@@ -219,5 +244,27 @@ export class GitApiImpl extends Disposable implements API, IGit {
 
 	getReviewerCommentsProvider(): { title: string, provider: ReviewerCommentsProvider } | undefined {
 		return this._reviewerCommentsProviders.size > 0 ? this._reviewerCommentsProviders.values().next().value : undefined;
+	}
+
+	async getRepositoryDescription(uri: vscode.Uri) {
+		const folderManagerForRepo = this.repositoriesManager.getManagerForFile(uri);
+
+		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
+			const repositoryMetadata = await folderManagerForRepo.gitHubRepositories[0].getMetadata();
+			const pullRequest = folderManagerForRepo.activePullRequest;
+			if (repositoryMetadata) {
+				return {
+					owner: repositoryMetadata.owner.login,
+					repositoryName: repositoryMetadata.name,
+					defaultBranch: repositoryMetadata.default_branch,
+					pullRequest: pullRequest ? {
+						title: pullRequest.title,
+						url: pullRequest.html_url,
+						number: pullRequest.number,
+						id: pullRequest.id
+					} : undefined
+				};
+			}
+		}
 	}
 }

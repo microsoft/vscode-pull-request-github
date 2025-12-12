@@ -59,7 +59,7 @@ export abstract class ChangesContentProvider implements Partial<vscode.FileSyste
 		return { dispose: () => { } };
 	}
 
-	stat(_uri: any): vscode.FileStat {
+	async stat(_uri: any): Promise<vscode.FileStat> {
 		// const params = fromGitHubURI(uri);
 
 		return {
@@ -139,6 +139,28 @@ export class GitHubContentProvider extends ChangesContentProvider implements vsc
 export class GitContentProvider extends ChangesContentProvider implements vscode.FileSystemProvider {
 	constructor(public folderRepositoryManager: FolderRepositoryManager) {
 		super();
+	}
+
+	override async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
+		let mtime = 0;
+		const params = fromGitHubURI(uri);
+		if (params?.branch) {
+			const branch = await this.folderRepositoryManager.repository.getBranch(params?.branch);
+			if (branch.commit) {
+				const commit = await this.folderRepositoryManager.repository.getCommit(branch.commit);
+				if (commit) {
+					mtime = commit.commitDate?.getTime() ?? 0;
+				}
+			}
+
+		}
+		return {
+			type: vscode.FileType.File,
+			ctime: 0,
+			mtime: mtime,
+			size: 0,
+			permissions: vscode.FilePermission.Readonly
+		};
 	}
 
 	async readFile(uri: vscode.Uri): Promise<Uint8Array> {

@@ -3,7 +3,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: '0 4 * * Mon-Thu'
+  - cron: '0 4 * * Mon-Fri'
     displayName: Nightly Release Schedule
     always: true
     branches:
@@ -30,6 +30,8 @@ extends:
     ghCreateRelease: false
 
     l10nSourcePaths: ./src
+
+    nodeVersion: "20.x"
 
     buildSteps:
       - script: yarn install --frozen-lockfile --check-files

@@ -3,13 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
-import { PreReviewState } from '../src/github/views';
-
-export interface RemoteInfo {
-	owner: string;
-	repositoryName: string;
-}
+import { RemoteInfo } from './types';
+import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
+import { DisplayLabel, PreReviewState } from '../src/github/views';
 
 export interface CreateParams {
 	availableBaseRemotes: RemoteInfo[];
@@ -107,7 +104,7 @@ export interface CreateParamsNew {
 	compareBranch?: string;
 	isDraftDefault: boolean;
 	isDraft?: boolean;
-	labels?: ILabel[];
+	labels?: DisplayLabel[];
 	projects?: IProject[];
 	assignees?: IAccount[];
 	reviewers?: (IAccount | ITeam)[];
@@ -166,6 +163,16 @@ export interface TitleAndDescriptionArgs {
 export interface TitleAndDescriptionResult {
 	title: string | undefined;
 	description: string | undefined;
+}
+
+export interface CloseResult {
+	state: GithubItemStateEnum;
+	commentEvent?: CommentEvent;
+	closeEvent: ClosedEvent;
+}
+
+export interface OpenCommitChangesArgs {
+	commitSha: string;
 }
 
 // #endregion

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IAccount } from '../github/interface';
 import { COPILOT_LOGINS } from './copilot';
 import { DiffHunk } from './diffHunk';
+import { IAccount, Reaction } from '../github/interface';
 
 export enum DiffSide {
 	LEFT = 'LEFT',
@@ -17,14 +17,6 @@ export enum ViewedState {
 	DISMISSED = 'DISMISSED',
 	VIEWED = 'VIEWED',
 	UNVIEWED = 'UNVIEWED'
-}
-
-export interface Reaction {
-	label: string;
-	count: number;
-	icon?: vscode.Uri;
-	viewerHasReacted: boolean;
-	reactors: readonly string[];
 }
 
 export enum SubjectType {
@@ -77,8 +69,9 @@ export interface IComment {
 
 const COPILOT_AUTHOR = {
 	name: 'Copilot', // TODO: The copilot reviewer is a Bot, but per the graphQL schema, Bots don't have a name, just a login. We have it hardcoded here for now.
-	postComment: vscode.l10n.t('Copilot is powered by AI, so mistakes are possible. Review output carefully before use.')
+	postComment: vscode.l10n.t('Copilot is powered by AI, so mistakes are possible. Review output carefully before use.'),
+	url: 'https://github.com/apps/copilot-swe-agent'
 };
 
-export const COPILOT_ACCOUNTS: { [key: string]: { postComment: string, name: string } } =
+export const COPILOT_ACCOUNTS: { [key: string]: { postComment: string, name: string, url: string } } =
 	Object.fromEntries(COPILOT_LOGINS.map(login => [login, COPILOT_AUTHOR]));

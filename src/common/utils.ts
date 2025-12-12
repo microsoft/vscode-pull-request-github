@@ -102,19 +102,19 @@ function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }
 
-export function isDescendant(parent: string, descendant: string, separator: string = sep): boolean {
+export function isDescendant(parent: string, descendant: string, caseInsensitive: boolean = false, separator: string = sep): boolean {
+	// Windows is case insensitive
+	if (isWindowsPath(parent) || caseInsensitive) {
+		parent = parent.toLowerCase();
+		descendant = descendant.toLowerCase();
+	}
+
 	if (parent === descendant) {
 		return true;
 	}
 
 	if (parent.charAt(parent.length - 1) !== separator) {
 		parent += separator;
-	}
-
-	// Windows is case insensitive
-	if (isWindowsPath(parent)) {
-		parent = parent.toLowerCase();
-		descendant = descendant.toLowerCase();
 	}
 
 	return descendant.startsWith(parent);
@@ -135,11 +135,11 @@ export class UnreachableCaseError extends Error {
 }
 
 interface HookError extends Error {
-	errors: any;
+	errors: (string | { message: string })[];
 }
 
 function isHookError(e: Error): e is HookError {
-	return !!(e as any).errors;
+	return !!(e as Partial<HookError>).errors;
 }
 
 function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; status: string }[] } {
@@ -184,7 +184,7 @@ export function formatError(e: HookError | any): string {
 		return e.message;
 	} else if (isHookError(e) && e.errors) {
 		return e.errors
-			.map((error: any) => {
+			.map((error) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {
@@ -198,10 +198,6 @@ export function formatError(e: HookError | any): string {
 	}
 
 	return errorMessage;
-}
-
-export interface PromiseAdapter<T, U> {
-	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 // Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136
@@ -368,6 +364,10 @@ function contrastColor(rgbColor: { r: number, g: number, b: number }) {
 
 export interface Predicate<T> {
 	(input: T): boolean;
+}
+
+export interface AsyncPredicate<T> {
+	(input: T): Promise<boolean>;
 }
 
 export const enum CharCode {
@@ -986,6 +986,16 @@ export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (s
 	return str.replace(regex, () => data[offset++]);
 }
 
+export async function arrayFindIndexAsync<T>(arr: T[], predicate: (value: T, index: number, array: T[]) => Promise<boolean>): Promise<number> {
+	for (let i = 0; i < arr.length; i++) {
+		// Evaluate predicate sequentially to allow early exit on first match
+		if (await predicate(arr[i], i, arr)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 export async function batchPromiseAll<T>(items: readonly T[], batchSize: number, processFn: (item: T) => Promise<void>): Promise<void> {
 	const batches = Math.ceil(items.length / batchSize);
 
@@ -995,3 +1005,13 @@ export async function batchPromiseAll<T>(items: readonly T[], batchSize: number,
 	}
 }
 
+export function escapeRegExp(string: string) {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function truncate(value: string, maxLength: number, suffix = '...'): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	return `${value.substr(0, maxLength)}${suffix}`;
+}

@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
-import { Branch, Change, Commit, Remote, RepositoryState, Submodule } from '../@types/git';
+import { Branch, Change, Commit, Ref, Remote, RepositoryState, Submodule } from '../@types/git';
 import { IGit, Repository } from '../api/api';
 import { Disposable } from '../common/lifecycle';
 import {
@@ -114,7 +115,7 @@ export class VSLSGuest extends Disposable implements IGit {
 	}
 
 	public getRepository(folder: vscode.WorkspaceFolder): Repository {
-		return this._openRepositories.filter(repository => (repository as any).workspaceFolder === folder)[0];
+		return this._openRepositories.filter(repository => (repository as (Repository & { workspaceFolder: vscode.WorkspaceFolder })).workspaceFolder === folder)[0];
 	}
 }
 
@@ -122,6 +123,7 @@ class LiveShareRepositoryProxyHandler {
 	constructor() { }
 
 	get(obj: any, prop: any) {
+		// eslint-disable-next-line no-restricted-syntax
 		if (prop in obj) {
 			return obj[prop];
 		}
@@ -147,6 +149,8 @@ class LiveShareRepositoryState implements RepositoryState {
 		this.HEAD = state.HEAD;
 		this.remotes = state.remotes;
 	}
+	refs: Ref[] = [];
+	untrackedChanges: Change[] = [];
 
 	public update(state: RepositoryState) {
 		this.HEAD = state.HEAD;

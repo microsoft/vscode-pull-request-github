@@ -10,21 +10,36 @@ import {
 	ISSUES_SETTINGS_NAMESPACE,
 } from '../common/settingKeys';
 import { fromNewIssueUri, Schemes } from '../common/uri';
+import { EXTENSION_ID } from '../constants';
+import { IssueQueryResult, StateManager } from './stateManager';
+import {
+	getRootUriFromScmInputUri,
+	isComment,
+} from './util';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
-import { IssueQueryResult, StateManager } from './stateManager';
-import {
-	getRootUriFromScmInputUri,
-	isComment,
-} from './util';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
 		super(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Issue);
+	}
+}
+
+class ConfigureIssueQueriesCompletionItem extends vscode.CompletionItem {
+	constructor() {
+		super(vscode.l10n.t('Configure issue queries...'), vscode.CompletionItemKind.Text);
+		this.detail = vscode.l10n.t('No issues found. Set up queries to see relevant issues.');
+		this.insertText = '';
+		this.command = {
+			command: 'workbench.action.openSettings',
+			title: vscode.l10n.t('Open Settings'),
+			arguments: [`@ext:${EXTENSION_ID} githubIssues.queries`]
+		};
+		this.sortText = '~'; // Sort to bottom of list
 	}
 }
 
@@ -85,7 +100,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if ((document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
+		const isPositionComment = document.languageId === 'plaintext' || document.languageId === 'markdown' || await isComment(document, position);
+
+		if ((document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !isPositionComment) {
 			return [];
 		}
 
@@ -115,7 +132,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
-		const completionItems: Map<string, IssueCompletionItem> = new Map();
+		const completionItems: IssueCompletionItem[] = [];
+		const seenIssues: Set<string> = new Set();
 		let repo: PullRequestDefaults | undefined;
 		let uri: vscode.Uri | undefined;
 		if (document.languageId === 'scminput') {
@@ -146,7 +164,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			// leave repo undefined
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
+		let sortNumber = 0;
 
+		// Process queries in order to maintain query priority
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
 			if ((issuesOrMilestones.issues ?? []).length === 0) {
@@ -156,14 +176,25 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 					continue;
 				}
-				completionItems.set(
-					getIssueNumberLabel(issue as IssueModel),
-					await this.completionItemFromIssue(repo, issue as IssueModel, range, document),
-				);
+				const issueKey = getIssueNumberLabel(issue as IssueModel);
+				// Only add the issue if we haven't seen it before (first query wins)
+				if (!seenIssues.has(issueKey)) {
+					seenIssues.add(issueKey);
+					const completionItem = await this.completionItemFromIssue(repo, issue as IssueModel, range, document);
+					// Ensure that the sort order respects the query order
+					completionItem.sortText = sortNumber.toString().padStart(8, '0');
+					sortNumber++;
+					completionItems.push(completionItem);
+				}
 			}
-
 		}
-		return [...completionItems.values()];
+
+		// If no issues were found, show a configuration prompt
+		if (completionItems.length === 0) {
+			return [new ConfigureIssueQueriesCompletionItem()];
+		}
+
+		return completionItems;
 	}
 
 	private async completionItemFromIssue(
@@ -181,7 +212,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
 				.get(ISSUE_COMPLETION_FORMAT_SCM);
 			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
-				item.insertText = await variableSubstitution(configuration, issue, repo);
+				item.insertText = variableSubstitution(configuration, issue, repo);
 			} else {
 				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
 			}
@@ -189,7 +220,6 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		item.documentation = issue.body;
 		item.range = range;
 		item.detail = milestone ? milestone.title : issue.milestone?.title;
-		item.sortText = `${new Date(issue.updatedAt).getTime()}`;
 		item.filterText = `${item.detail} # ${issue.number} ${issue.title} ${item.documentation}`;
 		return item;
 	}

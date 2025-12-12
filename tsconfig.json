@@ -12,7 +12,6 @@
 	},
 	"exclude": [
 		"node_modules",
-		"src/test",
 		"webviews"
 	]
 }

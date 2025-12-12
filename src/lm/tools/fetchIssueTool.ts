@@ -5,9 +5,10 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { InMemFileChange } from '../../common/file';
-import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepoToolBase } from './toolsUtils';
+import { InMemFileChange } from '../../common/file';
+import { isITeam } from '../../github/interface';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 interface FetchIssueToolParameters {
 	issueNumber?: number;
@@ -32,6 +33,9 @@ export interface FetchIssueResult {
 	owner?: string;
 	repo?: string;
 	fileChanges?: FileChange[];
+	author?: string;
+	assignees?: string[];
+	reviewers?: string[];
 }
 
 export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
@@ -40,19 +44,22 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const issueNumber = options.input.issueNumber;
 		if (!issueNumber) {
-			throw new Error('No issue/PR number provided.');
+			throw new Error('No issue/pull-request number provided.');
 		}
 		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
 		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, issueNumber);
 		if (!issueOrPullRequest) {
-			throw new Error(`No issue or PR found for ${owner}/${name}/${issueNumber}. Make sure the issue or PR exists.`);
+			throw new Error(`No issue or pull request found for ${owner}/${name}/${issueNumber}. Make sure the issue or pull request exists.`);
 		}
 		const result: FetchIssueResult = {
 			owner,
 			repo: name,
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
-			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body, author: c.author.login })) ?? []
+			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body, author: c.author.login })) ?? [],
+			author: issueOrPullRequest.author?.login,
+			assignees: issueOrPullRequest.assignees?.map(a => a.login),
+			reviewers: issueOrPullRequest instanceof PullRequestModel ? issueOrPullRequest.reviewers?.map(r => isITeam(r) ? r.name : r.login).filter((login): login is string => !!login) : undefined
 		};
 		if (issueOrPullRequest instanceof PullRequestModel && issueOrPullRequest.isResolved()) {
 			const fileChanges = await issueOrPullRequest.getFileChangesInfo();

@@ -30,15 +30,18 @@ import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { ReviewModel } from '../../view/reviewModel';
-import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
-import { GitHubRef } from '../../common/githubRef';
 import { AccountType } from '../../github/interface';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { asPromise } from '../../common/utils';
+import { PrsTreeModel } from '../../view/prsTreeModel';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -62,10 +65,14 @@ describe('ReviewCommentController', function () {
 	let reviewManager: ReviewManager;
 	let reposManager: RepositoriesManager;
 	let gitApiImpl: GitApiImpl;
+	let copilotManager: CopilotRemoteAgentManager;
+	let mockThemeWatcher: MockThemeWatcher;
+	let mockPrsTreeModel: PrsTreeModel;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		mockThemeWatcher = new MockThemeWatcher();
 
 		telemetry = new MockTelemetry();
 		const context = new MockExtensionContext();
@@ -74,12 +81,13 @@ describe('ReviewCommentController', function () {
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager = new RepositoriesManager(credentialStore, telemetry);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
+		gitApiImpl = new GitApiImpl(reposManager);
+		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitApiImpl, mockPrsTreeModel);
+		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager, copilotManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
-		Resource.initialize(context);
-		gitApiImpl = new GitApiImpl();
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper, mockThemeWatcher);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);
 		reviewManager = new ReviewManager(0, context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
@@ -323,8 +331,9 @@ describe('ReviewCommentController', function () {
 				}
 			)
 
+			const newReviewThreadPromise = asPromise(activePullRequest.onDidChangeReviewThreads);
 			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
-
+			await newReviewThreadPromise;
 			assert.strictEqual(thread.comments.length, 1);
 			assert.strictEqual(thread.comments[0].parent, thread);
 

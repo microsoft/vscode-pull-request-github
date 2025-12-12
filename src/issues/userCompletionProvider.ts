@@ -11,14 +11,14 @@ import { TimelineEvent } from '../common/timelineEvent';
 import { fromNewIssueUri, fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
+import { ASSIGNEES } from './issueFile';
+import { StateManager } from './stateManager';
+import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IAccount, User } from '../github/interface';
 import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRelatedUsersFromTimelineEvents } from '../github/utils';
-import { ASSIGNEES } from './issueFile';
-import { StateManager } from './stateManager';
-import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private static readonly ID: string = 'UserCompletionProvider';
@@ -77,7 +77,9 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
+		const isPositionComment = document.languageId === 'plaintext' || document.languageId === 'markdown' || await isComment(document, position);
+
+		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !isPositionComment) {
 			return [];
 		}
 
@@ -96,7 +98,15 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			uri = getRootUriFromScmInputUri(document.uri);
 		} else if (document.uri.scheme === Schemes.Comment) {
 			const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-			uri = activeTab instanceof vscode.TabInputText ? activeTab.uri : (activeTab instanceof vscode.TabInputTextDiff ? activeTab.modified : undefined);
+			if (activeTab instanceof vscode.TabInputText) {
+				uri = activeTab.uri;
+			} else if (activeTab instanceof vscode.TabInputTextDiff) {
+				uri = activeTab.modified;
+			} else if ((activeTab as { textDiffs?: { modified: vscode.Uri, original: vscode.Uri }[] }).textDiffs) {
+				uri = (activeTab as { textDiffs: { modified: vscode.Uri, original: vscode.Uri }[] }).textDiffs[0].modified;
+			} else {
+				uri = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : undefined;
+			}
 		}
 
 		if (!uri) {

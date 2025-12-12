@@ -37,7 +37,7 @@ const RefBuilder = createBuilderClass<Ref>()({
 	}),
 });
 
-type Repository = PullRequestResponse['repository'];
+type Repository = NonNullable<PullRequestResponse['repository']>;
 type PullRequest = Repository['pullRequest'];
 type Author = PullRequest['author'];
 type AssigneesConn = PullRequest['assignees'];
@@ -110,7 +110,8 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 				}
 			}),
 			reactions: { default: { totalCount: 0 } },
-			comments: { default: { totalCount: 0 } }
+			comments: { default: { totalCount: 0 } },
+			reactionGroups: { default: [] },
 		})
 	}),
 	rateLimit: { linked: RateLimitBuilder },
