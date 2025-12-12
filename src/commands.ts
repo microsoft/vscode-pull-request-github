@@ -714,6 +714,30 @@ export function registerCommands(
 		}),
 	);
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.pickOnCodespaces', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
+			if (pr === undefined) {
+				// This is unexpected, but has happened a few times.
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel;
+
+			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
+				pullRequestModel = pr.pullRequestModel;
+			} else {
+				pullRequestModel = pr;
+			}
+
+			if (!pullRequestModel.head) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
+			}
+
+			return vscode.env.openExternal(vscode.Uri.parse(codespacesPrLink(pullRequestModel)));
+		}),
+	);
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: OverviewContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
