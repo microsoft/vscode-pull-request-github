@@ -146,12 +146,14 @@
 					"enum": [
 						"template",
 						"commit",
+						"branchName",
 						"none",
 						"Copilot"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
 						"%githubPullRequests.pullRequestDescription.commit%",
+						"%githubPullRequests.pullRequestDescription.branchName%",
 						"%githubPullRequests.pullRequestDescription.none%",
 						"%githubPullRequests.pullRequestDescription.copilot%"
 					],
