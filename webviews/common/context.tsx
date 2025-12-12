@@ -93,6 +93,7 @@ export class PRContext {
 	public readyForReviewAndMerge = (args: { mergeMethod: MergeMethod }): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReviewAndMerge', args });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
+	public addReviewerCopilot = () => this.postMessage({ command: 'pr.add-reviewer-copilot' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
 	public removeProject = (project: IProjectItem) => this.postMessage({ command: 'pr.remove-project', args: project });
 	public addMilestone = () => this.postMessage({ command: 'pr.add-milestone' });

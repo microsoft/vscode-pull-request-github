@@ -233,6 +233,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			isEnterprise: issue.githubRepository.remote.isEnterprise,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
+			canRequestCopilotReview: false,
 			reactions: issue.item.reactions,
 			isAuthor: issue.author.login === currentUser.login,
 		};
