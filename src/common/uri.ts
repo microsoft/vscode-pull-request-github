@@ -195,7 +195,7 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 
 		if (ImageMimetypes.indexOf(mimetype) > -1) {
 			const contents = await repository.buffer(ref, absolutePath);
-			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents);
+			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents, false, repository.rootUri);
 		}
 	} catch (err) {
 		return;
