@@ -14,6 +14,7 @@ export const REPO_KEYS = 'github.pullRequest.repos';
 export const PREVIOUS_CREATE_METHOD = 'github.pullRequest.previousCreateMethod';
 export const LAST_USED_EMAIL = 'github.pullRequest.lastUsedEmail';
 export const BRANCHES_ASSOCIATED_WITH_PRS = 'github.pullRequest.branchesAssociatedWithPRs';
+export const RECENTLY_USED_BRANCHES = 'github.pullRequest.recentlyUsedBranches';
 
 export interface RepoState {
 	mentionableUsers?: IAccount[];
@@ -22,6 +23,10 @@ export interface RepoState {
 
 export interface ReposState {
 	repos: { [ownerAndRepo: string]: RepoState };
+}
+
+export interface RecentlyUsedBranchesState {
+	branches: { [ownerAndRepo: string]: string[] };
 }
 
 export function setSyncedKeys(context: vscode.ExtensionContext) {
