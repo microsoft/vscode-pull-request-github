@@ -15,12 +15,12 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { branchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
-import type { Branch, Ref } from '../api/api';
+import type { Branch } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
@@ -812,40 +812,6 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		});
 	}
 
-	private async branchPicks(githubRepository: GitHubRepository, changeRepoMessage: string, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
-		let branches: (string | Ref)[];
-		if (isBase) {
-			// For the base, we only want to show branches from GitHub.
-			branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
-		} else {
-			// For the compare, we only want to show local branches.
-			branches = (await this._folderRepositoryManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
-		}
-		// TODO: @alexr00 - Add sorting so that the most likely to be used branch (ex main or release if base) is at the top of the list.
-		const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = branches.map(branch => {
-			const branchName = typeof branch === 'string' ? branch : branch.name!;
-			const pick: (vscode.QuickPickItem & { remote: RemoteInfo, branch: string }) = {
-				iconPath: new vscode.ThemeIcon('git-branch'),
-				label: branchName,
-				remote: {
-					owner: githubRepository.remote.owner,
-					repositoryName: githubRepository.remote.repositoryName
-				},
-				branch: branchName
-			};
-			return pick;
-		});
-		branchPicks.unshift({
-			kind: vscode.QuickPickItemKind.Separator,
-			label: `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
-		});
-		branchPicks.unshift({
-			iconPath: new vscode.ThemeIcon('repo'),
-			label: changeRepoMessage
-		});
-		return branchPicks;
-	}
-
 	private async processRemoteAndBranchResult(githubRepository: GitHubRepository, result: { remote: RemoteInfo, branch: string }, isBase: boolean) {
 		const [defaultBranch, viewerPermission] = await Promise.all([githubRepository.getDefaultBranch(), githubRepository.getViewerPermission()]);
 
@@ -922,7 +888,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		quickPick.placeholder = githubRepository ? branchPlaceholder : remotePlaceholder;
 		quickPick.show();
 		quickPick.busy = true;
-		quickPick.items = githubRepository ? await this.branchPicks(githubRepository, chooseDifferentRemote, isBase) : await this.remotePicks(isBase);
+		quickPick.items = githubRepository ? await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase) : await this.remotePicks(isBase);
 		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
 		quickPick.activeItems = activeItem ? [activeItem] : [];
 		quickPick.busy = false;
@@ -941,7 +907,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					const selectedRemote = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo };
 					quickPick.busy = true;
 					githubRepository = this._folderRepositoryManager.findRepo(repo => repo.remote.owner === selectedRemote.remote.owner && repo.remote.repositoryName === selectedRemote.remote.repositoryName)!;
-					quickPick.items = await this.branchPicks(githubRepository, chooseDifferentRemote, isBase);
+					quickPick.items = await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase);
 					quickPick.placeholder = branchPlaceholder;
 					quickPick.busy = false;
 				} else if (selectedPick.branch && selectedPick.remote) {

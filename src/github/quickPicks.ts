@@ -11,6 +11,8 @@ import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
 import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { IssueModel } from './issueModel';
 import { DisplayLabel } from './views';
+import { RemoteInfo } from '../../common/types';
+import { Ref } from '../api/api';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID, COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
@@ -479,4 +481,40 @@ export async function pickEmail(githubRepository: GitHubRepository, current: str
 
 	const result = await vscode.window.showQuickPick(getEmails(), { canPickMany: false, title: vscode.l10n.t('Choose an email') });
 	return result ? result.label : undefined;
+}
+
+export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
+	let branches: (string | Ref)[];
+	if (isBase) {
+		// For the base, we only want to show branches from GitHub.
+		branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+	} else {
+		// For the compare, we only want to show local branches.
+		branches = (await folderRepoManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
+	}
+	// TODO: @alexr00 - Add sorting so that the most likely to be used branch (ex main or release if base) is at the top of the list.
+	const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = branches.map(branch => {
+		const branchName = typeof branch === 'string' ? branch : branch.name!;
+		const pick: (vscode.QuickPickItem & { remote: RemoteInfo, branch: string }) = {
+			iconPath: new vscode.ThemeIcon('git-branch'),
+			label: branchName,
+			remote: {
+				owner: githubRepository.remote.owner,
+				repositoryName: githubRepository.remote.repositoryName
+			},
+			branch: branchName
+		};
+		return pick;
+	});
+	branchPicks.unshift({
+		kind: vscode.QuickPickItemKind.Separator,
+		label: `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
+	});
+	if (changeRepoMessage) {
+		branchPicks.unshift({
+			iconPath: new vscode.ThemeIcon('repo'),
+			label: changeRepoMessage
+		});
+	}
+	return branchPicks;
 }

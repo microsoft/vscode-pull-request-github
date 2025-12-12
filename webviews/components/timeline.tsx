@@ -13,6 +13,7 @@ import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import {
 	AssignEvent,
+	BaseRefChangedEvent,
 	ClosedEvent,
 	CommentEvent,
 	CommitEvent,
@@ -89,6 +90,8 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				return <ClosedEventView key={`closed${event.id}`} event={event} isIssue={isIssue} />;
 			case EventType.Reopened:
 				return <ReopenedEventView key={`reopened${event.id}`} event={event} isIssue={isIssue} />;
+			case EventType.BaseRefChanged:
+				return <BaseRefChangedEventView key={`baseref${event.id}`} event={event} />;
 			case EventType.NewCommitsSinceReview:
 				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
 			case EventType.CopilotStarted:
@@ -510,6 +513,24 @@ const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: 
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">{isIssue ? 'reopened this issue' : 'reopened this pull request'}</div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const BaseRefChangedEventView = ({ event }: { event: BaseRefChangedEvent }) => {
+	const { actor, createdAt, currentRefName, previousRefName } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				<div className="avatar-container">
+					<Avatar for={actor} />
+				</div>
+				<AuthorLink for={actor} />
+				<div className="message">
+					changed the base branch from <code className="branch-tag">{previousRefName}</code> to <code className="branch-tag">{currentRefName}</code>
+				</div>
 			</div>
 			<Timestamp date={createdAt} />
 		</div>
