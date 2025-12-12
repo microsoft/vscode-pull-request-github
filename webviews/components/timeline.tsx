@@ -247,26 +247,20 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 		}
 	};
 
-	// For outdated comments, show a minimal timeline item
-	if (isOutdated) {
-		return (
-			<div key={event.id} className="diff-container">
-				<div className="outdated-comment">
-					<span className="outdated-comment-label">This comment was marked as outdated.</span>
-					{nbsp}
-					<a href={comment.htmlUrl} target="_blank" rel="noopener noreferrer">View in GitHub</a>
-				</div>
-			</div>
-		);
-	}
-
 	return (
 		<div key={event.id} className="diff-container">
 			<div className="resolved-container">
 				<div>
-					<a className="diffPath" onClick={() => openDiff(comment)}>
-						{comment.path}
-					</a>
+					{comment.position === null ? (
+						<span>
+							<span>{comment.path}</span>
+							<span className="outdatedLabel">Outdated</span>
+						</span>
+					) : (
+						<a className="diffPath" onClick={() => openDiff(comment)}>
+							{comment.path}
+						</a>
+					)}
 					{!resolved && !revealed ? <span className="unresolvedLabel">Unresolved</span> : null}
 				</div>
 				<button className="secondary" onClick={() => setRevealed(!revealed)}>

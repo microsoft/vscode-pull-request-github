@@ -418,29 +418,6 @@ body .resolved-container .unresolvedLabel {
 	margin-left: 5px;
 }
 
-body .outdated-comment {
-	padding: 12px 16px;
-	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-panel-border);
-	border-radius: 4px;
-	margin: 8px 0;
-	color: var(--vscode-descriptionForeground);
-	font-size: 13px;
-}
-
-body .outdated-comment .outdated-comment-label {
-	font-style: italic;
-}
-
-body .outdated-comment a {
-	color: var(--vscode-textLink-foreground);
-	text-decoration: none;
-}
-
-body .outdated-comment a:hover {
-	text-decoration: underline;
-}
-
 body .diff .diffPath {
 	margin-right: 4px;
 }
