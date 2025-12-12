@@ -3692,6 +3692,16 @@
 				"description": "The color used for indicating that an issue is closed."
 			},
 			{
+				"id": "github.issues.closed",
+				"defaults": {
+					"dark": "pullRequests.merged",
+					"light": "pullRequests.merged",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The color used for indicating that an issue is closed. Duplicates issues.closed because there's another extension that uses this identifier."
+			},
+			{
 				"id": "pullRequests.merged",
 				"defaults": {
 					"dark": "#8957e5",
