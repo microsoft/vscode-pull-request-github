@@ -87,6 +87,8 @@ When you summarize comments, always give a summary of each comment and always me
 
 joe: this is a comment
 
+If the content contains images in Markdown format (e.g., ![alt text](image-url)), always preserve them in the output exactly as they appear. Images are important visual content and should not be removed or summarized.
+
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
 	}
