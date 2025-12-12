@@ -27,6 +27,7 @@ import {
 	OrganizationTeamsCountResponse,
 	OrganizationTeamsResponse,
 	OrgProjectsResponse,
+	PullRequestNumberData,
 	PullRequestNumbersResponse,
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
@@ -669,7 +670,7 @@ export class GitHubRepository extends Disposable {
 		return undefined;
 	}
 
-	async getPullRequestNumbers(): Promise<{ number: number; title: string; author: { login: string } }[] | undefined> {
+	async getPullRequestNumbers(): Promise<PullRequestNumberData[] | undefined> {
 		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch pull request numbers - enter`, this.id);

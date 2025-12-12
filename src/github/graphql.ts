@@ -847,15 +847,18 @@ export interface PullRequestsResponse {
 export interface PullRequestNumbersResponse {
 	repository: {
 		pullRequests: {
-			nodes: {
-				number: number;
-				title: string;
-				author: {
-					login: string;
-				};
-			}[]
+			nodes: PullRequestNumberData[]
 		}
 	} | null;
+	rateLimit: RateLimit;
+}
+
+export interface PullRequestNumberData {
+	number: number;
+	title: string;
+	author: {
+		login: string;
+	};
 }
 
 export interface MaxIssueResponse {
