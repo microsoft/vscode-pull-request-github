@@ -582,7 +582,7 @@ const CHECK_STATE_ORDER: Record<CheckState, number> = {
 
 const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
 	// Sort statuses to group by state: failure first, then pending, neutral, and success
-	const sortedStatuses = [...statuses].sort((a, b) => {
+	const sortedStatuses = statuses.sort((a, b) => {
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
 
