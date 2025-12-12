@@ -532,6 +532,10 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return this._replyMessage(message, undefined);
 	}
 
+	private async openDescriptionSettings(): Promise<void> {
+		return vscode.commands.executeCommand('workbench.action.openSettings', 'githubPullRequests.pullRequestDescription');
+	}
+
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -565,6 +569,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
+
+			case 'pr.openDescriptionSettings':
+				return this.openDescriptionSettings();
 
 			default:
 				return this.MESSAGE_UNHANDLED;

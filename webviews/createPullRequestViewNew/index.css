@@ -93,6 +93,51 @@ button.input-box {
 	text-transform: uppercase;
 }
 
+.group-description-header {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+}
+
+.group-description-header .input-title {
+	margin-bottom: 0;
+}
+
+.group-description-header .description-settings-action {
+	background: unset;
+	padding: 2px;
+	margin: unset;
+	height: 16px;
+	cursor: pointer;
+	opacity: 0.7;
+}
+
+.group-description-header .description-settings-action:hover {
+	outline-style: none;
+	opacity: 1;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.group-description-header .description-settings-action:focus {
+	outline-style: none;
+}
+
+.group-description-header .description-settings-action:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	background: unset;
+	opacity: 1;
+}
+
+.group-description-header .description-settings-action svg {
+	width: 14px;
+	height: 14px;
+}
+
 #title {
 	padding-right: 24px;
 	text-overflow: ellipsis;
