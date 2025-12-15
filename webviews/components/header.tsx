@@ -32,9 +32,8 @@ export function Header({
 	owner,
 	repo,
 	busy,
-	stateReason,
-	isCompact
-}: PullRequest & { isCompact?: boolean }) {
+	stateReason
+}: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
 	const codingAgentEvent = mostRecentCopilotEvent(events);
@@ -52,16 +51,9 @@ export function Header({
 				canEdit={canEdit}
 				owner={owner}
 				repo={repo}
-				isCompact={isCompact}
 			/>
-			{!isCompact && <Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />}
+			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />
 			<div className="header-actions">
-				{isCompact && (
-					<div id="status" className={`status-badge-${getStatus(state, !!isDraft, isIssue, stateReason).color}`}>
-						<span className='icon'>{getStatus(state, !!isDraft, isIssue, stateReason).icon}</span>
-						<span>{getStatus(state, !!isDraft, isIssue, stateReason).text}</span>
-					</div>
-				)}
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
 					isIssue={isIssue}
@@ -88,10 +80,9 @@ interface TitleProps {
 	canEdit: boolean;
 	owner: string;
 	repo: string;
-	isCompact?: boolean;
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo, isCompact }: TitleProps): JSX.Element {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }: TitleProps): JSX.Element {
 	const { setTitle, copyPrLink } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -129,7 +120,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	context['github:copyMenu'] = true;
 
 	const displayTitle = (
-		<div className={`overview-title ${isCompact ? 'compact' : ''}`}>
+		<div className="overview-title">
 			<h2>
 				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
 				{' '}
@@ -137,16 +128,14 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 					#{number}
 				</a>
 			</h2>
-			{!isCompact && canEdit ?
+			{canEdit ?
 				<button title="Rename" onClick={() => setEditMode(true)} className="icon-button">
 					{editIcon}
 				</button>
 				: null}
-			{!isCompact && (
-				<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
-					{copyIcon}
-				</button>
-			)}
+			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
+				{copyIcon}
+			</button>
 		</div>
 	);
 

@@ -48,50 +48,57 @@ textarea:focus,
 }
 
 .title {
+	position: sticky;
+	top: 0;
+	z-index: 100;
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	transition: all 0.2s ease;
-}
-
-.title.sticky {
-	position: sticky;
-	top: 0;
-	z-index: 100;
 	background: var(--vscode-editor-background);
-	margin: 0;
-	padding: 8px 0;
-	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+/* Shadow effect when stuck */
+.title::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -32px;
+	right: -32px;
+	bottom: 0;
+	background: var(--vscode-editor-background);
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	pointer-events: none;
+	z-index: -1;
 }
 
-.title.sticky .details {
-	width: 100%;
+.title.stuck::before {
+	opacity: 1;
 }
 
-.title.sticky .overview-title h2 {
-	font-size: 18px;
-	margin: 0;
-}
-
-.title.sticky .header-actions {
-	padding-top: 0;
-}
-
-.overview-title.compact {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.overview-title.compact h2 {
-	font-size: 18px;
-	margin: 0;
-	white-space: nowrap;
+/* Hide subtitle when stuck */
+.title .subtitle {
+	transition: opacity 0.2s ease, max-height 0.2s ease;
+	max-height: 100px;
 	overflow: hidden;
-	text-overflow: ellipsis;
+}
+
+.title.stuck .subtitle {
+	opacity: 0;
+	max-height: 0;
+	pointer-events: none;
+}
+
+/* Adjust title size when stuck */
+.title .overview-title h2 {
+	transition: font-size 0.2s ease;
+}
+
+.title.stuck .overview-title h2 {
+	font-size: 18px;
 }
 
 .title .pr-number {
@@ -603,15 +610,6 @@ small-button {
 	gap: 8px;
 	padding-top: 4px;
 	align-items: center;
-}
-
-.title.sticky .header-actions {
-	flex-wrap: nowrap;
-}
-
-.title.sticky .header-actions #status {
-	margin-right: 0;
-	flex-shrink: 0;
 }
 
 .header-actions>div:first-of-type {
@@ -1261,9 +1259,9 @@ code {
 	border-bottom: 1px solid var(--vscode-contrastBorder);
 }
 
-.vscode-high-contrast .title.sticky {
-	border: 1px solid var(--vscode-contrastBorder);
+.vscode-high-contrast .title.stuck::before {
 	box-shadow: none;
+	border: 1px solid var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .diff .diffLine {
@@ -1292,17 +1290,8 @@ code {
 		padding-bottom: 0px;
 	}
 
-	.title.sticky {
-		padding: 8px 0;
-		border-bottom: 1px solid var(--vscode-panel-border);
-	}
-
-	.title.sticky .overview-title h2 {
+	.title.stuck .overview-title h2 {
 		font-size: 16px;
-	}
-
-	.title.sticky .button-group {
-		flex-wrap: nowrap;
 	}
 
 	#app {

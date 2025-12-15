@@ -29,49 +29,49 @@ const useMediaQuery = (query: string) => {
 	return matches;
 };
 
-const STICKY_THRESHOLD = 80;
-const STICKY_THRESHOLD_BUFFER = 10;
-
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
-	const [isSticky, setIsSticky] = React.useState(false);
-	const isStickyRef = React.useRef(isSticky);
-
-	// Keep ref in sync with state
-	React.useEffect(() => {
-		isStickyRef.current = isSticky;
-	}, [isSticky]);
+	const titleRef = React.useRef<HTMLDivElement>(null);
+	const sentinelRef = React.useRef<HTMLDivElement>(null);
 
 	React.useEffect(() => {
-		let ticking = false;
+		const sentinel = sentinelRef.current;
+		const title = titleRef.current;
+		
+		if (!sentinel || !title) {
+			return;
+		}
 
-		const handleScroll = () => {
-			if (!ticking) {
-				window.requestAnimationFrame(() => {
-					const scrollY = window.scrollY;
-					const currentSticky = isStickyRef.current;
-					// Use hysteresis to prevent flickering at the threshold
-					// When not sticky, activate when scrollY > threshold
-					// When sticky, deactivate when scrollY < (threshold - buffer)
-					if (!currentSticky && scrollY > STICKY_THRESHOLD) {
-						setIsSticky(true);
-					} else if (currentSticky && scrollY < STICKY_THRESHOLD - STICKY_THRESHOLD_BUFFER) {
-						setIsSticky(false);
-					}
-					ticking = false;
-				});
-				ticking = true;
+		// Use IntersectionObserver to detect when the sentinel leaves the viewport
+		// This indicates the title is stuck
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				// When sentinel is not intersecting, title is stuck
+				if (entry.isIntersecting) {
+					title.classList.remove('stuck');
+				} else {
+					title.classList.add('stuck');
+				}
+			},
+			{
+				threshold: [1],
+				rootMargin: '0px'
 			}
-		};
+		);
 
-		window.addEventListener('scroll', handleScroll, { passive: true });
-		return () => window.removeEventListener('scroll', handleScroll);
+		observer.observe(sentinel);
+
+		return () => {
+			observer.disconnect();
+		};
 	}, []);
 
 	return <>
-		<div id="title" className={`title ${isSticky ? 'sticky' : ''}`}>
+		{/* Sentinel element that sits just above the sticky title */}
+		<div ref={sentinelRef} style={{ height: '1px', marginTop: '-1px' }} />
+		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
-				<Header {...pr} isCompact={isSticky} />
+				<Header {...pr} />
 			</div>
 		</div>
 		{isSingleColumnLayout ?
