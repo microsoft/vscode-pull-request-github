@@ -128,7 +128,7 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 	it('should trim whitespace from query strings', async function () {
 		const mockUri = vscode.Uri.parse('file:///test');
 		const mockFolderManager = {
-			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' } } },
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
 			getIssues: async (query: string) => {
 				// Verify that the query doesn't have trailing whitespace
 				assert.strictEqual(query, query.trim(), 'Query should be trimmed');
