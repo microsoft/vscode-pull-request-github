@@ -687,11 +687,15 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return { title, description };
 		}
 
+		const name = compareBranch.name;
+		const branchNameTitle = (name: string) => {
+			return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+		};
+
 		// If branchName is selected, use the branch name as the title
 		if (descriptionSource === 'branchName') {
-			const name = compareBranch.name;
 			if (name) {
-				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+				title = branchNameTitle(name);
 			}
 			return { title, description };
 		}
@@ -704,7 +708,6 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
 		try {
-			const name = compareBranch.name;
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
@@ -730,7 +733,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			}
 			// Set title
 			if (useBranchName && name) {
-				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+				title = branchNameTitle(name);
 			} else if (name && lastCommit) {
 				title = lastCommit.title;
 			}
