@@ -42,11 +42,13 @@ export const Overview = (pr: PullRequest) => {
 			return;
 		}
 
-		// Use IntersectionObserver to detect when the sentinel leaves the viewport
-		// This indicates the title is stuck
+		// Use IntersectionObserver to detect when the title becomes sticky
+		// The sentinel is positioned right above the title
+		// When sentinel scrolls out of view (top of viewport), title becomes stuck
 		const observer = new IntersectionObserver(
 			([entry]) => {
-				// When sentinel is not intersecting, title is stuck
+				// When sentinel is visible, title hasn't become stuck yet
+				// When sentinel is not visible (scrolled past top), title is stuck
 				if (entry.isIntersecting) {
 					title.classList.remove('stuck');
 				} else {
@@ -54,8 +56,9 @@ export const Overview = (pr: PullRequest) => {
 				}
 			},
 			{
-				threshold: [1],
-				rootMargin: '0px'
+				// Use rootMargin to trigger slightly before reaching the top
+				rootMargin: '-1px 0px 0px 0px',
+				threshold: [1]
 			}
 		);
 
@@ -67,8 +70,8 @@ export const Overview = (pr: PullRequest) => {
 	}, []);
 
 	return <>
-		{/* Sentinel element that sits just above the sticky title */}
-		<div ref={sentinelRef} style={{ height: '1px', marginTop: '-1px' }} />
+		{/* Sentinel element positioned just before the sticky title - must have height to be observable */}
+		<div ref={sentinelRef} style={{ height: '1px' }} />
 		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />
