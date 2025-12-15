@@ -9,7 +9,7 @@ import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { IAccount, IMilestone, IProjectItem, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
-import { PullRequest } from '../../src/github/views';
+import { ChangeReviewersReply, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
@@ -106,7 +106,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 										e.stopPropagation();
 										setRequestingCopilotReview(true);
 										try {
-											const newReviewers = await addReviewerCopilot();
+											const newReviewers: ChangeReviewersReply = await addReviewerCopilot();
 											updatePR({ reviewers: newReviewers.reviewers });
 										} finally {
 											setRequestingCopilotReview(false);
