@@ -305,6 +305,7 @@
 	"command.pr.checkoutOnCodespacesFromDescription.title": "Checkout on Codespaces",
 	"command.pr.openSessionLogFromDescription.title": "View Session",
 	"command.issue.openDescription.title": "View Issue Description",
+	"command.issue.openIssueOnGitHub.title": "Open Issue on GitHub",
 	"command.issue.copyGithubDevLink.title": "Copy github.dev Link",
 	"command.issue.copyGithubPermalink.title": "Copy GitHub Permalink",
 	"command.issue.copyGithubHeadLink.title": "Copy GitHub Head Link",
