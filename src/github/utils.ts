@@ -39,6 +39,7 @@ import {
 } from './interface';
 import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
+import { PullRequestModel } from './pullRequestModel';
 import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -695,7 +696,7 @@ export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, r
 		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
 			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
 			reviewers.push(team);
-		} else if (GraphQL.isAccount(reviewer.requestedReviewer)) {
+		} else if (GraphQL.isAccount(reviewer.requestedReviewer) || GraphQL.isBot(reviewer.requestedReviewer)) {
 			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
 			reviewers.push(account);
 		}
@@ -1785,6 +1786,12 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 export function vscodeDevPrLink(pullRequest: IssueModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
+}
+
+export function codespacesPrLink(pullRequest: PullRequestModel): string {
+	const repoFullName = `${pullRequest.head!.owner}/${pullRequest.remote.repositoryName}`;
+	const branch = pullRequest.head!.ref;
+	return `https://github.com/codespaces/new/${encodeURIComponent(repoFullName)}/tree/${encodeURIComponent(branch)}`;
 }
 
 export function makeLabel(label: ILabel): string {

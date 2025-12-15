@@ -217,6 +217,7 @@ export class TemporaryComment extends CommentBase {
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
+export const COMMIT_SHA_EXPRESSION = /(?<![`\/\w])([0-9a-f]{7})([0-9a-f]{33})?(?![`\/\w])/g;
 
 export class GHPRComment extends CommentBase {
 	private static ID = 'GHPRComment';
@@ -421,6 +422,36 @@ ${lineContents}
 		return replaceImages(body, html, this.githubRepository?.remote.host);
 	}
 
+	private replaceCommitShas(body: string): string {
+		const githubRepository = this.githubRepository;
+		if (!githubRepository) {
+			return body;
+		}
+
+		// Match commit SHAs that are:
+		// - Either 7 or 40 hex characters
+		// - Not already part of a URL or markdown link
+		// - Not inside code blocks (backticks)
+		return body.replace(COMMIT_SHA_EXPRESSION, (match, shortSha, remaining, offset) => {
+			// Don't replace if inside code blocks
+			const beforeMatch = body.substring(0, offset);
+			const backtickCount = (beforeMatch.match(/`/g)?.length ?? 0);
+			if (backtickCount % 2 === 1) {
+				return match;
+			}
+
+			// Don't replace if already part of a markdown link
+			if (beforeMatch.endsWith('[') || body.substring(offset + match.length).startsWith(']')) {
+				return match;
+			}
+
+			const owner = githubRepository.remote.owner;
+			const repo = githubRepository.remote.repositoryName;
+			const commitUrl = `https://${githubRepository.remote.host}/${owner}/${repo}/commit/${match}`;
+			return `[${shortSha}](${commitUrl})`;
+		});
+	}
+
 	private replaceNewlines(body: string) {
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
@@ -463,7 +494,8 @@ ${lineContents}
 			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${url})`;
 		});
 
-		const permalinkReplaced = await this.replacePermalink(linkified);
+		const commitShasReplaced = this.replaceCommitShas(linkified);
+		const permalinkReplaced = await this.replacePermalink(commitShasReplaced);
 		await emojiPromise;
 		return this.postpendSpecialAuthorComment(emojify(this.replaceImg(this.replaceSuggestion(permalinkReplaced))));
 	}

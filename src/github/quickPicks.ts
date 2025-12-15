@@ -8,11 +8,11 @@ import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { IssueModel } from './issueModel';
 import { DisplayLabel } from './views';
 import { COPILOT_ACCOUNTS } from '../common/comment';
-import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID, COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -191,15 +191,7 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 
 	// If we removed the coding agent, add the Copilot reviewer instead
 	if (hasCopilotSweAgent && !existingReviewers.find(user => (user.reviewer as IAccount).login === COPILOT_REVIEWER)) {
-		const copilotReviewer: IAccount = {
-			login: COPILOT_REVIEWER,
-			id: COPILOT_REVIEWER_ID,
-			url: '',
-			avatarUrl: '',
-			name: COPILOT_ACCOUNTS[COPILOT_REVIEWER]?.name ?? 'Copilot',
-			accountType: AccountType.Bot
-		};
-		assignableUsers.push(copilotReviewer);
+		assignableUsers.push(COPILOT_REVIEWER_ACCOUNT);
 	}
 
 	// Suggested reviewers
