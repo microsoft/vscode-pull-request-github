@@ -31,8 +31,9 @@ describe('commit SHA replacement', function () {
 	it('should not match SHAs in code blocks', function () {
 		const text = 'Fixed in commit 5cf56bc but not in `abc1234`';
 		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
-		// The regex will match both, but the replacement logic checks backtick count
-		assert.strictEqual(matches.length, 2);
+		// The regex should only match the first SHA, not the one inside backticks
+		assert.strictEqual(matches.length, 1);
+		assert.strictEqual(matches[0][1], '5cf56bc');
 	});
 
 	it('should not match non-hex strings', function () {
