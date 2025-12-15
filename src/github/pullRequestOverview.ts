@@ -27,7 +27,7 @@ import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
-import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -308,7 +308,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
-			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && COPILOT_ACCOUNTS[reviewer.reviewer.login]);
+			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
 			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
@@ -757,7 +757,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const copilotUser = this._assignableUsers[this._item.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
 			if (copilotUser) {
-				await this._item.requestReview([copilotUser], []);
+				await this._item.requestReview([COPILOT_REVIEWER_ACCOUNT], []);
 				const newReviewers = await this._item.getReviewRequests();
 				this._existingReviewers = parseReviewers(newReviewers!, await this._item.getTimelineEvents(), this._item.author);
 				const reply = {
