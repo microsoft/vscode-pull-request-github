@@ -59,6 +59,10 @@ textarea:focus,
 	background: var(--vscode-editor-background);
 }
 
+.title .details {
+	flex: 1;
+}
+
 /* Shadow effect when stuck - only on bottom */
 .title.stuck::after {
 	content: '';
