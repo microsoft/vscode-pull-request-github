@@ -121,6 +121,10 @@ export interface ChangeAssigneesReply {
 	events: TimelineEvent[];
 }
 
+export interface ChangeReviewersReply {
+	reviewers: ReviewState[];
+}
+
 export interface SubmitReviewReply {
 	events?: TimelineEvent[];
 	reviewedEvent: ReviewEvent | CommentEvent;
