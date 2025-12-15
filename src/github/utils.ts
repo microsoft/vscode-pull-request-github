@@ -297,7 +297,7 @@ export function convertRESTUserToAccount(
 
 export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): IGitHubRef {
 	return {
-		label: `${head.repo.owner!.login}/${head.repo.name}:${head.ref}`,
+		label: head.label,
 		ref: head.ref,
 		sha: head.sha,
 		repo: {
@@ -596,14 +596,14 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 	}
 
 	return {
-		label: `${repository.owner.login}/${repository.name}:${refName}`,
+		label: `${repository.owner.login}:${refName}`,
 		ref: refName,
 		sha: oid,
 		repo: {
 			cloneUrl: repository.url,
 			isInOrganization: repository.isInOrganization,
 			owner: repository.owner.login,
-			name: repository.name
+			name: refName
 		},
 	};
 }

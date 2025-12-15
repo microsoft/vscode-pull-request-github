@@ -609,7 +609,6 @@ export interface RefRepository {
 		login: string;
 	};
 	url: string;
-	name: string;
 }
 
 export interface BaseRefRepository extends RefRepository {
