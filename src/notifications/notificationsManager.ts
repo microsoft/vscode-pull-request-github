@@ -121,7 +121,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		if (notification.subject.type === NotificationSubjectType.Issue && model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed'));
 		}
 		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
 			item.iconPath = model.isOpen

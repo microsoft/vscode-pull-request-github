@@ -20,6 +20,7 @@ import {
 	ISSUE_COMPLETIONS,
 	ISSUES_SETTINGS_NAMESPACE,
 	USER_COMPLETIONS,
+	WORKING_BASE_BRANCH,
 } from '../common/settingKeys';
 import { editQuery } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
@@ -809,7 +810,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		let githubRepository = issueModel.githubRepository;
 		let remote = issueModel.remote;
 		if (!repoManager) {
-			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this isssue in.'));
+			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this issue in.'));
 			if (!repoManager) {
 				return;
 			}
@@ -824,10 +825,40 @@ export class IssueFeatureRegistrar extends Disposable {
 			}
 		}
 
+		// Determine whether to checkout the default branch based on workingBaseBranch setting
+		const workingBaseBranchConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(WORKING_BASE_BRANCH);
+		let checkoutDefaultBranch = false;
+
+		if (workingBaseBranchConfig === 'defaultBranch') {
+			checkoutDefaultBranch = true;
+		} else if (workingBaseBranchConfig === 'prompt') {
+			const currentBranchName = repoManager.repository.state.HEAD?.name;
+			const defaults = await repoManager.getPullRequestDefaults();
+			const defaultBranchName = defaults.base;
+
+			if (!currentBranchName) {
+				// If we can't determine the current branch, default to the default branch
+				checkoutDefaultBranch = true;
+			} else if (currentBranchName === defaultBranchName) {
+				// If already on the default branch, no need to prompt
+				checkoutDefaultBranch = false;
+			} else {
+				const choice = await vscode.window.showQuickPick([currentBranchName, defaultBranchName], {
+					placeHolder: vscode.l10n.t('Which branch should be used as the base for the new issue branch?'),
+				});
+				if (choice === undefined) {
+					// User cancelled the prompt
+					return;
+				}
+				checkoutDefaultBranch = choice === defaultBranchName;
+			}
+		}
+		// else workingBaseBranchConfig === 'currentBranch', checkoutDefaultBranch remains false
+
 		await this._stateManager.setCurrentIssue(
 			repoManager,
 			new CurrentIssue(issueModel, repoManager, this._stateManager, remoteNameResult.remote, needsBranchPrompt),
-			true
+			checkoutDefaultBranch
 		);
 	}
 

@@ -9,6 +9,7 @@ import { COPILOT_ACCOUNTS } from '../common/comment';
 import { copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
+import { DEV_MODE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
@@ -495,6 +496,12 @@ export class PrsTreeModel extends Disposable {
 
 	private _getStateChangesPromise: Promise<boolean> | undefined;
 	async refreshCopilotStateChanges(clearCache: boolean = false): Promise<boolean> {
+		// Skip Copilot PR status fetching if dev mode is enabled
+		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
+		if (devMode) {
+			return false;
+		}
+
 		// Return the existing in-flight promise if one exists
 		if (this._getStateChangesPromise) {
 			return this._getStateChangesPromise;

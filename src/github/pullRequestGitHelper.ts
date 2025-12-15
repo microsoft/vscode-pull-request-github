@@ -33,6 +33,13 @@ export interface BaseBranchMetadata {
 	branch: string;
 }
 
+export type BranchInfo = {
+	branch: string;
+	remote?: string;
+	createdForPullRequest?: boolean;
+	remoteInUse?: boolean;
+};
+
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
 	static async checkoutFromFork(
@@ -202,12 +209,7 @@ export class PullRequestGitHelper {
 	static async getBranchNRemoteForPullRequest(
 		repository: Repository,
 		pullRequest: PullRequestModel,
-	): Promise<{
-		branch: string;
-		remote?: string;
-		createdForPullRequest?: boolean;
-		remoteInUse?: boolean;
-	} | null> {
+	): Promise<BranchInfo | null> {
 		let branchName: string | null = null;
 		try {
 			const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
