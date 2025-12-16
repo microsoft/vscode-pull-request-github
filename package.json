@@ -353,11 +353,13 @@
 					"type": "string",
 					"enum": [
 						"expandUnresolved",
-						"collapseAll"
+						"collapseAll",
+						"collapsePreexisting"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.commentExpandState.expandUnresolved%",
-						"%githubPullRequests.commentExpandState.collapseAll%"
+						"%githubPullRequests.commentExpandState.collapseAll%",
+						"%githubPullRequests.commentExpandState.collapsePreexisting%"
 					],
 					"default": "expandUnresolved",
 					"description": "%githubPullRequests.commentExpandState.description%"

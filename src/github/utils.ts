@@ -152,20 +152,22 @@ function isResolvedToResolvedState(isResolved: boolean) {
 
 export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
+export const COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE = 'collapsePreexisting';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
-export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string, isJustCreated?: boolean) {
-	// If the comment was just created, always expand it so the user can review what they wrote
-	if (isJustCreated) {
+export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
+	const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
+	const isFromCurrent = (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser));
+	const isJustSuggestion = thread.comments.length === 1 && thread.comments[0].body.startsWith('```suggestion') && thread.comments[0].body.endsWith('```');
+
+	// When collapsePreexisting is set, keep newly created comments from the current user expanded
+	if (config === COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE && !thread.isOutdated && isFromCurrent && !isJustSuggestion) {
 		return vscode.CommentThreadCollapsibleState.Expanded;
 	}
 
-	const isFromCurrent = (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser));
-	const isJustSuggestion = thread.comments.length === 1 && thread.comments[0].body.startsWith('```suggestion') && thread.comments[0].body.endsWith('```');
 	if (thread.isResolved || (!thread.isOutdated && isFromCurrent && !isJustSuggestion)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
-		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 		expand = config === COMMENT_EXPAND_STATE_EXPAND_VALUE;
 	}
 	return expand
