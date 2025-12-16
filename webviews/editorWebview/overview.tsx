@@ -42,9 +42,12 @@ export const Overview = (pr: PullRequest) => {
 			return;
 		}
 
+		// Initially ensure title is not stuck
+		title.classList.remove('stuck');
+
 		// Use IntersectionObserver to detect when the title becomes sticky
 		// The sentinel is positioned right before the title
-		// When sentinel is fully scrolled out of view (past the top), title becomes stuck
+		// When sentinel scrolls out of view (past the top), title becomes stuck
 		const observer = new IntersectionObserver(
 			([entry]) => {
 				// When sentinel is intersecting (visible), title is NOT stuck
@@ -56,8 +59,9 @@ export const Overview = (pr: PullRequest) => {
 				}
 			},
 			{
-				// No rootMargin - just detect when sentinel leaves viewport naturally
-				threshold: [0]
+				// Use threshold 1 to only trigger when sentinel is fully visible/invisible
+				// This prevents false positives when sentinel is partially visible
+				threshold: [1]
 			}
 		);
 
