@@ -241,7 +241,8 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
 				newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread!, this._githubRepositories));
-				updateThreadWithRange(this._context, newThread, thread, this._githubRepositories);
+				const currentUser = await this._folderRepoManager.getCurrentUser();
+				updateThreadWithRange(this._context, newThread, thread, this._githubRepositories, undefined, currentUser.login);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = await this.getPREditors(vscode.window.visibleTextEditors);
