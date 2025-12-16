@@ -118,6 +118,8 @@ export class UriHandler implements vscode.UriHandler {
 				// Simplified format example: vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460
 				// Legacy format example: vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?%7B%22owner%22%3A%22alexr00%22%2C%22repo%22%3A%22playground%22%2C%22pullRequestNumber%22%3A714%7D
 				return this._checkoutPullRequest(uri);
+			case UriHandlerPaths.OpenPullRequestChanges:
+				return this._openPullRequestChanges(uri);
 		}
 	}
 
@@ -134,7 +136,7 @@ export class UriHandler implements vscode.UriHandler {
 		return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, issue);
 	}
 
-	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
+	private async _resolvePullRequestFromUri(uri: vscode.Uri): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel } | undefined> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
 			return;
@@ -144,7 +146,23 @@ export class UriHandler implements vscode.UriHandler {
 		if (!pullRequest) {
 			return;
 		}
-		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, pullRequest);
+		return { folderManager, pullRequest };
+	}
+
+	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
+		const resolved = await this._resolvePullRequestFromUri(uri);
+		if (!resolved) {
+			return;
+		}
+		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.pullRequest);
+	}
+
+	private async _openPullRequestChanges(uri: vscode.Uri): Promise<void> {
+		const resolved = await this._resolvePullRequestFromUri(uri);
+		if (!resolved) {
+			return;
+		}
+		return PullRequestModel.openChanges(resolved.folderManager, resolved.pullRequest);
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
