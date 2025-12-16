@@ -241,8 +241,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
 				newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread!, this._githubRepositories));
-				const currentUser = await this._folderRepoManager.getCurrentUser();
-				updateThreadWithRange(this._context, newThread, thread, this._githubRepositories, undefined, currentUser.login);
+				updateThreadWithRange(this._context, newThread, thread, this._githubRepositories, undefined, true);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = await this.getPREditors(vscode.window.visibleTextEditors);
@@ -286,7 +285,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
-				// Don't pass currentUser for changed threads - the "just created" logic should only apply to newly created threads
+				// Don't pass isNewlyAdded for changed threads - the "newly added" logic should only apply to newly added threads
 				updateThread(this._context, matchingThread, thread, this._githubRepositories);
 			}
 		}

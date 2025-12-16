@@ -154,13 +154,13 @@ export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE = 'collapsePreexisting';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
-export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
+export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string, isNewlyAdded?: boolean) {
 	const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 	const isFromCurrent = (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser));
 	const isJustSuggestion = thread.comments.length === 1 && thread.comments[0].body.startsWith('```suggestion') && thread.comments[0].body.endsWith('```');
 
-	// When collapsePreexisting is set, keep newly created comments from the current user expanded
-	if (config === COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE && !thread.isOutdated && isFromCurrent && !isJustSuggestion) {
+	// When collapsePreexisting is set, keep newly added comments expanded
+	if (config === COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE && isNewlyAdded && !isJustSuggestion) {
 		return vscode.CommentThreadCollapsibleState.Expanded;
 	}
 
@@ -175,7 +175,7 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 }
 
 
-export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, currentUser?: string) {
+export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, isNewlyAdded?: boolean) {
 	if (!vscodeThread.range) {
 		return;
 	}
@@ -184,13 +184,13 @@ export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeTh
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
 			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
 			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
-			updateThread(context, vscodeThread, reviewThread, githubRepositories, expand, range, currentUser);
+			updateThread(context, vscodeThread, reviewThread, githubRepositories, expand, range, undefined, isNewlyAdded);
 			break;
 		}
 	}
 }
 
-export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, range?: vscode.Range, currentUser?: string) {
+export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, range?: vscode.Range, currentUser?: string, isNewlyAdded?: boolean) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
@@ -209,7 +209,7 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 			applicability: newApplicabilityState
 		};
 	}
-	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand, currentUser);
+	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand, currentUser, isNewlyAdded);
 	if (range) {
 		vscodeThread.range = range;
 	}
