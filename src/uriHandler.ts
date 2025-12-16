@@ -136,7 +136,7 @@ export class UriHandler implements vscode.UriHandler {
 		return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, issue);
 	}
 
-	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
+	private async _resolvePullRequestFromUri(uri: vscode.Uri): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel } | undefined> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
 			return;
@@ -146,20 +146,23 @@ export class UriHandler implements vscode.UriHandler {
 		if (!pullRequest) {
 			return;
 		}
-		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, pullRequest);
+		return { folderManager, pullRequest };
+	}
+
+	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
+		const resolved = await this._resolvePullRequestFromUri(uri);
+		if (!resolved) {
+			return;
+		}
+		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.pullRequest);
 	}
 
 	private async _openPullRequestChanges(uri: vscode.Uri): Promise<void> {
-		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
-		if (!params) {
+		const resolved = await this._resolvePullRequestFromUri(uri);
+		if (!resolved) {
 			return;
 		}
-		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo) ?? this._reposManagers.folderManagers[0];
-		const pullRequest = await folderManager.resolvePullRequest(params.owner, params.repo, params.pullRequestNumber);
-		if (!pullRequest) {
-			return;
-		}
-		return PullRequestModel.openChanges(folderManager, pullRequest);
+		return PullRequestModel.openChanges(resolved.folderManager, resolved.pullRequest);
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
