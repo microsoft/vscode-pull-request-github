@@ -285,7 +285,6 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
-				// Don't pass isNewlyAdded for changed threads - the "newly added" logic should only apply to newly added threads
 				updateThread(this._context, matchingThread, thread, this._githubRepositories);
 			}
 		}
