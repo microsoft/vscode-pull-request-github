@@ -682,7 +682,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'templatePrompt' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
 		if (descrptionSource === 'none') {
 			return { title, description };
 		}
@@ -699,7 +699,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descrptionSource === 'template' ? this.getPullRequestTemplate() : undefined
+				descrptionSource === 'template' ? this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner) : (descrptionSource === 'templatePrompt' ? this.getPullRequestTemplate() : undefined)
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
@@ -757,23 +757,17 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
-		const createFromTemplate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'first' | 'prompt'>('createFromTemplate', 'first');
-
-		if (createFromTemplate === 'none') {
-			return undefined;
-		}
-
 		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
 
 		if (!templates || templates.length === 0) {
 			return undefined;
 		}
 
-		if (templates.length === 1 || createFromTemplate === 'first') {
+		if (templates.length === 1) {
 			return templates[0];
 		}
 
-		// createFromTemplate === 'prompt' and multiple templates exist
+		// Multiple templates exist - show quick pick
 		const selectedTemplate = await vscode.window.showQuickPick(
 			templates.map((template, index) => {
 				// Try to extract a meaningful name from the template (first line or first few chars)
