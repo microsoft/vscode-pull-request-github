@@ -331,6 +331,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					const match = this._findMatchingThread(thread);
 					if (match.index > -1) {
 						const matchingThread = match.threadMap[thread.path][match.index];
+						// Don't pass currentUser for changed threads - the "just created" logic should only apply to newly created threads
 						updateThread(this._context, matchingThread, thread, githubRepositories);
 					}
 				}
@@ -419,6 +420,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				const commentThreads = threads[path];
 				for (const commentThread of commentThreads) {
 					const reviewThread = reviewThreadsForPath.get(commentThread.gitHubThreadId)!;
+					// Don't pass currentUser for refreshed threads - the "just created" logic should only apply to newly created threads
 					updateThread(this._context, commentThread, reviewThread, githubRepositories, expand);
 				}
 			}
