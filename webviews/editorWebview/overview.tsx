@@ -43,16 +43,25 @@ export const Overview = (pr: PullRequest) => {
 		// Initially ensure title is not stuck
 		title.classList.remove('stuck');
 
-		// Use scroll event to detect when title actually becomes sticky
+		// Small threshold to account for sub-pixel rendering
+		const STICKY_THRESHOLD = 1;
+
+		// Use scroll event with requestAnimationFrame to detect when title becomes sticky
 		// Check if the title's top position is at the viewport top (sticky position)
+		let ticking = false;
 		const handleScroll = () => {
-			const rect = title.getBoundingClientRect();
-			// Title is stuck when its top is at position 0 (sticky top: 0)
-			// Add small threshold to account for sub-pixel rendering
-			if (rect.top <= 1) {
-				title.classList.add('stuck');
-			} else {
-				title.classList.remove('stuck');
+			if (!ticking) {
+				window.requestAnimationFrame(() => {
+					const rect = title.getBoundingClientRect();
+					// Title is stuck when its top is at position 0 (sticky top: 0)
+					if (rect.top <= STICKY_THRESHOLD) {
+						title.classList.add('stuck');
+					} else {
+						title.classList.remove('stuck');
+					}
+					ticking = false;
+				});
+				ticking = true;
 			}
 		};
 
