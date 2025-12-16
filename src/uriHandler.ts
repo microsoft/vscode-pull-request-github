@@ -118,6 +118,8 @@ export class UriHandler implements vscode.UriHandler {
 				// Simplified format example: vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460
 				// Legacy format example: vscode-insiders://github.vscode-pull-request-github/checkout-pull-request?%7B%22owner%22%3A%22alexr00%22%2C%22repo%22%3A%22playground%22%2C%22pullRequestNumber%22%3A714%7D
 				return this._checkoutPullRequest(uri);
+			case UriHandlerPaths.OpenPullRequestChanges:
+				return this._openPullRequestChanges(uri);
 		}
 	}
 
@@ -145,6 +147,19 @@ export class UriHandler implements vscode.UriHandler {
 			return;
 		}
 		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, pullRequest);
+	}
+
+	private async _openPullRequestChanges(uri: vscode.Uri): Promise<void> {
+		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
+		if (!params) {
+			return;
+		}
+		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo) ?? this._reposManagers.folderManagers[0];
+		const pullRequest = await folderManager.resolvePullRequest(params.owner, params.repo, params.pullRequestNumber);
+		if (!pullRequest) {
+			return;
+		}
+		return PullRequestModel.openChanges(folderManager, pullRequest);
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
