@@ -32,49 +32,42 @@ const useMediaQuery = (query: string) => {
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	const titleRef = React.useRef<HTMLDivElement>(null);
-	const sentinelRef = React.useRef<HTMLDivElement>(null);
 
 	React.useEffect(() => {
-		const sentinel = sentinelRef.current;
 		const title = titleRef.current;
 		
-		if (!sentinel || !title) {
+		if (!title) {
 			return;
 		}
 
 		// Initially ensure title is not stuck
 		title.classList.remove('stuck');
 
-		// Use IntersectionObserver to detect when the title becomes sticky
-		// The sentinel is positioned right before the title
-		// When sentinel scrolls out of view (past the top), title becomes stuck
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				// When sentinel is intersecting (visible), title is NOT stuck
-				// When sentinel is not intersecting (scrolled past top), title IS stuck
-				if (entry.isIntersecting) {
-					title.classList.remove('stuck');
-				} else {
-					title.classList.add('stuck');
-				}
-			},
-			{
-				// Use threshold 1 to only trigger when sentinel is fully visible/invisible
-				// This prevents false positives when sentinel is partially visible
-				threshold: [1]
+		// Use scroll event to detect when title actually becomes sticky
+		// Check if the title's top position is at the viewport top (sticky position)
+		const handleScroll = () => {
+			const rect = title.getBoundingClientRect();
+			// Title is stuck when its top is at position 0 (sticky top: 0)
+			// Add small threshold to account for sub-pixel rendering
+			if (rect.top <= 1) {
+				title.classList.add('stuck');
+			} else {
+				title.classList.remove('stuck');
 			}
-		);
+		};
 
-		observer.observe(sentinel);
+		// Check initial state after a brief delay to ensure layout is settled
+		const timeoutId = setTimeout(handleScroll, 100);
+
+		window.addEventListener('scroll', handleScroll, { passive: true });
 
 		return () => {
-			observer.disconnect();
+			clearTimeout(timeoutId);
+			window.removeEventListener('scroll', handleScroll);
 		};
 	}, []);
 
 	return <>
-		{/* Sentinel element positioned just before the sticky title */}
-		<div ref={sentinelRef} style={{ height: '1px' }} />
 		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />
