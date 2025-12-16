@@ -297,7 +297,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 						newThread = this._pendingCommentThreadAdds[index];
 						newThread.gitHubThreadId = thread.id;
 						newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread, githubRepositories));
-						updateThreadWithRange(this._context, newThread, thread, githubRepositories, undefined, true);
+						updateThreadWithRange(this._context, newThread, thread, githubRepositories);
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
