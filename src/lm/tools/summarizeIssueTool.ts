@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { FetchIssueResult } from './fetchIssueTool';
 import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
+import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../../common/uri';
 
 export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	public static readonly toolId = 'github-pull-request_issue_summarize';
@@ -64,12 +65,13 @@ Body: ${comment.body}
 		const issueNumber = options.input.issueNumber;
 		const itemType = options.input.itemType;
 		if (owner && repo && issueNumber && itemType) {
-			const type = itemType === 'issue' ? 'issues' : 'pull';
-			const url = `https://github.com/${owner}/${repo}/${type}/${issueNumber}`;
+			const uri = itemType === 'issue'
+				? await toOpenIssueWebviewUri({ owner, repo, issueNumber })
+				: await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: issueNumber });
 			const openCommand: vscode.Command = {
 				title: 'Open',
 				command: 'vscode.open',
-				arguments: [vscode.Uri.parse(url)]
+				arguments: [uri]
 			};
 			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(openCommand)));

@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { FetchNotificationResult } from './fetchNotificationTool';
 import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
+import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../../common/uri';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
 	public static readonly toolId = 'github-pull-request_notification_summarize';
@@ -93,12 +94,13 @@ Body: ${comment.body}
 
 			// Add Open command
 			if (owner && repo && itemNumber && itemType) {
-				const type = itemType === 'issue' ? 'issues' : 'pull';
-				const url = `https://github.com/${owner}/${repo}/${type}/${itemNumber}`;
+				const uri = itemType === 'issue'
+					? await toOpenIssueWebviewUri({ owner, repo, issueNumber: Number(itemNumber) })
+					: await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: Number(itemNumber) });
 				const openCommand: vscode.Command = {
 					title: 'Open',
 					command: 'vscode.open',
-					arguments: [vscode.Uri.parse(url)]
+					arguments: [uri]
 				};
 				content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
 				content.push(new vscode.LanguageModelTextPart(JSON.stringify(openCommand)));
