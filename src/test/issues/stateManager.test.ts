@@ -124,4 +124,49 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}
 	});
+
+	it('should trim whitespace from query strings', async function () {
+		const mockUri = vscode.Uri.parse('file:///test');
+		const mockFolderManager = {
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
+			getIssues: async (query: string) => {
+				// Verify that the query doesn't have trailing whitespace
+				assert.strictEqual(query, query.trim(), 'Query should be trimmed');
+				assert.strictEqual(query.endsWith(' '), false, 'Query should not end with whitespace');
+				return { items: [], hasMorePages: false, hasUnsearchedRepositories: false, totalCount: 0 };
+			},
+			getMaxIssue: async () => 0,
+		};
+
+		// Mock workspace configuration with query that has trailing space
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'queries') {
+							return [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo ', groupBy: [] }];
+						}
+						return defaultValue;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			// Initialize the state manager with a query that has trailing space
+			const stateManager = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
+			} as any, mockContext);
+
+			// Manually trigger the setIssueData flow
+			await (stateManager as any).setIssueData(mockFolderManager);
+
+			// If we get here without assertion failures in getIssues, the test passed
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
 });

@@ -40,7 +40,7 @@ import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
-import { PREVIOUS_CREATE_METHOD } from '../extensionState';
+import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -133,6 +133,33 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
+	protected getRecentlyUsedBranches(owner: string, repositoryName: string): string[] {
+		const repoKey = `${owner}/${repositoryName}`;
+		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
+		return state.branches[repoKey] || [];
+	}
+
+	protected saveRecentlyUsedBranch(owner: string, repositoryName: string, branchName: string): void {
+		const repoKey = `${owner}/${repositoryName}`;
+		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
+
+		// Get the current list for this repo
+		let recentBranches = state.branches[repoKey] || [];
+
+		// Remove the branch if it's already in the list
+		recentBranches = recentBranches.filter(b => b !== branchName);
+
+		// Add it to the front
+		recentBranches.unshift(branchName);
+
+		// Limit to 10 branches
+		recentBranches = recentBranches.slice(0, 10);
+
+		// Save back to state
+		state.branches[repoKey] = recentBranches;
+		this._folderRepositoryManager.context.workspaceState.update(RECENTLY_USED_BRANCHES, state);
+	}
+
 	private initializeWhenVisibleDisposable: vscode.Disposable | undefined;
 	public async initializeParams(reset: boolean = false): Promise<void> {
 		if (this._view?.visible === false && this.initializeWhenVisibleDisposable === undefined) {
@@ -218,7 +245,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
-		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
+		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
 		const defaultTitleAndDescriptionProvider = this.getTitleAndDescriptionProvider()?.title;
 		if (defaultTitleAndDescriptionProvider) {
 			/* __GDPR__
@@ -682,8 +709,21 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
-		if (descrptionSource === 'none') {
+		const descriptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		if (descriptionSource === 'none') {
+			return { title, description };
+		}
+
+		const name = compareBranch.name;
+		const branchNameTitle = (name: string) => {
+			return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+		};
+
+		// If branchName is selected, use the branch name as the title
+		if (descriptionSource === 'branchName') {
+			if (name) {
+				title = branchNameTitle(name);
+			}
 			return { title, description };
 		}
 
@@ -695,11 +735,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
 		try {
-			const name = compareBranch.name;
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descrptionSource === 'template' ? this.getPullRequestTemplate() : undefined
+				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
@@ -721,7 +760,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			}
 			// Set title
 			if (useBranchName && name) {
-				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+				title = branchNameTitle(name);
 			} else if (name && lastCommit) {
 				title = lastCommit.title;
 			}
@@ -821,24 +860,61 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			// For the compare, we only want to show local branches.
 			branches = (await this._folderRepositoryManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
 		}
-		// TODO: @alexr00 - Add sorting so that the most likely to be used branch (ex main or release if base) is at the top of the list.
-		const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = branches.map(branch => {
-			const branchName = typeof branch === 'string' ? branch : branch.name!;
-			const pick: (vscode.QuickPickItem & { remote: RemoteInfo, branch: string }) = {
-				iconPath: new vscode.ThemeIcon('git-branch'),
-				label: branchName,
-				remote: {
-					owner: githubRepository.remote.owner,
-					repositoryName: githubRepository.remote.repositoryName
-				},
-				branch: branchName
-			};
-			return pick;
-		});
-		branchPicks.unshift({
-			kind: vscode.QuickPickItemKind.Separator,
-			label: `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
-		});
+
+		const branchNames = branches.map(branch => typeof branch === 'string' ? branch : branch.name!);
+
+		// Get recently used branches for base branches only
+		let recentBranches: string[] = [];
+		let otherBranches: string[] = branchNames;
+		if (isBase) {
+			const recentlyUsed = this.getRecentlyUsedBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+			// Include all recently used branches, even if they're not in the current branch list
+			// This allows showing branches that weren't fetched due to timeout
+			recentBranches = recentlyUsed;
+			// Remove recently used branches from the main list (if they exist there)
+			otherBranches = branchNames.filter(name => !recentBranches.includes(name));
+		}
+
+		const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = [];
+
+		// Add recently used branches section
+		if (recentBranches.length > 0) {
+			branchPicks.push({
+				kind: vscode.QuickPickItemKind.Separator,
+				label: vscode.l10n.t('Recently Used')
+			});
+			recentBranches.forEach(branchName => {
+				branchPicks.push({
+					iconPath: new vscode.ThemeIcon('git-branch'),
+					label: branchName,
+					remote: {
+						owner: githubRepository.remote.owner,
+						repositoryName: githubRepository.remote.repositoryName
+					},
+					branch: branchName
+				});
+			});
+		}
+
+		// Add all other branches section
+		if (otherBranches.length > 0) {
+			branchPicks.push({
+				kind: vscode.QuickPickItemKind.Separator,
+				label: recentBranches.length > 0 ? vscode.l10n.t('All Branches') : `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
+			});
+			otherBranches.forEach(branchName => {
+				branchPicks.push({
+					iconPath: new vscode.ThemeIcon('git-branch'),
+					label: branchName,
+					remote: {
+						owner: githubRepository.remote.owner,
+						repositoryName: githubRepository.remote.repositoryName
+					},
+					branch: branchName
+				});
+			});
+		}
+
 		branchPicks.unshift({
 			iconPath: new vscode.ThemeIcon('repo'),
 			label: changeRepoMessage
@@ -856,6 +932,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
 			this.model.baseOwner = result.remote.owner;
 			this.model.baseBranch = result.branch;
+
+			// Save the selected base branch to recently used branches
+			this.saveRecentlyUsedBranch(result.remote.owner, result.remote.repositoryName, result.branch);
+
 			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this.model.compareBranch);
 			const [mergeConfiguration, titleAndDescription, mergeQueueMethodForBranch] = await Promise.all([
 				this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName),
@@ -1259,6 +1339,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					if (!createdPR) {
 						this._throwError(message, vscode.l10n.t('There must be a difference in commits to create a pull request.'));
 					} else {
+						// Save the base branch to recently used branches after successful PR creation
+						this.saveRecentlyUsedBranch(message.args.owner, message.args.repo, message.args.base);
 						await this.postCreate(message, createdPR);
 					}
 				} catch (e) {
