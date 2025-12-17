@@ -47,7 +47,6 @@ export const USER_COMPLETIONS = 'userCompletions';
 export const ENABLED = 'enabled';
 export const IGNORE_USER_COMPLETION_TRIGGER = 'ignoreUserCompletionTrigger';
 export const CREATE_INSERT_FORMAT = 'createInsertFormat';
-export const ASSIGN_TO_ME_ON_CREATE = 'assignToMeOnCreate';
 export const ISSUE_BRANCH_TITLE = 'issueBranchTitle';
 export const USE_BRANCH_FOR_ISSUES = 'useBranchForIssues';
 export const WORKING_ISSUE_FORMAT_SCM = 'workingIssueFormatScm';
