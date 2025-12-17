@@ -17,7 +17,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
-import { DisplayLabel, PreReviewState } from './views';
+import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
@@ -794,7 +794,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		);
 
 		if (selectedTemplate) {
-			return this._replyMessage(message, { description: selectedTemplate.template });
+			const reply: ChangeTemplateReply = {
+				description: selectedTemplate.template
+			};
+			return this._replyMessage(message, reply);
 		}
 		return this._replyMessage(message, undefined);
 	}

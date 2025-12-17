@@ -158,6 +158,10 @@ export enum PreReviewState {
 	ReviewedWithoutComments
 }
 
+export interface ChangeTemplateReply {
+	description: string;
+}
+
 export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
