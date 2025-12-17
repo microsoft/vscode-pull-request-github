@@ -91,6 +91,8 @@ export interface IssueTemplate {
 	name: string | undefined,
 	about: string | undefined,
 	title: string | undefined,
+	labels: string[] | undefined,
+	assignees: string[] | undefined,
 	body: string | undefined
 }
 

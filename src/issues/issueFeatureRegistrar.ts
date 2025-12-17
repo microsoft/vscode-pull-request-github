@@ -786,6 +786,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				...options,
 				title: template.title,
 				body: template.body,
+				labels: template.labels,
+				assignees: template.assignees,
 			};
 		}
 		this.makeNewIssueFile(uri, options);
@@ -1136,7 +1138,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		await vscode.workspace.fs.delete(bodyPath);
 		const assigneeLine = `${ASSIGNEES} ${options?.assignees && options.assignees.length > 0 ? options.assignees.map(value => '@' + value).join(', ') + ' ' : ''
 			}`;
-		const labelLine = `${LABELS} `;
+		const labelLine = `${LABELS} ${options?.labels && options.labels.length > 0 ? options.labels.join(', ') + ' ' : ''}`;
 		const milestoneLine = `${MILESTONE} `;
 		const projectsLine = `${PROJECTS} `;
 		const cached = this._newIssueCache.get();
@@ -1283,14 +1285,14 @@ ${options?.body ?? ''}\n
 		return choice?.repo;
 	}
 
-	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
+	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<IssueTemplate | undefined> {
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
-			return { title: undefined, body: undefined };
+			return { title: undefined, body: undefined, labels: undefined, assignees: undefined, name: undefined, about: undefined };
 		}
 
 		interface IssueChoice extends vscode.QuickPickItem {
-			template: { title: string | undefined, body: string | undefined } | undefined;
+			template: IssueTemplate | undefined;
 		}
 		const templates = await Promise.all(
 			templateUris
@@ -1316,7 +1318,7 @@ ${options?.body ?? ''}\n
 		});
 		choices.push({
 			label: vscode.l10n.t('Blank issue'),
-			template: { title: undefined, body: undefined }
+			template: { title: undefined, body: undefined, labels: undefined, assignees: undefined, name: undefined, about: undefined }
 		});
 
 		const selectedTemplate = await vscode.window.showQuickPick(choices, {
@@ -1343,14 +1345,22 @@ ${options?.body ?? ''}\n
 		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
+		const labelsMatch = template.match(/labels:\s*(.*)/)?.[1];
+		const labels = labelsMatch ? labelsMatch.split(',').map(label => label.trim()).filter(label => label) : undefined;
+		const assigneesMatch = template.match(/assignees:\s*(.*)/)?.[1];
+		const assignees = assigneesMatch ? assigneesMatch.split(',').map(assignee => assignee.trim()).filter(assignee => assignee) : undefined;
 		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
-		return { title, name, about, body };
+		return { title, name, about, labels, assignees, body };
 	}
 
 	private parseYamlTemplate(parsed: YamlIssueTemplate): IssueTemplate {
 		const name = parsed.name;
 		const about = parsed.description || parsed.about;
 		const title = parsed.title;
+
+		// Extract labels and assignees from YAML
+		const labels = parsed.labels && Array.isArray(parsed.labels) ? parsed.labels : undefined;
+		const assignees = parsed.assignees && Array.isArray(parsed.assignees) ? parsed.assignees : undefined;
 
 		// Convert YAML body fields to markdown
 		let body = '';
@@ -1396,7 +1406,7 @@ ${options?.body ?? ''}\n
 			}
 		}
 
-		return { title, name, about, body: body.trim() || undefined };
+		return { title, name, about, labels, assignees, body: body.trim() || undefined };
 	}
 
 	private async doCreateIssue(
