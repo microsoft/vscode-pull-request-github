@@ -80,6 +80,11 @@ textarea:focus,
 	display: none;
 }
 
+/* Hide edit button when stuck */
+.title.stuck .overview-title button[title="Rename"] {
+	display: none;
+}
+
 /* Adjust title size when stuck */
 .title.stuck .overview-title h2 {
 	font-size: 18px;
