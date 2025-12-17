@@ -81,7 +81,7 @@ textarea:focus,
 }
 
 /* Hide edit button when stuck */
-.title.stuck .overview-title button[title="Rename"] {
+.title.stuck #edit-title-button {
 	display: none;
 }
 
