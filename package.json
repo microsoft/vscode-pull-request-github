@@ -347,11 +347,13 @@
 					"type": "string",
 					"enum": [
 						"never",
-						"ask"
+						"ask",
+						"always"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.createOnPublishBranch.never%",
-						"%githubPullRequests.createOnPublishBranch.ask%"
+						"%githubPullRequests.createOnPublishBranch.ask%",
+						"%githubPullRequests.createOnPublishBranch.always%"
 					],
 					"default": "ask",
 					"description": "%githubPullRequests.createOnPublishBranch.description%"
