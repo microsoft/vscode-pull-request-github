@@ -40,7 +40,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.122.0",
+	"version": "0.124.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.107.0"
@@ -146,12 +146,14 @@
 					"enum": [
 						"template",
 						"commit",
+						"branchName",
 						"none",
 						"Copilot"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
 						"%githubPullRequests.pullRequestDescription.commit%",
+						"%githubPullRequests.pullRequestDescription.branchName%",
 						"%githubPullRequests.pullRequestDescription.none%",
 						"%githubPullRequests.pullRequestDescription.copilot%"
 					],
@@ -243,7 +245,7 @@
 					"default": [
 						{
 							"label": "%githubPullRequests.queries.copilotOnMyBehalf%",
-							"query": "repo:${owner}/${repository} is:open author:copilot involves:${user}"
+							"query": "repo:${owner}/${repository} is:open author:copilot assignee:${user}"
 						},
 						{
 							"label": "Local Pull Request Branches",
@@ -321,6 +323,11 @@
 					"default": true,
 					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
 				},
+				"githubPullRequests.deleteBranchAfterMerge": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
+				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
 					"enum": [
@@ -353,11 +360,13 @@
 					"type": "string",
 					"enum": [
 						"expandUnresolved",
-						"collapseAll"
+						"collapseAll",
+						"collapsePreexisting"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.commentExpandState.expandUnresolved%",
-						"%githubPullRequests.commentExpandState.collapseAll%"
+						"%githubPullRequests.commentExpandState.collapseAll%",
+						"%githubPullRequests.commentExpandState.collapsePreexisting%"
 					],
 					"default": "expandUnresolved",
 					"description": "%githubPullRequests.commentExpandState.description%"
@@ -612,6 +621,11 @@
 					"markdownDescription": "%githubPullRequests.webviewRefreshInterval.description%",
 					"default": 60
 				},
+				"githubPullRequests.devMode": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.devMode.description%",
+					"default": false
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
@@ -710,6 +724,21 @@
 					],
 					"default": "on",
 					"markdownDescription": "%githubIssues.useBranchForIssues.markdownDescription%"
+				},
+				"githubIssues.workingBaseBranch": {
+					"type": "string",
+					"enum": [
+						"currentBranch",
+						"defaultBranch",
+						"prompt"
+					],
+					"enumDescriptions": [
+						"%githubIssues.workingBaseBranch.currentBranch%",
+						"%githubIssues.workingBaseBranch.defaultBranch%",
+						"%githubIssues.workingBaseBranch.prompt%"
+					],
+					"default": "currentBranch",
+					"markdownDescription": "%githubIssues.workingBaseBranch.markdownDescription%"
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
@@ -972,6 +1001,12 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "pr.pickOnCodespaces",
+				"title": "%command.pr.pickOnCodespaces.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(cloud)"
+			},
+			{
 				"command": "pr.exit",
 				"title": "%command.pr.exit.title%",
 				"category": "%command.pull.request.category%"
@@ -1031,6 +1066,11 @@
 			{
 				"command": "pr.openFileOnGitHub",
 				"title": "%command.pr.openFileOnGitHub.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.revealFileInOS",
+				"title": "%command.pr.revealFileInOS.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1418,6 +1458,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.checkoutOnCodespacesFromDescription",
+				"title": "%command.pr.checkoutOnCodespacesFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openSessionLogFromDescription",
 				"title": "%command.pr.openSessionLogFromDescription.title%",
 				"category": "%command.pull.request.category%"
@@ -1537,6 +1582,12 @@
 				"command": "issue.openDescription",
 				"title": "%command.issue.openDescription.title%",
 				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.openIssueOnGitHub",
+				"title": "%command.issue.openIssueOnGitHub.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(globe)"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -2014,6 +2065,12 @@
 				"mac": "cmd+k m",
 				"command": "pr.makeSuggestion",
 				"when": "commentEditorFocused"
+			},
+			{
+				"key": "ctrl+r",
+				"mac": "cmd+r",
+				"command": "pr.refreshDescription",
+				"when": "activeWebviewPanelId == 'PullRequestOverview'"
 			}
 		],
 		"menus": {
@@ -2048,6 +2105,10 @@
 				},
 				{
 					"command": "pr.pickOnVscodeDev",
+					"when": "false"
+				},
+				{
+					"command": "pr.pickOnCodespaces",
 					"when": "false"
 				},
 				{
@@ -2116,6 +2177,10 @@
 				},
 				{
 					"command": "pr.openFileOnGitHub",
+					"when": "false"
+				},
+				{
+					"command": "pr.revealFileInOS",
 					"when": "false"
 				},
 				{
@@ -2850,6 +2915,11 @@
 					"group": "1_pullrequest@2"
 				},
 				{
+					"command": "pr.pickOnCodespaces",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"group": "1_pullrequest@3"
+				},
+				{
 					"command": "pr.openChanges",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "2_pullrequest@1"
@@ -2964,14 +3034,19 @@
 					"group": "0_open@0"
 				},
 				{
+					"command": "pr.revealFileInOS",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/",
+					"group": "0_open@1"
+				},
+				{
 					"command": "pr.openOriginalFile",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
-					"group": "0_open@1"
+					"group": "0_open@2"
 				},
 				{
 					"command": "pr.openModifiedFile",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
-					"group": "0_open@2"
+					"group": "0_open@3"
 				},
 				{
 					"command": "review.diffWithPrHead",
@@ -3603,6 +3678,11 @@
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
+					"command": "pr.checkoutOnCodespacesFromDescription",
+					"group": "checkout@2",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
 					"command": "pr.openSessionLogFromDescription",
 					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
@@ -3632,11 +3712,11 @@
 			"chat/multiDiff/context": [
 				{
 					"command": "pr.checkoutFromDescription",
-					"when": "chatSessionType == copilot-cloud-agent"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
-					"when": "chatSessionType == copilot-cloud-agent"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
 				}
 			]
 		},
@@ -3670,6 +3750,16 @@
 					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is closed."
+			},
+			{
+				"id": "github.issues.closed",
+				"defaults": {
+					"dark": "pullRequests.merged",
+					"light": "pullRequests.merged",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The color used for indicating that an issue is closed. Duplicates issues.closed because there's another extension that uses this identifier."
 			},
 			{
 				"id": "pullRequests.merged",
@@ -4351,6 +4441,7 @@
 		"@shikijs/monaco": "^3.7.0",
 		"@types/chai": "^4.1.4",
 		"@types/glob": "7.1.3",
+		"@types/js-yaml": "^4.0.9",
 		"@types/lru-cache": "^5.1.0",
 		"@types/marked": "^0.7.2",
 		"@types/mocha": "^8.2.2",
@@ -4432,6 +4523,7 @@
 		"debounce": "^1.2.1",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",
+		"js-yaml": "^4.1.1",
 		"jsonc-parser": "^3.3.1",
 		"jszip": "^3.10.1",
 		"lru-cache": "6.0.0",

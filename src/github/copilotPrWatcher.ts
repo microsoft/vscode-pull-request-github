@@ -12,7 +12,7 @@ import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
-import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
+import { DEV_MODE, PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
 import { PrsTreeModel } from '../view/prsTreeModel';
 
 export function isCopilotQuery(query: string): boolean {
@@ -251,6 +251,12 @@ export class CopilotPRWatcher extends Disposable {
 	private _pollTimeout: NodeJS.Timeout | undefined;
 	private _lastPollTime = 0;
 	private async _pollForChanges(): Promise<void> {
+		// Skip polling if dev mode is enabled
+		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
+		if (devMode) {
+			return;
+		}
+
 		if (this._pollTimeout) {
 			clearTimeout(this._pollTimeout);
 			this._pollTimeout = undefined;

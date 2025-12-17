@@ -5,6 +5,7 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
+import { COMMENT_TEXTAREA_ID } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
@@ -94,6 +95,7 @@ export class PRContext {
 	public convertToDraft = (): Promise<ConvertToDraftReply> => this.postMessage({ command: 'pr.convertToDraft' });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
+	public addReviewerCopilot = () => this.postMessage({ command: 'pr.add-reviewer-copilot' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
 	public removeProject = (project: IProjectItem) => this.postMessage({ command: 'pr.remove-project', args: project });
 	public addMilestone = () => this.postMessage({ command: 'pr.add-milestone' });
@@ -406,7 +408,7 @@ export class PRContext {
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 				return;
 			case 'pr.scrollToPendingReview':
-				const pendingReview = document.getElementById('pending-review') ?? document.getElementById('comment-textarea');
+				const pendingReview = document.getElementById('pending-review') ?? document.getElementById(COMMENT_TEXTAREA_ID);
 				if (pendingReview) {
 					pendingReview.scrollIntoView();
 					pendingReview.focus();

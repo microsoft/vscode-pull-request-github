@@ -8,6 +8,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
+import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 
 export function main() {
@@ -21,6 +22,25 @@ export function Root({ children }) {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
 	}, []);
+
+	// Restore focus to comment textarea when window regains focus if user was typing
+	useEffect(() => {
+		const handleWindowFocus = () => {
+			// Delay to let the focus event settle before checking focus state
+			const FOCUS_SETTLE_DELAY_MS = 100;
+			setTimeout(() => {
+				const commentTextarea = document.getElementById(COMMENT_TEXTAREA_ID) as HTMLTextAreaElement;
+				// Only restore focus if there's content and nothing else has focus
+				if (commentTextarea && commentTextarea.value && document.activeElement === document.body) {
+					commentTextarea.focus();
+				}
+			}, FOCUS_SETTLE_DELAY_MS);
+		};
+
+		window.addEventListener('focus', handleWindowFocus);
+		return () => window.removeEventListener('focus', handleWindowFocus);
+	}, []);
+
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',
