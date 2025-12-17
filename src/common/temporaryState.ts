@@ -80,13 +80,22 @@ export class TemporaryState extends vscode.Disposable {
 		return file;
 	}
 
-	private async readState(subpath: string, filename: string): Promise<Uint8Array> {
+	private async readState(subpath: string, filename: string, repositoryUri?: vscode.Uri): Promise<Uint8Array> {
 		let filePath: vscode.Uri = this.path;
-		// Note: readState currently only supports the first workspace folder
-		// If this method is needed for multi-root workspace support in the future,
-		// it should accept a repositoryUri parameter like writeState does
-		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
-			? vscode.workspace.workspaceFolders[0].name : undefined;
+		let workspace: string | undefined;
+
+		// If repositoryUri is provided, find the matching workspace folder
+		if (repositoryUri && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			const matchingFolder = vscode.workspace.workspaceFolders.find(folder =>
+				folder.uri.toString() === repositoryUri.toString()
+			);
+			workspace = matchingFolder?.name;
+		}
+
+		// Fall back to the first workspace folder if no match found
+		if (!workspace && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			workspace = vscode.workspace.workspaceFolders[0].name;
+		}
 
 		if (workspace) {
 			filePath = vscode.Uri.joinPath(filePath, workspace);
@@ -122,11 +131,11 @@ export class TemporaryState extends vscode.Disposable {
 		return tempState.writeState(subpath, filename, contents, persistInSession, repositoryUri);
 	}
 
-	static async read(subpath: string, filename: string): Promise<Uint8Array | undefined> {
+	static async read(subpath: string, filename: string, repositoryUri?: vscode.Uri): Promise<Uint8Array | undefined> {
 		if (!tempState) {
 			return;
 		}
 
-		return tempState.readState(subpath, filename);
+		return tempState.readState(subpath, filename, repositoryUri);
 	}
 }
