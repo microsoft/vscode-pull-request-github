@@ -145,14 +145,12 @@
 					"type": "string",
 					"enum": [
 						"template",
-						"templatePrompt",
 						"commit",
 						"none",
 						"Copilot"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
-						"%githubPullRequests.pullRequestDescription.templatePrompt%",
 						"%githubPullRequests.pullRequestDescription.commit%",
 						"%githubPullRequests.pullRequestDescription.none%",
 						"%githubPullRequests.pullRequestDescription.copilot%"

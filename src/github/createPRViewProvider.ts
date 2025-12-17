@@ -219,6 +219,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
 		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
+		const usingTemplate: boolean = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'template';
 		const defaultTitleAndDescriptionProvider = this.getTitleAndDescriptionProvider()?.title;
 		if (defaultTitleAndDescriptionProvider) {
 			/* __GDPR__
@@ -255,7 +256,8 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			initializeWithGeneratedTitleAndDescription: useCopilot,
 			preReviewState: PreReviewState.None,
 			preReviewer: preReviewer?.title,
-			reviewing: false
+			reviewing: false,
+			usingTemplate
 		};
 
 		return params;
@@ -682,7 +684,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'templatePrompt' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
 		if (descrptionSource === 'none') {
 			return { title, description };
 		}
@@ -699,7 +701,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descrptionSource === 'template' ? this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner) : (descrptionSource === 'templatePrompt' ? this.getPullRequestTemplate() : undefined)
+				descrptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
@@ -757,14 +759,20 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
+		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+	}
+
+	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
 		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
 
 		if (!templates || templates.length === 0) {
-			return undefined;
+			vscode.window.showInformationMessage(vscode.l10n.t('No pull request templates found'));
+			return this._replyMessage(message, undefined);
 		}
 
 		if (templates.length === 1) {
-			return templates[0];
+			vscode.window.showInformationMessage(vscode.l10n.t('Only one template is available'));
+			return this._replyMessage(message, undefined);
 		}
 
 		// Multiple templates exist - show quick pick
@@ -785,7 +793,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			}
 		);
 
-		return selectedTemplate?.template;
+		if (selectedTemplate) {
+			return this._replyMessage(message, { description: selectedTemplate.template });
+		}
+		return this._replyMessage(message, undefined);
 	}
 
 	protected async detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined> {
@@ -1358,6 +1369,9 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 			case 'pr.cancelGenerateTitleAndDescription':
 				return this.cancelGenerateTitleAndDescription();
+
+			case 'pr.changeTemplate':
+				return this.changeTemplate(message);
 
 			case 'pr.preReview':
 				return this.preReview(message);
