@@ -564,15 +564,18 @@ function ConvertToDraft() {
 	};
 
 	return (
-		<div className="section-item">
-			<button
-				className="secondary"
+		<div className="section-placeholder" style={{ marginTop: '8px' }}>
+			Still in progress?{' '}
+			<a
 				onClick={handleConvertToDraft}
-				disabled={isBusy || pr?.busy}
-				style={{ width: '100%', marginTop: '8px' }}
+				style={{ 
+					pointerEvents: (isBusy || pr?.busy) ? 'none' : 'auto',
+					opacity: (isBusy || pr?.busy) ? 0.5 : 1,
+					cursor: 'pointer'
+				}}
 			>
 				Convert to draft
-			</button>
+			</a>
 		</div>
 	);
 }
