@@ -680,10 +680,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
 	}
 
-	private async convertToDraftCommand(): Promise<void> {
-		return PullRequestReviewCommon.convertToDraftCommand(this.getReviewContext());
-	}
-
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}

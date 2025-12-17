@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
-import { PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
+import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
 import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
@@ -231,7 +231,7 @@ export namespace PullRequestReviewCommon {
 
 	export async function setConvertToDraft(ctx: ReviewContext, _message: IRequestMessage<{}>): Promise<void> {
 		try {
-			const result = await ctx.item.convertToDraft();
+			const result: ConvertToDraftReply = await ctx.item.convertToDraft();
 			ctx.replyMessage(_message, result);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Unable to convert pull request to draft. {0}', formatError(e)));
