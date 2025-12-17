@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { disposeAll } from './lifecycle';
 import Logger from './logger';
+import { isDescendant } from './utils';
 
 let tempState: TemporaryState | undefined;
 
@@ -39,14 +40,13 @@ export class TemporaryState extends vscode.Disposable {
 		}
 	}
 
-	private async writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean, repositoryUri?: vscode.Uri): Promise<vscode.Uri> {
+	private async writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean, repositoryUri: vscode.Uri): Promise<vscode.Uri> {
 		let filePath: vscode.Uri = this.path;
 		let workspace: string | undefined;
 
-		// If repositoryUri is provided, find the matching workspace folder
-		if (repositoryUri && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+		if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
 			const matchingFolder = vscode.workspace.workspaceFolders.find(folder =>
-				folder.uri.toString() === repositoryUri.toString()
+				isDescendant(folder.uri.fsPath, repositoryUri.fsPath) || isDescendant(repositoryUri.fsPath, folder.uri.fsPath)
 			);
 			workspace = matchingFolder?.name;
 		}
@@ -80,14 +80,13 @@ export class TemporaryState extends vscode.Disposable {
 		return file;
 	}
 
-	private async readState(subpath: string, filename: string, repositoryUri?: vscode.Uri): Promise<Uint8Array> {
+	private async readState(subpath: string, filename: string, repositoryUri: vscode.Uri): Promise<Uint8Array> {
 		let filePath: vscode.Uri = this.path;
 		let workspace: string | undefined;
 
-		// If repositoryUri is provided, find the matching workspace folder
-		if (repositoryUri && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+		if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
 			const matchingFolder = vscode.workspace.workspaceFolders.find(folder =>
-				folder.uri.toString() === repositoryUri.toString()
+				isDescendant(folder.uri.fsPath, repositoryUri.fsPath) || isDescendant(repositoryUri.fsPath, folder.uri.fsPath)
 			);
 			workspace = matchingFolder?.name;
 		}
@@ -123,7 +122,7 @@ export class TemporaryState extends vscode.Disposable {
 		}
 	}
 
-	static async write(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean = false, repositoryUri?: vscode.Uri): Promise<vscode.Uri | undefined> {
+	static async write(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean = false, repositoryUri: vscode.Uri): Promise<vscode.Uri | undefined> {
 		if (!tempState) {
 			return;
 		}
@@ -131,7 +130,7 @@ export class TemporaryState extends vscode.Disposable {
 		return tempState.writeState(subpath, filename, contents, persistInSession, repositoryUri);
 	}
 
-	static async read(subpath: string, filename: string, repositoryUri?: vscode.Uri): Promise<Uint8Array | undefined> {
+	static async read(subpath: string, filename: string, repositoryUri: vscode.Uri): Promise<Uint8Array | undefined> {
 		if (!tempState) {
 			return;
 		}
