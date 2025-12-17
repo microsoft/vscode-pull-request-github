@@ -1358,6 +1358,10 @@ ${options?.body ?? ''}\n
 		const about = parsed.description || parsed.about;
 		const title = parsed.title;
 
+		// Extract labels and assignees from YAML
+		const labels = parsed.labels && Array.isArray(parsed.labels) ? parsed.labels : undefined;
+		const assignees = parsed.assignees && Array.isArray(parsed.assignees) ? parsed.assignees : undefined;
+
 		// Convert YAML body fields to markdown
 		let body = '';
 		if (parsed.body && Array.isArray(parsed.body)) {
@@ -1402,7 +1406,7 @@ ${options?.body ?? ''}\n
 			}
 		}
 
-		return { title, name, about, body: body.trim() || undefined };
+		return { title, name, about, labels, assignees, body: body.trim() || undefined };
 	}
 
 	private async doCreateIssue(
