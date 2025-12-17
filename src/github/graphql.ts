@@ -322,10 +322,12 @@ export interface LatestUpdatesResponse {
 export interface LatestReviewCommitResponse {
 	repository: {
 		pullRequest: {
-			viewerLatestReview: {
-				commit: {
-					oid: string;
-				}
+			reviews: {
+				nodes: {
+					commit: {
+						oid: string;
+					}
+				}[];
 			};
 		};
 	} | null;

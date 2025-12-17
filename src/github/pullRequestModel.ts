@@ -599,6 +599,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async getViewerLatestReviewCommit(): Promise<{ sha: string } | undefined> {
 		Logger.debug(`Fetch viewers latest review commit`, IssueModel.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
+		const currentUser = (await this.githubRepository.getAuthenticatedUser()).login;
 
 		try {
 			const { data } = await query<LatestReviewCommitResponse>({
@@ -607,6 +608,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					owner: remote.owner,
 					name: remote.repositoryName,
 					number: this.number,
+					author: currentUser,
 				},
 			});
 
@@ -614,8 +616,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				Logger.error('Unexpected null repository while getting last review commit', PullRequestModel.ID);
 			}
 
-			return data.repository?.pullRequest.viewerLatestReview ? {
-				sha: data.repository?.pullRequest.viewerLatestReview.commit.oid,
+			const latestReview = data.repository?.pullRequest.reviews.nodes[0];
+			return latestReview ? {
+				sha: latestReview.commit.oid,
 			} : undefined;
 		}
 		catch (e) {
