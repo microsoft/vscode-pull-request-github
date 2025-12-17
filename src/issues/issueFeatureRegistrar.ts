@@ -1079,6 +1079,36 @@ export class IssueFeatureRegistrar extends Disposable {
 		if (matches && matches.length === 2 && (await this._stateManager.getUserMap(document.uri)).has(matches[1])) {
 			assignees = [matches[1]];
 		}
+
+		// Auto-assign to current user if they are assignable in the repository
+		const folderManager = this.manager.getManagerForFile(document.uri);
+		if (folderManager) {
+			try {
+				// Get the GitHub repository for the document
+				const githubRepository = folderManager.gitHubRepositories[0];
+				if (githubRepository) {
+					const currentUser = await folderManager.getCurrentUser(githubRepository);
+					if (currentUser?.login) {
+						// Check if the current user is assignable in this repository
+						const assignableUsers = await folderManager.getAssignableUsers();
+						const assignableUsersForRemote = assignableUsers[githubRepository.remote.remoteName] || [];
+						const isAssignable = assignableUsersForRemote.some(user => user.login === currentUser.login);
+						if (isAssignable) {
+							// Add current user to assignees if not already included
+							if (!assignees) {
+								assignees = [currentUser.login];
+							} else if (!assignees.includes(currentUser.login)) {
+								assignees.push(currentUser.login);
+							}
+						}
+					}
+				}
+			} catch (error) {
+				// If we can't get the current user or assignable users, just continue without auto-assignment
+				Logger.debug(`Failed to auto-assign current user: ${error}`, IssueFeatureRegistrar.ID);
+			}
+		}
+
 		let title: string | undefined;
 		const body: string | undefined = await this.createTodoIssueBody(newIssue, issueBody);
 
