@@ -820,10 +820,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			templates.map((template, index) => {
 				// Try to extract a meaningful name from the template (first line or first few chars)
 				const firstLine = template.split('\n')[0].trim();
-				const label = firstLine || `Template ${index + 1}`;
+				const label = firstLine || vscode.l10n.t('Template {0}', index + 1);
 				return {
 					label: label.substring(0, 50) + (label.length > 50 ? '...' : ''),
-					description: `${template.length} characters`,
+					description: vscode.l10n.t('{0} characters', template.length),
 					template: template
 				};
 			}),
