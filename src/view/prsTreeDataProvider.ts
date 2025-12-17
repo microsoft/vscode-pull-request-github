@@ -197,10 +197,18 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._autoRefreshTimer = setInterval(() => {
 			Logger.appendLine('Auto-refreshing pull requests queries', 'PullRequestsTreeDataProvider');
 			this.prsTreeModel.forceClearCache();
-			this.refreshAllQueryResults(true);
+			this.tryReset(true);
+			this.fireRefresh();
 		}, intervalMs);
 
 		Logger.appendLine(`Auto-refresh enabled with interval of ${actualIntervalMinutes} minutes`, 'PullRequestsTreeDataProvider');
+	}
+
+	private resetAutoRefreshTimer(): void {
+		// Only reset if auto-refresh is currently enabled
+		if (this._autoRefreshTimer) {
+			this.setupAutoRefresh();
+		}
 	}
 
 	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {
@@ -414,9 +422,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 	}
 
-	private refreshAllQueryResults(reset?: boolean) {
-		this.tryReset(!!reset);
-
+	private fireRefresh() {
 		if (!this._children || this._children.length === 0) {
 			this._onDidChangeTreeData.fire();
 			return;
@@ -427,6 +433,15 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			return;
 		}
 		this.refreshQueryResultsForFolder();
+	}
+
+	private refreshAllQueryResults(reset?: boolean) {
+		this.tryReset(!!reset);
+
+		// Reset the auto-refresh timer whenever a refresh is triggered
+		this.resetAutoRefreshTimer();
+
+		this.fireRefresh();
 	}
 
 	private refreshQueryResultsForFolder(manager?: WorkspaceFolderNode, reset?: boolean) {
