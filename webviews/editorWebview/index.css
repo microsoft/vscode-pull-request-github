@@ -265,6 +265,10 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
+.status-check > div:not(.status-check-details) {
+	display: flex;
+}
+
 #merge-on-github {
 	margin-top: 10px;
 }

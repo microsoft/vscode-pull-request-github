@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import * as yaml from 'js-yaml';
 import * as vscode from 'vscode';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
@@ -20,6 +21,7 @@ import {
 	ISSUE_COMPLETIONS,
 	ISSUES_SETTINGS_NAMESPACE,
 	USER_COMPLETIONS,
+	WORKING_BASE_BRANCH,
 } from '../common/settingKeys';
 import { editQuery } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
@@ -56,6 +58,7 @@ import {
 	PermalinkInfo,
 	pushAndCreatePR,
 	USER_EXPRESSION,
+	YamlIssueTemplate,
 } from './util';
 import { truncate } from '../common/utils';
 import { OctokitCommon } from '../github/common';
@@ -306,6 +309,52 @@ export class IssueFeatureRegistrar extends Disposable {
 			*/
 				this.telemetry.sendTelemetryEvent('issue.openIssue');
 				return this.openIssue(issueModel);
+			}),
+		);
+		this._register(
+			vscode.commands.registerCommand('issue.openIssueOnGitHub', async () => {
+				const editor = vscode.window.activeTextEditor;
+				if (!editor) {
+					vscode.window.showWarningMessage(vscode.l10n.t('No active editor. Open a file and place the cursor on an issue reference.'));
+					return;
+				}
+
+				const document = editor.document;
+				const position = editor.selection.active;
+
+				const wordRange = document.getWordRangeAtPosition(position, ISSUE_OR_URL_EXPRESSION);
+				if (!wordRange) {
+					vscode.window.showWarningMessage(vscode.l10n.t('No issue reference found at cursor position.'));
+					return;
+				}
+
+				const word = document.getText(wordRange);
+				const match = word.match(ISSUE_OR_URL_EXPRESSION);
+				const parsed = parseIssueExpressionOutput(match);
+
+				if (!parsed) {
+					vscode.window.showWarningMessage(vscode.l10n.t('Invalid issue reference.'));
+					return;
+				}
+
+				const folderManager = this.manager.getManagerForFile(document.uri) ?? this.manager.folderManagers[0];
+				if (!folderManager) {
+					vscode.window.showWarningMessage(vscode.l10n.t('No repository found for current file.'));
+					return;
+				}
+
+				const issue = await getIssue(this._stateManager, folderManager, word, parsed);
+				if (!issue) {
+					vscode.window.showWarningMessage(vscode.l10n.t('Unable to resolve issue.'));
+					return;
+				}
+
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(issue.html_url));
+
+				/* __GDPR__
+					"issue.openOnGitHub" : {}
+				*/
+				this.telemetry.sendTelemetryEvent('issue.openOnGitHub');
 			}),
 		);
 		this._register(
@@ -809,7 +858,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		let githubRepository = issueModel.githubRepository;
 		let remote = issueModel.remote;
 		if (!repoManager) {
-			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this isssue in.'));
+			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this issue in.'));
 			if (!repoManager) {
 				return;
 			}
@@ -824,10 +873,40 @@ export class IssueFeatureRegistrar extends Disposable {
 			}
 		}
 
+		// Determine whether to checkout the default branch based on workingBaseBranch setting
+		const workingBaseBranchConfig = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(WORKING_BASE_BRANCH);
+		let checkoutDefaultBranch = false;
+
+		if (workingBaseBranchConfig === 'defaultBranch') {
+			checkoutDefaultBranch = true;
+		} else if (workingBaseBranchConfig === 'prompt') {
+			const currentBranchName = repoManager.repository.state.HEAD?.name;
+			const defaults = await repoManager.getPullRequestDefaults();
+			const defaultBranchName = defaults.base;
+
+			if (!currentBranchName) {
+				// If we can't determine the current branch, default to the default branch
+				checkoutDefaultBranch = true;
+			} else if (currentBranchName === defaultBranchName) {
+				// If already on the default branch, no need to prompt
+				checkoutDefaultBranch = false;
+			} else {
+				const choice = await vscode.window.showQuickPick([currentBranchName, defaultBranchName], {
+					placeHolder: vscode.l10n.t('Which branch should be used as the base for the new issue branch?'),
+				});
+				if (choice === undefined) {
+					// User cancelled the prompt
+					return;
+				}
+				checkoutDefaultBranch = choice === defaultBranchName;
+			}
+		}
+		// else workingBaseBranchConfig === 'currentBranch', checkoutDefaultBranch remains false
+
 		await this._stateManager.setCurrentIssue(
 			repoManager,
 			new CurrentIssue(issueModel, repoManager, this._stateManager, remoteNameResult.remote, needsBranchPrompt),
-			true
+			checkoutDefaultBranch
 		);
 	}
 
@@ -1250,11 +1329,76 @@ ${options?.body ?? ''}\n
 	}
 
 	private getDataFromTemplate(template: string): IssueTemplate {
+		// Try to parse as YAML first (YAML templates have a different structure)
+		try {
+			const parsed = yaml.load(template);
+			// Check if it looks like a YAML issue template (has name and body fields)
+			if (parsed && typeof parsed === 'object' && (parsed as YamlIssueTemplate).name && (parsed as YamlIssueTemplate).body) {
+				// This is a YAML template
+				return this.parseYamlTemplate(parsed as YamlIssueTemplate);
+			}
+		} catch (e) {
+			// Not a valid YAML, continue to Markdown parsing
+		}
+
+		// Parse as Markdown frontmatter template
 		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
 		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
 		return { title, name, about, body };
+	}
+
+	private parseYamlTemplate(parsed: YamlIssueTemplate): IssueTemplate {
+		const name = parsed.name;
+		const about = parsed.description || parsed.about;
+		const title = parsed.title;
+
+		// Convert YAML body fields to markdown
+		let body = '';
+		if (parsed.body && Array.isArray(parsed.body)) {
+			for (const field of parsed.body) {
+				if (field.type === 'markdown' && field.attributes?.value) {
+					body += field.attributes.value + '\n\n';
+				} else if (field.type === 'textarea' && field.attributes?.label) {
+					body += `## ${field.attributes.label}\n\n`;
+					if (field.attributes.description) {
+						body += `${field.attributes.description}\n\n`;
+					}
+					if (field.attributes.placeholder) {
+						body += `${field.attributes.placeholder}\n\n`;
+					} else if (field.attributes.value) {
+						body += `${field.attributes.value}\n\n`;
+					}
+				} else if (field.type === 'input' && field.attributes?.label) {
+					body += `## ${field.attributes.label}\n\n`;
+					if (field.attributes.description) {
+						body += `${field.attributes.description}\n\n`;
+					}
+					if (field.attributes.placeholder) {
+						body += `${field.attributes.placeholder}\n\n`;
+					}
+				} else if (field.type === 'dropdown' && field.attributes?.label) {
+					body += `## ${field.attributes.label}\n\n`;
+					if (field.attributes.description) {
+						body += `${field.attributes.description}\n\n`;
+					}
+					if (field.attributes.options && Array.isArray(field.attributes.options)) {
+						body += field.attributes.options.map((opt: string | { label?: string }) => typeof opt === 'string' ? `- ${opt}` : `- ${opt.label || ''}`).join('\n') + '\n\n';
+					}
+				} else if (field.type === 'checkboxes' && field.attributes?.label) {
+					body += `## ${field.attributes.label}\n\n`;
+					if (field.attributes.description) {
+						body += `${field.attributes.description}\n\n`;
+					}
+					if (field.attributes.options && Array.isArray(field.attributes.options)) {
+						body += field.attributes.options.map((opt: { label?: string } | string) => `- [ ] ${typeof opt === 'string' ? opt : opt.label || ''}`).join('\n') + '\n\n';
+					}
+				}
+			}
+		}
+
+		return { title, name, about, body: body.trim() || undefined };
 	}
 
 	private async doCreateIssue(
