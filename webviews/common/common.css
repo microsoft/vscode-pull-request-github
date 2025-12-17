@@ -176,6 +176,7 @@ body img.avatar {
 .section .icon-button:hover,
 .section .icon-button:focus {
 	background-color: var(--vscode-toolbar-hoverBackground);
+	cursor: pointer;
 }
 
 .icon-button:focus,

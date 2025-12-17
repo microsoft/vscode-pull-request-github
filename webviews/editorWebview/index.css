@@ -48,11 +48,46 @@ textarea:focus,
 }
 
 .title {
+	position: sticky;
+	top: 0;
+	z-index: 100;
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	background: var(--vscode-editor-background);
+}
+
+.title .details {
+	flex: 1;
+}
+
+/* Shadow effect when stuck - only on bottom */
+.title.stuck::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	pointer-events: none;
+}
+
+/* Hide subtitle when stuck */
+.title.stuck .subtitle {
+	display: none;
+}
+
+/* Hide edit button when stuck */
+.title.stuck #edit-title-button {
+	display: none;
+}
+
+/* Adjust title size when stuck */
+.title.stuck .overview-title h2 {
+	font-size: 18px;
 }
 
 .title .pr-number {
@@ -228,6 +263,10 @@ body .comment-container .review-comment-header {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+}
+
+.status-check > div:not(.status-check-details) {
+	display: flex;
 }
 
 #merge-on-github {
@@ -563,6 +602,7 @@ small-button {
 	display: flex;
 	gap: 8px;
 	padding-top: 4px;
+	align-items: center;
 }
 
 .header-actions>div:first-of-type {
@@ -1212,6 +1252,10 @@ code {
 	border-bottom: 1px solid var(--vscode-contrastBorder);
 }
 
+.vscode-high-contrast .title.stuck::after {
+	box-shadow: none;
+}
+
 .vscode-high-contrast .diff .diffLine {
 	background: none;
 }
@@ -1236,6 +1280,10 @@ code {
 	.title {
 		border-bottom: none;
 		padding-bottom: 0px;
+	}
+
+	.title.stuck .overview-title h2 {
+		font-size: 16px;
 	}
 
 	#app {

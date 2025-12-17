@@ -8,11 +8,12 @@ import { render } from 'react-dom';
 import { RemoteInfo } from '../../common/types';
 import { CreateParamsNew } from '../../common/views';
 import { isITeam, MergeMethod } from '../../src/github/interface';
+import { ChangeTemplateReply } from '../../src/github/views';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -178,6 +179,13 @@ export function main() {
 					setGeneratingTitle(false);
 				}
 
+				async function changeTemplate() {
+					const result: ChangeTemplateReply = await ctx.postMessage({ command: 'pr.changeTemplate' });
+					if (result && result.description) {
+						ctx.updateState({ pendingDescription: result.description });
+					}
+				}
+
 
 				if (!ctx.initialized) {
 					ctx.initialize();
@@ -325,7 +333,11 @@ export function main() {
 							: null}
 					</div>
 
-					<label htmlFor='description' className='input-title'>Description</label>
+					<div className='description-title'>
+						<label htmlFor='description' className='input-title'>Description</label>
+						{ctx.createParams.usingTemplate ?
+							<a title='Change template' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => changeTemplate()} tabIndex={0}>{notebookTemplate}</a> : null}
+					</div>
 					<div className='group-description'>
 						<textarea
 							id='description'

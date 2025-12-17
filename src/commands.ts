@@ -31,7 +31,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
+import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
@@ -229,6 +229,16 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyCommitHash', (e: CommitNode) => {
 			vscode.env.clipboard.writeText(e.sha);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.revealFileInOS', (e: GitFileChangeNode) => {
+			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
+			if (folderManager) {
+				const filePath = vscode.Uri.joinPath(folderManager.repository.rootUri, e.changeModel.fileName);
+				vscode.commands.executeCommand('revealFileInOS', filePath);
+			}
 		}),
 	);
 
@@ -694,24 +704,38 @@ export function registerCommands(
 		}
 	}));
 
+	const pickPullRequest = async (pr: PRNode | RepositoryChangesNode | PullRequestModel, linkGenerator: (pr: PullRequestModel) => string, requiresHead: boolean = false) => {
+		if (pr === undefined) {
+			// This is unexpected, but has happened a few times.
+			Logger.error('Unexpectedly received undefined when picking a PR.', logId);
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+		}
+
+		let pullRequestModel: PullRequestModel;
+
+		if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
+			pullRequestModel = pr.pullRequestModel;
+		} else {
+			pullRequestModel = pr;
+		}
+
+		if (requiresHead && !pullRequestModel.head) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
+		}
+
+		return vscode.env.openExternal(vscode.Uri.parse(linkGenerator(pullRequestModel)));
+	};
+
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
-			if (pr === undefined) {
-				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
-				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
-			}
+		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
+			pickPullRequest(pr, vscodeDevPrLink)
+		),
+	);
 
-			let pullRequestModel: PullRequestModel;
-
-			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
-				pullRequestModel = pr.pullRequestModel;
-			} else {
-				pullRequestModel = pr;
-			}
-
-			return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(pullRequestModel)));
-		}),
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.pickOnCodespaces', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
+			pickPullRequest(pr, codespacesPrLink, true)
+		),
 	);
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: OverviewContext | undefined) => {
@@ -723,6 +747,20 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: OverviewContext | undefined) => {
+		if (!context) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
+		}
+		const resolved = await resolvePr(context);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
+		}
+		if (!resolved.pr.head) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
+		}
+		return vscode.env.openExternal(vscode.Uri.parse(codespacesPrLink(resolved.pr)));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openSessionLogFromDescription', async (context: SessionLinkInfo | undefined) => {

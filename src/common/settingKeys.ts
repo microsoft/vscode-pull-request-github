@@ -33,6 +33,7 @@ export const DEFAULT_MERGE_METHOD = 'defaultMergeMethod';
 export const DEFAULT_DELETION_METHOD = 'defaultDeletionMethod';
 export const SELECT_LOCAL_BRANCH = 'selectLocalBranch';
 export const SELECT_REMOTE = 'selectRemote';
+export const DELETE_BRANCH_AFTER_MERGE = 'deleteBranchAfterMerge';
 export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
 export type PullPRBranchVariants = 'never' | 'pull' | 'pullAndMergeBase' | 'pullAndUpdateBase' | true | false;
@@ -49,6 +50,7 @@ export const IGNORE_USER_COMPLETION_TRIGGER = 'ignoreUserCompletionTrigger';
 export const CREATE_INSERT_FORMAT = 'createInsertFormat';
 export const ISSUE_BRANCH_TITLE = 'issueBranchTitle';
 export const USE_BRANCH_FOR_ISSUES = 'useBranchForIssues';
+export const WORKING_BASE_BRANCH = 'workingBaseBranch';
 export const WORKING_ISSUE_FORMAT_SCM = 'workingIssueFormatScm';
 export const IGNORE_COMPLETION_TRIGGER = 'ignoreCompletionTrigger';
 export const ISSUE_COMPLETION_FORMAT_SCM = 'issueCompletionFormatScm';
@@ -63,6 +65,7 @@ export const EXPERIMENTAL_USE_QUICK_CHAT = 'experimental.useQuickChat';
 export const EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE = 'experimental.notificationsViewPageSize';
 export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore';
 export const WEBVIEW_REFRESH_INTERVAL = 'webviewRefreshInterval';
+export const DEV_MODE = 'devMode';
 
 // git
 export const GIT = 'git';
