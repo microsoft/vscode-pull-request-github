@@ -37,7 +37,7 @@ import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotes, parseRepositoryRemotesAsync, Remote } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
@@ -276,7 +276,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async computeAllUnknownRemotes(): Promise<Remote[]> {
-		const remotes = parseRepositoryRemotes(this.repository);
+		const remotes = await parseRepositoryRemotesAsync(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
@@ -297,7 +297,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async computeAllGitHubRemotes(): Promise<GitHubRemote[]> {
-		const remotes = parseRepositoryRemotes(this.repository);
+		const remotes = await parseRepositoryRemotesAsync(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
