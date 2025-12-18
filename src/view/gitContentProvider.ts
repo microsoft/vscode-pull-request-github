@@ -96,8 +96,10 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 					// Only show the error if we know it's not an outdated commit
 					if (!this.getOutdatedChangeModelForFile(uri)) {
 						vscode.window.showErrorMessage(
-							`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`,
+							vscode.l10n.t('We couldn\'t find commit {0} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push.', commit),
 						);
+					} else {
+						vscode.window.showInformationMessage(vscode.l10n.t('We couldn\'t find commit {0}. Sometimes commits can disappear after a force-push.', commit));
 					}
 				}
 			}

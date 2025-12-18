@@ -11,6 +11,7 @@ import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '.
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
 import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
+import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 
@@ -129,7 +130,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 				</a>
 			</h2>
 			{canEdit ?
-				<button title="Rename" onClick={() => setEditMode(true)} className="icon-button">
+				<button id={EDIT_TITLE_BUTTON_ID} title="Rename" onClick={() => setEditMode(true)} className="icon-button">
 					{editIcon}
 				</button>
 				: null}

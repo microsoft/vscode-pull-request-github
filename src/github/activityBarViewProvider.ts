@@ -15,7 +15,7 @@ import { MergeArguments, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -258,10 +258,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				state: pullRequest.state,
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-				base: pullRequest.base.label,
+				base: `${pullRequest.base.owner}/${pullRequest.base.name}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: !branchInfo,
-				head: pullRequest.head?.label ?? '',
+				head: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.head.name}:${pullRequest.head.ref}` : '',
 				canEdit: canEdit,
 				hasWritePermission,
 				mergeable: pullRequest.item.mergeable,
@@ -416,6 +416,13 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
+			} else {
+				// Check if auto-delete branch setting is enabled
+				const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
+				if (deleteBranchAfterMerge) {
+					// Automatically delete the branch after successful merge
+					await PullRequestReviewCommon.autoDeleteBranchesAfterMerge(this._folderRepositoryManager, this._item);
+				}
 			}
 
 			this._replyMessage(message, {

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AuthProvider, GitHubServerType } from './authentication';
+import Logger from './logger';
 import { Protocol } from './protocol';
 import { Repository } from '../api/api';
 import { getEnterpriseUri, isEnterprise } from '../github/utils';
@@ -74,6 +75,54 @@ export function parseRemote(remoteName: string, url: string, originalProtocol?: 
 	return null;
 }
 
+/**
+ * Resolves git URL aliases by applying insteadOf substitutions from git config.
+ * For example, if git config has:
+ *   [url "git@github.com:"]
+ *     insteadOf = "gh:"
+ * Then "gh:user/repo" will be resolved to "git@github.com:user/repo"
+ *
+ * @param url The URL to resolve
+ * @param repository The repository to get config from
+ * @returns The resolved URL, or the original URL if no substitution found
+ */
+async function resolveGitUrl(url: string, repository: Repository): Promise<string> {
+	try {
+		// Get all git config entries
+		const configs = await repository.getConfigs();
+
+		// Find all url.*.insteadOf entries
+		const urlSubstitutions: { prefix: string; replacement: string }[] = [];
+
+		for (const config of configs) {
+			// Match patterns like "url.https://github.com/.insteadOf" or "url.git@github.com:.insteadOf"
+			const match = config.key.match(/^url\.(.+)\.insteadof$/i);
+			if (match) {
+				const replacement = match[1];
+				const prefix = config.value;
+				urlSubstitutions.push({ prefix, replacement });
+			}
+		}
+
+		// Sort by prefix length (longest first) to handle overlapping prefixes correctly
+		urlSubstitutions.sort((a, b) => b.prefix.length - a.prefix.length);
+
+		// Apply the first matching substitution
+		for (const { prefix, replacement } of urlSubstitutions) {
+			if (url.startsWith(prefix)) {
+				const resolvedUrl = replacement + url.substring(prefix.length);
+				Logger.appendLine(`Resolved git URL alias: "${url}" -> "${resolvedUrl}"`, 'Remote');
+				return resolvedUrl;
+			}
+		}
+	} catch (error) {
+		Logger.error(`Failed to resolve git URL aliases for "${url}": ${error}`, 'Remote');
+	}
+
+	// No substitution found or error occurred, return original URL
+	return url;
+}
+
 export function parseRepositoryRemotes(repository: Repository): Remote[] {
 	const remotes: Remote[] = [];
 	for (const r of repository.state.remotes) {
@@ -83,6 +132,38 @@ export function parseRepositoryRemotes(repository: Repository): Remote[] {
 		}
 		if (r.pushUrl && r.pushUrl !== r.fetchUrl) {
 			urls.push(r.pushUrl);
+		}
+		urls.forEach(url => {
+			const remote = parseRemote(r.name, url);
+			if (remote) {
+				remotes.push(remote);
+			}
+		});
+	}
+	return remotes;
+}
+
+/**
+ * Asynchronously parses repository remotes with git URL alias resolution.
+ * This version resolves git URL aliases (e.g., "gh:" -> "git@github.com:") before parsing.
+ * Use this version when you need accurate remote parsing with alias resolution.
+ *
+ * @param repository The repository to parse remotes from
+ * @returns Promise resolving to array of Remote objects
+ */
+export async function parseRepositoryRemotesAsync(repository: Repository): Promise<Remote[]> {
+	const remotes: Remote[] = [];
+	for (const r of repository.state.remotes) {
+		const urls: string[] = [];
+		if (r.fetchUrl) {
+			// Resolve git URL aliases before parsing
+			const resolvedUrl = await resolveGitUrl(r.fetchUrl, repository);
+			urls.push(resolvedUrl);
+		}
+		if (r.pushUrl && r.pushUrl !== r.fetchUrl) {
+			// Resolve git URL aliases before parsing
+			const resolvedUrl = await resolveGitUrl(r.pushUrl, repository);
+			urls.push(resolvedUrl);
 		}
 		urls.forEach(url => {
 			const remote = parseRemote(r.name, url);

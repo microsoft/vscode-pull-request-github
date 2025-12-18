@@ -67,6 +67,7 @@ export interface Issue {
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
+	canRequestCopilotReview: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
 }
@@ -110,6 +111,7 @@ export interface PullRequest extends Issue {
 	revertable?: boolean;
 	busy?: boolean;
 	loadingCommit?: string;
+	generateDescriptionTitle?: string;
 }
 
 export interface ProjectItemsReply {
@@ -119,6 +121,10 @@ export interface ProjectItemsReply {
 export interface ChangeAssigneesReply {
 	assignees: IAccount[];
 	events: TimelineEvent[];
+}
+
+export interface ChangeReviewersReply {
+	reviewers: ReviewState[];
 }
 
 export interface SubmitReviewReply {
@@ -132,6 +138,10 @@ export interface ReadyForReviewReply {
 	reviewEvent?: ReviewEvent;
 	reviewers?: ReviewState[];
 	autoMerge?: boolean;
+}
+
+export interface ConvertToDraftReply {
+	isDraft: boolean;
 }
 
 export interface MergeArguments {
@@ -157,6 +167,10 @@ export enum PreReviewState {
 	Available,
 	ReviewedWithComments,
 	ReviewedWithoutComments
+}
+
+export interface ChangeTemplateReply {
+	description: string;
 }
 
 export interface CancelCodingAgentReply {

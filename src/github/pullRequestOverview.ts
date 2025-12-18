@@ -25,13 +25,13 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
-import { IComment } from '../common/comment';
-import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
+import { CancelCodingAgentReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
@@ -54,6 +54,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
 	private _teamsCount = 0;
+	private _assignableUsers: { [key: string]: IAccount[] } = {};
 
 	private _prListeners: vscode.Disposable[] = [];
 	private _isUpdating: boolean = false;
@@ -257,7 +258,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				mergeability,
 				emailForCommit,
 				coAuthors,
-				hasReviewDraft
+				hasReviewDraft,
+				assignableUsers
 			] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
@@ -279,6 +281,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
 				pullRequestModel.getCoAuthors(),
 				pullRequestModel.validateDraftMode(),
+				this._folderRepositoryManager.getAssignableUsers()
 			]);
 			if (!pullRequest) {
 				throw new Error(
@@ -290,6 +293,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
 			this._teamsCount = orgTeamsCount;
+			this._assignableUsers = assignableUsers;
 			this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
@@ -302,7 +306,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
+			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
+			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
+			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
+			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
@@ -313,12 +320,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
+				canRequestCopilotReview: copilotUser !== undefined && !isCopilotAlreadyReviewer,
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-				base: pullRequest.base.label,
+				base: `${pullRequest.base.owner}/${pullRequest.remote.repositoryName}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: !branchInfo,
-				head: pullRequest.head?.label ?? '',
+				head: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.remote.repositoryName}:${pullRequest.head.ref}` : '',
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch: doneCheckoutBranch,
 				status: status[0],
@@ -341,7 +349,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				emailForCommit,
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
-				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
+				generateDescriptionTitle: this.getGenerateDescriptionTitle()
 			};
 			this._postMessage({
 				command: 'pr.initialize',
@@ -391,6 +400,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.setReadyForReview(message);
 			case 'pr.readyForReviewAndMerge':
 				return this.setReadyForReviewAndMerge(message);
+			case 'pr.convertToDraft':
+				return this.setConvertToDraft(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
@@ -421,6 +432,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.gotoChangesSinceReview(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
+			case 'pr.add-reviewer-copilot':
+				return this.addReviewerCopilot(message);
 			case 'pr.revert':
 				return this.revert(message);
 			case 'pr.open-session-log':
@@ -431,6 +444,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openCommitChanges(message);
 			case 'pr.delete-review':
 				return this.deleteReview(message);
+			case 'pr.generate-description':
+				return this.generateDescription(message);
+			case 'pr.cancel-generate-description':
+				return this.cancelGenerateDescription();
 		}
 	}
 
@@ -632,6 +649,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
+			} else {
+				// Check if auto-delete branch setting is enabled
+				const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
+				if (deleteBranchAfterMerge) {
+					// Automatically delete the branch after successful merge
+					await PullRequestReviewCommon.autoDeleteBranchesAfterMerge(this._folderRepositoryManager, this._item);
+				}
 			}
 
 			const mergeResult: MergeResult = {
@@ -670,6 +694,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
 		return PullRequestReviewCommon.setReadyForReviewAndMerge(this.getReviewContext(), message);
+	}
+
+	private async setConvertToDraft(message: IRequestMessage<{}>): Promise<void> {
+		return PullRequestReviewCommon.setConvertToDraft(this.getReviewContext(), message);
 	}
 
 	private async readyForReviewCommand(): Promise<void> {
@@ -749,6 +777,26 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
 	}
 
+	private async addReviewerCopilot(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const copilotUser = this._assignableUsers[this._item.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
+			if (copilotUser) {
+				await this._item.requestReview([COPILOT_REVIEWER_ACCOUNT], []);
+				const newReviewers = await this._item.getReviewRequests();
+				this._existingReviewers = parseReviewers(newReviewers!, await this._item.getTimelineEvents(), this._item.author);
+				const reply: ChangeReviewersReply = {
+					reviewers: this._existingReviewers
+				};
+				this._replyMessage(message, reply);
+			} else {
+				this._throwError(message, 'Copilot reviewer not found.');
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+			this._throwError(message, formatError(e));
+		}
+	}
+
 	private async revert(message: IRequestMessage<string>): Promise<void> {
 		await this._folderRepositoryManager.createPullRequestHelper.revert(this._telemetry, this._extensionUri, this._folderRepositoryManager, this._item, async (pullRequest) => {
 			const result: Partial<PullRequest> = { revertable: !pullRequest };
@@ -808,6 +856,66 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Deleting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
+		}
+	}
+
+	private getGenerateDescriptionTitle(): string | undefined {
+		const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider();
+		return provider ? `Generate description with ${provider.title}` : undefined;
+	}
+
+	private generatingDescriptionCancellationToken: vscode.CancellationTokenSource | undefined;
+
+	private async generateDescription(message: IRequestMessage<void>): Promise<void> {
+		if (this.generatingDescriptionCancellationToken) {
+			this.generatingDescriptionCancellationToken.cancel();
+		}
+		this.generatingDescriptionCancellationToken = new vscode.CancellationTokenSource();
+
+		try {
+			const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider();
+			if (!provider) {
+				return this._replyMessage(message, { description: undefined });
+			}
+
+			// Get commits and raw file changes for the PR
+			const [commits, rawFileChanges] = await Promise.all([
+				this._item.getCommits(),
+				this._item.getRawFileChangesInfo()
+			]);
+
+			const commitMessages = commits.map(commit => commit.commit.message);
+			const patches = rawFileChanges
+				.filter(file => file.patch !== undefined)
+				.map(file => {
+					const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
+					const previousFileUri = file.previous_filename ?
+						vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() :
+						undefined;
+					return { patch: file.patch!, fileUri, previousFileUri };
+				});
+
+			// Get the PR template
+			const templateContent = await this._folderRepositoryManager.getPullRequestTemplateBody(this._item.remote.owner);
+
+			const result = await provider.provider.provideTitleAndDescription(
+				{ commitMessages, patches, issues: [], template: templateContent },
+				this.generatingDescriptionCancellationToken.token
+			);
+
+			this.generatingDescriptionCancellationToken = undefined;
+			return this._replyMessage(message, { description: result?.description });
+		} catch (e) {
+			Logger.error(`Error generating description: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			this.generatingDescriptionCancellationToken = undefined;
+			return this._replyMessage(message, { description: undefined });
+		}
+	}
+
+	private async cancelGenerateDescription(): Promise<void> {
+		if (this.generatingDescriptionCancellationToken) {
+			this.generatingDescriptionCancellationToken.cancel();
+			this.generatingDescriptionCancellationToken = undefined;
 		}
 	}
 

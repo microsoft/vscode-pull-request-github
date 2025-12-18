@@ -62,6 +62,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	busy: { default: undefined },
 	lastReviewType: { default: undefined },
 	canAssignCopilot: { default: false },
+	canRequestCopilotReview: { default: false },
 	isCopilotOnMyBehalf: { default: false },
 	reactions: { default: [] },
 });
