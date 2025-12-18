@@ -31,7 +31,7 @@ import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCop
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { DEFAULT_MERGE_METHOD, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
@@ -311,10 +311,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 				base: pullRequest.base.label,
+				baseBranchName: pullRequest.base.ref,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: !branchInfo,
 				head: pullRequest.head?.label ?? '',
 				repositoryDefaultBranch: defaultBranch,
+				postDoneSetting: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, 'checkoutDefaultBranch'),
 				status: status[0],
 				reviewRequirement: status[1],
 				canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,

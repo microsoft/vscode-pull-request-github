@@ -15,6 +15,7 @@ import { MergeArguments, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
+import { POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -253,6 +254,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 				base: pullRequest.base.label,
+				baseBranchName: pullRequest.base.ref,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: !branchInfo,
 				head: pullRequest.head?.label ?? '',
@@ -267,6 +269,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				mergeMethodsAvailability,
 				defaultMergeMethod,
 				repositoryDefaultBranch: defaultBranch,
+				postDoneSetting: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, 'checkoutDefaultBranch'),
 				isIssue: false,
 				isAuthor: currentUser.login === pullRequest.author.login,
 				reviewers: this._existingReviewers,
