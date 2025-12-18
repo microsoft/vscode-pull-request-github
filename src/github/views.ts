@@ -76,14 +76,13 @@ export interface PullRequest extends Issue {
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
-	baseBranchName: string;
 	isRemoteHeadDeleted?: boolean;
 	isLocalHeadDeleted?: boolean;
 	head: string;
 	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	repositoryDefaultBranch: string;
-	postDoneSetting: string;
+	doneCheckoutBranch: string;
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;

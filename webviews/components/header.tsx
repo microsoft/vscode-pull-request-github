@@ -19,7 +19,6 @@ export function Header({
 	state,
 	head,
 	base,
-	baseBranchName,
 	title,
 	titleHTML,
 	number,
@@ -29,7 +28,7 @@ export function Header({
 	isDraft,
 	isIssue,
 	repositoryDefaultBranch,
-	postDoneSetting,
+	doneCheckoutBranch,
 	events,
 	owner,
 	repo,
@@ -60,8 +59,7 @@ export function Header({
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
 					isIssue={isIssue}
 					repositoryDefaultBranch={repositoryDefaultBranch}
-					baseBranchName={baseBranchName}
-					postDoneSetting={postDoneSetting}
+					doneCheckoutBranch={doneCheckoutBranch}
 					owner={owner}
 					repo={repo}
 					number={number}
@@ -151,20 +149,19 @@ interface ButtonGroupProps {
 	isCurrentlyCheckedOut: boolean;
 	isIssue: boolean;
 	repositoryDefaultBranch: string;
-	baseBranchName: string;
-	postDoneSetting: string;
+	doneCheckoutBranch: string;
 	owner: string;
 	repo: string;
 	number: number;
 	busy?: boolean;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, baseBranchName, postDoneSetting, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, doneCheckoutBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
 	const { refresh } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
-			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, baseBranchName, postDoneSetting, owner, repo, number }} />
+			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, doneCheckoutBranch, owner, repo, number }} />
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
@@ -291,14 +288,13 @@ interface CheckoutButtonProps {
 	isCurrentlyCheckedOut: boolean;
 	isIssue: boolean;
 	repositoryDefaultBranch: string;
-	baseBranchName: string;
-	postDoneSetting: string;
+	doneCheckoutBranch: string;
 	owner: string;
 	repo: string;
 	number: number;
 }
 
-const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, baseBranchName, postDoneSetting, owner, repo, number }) => {
+const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, doneCheckoutBranch, owner, repo, number }) => {
 	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -339,12 +335,10 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
 
 	if (isCurrentlyCheckedOut) {
-		// Determine which branch to checkout based on the postDone setting
-		let buttonLabel = `Checkout '${repositoryDefaultBranch}'`;
-		
-		if (postDoneSetting === 'checkoutPullRequestBaseBranch' || postDoneSetting === 'checkoutPullRequestBaseBranchAndPull') {
-			buttonLabel = `Checkout target branch '${baseBranchName}'`;
-		}
+		// Use doneCheckoutBranch which has the appropriate branch name already computed
+		const buttonLabel = doneCheckoutBranch === repositoryDefaultBranch 
+			? `Checkout '${repositoryDefaultBranch}'`
+			: `Checkout target branch '${doneCheckoutBranch}'`;
 		
 		actions.push({
 			label: buttonLabel,

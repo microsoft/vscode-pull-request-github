@@ -306,17 +306,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
+			const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, 'checkoutDefaultBranch');
+			const doneCheckoutBranch = (postDoneAction === 'checkoutPullRequestBaseBranch' || postDoneAction === 'checkoutPullRequestBaseBranchAndPull')
+				? pullRequest.base.ref
+				: defaultBranch;
+
 			const context: Partial<PullRequest> = {
 				...baseContext,
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 				base: pullRequest.base.label,
-				baseBranchName: pullRequest.base.ref,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: !branchInfo,
 				head: pullRequest.head?.label ?? '',
 				repositoryDefaultBranch: defaultBranch,
-				postDoneSetting: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, 'checkoutDefaultBranch'),
+				doneCheckoutBranch: doneCheckoutBranch,
 				status: status[0],
 				reviewRequirement: status[1],
 				canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,
