@@ -33,6 +33,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isAuthor: { default: true },
 	commitsCount: { default: 10 },
 	repositoryDefaultBranch: { default: 'main' },
+	doneCheckoutBranch: { default: 'main' },
 	canEdit: { default: true },
 	hasWritePermission: { default: true },
 	pendingCommentText: { default: undefined },

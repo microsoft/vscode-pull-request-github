@@ -15,7 +15,7 @@ import { MergeArguments, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
-import { DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -233,6 +233,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const continueOnGitHub = !!(isCrossRepository && isInCodespaces());
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
+			const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+			const doneCheckoutBranch = postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)
+				? pullRequest.base.ref
+				: defaultBranch;
+
 			const context: Partial<PullRequest> = {
 				number: pullRequest.number,
 				title: pullRequest.title,
@@ -268,6 +273,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				mergeMethodsAvailability,
 				defaultMergeMethod,
 				repositoryDefaultBranch: defaultBranch,
+				doneCheckoutBranch,
 				isIssue: false,
 				isAuthor: currentUser.login === pullRequest.author.login,
 				reviewers: this._existingReviewers,

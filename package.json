@@ -492,13 +492,17 @@
 					"type": "string",
 					"enum": [
 						"checkoutDefaultBranch",
-						"checkoutDefaultBranchAndPull"
+						"checkoutDefaultBranchAndPull",
+						"checkoutPullRequestBaseBranch",
+						"checkoutPullRequestBaseBranchAndPull"
 					],
 					"description": "%githubPullRequests.postDone.description%",
 					"default": "checkoutDefaultBranch",
 					"enumDescriptions": [
 						"%githubPullRequests.postDone.checkoutDefaultBranch%",
-						"%githubPullRequests.postDone.checkoutDefaultBranchAndPull%"
+						"%githubPullRequests.postDone.checkoutDefaultBranchAndPull%",
+						"%githubPullRequests.postDone.checkoutPullRequestBaseBranch%",
+						"%githubPullRequests.postDone.checkoutPullRequestBaseBranchAndPull%"
 					]
 				},
 				"githubPullRequests.defaultCommentType": {

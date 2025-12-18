@@ -31,7 +31,7 @@ import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotE
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
@@ -313,6 +313,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
+			const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+			const doneCheckoutBranch = postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)
+				? pullRequest.base.ref
+				: defaultBranch;
+
 			const context: Partial<PullRequest> = {
 				...baseContext,
 				canRequestCopilotReview: copilotUser !== undefined && !isCopilotAlreadyReviewer,
@@ -323,6 +328,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isLocalHeadDeleted: !branchInfo,
 				head: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.remote.repositoryName}:${pullRequest.head.ref}` : '',
 				repositoryDefaultBranch: defaultBranch,
+				doneCheckoutBranch: doneCheckoutBranch,
 				status: status[0],
 				reviewRequirement: status[1],
 				canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,

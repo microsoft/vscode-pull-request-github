@@ -83,6 +83,7 @@ export interface PullRequest extends Issue {
 	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	repositoryDefaultBranch: string;
+	doneCheckoutBranch: string;
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;
