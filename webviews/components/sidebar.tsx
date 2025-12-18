@@ -556,8 +556,6 @@ function ConvertToDraft() {
 			setBusy(true);
 			const result = await convertToDraft();
 			updatePR({ isDraft: result.isDraft });
-		} catch (e) {
-			// Error handling is done in the backend
 		} finally {
 			setBusy(false);
 		}
@@ -568,7 +566,7 @@ function ConvertToDraft() {
 			Still in progress?{' '}
 			<a
 				onClick={handleConvertToDraft}
-				style={{ 
+				style={{
 					pointerEvents: (isBusy || pr?.busy) ? 'none' : 'auto',
 					opacity: (isBusy || pr?.busy) ? 0.5 : 1,
 					cursor: 'pointer'

@@ -285,26 +285,6 @@ export namespace PullRequestReviewCommon {
 		}
 	}
 
-	export async function convertToDraftCommand(ctx: ReviewContext): Promise<void> {
-		ctx.postMessage({
-			command: 'pr.converting-to-draft'
-		});
-		try {
-			const result = await ctx.item.convertToDraft();
-
-			const convertedResult = {
-				isDraft: result.isDraft
-			};
-			await ctx.postMessage({
-				command: 'pr.converted-to-draft',
-				result: convertedResult
-			});
-		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to convert pull request to draft. ${formatError(e)}`);
-			ctx.throwError(undefined, e.message);
-		}
-	}
-
 	interface SelectedAction {
 		type: 'remoteHead' | 'local' | 'remote' | 'suspend'
 	};
