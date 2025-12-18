@@ -3020,15 +3020,157 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
 
+/**
+ * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
+ * Similar to GitHub's behavior when converting commit messages to PR descriptions.
+ * 
+ * Rules:
+ * - Preserves blank lines as paragraph breaks
+ * - Preserves fenced code blocks (```)
+ * - Preserves list items (-, *, +, numbered)
+ * - Preserves blockquotes (>)
+ * - Preserves indented code blocks (4+ spaces at start, when not in a list context)
+ * - Joins consecutive plain text lines that appear to be wrapped mid-sentence
+ */
+function unwrapCommitMessageBody(body: string): string {
+	if (!body) {
+		return body;
+	}
+
+	// Pattern to detect list item markers at the start of a line
+	const LIST_ITEM_PATTERN = /^[ \t]*([*+\-]|\d+\.)\s/;
+	// Pattern to detect blockquote markers
+	const BLOCKQUOTE_PATTERN = /^[ \t]*>/;
+	// Pattern to detect fenced code block markers
+	const FENCE_PATTERN = /^[ \t]*```/;
+
+	const lines = body.split('\n');
+	const result: string[] = [];
+	let i = 0;
+	let inFencedBlock = false;
+	let inListContext = false;
+
+	while (i < lines.length) {
+		const line = lines[i];
+
+		// Preserve blank lines
+		if (line.trim() === '') {
+			result.push(line);
+			i++;
+			inListContext = false; // Reset list context on blank line
+			continue;
+		}
+
+		// Check for fenced code block markers
+		if (FENCE_PATTERN.test(line)) {
+			inFencedBlock = !inFencedBlock;
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Preserve everything inside fenced code blocks
+		if (inFencedBlock) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Check if this line is a list item
+		const isListItem = LIST_ITEM_PATTERN.test(line);
+
+		// Check if this line is a blockquote
+		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
+
+		// Check if this line is indented (4+ spaces) but NOT a list continuation
+		// List continuations have leading spaces but we're in list context
+		const leadingSpaces = line.match(/^[ \t]*/)?.[0].length || 0;
+		const isIndentedCode = leadingSpaces >= 4 && !inListContext;
+
+		// Determine if this line should be preserved (not joined)
+		const shouldPreserveLine = isListItem || isBlockquote || isIndentedCode;
+
+		if (shouldPreserveLine) {
+			result.push(line);
+			i++;
+			// If this is a list item, we're now in list context
+			if (isListItem) {
+				inListContext = true;
+			}
+			continue;
+		}
+
+		// If we have leading spaces but we're in a list context, this is a list continuation
+		// We should preserve it to maintain list formatting
+		if (inListContext && leadingSpaces >= 2) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Start accumulating lines that should be joined (plain text)
+		let joinedLine = line;
+		i++;
+
+		// Keep joining lines until we hit a blank line or a line that shouldn't be joined
+		while (i < lines.length) {
+			const nextLine = lines[i];
+
+			// Stop at blank lines
+			if (nextLine.trim() === '') {
+				break;
+			}
+
+			// Stop at fenced code blocks
+			if (FENCE_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Stop at list items
+			if (LIST_ITEM_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Stop at blockquotes
+			if (BLOCKQUOTE_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Check if next line is indented code (4+ spaces, not in list context)
+			const nextLeadingSpaces = nextLine.match(/^[ \t]*/)?.[0].length || 0;
+			const nextIsIndentedCode = nextLeadingSpaces >= 4 && !inListContext;
+
+			if (nextIsIndentedCode) {
+				break;
+			}
+
+			// If in list context and next line is indented, it's a list continuation
+			if (inListContext && nextLeadingSpaces >= 2) {
+				break;
+			}
+
+			// Join this line with a space
+			joinedLine += ' ' + nextLine;
+			i++;
+		}
+
+		result.push(joinedLine);
+	}
+
+	return result.join('\n');
+}
+
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;
 	if (!message) {
 		return;
 	}
 	const idxLineBreak = message.indexOf('\n');
+	const hasBody = idxLineBreak !== -1;
+	const rawBody = hasBody ? message.slice(idxLineBreak + 1).trim() : '';
 	return {
-		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),
+		title: hasBody ? message.slice(0, idxLineBreak) : message,
 
-		body: idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim(),
+		body: unwrapCommitMessageBody(rawBody),
 	};
 };
