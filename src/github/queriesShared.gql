@@ -740,6 +740,16 @@ mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
 	}
 }
 
+mutation ConvertToDraft($input: ConvertPullRequestToDraftInput!) {
+	convertPullRequestToDraft(input: $input) {
+		pullRequest {
+			isDraft
+			mergeable
+			mergeStateStatus
+		}
+	}
+}
+
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview {
