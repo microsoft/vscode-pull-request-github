@@ -331,7 +331,7 @@ export function main() {
 
 					<div className='group-description-header'>
 						<label htmlFor='description' className='input-title'>Description</label>
-						<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings}>{settingsIcon}</a>
+						<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
 					</div>
 					<div className='group-description'>
 						<textarea
