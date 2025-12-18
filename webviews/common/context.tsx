@@ -7,7 +7,7 @@ import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
 import { COMMENT_TEXTAREA_ID } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
-import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
+import { CloseResult, DescriptionResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
@@ -138,6 +138,12 @@ export class PRContext {
 
 	public editComment = (args: { comment: IComment; text: string }) =>
 		this.postMessage({ command: 'pr.edit-comment', args });
+
+	public generateDescription = (): Promise<DescriptionResult> =>
+		this.postMessage({ command: 'pr.generate-description' });
+
+	public cancelGenerateDescription = () =>
+		this.postMessage({ command: 'pr.cancel-generate-description' });
 
 	public updateDraft = (id: number, body: string) => {
 		const pullRequest = getState();

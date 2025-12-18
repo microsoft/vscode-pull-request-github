@@ -343,7 +343,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				emailForCommit,
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
-				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
+				generateDescriptionTitle: this.getGenerateDescriptionTitle()
 			};
 			this._postMessage({
 				command: 'pr.initialize',
@@ -437,6 +438,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openCommitChanges(message);
 			case 'pr.delete-review':
 				return this.deleteReview(message);
+			case 'pr.generate-description':
+				return this.generateDescription(message);
+			case 'pr.cancel-generate-description':
+				return this.cancelGenerateDescription();
 		}
 	}
 
@@ -845,6 +850,66 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Deleting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
+		}
+	}
+
+	private getGenerateDescriptionTitle(): string | undefined {
+		const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider();
+		return provider ? `Generate description with ${provider.title}` : undefined;
+	}
+
+	private generatingDescriptionCancellationToken: vscode.CancellationTokenSource | undefined;
+
+	private async generateDescription(message: IRequestMessage<void>): Promise<void> {
+		if (this.generatingDescriptionCancellationToken) {
+			this.generatingDescriptionCancellationToken.cancel();
+		}
+		this.generatingDescriptionCancellationToken = new vscode.CancellationTokenSource();
+
+		try {
+			const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider();
+			if (!provider) {
+				return this._replyMessage(message, { description: undefined });
+			}
+
+			// Get commits and raw file changes for the PR
+			const [commits, rawFileChanges] = await Promise.all([
+				this._item.getCommits(),
+				this._item.getRawFileChangesInfo()
+			]);
+
+			const commitMessages = commits.map(commit => commit.commit.message);
+			const patches = rawFileChanges
+				.filter(file => file.patch !== undefined)
+				.map(file => {
+					const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
+					const previousFileUri = file.previous_filename ?
+						vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() :
+						undefined;
+					return { patch: file.patch!, fileUri, previousFileUri };
+				});
+
+			// Get the PR template
+			const templateContent = await this._folderRepositoryManager.getPullRequestTemplateBody(this._item.remote.owner);
+
+			const result = await provider.provider.provideTitleAndDescription(
+				{ commitMessages, patches, issues: [], template: templateContent },
+				this.generatingDescriptionCancellationToken.token
+			);
+
+			this.generatingDescriptionCancellationToken = undefined;
+			return this._replyMessage(message, { description: result?.description });
+		} catch (e) {
+			Logger.error(`Error generating description: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			this.generatingDescriptionCancellationToken = undefined;
+			return this._replyMessage(message, { description: undefined });
+		}
+	}
+
+	private async cancelGenerateDescription(): Promise<void> {
+		if (this.generatingDescriptionCancellationToken) {
+			this.generatingDescriptionCancellationToken.cancel();
+			this.generatingDescriptionCancellationToken = undefined;
 		}
 	}
 
