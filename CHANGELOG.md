@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changes
+
+- Customizable PR checkout branch names with the `githubPullRequests.pullRequestCheckoutBranchTitle` setting. This allows you to configure the branch name pattern when checking out pull requests, similar to the existing `githubIssues.issueBranchTitle` setting for issues. Supported variables include `${owner}`, `${number}`, `${title}`, and `${sanitizedLowercaseTitle}`. The default value is `pr/${owner}/${number}`.
+
 ## 0.124.0
 
 ### Changes
