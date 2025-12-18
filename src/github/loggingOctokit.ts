@@ -185,13 +185,19 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 
 		// If we should exclude merge commits, filter out files that were only changed in merge commits
 		if (excludeMergeCommits && data.commits && data.commits.length > 0) {
-			const mergeCommits = data.commits.filter((commit: any) => commit.parents && commit.parents.length > 1);
+			// Separate merge and non-merge commits in a single pass
+			const mergeCommits: any[] = [];
+			const nonMergeCommits: any[] = [];
+			for (const commit of data.commits) {
+				if (commit.parents && commit.parents.length > 1) {
+					mergeCommits.push(commit);
+				} else {
+					nonMergeCommits.push(commit);
+				}
+			}
 
 			if (mergeCommits.length > 0) {
 				Logger.appendLine(`Found ${mergeCommits.length} merge commit(s) in range, filtering out their changes`, logId);
-
-				// Get the list of non-merge commits
-				const nonMergeCommits = data.commits.filter((commit: any) => !commit.parents || commit.parents.length <= 1);
 
 				// Build a map of files changed by non-merge commits
 				const fileChangedByNonMerge = new Map<string, IRawFileChange>();
@@ -207,7 +213,7 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 
 						if (commitData.data.files) {
 							for (const file of commitData.data.files) {
-								// Store the file change, using the most recent version if multiple commits modified it
+								// Overwrite with this commit's version - the last file change in the map will be from the latest processed commit
 								fileChangedByNonMerge.set(file.filename, file as IRawFileChange);
 							}
 						}
