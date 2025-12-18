@@ -906,6 +906,31 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return events;
 	}
 
+	async getActivityTimelineEvents(): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
+		try {
+			const { data } = await query<TimelineEventsResponse>({
+				query: schema.PullRequestActivityTimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+				},
+			});
+
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+			}
+
+			return parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
+		} catch (e) {
+			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
+			console.log(e);
+			return [];
+		}
+	}
+
 	private addReviewTimelineEventComments(events: TimelineEvent[], reviewThreads: IReviewThread[]): void {
 		interface CommentNode extends IComment {
 			childComments?: CommentNode[];
