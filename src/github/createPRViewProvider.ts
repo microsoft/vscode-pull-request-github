@@ -753,6 +753,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			// Ignore and fall back to commit message
 			Logger.debug(`Error while getting total commits: ${e}`, CreatePullRequestViewProvider.ID);
 		}
+
+		// Apply variable substitution to title and description
+		const activeIssue = this._folderRepositoryManager.activeIssue;
+		const currentUser = activeIssue ? (await this._folderRepositoryManager.getCurrentUser(activeIssue.githubRepository)).login : undefined;
+		title = variableSubstitution(title, activeIssue, this._pullRequestDefaults, currentUser);
+		description = variableSubstitution(description, activeIssue, this._pullRequestDefaults, currentUser);
+
 		return { title, description };
 	}
 
