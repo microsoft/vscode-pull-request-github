@@ -368,11 +368,16 @@ export class PullRequestGitHelper {
 		}
 	}
 
+	/**
+	 * Performs variable substitution for PR checkout branch names.
+	 * Note: This is separate from the variableSubstitution in utils.ts because
+	 * the semantics differ - ${owner} refers to the PR author, not the repo owner.
+	 */
 	private static prBranchNameVariableSubstitution(
 		template: string,
 		pullRequest: PullRequestModel,
 	): string {
-		const VARIABLE_PATTERN = /\$\{([^}]*?)\}/g;
+		const VARIABLE_PATTERN = /\$\{([^-]*?)(-.*?)?\}/g;
 		return template.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
 			switch (variable) {
 				case 'owner':
