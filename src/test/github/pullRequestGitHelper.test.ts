@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
@@ -186,6 +187,103 @@ describe('PullRequestGitHelper', function () {
 				},
 			});
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
+		});
+	});
+
+	describe('calculateUniqueBranchNameForPR', function () {
+		it('uses default template to create branch name', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(42)
+					.user(u => u.login('testuser'))
+					.title('Add new feature')
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			const branchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+			assert.strictEqual(branchName, 'pr/testuser/42', 'Should use default template');
+		});
+
+		it('uses custom template with ${owner} and ${number}', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(42)
+					.user(u => u.login('testuser'))
+					.title('Add new feature')
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Set custom template
+			const configStub = sinon.stub().returns('feature/${owner}-${number}');
+			sinon.stub(vscode.workspace, 'getConfiguration').returns({
+				get: configStub,
+			} as any);
+
+			const branchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+			assert.strictEqual(branchName, 'feature/testuser-42', 'Should use custom template with ${owner} and ${number}');
+		});
+
+		it('uses custom template with ${title}', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(42)
+					.user(u => u.login('testuser'))
+					.title('Add new feature')
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Set custom template
+			const configStub = sinon.stub().returns('pr-${number}-${title}');
+			sinon.stub(vscode.workspace, 'getConfiguration').returns({
+				get: configStub,
+			} as any);
+
+			const branchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+			assert.strictEqual(branchName, 'pr-42-Add-new-feature', 'Should use custom template with sanitized title');
+		});
+
+		it('creates unique branch name when branch already exists', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(42)
+					.user(u => u.login('testuser'))
+					.title('Add new feature')
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Create existing branch with the same name
+			await repository.createBranch('pr/testuser/42', false, 'some-commit-hash');
+
+			const branchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+			assert.strictEqual(branchName, 'pr/testuser/42-1', 'Should append -1 when branch exists');
 		});
 	});
 });
