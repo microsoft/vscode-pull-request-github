@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AuthProvider, GitHubServerType } from './authentication';
+import Logger from './logger';
 import { Protocol } from './protocol';
 import { Repository } from '../api/api';
 import { getEnterpriseUri, isEnterprise } from '../github/utils';
-import Logger from './logger';
 
 export class Remote {
 	public get host(): string {
