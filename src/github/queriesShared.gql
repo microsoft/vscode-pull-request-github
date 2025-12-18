@@ -321,6 +321,26 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 	}
 }
 
+query PullRequestActivityTimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 5) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...ClosedEvent
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
 	repository(owner: $owner, name: $name) {
 		pullRequest: issue(number: $number) {

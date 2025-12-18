@@ -371,7 +371,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	public async markPullRequests(markAsDone: boolean = false): Promise<void> {
 		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest);
-		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents()));
+		const timelines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getActivityTimelineEvents()));
 
 		const markPromises: Promise<void>[] = [];
 
@@ -379,7 +379,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			const currentUser = await this._credentialStore.getCurrentUser(notification.model.remote.authProviderId);
 
 			// Check that there have been no comments, reviews, or commits, since last read
-			const timeline = timlines[index];
+			const timeline = timelines[index];
 			let userLastEvent: Date | undefined = undefined;
 			let nonUserLastEvent: Date | undefined = undefined;
 			for (let i = timeline.length - 1; i >= 0; i--) {
