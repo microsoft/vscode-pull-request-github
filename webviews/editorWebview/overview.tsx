@@ -31,9 +31,53 @@ const useMediaQuery = (query: string) => {
 
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
+	const titleRef = React.useRef<HTMLDivElement>(null);
+
+	React.useEffect(() => {
+		const title = titleRef.current;
+		
+		if (!title) {
+			return;
+		}
+
+		// Initially ensure title is not stuck
+		title.classList.remove('stuck');
+
+		// Small threshold to account for sub-pixel rendering
+		const STICKY_THRESHOLD = 1;
+
+		// Use scroll event with requestAnimationFrame to detect when title becomes sticky
+		// Check if the title's top position is at the viewport top (sticky position)
+		let ticking = false;
+		const handleScroll = () => {
+			if (!ticking) {
+				window.requestAnimationFrame(() => {
+					const rect = title.getBoundingClientRect();
+					// Title is stuck when its top is at position 0 (sticky top: 0)
+					if (rect.top <= STICKY_THRESHOLD) {
+						title.classList.add('stuck');
+					} else {
+						title.classList.remove('stuck');
+					}
+					ticking = false;
+				});
+				ticking = true;
+			}
+		};
+
+		// Check initial state after a brief delay to ensure layout is settled
+		const timeoutId = setTimeout(handleScroll, 100);
+
+		window.addEventListener('scroll', handleScroll, { passive: true });
+
+		return () => {
+			clearTimeout(timeoutId);
+			window.removeEventListener('scroll', handleScroll);
+		};
+	}, []);
 
 	return <>
-		<div id="title" className="title">
+		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />
 			</div>

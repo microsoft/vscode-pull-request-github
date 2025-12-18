@@ -130,6 +130,7 @@ export interface CreateParamsNew {
 
 	creating: boolean;
 	reviewing: boolean;
+	usingTemplate: boolean;
 }
 
 export interface ChooseRemoteAndBranchArgs {

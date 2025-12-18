@@ -17,7 +17,9 @@ import { GitHubRepository, GraphQLError, GraphQLErrorType } from './githubReposi
 import {
 	AddCommentResponse,
 	AddReactionResponse,
+	AddReviewRequestResponse as AddReviewsResponse,
 	AddReviewThreadResponse,
+	ConvertPullRequestToDraftResponse,
 	DeleteReactionResponse,
 	DeleteReviewResponse,
 	DequeuePullRequestResponse,
@@ -44,6 +46,7 @@ import {
 } from './graphql';
 import {
 	AccountType,
+	ConvertToDraft,
 	GithubItemStateEnum,
 	IAccount,
 	IGitTreeItem,
@@ -598,6 +601,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async getViewerLatestReviewCommit(): Promise<{ sha: string } | undefined> {
 		Logger.debug(`Fetch viewers latest review commit`, IssueModel.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
+		const currentUser = (await this.githubRepository.getAuthenticatedUser()).login;
 
 		try {
 			const { data } = await query<LatestReviewCommitResponse>({
@@ -606,6 +610,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					owner: remote.owner,
 					name: remote.repositoryName,
 					number: this.number,
+					author: currentUser,
 				},
 			});
 
@@ -613,8 +618,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				Logger.error('Unexpected null repository while getting last review commit', PullRequestModel.ID);
 			}
 
-			return data.repository?.pullRequest.viewerLatestReview ? {
-				sha: data.repository?.pullRequest.viewerLatestReview.commit.oid,
+			const latestReview = data.repository?.pullRequest.reviews.nodes[0];
+			return latestReview ? {
+				sha: latestReview.commit.oid,
 			} : undefined;
 		}
 		catch (e) {
@@ -1247,21 +1253,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			input.botIds = reviewers.filter(r => r.accountType === AccountType.Bot).map(r => r.id);
 		}
 
-		const { data } = await mutate<GetReviewRequestsResponse>({
+		const { data } = await mutate<AddReviewsResponse>({
 			mutation: schema.AddReviewers,
 			variables: {
 				input
 			},
 		});
 
-		if (!data?.repository) {
+		if (!data?.requestReviews) {
 			Logger.error('Unexpected null repository while getting review requests', PullRequestModel.ID);
 			return;
 		}
 
-		const newReviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, this.githubRepository);
-		if (this.reviewers?.length !== newReviewers.length || (this.reviewers.some(r => !newReviewers.some(rr => rr.id === r.id)))) {
-			this.reviewers = newReviewers;
+		const newReviewers: (IAccount | ITeam)[] = [...reviewers, ...teamReviewers].filter(r => !this.reviewers?.some(rr => rr.id === r.id));
+		if (this.reviewers?.length !== newReviewers.length) {
+			if (!this.reviewers) {
+				this.reviewers = newReviewers;
+			} else {
+				this.reviewers.push(...newReviewers);
+			}
+			this.reviewers = [...this.reviewers, ...newReviewers];
 			this._onDidChange.fire({ reviewers: true });
 		}
 	}
@@ -1833,6 +1844,44 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				"pr.readyForReview.failure" : {}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure');
+			throw e;
+		}
+	}
+
+	/**
+	 * Convert a pull request to draft.
+	 */
+	async convertToDraft(): Promise<ConvertToDraft> {
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			const { data } = await mutate<ConvertPullRequestToDraftResponse>({
+				mutation: schema.ConvertToDraft,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId,
+					},
+				},
+			});
+
+			/* __GDPR__
+				"pr.convertToDraft.success" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.convertToDraft.success');
+
+			const result: ConvertToDraft = {
+				isDraft: data!.convertPullRequestToDraft.pullRequest.isDraft,
+				mergeable: parseMergeability(data!.convertPullRequestToDraft.pullRequest.mergeable, data!.convertPullRequestToDraft.pullRequest.mergeStateStatus),
+			};
+			this.item.isDraft = result.isDraft;
+			this.item.mergeable = result.mergeable;
+			this._onDidChange.fire({ draft: true });
+			return result;
+		} catch (e) {
+			/* __GDPR__
+				"pr.convertToDraft.failure" : {}
+			*/
+			this._telemetry.sendTelemetryErrorEvent('pr.convertToDraft.failure');
 			throw e;
 		}
 	}
