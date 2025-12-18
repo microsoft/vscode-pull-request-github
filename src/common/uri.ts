@@ -195,7 +195,7 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 
 		if (ImageMimetypes.indexOf(mimetype) > -1) {
 			const contents = await repository.buffer(ref, absolutePath);
-			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents);
+			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents, false, repository.rootUri);
 		}
 	} catch (err) {
 		return;
@@ -668,7 +668,8 @@ function validateOpenWebviewParams(owner?: string, repo?: string, number?: strin
 export enum UriHandlerPaths {
 	OpenIssueWebview = '/open-issue-webview',
 	OpenPullRequestWebview = '/open-pull-request-webview',
-	CheckoutPullRequest = '/checkout-pull-request'
+	CheckoutPullRequest = '/checkout-pull-request',
+	OpenPullRequestChanges = '/open-pull-request-changes'
 }
 
 export interface OpenIssueWebviewUriParams {
@@ -709,11 +710,16 @@ export async function toOpenPullRequestWebviewUri(params: OpenPullRequestWebview
 	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestWebview, query }));
 }
 
+export async function toOpenPullRequestChangesUri(params: OpenPullRequestWebviewUriParams): Promise<vscode.Uri> {
+	const query = JSON.stringify(params);
+	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestChanges, query }));
+}
+
 export function fromOpenOrCheckoutPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
 	if (compareIgnoreCase(uri.authority, EXTENSION_ID) !== 0) {
 		return;
 	}
-	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview && uri.path !== UriHandlerPaths.CheckoutPullRequest) {
+	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview && uri.path !== UriHandlerPaths.CheckoutPullRequest && uri.path !== UriHandlerPaths.OpenPullRequestChanges) {
 		return;
 	}
 	try {

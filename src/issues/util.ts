@@ -91,7 +91,34 @@ export interface IssueTemplate {
 	name: string | undefined,
 	about: string | undefined,
 	title: string | undefined,
+	labels: string[] | undefined,
+	assignees: string[] | undefined,
 	body: string | undefined
+}
+
+export interface YamlIssueTemplate {
+	name?: string;
+	description?: string;
+	about?: string;
+	title?: string;
+	labels?: string[];
+	assignees?: string[];
+	body?: YamlTemplateField[];
+}
+
+export interface YamlTemplateField {
+	type: 'markdown' | 'textarea' | 'input' | 'dropdown' | 'checkboxes';
+	id?: string;
+	attributes?: {
+		label?: string;
+		description?: string;
+		placeholder?: string;
+		value?: string;
+		options?: (string | { label?: string; required?: boolean })[];
+	};
+	validations?: {
+		required?: boolean;
+	};
 }
 
 const HEAD = 'HEAD';

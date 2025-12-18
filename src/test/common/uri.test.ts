@@ -109,5 +109,23 @@ describe('uri', () => {
 			const result2 = fromOpenOrCheckoutPullRequestWebviewUri(uri2);
 			assert.strictEqual(result2, undefined);
 		});
+
+		it('should work for open-pull-request-changes path', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-pull-request-changes?uri=https://github.com/test/example/pull/999');
+			const result = fromOpenOrCheckoutPullRequestWebviewUri(uri);
+
+			assert.strictEqual(result?.owner, 'test');
+			assert.strictEqual(result?.repo, 'example');
+			assert.strictEqual(result?.pullRequestNumber, 999);
+		});
+
+		it('should parse JSON format for open-pull-request-changes path', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-pull-request-changes?%7B%22owner%22%3A%22testowner%22%2C%22repo%22%3A%22testrepo%22%2C%22pullRequestNumber%22%3A123%7D');
+			const result = fromOpenOrCheckoutPullRequestWebviewUri(uri);
+
+			assert.strictEqual(result?.owner, 'testowner');
+			assert.strictEqual(result?.repo, 'testrepo');
+			assert.strictEqual(result?.pullRequestNumber, 123);
+		});
 	});
 });

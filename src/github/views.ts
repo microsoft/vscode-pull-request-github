@@ -67,6 +67,7 @@ export interface Issue {
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
+	canRequestCopilotReview: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
 }
@@ -121,6 +122,10 @@ export interface ChangeAssigneesReply {
 	events: TimelineEvent[];
 }
 
+export interface ChangeReviewersReply {
+	reviewers: ReviewState[];
+}
+
 export interface SubmitReviewReply {
 	events?: TimelineEvent[];
 	reviewedEvent: ReviewEvent | CommentEvent;
@@ -157,6 +162,10 @@ export enum PreReviewState {
 	Available,
 	ReviewedWithComments,
 	ReviewedWithoutComments
+}
+
+export interface ChangeTemplateReply {
+	description: string;
 }
 
 export interface CancelCodingAgentReply {

@@ -98,6 +98,12 @@ button.input-box {
 	text-overflow: ellipsis;
 }
 
+.description-title {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
 .group-title {
 	position: relative;
 	display: flex;

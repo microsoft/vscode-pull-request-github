@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.124.1
+
+### Fixes
+
+- Want links to repo from recent agent sessions in empty workspace. https://github.com/microsoft/vscode/issues/281345
+
 ## 0.124.0
 
 ### Changes
