@@ -756,7 +756,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		// Apply variable substitution to title and description
 		const activeIssue = this._folderRepositoryManager.activeIssue;
-		const currentUser = activeIssue ? (await this._folderRepositoryManager.getCurrentUser(activeIssue.githubRepository)).login : undefined;
+		let currentUser: string | undefined;
+		try {
+			currentUser = activeIssue ? (await this._folderRepositoryManager.getCurrentUser(activeIssue.githubRepository)).login : undefined;
+		} catch (e) {
+			Logger.debug(`Failed to get current user for variable substitution: ${e}`, CreatePullRequestViewProvider.ID);
+			currentUser = undefined;
+		}
 		title = variableSubstitution(title, activeIssue, this._pullRequestDefaults, currentUser);
 		description = variableSubstitution(description, activeIssue, this._pullRequestDefaults, currentUser);
 
