@@ -150,8 +150,8 @@ export class LoggingOctokit {
 	}
 }
 
-export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
-	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}`, logId);
+export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string, excludeMergeCommits: boolean = false): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
+	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}${excludeMergeCommits ? ' (excluding merge commits)' : ''}`, logId);
 	let files: IRawFileChange[] | undefined;
 	let mergeBaseSha: string | undefined;
 
@@ -182,6 +182,45 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 			files = data.files ? data.files as IRawFileChange[] : [];
 		}
 		mergeBaseSha = data.merge_base_commit.sha;
+
+		// If we should exclude merge commits, filter out files that were only changed in merge commits
+		if (excludeMergeCommits && data.commits && data.commits.length > 0) {
+			const mergeCommits = data.commits.filter((commit: any) => commit.parents && commit.parents.length > 1);
+
+			if (mergeCommits.length > 0) {
+				Logger.appendLine(`Found ${mergeCommits.length} merge commit(s) in range, filtering out their changes`, logId);
+
+				// Get the list of non-merge commits
+				const nonMergeCommits = data.commits.filter((commit: any) => !commit.parents || commit.parents.length <= 1);
+
+				// Build a map of files changed by non-merge commits
+				const fileChangedByNonMerge = new Map<string, IRawFileChange>();
+
+				for (const commit of nonMergeCommits) {
+					try {
+						// Get the diff for this specific commit
+						const commitData = await octokit.call(octokit.api.repos.getCommit, {
+							owner: remote.owner,
+							repo: remote.repositoryName,
+							ref: commit.sha,
+						});
+
+						if (commitData.data.files) {
+							for (const file of commitData.data.files) {
+								// Store the file change, using the most recent version if multiple commits modified it
+								fileChangedByNonMerge.set(file.filename, file as IRawFileChange);
+							}
+						}
+					} catch (e) {
+						Logger.warn(`Failed to get commit ${commit.sha}: ${e}`, logId);
+					}
+				}
+
+				// Replace files with only those from non-merge commits
+				files = Array.from(fileChangedByNonMerge.values());
+				Logger.appendLine(`After filtering merge commits, ${files.length} files remain`, logId);
+			}
+		}
 	} catch (e) {
 		if (e.message === 'Server Error') {
 			// Happens when github times out. Let's try to get a few at a time.

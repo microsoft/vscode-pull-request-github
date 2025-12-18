@@ -1716,7 +1716,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
-		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		const excludeMergeCommits = this._showChangesSinceReview && this.hasChangesSinceLastReview;
+		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID, excludeMergeCommits);
 		this.mergeBase = mergeBaseSha;
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
