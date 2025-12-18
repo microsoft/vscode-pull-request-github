@@ -111,12 +111,12 @@ async function resolveGitUrl(url: string, repository: Repository): Promise<strin
 		for (const { prefix, replacement } of urlSubstitutions) {
 			if (url.startsWith(prefix)) {
 				const resolvedUrl = replacement + url.substring(prefix.length);
-				Logger.debug(`Resolved git URL alias: "${url}" -> "${resolvedUrl}"`, 'Remote');
+				Logger.appendLine(`Resolved git URL alias: "${url}" -> "${resolvedUrl}"`, 'Remote');
 				return resolvedUrl;
 			}
 		}
 	} catch (error) {
-		Logger.debug(`Failed to resolve git URL aliases for "${url}": ${error}`, 'Remote');
+		Logger.error(`Failed to resolve git URL aliases for "${url}": ${error}`, 'Remote');
 	}
 
 	// No substitution found or error occurred, return original URL
