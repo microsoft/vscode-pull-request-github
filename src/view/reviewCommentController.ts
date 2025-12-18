@@ -297,7 +297,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 						newThread = this._pendingCommentThreadAdds[index];
 						newThread.gitHubThreadId = thread.id;
 						newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread, githubRepositories));
-						updateThreadWithRange(this._context, newThread, thread, githubRepositories);
+						updateThreadWithRange(this._context, newThread, thread, githubRepositories, undefined, true);
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
@@ -985,7 +985,14 @@ ${suggestionInformation.suggestionContent}
 				);
 			}
 		} catch (e) {
-			throw new Error(formatError(e));
+			// Ignore permission errors when removing reactions due to race conditions
+			// See: https://github.com/microsoft/vscode/issues/69321
+			const errorMessage = formatError(e);
+			if (errorMessage.includes('does not have the correct permissions to execute `RemoveReaction`')) {
+				// Silently ignore this error - it occurs when quickly toggling reactions
+				return;
+			}
+			throw new Error(errorMessage);
 		}
 	}
 

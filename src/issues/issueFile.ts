@@ -14,6 +14,7 @@ export interface NewIssueFileOptions {
 	title?: string;
 	body?: string;
 	assignees?: string[] | undefined,
+	labels?: string[] | undefined,
 	remote?: Remote,
 }
 

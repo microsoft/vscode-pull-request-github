@@ -34,7 +34,8 @@ const defaultCreateParams: CreateParamsNew = {
 	baseHasMergeQueue: false,
 	preReviewState: PreReviewState.None,
 	preReviewer: undefined,
-	reviewing: false
+	reviewing: false,
+	usingTemplate: false
 };
 
 export class CreatePRContextNew {

@@ -5,7 +5,7 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copyIcon, editIcon, quoteIcon, trashIcon } from './icon';
+import { copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -14,6 +14,7 @@ import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineE
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest, ReviewType } from '../../src/github/views';
 import { ariaAnnouncementForReview } from '../common/aria';
+import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
@@ -56,6 +57,7 @@ export function CommentView(commentProps: Props) {
 				id={id}
 				key={`editComment${id}`}
 				body={currentDraft || bodyMd}
+				isPRDescription={isPRDescription}
 				onCancel={() => {
 					if (pr?.pendingCommentDrafts) {
 						delete pr.pendingCommentDrafts[id];
@@ -208,14 +210,16 @@ type FormInputSet = {
 type EditCommentProps = {
 	id: number;
 	body: string;
+	isPRDescription?: boolean;
 	onCancel: () => void;
 	onSave: (body: string) => Promise<any>;
 };
 
-function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
-	const { updateDraft } = useContext(PullRequestContext);
+function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommentProps) {
+	const { updateDraft, pr, generateDescription, cancelGenerateDescription } = useContext(PullRequestContext);
 	const draftComment = useRef<{ body: string; dirty: boolean }>({ body, dirty: false });
 	const form = useRef<HTMLFormElement>();
+	const [isGenerating, setIsGenerating] = useState(false);
 
 	useEffect(() => {
 		const interval = setInterval(() => {
@@ -263,9 +267,57 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 		[draftComment],
 	);
 
+	const handleGenerateDescription = useCallback(async () => {
+		if (!generateDescription) {
+			return;
+		}
+		setIsGenerating(true);
+		try {
+			const generated = await generateDescription();
+			if (generated?.description && form.current) {
+				const textarea = form.current.markdown as HTMLTextAreaElement;
+				textarea.value = generated.description;
+				draftComment.current.body = generated.description;
+				draftComment.current.dirty = true;
+			}
+		} finally {
+			setIsGenerating(false);
+		}
+	}, [generateDescription]);
+
+	const handleCancelGenerate = useCallback(() => {
+		if (cancelGenerateDescription) {
+			cancelGenerateDescription();
+		}
+		setIsGenerating(false);
+	}, [cancelGenerateDescription]);
+
 	return (
 		<form ref={form as React.MutableRefObject<HTMLFormElement>} onSubmit={onSubmit}>
-			<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} />
+			<div className="textarea-wrapper">
+				<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} disabled={isGenerating} />
+				{isPRDescription ? (
+					isGenerating ? (
+						<button
+							type="button"
+							title="Cancel"
+							className="title-action icon-button"
+							onClick={handleCancelGenerate}
+						>
+							{stopCircleIcon}
+						</button>
+					) : (
+						<button
+							type="button"
+							title={pr?.generateDescriptionTitle || 'Generate description'}
+							className="title-action icon-button"
+							onClick={handleGenerateDescription}
+						>
+							{sparkleIcon}
+						</button>
+					)
+				) : null}
+			</div>
 			<div className="form-actions">
 				<button className="secondary" onClick={onCancel}>
 					Cancel
@@ -435,7 +487,7 @@ export function AddComment({
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
 			<textarea
-				id="comment-textarea"
+				id={COMMENT_TEXTAREA_ID}
 				name="body"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
 				onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
@@ -602,7 +654,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	return (
 		<span className="comment-form">
 			<textarea
-				id="comment-textarea"
+				id={COMMENT_TEXTAREA_ID}
 				name="body"
 				placeholder="Leave a comment"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}

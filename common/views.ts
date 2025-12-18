@@ -130,6 +130,7 @@ export interface CreateParamsNew {
 
 	creating: boolean;
 	reviewing: boolean;
+	usingTemplate: boolean;
 }
 
 export interface ChooseRemoteAndBranchArgs {
@@ -162,6 +163,10 @@ export interface TitleAndDescriptionArgs {
 
 export interface TitleAndDescriptionResult {
 	title: string | undefined;
+	description: string | undefined;
+}
+
+export interface DescriptionResult {
 	description: string | undefined;
 }
 
