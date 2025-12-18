@@ -41,6 +41,8 @@ import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../co
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
+	CHECKOUT_DEFAULT_BRANCH,
+	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
 	GIT,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
@@ -2384,29 +2386,26 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async checkoutDefaultBranch(branch: string, pullRequestModel?: PullRequestModel): Promise<void> {
-		const CHECKOUT_DEFAULT_BRANCH = 'checkoutDefaultBranch';
-		const CHECKOUT_DEFAULT_BRANCH_AND_PULL = 'checkoutDefaultBranchAndPull';
-		const CHECKOUT_PR_BASE_BRANCH = 'checkoutPullRequestBaseBranch';
-		const CHECKOUT_PR_BASE_BRANCH_AND_PULL = 'checkoutPullRequestBaseBranchAndPull';
+		const AND_PULL = 'AndPull';
 
-		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<typeof CHECKOUT_DEFAULT_BRANCH | typeof CHECKOUT_DEFAULT_BRANCH_AND_PULL | typeof CHECKOUT_PR_BASE_BRANCH | typeof CHECKOUT_PR_BASE_BRANCH_AND_PULL>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
 
 		// Determine which branch to checkout
 		let targetBranch = branch;
-		if (pullRequestModel && (postDoneAction === CHECKOUT_PR_BASE_BRANCH || postDoneAction === CHECKOUT_PR_BASE_BRANCH_AND_PULL)) {
+		if (pullRequestModel && postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)) {
 			// Use the PR's base branch if the setting specifies it
 			targetBranch = pullRequestModel.base.ref;
 		}
 
-		if (postDoneAction === CHECKOUT_DEFAULT_BRANCH_AND_PULL || postDoneAction === CHECKOUT_PR_BASE_BRANCH_AND_PULL) {
-			await this.checkoutDefaultBranchAndPull(targetBranch);
+		if (postDoneAction.endsWith(AND_PULL)) {
+			await this.checkoutDoneBranchAndPull(targetBranch);
 		} else {
-			await this.checkoutDefaultBranchOnly(targetBranch);
+			await this.checkoutDoneBranchOnly(targetBranch);
 		}
 	}
 
-	private async checkoutDefaultBranchAndPull(branch: string): Promise<void> {
-		await this.checkoutDefaultBranchOnly(branch);
+	private async checkoutDoneBranchAndPull(branch: string): Promise<void> {
+		await this.checkoutDoneBranchOnly(branch);
 		// After checking out, pull the latest changes if the branch has an upstream
 		try {
 			const branchObj = await this.repository.getBranch(branch);
@@ -2420,7 +2419,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async checkoutDefaultBranchOnly(branch: string): Promise<void> {
+	private async checkoutDoneBranchOnly(branch: string): Promise<void> {
 		let branchObj: Branch | undefined;
 		try {
 			branchObj = await this.repository.getBranch(branch);

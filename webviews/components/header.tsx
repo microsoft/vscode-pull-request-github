@@ -27,7 +27,6 @@ export function Header({
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
-	repositoryDefaultBranch,
 	doneCheckoutBranch,
 	events,
 	owner,
@@ -58,7 +57,6 @@ export function Header({
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
 					isIssue={isIssue}
-					repositoryDefaultBranch={repositoryDefaultBranch}
 					doneCheckoutBranch={doneCheckoutBranch}
 					owner={owner}
 					repo={repo}
@@ -148,7 +146,6 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 interface ButtonGroupProps {
 	isCurrentlyCheckedOut: boolean;
 	isIssue: boolean;
-	repositoryDefaultBranch: string;
 	doneCheckoutBranch: string;
 	owner: string;
 	repo: string;
@@ -156,12 +153,12 @@ interface ButtonGroupProps {
 	busy?: boolean;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, doneCheckoutBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
 	const { refresh } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
-			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, doneCheckoutBranch, owner, repo, number }} />
+			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }} />
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
@@ -287,14 +284,13 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 interface CheckoutButtonProps {
 	isCurrentlyCheckedOut: boolean;
 	isIssue: boolean;
-	repositoryDefaultBranch: string;
 	doneCheckoutBranch: string;
 	owner: string;
 	repo: string;
 	number: number;
 }
 
-const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, doneCheckoutBranch, owner, repo, number }) => {
+const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }) => {
 	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -335,13 +331,8 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
 
 	if (isCurrentlyCheckedOut) {
-		// Use doneCheckoutBranch which has the appropriate branch name already computed
-		const buttonLabel = doneCheckoutBranch === repositoryDefaultBranch 
-			? `Checkout '${repositoryDefaultBranch}'`
-			: `Checkout target branch '${doneCheckoutBranch}'`;
-		
-		actions.push({
-			label: buttonLabel,
+				actions.push({
+			label: `Checkout '${doneCheckoutBranch}'`,
 			value: '',
 			action: () => onClick('exitReviewMode')
 		});

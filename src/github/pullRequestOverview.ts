@@ -31,7 +31,7 @@ import { COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCop
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { DEFAULT_MERGE_METHOD, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
@@ -306,8 +306,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
-			const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, 'checkoutDefaultBranch');
-			const doneCheckoutBranch = (postDoneAction === 'checkoutPullRequestBaseBranch' || postDoneAction === 'checkoutPullRequestBaseBranchAndPull')
+			const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+			const doneCheckoutBranch = postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)
 				? pullRequest.base.ref
 				: defaultBranch;
 
