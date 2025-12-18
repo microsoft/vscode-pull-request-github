@@ -1189,14 +1189,14 @@ export class ReviewManager extends Disposable {
 				const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
 				if (defaultBranch) {
 					if (postCreate === 'checkoutDefaultBranch') {
-						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
+						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch, undefined);
 					} if (postCreate === 'checkoutDefaultBranchAndShow') {
 						await commands.executeCommand('pr:github.focus');
-						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
+						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch, undefined);
 						await this._pullRequestsTree.expandPullRequest(createdPR);
 					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {
 						await Promise.all([
-							this._folderRepoManager.checkoutDefaultBranch(defaultBranch),
+							this._folderRepoManager.checkoutDefaultBranch(defaultBranch, undefined),
 							vscode.env.clipboard.writeText(createdPR.html_url)
 						]);
 					}

@@ -2385,27 +2385,29 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	public async checkoutDefaultBranch(branch: string, pullRequestModel?: PullRequestModel): Promise<void> {
+	public async checkoutDefaultBranch(branch: string, pullRequestModel: PullRequestModel | undefined): Promise<void> {
 		const AND_PULL = 'AndPull';
 
 		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
 
 		// Determine which branch to checkout
 		let targetBranch = branch;
+		let remoteName: string | undefined = undefined;
 		if (pullRequestModel && postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)) {
 			// Use the PR's base branch if the setting specifies it
 			targetBranch = pullRequestModel.base.ref;
+			remoteName = pullRequestModel.remote.remoteName;
 		}
 
 		if (postDoneAction.endsWith(AND_PULL)) {
-			await this.checkoutDoneBranchAndPull(targetBranch);
+			await this.checkoutDoneBranchAndPull(targetBranch, remoteName);
 		} else {
-			await this.checkoutDoneBranchOnly(targetBranch);
+			await this.checkoutDoneBranchOnly(targetBranch, remoteName);
 		}
 	}
 
-	private async checkoutDoneBranchAndPull(branch: string): Promise<void> {
-		await this.checkoutDoneBranchOnly(branch);
+	private async checkoutDoneBranchAndPull(branch: string, remoteName?: string): Promise<void> {
+		await this.checkoutDoneBranchOnly(branch, remoteName);
 		// After checking out, pull the latest changes if the branch has an upstream
 		try {
 			const branchObj = await this.repository.getBranch(branch);
@@ -2419,8 +2421,28 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async checkoutDoneBranchOnly(branch: string): Promise<void> {
+	private async fetchBranch(branch: string, remoteName: string) {
+		try {
+			await this.repository.fetch({ remote: remoteName, ref: branch });
+			await this.repository.createBranch(branch, false);
+			await this.repository.setBranchUpstream(branch, `refs/remotes/${remoteName}/${branch}`);
+		} catch (e) {
+			Logger.error(`Failed to fetch branch ${branch}: ${e}`, this.id);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to create branch {0}: {1}', branch, formatError(e)));
+			return;
+		}
+	}
+
+	private async checkoutDoneBranchOnly(branch: string, remoteName?: string): Promise<void> {
 		let branchObj: Branch | undefined;
+		try {
+			branchObj = await this.repository.getBranch(branch);
+		} catch (e) {
+			if (e.message?.includes('No such branch') && remoteName) {
+				await this.fetchBranch(branch, remoteName);
+			}
+		}
+
 		try {
 			branchObj = await this.repository.getBranch(branch);
 
