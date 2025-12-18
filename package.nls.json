@@ -6,6 +6,13 @@
 	"githubPullRequests.pullRequestDescription.commit": "Use the latest commit message only",
 	"githubPullRequests.pullRequestDescription.none": "Do not have a default description",
 	"githubPullRequests.pullRequestDescription.copilot": "Generate a pull request title and description from GitHub Copilot. Requires that the GitHub Copilot extension is installed and authenticated. Will fall back to `commit` if Copilot is not set up.",
+	"githubPullRequests.pullRequestCheckoutBranchTitle.markdownDescription": {
+		"message": "Advanced settings for the name of the branch that is created when you check out a pull request. \n- `${owner}` will be replaced with the pull request author's username \n- `${number}` will be replaced with the pull request number \n- `${title}` will be replaced with the pull request title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseTitle}` ",
+		"comment": [
+			"{Locked='${...}'}",
+			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
+		]
+	},
 	"githubPullRequests.defaultCreateOption.description": "The create option that the \"Create\" button will default to when creating a pull request.",
 	"githubPullRequests.defaultCreateOption.lastUsed": "The most recently used create option.",
 	"githubPullRequests.defaultCreateOption.create": "The pull request will be created.",

@@ -8,11 +8,12 @@
  */
 import * as vscode from 'vscode';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
+import { sanitizeIssueTitle } from './utils';
 import { Branch, Repository } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PULL_REQUEST_CHECKOUT_BRANCH_TITLE, PullPRBranchVariants } from '../common/settingKeys';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 export const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -367,11 +368,36 @@ export class PullRequestGitHelper {
 		}
 	}
 
+	private static prBranchNameVariableSubstitution(
+		template: string,
+		pullRequest: PullRequestModel,
+	): string {
+		const VARIABLE_PATTERN = /\$\{([^}]*?)\}/g;
+		return template.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+			switch (variable) {
+				case 'owner':
+					return pullRequest.author.login;
+				case 'number':
+					return `${pullRequest.number}`;
+				case 'title':
+					return sanitizeIssueTitle(pullRequest.title);
+				case 'sanitizedLowercaseTitle':
+					return sanitizeIssueTitle(pullRequest.title).toLowerCase();
+				default:
+					return match;
+			}
+		});
+	}
+
 	static async calculateUniqueBranchNameForPR(
 		repository: Repository,
 		pullRequest: PullRequestModel,
 	): Promise<string> {
-		const branchName = `pr/${pullRequest.author.login}/${pullRequest.number}`;
+		const template = vscode.workspace
+			.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<string>(PULL_REQUEST_CHECKOUT_BRANCH_TITLE)!;
+
+		const branchName = PullRequestGitHelper.prBranchNameVariableSubstitution(template, pullRequest);
 		let result = branchName;
 		let number = 1;
 

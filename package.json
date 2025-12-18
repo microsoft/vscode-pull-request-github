@@ -158,6 +158,11 @@
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
+				"githubPullRequests.pullRequestCheckoutBranchTitle": {
+					"type": "string",
+					"default": "pr/${owner}/${number}",
+					"markdownDescription": "%githubPullRequests.pullRequestCheckoutBranchTitle.markdownDescription%"
+				},
 				"githubPullRequests.defaultCreateOption": {
 					"type": "string",
 					"enum": [
