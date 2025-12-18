@@ -1621,10 +1621,21 @@ ${options?.body ?? ''}\n
 		}
 	}
 
-	private getMarkdownLinkText(): string | undefined {
+	private getMarkdownLinkText(range?: vscode.Range | vscode.NotebookRange): string | undefined {
 		if (!vscode.window.activeTextEditor) {
 			return undefined;
 		}
+
+		// If a specific range is provided (e.g., from a gutter click), use that
+		// Note: NotebookRange is excluded because getText() only accepts vscode.Range
+		if (range && !(range instanceof vscode.NotebookRange)) {
+			const text = vscode.window.activeTextEditor.document.getText(range);
+			if (text) {
+				return text;
+			}
+		}
+
+		// Otherwise fall back to the current selection
 		let editorSelection: vscode.Range | undefined = vscode.window.activeTextEditor.selection;
 		if (editorSelection.start.line !== editorSelection.end.line) {
 			editorSelection = new vscode.Range(
@@ -1648,7 +1659,7 @@ ${options?.body ?? ''}\n
 		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
 
 		if (withPermalinks.length === 1) {
-			const selection = this.getMarkdownLinkText();
+			const selection = this.getMarkdownLinkText(withPermalinks[0].range);
 			if (selection) {
 				return vscode.env.clipboard.writeText(`[${selection.trim()}](${withPermalinks[0].permalink})`);
 			}

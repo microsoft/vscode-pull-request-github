@@ -9,7 +9,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
+import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
 import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
@@ -227,6 +227,16 @@ export namespace PullRequestReviewCommon {
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unable to mark pull request as ready for review. ${formatError(e)}`);
 			ctx.throwError(message, '');
+		}
+	}
+
+	export async function setConvertToDraft(ctx: ReviewContext, _message: IRequestMessage<{}>): Promise<void> {
+		try {
+			const result: ConvertToDraftReply = await ctx.item.convertToDraft();
+			ctx.replyMessage(_message, result);
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to convert pull request to draft. {0}', formatError(e)));
+			ctx.throwError(_message, '');
 		}
 	}
 
