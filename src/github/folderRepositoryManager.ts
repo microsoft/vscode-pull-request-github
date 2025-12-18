@@ -2883,23 +2883,29 @@ export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ re
  * 
  * Rules:
  * - Preserves blank lines as paragraph breaks
- * - Preserves lines that start with special characters (list items, quotes, indentation)
- * - Joins consecutive lines that appear to be wrapped mid-sentence
+ * - Preserves fenced code blocks (```)
+ * - Preserves list items (-, *, +, numbered)
+ * - Preserves blockquotes (>)
+ * - Preserves indented code blocks (4+ spaces at start, when not in a list context)
+ * - Joins consecutive plain text lines that appear to be wrapped mid-sentence
  */
 function unwrapCommitMessageBody(body: string): string {
 	if (!body) {
 		return body;
 	}
 
-	// Pattern to detect lines that should be preserved (not joined):
-	// - Lines starting with whitespace (indented/code blocks)
-	// - Lines starting with list markers (*, -, +, >)
-	// - Lines starting with numbered list items (e.g., "1. ")
-	const PRESERVE_LINE_PATTERN = /^[ \t*+>\-]|^\d+\./;
+	// Pattern to detect list item markers at the start of a line
+	const LIST_ITEM_PATTERN = /^[ \t]*([*+\-]|\d+\.)\s/;
+	// Pattern to detect blockquote markers
+	const BLOCKQUOTE_PATTERN = /^[ \t]*>/;
+	// Pattern to detect fenced code block markers
+	const FENCE_PATTERN = /^[ \t]*```/;
 
 	const lines = body.split('\n');
 	const result: string[] = [];
 	let i = 0;
+	let inFencedBlock = false;
+	let inListContext = false;
 
 	while (i < lines.length) {
 		const line = lines[i];
@@ -2908,20 +2914,58 @@ function unwrapCommitMessageBody(body: string): string {
 		if (line.trim() === '') {
 			result.push(line);
 			i++;
+			inListContext = false; // Reset list context on blank line
 			continue;
 		}
 
-		// Check if this line should NOT be joined with the next
-		// Lines that start with special formatting characters should be preserved
-		const shouldPreserveLine = PRESERVE_LINE_PATTERN.test(line);
-
-		if (shouldPreserveLine) {
+		// Check for fenced code block markers
+		if (FENCE_PATTERN.test(line)) {
+			inFencedBlock = !inFencedBlock;
 			result.push(line);
 			i++;
 			continue;
 		}
 
-		// Start accumulating lines that should be joined
+		// Preserve everything inside fenced code blocks
+		if (inFencedBlock) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Check if this line is a list item
+		const isListItem = LIST_ITEM_PATTERN.test(line);
+
+		// Check if this line is a blockquote
+		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
+
+		// Check if this line is indented (4+ spaces) but NOT a list continuation
+		// List continuations have leading spaces but we're in list context
+		const leadingSpaces = line.match(/^[ \t]*/)?.[0].length || 0;
+		const isIndentedCode = leadingSpaces >= 4 && !inListContext;
+
+		// Determine if this line should be preserved (not joined)
+		const shouldPreserveLine = isListItem || isBlockquote || isIndentedCode;
+
+		if (shouldPreserveLine) {
+			result.push(line);
+			i++;
+			// If this is a list item, we're now in list context
+			if (isListItem) {
+				inListContext = true;
+			}
+			continue;
+		}
+
+		// If we have leading spaces but we're in a list context, this is a list continuation
+		// We should preserve it to maintain list formatting
+		if (inListContext && leadingSpaces >= 2) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Start accumulating lines that should be joined (plain text)
 		let joinedLine = line;
 		i++;
 
@@ -2934,8 +2978,31 @@ function unwrapCommitMessageBody(body: string): string {
 				break;
 			}
 
-			// Stop at lines that start with special formatting
-			if (PRESERVE_LINE_PATTERN.test(nextLine)) {
+			// Stop at fenced code blocks
+			if (FENCE_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Stop at list items
+			if (LIST_ITEM_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Stop at blockquotes
+			if (BLOCKQUOTE_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Check if next line is indented code (4+ spaces, not in list context)
+			const nextLeadingSpaces = nextLine.match(/^[ \t]*/)?.[0].length || 0;
+			const nextIsIndentedCode = nextLeadingSpaces >= 4 && !inListContext;
+
+			if (nextIsIndentedCode) {
+				break;
+			}
+
+			// If in list context and next line is indented, it's a list continuation
+			if (inListContext && nextLeadingSpaces >= 2) {
 				break;
 			}
 
