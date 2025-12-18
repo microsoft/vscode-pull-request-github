@@ -434,6 +434,7 @@ export function AddComment({
 	// Note: Approve button is allowed even with empty content and no pending review
 	const shouldDisableNonApproveButtons = !pendingCommentText?.trim() && !hasReviewDraft;
 	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
+	const canDisableAutoMerge = allowAutoMerge && hasWritePermission;
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
@@ -453,13 +454,12 @@ export function AddComment({
 				}}
 			/>
 			{autoMerge && !isIssue && state === GithubItemStateEnum.Open ? (
-				<div className="auto-merge-status" style={{ fontSize: '12px', padding: '8px 0', color: 'var(--vscode-descriptionForeground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+				<div className="auto-merge-status">
 					<span>Auto-merge is enabled{autoMergeMethod ? ` (${formatMergeMethod(autoMergeMethod)})` : ''}</span>
-					{allowAutoMerge && hasWritePermission ? (
+					{canDisableAutoMerge ? (
 						<button
 							type="button"
 							className="secondary"
-							style={{ fontSize: '12px', padding: '2px 8px' }}
 							onClick={async () => {
 								await updateAutoMerge({ autoMerge: false });
 							}}

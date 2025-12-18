@@ -912,6 +912,20 @@ textarea {
 	margin-bottom: 10px;
 }
 
+.auto-merge-status {
+	font-size: 12px;
+	padding: 8px 0;
+	color: var(--vscode-descriptionForeground);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.auto-merge-status button {
+	font-size: 12px;
+	padding: 2px 8px;
+}
+
 .details .comment-body {
 	padding: 19px 0;
 }
