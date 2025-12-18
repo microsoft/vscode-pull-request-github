@@ -86,10 +86,6 @@ export const WORD_WRAP = 'wordWrap';
 export const COMMENTS = 'comments';
 export const OPEN_VIEW = 'openView';
 
-// Explorer
-export const EXPLORER = 'explorer';
-export const AUTO_REVEAL = 'autoReveal';
-
 // Workbench
 export const WORKBENCH = 'workbench';
 export const COLOR_THEME = 'colorTheme';
