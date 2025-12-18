@@ -436,6 +436,10 @@ export function AddComment({
 	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
 	const canDisableAutoMerge = allowAutoMerge && hasWritePermission;
 
+	const disableAutoMerge = async () => {
+		await updateAutoMerge({ autoMerge: false });
+	};
+
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
 			<textarea
@@ -453,22 +457,20 @@ export function AddComment({
 					}
 				}}
 			/>
-			{autoMerge && !isIssue && state === GithubItemStateEnum.Open ? (
+			{autoMerge && !isIssue && state === GithubItemStateEnum.Open && (
 				<div className="auto-merge-status">
 					<span>Auto-merge is enabled{autoMergeMethod ? ` (${formatMergeMethod(autoMergeMethod)})` : ''}</span>
-					{canDisableAutoMerge ? (
+					{canDisableAutoMerge && (
 						<button
 							type="button"
 							className="secondary"
-							onClick={async () => {
-								await updateAutoMerge({ autoMerge: false });
-							}}
+							onClick={disableAutoMerge}
 						>
 							Disable
 						</button>
-					) : null}
+					)}
 				</div>
-			) : null}
+			)}
 			<div className="form-actions">
 				{(hasWritePermission || isAuthor) ? (
 					<button
