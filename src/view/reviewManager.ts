@@ -675,34 +675,15 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
-	private isKnownTabInputType(tabInput: unknown): boolean {
-		// Note: This list includes all known TabInput types as of VS Code 1.107.0
-		// If new TabInput types are added to the VS Code API, this list will need to be updated
-		return (
-			tabInput instanceof vscode.TabInputText ||
-			tabInput instanceof vscode.TabInputTextDiff ||
-			tabInput instanceof vscode.TabInputCustom ||
-			tabInput instanceof vscode.TabInputWebview ||
-			tabInput instanceof vscode.TabInputNotebook ||
-			tabInput instanceof vscode.TabInputNotebookDiff ||
-			tabInput instanceof vscode.TabInputTerminal
-		);
-	}
-
 	private async _closeOutdatedMultiDiffEditors(pullRequest: PullRequestModel): Promise<void> {
 		// Close any multidiff editors for this PR that may be outdated
-		// Since TabInputMultiDiff is not yet available in the VS Code API (https://github.com/microsoft/vscode/issues/206411),
-		// we identify multidiff editors by their label pattern
-		// Note: This label matching is dependent on the exact localized string format from PullRequestModel.openChanges()
-		// If that format changes, this matching logic will need to be updated as well
 		const multiDiffLabel = vscode.l10n.t('Changes in Pull Request #{0}', pullRequest.number);
 
 		const closePromises: Promise<boolean>[] = [];
 		for (const tabGroup of vscode.window.tabGroups.all) {
 			for (const tab of tabGroup.tabs) {
-				// Multidiff editors have a specific label pattern and the input type is unknown
-				// since TabInputMultiDiff doesn't exist yet
-				if (tab.label === multiDiffLabel && !this.isKnownTabInputType(tab.input)) {
+				// Check if this is a TabInputTextMultiDiff with matching label
+				if (tab.input instanceof vscode.TabInputTextMultiDiff && tab.label === multiDiffLabel) {
 					Logger.appendLine(`Closing outdated multidiff editor for PR #${pullRequest.number}`, this.id);
 					closePromises.push(Promise.resolve(vscode.window.tabGroups.close(tab)));
 				}
