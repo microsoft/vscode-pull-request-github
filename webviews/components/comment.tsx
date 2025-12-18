@@ -363,8 +363,11 @@ export function AddComment({
 	lastReviewType,
 	busy,
 	hasReviewDraft,
+	autoMerge,
+	autoMergeMethod,
+	allowAutoMerge,
 }: PullRequest) {
-	const { updatePR, requestChanges, approve, close, openOnGitHub, submit } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, updateAutoMerge } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -449,6 +452,23 @@ export function AddComment({
 					}
 				}}
 			/>
+			{autoMerge && !isIssue && state === GithubItemStateEnum.Open ? (
+				<div className="auto-merge-status" style={{ fontSize: '12px', padding: '8px 0', color: 'var(--vscode-descriptionForeground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+					<span>Auto-merge is enabled{autoMergeMethod ? ` (${formatMergeMethod(autoMergeMethod)})` : ''}</span>
+					{allowAutoMerge && hasWritePermission ? (
+						<button
+							type="button"
+							className="secondary"
+							style={{ fontSize: '12px', padding: '2px 8px' }}
+							onClick={async () => {
+								await updateAutoMerge({ autoMerge: false });
+							}}
+						>
+							Disable
+						</button>
+					) : null}
+				</div>
+			) : null}
 			<div className="form-actions">
 				{(hasWritePermission || isAuthor) ? (
 					<button
@@ -538,6 +558,19 @@ const makeCommentMenuContext = (availableActions: { comment?: string, approve?: 
 	const stringified = JSON.stringify(createMenuContexts);
 	return stringified;
 };
+
+function formatMergeMethod(method: string): string {
+	switch (method) {
+		case 'merge':
+			return 'Merge commit';
+		case 'squash':
+			return 'Squash and merge';
+		case 'rebase':
+			return 'Rebase and merge';
+		default:
+			return method;
+	}
+}
 
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
