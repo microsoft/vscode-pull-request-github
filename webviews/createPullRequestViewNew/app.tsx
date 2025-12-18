@@ -13,7 +13,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -171,6 +171,10 @@ export function main() {
 					} else if (event instanceof MouseEvent) {
 						ctx.postMessage({ command: command });
 					}
+				}
+
+				function openDescriptionSettings(_event: React.MouseEvent | React.KeyboardEvent): void {
+					ctx.postMessage({ command: 'pr.openDescriptionSettings' });
 				}
 
 				async function generateTitle(useCopilot?: boolean) {
@@ -337,6 +341,7 @@ export function main() {
 						<label htmlFor='description' className='input-title'>Description</label>
 						{ctx.createParams.usingTemplate ?
 							<a title='Change template' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => changeTemplate()} tabIndex={0}>{notebookTemplate}</a> : null}
+						<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
 					</div>
 					<div className='group-description'>
 						<textarea
