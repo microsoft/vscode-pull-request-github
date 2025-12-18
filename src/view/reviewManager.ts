@@ -683,7 +683,7 @@ export class ReviewManager extends Disposable {
 		for (const tabGroup of vscode.window.tabGroups.all) {
 			for (const tab of tabGroup.tabs) {
 				// Check if this is a TabInputTextMultiDiff with matching label
-				if (tab.input instanceof vscode.TabInputTextMultiDiff && tab.label === multiDiffLabel) {
+				if (tab.input instanceof vscode.TabInputTextMultiDiff && tab.label.startsWith(multiDiffLabel)) {
 					Logger.appendLine(`Closing outdated multidiff editor for PR #${pullRequest.number}`, this.id);
 					closePromises.push(Promise.resolve(vscode.window.tabGroups.close(tab)));
 				}
