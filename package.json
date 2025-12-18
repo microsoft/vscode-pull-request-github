@@ -313,6 +313,11 @@
 					"default": false,
 					"description": "%githubPullRequests.hideViewedFiles.description%"
 				},
+				"githubPullRequests.fileAutoReveal": {
+					"type": "boolean",
+					"default": true,
+					"description": "%githubPullRequests.fileAutoReveal.description%"
+				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,

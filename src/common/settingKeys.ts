@@ -10,6 +10,7 @@ export const BRANCH_LIST_TIMEOUT = 'branchListTimeout';
 export const USE_REVIEW_MODE = 'useReviewMode';
 export const FILE_LIST_LAYOUT = 'fileListLayout';
 export const HIDE_VIEWED_FILES = 'hideViewedFiles';
+export const FILE_AUTO_REVEAL = 'fileAutoReveal';
 export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
 export const IGNORE_PR_BRANCHES = 'ignoredPullRequestBranches';
@@ -87,10 +88,6 @@ export const WORD_WRAP = 'wordWrap';
 // Comments
 export const COMMENTS = 'comments';
 export const OPEN_VIEW = 'openView';
-
-// Explorer
-export const EXPLORER = 'explorer';
-export const AUTO_REVEAL = 'autoReveal';
 
 // Workbench
 export const WORKBENCH = 'workbench';
