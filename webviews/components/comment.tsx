@@ -219,7 +219,6 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 	const draftComment = useRef<{ body: string; dirty: boolean }>({ body, dirty: false });
 	const form = useRef<HTMLFormElement>();
 	const [isGenerating, setIsGenerating] = useState(false);
-	const [canGenerate, setCanGenerate] = useState(false);
 
 	useEffect(() => {
 		const interval = setInterval(() => {
@@ -230,11 +229,6 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 		}, 500);
 		return () => clearInterval(interval);
 	}, [draftComment]);
-
-	useEffect(() => {
-		// Check if description generation is available
-		setCanGenerate(isPRDescription === true && !!pr?.generateDescriptionTitle);
-	}, [isPRDescription, pr?.generateDescriptionTitle]);
 
 	const submit = useCallback(async () => {
 		const { markdown, submitButton }: FormInputSet = form.current!;
@@ -301,21 +295,21 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 		<form ref={form as React.MutableRefObject<HTMLFormElement>} onSubmit={onSubmit}>
 			<div className="textarea-wrapper">
 				<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} disabled={isGenerating} />
-				{canGenerate && isPRDescription ? (
+				{isPRDescription ? (
 					isGenerating ? (
-						<button 
+						<button
 							type="button"
-							title="Cancel" 
-							className="title-action icon-button" 
+							title="Cancel"
+							className="title-action icon-button"
 							onClick={handleCancelGenerate}
 						>
 							{stopCircleIcon}
 						</button>
 					) : (
-						<button 
+						<button
 							type="button"
-							title={pr?.generateDescriptionTitle || 'Generate description'} 
-							className="title-action icon-button" 
+							title={pr?.generateDescriptionTitle || 'Generate description'}
+							className="title-action icon-button"
 							onClick={handleGenerateDescription}
 						>
 							{sparkleIcon}
