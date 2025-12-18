@@ -541,6 +541,23 @@ body button .icon {
 	border-radius: 4px;
 }
 
+.branch-tag-button {
+	border: 1px solid transparent;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
+}
+
+.branch-tag-button:hover {
+	background: var(--vscode-button-hoverBackground);
+	color: var(--vscode-button-foreground);
+	border-color: var(--vscode-button-border);
+}
+
+.branch-tag-button:active {
+	background: var(--vscode-button-background);
+}
+
 .merge-branches .icon-button {
 	margin-top: 4px;
 }

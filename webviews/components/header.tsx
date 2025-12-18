@@ -275,12 +275,18 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 				<div className="merge-branches">
 					<AuthorLink for={author} /> {!isIssue ? (<>
 						{getActionText(state)} into{' '}
-						<code className="branch-tag">{base}</code>
 						{canEdit && state === GithubItemStateEnum.Open ? (
-							<button title="Change base branch" onClick={changeBaseBranch} className="icon-button">
-								{editIcon}
+							<button 
+								title="Change base branch" 
+								onClick={changeBaseBranch} 
+								className="branch-tag branch-tag-button"
+								aria-label="Change base branch"
+							>
+								{base}
 							</button>
-						) : null}
+						) : (
+							<code className="branch-tag">{base}</code>
+						)}
 						{' '}from <code className="branch-tag">{head}</code>
 					</>) : null}
 				</div>
