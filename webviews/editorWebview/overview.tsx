@@ -32,47 +32,92 @@ const useMediaQuery = (query: string) => {
 export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	const titleRef = React.useRef<HTMLDivElement>(null);
+	const stickyHeightRef = React.useRef(0);
+	const collapseDeltaRef = React.useRef(0);
 
 	React.useEffect(() => {
 		const title = titleRef.current;
-		
+
 		if (!title) {
 			return;
 		}
 
-		// Initially ensure title is not stuck
-		title.classList.remove('stuck');
-
 		// Small threshold to account for sub-pixel rendering
 		const STICKY_THRESHOLD = 1;
+
+		const measureStickyMetrics = () => {
+			const wasStuck = title.classList.contains('stuck');
+			if (!wasStuck) {
+				title.classList.remove('stuck');
+			}
+
+			const unstuckHeight = title.getBoundingClientRect().height;
+			title.classList.add('stuck');
+			const stuckHeight = title.getBoundingClientRect().height;
+			stickyHeightRef.current = stuckHeight;
+			collapseDeltaRef.current = Math.max(0, unstuckHeight - stuckHeight);
+
+			if (!wasStuck) {
+				title.classList.remove('stuck');
+			}
+		};
+
+		const hasEnoughScroll = () => {
+			const doc = document.documentElement;
+			const body = document.body;
+			const scrollHeight = Math.max(doc.scrollHeight, body.scrollHeight);
+			const availableScroll = scrollHeight - window.innerHeight;
+			const adjustment = title.classList.contains('stuck') ? collapseDeltaRef.current : 0;
+			return availableScroll + adjustment >= stickyHeightRef.current;
+		};
 
 		// Use scroll event with requestAnimationFrame to detect when title becomes sticky
 		// Check if the title's top position is at the viewport top (sticky position)
 		let ticking = false;
 		const handleScroll = () => {
-			if (!ticking) {
-				window.requestAnimationFrame(() => {
-					const rect = title.getBoundingClientRect();
-					// Title is stuck when its top is at position 0 (sticky top: 0)
-					if (rect.top <= STICKY_THRESHOLD) {
-						title.classList.add('stuck');
-					} else {
-						title.classList.remove('stuck');
-					}
-					ticking = false;
-				});
-				ticking = true;
+			if (ticking) {
+				return;
 			}
+
+			ticking = true;
+			window.requestAnimationFrame(() => {
+				if (!hasEnoughScroll()) {
+					title.classList.remove('stuck');
+					ticking = false;
+					return;
+				}
+
+				const rect = title.getBoundingClientRect();
+				// Title is stuck when its top is at position 0 (sticky top: 0)
+				if (rect.top <= STICKY_THRESHOLD) {
+					title.classList.add('stuck');
+				} else {
+					title.classList.remove('stuck');
+				}
+				ticking = false;
+			});
 		};
 
+		const handleResize = () => {
+			measureStickyMetrics();
+			handleScroll();
+		};
+
+		measureStickyMetrics();
+
 		// Check initial state after a brief delay to ensure layout is settled
-		const timeoutId = setTimeout(handleScroll, 100);
+		const timeoutId = setTimeout(() => {
+			measureStickyMetrics();
+			handleScroll();
+		}, 100);
 
 		window.addEventListener('scroll', handleScroll, { passive: true });
+		window.addEventListener('resize', handleResize);
 
 		return () => {
 			clearTimeout(timeoutId);
 			window.removeEventListener('scroll', handleScroll);
+			window.removeEventListener('resize', handleResize);
 		};
 	}, []);
 
