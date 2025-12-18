@@ -771,7 +771,7 @@ export function registerCommands(
 					const manager = reposManager.getManagerForIssueModel(pullRequestModel);
 					if (manager) {
 						const prBranch = manager.repository.state.HEAD?.name;
-						await manager.checkoutDefaultBranch(branch);
+						await manager.checkoutDefaultBranch(branch, pullRequestModel);
 						if (prBranch) {
 							await manager.cleanupAfterPullRequest(prBranch, pullRequestModel!);
 						}

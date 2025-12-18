@@ -2383,16 +2383,25 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	public async checkoutDefaultBranch(branch: string): Promise<void> {
+	public async checkoutDefaultBranch(branch: string, pullRequestModel?: PullRequestModel): Promise<void> {
 		const CHECKOUT_DEFAULT_BRANCH = 'checkoutDefaultBranch';
 		const CHECKOUT_DEFAULT_BRANCH_AND_PULL = 'checkoutDefaultBranchAndPull';
+		const CHECKOUT_PR_BASE_BRANCH = 'checkoutPullRequestBaseBranch';
+		const CHECKOUT_PR_BASE_BRANCH_AND_PULL = 'checkoutPullRequestBaseBranchAndPull';
 
-		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<typeof CHECKOUT_DEFAULT_BRANCH | typeof CHECKOUT_DEFAULT_BRANCH_AND_PULL>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<typeof CHECKOUT_DEFAULT_BRANCH | typeof CHECKOUT_DEFAULT_BRANCH_AND_PULL | typeof CHECKOUT_PR_BASE_BRANCH | typeof CHECKOUT_PR_BASE_BRANCH_AND_PULL>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
 
-		if (postDoneAction === CHECKOUT_DEFAULT_BRANCH_AND_PULL) {
-			await this.checkoutDefaultBranchAndPull(branch);
+		// Determine which branch to checkout
+		let targetBranch = branch;
+		if (pullRequestModel && (postDoneAction === CHECKOUT_PR_BASE_BRANCH || postDoneAction === CHECKOUT_PR_BASE_BRANCH_AND_PULL)) {
+			// Use the PR's base branch if the setting specifies it
+			targetBranch = pullRequestModel.base.ref;
+		}
+
+		if (postDoneAction === CHECKOUT_DEFAULT_BRANCH_AND_PULL || postDoneAction === CHECKOUT_PR_BASE_BRANCH_AND_PULL) {
+			await this.checkoutDefaultBranchAndPull(targetBranch);
 		} else {
-			await this.checkoutDefaultBranchOnly(branch);
+			await this.checkoutDefaultBranchOnly(targetBranch);
 		}
 	}
 

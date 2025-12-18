@@ -145,7 +145,7 @@ export namespace PullRequestReviewCommon {
 	export async function checkoutDefaultBranch(ctx: ReviewContext, message: IRequestMessage<string>): Promise<void> {
 		try {
 			const prBranch = ctx.folderRepositoryManager.repository.state.HEAD?.name;
-			await ctx.folderRepositoryManager.checkoutDefaultBranch(message.args);
+			await ctx.folderRepositoryManager.checkoutDefaultBranch(message.args, ctx.item);
 			if (prBranch) {
 				await ctx.folderRepositoryManager.cleanupAfterPullRequest(prBranch, ctx.item);
 			}
@@ -372,7 +372,7 @@ export namespace PullRequestReviewCommon {
 									return;
 								}
 							}
-							await folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+							await folderRepositoryManager.checkoutDefaultBranch(defaultBranch, item);
 						}
 						await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 						return deletedBranchTypes.push(action.type);
