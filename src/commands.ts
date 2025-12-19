@@ -1607,7 +1607,7 @@ ${contents}
 
 			// Create QuickPick to show all PRs
 			const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pr?: PullRequestModel }>();
-			quickPick.placeholder = vscode.l10n.t('Select a pull request or enter a pull request number/URL');
+			quickPick.placeholder = vscode.l10n.t('Enter a pull request number/URL or select from the list');
 			quickPick.matchOnDescription = true;
 			quickPick.matchOnDetail = true;
 			quickPick.show();
@@ -1625,9 +1625,8 @@ ${contents}
 				// Sort PRs by number in descending order (most recent first)
 				const sortedPRs = prs.sort((a, b) => b.number - a.number);
 				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
-					label: `#${pr.number}`,
-					description: pr.title,
-					detail: `by @${pr.author.login}`,
+					label: `#${pr.number} ${pr.title}`,
+					description: `by @${pr.author.login}`,
 					prNumber: pr.number
 				}));
 
@@ -1653,7 +1652,7 @@ ${contents}
 				if (!selected) {
 					return;
 				}
-
+				quickPick.busy = true;
 				let prModel: PullRequestModel | undefined;
 
 				// Check if user selected from the list or typed a custom value
