@@ -279,10 +279,10 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 							<button 
 								title="Change base branch" 
 								onClick={changeBaseBranch} 
-								className="branch-tag branch-tag-button"
+								className="branch-tag-button"
 								aria-label="Change base branch"
 							>
-								{base}
+								<code className="branch-tag">{base}</code>
 							</button>
 						) : (
 							<code className="branch-tag">{base}</code>
