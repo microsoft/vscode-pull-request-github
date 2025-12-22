@@ -1642,26 +1642,81 @@ ${contents}
 			if (!githubRepo) {
 				return;
 			}
-			const prNumber = await vscode.window.showInputBox({
-				ignoreFocusOut: true, prompt: vscode.l10n.t('Enter the pull request number or URL'),
-				validateInput: (input: string) => {
-					const result = validateAndParseInput(input, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-					return result.isValid ? undefined : result.errorMessage;
+
+			// Create QuickPick to show all PRs
+			const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pr?: PullRequestModel }>();
+			quickPick.placeholder = vscode.l10n.t('Enter a pull request number/URL or select from the list');
+			quickPick.matchOnDescription = true;
+			quickPick.matchOnDetail = true;
+			quickPick.show();
+			quickPick.busy = true;
+
+			let acceptDisposable: vscode.Disposable | undefined;
+			let hideDisposable: vscode.Disposable | undefined;
+
+			// Fetch all open PRs (lightweight query)
+			try {
+				const prs = await githubRepo.repo.getPullRequestNumbers();
+				if (!prs) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
 				}
-			});
-			if ((prNumber === undefined) || prNumber === '#') {
-				return;
-			}
+				// Sort PRs by number in descending order (most recent first)
+				const sortedPRs = prs.sort((a, b) => b.number - a.number);
+				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
+					label: `#${pr.number} ${pr.title}`,
+					description: `by @${pr.author.login}`,
+					prNumber: pr.number
+				}));
 
-			// Extract PR number from input (either direct number or URL)
-			const parseResult = validateAndParseInput(prNumber, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-			if (!parseResult.isValid) {
-				return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
-			}
+				quickPick.items = prItems;
+				quickPick.busy = false;
 
-			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-			if (prModel) {
-				return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
+				// Handle selection
+				const selected = await new Promise<(vscode.QuickPickItem & { prNumber?: number }) | string | undefined>((resolve) => {
+					acceptDisposable = quickPick.onDidAccept(() => {
+						if (quickPick.selectedItems.length > 0) {
+							resolve(quickPick.selectedItems[0]);
+						} else if (quickPick.value) {
+							// User typed something but didn't select from list
+							resolve(quickPick.value);
+						} else {
+							// User pressed Enter with no selection and no input
+							resolve(undefined);
+						}
+					});
+					hideDisposable = quickPick.onDidHide(() => resolve(undefined));
+				});
+
+				if (!selected) {
+					return;
+				}
+				quickPick.busy = true;
+				let prModel: PullRequestModel | undefined;
+
+				// Check if user selected from the list or typed a custom value
+				if (typeof selected === 'string') {
+					// User typed a PR number or URL
+					const parseResult = validateAndParseInput(selected, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
+					if (!parseResult.isValid) {
+						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
+					}
+					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
+				} else if (selected.prNumber) {
+					// User selected from the list
+					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.prNumber);
+				}
+
+				if (prModel) {
+					return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
+				}
+			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests: {0}', formatError(e)));
+			} finally {
+				// Clean up event listeners and QuickPick
+				acceptDisposable?.dispose();
+				hideDisposable?.dispose();
+				quickPick.hide();
+				quickPick.dispose();
 			}
 		}));
 
