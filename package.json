@@ -36,6 +36,7 @@
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
+		"tabInputMultiDiff",
 		"tokenInformation",
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"

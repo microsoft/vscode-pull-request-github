@@ -675,7 +675,27 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
+	private async _closeOutdatedMultiDiffEditors(pullRequest: PullRequestModel): Promise<void> {
+		// Close any multidiff editors for this PR that may be outdated
+		const multiDiffLabel = vscode.l10n.t('Changes in Pull Request #{0}', pullRequest.number);
+
+		const closePromises: Promise<boolean>[] = [];
+		for (const tabGroup of vscode.window.tabGroups.all) {
+			for (const tab of tabGroup.tabs) {
+				// Check if this is a TabInputTextMultiDiff with matching label
+				if (tab.input instanceof vscode.TabInputTextMultiDiff && tab.label.startsWith(multiDiffLabel)) {
+					Logger.appendLine(`Closing outdated multidiff editor for PR #${pullRequest.number}`, this.id);
+					closePromises.push(Promise.resolve(vscode.window.tabGroups.close(tab)));
+				}
+			}
+		}
+		await Promise.all(closePromises);
+	}
+
 	public async _upgradePullRequestEditors(pullRequest: PullRequestModel) {
+		// Close any outdated multidiff editors first
+		await this._closeOutdatedMultiDiffEditors(pullRequest);
+
 		// Go through all open editors and find pr scheme editors that belong to the active pull request.
 		// Close the editors, and reopen them from the pull request.
 		const reopenFilenames: Set<[PRUriParams, PRUriParams]> = new Set();
