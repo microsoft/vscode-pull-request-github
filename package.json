@@ -1736,6 +1736,12 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.startWorkingByNumber",
+				"title": "%command.issue.startWorkingByNumber.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(symbol-numeric)"
+			},
+			{
 				"command": "issue.stopWorking",
 				"title": "%command.issue.stopWorking.title%",
 				"category": "%command.issues.category%",
@@ -2585,6 +2591,10 @@
 				{
 					"command": "issue.startWorkingBranchPrompt",
 					"when": "false"
+				},
+				{
+					"command": "issue.startWorkingByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
 				},
 				{
 					"command": "issue.stopWorking",
