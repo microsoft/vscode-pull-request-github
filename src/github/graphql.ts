@@ -878,6 +878,23 @@ export interface PullRequestsResponse {
 	} | null;
 }
 
+export interface PullRequestNumbersResponse {
+	repository: {
+		pullRequests: {
+			nodes: PullRequestNumberData[]
+		}
+	} | null;
+	rateLimit: RateLimit;
+}
+
+export interface PullRequestNumberData {
+	number: number;
+	title: string;
+	author: {
+		login: string;
+	};
+}
+
 export interface MaxIssueResponse {
 	repository: {
 		issues: {
