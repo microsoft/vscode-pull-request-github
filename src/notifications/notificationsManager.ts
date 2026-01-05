@@ -13,7 +13,7 @@ import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } fro
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
-import { NotificationSubjectType } from '../github/interface';
+import { AccountType, NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -34,6 +34,9 @@ export enum NotificationsSortMethod {
 
 export class NotificationsManager extends Disposable implements vscode.TreeDataProvider<NotificationTreeDataItem> {
 	private static ID = 'NotificationsManager';
+
+	// List of automated users that should be ignored when determining meaningful events
+	private static readonly AUTOMATED_USERS = ['vs-code-engineering'];
 
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = this._register(new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>());
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
@@ -121,7 +124,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		if (notification.subject.type === NotificationSubjectType.Issue && model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed'));
 		}
 		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
 			item.iconPath = model.isOpen
@@ -323,6 +326,22 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 	}
 
+	private _isBot(user: { login: string, accountType?: AccountType }): boolean {
+		// Check if accountType indicates this is a bot
+		if (user.accountType === AccountType.Bot) {
+			return true;
+		}
+		// Check for common bot naming patterns
+		if (user.login.endsWith('[bot]')) {
+			return true;
+		}
+		// Check for specific automated users
+		if (NotificationsManager.AUTOMATED_USERS.includes(user.login)) {
+			return true;
+		}
+		return false;
+	}
+
 	private _getMeaningfulEventTime(event: TimelineEvent, currentUser: string, isCurrentUser: boolean): Date | undefined {
 		const userCheck = (testUser?: string) => {
 			if (isCurrentUser) {
@@ -333,17 +352,17 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		};
 
 		if (event.event === EventType.Committed) {
-			if (userCheck(event.author.login)) {
+			if (!this._isBot(event.author) && userCheck(event.author.login)) {
 				return new Date(event.committedDate);
 			}
 		} else if (event.event === EventType.Commented) {
-			if (userCheck(event.user?.login)) {
+			if (event.user && !this._isBot(event.user) && userCheck(event.user.login)) {
 				return new Date(event.createdAt);
 			}
 		} else if (event.event === EventType.Reviewed) {
 			// We only count empty reviews as meaningful if the user is the current user
 			if (isCurrentUser || (event.comments.length > 0 || event.body.length > 0)) {
-				if (userCheck(event.user?.login)) {
+				if (event.user && !this._isBot(event.user) && userCheck(event.user.login)) {
 					return new Date(event.submittedAt);
 				}
 			}
@@ -352,7 +371,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	public async markPullRequests(markAsDone: boolean = false): Promise<void> {
 		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest);
-		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents()));
+		const timelines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getActivityTimelineEvents()));
 
 		const markPromises: Promise<void>[] = [];
 
@@ -360,7 +379,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			const currentUser = await this._credentialStore.getCurrentUser(notification.model.remote.authProviderId);
 
 			// Check that there have been no comments, reviews, or commits, since last read
-			const timeline = timlines[index];
+			const timeline = timelines[index];
 			let userLastEvent: Date | undefined = undefined;
 			let nonUserLastEvent: Date | undefined = undefined;
 			for (let i = timeline.length - 1; i >= 0; i--) {

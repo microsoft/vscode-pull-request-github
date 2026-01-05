@@ -5,12 +5,13 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
+import { COMMENT_TEXTAREA_ID } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
-import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
+import { CloseResult, DescriptionResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
 
 export class PRContext {
 	constructor(
@@ -91,7 +92,10 @@ export class PRContext {
 
 	public readyForReviewAndMerge = (args: { mergeMethod: MergeMethod }): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReviewAndMerge', args });
 
+	public convertToDraft = (): Promise<ConvertToDraftReply> => this.postMessage({ command: 'pr.convertToDraft' });
+
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
+	public addReviewerCopilot = () => this.postMessage({ command: 'pr.add-reviewer-copilot' });
 	public changeBaseBranch = async () => {
 		const result: ChangeBaseReply = await this.postMessage({ command: 'pr.change-base-branch' });
 		if (result?.base) {
@@ -140,6 +144,12 @@ export class PRContext {
 
 	public editComment = (args: { comment: IComment; text: string }) =>
 		this.postMessage({ command: 'pr.edit-comment', args });
+
+	public generateDescription = (): Promise<DescriptionResult> =>
+		this.postMessage({ command: 'pr.generate-description' });
+
+	public cancelGenerateDescription = () =>
+		this.postMessage({ command: 'pr.cancel-generate-description' });
 
 	public updateDraft = (id: number, body: string) => {
 		const pullRequest = getState();
@@ -410,7 +420,7 @@ export class PRContext {
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 				return;
 			case 'pr.scrollToPendingReview':
-				const pendingReview = document.getElementById('pending-review') ?? document.getElementById('comment-textarea');
+				const pendingReview = document.getElementById('pending-review') ?? document.getElementById(COMMENT_TEXTAREA_ID);
 				if (pendingReview) {
 					pendingReview.scrollIntoView();
 					pendingReview.focus();

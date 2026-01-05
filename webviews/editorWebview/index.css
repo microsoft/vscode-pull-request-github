@@ -48,11 +48,46 @@ textarea:focus,
 }
 
 .title {
+	/* position: sticky; */
+	top: 0;
+	z-index: 100;
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	background: var(--vscode-editor-background);
+}
+
+.title .details {
+	flex: 1;
+}
+
+/* Shadow effect when stuck - only on bottom */
+.title.stuck::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	pointer-events: none;
+}
+
+/* Hide subtitle when stuck */
+.title.stuck .subtitle {
+	display: none;
+}
+
+/* Hide edit button when stuck */
+.title.stuck #edit-title-button {
+	display: none;
+}
+
+/* Adjust title size when stuck */
+.title.stuck .overview-title h2 {
+	font-size: 18px;
 }
 
 .title .pr-number {
@@ -228,6 +263,10 @@ body .comment-container .review-comment-header {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+}
+
+.status-check > div:not(.status-check-details) {
+	display: flex;
 }
 
 #merge-on-github {
@@ -563,6 +602,7 @@ small-button {
 	display: flex;
 	gap: 8px;
 	padding-top: 4px;
+	align-items: center;
 }
 
 .header-actions>div:first-of-type {
@@ -876,6 +916,52 @@ body .comment-form {
 textarea {
 	min-height: 100px;
 	max-height: 500px;
+}
+
+.textarea-wrapper {
+	position: relative;
+	display: flex;
+	width: 100%;
+}
+
+.textarea-wrapper textarea {
+	flex: 1;
+	padding-right: 40px;
+}
+
+.textarea-wrapper .title-action {
+	position: absolute;
+	top: 6px;
+	right: 5px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+}
+
+.textarea-wrapper .title-action:hover {
+	outline-style: none;
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .title-action:focus {
+	outline-style: none;
+}
+
+.textarea-wrapper .title-action:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	background: unset;
+}
+
+.textarea-wrapper .title-action svg {
+	padding: 2px;
 }
 
 .editing-form {
@@ -1218,6 +1304,10 @@ code {
 	border-bottom: 1px solid var(--vscode-contrastBorder);
 }
 
+.vscode-high-contrast .title.stuck::after {
+	box-shadow: none;
+}
+
 .vscode-high-contrast .diff .diffLine {
 	background: none;
 }
@@ -1242,6 +1332,10 @@ code {
 	.title {
 		border-bottom: none;
 		padding-bottom: 0px;
+	}
+
+	.title.stuck .overview-title h2 {
+		font-size: 16px;
 	}
 
 	#app {

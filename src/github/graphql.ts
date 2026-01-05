@@ -139,6 +139,11 @@ export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
 	return !!asTeam && (asTeam?.slug !== undefined);
 }
 
+export function isBot(x: Actor | Team | Node | undefined | null): x is Actor {
+	const asBot = x as Partial<Actor>;
+	return !!asBot && !!asBot.id?.startsWith('BOT_');
+}
+
 export interface Team {
 	avatarUrl: string;
 	name: string;
@@ -326,10 +331,12 @@ export interface LatestUpdatesResponse {
 export interface LatestReviewCommitResponse {
 	repository: {
 		pullRequest: {
-			viewerLatestReview: {
-				commit: {
-					oid: string;
-				}
+			reviews: {
+				nodes: {
+					commit: {
+						oid: string;
+					}
+				}[];
 			};
 		};
 	} | null;
@@ -352,6 +359,14 @@ export interface GetReviewRequestsResponse {
 					requestedReviewer: Actor | Account | Team | Node | null;
 				}[];
 			};
+		};
+	} | null;
+}
+
+export interface AddReviewRequestResponse {
+	requestReviews: {
+		pullRequest: {
+			id: string;
 		};
 	} | null;
 }
@@ -496,6 +511,16 @@ export interface MarkPullRequestReadyForReviewResponse {
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 			viewerCanEnableAutoMerge: boolean;
 			viewerCanDisableAutoMerge: boolean;
+		};
+	};
+}
+
+export interface ConvertPullRequestToDraftResponse {
+	convertPullRequestToDraft: {
+		pullRequest: {
+			isDraft: boolean;
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 		};
 	};
 }

@@ -37,10 +37,12 @@ import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotes, parseRepositoryRemotesAsync, Remote } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
+	CHECKOUT_DEFAULT_BRANCH,
+	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
 	GIT,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
@@ -54,7 +56,7 @@ import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { AsyncPredicate, batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
+import { BRANCHES_ASSOCIATED_WITH_PRS, LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
@@ -276,7 +278,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async computeAllUnknownRemotes(): Promise<Remote[]> {
-		const remotes = parseRepositoryRemotes(this.repository);
+		const remotes = await parseRepositoryRemotesAsync(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
@@ -297,7 +299,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async computeAllGitHubRemotes(): Promise<GitHubRemote[]> {
-		const remotes = parseRepositoryRemotes(this.repository);
+		const remotes = await parseRepositoryRemotesAsync(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
@@ -576,6 +578,11 @@ export class FolderRepositoryManager extends Disposable {
 			this.getAssignableUsers(repositoriesAdded.length > 0);
 			if (isAuthenticated && activeRemotes.length) {
 				this.state = ReposManagerState.RepositoriesLoaded;
+				// On first activation, associate local branches with PRs
+				// Do this asynchronously to not block the main flow
+				this.associateLocalBranchesWithPRsOnFirstActivation().catch(e => {
+					Logger.error(`Failed to associate branches with PRs: ${e}`, this.id);
+				});
 			} else if (!isAuthenticated) {
 				this.state = ReposManagerState.NeedsAuthentication;
 			}
@@ -953,6 +960,112 @@ export class FolderRepositoryManager extends Disposable {
 		return models.filter(value => value !== undefined) as PullRequestModel[];
 	}
 
+	/**
+	 * On first activation, iterate through local branches and associate them with PRs if they match.
+	 * This helps discover PRs that were created before the extension was installed or in other ways.
+	 */
+	private async associateLocalBranchesWithPRsOnFirstActivation(): Promise<void> {
+		const stateKey = `${BRANCHES_ASSOCIATED_WITH_PRS}.${this.repository.rootUri.fsPath}`;
+		const hasRun = this.context.globalState.get<boolean>(stateKey, false);
+
+		if (hasRun) {
+			Logger.debug('Branch association has already run for this workspace folder', this.id);
+			return;
+		}
+
+		Logger.appendLine('First activation: associating local branches with PRs', this.id);
+
+		const githubRepositories = this._githubRepositories;
+		if (!githubRepositories || !githubRepositories.length || !this.repository.getRefs) {
+			Logger.debug('No GitHub repositories or getRefs not available, skipping branch association', this.id);
+			await this.context.globalState.update(stateKey, true);
+			return;
+		}
+
+		try {
+			// Only check the 3 most recently used branches to minimize API calls
+			const localBranches = (await this.repository.getRefs({
+				pattern: 'refs/heads/',
+				sort: 'committerdate',
+				count: 10
+			}))
+				.filter(r => r.name !== undefined)
+				.map(r => r.name!);
+
+			Logger.debug(`Found ${localBranches.length} local branches to check`, this.id);
+
+			const associationResults: boolean[] = [];
+
+			// Process all branches (max 3) in parallel
+			const chunkResults = await Promise.all(localBranches.map(async branchName => {
+				try {
+					// Check if this branch already has PR metadata
+					const existingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+						this.repository,
+						branchName,
+					);
+
+					if (existingMetadata) {
+						// Branch already has PR metadata, skip
+						return false;
+					}
+
+					// Get the branch to check its upstream
+					const branch = await this.repository.getBranch(branchName);
+					if (!branch.upstream) {
+						// No upstream, can't match to a PR
+						return false;
+					}
+
+					// Try to find a matching PR on GitHub
+					const remoteName = branch.upstream.remote;
+					const upstreamBranchName = branch.upstream.name;
+
+					const githubRepo = githubRepositories.find(
+						repo => repo.remote.remoteName === remoteName,
+					);
+
+					if (!githubRepo) {
+						return false;
+					}
+
+					// Get the metadata of the GitHub repository to find owner
+					const metadata = await githubRepo.getMetadata();
+					if (!metadata?.owner) {
+						return false;
+					}
+
+					// Search for a PR with this head branch
+					const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
+
+					if (matchingPR) {
+						Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
+						await PullRequestGitHelper.associateBranchWithPullRequest(
+							this.repository,
+							matchingPR,
+							branchName,
+						);
+						return true;
+					}
+					return false;
+				} catch (e) {
+					Logger.debug(`Error checking branch ${branchName}: ${e}`, this.id);
+					// Continue with other branches even if one fails
+					return false;
+				}
+			}));
+			associationResults.push(...chunkResults);
+
+			const associatedCount = associationResults.filter(r => r).length;
+			Logger.appendLine(`Branch association complete: ${associatedCount} branches associated with PRs`, this.id);
+		} catch (e) {
+			Logger.error(`Error during branch association: ${e}`, this.id);
+		} finally {
+			// Mark as complete even if there were errors
+			await this.context.globalState.update(stateKey, true);
+		}
+	}
+
 	async getLabels(issue?: IssueModel, repoInfo?: { owner: string; repo: string }): Promise<ILabel[]> {
 		const repo = issue
 			? issue.githubRepository
@@ -1086,6 +1199,10 @@ export class FolderRepositoryManager extends Disposable {
 
 		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
+		// Check if user has explicitly configured remotes (not using defaults)
+		const remotesConfig = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(REMOTES);
+		const hasUserConfiguredRemotes = !!(remotesConfig?.globalValue || remotesConfig?.workspaceValue || remotesConfig?.workspaceFolderValue);
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
 			if (!activeGitHubRemotes.find(r => r.equals(repo.remote))) {
 				return false;
@@ -1148,15 +1265,17 @@ export class FolderRepositoryManager extends Disposable {
 
 			pageInformation.hasMorePages = itemData.hasMorePages;
 
-			// Break early if
+			// Determine if we should break early from the loop:
 			// 1) we've received data AND
 			// 2) either we're fetching just the next page (case 2)
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
-			if (
-				itemData.items.length &&
-				(options.fetchNextPage ||
-					((options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages())))
-			) {
+			// 3) AND the user hasn't explicitly configured remotes (if they have, we should search all of them)
+			const hasReceivedData = itemData.items.length > 0;
+			const isFetchingNextPage = options.fetchNextPage;
+			const hasReachedPreviousFetchLimit = (options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages());
+			const shouldBreakEarly = hasReceivedData && (isFetchingNextPage || hasReachedPreviousFetchLimit) && !hasUserConfiguredRemotes;
+
+			if (shouldBreakEarly) {
 				if (getTotalFetchedPages() === 0) {
 					// We're in case 1, manually set number of pages we looked through until we found first results.
 					setTotalFetchedPages(pagesFetched);
@@ -1173,7 +1292,7 @@ export class FolderRepositoryManager extends Disposable {
 
 		return {
 			items: itemData.items,
-			hasMorePages: false,
+			hasMorePages: itemData.hasMorePages,
 			hasUnsearchedRepositories: false,
 			totalCount: itemData.totalCount
 		};
@@ -1346,10 +1465,13 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getIssueTemplates(): Promise<vscode.Uri[]> {
-		const pattern = '{docs,.github}/ISSUE_TEMPLATE/*.md';
-		return vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern), null
-		);
+		const mdPattern = '{docs,.github}/ISSUE_TEMPLATE/*.md';
+		const ymlPattern = '{docs,.github}/ISSUE_TEMPLATE/*.yml';
+		const [mdTemplates, ymlTemplates] = await Promise.all([
+			vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri, mdPattern), null),
+			vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri, ymlPattern), null)
+		]);
+		return [...mdTemplates, ...ymlTemplates];
 	}
 
 	async getPullRequestTemplateBody(owner: string): Promise<string | undefined> {
@@ -1363,6 +1485,29 @@ export class FolderRepositoryManager extends Disposable {
 			return this.getOwnerPullRequestTemplate(owner);
 		} catch (e) {
 			Logger.error(`Error fetching pull request template for ${owner}: ${e instanceof Error ? e.message : e}`, this.id);
+		}
+	}
+
+	async getAllPullRequestTemplates(owner: string): Promise<string[] | undefined> {
+		try {
+			const repository = this.gitHubRepositories.find(repo => repo.remote.owner === owner);
+			if (!repository) {
+				return undefined;
+			}
+			const templates = await repository.getPullRequestTemplates();
+			if (templates && templates.length > 0) {
+				return templates;
+			}
+
+			// If there's no local template, look for owner-wide templates
+			const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, '.github');
+			if (!githubRepository) {
+				return undefined;
+			}
+			return githubRepository.getPullRequestTemplates();
+		} catch (e) {
+			Logger.error(`Error fetching pull request templates for ${owner}: ${e instanceof Error ? e.message : e}`, this.id);
+			return undefined;
 		}
 	}
 
@@ -2383,21 +2528,29 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	public async checkoutDefaultBranch(branch: string): Promise<void> {
-		const CHECKOUT_DEFAULT_BRANCH = 'checkoutDefaultBranch';
-		const CHECKOUT_DEFAULT_BRANCH_AND_PULL = 'checkoutDefaultBranchAndPull';
+	public async checkoutDefaultBranch(branch: string, pullRequestModel: PullRequestModel | undefined): Promise<void> {
+		const AND_PULL = 'AndPull';
 
-		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<typeof CHECKOUT_DEFAULT_BRANCH | typeof CHECKOUT_DEFAULT_BRANCH_AND_PULL>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
+		const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
 
-		if (postDoneAction === CHECKOUT_DEFAULT_BRANCH_AND_PULL) {
-			await this.checkoutDefaultBranchAndPull(branch);
+		// Determine which branch to checkout
+		let targetBranch = branch;
+		let remoteName: string | undefined = undefined;
+		if (pullRequestModel && postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)) {
+			// Use the PR's base branch if the setting specifies it
+			targetBranch = pullRequestModel.base.ref;
+			remoteName = pullRequestModel.remote.remoteName;
+		}
+
+		if (postDoneAction.endsWith(AND_PULL)) {
+			await this.checkoutDoneBranchAndPull(targetBranch, remoteName);
 		} else {
-			await this.checkoutDefaultBranchOnly(branch);
+			await this.checkoutDoneBranchOnly(targetBranch, remoteName);
 		}
 	}
 
-	private async checkoutDefaultBranchAndPull(branch: string): Promise<void> {
-		await this.checkoutDefaultBranchOnly(branch);
+	private async checkoutDoneBranchAndPull(branch: string, remoteName?: string): Promise<void> {
+		await this.checkoutDoneBranchOnly(branch, remoteName);
 		// After checking out, pull the latest changes if the branch has an upstream
 		try {
 			const branchObj = await this.repository.getBranch(branch);
@@ -2411,8 +2564,28 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async checkoutDefaultBranchOnly(branch: string): Promise<void> {
+	private async fetchBranch(branch: string, remoteName: string) {
+		try {
+			await this.repository.fetch({ remote: remoteName, ref: branch });
+			await this.repository.createBranch(branch, false);
+			await this.repository.setBranchUpstream(branch, `refs/remotes/${remoteName}/${branch}`);
+		} catch (e) {
+			Logger.error(`Failed to fetch branch ${branch}: ${e}`, this.id);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to create branch {0}: {1}', branch, formatError(e)));
+			return;
+		}
+	}
+
+	private async checkoutDoneBranchOnly(branch: string, remoteName?: string): Promise<void> {
 		let branchObj: Branch | undefined;
+		try {
+			branchObj = await this.repository.getBranch(branch);
+		} catch (e) {
+			if (e.message?.includes('No such branch') && remoteName) {
+				await this.fetchBranch(branch, remoteName);
+			}
+		}
+
 		try {
 			branchObj = await this.repository.getBranch(branch);
 
@@ -2877,15 +3050,157 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
 
+/**
+ * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
+ * Similar to GitHub's behavior when converting commit messages to PR descriptions.
+ * 
+ * Rules:
+ * - Preserves blank lines as paragraph breaks
+ * - Preserves fenced code blocks (```)
+ * - Preserves list items (-, *, +, numbered)
+ * - Preserves blockquotes (>)
+ * - Preserves indented code blocks (4+ spaces at start, when not in a list context)
+ * - Joins consecutive plain text lines that appear to be wrapped mid-sentence
+ */
+function unwrapCommitMessageBody(body: string): string {
+	if (!body) {
+		return body;
+	}
+
+	// Pattern to detect list item markers at the start of a line
+	const LIST_ITEM_PATTERN = /^[ \t]*([*+\-]|\d+\.)\s/;
+	// Pattern to detect blockquote markers
+	const BLOCKQUOTE_PATTERN = /^[ \t]*>/;
+	// Pattern to detect fenced code block markers
+	const FENCE_PATTERN = /^[ \t]*```/;
+
+	const lines = body.split('\n');
+	const result: string[] = [];
+	let i = 0;
+	let inFencedBlock = false;
+	let inListContext = false;
+
+	while (i < lines.length) {
+		const line = lines[i];
+
+		// Preserve blank lines
+		if (line.trim() === '') {
+			result.push(line);
+			i++;
+			inListContext = false; // Reset list context on blank line
+			continue;
+		}
+
+		// Check for fenced code block markers
+		if (FENCE_PATTERN.test(line)) {
+			inFencedBlock = !inFencedBlock;
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Preserve everything inside fenced code blocks
+		if (inFencedBlock) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Check if this line is a list item
+		const isListItem = LIST_ITEM_PATTERN.test(line);
+
+		// Check if this line is a blockquote
+		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
+
+		// Check if this line is indented (4+ spaces) but NOT a list continuation
+		// List continuations have leading spaces but we're in list context
+		const leadingSpaces = line.match(/^[ \t]*/)?.[0].length || 0;
+		const isIndentedCode = leadingSpaces >= 4 && !inListContext;
+
+		// Determine if this line should be preserved (not joined)
+		const shouldPreserveLine = isListItem || isBlockquote || isIndentedCode;
+
+		if (shouldPreserveLine) {
+			result.push(line);
+			i++;
+			// If this is a list item, we're now in list context
+			if (isListItem) {
+				inListContext = true;
+			}
+			continue;
+		}
+
+		// If we have leading spaces but we're in a list context, this is a list continuation
+		// We should preserve it to maintain list formatting
+		if (inListContext && leadingSpaces >= 2) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		// Start accumulating lines that should be joined (plain text)
+		let joinedLine = line;
+		i++;
+
+		// Keep joining lines until we hit a blank line or a line that shouldn't be joined
+		while (i < lines.length) {
+			const nextLine = lines[i];
+
+			// Stop at blank lines
+			if (nextLine.trim() === '') {
+				break;
+			}
+
+			// Stop at fenced code blocks
+			if (FENCE_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Stop at list items
+			if (LIST_ITEM_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Stop at blockquotes
+			if (BLOCKQUOTE_PATTERN.test(nextLine)) {
+				break;
+			}
+
+			// Check if next line is indented code (4+ spaces, not in list context)
+			const nextLeadingSpaces = nextLine.match(/^[ \t]*/)?.[0].length || 0;
+			const nextIsIndentedCode = nextLeadingSpaces >= 4 && !inListContext;
+
+			if (nextIsIndentedCode) {
+				break;
+			}
+
+			// If in list context and next line is indented, it's a list continuation
+			if (inListContext && nextLeadingSpaces >= 2) {
+				break;
+			}
+
+			// Join this line with a space
+			joinedLine += ' ' + nextLine;
+			i++;
+		}
+
+		result.push(joinedLine);
+	}
+
+	return result.join('\n');
+}
+
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;
 	if (!message) {
 		return;
 	}
 	const idxLineBreak = message.indexOf('\n');
+	const hasBody = idxLineBreak !== -1;
+	const rawBody = hasBody ? message.slice(idxLineBreak + 1).trim() : '';
 	return {
-		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),
+		title: hasBody ? message.slice(0, idxLineBreak) : message,
 
-		body: idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim(),
+		body: unwrapCommitMessageBody(rawBody),
 	};
 };

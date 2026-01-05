@@ -33,6 +33,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isAuthor: { default: true },
 	commitsCount: { default: 10 },
 	repositoryDefaultBranch: { default: 'main' },
+	doneCheckoutBranch: { default: 'main' },
 	canEdit: { default: true },
 	hasWritePermission: { default: true },
 	pendingCommentText: { default: undefined },
@@ -61,6 +62,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	busy: { default: undefined },
 	lastReviewType: { default: undefined },
 	canAssignCopilot: { default: false },
+	canRequestCopilotReview: { default: false },
 	isCopilotOnMyBehalf: { default: false },
 	reactions: { default: [] },
 });

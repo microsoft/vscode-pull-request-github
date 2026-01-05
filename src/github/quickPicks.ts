@@ -8,13 +8,13 @@ import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { AccountType, IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { IssueModel } from './issueModel';
 import { DisplayLabel } from './views';
 import { RemoteInfo } from '../../common/types';
 import { Ref } from '../api/api';
 import { COPILOT_ACCOUNTS } from '../common/comment';
-import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID, COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -193,15 +193,7 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 
 	// If we removed the coding agent, add the Copilot reviewer instead
 	if (hasCopilotSweAgent && !existingReviewers.find(user => (user.reviewer as IAccount).login === COPILOT_REVIEWER)) {
-		const copilotReviewer: IAccount = {
-			login: COPILOT_REVIEWER,
-			id: COPILOT_REVIEWER_ID,
-			url: '',
-			avatarUrl: '',
-			name: COPILOT_ACCOUNTS[COPILOT_REVIEWER]?.name ?? 'Copilot',
-			accountType: AccountType.Bot
-		};
-		assignableUsers.push(copilotReviewer);
+		assignableUsers.push(COPILOT_REVIEWER_ACCOUNT);
 	}
 
 	// Suggested reviewers
@@ -492,24 +484,62 @@ export async function branchPicks(githubRepository: GitHubRepository, folderRepo
 		// For the compare, we only want to show local branches.
 		branches = (await folderRepoManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
 	}
-	// TODO: @alexr00 - Add sorting so that the most likely to be used branch (ex main or release if base) is at the top of the list.
-	const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = branches.map(branch => {
-		const branchName = typeof branch === 'string' ? branch : branch.name!;
-		const pick: (vscode.QuickPickItem & { remote: RemoteInfo, branch: string }) = {
-			iconPath: new vscode.ThemeIcon('git-branch'),
-			label: branchName,
-			remote: {
-				owner: githubRepository.remote.owner,
-				repositoryName: githubRepository.remote.repositoryName
-			},
-			branch: branchName
-		};
-		return pick;
-	});
-	branchPicks.unshift({
-		kind: vscode.QuickPickItemKind.Separator,
-		label: `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
-	});
+
+
+	const branchNames = branches.map(branch => typeof branch === 'string' ? branch : branch.name!);
+
+	// Get recently used branches for base branches only
+	let recentBranches: string[] = [];
+	let otherBranches: string[] = branchNames;
+	if (isBase) {
+		const recentlyUsed = this.getRecentlyUsedBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+		// Include all recently used branches, even if they're not in the current branch list
+		// This allows showing branches that weren't fetched due to timeout
+		recentBranches = recentlyUsed;
+		// Remove recently used branches from the main list (if they exist there)
+		otherBranches = branchNames.filter(name => !recentBranches.includes(name));
+	}
+
+	const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = [];
+
+	// Add recently used branches section
+	if (recentBranches.length > 0) {
+		branchPicks.push({
+			kind: vscode.QuickPickItemKind.Separator,
+			label: vscode.l10n.t('Recently Used')
+		});
+		recentBranches.forEach(branchName => {
+			branchPicks.push({
+				iconPath: new vscode.ThemeIcon('git-branch'),
+				label: branchName,
+				remote: {
+					owner: githubRepository.remote.owner,
+					repositoryName: githubRepository.remote.repositoryName
+				},
+				branch: branchName
+			});
+		});
+	}
+
+	// Add all other branches section
+	if (otherBranches.length > 0) {
+		branchPicks.push({
+			kind: vscode.QuickPickItemKind.Separator,
+			label: recentBranches.length > 0 ? vscode.l10n.t('All Branches') : `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
+		});
+		otherBranches.forEach(branchName => {
+			branchPicks.push({
+				iconPath: new vscode.ThemeIcon('git-branch'),
+				label: branchName,
+				remote: {
+					owner: githubRepository.remote.owner,
+					repositoryName: githubRepository.remote.repositoryName
+				},
+				branch: branchName
+			});
+		});
+	}
+
 	if (changeRepoMessage) {
 		branchPicks.unshift({
 			iconPath: new vscode.ThemeIcon('repo'),

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
 import Logger, { PR_TREE } from '../../common/logger';
-import { AUTO_REVEAL, EXPLORER } from '../../common/settingKeys';
+import { FILE_AUTO_REVEAL, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { DataUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -51,7 +51,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		this.getTreeItem();
 
 		this._register(vscode.window.onDidChangeActiveTextEditor(e => {
-			if (vscode.workspace.getConfiguration(EXPLORER).get(AUTO_REVEAL)) {
+			if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(FILE_AUTO_REVEAL)) {
 				const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
 				if (tabInput instanceof vscode.TabInputTextDiff) {
 					if ((tabInput.original.scheme === Schemes.Review)

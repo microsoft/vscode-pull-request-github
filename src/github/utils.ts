@@ -39,6 +39,7 @@ import {
 } from './interface';
 import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
+import { PullRequestModel } from './pullRequestModel';
 import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -152,15 +153,22 @@ function isResolvedToResolvedState(isResolved: boolean) {
 
 export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
+export const COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE = 'collapsePreexisting';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
-export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
+export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string, isNewlyAdded?: boolean) {
+	const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 	const isFromCurrent = (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser));
 	const isJustSuggestion = thread.comments.length === 1 && thread.comments[0].body.startsWith('```suggestion') && thread.comments[0].body.endsWith('```');
+
+	// When collapsePreexisting is set, keep newly added comments expanded
+	if (config === COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE && isNewlyAdded && !isJustSuggestion) {
+		return vscode.CommentThreadCollapsibleState.Expanded;
+	}
+
 	if (thread.isResolved || (!thread.isOutdated && isFromCurrent && !isJustSuggestion)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
-		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 		expand = config === COMMENT_EXPAND_STATE_EXPAND_VALUE;
 	}
 	return expand
@@ -168,7 +176,7 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 }
 
 
-export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean) {
+export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, isNewlyAdded?: boolean) {
 	if (!vscodeThread.range) {
 		return;
 	}
@@ -177,13 +185,13 @@ export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeTh
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
 			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
 			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
-			updateThread(context, vscodeThread, reviewThread, githubRepositories, expand, range);
+			updateThread(context, vscodeThread, reviewThread, githubRepositories, expand, range, undefined, isNewlyAdded);
 			break;
 		}
 	}
 }
 
-export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, range?: vscode.Range) {
+export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, range?: vscode.Range, currentUser?: string, isNewlyAdded?: boolean) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
@@ -202,7 +210,7 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 			applicability: newApplicabilityState
 		};
 	}
-	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand);
+	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand, currentUser, isNewlyAdded);
 	if (range) {
 		vscodeThread.range = range;
 	}
@@ -697,7 +705,7 @@ export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, r
 		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
 			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
 			reviewers.push(team);
-		} else if (GraphQL.isAccount(reviewer.requestedReviewer)) {
+		} else if (GraphQL.isAccount(reviewer.requestedReviewer) || GraphQL.isBot(reviewer.requestedReviewer)) {
 			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
 			reviewers.push(account);
 		}
@@ -1800,6 +1808,12 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 export function vscodeDevPrLink(pullRequest: IssueModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
+}
+
+export function codespacesPrLink(pullRequest: PullRequestModel): string {
+	const repoFullName = `${pullRequest.head!.owner}/${pullRequest.remote.repositoryName}`;
+	const branch = pullRequest.head!.ref;
+	return `https://github.com/codespaces/new/${encodeURIComponent(repoFullName)}/tree/${encodeURIComponent(branch)}`;
 }
 
 export function makeLabel(label: ILabel): string {
