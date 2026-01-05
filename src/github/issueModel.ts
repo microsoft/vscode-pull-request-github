@@ -41,6 +41,7 @@ export interface IssueChangeEvent {
 
 	draft?: true;
 	reviewers?: true;
+	base?: true;
 }
 
 export class IssueModel<TItem extends Issue = Issue> extends Disposable {

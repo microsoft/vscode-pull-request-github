@@ -498,6 +498,8 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Closed;
 		case 'ReopenedEvent':
 			return Common.EventType.Reopened;
+		case 'BaseRefChangedEvent':
+			return Common.EventType.BaseRefChanged;
 		default:
 			return Common.EventType.Other;
 	}
@@ -1128,6 +1130,7 @@ export async function parseCombinedTimelineEvents(
 		| GraphQL.AssignedEvent
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
+		| GraphQL.BaseRefChangedEvent
 		| null
 	)[],
 	restEvents: Common.TimelineEvent[],
@@ -1300,6 +1303,18 @@ export async function parseCombinedTimelineEvents(
 					event: type,
 					actor: parseAccount(reopenedEv.actor, githubRepository),
 					createdAt: reopenedEv.createdAt,
+				});
+				break;
+			case Common.EventType.BaseRefChanged:
+				const baseRefChangedEv = event as GraphQL.BaseRefChangedEvent;
+
+				addTimelineEvent({
+					id: baseRefChangedEv.id,
+					event: type,
+					actor: parseAccount(baseRefChangedEv.actor, githubRepository),
+					createdAt: baseRefChangedEv.createdAt,
+					currentRefName: baseRefChangedEv.currentRefName,
+					previousRefName: baseRefChangedEv.previousRefName,
 				});
 				break;
 			default:

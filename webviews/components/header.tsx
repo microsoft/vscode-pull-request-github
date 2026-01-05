@@ -53,7 +53,7 @@ export function Header({
 				owner={owner}
 				repo={repo}
 			/>
-			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />
+			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} canEdit={canEdit} />
 			<div className="header-actions">
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
@@ -249,9 +249,11 @@ interface SubtitleProps {
 	base: string;
 	head: string;
 	codingAgentEvent: TimelineEvent | undefined;
+	canEdit: boolean;
 }
 
-function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent }: SubtitleProps): JSX.Element {
+function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent, canEdit }: SubtitleProps): JSX.Element {
+	const { changeBaseBranch } = useContext(PullRequestContext);
 	const { text, color, icon } = getStatus(state, !!isDraft, isIssue, stateReason);
 	const copilotStatus = copilotEventToStatus(codingAgentEvent);
 	let copilotStatusIcon: JSX.Element | undefined;
@@ -274,7 +276,19 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 				<div className="merge-branches">
 					<AuthorLink for={author} /> {!isIssue ? (<>
 						{getActionText(state)} into{' '}
-						<code className="branch-tag">{base}</code> from <code className="branch-tag">{head}</code>
+						{canEdit && state === GithubItemStateEnum.Open ? (
+							<button
+								title="Change base branch"
+								onClick={changeBaseBranch}
+								className="secondary"
+								aria-label="Change base branch"
+							>
+								<code className="branch-tag">{base}</code>
+							</button>
+						) : (
+							<code className="branch-tag">{base}</code>
+						)}
+						{' '}from <code className="branch-tag">{head}</code>
 					</>) : null}
 				</div>
 			</div>

@@ -68,6 +68,15 @@ export interface ReopenedEvent {
 	createdAt: string;
 }
 
+export interface BaseRefChangedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+	currentRefName: string;
+	previousRefName: string;
+}
+
 export interface AbbreviatedIssueComment {
 	author: Account;
 	body: string;
@@ -270,7 +279,7 @@ export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | null)[];
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | BaseRefChangedEvent | null)[];
 			};
 		};
 	} | null;
@@ -1076,7 +1085,7 @@ export interface MergePullRequestResponse {
 	mergePullRequest: {
 		pullRequest: PullRequest & {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[]
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | BaseRefChangedEvent)[]
 			}
 		};
 	}

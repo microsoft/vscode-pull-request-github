@@ -23,9 +23,9 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
-import { pickEmail, reviewersQuickPick } from './quickPicks';
+import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -448,6 +448,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.generateDescription(message);
 			case 'pr.cancel-generate-description':
 				return this.cancelGenerateDescription();
+			case 'pr.change-base-branch':
+				return this.changeBaseBranch(message);
 		}
 	}
 
@@ -916,6 +918,50 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		if (this.generatingDescriptionCancellationToken) {
 			this.generatingDescriptionCancellationToken.cancel();
 			this.generatingDescriptionCancellationToken = undefined;
+		}
+	}
+
+	private async changeBaseBranch(message: IRequestMessage<void>): Promise<void> {
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { branch?: string }>();
+
+		try {
+			quickPick.busy = true;
+			quickPick.canSelectMany = false;
+			quickPick.placeholder = vscode.l10n.t('Select a new base branch');
+			quickPick.show();
+
+			quickPick.items = await branchPicks(this._item.githubRepository, this._folderRepositoryManager, undefined, true);
+
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick.selectedItems[0]?.branch;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const selectedBranch = await Promise.race<string | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
+			quickPick.enabled = false;
+
+			if (selectedBranch) {
+				try {
+					await this._item.updateBaseBranch(selectedBranch);
+					const events = await this._getTimeline();
+					const reply: ChangeBaseReply = {
+						base: selectedBranch,
+						events
+					};
+					await this._replyMessage(message, reply);
+				} catch (e) {
+					Logger.error(formatError(e), PullRequestOverviewPanel.ID);
+					vscode.window.showErrorMessage(vscode.l10n.t('Changing base branch failed. {0}', formatError(e)));
+					this._throwError(message, `${formatError(e)}`);
+				}
+			}
+		} catch (e) {
+			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
 		}
 	}
 

@@ -609,6 +609,12 @@ small-button {
 	flex: 1;
 }
 
+button code.branch-tag {
+	background-color: transparent;
+	padding-right: 0px;
+	padding-left: 0px;
+}
+
 :not(.status-item)>.small-button {
 	font-weight: 600;
 }
