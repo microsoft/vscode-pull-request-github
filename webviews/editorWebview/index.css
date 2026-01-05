@@ -63,33 +63,6 @@ textarea:focus,
 	flex: 1;
 }
 
-/* Shadow effect when stuck - only on bottom */
-.title.stuck::after {
-	content: '';
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	height: 1px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-	pointer-events: none;
-}
-
-/* Hide subtitle when stuck */
-.title.stuck .subtitle {
-	display: none;
-}
-
-/* Hide edit button when stuck */
-.title.stuck #edit-title-button {
-	display: none;
-}
-
-/* Adjust title size when stuck */
-.title.stuck .overview-title h2 {
-	font-size: 18px;
-}
-
 .title .pr-number {
 	margin-left: 5px;
 }
