@@ -148,14 +148,4 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(onDidChangeReviewThreads.getCall(0).args[0]['removed'].length, 0);
 		});
 	});
-
-	describe('updateBaseBranch', function () {
-		it('should have updateBaseBranch method', function () {
-			const pr = new PullRequestBuilder().build();
-			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
-
-			// Verify the method exists
-			assert.strictEqual(typeof model.updateBaseBranch, 'function');
-		});
-	});
 });
