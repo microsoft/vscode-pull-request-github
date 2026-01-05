@@ -104,6 +104,12 @@ button.input-box {
 	align-items: center;
 }
 
+.description-actions {
+	align-items: end;
+	display: flex;
+	gap: 4px;
+}
+
 .group-title {
 	position: relative;
 	display: flex;

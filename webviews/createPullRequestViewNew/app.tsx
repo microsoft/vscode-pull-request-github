@@ -339,9 +339,11 @@ export function main() {
 
 					<div className='description-title'>
 						<label htmlFor='description' className='input-title'>Description</label>
-						{ctx.createParams.usingTemplate ?
-							<a title='Change template' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => changeTemplate()} tabIndex={0}>{notebookTemplate}</a> : null}
-						<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
+						<div className='description-actions'>
+							{ctx.createParams.usingTemplate ?
+								<a title='Change template' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => changeTemplate()} tabIndex={0}>{notebookTemplate}</a> : null}
+							<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
+						</div>
 					</div>
 					<div className='group-description'>
 						<textarea
