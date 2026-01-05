@@ -3074,11 +3074,94 @@ function unwrapCommitMessageBody(body: string): string {
 	// Pattern to detect fenced code block markers
 	const FENCE_PATTERN = /^[ \t]*```/;
 
+	const getLeadingWhitespaceLength = (text: string): number => text.match(/^[ \t]*/)?.[0].length ?? 0;
+	const hasHardLineBreak = (text: string): boolean => / {2}$/.test(text);
+	const appendWithSpace = (base: string, addition: string): string => {
+		if (!addition) {
+			return base;
+		}
+		return base.length > 0 && !/\s$/.test(base) ? `${base} ${addition}` : `${base}${addition}`;
+	};
+
 	const lines = body.split('\n');
 	const result: string[] = [];
 	let i = 0;
 	let inFencedBlock = false;
-	let inListContext = false;
+	const listIndentStack: number[] = [];
+
+	const getNextNonBlankLineInfo = (
+		startIndex: number,
+	): { line: string; indent: number; isListItem: boolean } | undefined => {
+		for (let idx = startIndex; idx < lines.length; idx++) {
+			const candidate = lines[idx];
+			if (candidate.trim() === '') {
+				continue;
+			}
+			return {
+				line: candidate,
+				indent: getLeadingWhitespaceLength(candidate),
+				isListItem: LIST_ITEM_PATTERN.test(candidate),
+			};
+		}
+		return undefined;
+	};
+
+	const getActiveListIndent = (lineIndent: number): number | undefined => {
+		for (let idx = listIndentStack.length - 1; idx >= 0; idx--) {
+			const indentForLevel = listIndentStack[idx];
+			if (lineIndent >= indentForLevel + 2) {
+				listIndentStack.length = idx + 1;
+				return indentForLevel;
+			}
+			listIndentStack.pop();
+		}
+		return undefined;
+	};
+
+	const shouldJoinListContinuation = (lineIndex: number, activeIndent: number, baseLine: string): boolean => {
+		const currentLine = lines[lineIndex];
+		if (!currentLine) {
+			return false;
+		}
+
+		const trimmed = currentLine.trim();
+		if (!trimmed) {
+			return false;
+		}
+
+		if (hasHardLineBreak(baseLine) || hasHardLineBreak(currentLine)) {
+			return false;
+		}
+
+		if (LIST_ITEM_PATTERN.test(currentLine)) {
+			return false;
+		}
+
+		if (BLOCKQUOTE_PATTERN.test(currentLine) || FENCE_PATTERN.test(currentLine)) {
+			return false;
+		}
+
+		const currentIndent = getLeadingWhitespaceLength(currentLine);
+		if (currentIndent < activeIndent + 2) {
+			return false;
+		}
+
+		// Treat indented code blocks (4+ spaces beyond the bullet) as preserve-only.
+		if (currentIndent >= activeIndent + 4) {
+			return false;
+		}
+
+		const nextInfo = getNextNonBlankLineInfo(lineIndex + 1);
+		if (!nextInfo) {
+			return true;
+		}
+
+		if (nextInfo.isListItem && nextInfo.indent <= activeIndent) {
+			return false;
+		}
+
+		return true;
+	};
 
 	while (i < lines.length) {
 		const line = lines[i];
@@ -3087,7 +3170,7 @@ function unwrapCommitMessageBody(body: string): string {
 		if (line.trim() === '') {
 			result.push(line);
 			i++;
-			inListContext = false; // Reset list context on blank line
+			listIndentStack.length = 0;
 			continue;
 		}
 
@@ -3106,33 +3189,62 @@ function unwrapCommitMessageBody(body: string): string {
 			continue;
 		}
 
-		// Check if this line is a list item
+		const lineIndent = getLeadingWhitespaceLength(line);
 		const isListItem = LIST_ITEM_PATTERN.test(line);
 
-		// Check if this line is a blockquote
-		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
+		if (isListItem) {
+			while (listIndentStack.length && lineIndent < listIndentStack[listIndentStack.length - 1]) {
+				listIndentStack.pop();
+			}
 
-		// Check if this line is indented (4+ spaces) but NOT a list continuation
-		// List continuations have leading spaces but we're in list context
-		const leadingSpaces = line.match(/^[ \t]*/)?.[0].length || 0;
-		const isIndentedCode = leadingSpaces >= 4 && !inListContext;
+			if (!listIndentStack.length || lineIndent > listIndentStack[listIndentStack.length - 1]) {
+				listIndentStack.push(lineIndent);
+			} else {
+				listIndentStack[listIndentStack.length - 1] = lineIndent;
+			}
 
-		// Determine if this line should be preserved (not joined)
-		const shouldPreserveLine = isListItem || isBlockquote || isIndentedCode;
-
-		if (shouldPreserveLine) {
 			result.push(line);
 			i++;
-			// If this is a list item, we're now in list context
-			if (isListItem) {
-				inListContext = true;
-			}
 			continue;
 		}
 
-		// If we have leading spaces but we're in a list context, this is a list continuation
-		// We should preserve it to maintain list formatting
-		if (inListContext && leadingSpaces >= 2) {
+		const activeListIndent = getActiveListIndent(lineIndent);
+		const codeIndentThreshold = activeListIndent !== undefined ? activeListIndent + 4 : 4;
+		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
+		const isIndentedCode = lineIndent >= codeIndentThreshold;
+
+		if (isBlockquote || isIndentedCode) {
+			result.push(line);
+			i++;
+			continue;
+		}
+
+		if (activeListIndent !== undefined && lineIndent >= activeListIndent + 2) {
+			const baseIndex = result.length - 1;
+			if (baseIndex >= 0) {
+				let baseLine = result[baseIndex];
+				let appended = false;
+				let currentIndex = i;
+
+				while (
+					currentIndex < lines.length &&
+					shouldJoinListContinuation(currentIndex, activeListIndent, baseLine)
+				) {
+					const continuationText = lines[currentIndex].trim();
+					if (continuationText) {
+						baseLine = appendWithSpace(baseLine, continuationText);
+						appended = true;
+					}
+					currentIndex++;
+				}
+
+				if (appended) {
+					result[baseIndex] = baseLine;
+					i = currentIndex;
+					continue;
+				}
+			}
+
 			result.push(line);
 			i++;
 			continue;
@@ -3166,16 +3278,11 @@ function unwrapCommitMessageBody(body: string): string {
 				break;
 			}
 
-			// Check if next line is indented code (4+ spaces, not in list context)
-			const nextLeadingSpaces = nextLine.match(/^[ \t]*/)?.[0].length || 0;
-			const nextIsIndentedCode = nextLeadingSpaces >= 4 && !inListContext;
+			// Check if next line is indented code (4+ spaces, when not in a list context)
+			const nextLeadingSpaces = getLeadingWhitespaceLength(nextLine);
+			const nextIsIndentedCode = nextLeadingSpaces >= 4;
 
 			if (nextIsIndentedCode) {
-				break;
-			}
-
-			// If in list context and next line is indented, it's a list continuation
-			if (inListContext && nextLeadingSpaces >= 2) {
 				break;
 			}
 
