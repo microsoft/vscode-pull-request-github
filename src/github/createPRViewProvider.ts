@@ -133,12 +133,6 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
-	protected getRecentlyUsedBranches(owner: string, repositoryName: string): string[] {
-		const repoKey = `${owner}/${repositoryName}`;
-		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
-		return state.branches[repoKey] || [];
-	}
-
 	protected saveRecentlyUsedBranch(owner: string, repositoryName: string, branchName: string): void {
 		const repoKey = `${owner}/${repositoryName}`;
 		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });

@@ -19,6 +19,7 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
+import { RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
 
 export async function chooseItem<T>(
 	itemsToChooseFrom: T[],
@@ -475,6 +476,12 @@ export async function pickEmail(githubRepository: GitHubRepository, current: str
 	return result ? result.label : undefined;
 }
 
+function getRecentlyUsedBranches(folderRepoManager: FolderRepositoryManager, owner: string, repositoryName: string): string[] {
+	const repoKey = `${owner}/${repositoryName}`;
+	const state = folderRepoManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
+	return state.branches[repoKey] || [];
+}
+
 export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
 	let branches: (string | Ref)[];
 	if (isBase) {
@@ -492,7 +499,7 @@ export async function branchPicks(githubRepository: GitHubRepository, folderRepo
 	let recentBranches: string[] = [];
 	let otherBranches: string[] = branchNames;
 	if (isBase) {
-		const recentlyUsed = this.getRecentlyUsedBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+		const recentlyUsed = getRecentlyUsedBranches(folderRepoManager, githubRepository.remote.owner, githubRepository.remote.repositoryName);
 		// Include all recently used branches, even if they're not in the current branch list
 		// This allows showing branches that weren't fetched due to timeout
 		recentBranches = recentlyUsed;
