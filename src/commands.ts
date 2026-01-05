@@ -1672,38 +1672,51 @@ ${contents}
 				quickPick.busy = false;
 
 				// Handle selection
-				const selected = await new Promise<(vscode.QuickPickItem & { prNumber?: number }) | string | undefined>((resolve) => {
+
+				const selected = await new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
-						if (quickPick.selectedItems.length > 0) {
-							resolve(quickPick.selectedItems[0]);
-						} else if (quickPick.value) {
-							// User typed something but didn't select from list
-							resolve(quickPick.value);
-						} else {
-							// User pressed Enter with no selection and no input
-							resolve(undefined);
+						let selectedString: string | undefined;
+						let selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined;
+
+						if (quickPick.value) {
+							selectedString = quickPick.value;
 						}
+
+						if (quickPick.selectedItems.length > 0) {
+							selectedItem = quickPick.selectedItems[0];
+						}
+
+						resolve({ selectedItem, selectedString });
 					});
-					hideDisposable = quickPick.onDidHide(() => resolve(undefined));
+					hideDisposable = quickPick.onDidHide(() => resolve({ selectedItem: undefined, selectedString: undefined }));
 				});
 
-				if (!selected) {
+				if (!selected.selectedItem && !selected.selectedString) {
 					return;
 				}
 				quickPick.busy = true;
 				let prModel: PullRequestModel | undefined;
 
 				// Check if user selected from the list or typed a custom value
-				if (typeof selected === 'string') {
+				if (selected.selectedString) {
 					// User typed a PR number or URL
-					const parseResult = validateAndParseInput(selected, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
+					const parseResult = validateAndParseInput(selected.selectedString, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
 					if (!parseResult.isValid) {
 						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 					}
+					// The user may have just entered part of a number and meant to select it from the list
+					const selectedItemNumber = selected.selectedItem?.prNumber;
+					if (selectedItemNumber !== undefined) {
+						const parsedDigits = parseResult.prNumber.toString();
+						const selectedDigits = selectedItemNumber.toString();
+						if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
+							parseResult.prNumber = selectedItemNumber;
+						}
+					}
 					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-				} else if (selected.prNumber) {
+				} else if (selected.selectedItem?.prNumber) {
 					// User selected from the list
-					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.prNumber);
+					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.selectedItem.prNumber);
 				}
 
 				if (prModel) {
