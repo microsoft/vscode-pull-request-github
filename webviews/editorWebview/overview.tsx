@@ -52,7 +52,7 @@ export const Overview = (pr: PullRequest) => {
 			}
 
 			const unstuckHeight = title.getBoundingClientRect().height;
-			// title.classList.add('stuck');
+			title.classList.add('stuck');
 			const stuckHeight = title.getBoundingClientRect().height;
 			stickyHeightRef.current = stuckHeight;
 			collapseDeltaRef.current = Math.max(0, unstuckHeight - stuckHeight);
@@ -90,7 +90,7 @@ export const Overview = (pr: PullRequest) => {
 				const rect = title.getBoundingClientRect();
 				// Title is stuck when its top is at position 0 (sticky top: 0)
 				if (rect.top <= STICKY_THRESHOLD) {
-					// title.classList.add('stuck');
+					title.classList.add('stuck');
 				} else {
 					title.classList.remove('stuck');
 				}
