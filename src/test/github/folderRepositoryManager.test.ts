@@ -222,4 +222,12 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.title, 'title');
 		assert.strictEqual(result?.body, 'Wrapped paragraph across lines.\n\n- Item 1\n  - Nested item\n    More nested content\n- Item 2\n\nAnother wrapped paragraph here.');
 	});
+
+	it('handles nested lists', async function () {
+		const message = Promise.resolve('title\n\n* This is a list item with two lines\n  that have a line break between them\n  * This is a nested list item that also has\n    two lines that should have been merged');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '* This is a list item with two lines that have a line break between them\n  * This is a nested list item that also has two lines that should have been merged');
+	});
 });
