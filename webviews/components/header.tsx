@@ -276,10 +276,10 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 					<AuthorLink for={author} /> {!isIssue ? (<>
 						{getActionText(state)} into{' '}
 						{canEdit && state === GithubItemStateEnum.Open ? (
-							<button 
-								title="Change base branch" 
-								onClick={changeBaseBranch} 
-								className="branch-tag-button"
+							<button
+								title="Change base branch"
+								onClick={changeBaseBranch}
+								className="secondary"
 								aria-label="Change base branch"
 							>
 								<code className="branch-tag">{base}</code>

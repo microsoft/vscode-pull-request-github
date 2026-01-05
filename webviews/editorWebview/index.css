@@ -541,35 +541,6 @@ body button .icon {
 	border-radius: 4px;
 }
 
-.branch-tag-button {
-	background-color: var(--vscode-button-secondaryBackground);
-	color: var(--vscode-button-secondaryForeground);
-	border: 1px solid transparent;
-	border-radius: 4px;
-	cursor: pointer;
-	padding: 0;
-	margin-top: 3px;
-	font-family: inherit;
-	font-size: inherit;
-}
-
-.branch-tag-button:hover:enabled {
-	background-color: var(--vscode-button-secondaryHoverBackground);
-}
-
-.branch-tag-button:active {
-	background-color: var(--vscode-button-secondaryHoverBackground);
-}
-
-.branch-tag-button .branch-tag {
-	background: transparent;
-	margin-top: 0;
-}
-
-.merge-branches .icon-button {
-	margin-top: 4px;
-}
-
 .subtitle .created-at {
 	margin-left: auto;
 	white-space: nowrap;
@@ -596,6 +567,12 @@ small-button {
 
 .header-actions>div:first-of-type {
 	flex: 1;
+}
+
+button code.branch-tag {
+	background-color: transparent;
+	padding-right: 0px;
+	padding-left: 0px;
 }
 
 :not(.status-item)>.small-button {
