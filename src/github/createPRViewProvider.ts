@@ -807,12 +807,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
 
 		if (!templates || templates.length === 0) {
-			vscode.window.showInformationMessage(vscode.l10n.t('No pull request templates found'));
-			return this._replyMessage(message, undefined);
-		}
-
-		if (templates.length === 1) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Only one template is available'));
+			vscode.window.showQuickPick([vscode.l10n.t('No pull request templates found')]);
 			return this._replyMessage(message, undefined);
 		}
 
