@@ -15,6 +15,7 @@ import { MergeArguments, PullRequest, ReviewType } from './views';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
@@ -25,7 +26,7 @@ import { ReviewManager } from '../view/reviewManager';
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:activePullRequest';
 	private _existingReviewers: ReviewState[] = [];
-	private _isUpdating: boolean = false;
+	private _updatingPromise: Promise<unknown> | undefined;
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -151,7 +152,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 		this._prDisposables = [];
 		this._prDisposables.push(pullRequestModel.onDidChange(e => {
-			if ((e.state || e.comments || e.reviewers) && !this._isUpdating) {
+			if ((e.state || e.comments || e.reviewers) && !this._updatingPromise) {
 				this.updatePullRequest(pullRequestModel);
 			}
 		}));
@@ -160,10 +161,16 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private _updatePendingVisibility: vscode.Disposable | undefined = undefined;
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
-		if (this._isUpdating) {
-			throw new Error('Already updating pull request view');
+		const isSamePullRequest = pullRequestModel.equals(this._item);
+		if (this._updatingPromise && isSamePullRequest) {
+			Logger.error('Already updating pull request view', PullRequestViewProvider.name);
+			return;
+		} else if (this._updatingPromise && !isSamePullRequest) {
+			this._item = pullRequestModel;
+			await this._updatingPromise;
+		} else {
+			this._item = pullRequestModel;
 		}
-		this._isUpdating = true;
 
 		try {
 			if (this._view && !this._view.visible) {
@@ -178,7 +185,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this.registerPrSpecificListeners(pullRequestModel);
 			}
 			this._item = pullRequestModel;
-			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors] = await Promise.all([
+			const updatingPromise = Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
@@ -195,11 +202,17 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				pullRequestModel.getCoAuthors(),
 				ensureEmojis(this._folderRepositoryManager.context)
 			]);
+			this._updatingPromise = updatingPromise;
+			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors] = await updatingPromise;
 
 			if (!pullRequest) {
 				throw new Error(
 					`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
 				);
+			}
+
+			if (!this._item.equals(pullRequestModel)) {
+				return;
 			}
 
 			this._item = pullRequest;
@@ -292,8 +305,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);
-		} finally {
-			this._isUpdating = false;
 		}
 	}
 
