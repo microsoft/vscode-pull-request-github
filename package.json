@@ -3721,13 +3721,15 @@
 					"group": "context"
 				}
 			],
-			"chat/multiDiff/context": [
+			"chat/input/editing/sessionToolbar": [
 				{
 					"command": "pr.checkoutFromDescription",
+					"group": "navigation@0",
 					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
+					"group": "navigation@1",
 					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
 				}
 			]
