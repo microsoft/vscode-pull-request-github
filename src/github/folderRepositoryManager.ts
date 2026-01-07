@@ -1511,6 +1511,28 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
+	async getPullRequestTemplateCount(owner: string): Promise<number> {
+		try {
+			const repository = this.gitHubRepositories.find(repo => repo.remote.owner === owner);
+			if (!repository) {
+				return 0;
+			}
+			let count = await repository.getPullRequestTemplateCount();
+
+			// If there's no local template, look for owner-wide templates
+			if (count === 0) {
+				const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, '.github');
+				if (githubRepository) {
+					count = await githubRepository.getPullRequestTemplateCount();
+				}
+			}
+			return count;
+		} catch (e) {
+			Logger.error(`Error fetching pull request template count for ${owner}: ${e instanceof Error ? e.message : e}`, this.id);
+			return 0;
+		}
+	}
+
 	private async getPullRequestTemplateWithCache(owner: string): Promise<string | undefined> {
 		const cacheLocation = `${CACHED_TEMPLATE_BODY}+${this.repository.rootUri.toString()}`;
 

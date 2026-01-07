@@ -210,12 +210,13 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
 
-		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
+		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels, templateCount] = await Promise.all([
 			this.getTitleAndDescription(defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
 			defaultOrigin.getViewerPermission(),
 			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
-			this.getPullRequestDefaultLabels(defaultBaseRemote)
+			this.getPullRequestDefaultLabels(defaultBaseRemote),
+			this._folderRepositoryManager.getPullRequestTemplateCount(defaultBaseRemote.owner)
 		]);
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
@@ -279,7 +280,8 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			preReviewState: PreReviewState.None,
 			preReviewer: preReviewer?.title,
 			reviewing: false,
-			usingTemplate
+			usingTemplate,
+			templateCount
 		};
 
 		return params;

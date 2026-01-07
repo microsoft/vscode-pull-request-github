@@ -720,6 +720,14 @@ query PullRequestTemplates($owner: String!, $name: String!) {
 	}
 }
 
+query PullRequestTemplateCount($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		pullRequestTemplates {
+			body
+		}
+	}
+}
+
 fragment PullRequestNumberFragment on PullRequest {
 	number
 	title

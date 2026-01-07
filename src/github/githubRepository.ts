@@ -505,6 +505,27 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
+	async getPullRequestTemplateCount(): Promise<number> {
+		try {
+			Logger.debug('Fetch pull request template count - enter', this.id);
+			const { query, remote, schema } = await this.ensure();
+
+			const result = await query<PullRequestTemplatesResponse>({
+				query: schema.PullRequestTemplateCount,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+				}
+			});
+
+			Logger.debug('Fetch pull request template count - done', this.id);
+			return result.data.repository.pullRequestTemplates?.length ?? 0;
+		} catch (e) {
+			Logger.debug('Failed to fetch pull request template count', this.id);
+			return 0;
+		}
+	}
+
 	private _repoAccessAndMergeMethods: RepoAccessAndMergeMethods | undefined;
 	async getRepoAccessAndMergeMethods(refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
 		try {
