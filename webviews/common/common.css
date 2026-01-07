@@ -74,6 +74,7 @@ input[type='submit']:hover:enabled {
 button.secondary {
 	background-color: var(--vscode-button-secondaryBackground);
 	color: var(--vscode-button-secondaryForeground);
+	border-color: var(--vscode-button-border, transparent);
 }
 
 button.secondary:hover:enabled,
@@ -141,6 +142,7 @@ input[type='checkbox'] {
 body button:disabled,
 input[type='submit']:disabled {
 	opacity: 0.4;
+	border: 1px solid var(--vscode-button-border, transparent) !important;
 }
 
 body .hidden {
@@ -375,6 +377,8 @@ button.split-left {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	display: flex;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-right: none;
 }
 
 .split {
@@ -405,8 +409,9 @@ button.split-right {
 	cursor: pointer;
 	width: 24px;
 	position: relative;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-left: none;
 }
-
 button.split-right:disabled {
 	cursor: default;
 }

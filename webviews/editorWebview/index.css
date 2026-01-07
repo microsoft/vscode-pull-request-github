@@ -543,8 +543,8 @@ body button .icon {
 }
 
 .branch-tag {
-	margin-top: 3px;
-	padding: 2px 4px;
+	margin-top: 0;
+	padding: 4px;
 	background: var(--vscode-editorInlayHint-background);
 	color: var(--vscode-editorInlayHint-foreground);
 	border-radius: 4px;
@@ -582,10 +582,18 @@ small-button {
 button.secondary.change-base {
 	background-color: transparent;
 	padding: unset;
+	border-radius: 4px;
+	margin-top: 2px;
 }
 
 .change-base code {
 	display: flex;
+	align-items: center;
+	padding: 2px 4px;
+}
+
+.change-base .icon {
+	margin-left: 4px;
 }
 
 :not(.status-item)>.small-button {
