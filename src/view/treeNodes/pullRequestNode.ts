@@ -121,7 +121,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 			// Kick off review thread initialization but don't await it.
 			// Events will be fired later that will cause the tree to update when this is ready.
-			this.pullRequestModel.initializeReviewThreadCache();
+			if (!this.pullRequestModel.reviewThreadsCacheReady) {
+				this.pullRequestModel.initializeReviewThreadCache();
+			}
 
 			return result;
 		} catch (e) {
