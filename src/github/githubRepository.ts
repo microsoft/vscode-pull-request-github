@@ -1269,7 +1269,7 @@ export class GitHubRepository extends Disposable {
 		return data.repository?.ref?.target.oid;
 	}
 
-	async listBranches(owner: string, repositoryName: string): Promise<string[]> {
+	async listBranches(owner: string, repositoryName: string, prefix: string | undefined): Promise<string[]> {
 		const { query, remote, schema } = await this.ensure();
 		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, this.id);
 
@@ -1289,6 +1289,7 @@ export class GitHubRepository extends Disposable {
 						name: remote.repositoryName,
 						first: 100,
 						after: after,
+						query: prefix ? prefix : null,
 					},
 				});
 

@@ -26,6 +26,7 @@ import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommo
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
@@ -923,14 +924,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async changeBaseBranch(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { branch?: string }>();
+		let updateCounter = 0;
+		const updateItems = async (prefix: string | undefined) => {
+			const currentUpdate = ++updateCounter;
+			quickPick.busy = true;
+			const items = await branchPicks(this._item.githubRepository, this._folderRepositoryManager, undefined, true, prefix);
+			if (currentUpdate === updateCounter) {
+				quickPick.items = items;
+				quickPick.busy = false;
+			}
+		};
+		const debounced = debounce(updateItems, 300);
+		const onDidChangeValueDisposable = quickPick.onDidChangeValue(async value => {
+			return debounced(value);
+		});
 
 		try {
 			quickPick.busy = true;
 			quickPick.canSelectMany = false;
 			quickPick.placeholder = vscode.l10n.t('Select a new base branch');
 			quickPick.show();
-
-			quickPick.items = await branchPicks(this._item.githubRepository, this._folderRepositoryManager, undefined, true);
+			await updateItems(undefined);
 
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
@@ -961,6 +975,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			vscode.window.showErrorMessage(formatError(e));
 		} finally {
 			quickPick.hide();
+			onDidChangeValueDisposable.dispose();
 			quickPick.dispose();
 		}
 	}
