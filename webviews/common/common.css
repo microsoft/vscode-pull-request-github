@@ -377,9 +377,8 @@ button.split-left {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	display: flex;
-	border-left: 1px solid var(--vscode-button-border, transparent);
-	border-top: 1px solid var(--vscode-button-border, transparent);
-	border-bottom: 1px solid var(--vscode-button-border, transparent);
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-right: none;
 }
 
 .split {
