@@ -917,9 +917,19 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 `;
 
 		try {
-			// Create parent directories if they don't exist
-			const parentDir = vscode.Uri.joinPath(templatePath, '..');
-			await vscode.workspace.fs.createDirectory(parentDir);
+			// Ensure all parent directories exist by creating them step by step
+			const pathParts = selected.label.split('/');
+			let currentPath = workspaceFolder;
+
+			// Create each directory in the path (excluding the file name)
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				currentPath = vscode.Uri.joinPath(currentPath, pathParts[i]);
+				try {
+					await vscode.workspace.fs.createDirectory(currentPath);
+				} catch (e) {
+					// Directory might already exist, which is fine
+				}
+			}
 
 			// Create the template file
 			const encoder = new TextEncoder();
