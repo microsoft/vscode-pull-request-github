@@ -927,7 +927,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				try {
 					await vscode.workspace.fs.createDirectory(currentPath);
 				} catch (e) {
-					// Directory might already exist, which is fine
+					// Re-throw if it's not a FileSystemError about the directory already existing
+					if (e instanceof vscode.FileSystemError && e.code !== 'FileExists') {
+						throw e;
+					}
+					// Directory already exists, which is fine
 				}
 			}
 
