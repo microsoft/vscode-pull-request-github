@@ -807,7 +807,31 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
 
 		if (!templates || templates.length === 0) {
-			vscode.window.showQuickPick([vscode.l10n.t('No pull request templates found')]);
+			// No templates found - show helpful options
+			const learnMore = vscode.l10n.t('Learn More');
+			const createTemplate = vscode.l10n.t('Create Template');
+			const selected = await vscode.window.showQuickPick(
+				[
+					{
+						label: createTemplate,
+						description: vscode.l10n.t('Create a new pull request template')
+					},
+					{
+						label: learnMore,
+						description: vscode.l10n.t('Open GitHub documentation')
+					}
+				],
+				{
+					placeHolder: vscode.l10n.t('No pull request templates found'),
+					ignoreFocusOut: true
+				}
+			);
+
+			if (selected?.label === learnMore) {
+				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository'));
+			} else if (selected?.label === createTemplate) {
+				await this.createPullRequestTemplate();
+			}
 			return this._replyMessage(message, undefined);
 		}
 
@@ -836,6 +860,83 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return this._replyMessage(message, reply);
 		}
 		return this._replyMessage(message, undefined);
+	}
+
+	private async createPullRequestTemplate(): Promise<void> {
+		// Show options for where to create the template
+		const templateLocations = [
+			{
+				label: '.github/pull_request_template.md',
+				description: vscode.l10n.t('Default location for a single template')
+			},
+			{
+				label: 'docs/pull_request_template.md',
+				description: vscode.l10n.t('Alternative location in docs folder')
+			},
+			{
+				label: '.github/PULL_REQUEST_TEMPLATE/template.md',
+				description: vscode.l10n.t('For multiple templates')
+			}
+		];
+
+		const selected = await vscode.window.showQuickPick(templateLocations, {
+			placeHolder: vscode.l10n.t('Choose where to create the pull request template'),
+			ignoreFocusOut: true
+		});
+
+		if (!selected) {
+			return;
+		}
+
+		// Get the repository root
+		const workspaceFolder = this._folderRepositoryManager.repository.rootUri;
+		const templatePath = vscode.Uri.joinPath(workspaceFolder, selected.label);
+
+		// Default template content
+		const templateContent = `## Description
+<!-- Please include a summary of the changes and the related issue. -->
+
+## Type of change
+<!-- Please delete options that are not relevant. -->
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+
+## How Has This Been Tested?
+<!-- Please describe the tests that you ran to verify your changes. -->
+
+## Checklist:
+- [ ] My code follows the style guidelines of this project
+- [ ] I have performed a self-review of my code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or that my feature works
+- [ ] New and existing unit tests pass locally with my changes
+`;
+
+		try {
+			// Create parent directories if they don't exist
+			const parentDir = vscode.Uri.joinPath(templatePath, '..');
+			await vscode.workspace.fs.createDirectory(parentDir);
+
+			// Create the template file
+			const encoder = new TextEncoder();
+			await vscode.workspace.fs.writeFile(templatePath, encoder.encode(templateContent));
+
+			// Open the file for editing
+			const document = await vscode.workspace.openTextDocument(templatePath);
+			await vscode.window.showTextDocument(document);
+
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('Pull request template created at {0}', selected.label)
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Failed to create pull request template: {0}', error instanceof Error ? error.message : String(error))
+			);
+		}
 	}
 
 	protected async detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined> {
