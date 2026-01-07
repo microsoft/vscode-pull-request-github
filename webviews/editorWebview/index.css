@@ -582,10 +582,13 @@ small-button {
 	flex: 1;
 }
 
-button code.branch-tag {
+button.secondary.change-base {
 	background-color: transparent;
-	padding-right: 0px;
-	padding-left: 0px;
+	padding: unset;
+}
+
+.change-base code {
+	display: flex;
 }
 
 :not(.status-item)>.small-button {
