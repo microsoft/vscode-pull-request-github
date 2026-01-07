@@ -139,11 +139,15 @@ export class UriHandler implements vscode.UriHandler {
 	private async _resolvePullRequestFromUri(uri: vscode.Uri): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel } | undefined> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request URI.'));
+			Logger.error('Failed to parse pull request URI.', UriHandler.ID);
 			return;
 		}
 		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo) ?? this._reposManagers.folderManagers[0];
 		const pullRequest = await folderManager.resolvePullRequest(params.owner, params.repo, params.pullRequestNumber);
 		if (!pullRequest) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Pull request {0}/{1}#{2} not found.', params.owner, params.repo, params.pullRequestNumber));
+			Logger.error(`Pull request not found: ${params.owner}/${params.repo}#${params.pullRequestNumber}`, UriHandler.ID);
 			return;
 		}
 		return { folderManager, pullRequest };
