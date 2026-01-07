@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.126.0
+
+### Changes
+
+- A multi-diff editor can be opened for a pull request by URI. For example, `vscode-insiders://github.vscode-pull-request-github/open-pull-request-changes?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460`.
+- There's an option to "Checkout on Codespace" from the pull request description webview.
+- ctrl/cmd + R when the pull request description webview is focused will refresh the webview.
+- You can "Reveal in Explorer" from files in the "Changes in Pull Request" view and the "Pull Requests" views.
+- Commit SHAs in PR file comments will be linkified.
+- Set `"githubPullRequests.pullRequestDescription": "branchName"` to have the pull request title pre-filled with the branch name when creating a new pull request.
+- The command "GitHub Issues: Open Issue on GitHub" can be used when your cursor is in an issue reference (e.g., `#1234`) in a text file to open the issue on GitHub.
+- Set `"githubPullRequests.commentExpandState": "collapsePreexisting"` to have pre-existing comments collapsed by default when opening a pull request description webview, while new comments remain expanded.
+- Choose which PR template to use when creating a new pull request (requires that `"githubPullRequests.pullRequestDescription": "template"` is set).
+
+![Button to change pull request template](./documentation/changelog/0.126.0/change-pr-template.png)
+
+- Metadata from issue templates (e.g., `assignees`, `labels`) is now applied when creating a new issue from a template.
+- Issues created from `TODO` comments are assigned to the current user by default.
+- `"githubPullRequests.createOnPublishBranch"` can be set to `"always"` to always create a pull request when publishing a branch.
+- Open pull requests can be converted to drafts from the pull request description webview.
+
+![Convert to draft](./documentation/changelog/0.126.0/convert-to-draft.png)
+
+- We attempt to unwrap shortened commit lines in the pull request description webview to improve readability.
+- Copilot can generate descriptions for existing pull requests. "Edit" the description then use the sparkle icon to have Copilot generate a description.
+
+![Generate description for an existing pull request](./documentation/changelog/0.126.0/generate-existing-description.png)
+
+- Instead of checking out the default branch when you're done with a PR, you can configure that the PR base branch is checked out with `"githubPullRequests.postDone": "checkoutPullRequestBaseBranch"`.
+- You can change the base branch of a PR from the pull request description webview.
+
+![Change base branch](./documentation/changelog/0.126.0/change-base-branch.png)
+
+- PR branches can be configured to be automatically deleted when the PR is merged from this extension with the setting `"githubPullRequests.deleteBranchAfterMerge": true`.
+- When opening a folder for the first time, existing PR branches will be discovered and added to the "Local Pull Request Branches" view.
+
+### Fixes
+
+- Switch branch quick pick is not showing all branches. https://github.com/microsoft/vscode-pull-request-github/issues/8351
+- Auto-merge options aren't properly updated when base repo changes. https://github.com/microsoft/vscode-pull-request-github/issues/8195
+- Required check item renders strangely. https://github.com/microsoft/vscode-pull-request-github/issues/8176
+- Request review from Copilot. https://github.com/microsoft/vscode-pull-request-github/issues/6830
+- Make clear in which repo a pull request is stored. https://github.com/microsoft/vscode-pull-request-github/issues/6674
+- Show Changes Since Last Review should not consider pending reviews as "Last Review". https://github.com/microsoft/vscode-pull-request-github/issues/6226
+- Extension mistakenly thinks I'm using GH Enterprise with global "url aliasing". https://github.com/microsoft/vscode-pull-request-github/issues/4551
+
 ## 0.124.1
 
 ### Fixes
