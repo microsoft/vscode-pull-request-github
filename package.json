@@ -2083,6 +2083,12 @@
 				"mac": "cmd+r",
 				"command": "pr.refreshDescription",
 				"when": "activeWebviewPanelId == 'PullRequestOverview'"
+			},
+			{
+				"key": "shift+alt+r",
+				"mac": "shift+alt+cmd+r",
+				"command": "pr.revealFileInOS",
+				"when": "focusedView =~ /(pr|prStatus):github/ && listFocus"
 			}
 		],
 		"menus": {

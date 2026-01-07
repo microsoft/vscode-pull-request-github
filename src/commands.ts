@@ -35,6 +35,7 @@ import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_U
 import { OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
+import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { PrsTreeModel } from './view/prsTreeModel';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -135,7 +136,8 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	notificationManager: NotificationsManager,
-	prsTreeModel: PrsTreeModel
+	prsTreeModel: PrsTreeModel,
+	tree: PullRequestsTreeDataProvider
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -233,10 +235,34 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.revealFileInOS', (e: GitFileChangeNode) => {
-			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
+		vscode.commands.registerCommand('pr.revealFileInOS', (e: GitFileChangeNode | InMemFileChangeNode | undefined) => {
+			let fileChangeNode: FileChangeNode | undefined = e;
+			// When invoked from a keybinding, get the selected item from the tree view
+			if (!fileChangeNode) {
+				// First check the prStatus:github tree (checked out PRs)
+				for (const reviewManager of reviewsManager.reviewManagers) {
+					const selection = reviewManager.changesInPrDataProvider.view.selection;
+					const selectedFileChange = selection.find((node): node is GitFileChangeNode => node instanceof GitFileChangeNode);
+					if (selectedFileChange) {
+						fileChangeNode = selectedFileChange;
+						break;
+					}
+				}
+				// Then check the pr:github tree (non-checked out PRs)
+				if (!fileChangeNode) {
+					const prTreeSelection = tree.view.selection;
+					const selectedInMemFileChange = prTreeSelection.find((node): node is InMemFileChangeNode => node instanceof InMemFileChangeNode);
+					if (selectedInMemFileChange) {
+						fileChangeNode = selectedInMemFileChange;
+					}
+				}
+			}
+			if (!fileChangeNode) {
+				return;
+			}
+			const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
 			if (folderManager) {
-				const filePath = vscode.Uri.joinPath(folderManager.repository.rootUri, e.changeModel.fileName);
+				const filePath = vscode.Uri.joinPath(folderManager.repository.rootUri, fileChangeNode.changeModel.fileName);
 				vscode.commands.executeCommand('revealFileInOS', filePath);
 			}
 		}),
