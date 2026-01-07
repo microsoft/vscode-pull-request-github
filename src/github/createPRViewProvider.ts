@@ -829,7 +829,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			);
 
 			if (selected?.label === learnMore) {
-				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository'));
+				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository'));
 			} else if (selected?.label === createTemplate) {
 				await this.createPullRequestTemplate();
 			}
