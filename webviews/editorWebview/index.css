@@ -587,7 +587,6 @@ button.secondary.change-base {
 	padding: unset;
 	border-radius: 4px;
 	margin-top: 2px;
-	/* border: 1px solid var(--vscode-button-border, transparent); */
 }
 
 .change-base code {
