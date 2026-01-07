@@ -482,11 +482,11 @@ function getRecentlyUsedBranches(folderRepoManager: FolderRepositoryManager, own
 	return state.branches[repoKey] || [];
 }
 
-export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
+export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean, prefix: string | undefined): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
 	let branches: (string | Ref)[];
 	if (isBase) {
 		// For the base, we only want to show branches from GitHub.
-		branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+		branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName, prefix);
 	} else {
 		// For the compare, we only want to show local branches.
 		branches = (await folderRepoManager.repository.getBranches({ remote: false })).filter(branch => branch.name);

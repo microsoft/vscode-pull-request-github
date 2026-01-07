@@ -21,6 +21,7 @@ import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch } from '../api/api';
+import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
@@ -967,10 +968,35 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		const branchPlaceholder = isBase ? vscode.l10n.t('Choose a base branch') : vscode.l10n.t('Choose a branch to merge');
 		const repositoryPlaceholder = isBase ? vscode.l10n.t('Choose a base repository') : vscode.l10n.t('Choose a repository to merge from');
 
+		let updateCounter = 0;
+		const updateItems = async (githubRepository: GitHubRepository, prefix: string | undefined) => {
+			const currentUpdate = ++updateCounter;
+			quickPick.busy = true;
+			const items = await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase, prefix);
+			if (currentUpdate === updateCounter) {
+				quickPick.items = items;
+				quickPick.busy = false;
+			}
+		};
+		const debounced = debounce(updateItems, 300);
+		let onDidChangeValueDisposable: vscode.Disposable | undefined;
+		const addValueChangeListener = () => {
+			if (githubRepository && !onDidChangeValueDisposable) {
+				onDidChangeValueDisposable = quickPick.onDidChangeValue(async value => {
+					return debounced(githubRepository!, value);
+				});
+			}
+		};
+		addValueChangeListener();
+
 		quickPick.placeholder = githubRepository ? branchPlaceholder : remotePlaceholder;
 		quickPick.show();
 		quickPick.busy = true;
-		quickPick.items = githubRepository ? await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase) : await this.remotePicks(isBase);
+		if (githubRepository) {
+			await updateItems(githubRepository, undefined);
+		} else {
+			quickPick.items = await this.remotePicks(isBase);
+		}
 		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
 		quickPick.activeItems = activeItem ? [activeItem] : [];
 		quickPick.busy = false;
@@ -989,7 +1015,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					const selectedRemote = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo };
 					quickPick.busy = true;
 					githubRepository = this._folderRepositoryManager.findRepo(repo => repo.remote.owner === selectedRemote.remote.owner && repo.remote.repositoryName === selectedRemote.remote.repositoryName)!;
-					quickPick.items = await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase);
+					await updateItems(githubRepository, undefined);
+					addValueChangeListener();
 					quickPick.placeholder = branchPlaceholder;
 					quickPick.busy = false;
 				} else if (selectedPick.branch && selectedPick.remote) {
@@ -1003,6 +1030,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		if (!result || !githubRepository) {
 			quickPick.hide();
 			quickPick.dispose();
+			onDidChangeValueDisposable?.dispose();
 			return;
 		}
 
@@ -1011,6 +1039,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		quickPick.hide();
 		quickPick.dispose();
+		onDidChangeValueDisposable?.dispose();
 		return this._replyMessage(message, chooseResult);
 	}
 

@@ -945,9 +945,9 @@ query GetBranch($owner: String!, $name: String!, $qualifiedName: String!) {
 	}
 }
 
-query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String) {
+query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
 	repository(owner: $owner, name: $name) {
-		refs(first: $first, after: $after, refPrefix: "refs/heads/") {
+		refs(first: $first, after: $after, refPrefix: "refs/heads/", query: $query) {
 			nodes {
 				name
 			}
