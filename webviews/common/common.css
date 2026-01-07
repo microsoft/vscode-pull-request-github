@@ -409,11 +409,9 @@ button.split-right {
 	cursor: pointer;
 	width: 24px;
 	position: relative;
-	border-right: 1px solid var(--vscode-button-border, transparent);
-	border-top: 1px solid var(--vscode-button-border, transparent);
-	border-bottom: 1px solid var(--vscode-button-border, transparent);
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-left: none;
 }
-
 button.split-right:disabled {
 	cursor: default;
 }
