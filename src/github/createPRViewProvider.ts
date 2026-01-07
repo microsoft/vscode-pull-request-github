@@ -808,7 +808,31 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
 
 		if (!templates || templates.length === 0) {
-			vscode.window.showQuickPick([vscode.l10n.t('No pull request templates found')]);
+			// No templates found - show helpful options
+			const learnMore = vscode.l10n.t('Learn More');
+			const createTemplate = vscode.l10n.t('Create Template');
+			const selected = await vscode.window.showQuickPick(
+				[
+					{
+						label: createTemplate,
+						description: vscode.l10n.t('Create a new pull request template')
+					},
+					{
+						label: learnMore,
+						description: vscode.l10n.t('Open GitHub documentation')
+					}
+				],
+				{
+					placeHolder: vscode.l10n.t('No pull request templates found'),
+					ignoreFocusOut: true
+				}
+			);
+
+			if (selected?.label === learnMore) {
+				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository'));
+			} else if (selected?.label === createTemplate) {
+				await this.createPullRequestTemplate();
+			}
 			return this._replyMessage(message, undefined);
 		}
 
@@ -837,6 +861,81 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return this._replyMessage(message, reply);
 		}
 		return this._replyMessage(message, undefined);
+	}
+
+	private async createPullRequestTemplate(): Promise<void> {
+		// Show options for where to create the template
+		const templateLocations = [
+			{
+				label: '.github/pull_request_template.md',
+				description: vscode.l10n.t('Default location for a single template')
+			},
+			{
+				label: 'docs/pull_request_template.md',
+				description: vscode.l10n.t('Alternative location in docs folder')
+			},
+			{
+				label: '.github/PULL_REQUEST_TEMPLATE/template.md',
+				description: vscode.l10n.t('For multiple templates')
+			}
+		];
+
+		const selected = await vscode.window.showQuickPick(templateLocations, {
+			placeHolder: vscode.l10n.t('Choose where to create the pull request template'),
+			ignoreFocusOut: true
+		});
+
+		if (!selected) {
+			return;
+		}
+
+		// Get the repository root
+		const workspaceFolder = this._folderRepositoryManager.repository.rootUri;
+		const templatePath = vscode.Uri.joinPath(workspaceFolder, selected.label);
+
+		// Default template content
+		const templateContent = `## Sample Pull Request Template Description
+
+This is a sample pull request template. You can customize it to fit your project's needs.
+
+Don't forget to commit your template file to the repository so that it can be used for future pull requests!
+`;
+
+		try {
+			// Ensure all parent directories exist by creating them step by step
+			const pathParts = selected.label.split('/');
+			let currentPath = workspaceFolder;
+
+			// Create each directory in the path (excluding the file name)
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				currentPath = vscode.Uri.joinPath(currentPath, pathParts[i]);
+				try {
+					await vscode.workspace.fs.createDirectory(currentPath);
+				} catch (e) {
+					// Re-throw if it's not a FileSystemError about the directory already existing
+					if (e instanceof vscode.FileSystemError && e.code !== 'FileExists') {
+						throw e;
+					}
+					// Directory already exists, which is fine
+				}
+			}
+
+			// Create the template file
+			const encoder = new TextEncoder();
+			await vscode.workspace.fs.writeFile(templatePath, encoder.encode(templateContent));
+
+			// Open the file for editing
+			const document = await vscode.workspace.openTextDocument(templatePath);
+			await vscode.window.showTextDocument(document);
+
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('Pull request template created at {0}', selected.label)
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Failed to create pull request template: {0}', error instanceof Error ? error.message : String(error))
+			);
+		}
 	}
 
 	protected async detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined> {
