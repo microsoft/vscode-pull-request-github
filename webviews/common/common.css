@@ -74,7 +74,7 @@ input[type='submit']:hover:enabled {
 button.secondary {
 	background-color: var(--vscode-button-secondaryBackground);
 	color: var(--vscode-button-secondaryForeground);
-	border: 1px solid var(--vscode-button-border, transparent);
+	border-color: var(--vscode-button-border, transparent);
 }
 
 button.secondary:hover:enabled,
