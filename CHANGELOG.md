@@ -10,9 +10,9 @@
 - You can "Reveal in Explorer" from files in the "Changes in Pull Request" view and the "Pull Requests" views.
 - Commit SHAs in PR file comments will be linkified.
 - Set `"githubPullRequests.pullRequestDescription": "branchName"` to have the pull request title pre-filled with the branch name when creating a new pull request.
-- The command "GitHub Issues: Open Issue on GitHub" can be used to when your cursor is in an issue reference (e.g., `#1234`) in a text file to open the issue on GitHub.
+- The command "GitHub Issues: Open Issue on GitHub" can be used when your cursor is in an issue reference (e.g., `#1234`) in a text file to open the issue on GitHub.
 - Set `"githubPullRequests.commentExpandState": "collapsePreexisting"` to have pre-existing comments collapsed by default when opening a pull request description webview, while new comments remain expanded.
-- Choose which PR template to use when create a new pull request (requires that )
+- Choose which PR template to use when creating a new pull request (requires that `"githubPullRequests.pullRequestDescription": "template"` is set).
 
 ![Button to change pull request template](./documentation/changelog/0.126.0/change-pr-template.png)
 
