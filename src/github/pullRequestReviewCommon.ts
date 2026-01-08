@@ -471,24 +471,27 @@ export namespace PullRequestReviewCommon {
 		if (deletedBranchTypes.length > 0) {
 			const wasLocalDeleted = deletedBranchTypes.includes('local');
 			const wasRemoteDeleted = deletedBranchTypes.includes('remoteHead') || deletedBranchTypes.includes('remote');
-			const branchName = branchInfo?.branch || item.head?.ref || vscode.l10n.t('branch');
+			const branchName = branchInfo?.branch || item.head?.ref;
 
-			if (wasLocalDeleted && isBranchActive && wasRemoteDeleted) {
-				vscode.window.showInformationMessage(
-					vscode.l10n.t('Deleted local and remote branches for {0} and switched to {1}.', branchName, defaultBranch)
-				);
-			} else if (wasLocalDeleted && isBranchActive) {
-				vscode.window.showInformationMessage(
-					vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
-				);
-			} else if (wasLocalDeleted) {
-				vscode.window.showInformationMessage(
-					vscode.l10n.t('Deleted local branch {0}.', branchName)
-				);
-			} else {
-				vscode.window.showInformationMessage(
-					vscode.l10n.t('Deleted remote branch {0}.', branchName)
-				);
+			// Only show notification if we have a branch name
+			if (branchName) {
+				if (wasLocalDeleted && isBranchActive && wasRemoteDeleted) {
+					vscode.window.showInformationMessage(
+						vscode.l10n.t('Deleted local and remote branches for {0} and switched to {1}.', branchName, defaultBranch)
+					);
+				} else if (wasLocalDeleted && isBranchActive) {
+					vscode.window.showInformationMessage(
+						vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
+					);
+				} else if (wasLocalDeleted) {
+					vscode.window.showInformationMessage(
+						vscode.l10n.t('Deleted local branch {0}.', branchName)
+					);
+				} else {
+					vscode.window.showInformationMessage(
+						vscode.l10n.t('Deleted remote branch {0}.', branchName)
+					);
+				}
 			}
 		}
 	}
