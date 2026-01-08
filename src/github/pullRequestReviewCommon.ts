@@ -467,9 +467,14 @@ export namespace PullRequestReviewCommon {
 		// Show notification to the user about what was deleted
 		if (deletedBranchTypes.length > 0) {
 			const wasLocalDeleted = deletedBranchTypes.includes('local');
+			const wasRemoteDeleted = deletedBranchTypes.includes('remoteHead') || deletedBranchTypes.includes('remote');
 			const branchName = branchInfo?.branch || item.head?.ref || vscode.l10n.t('branch');
 
-			if (wasLocalDeleted) {
+			if (wasLocalDeleted && wasRemoteDeleted) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('Deleted local and remote branches for {0} and switched to {1}.', branchName, defaultBranch)
+				);
+			} else if (wasLocalDeleted) {
 				vscode.window.showInformationMessage(
 					vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
 				);
