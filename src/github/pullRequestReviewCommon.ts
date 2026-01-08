@@ -462,6 +462,22 @@ export namespace PullRequestReviewCommon {
 		}
 
 		// Execute all deletions in parallel
-		await performBranchDeletion(folderRepositoryManager, item, defaultBranch, branchInfo!, selectedActions);
+		const deletedBranchTypes = await performBranchDeletion(folderRepositoryManager, item, defaultBranch, branchInfo!, selectedActions);
+
+		// Show notification to the user about what was deleted
+		if (deletedBranchTypes.length > 0) {
+			const wasLocalDeleted = deletedBranchTypes.includes('local');
+			const branchName = branchInfo?.branch || item.head?.ref || vscode.l10n.t('branch');
+
+			if (wasLocalDeleted) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
+				);
+			} else {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('Deleted remote branch {0}.', branchName)
+				);
+			}
+		}
 	}
 }
