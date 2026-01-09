@@ -474,11 +474,11 @@ export namespace PullRequestReviewCommon {
 			if (branchName) {
 				if (wasLocalDeleted && wasRemoteDeleted) {
 					vscode.window.showInformationMessage(
-						vscode.l10n.t('Deleted local and remote branches for {0} and switched to {1}.', branchName, defaultBranch)
+						vscode.l10n.t('Deleted local and remote branches for {0}.', branchName)
 					);
 				} else if (wasLocalDeleted) {
 					vscode.window.showInformationMessage(
-						vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
+						vscode.l10n.t('Deleted local branch {0}.', branchName)
 					);
 				} else {
 					vscode.window.showInformationMessage(
