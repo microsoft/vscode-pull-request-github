@@ -432,9 +432,6 @@ export namespace PullRequestReviewCommon {
 		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
 		const defaultBranch = await folderRepositoryManager.getPullRequestRepositoryDefaultBranch(item);
 
-		// Check if the branch is currently active before deletion
-		const isBranchActive = item.equals(folderRepositoryManager.activePullRequest) || (folderRepositoryManager.repository.state.HEAD?.name && folderRepositoryManager.repository.state.HEAD.name === branchInfo?.branch);
-
 		// Get user preferences for automatic deletion
 		const deleteLocalBranch = vscode.workspace
 			.getConfiguration(PR_SETTINGS_NAMESPACE)
@@ -475,17 +472,13 @@ export namespace PullRequestReviewCommon {
 
 			// Only show notification if we have a branch name
 			if (branchName) {
-				if (wasLocalDeleted && isBranchActive && wasRemoteDeleted) {
+				if (wasLocalDeleted && wasRemoteDeleted) {
 					vscode.window.showInformationMessage(
 						vscode.l10n.t('Deleted local and remote branches for {0} and switched to {1}.', branchName, defaultBranch)
 					);
-				} else if (wasLocalDeleted && isBranchActive) {
-					vscode.window.showInformationMessage(
-						vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
-					);
 				} else if (wasLocalDeleted) {
 					vscode.window.showInformationMessage(
-						vscode.l10n.t('Deleted local branch {0}.', branchName)
+						vscode.l10n.t('Deleted local branch {0} and switched to {1}.', branchName, defaultBranch)
 					);
 				} else {
 					vscode.window.showInformationMessage(
