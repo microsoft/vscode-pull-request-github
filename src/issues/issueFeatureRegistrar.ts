@@ -1698,10 +1698,7 @@ ${options?.body ?? ''}\n
 			title: vscode.l10n.t('Delegating \'{0}\' to coding agent', truncate(todoText, 20))
 		}, async (_progress) => {
 			try {
-				await this.copilotRemoteAgentManager.commandImpl({
-					userPrompt: prompt,
-					source: 'todo'
-				});
+				// TODO: @osortega, how can I call into Copilot Chat's coding agent here?
 			} catch (error) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Failed to start coding agent session: {0}', error.message));
 			}

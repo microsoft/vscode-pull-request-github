@@ -15,7 +15,7 @@
 		"chatContextProvider",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider@3",
+		"chatSessionsProvider",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -86,28 +86,6 @@
 				"id": "githubissue",
 				"icon": "$(issues)",
 				"displayName": "GitHub Issues"
-			}
-		],
-		"chatSessions": [
-			{
-				"type": "copilot-swe-agent",
-				"name": "copilot",
-				"displayName": "GitHub Copilot coding agent",
-				"description": "Delegate tasks to the GitHub Copilot coding agent. The agent works asynchronously to implement changes, iterates via chat, and can create or update pull requests as needed.",
-				"when": "config.chat.agentSessionsViewLocation && config.chat.agentSessionsViewLocation != 'disabled' && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled",
-				"capabilities": {
-					"supportsFileAttachments": true
-				}
-			}
-		],
-		"remoteCodingAgents": [
-			{
-				"id": "githubCodingAgent",
-				"command": "githubpr.remoteAgent",
-				"displayName": "GitHub Copilot coding agent",
-				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
-				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
-				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable && config.github.copilot.chat.advanced.copilotCodingAgentV0.enabled"
 			}
 		],
 		"chatParticipants": [
@@ -971,11 +949,6 @@
 			]
 		},
 		"commands": [
-			{
-				"command": "githubpr.remoteAgent",
-				"title": "%command.githubpr.remoteAgent.title%",
-				"enablement": "config.githubPullRequests.codingAgent.enabled"
-			},
 			{
 				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
@@ -1889,36 +1862,8 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "pr.refreshChatSessions",
-				"title": "%command.pr.refreshChatSessions.title%",
-				"icon": "$(refresh)",
-				"category": "%command.pull.request.category%"
-			},
-			{
-				"command": "pr.preferredCodingAgentGitHubRemote",
-				"title": "%command.pr.preferredCodingAgentGitHubRemote.title%",
-				"icon": "$(gear)",
-				"enablement": "github:hasMultipleGitHubRemotes",
-				"category": "%command.pull.request.category%"
-			},
-			{
-				"command": "pr.resetCodingAgentPreferences",
-				"title": "%command.pr.resetCodingAgentPreferences.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
 				"command": "pr.checkoutChatSessionPullRequest",
 				"title": "%command.pr.checkoutChatSessionPullRequest.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
-				"command": "pr.closeChatSessionPullRequest",
-				"title": "%command.pr.closeChatSessionPullRequest.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
-				"command": "pr.cancelCodingAgent",
-				"title": "%command.pr.cancelCodingAgent.title%",
 				"category": "%command.pull.request.category%"
 			}
 		],
@@ -2027,31 +1972,6 @@
 				"view": "notifications:github",
 				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == -1",
 				"contents": "%welcome.github.notifications.contents%"
-			},
-			{
-				"view": "workbench.view.chat.sessions.copilot-swe-agent",
-				"when": "workspaceFolderCount == 0",
-				"contents": "%welcome.pr.github.noFolder.contents%"
-			},
-			{
-				"view": "workbench.view.chat.sessions.copilot-swe-agent",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0",
-				"contents": "%welcome.pr.github.noRepo.contents%"
-			},
-			{
-				"view": "workbench.view.chat.sessions.copilot-swe-agent",
-				"when": "git.state == initialized && workspaceFolderCount > 0 && (git.parentRepositoryCount > 0 || gitOpenRepositoryCount > 0) && !github:hasGitHubRemotes",
-				"contents": "%welcome.chat.sessions.copilot-swe-agent.noGitHub.contents%"
-			},
-			{
-				"view": "workbench.view.chat.sessions.copilot-swe-agent",
-				"when": "ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes",
-				"contents": "%welcome.chat.sessions.copilot-swe-agent.login.contents%"
-			},
-			{
-				"view": "workbench.view.chat.sessions.copilot-swe-agent",
-				"when": "ReposManagerStateContext != NeedsAuthentication && github:hasGitHubRemotes",
-				"contents": "%welcome.chat.sessions.copilot-swe-agent.startSession.contents%"
 			}
 		],
 		"keybindings": [
@@ -2095,10 +2015,6 @@
 			"commandPalette": [
 				{
 					"command": "github.api.preloadPullRequest",
-					"when": "false"
-				},
-				{
-					"command": "githubpr.remoteAgent",
 					"when": "false"
 				},
 				{
@@ -2740,18 +2656,6 @@
 				{
 					"command": "review.copyPrLink",
 					"when": "github:inReviewMode"
-				},
-				{
-					"command": "pr.preferredCodingAgentGitHubRemote",
-					"when": "false"
-				},
-				{
-					"command": "pr.closeChatSessionPullRequest",
-					"when": "false"
-				},
-				{
-					"command": "pr.cancelCodingAgent",
-					"when": "false"
 				}
 			],
 			"view/title": [
@@ -2904,16 +2808,6 @@
 					"command": "notifications.refresh",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
 					"group": "navigation@1"
-				},
-				{
-					"command": "pr.refreshChatSessions",
-					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
-					"group": "navigation@1"
-				},
-				{
-					"command": "pr.preferredCodingAgentGitHubRemote",
-					"when": "github:hasMultipleGitHubRemotes && view == workbench.view.chat.sessions.copilot-swe-agent",
-					"group": "overflow@1"
 				}
 			],
 			"view/item/context": [
@@ -3708,22 +3602,12 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-cloud-agent",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent || chatSessionType == copilot-cloud-agent",
-					"group": "context"
-				},
-				{
-					"command": "pr.closeChatSessionPullRequest",
-					"when": "chatSessionType == copilot-swe-agent",
-					"group": "context"
-				},
-				{
-					"command": "pr.cancelCodingAgent",
-					"when": "chatSessionType == copilot-swe-agent",
+					"when": "chatSessionType == copilot-cloud-agent",
 					"group": "context"
 				}
 			],
@@ -4545,7 +4429,6 @@
 		"fast-deep-equal": "^3.1.3",
 		"js-yaml": "^4.1.1",
 		"jsonc-parser": "^3.3.1",
-		"jszip": "^3.10.1",
 		"lru-cache": "6.0.0",
 		"markdown-it": "^14.1.0",
 		"marked": "^4.0.10",

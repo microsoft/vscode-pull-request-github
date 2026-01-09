@@ -64,7 +64,7 @@ export class ReviewsManager extends Disposable {
 				}
 
 				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._prsTreeModel, this._telemetry, this._context, this._reposManager, this._copilotManager));
+				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._prsTreeModel, this._telemetry, this._context, this._reposManager));
 				this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._notificationsManager);
 			}
 		}));

@@ -15,7 +15,6 @@ import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../co
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PullRequestChangeEvent } from '../github/githubRepository';
 import { PRType } from '../github/interface';
@@ -52,7 +51,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return this._view;
 	}
 
-	constructor(public readonly prsTreeModel: PrsTreeModel, private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
+	constructor(public readonly prsTreeModel: PrsTreeModel, private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
 		super();
 		this._register(this.prsTreeModel.onDidChangeData(e => {
 			if (e instanceof FolderRepositoryManager) {
@@ -97,16 +96,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			}
 		});
 
-		this._register(this._copilotManager.onDidChangeStates(() => {
+		this._register(this.prsTreeModel.onDidChangeCopilotStates(() => {
 			this.refreshAllQueryResults();
 		}));
 
-		this._register(this._copilotManager.onDidChangeNotifications(() => {
+		this._register(this.prsTreeModel.onDidChangeCopilotNotifications(() => {
 			this.updateBadge();
 		}));
 		this.updateBadge();
-
-		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refreshAllQueryResults(true)));
 
 		// Listen for PR overview panel changes to sync the tree view
 		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
@@ -348,7 +345,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._notificationsProvider.onDidChangeNotifications(() => {
 			this.updateBadge();
 		}));
-		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager, this._notificationsProvider));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._notificationsProvider));
 
 		this.initializeCategories();
 		this.refreshAll();
@@ -566,7 +563,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					this._notificationsProvider!,
 					this._context,
 					this.prsTreeModel,
-					this._copilotManager,
 				);
 			} else {
 				result = gitHubFolderManagers.map(
@@ -578,8 +574,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 							this._telemetry,
 							this._notificationsProvider!,
 							this._context,
-							this.prsTreeModel,
-							this._copilotManager
+							this.prsTreeModel
 						),
 				);
 			}

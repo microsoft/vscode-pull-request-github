@@ -10,7 +10,6 @@ import { Protocol } from '../common/protocol';
 import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { EventType } from '../common/timelineEvent';
 import { createPRNodeUri, fromPRNodeUri, fromQueryUri, parsePRNodeIdentifier, PRNodeUriParams, Schemes, toQueryUri } from '../common/uri';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { NotificationsManager } from '../notifications/notificationsManager';
@@ -22,7 +21,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	>();
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
-	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotManager: CopilotRemoteAgentManager, private readonly _notificationProvider: NotificationsManager) {
+	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _notificationProvider: NotificationsManager) {
 		super();
 		this._register(vscode.window.registerFileDecorationProvider(this));
 		this._register(
@@ -31,7 +30,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 			})
 		);
 
-		this._register(this._copilotManager.onDidChangeNotifications(items => {
+		this._register(this._prsTreeModel.onDidChangeCopilotNotifications(items => {
 			const repoItems = new Set<string>();
 			const uris: vscode.Uri[] = [];
 			for (const item of items) {

@@ -20,7 +20,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GitHubRemote, Remote } from '../../common/remote';
+import { GitHubRemote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
@@ -32,9 +32,7 @@ import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
-import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 import { PrsTreeModel } from '../../view/prsTreeModel';
 
 describe('GitHub Pull Requests view', function () {
@@ -45,9 +43,7 @@ describe('GitHub Pull Requests view', function () {
 	let credentialStore: CredentialStore;
 	let reposManager: RepositoriesManager;
 	let createPrHelper: CreatePullRequestHelper;
-	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
-	let gitAPI: GitApiImpl;
 	let mockNotificationsManager: MockNotificationManager;
 	let prsTreeModel: PrsTreeModel;
 
@@ -65,9 +61,7 @@ describe('GitHub Pull Requests view', function () {
 		);
 		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
 		credentialStore = new CredentialStore(telemetry, context);
-		gitAPI = new GitApiImpl(reposManager);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitAPI, prsTreeModel);
-		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager, copilotManager);
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
 

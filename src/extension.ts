@@ -10,7 +10,6 @@ import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
-import { COPILOT_SWE_AGENT } from './common/copilot';
 import { commands } from './common/executeCommands';
 import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
@@ -289,7 +288,7 @@ async function init(
 	// Resume any pending checkout request stored before workspace reopened.
 	await resumePendingCheckout(reviewsManager, context, reposManager);
 
-	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry, prsTreeModel);
+	initChat(context, credentialStore, reposManager);
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
@@ -300,11 +299,11 @@ async function init(
 	telemetry.sendTelemetryEvent('startup');
 }
 
-function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager, telemetry: ExperimentationTelemetry, prsTreeModel: PrsTreeModel) {
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager) {
 	const createParticipant = () => {
 		const chatParticipantState = new ChatParticipantState();
 		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager, telemetry, prsTreeModel);
+		registerTools(context, credentialStore, reposManager, chatParticipantState);
 	};
 
 	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
@@ -459,40 +458,10 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	Logger.debug('Creating tree view.', 'Activation');
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, apiImpl, prsTreeModel);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, prsTreeModel);
 	context.subscriptions.push(copilotRemoteAgentManager);
-	if (vscode.chat?.registerChatSessionItemProvider) {
-		const chatParticipant = vscode.chat.createChatParticipant(COPILOT_SWE_AGENT, async (request, context, stream, token) =>
-			await copilotRemoteAgentManager.chatParticipantImpl(request, context, stream, token)
-		);
-		context.subscriptions.push(chatParticipant);
 
-		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
-			label = vscode.l10n.t('GitHub Copilot Coding Agent');
-			async provideChatSessionItems(token: vscode.CancellationToken) {
-				return await copilotRemoteAgentManager.provideChatSessions(token);
-			}
-			async provideChatSessionContent(resource: vscode.Uri, token: vscode.CancellationToken) {
-				return await copilotRemoteAgentManager.provideChatSessionContent(resource, token);
-			}
-			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
-			onDidCommitChatSessionItem = copilotRemoteAgentManager.onDidCommitChatSession;
-		}();
-
-		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
-			COPILOT_SWE_AGENT,
-			provider
-		));
-
-		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
-			COPILOT_SWE_AGENT,
-			provider,
-			chatParticipant,
-			{ supportsInterruptions: true }
-		));
-	}
-
-	const prTree = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager, copilotRemoteAgentManager);
+	const prTree = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refreshAll(true)));
 	Logger.appendLine('Looking for git repository', ACTIVATION);

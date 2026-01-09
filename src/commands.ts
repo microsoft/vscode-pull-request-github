@@ -18,8 +18,7 @@ import { SessionLinkInfo } from './common/timelineEvent';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
-import { ICopilotRemoteAgentCommandArgs } from './github/common';
-import { ChatSessionWithPR, CrossChatSessionWithPR } from './github/copilotApi';
+import { CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
@@ -117,11 +116,6 @@ export async function closeAllPrAndReviewEditors() {
 			await tabs.close(tab);
 		}
 	}
-}
-
-function isChatSessionWithPR(value: any): value is ChatSessionWithPR {
-	const asChatSessionWithPR = value as Partial<ChatSessionWithPR>;
-	return !!asChatSessionWithPR.pullRequest;
 }
 
 function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
@@ -646,7 +640,7 @@ export function registerCommands(
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | ChatSessionWithPR | { path: string } | undefined) => {
+		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | CrossChatSessionWithPR | { path: string } | undefined) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -659,8 +653,6 @@ export function registerCommands(
 				pullRequestModel = pr.pullRequestModel;
 			} else if (pr instanceof PullRequestModel) {
 				pullRequestModel = pr;
-			} else if (isChatSessionWithPR(pr)) {
-				pullRequestModel = pr.pullRequest;
 			} else if (isCrossChatSessionWithPR(pr)) {
 				const resolved = await resolvePr({
 					owner: pr.pullRequestDetails.repository.owner.login,
@@ -903,7 +895,7 @@ export function registerCommands(
 		}),
 	);
 
-	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | ChatSessionWithPR | undefined) {
+	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | CrossChatSessionWithPR | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -920,8 +912,13 @@ export function registerCommands(
 				issueModel = argument.pullRequestModel;
 			} else if (argument instanceof PRNode) {
 				issueModel = argument.pullRequestModel;
-			} else if (isChatSessionWithPR(argument)) {
-				issueModel = argument.pullRequest;
+			} else if (isCrossChatSessionWithPR(argument)) {
+				issueModel = (await resolvePr({
+					owner: argument.pullRequestDetails.repository.owner.login,
+					repo: argument.pullRequestDetails.repository.name,
+					number: argument.pullRequestDetails.number,
+					preventDefaultContextMenuItems: true,
+				}))?.pr;
 			} else {
 				issueModel = argument;
 			}
@@ -951,8 +948,8 @@ export function registerCommands(
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode));
 	}
 
-	async function checkoutChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
-		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
+	async function checkoutChatSessionPullRequest(argument: CrossChatSessionWithPR) {
+		const pr = await resolvePr({
 			owner: argument.pullRequestDetails.repository.owner.login,
 			repo: argument.pullRequestDetails.repository.name,
 			number: argument.pullRequestDetails.number,
@@ -973,55 +970,10 @@ export function registerCommands(
 		return reviewsManager.switchToPr(folderManager, pr, folderManager.repository, false);
 	}
 
-	async function closeChatSessionPullRequest(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
-		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
-			owner: argument.pullRequestDetails.repository.owner.login,
-			repo: argument.pullRequestDetails.repository.name,
-			number: argument.pullRequestDetails.number,
-			preventDefaultContextMenuItems: true,
-		}).then(resolved => resolved?.pr);
-		if (!pr) {
-			Logger.warn(`No pull request found in chat session`, logId);
-			return;
-		}
-		await pr.close();
-		copilotRemoteAgentManager.refreshChatSessions();
-	}
-
-	async function cancelCodingAgent(argument: ChatSessionWithPR | CrossChatSessionWithPR) {
-		const pr = isChatSessionWithPR(argument) ? argument.pullRequest : await resolvePr({
-			owner: argument.pullRequestDetails.repository.owner.login,
-			repo: argument.pullRequestDetails.repository.name,
-			number: argument.pullRequestDetails.number,
-			preventDefaultContextMenuItems: true,
-		}).then(resolved => resolved?.pr);
-		if (!pr) {
-			Logger.warn(`No pull request found in chat session`, logId);
-			return;
-		}
-
-		copilotRemoteAgentManager.cancelMostRecentChatSession(pr);
-		// TODO: show a progress icon until the cancelation is finished
-	}
-
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.checkoutChatSessionPullRequest',
 			checkoutChatSessionPullRequest
-		)
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'pr.closeChatSessionPullRequest',
-			closeChatSessionPullRequest
-		)
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'pr.cancelCodingAgent',
-			cancelCodingAgent
 		)
 	);
 
@@ -1800,9 +1752,6 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('githubpr.remoteAgent', async (args: ICopilotRemoteAgentCommandArgs) => await copilotRemoteAgentManager.commandImpl(args))
-	);
-	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
 			/* __GDPR__
 				"pr.applySuggestionWithCopilot" : {}
@@ -1996,24 +1945,6 @@ ${contents}
 			if (pr) {
 				return vscode.env.clipboard.writeText(pr.html_url);
 			}
-		})
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.refreshChatSessions', async () => {
-			copilotRemoteAgentManager.refreshChatSessions();
-		})
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.preferredCodingAgentGitHubRemote', async () => {
-			await copilotRemoteAgentManager.promptAndUpdatePreferredGitHubRemote();
-		})
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resetCodingAgentPreferences', async () => {
-			await copilotRemoteAgentManager.resetCodingAgentPreferences();
 		})
 	);
 }
