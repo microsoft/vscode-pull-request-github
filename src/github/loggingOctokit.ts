@@ -164,17 +164,27 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 	};
 
 	try {
-		// Use three-dot syntax when excluding merge commits to show only changes unique to the head branch
-		// since it diverged from the base. This naturally excludes changes from merge commits.
-		// Two-dot syntax (default) shows all changes between base and head, including merge commits.
-		const dotSeparator = excludeMergeCommits ? '...' : '..';
-		const basehead = `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}${dotSeparator}${head.repositoryCloneUrl.owner}:${head.sha}`;
-
-		const { data } = await octokit.call(octokit.api.repos.compareCommitsWithBasehead, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			basehead,
-		});
+		let data: any;
+		if (excludeMergeCommits) {
+			// Use three-dot syntax to show only changes unique to the head branch since it diverged from the base.
+			// This naturally excludes changes from merge commits.
+			const basehead = `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}...${head.repositoryCloneUrl.owner}:${head.sha}`;
+			const response = await octokit.call(octokit.api.repos.compareCommitsWithBasehead, {
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				basehead,
+			});
+			data = response.data;
+		} else {
+			// Use the default comparison (equivalent to two-dot) which shows all changes between base and head.
+			const response = await octokit.call(octokit.api.repos.compareCommits, {
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+				head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
+			});
+			data = response.data;
+		}
 		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
 
 		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
@@ -196,5 +206,5 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 			throw e;
 		}
 	}
-	return { mergeBaseSha, files };
+	return { mergeBaseSha: mergeBaseSha!, files: files! };
 }
