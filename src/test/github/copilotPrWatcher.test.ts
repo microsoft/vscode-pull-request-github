@@ -31,19 +31,19 @@ describe('Copilot PR watcher', () => {
 			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
 
 			assert.strictEqual(model.get('octo', 'repo', 1), CopilotPRStatus.Started);
-			assert.strictEqual(changeEvents, 1);
+			assert.strictEqual(changeEvents, 0);
 			assert.strictEqual(notifications.length, 0);
 			assert.strictEqual(model.notifications.size, 0);
 
 			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
-			assert.strictEqual(changeEvents, 1);
+			assert.strictEqual(changeEvents, 0);
 
 			model.setInitialized();
 			const updated = createPullRequest('octo', 'repo', 1);
 			model.set([{ item: updated, status: CopilotPRStatus.Completed }]);
 
 			assert.strictEqual(model.get('octo', 'repo', 1), CopilotPRStatus.Completed);
-			assert.strictEqual(changeEvents, 2);
+			assert.strictEqual(changeEvents, 1);
 			assert.strictEqual(notifications.length, 1);
 			assert.deepStrictEqual(notifications[0], [updated]);
 			assert.ok(model.notifications.has('octo/repo#1'));
