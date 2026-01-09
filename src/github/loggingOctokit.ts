@@ -166,8 +166,9 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 	try {
 		// Use three-dot syntax when excluding merge commits to show only changes unique to the head branch
 		// since it diverged from the base. This naturally excludes changes from merge commits.
-		const separator = excludeMergeCommits ? '...' : '..';
-		const basehead = `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}${separator}${head.repositoryCloneUrl.owner}:${head.sha}`;
+		// Two-dot syntax (default) shows all changes between base and head, including merge commits.
+		const dotSeparator = excludeMergeCommits ? '...' : '..';
+		const basehead = `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}${dotSeparator}${head.repositoryCloneUrl.owner}:${head.sha}`;
 
 		const { data } = await octokit.call(octokit.api.repos.compareCommitsWithBasehead, {
 			repo: remote.repositoryName,
