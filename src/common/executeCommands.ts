@@ -20,6 +20,7 @@ export namespace contexts {
 	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion'; // Boolean indicating if the active comment has a suggestion
 	export const CREATING = 'pr:creating';
 	export const NOTIFICATION_COUNT = 'github:notificationCount'; // Number of notifications in the notifications view
+	export const ACTIVATED = 'github.vscode-pull-request-github.activated'; // Boolean indicating if the extension has been activated
 }
 
 export namespace commands {
