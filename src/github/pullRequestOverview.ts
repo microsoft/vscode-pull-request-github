@@ -58,7 +58,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _assignableUsers: { [key: string]: IAccount[] } = {};
 
 	private _prListeners: vscode.Disposable[] = [];
-	private _isUpdating: boolean = false;
+	private _updatingPromise: Promise<unknown> | undefined;
 
 	public static override async createOrShow(
 		telemetry: ITelemetry,
@@ -173,7 +173,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChange(e => {
-				if ((e.state || e.comments) && !this._isUpdating) {
+				if ((e.state || e.comments) && !this._updatingPromise) {
 					this.refreshPanel();
 				}
 			}));
@@ -236,32 +236,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
-		this._item = pullRequestModel;
-
-		if (this._isUpdating) {
-			throw new Error('Already updating pull request webview');
+		const isSamePullRequest = pullRequestModel.equals(this._item);
+		if (this._updatingPromise && isSamePullRequest) {
+			Logger.error('Already updating pull request webview', PullRequestOverviewPanel.ID);
+			return;
+		} else if (this._updatingPromise && !isSamePullRequest) {
+			this._item = pullRequestModel;
+			await this._updatingPromise;
+		} else {
+			this._item = pullRequestModel;
 		}
-		this._isUpdating = true;
+
 		try {
-			const [
-				pullRequest,
-				timelineEvents,
-				defaultBranch,
-				status,
-				requestedReviewers,
-				repositoryAccess,
-				branchInfo,
-				currentUser,
-				viewerCanEdit,
-				orgTeamsCount,
-				mergeQueueMethod,
-				isBranchUpToDateWithBase,
-				mergeability,
-				emailForCommit,
-				coAuthors,
-				hasReviewDraft,
-				assignableUsers
-			] = await Promise.all([
+			const updatingPromise = Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
@@ -284,10 +271,37 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				pullRequestModel.validateDraftMode(),
 				this._folderRepositoryManager.getAssignableUsers()
 			]);
+			this._updatingPromise = updatingPromise;
+
+			const [
+				pullRequest,
+				timelineEvents,
+				defaultBranch,
+				status,
+				requestedReviewers,
+				repositoryAccess,
+				branchInfo,
+				currentUser,
+				viewerCanEdit,
+				orgTeamsCount,
+				mergeQueueMethod,
+				isBranchUpToDateWithBase,
+				mergeability,
+				emailForCommit,
+				coAuthors,
+				hasReviewDraft,
+				assignableUsers
+			] = await updatingPromise;
+			this._updatingPromise = undefined;
 			if (!pullRequest) {
 				throw new Error(
 					`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
 				);
+			}
+
+			if (!this._item.equals(pullRequestModel)) {
+				// Updated PR is no longer the current one
+				return;
 			}
 
 			this._item = pullRequest;
@@ -362,8 +376,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
-		} finally {
-			this._isUpdating = false;
 		}
 	}
 
