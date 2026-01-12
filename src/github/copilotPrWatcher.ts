@@ -69,6 +69,9 @@ export class CopilotStateModel extends Disposable {
 				continue;
 			}
 			this._states.set(key, { item, status });
+			if (status === CopilotPRStatus.Started) {
+				continue;
+			}
 			changedModels.push(item);
 			changedKeys.push(key);
 		}
