@@ -3731,12 +3731,12 @@
 				{
 					"command": "pr.checkoutFromDescription",
 					"group": "navigation@0",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
 					"group": "navigation@1",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
 				}
 			]
 		},
