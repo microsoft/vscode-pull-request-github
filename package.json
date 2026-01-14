@@ -636,11 +636,6 @@
 					],
 					"description": "%githubIssues.createIssueTriggers.description%"
 				},
-				"githubPullRequests.codingAgent.codeLens": {
-					"type": "boolean",
-					"default": true,
-					"description": "%githubPullRequests.codingAgent.codeLens.description%"
-				},
 				"githubIssues.createInsertFormat": {
 					"type": "string",
 					"enum": [
