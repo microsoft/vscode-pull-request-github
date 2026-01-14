@@ -11,7 +11,6 @@ import { ITelemetry } from '../../common/telemetry';
 import { toQueryUri } from '../../common/uri';
 import { formatError } from '../../common/utils';
 import { isCopilotQuery } from '../../github/copilotPrWatcher';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -144,7 +143,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		public readonly type: PRType,
 		private _notificationProvider: NotificationsManager,
 		private _prsTreeModel: PrsTreeModel,
-		private _copilotManager: CopilotRemoteAgentManager,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {

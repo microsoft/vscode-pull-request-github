@@ -20,7 +20,7 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
-import { GitHubRemote, Remote } from '../../common/remote';
+import { GitHubRemote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
@@ -37,7 +37,6 @@ import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
 import { AccountType } from '../../github/interface';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { asPromise } from '../../common/utils';
 import { PrsTreeModel } from '../../view/prsTreeModel';
@@ -65,7 +64,6 @@ describe('ReviewCommentController', function () {
 	let reviewManager: ReviewManager;
 	let reposManager: RepositoriesManager;
 	let gitApiImpl: GitApiImpl;
-	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
 	let mockPrsTreeModel: PrsTreeModel;
 
@@ -83,8 +81,7 @@ describe('ReviewCommentController', function () {
 		reposManager = new RepositoriesManager(credentialStore, telemetry);
 		gitApiImpl = new GitApiImpl(reposManager);
 		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, gitApiImpl, mockPrsTreeModel);
-		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager, copilotManager);
+		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper, mockThemeWatcher);

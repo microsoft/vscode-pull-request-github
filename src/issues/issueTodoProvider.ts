@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { isComment, MAX_LINE_LENGTH } from './util';
-import { CODING_AGENT, CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE, SHOW_CODE_LENS } from '../common/settingKeys';
+import { MAX_LINE_LENGTH } from './util';
+import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { escapeRegExp } from '../common/utils';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 
-export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.CodeLensProvider {
+export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
 
 	constructor(
@@ -96,44 +96,5 @@ export class IssueTodoProvider implements vscode.CodeActionProvider, vscode.Code
 			lineNumber++;
 		} while (range.end.line >= lineNumber);
 		return codeActions;
-	}
-
-	async provideCodeLenses(
-		document: vscode.TextDocument,
-		_token: vscode.CancellationToken,
-	): Promise<vscode.CodeLens[]> {
-		if (this.expression === undefined) {
-			return [];
-		}
-
-		// Check if CodeLens is enabled
-		const isCodeLensEnabled = vscode.workspace.getConfiguration(CODING_AGENT).get(SHOW_CODE_LENS, true);
-		if (!isCodeLensEnabled) {
-			return [];
-		}
-
-		const codeLenses: vscode.CodeLens[] = [];
-		for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
-			const textLine = document.lineAt(lineNumber);
-			const { text: line, firstNonWhitespaceCharacterIndex } = textLine;
-			const todoInfo = this.findTodoInLine(line);
-			if (!todoInfo) {
-				continue;
-			}
-			if (!(await isComment(document, new vscode.Position(lineNumber, firstNonWhitespaceCharacterIndex)))) {
-				continue;
-			}
-			const { match, search, insertIndex } = todoInfo;
-			const range = new vscode.Range(lineNumber, search, lineNumber, search + match[0].length);
-			if (this.copilotRemoteAgentManager && (await this.copilotRemoteAgentManager.isAvailable())) {
-				const startAgentCodeLens = new vscode.CodeLens(range, {
-					title: vscode.l10n.t('Delegate to agent'),
-					command: 'issue.startCodingAgentFromTodo',
-					arguments: [{ document, lineNumber, line, insertIndex, range }],
-				});
-				codeLenses.push(startAgentCodeLens);
-			}
-		}
-		return codeLenses;
 	}
 }

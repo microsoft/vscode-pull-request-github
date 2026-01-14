@@ -5,14 +5,10 @@
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
 import { DocumentNode } from 'graphql';
-import { ChatSessionStatus, Uri } from 'vscode';
-import { SessionInfo, SessionSetupStep } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { Repository } from '../api/api';
-import { CopilotPRStatus } from '../common/copilot';
 import { GitHubRemote } from '../common/remote';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
 
 export namespace OctokitCommon {
 	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];
@@ -100,56 +96,6 @@ export function mergeQuerySchemaWithShared(sharedSchema: DocumentNode, schema: D
 	};
 }
 
-type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: Uri; llmDetails: string; sessionId: string };
-type RemoteAgentErrorResult = { error: string; innerError?: string; state: 'error' };
-export type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
-
-export interface IAPISessionLogs {
-	readonly info: SessionInfo;
-	readonly logs: string;
-	readonly setupSteps: SessionSetupStep[] | undefined;
-}
-
-export interface ICopilotRemoteAgentCommandArgs {
-	userPrompt: string;
-	summary?: string;
-	source?: 'prompt' | (string & {});
-	followup?: string;
-	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
-}
-
-export interface ICopilotRemoteAgentCommandResponse {
-	uri: string;
-	title: string;
-	description: string;
-	author: string;
-	linkTag: string;
-}
-
-export interface ToolCall {
-	function: {
-		arguments: string;
-		name: 'bash' | 'reply_to_comment' | (string & {});
-	};
-	id: string;
-	type: string;
-	index: number;
-}
-
-export interface AssistantDelta {
-	content?: string;
-	role: 'assistant' | (string & {});
-	tool_calls?: ToolCall[];
-}
-
-export interface Choice {
-	finish_reason?: 'tool_calls' | (string & {});
-	delta: {
-		content?: string;
-		role: 'assistant' | (string & {});
-		tool_calls?: ToolCall[];
-	};
-}
 
 export interface RepoInfo {
 	owner: string;
@@ -159,34 +105,4 @@ export interface RepoInfo {
 	repository: Repository;
 	ghRepository: GitHubRepository;
 	fm: FolderRepositoryManager;
-}
-
-export function copilotEventToSessionStatus(event: TimelineEvent | undefined): ChatSessionStatus {
-	if (!event) {
-		return ChatSessionStatus.InProgress;
-	}
-
-	switch (event.event) {
-		case EventType.CopilotStarted:
-			return ChatSessionStatus.InProgress;
-		case EventType.CopilotFinished:
-			return ChatSessionStatus.Completed;
-		case EventType.CopilotFinishedError:
-			return ChatSessionStatus.Failed;
-		default:
-			return ChatSessionStatus.InProgress;
-	}
-}
-
-export function copilotPRStatusToSessionStatus(event: CopilotPRStatus): ChatSessionStatus {
-	switch (event) {
-		case CopilotPRStatus.Started:
-			return ChatSessionStatus.InProgress;
-		case CopilotPRStatus.Completed:
-			return ChatSessionStatus.Completed;
-		case CopilotPRStatus.Failed:
-			return ChatSessionStatus.Failed;
-		default:
-			return ChatSessionStatus.InProgress;
-	}
 }
