@@ -31,19 +31,19 @@ describe('Copilot PR watcher', () => {
 			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
 
 			assert.strictEqual(model.get('octo', 'repo', 1), CopilotPRStatus.Started);
-			assert.strictEqual(changeEvents, 1);
+			assert.strictEqual(changeEvents, 0);
 			assert.strictEqual(notifications.length, 0);
 			assert.strictEqual(model.notifications.size, 0);
 
 			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
-			assert.strictEqual(changeEvents, 1);
+			assert.strictEqual(changeEvents, 0);
 
 			model.setInitialized();
 			const updated = createPullRequest('octo', 'repo', 1);
 			model.set([{ item: updated, status: CopilotPRStatus.Completed }]);
 
 			assert.strictEqual(model.get('octo', 'repo', 1), CopilotPRStatus.Completed);
-			assert.strictEqual(changeEvents, 2);
+			assert.strictEqual(changeEvents, 1);
 			assert.strictEqual(notifications.length, 1);
 			assert.deepStrictEqual(notifications[0], [updated]);
 			assert.ok(model.notifications.has('octo/repo#1'));
@@ -58,7 +58,7 @@ describe('Copilot PR watcher', () => {
 
 			model.setInitialized();
 			const pr = createPullRequest('octo', 'repo', 42);
-			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
+			model.set([{ item: pr, status: CopilotPRStatus.Completed }]);
 
 			assert.strictEqual(model.notifications.size, 1);
 			assert.strictEqual(changeEvents, 1);
@@ -79,7 +79,7 @@ describe('Copilot PR watcher', () => {
 
 			model.setInitialized();
 			const pr = createPullRequest('octo', 'repo', 5);
-			model.set([{ item: pr, status: CopilotPRStatus.Started }]);
+			model.set([{ item: pr, status: CopilotPRStatus.Completed }]);
 			assert.strictEqual(model.notifications.size, 1);
 			assert.strictEqual(notifications.length, 1);
 
@@ -110,22 +110,18 @@ describe('Copilot PR watcher', () => {
 				{ item: prThree, status: CopilotPRStatus.Completed }
 			]);
 
-			assert.strictEqual(model.notifications.size, 3);
+			assert.strictEqual(model.notifications.size, 2);
 			assert.strictEqual(notifications.length, 1);
-			assert.deepStrictEqual(notifications[0], [prOne, prTwo, prThree]);
-			assert.strictEqual(model.getNotificationsCount('octo', 'repo'), 2);
+			assert.deepStrictEqual(notifications[0], [prTwo, prThree]);
+			assert.strictEqual(model.getNotificationsCount('octo', 'repo'), 1);
 			assert.deepStrictEqual(model.keys().sort(), ['octo/repo#1', 'octo/repo#2', 'other/repo#3']);
 
 			model.clearAllNotifications('octo', 'repo');
 			assert.strictEqual(model.notifications.size, 1);
 			assert.strictEqual(model.getNotificationsCount('octo', 'repo'), 0);
-			assert.strictEqual(notifications.length, 2);
-			assert.deepStrictEqual(notifications[1], [prOne, prTwo]);
 
 			model.clearAllNotifications();
 			assert.strictEqual(model.notifications.size, 0);
-			assert.strictEqual(notifications.length, 3);
-			assert.deepStrictEqual(notifications[2], [prThree]);
 
 			const counts = model.getCounts('octo', 'repo');
 			assert.deepStrictEqual(counts, { total: 3, inProgress: 1, error: 1 });

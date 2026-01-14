@@ -10,7 +10,7 @@ import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
-import { commands } from './common/executeCommands';
+import { commands, contexts } from './common/executeCommands';
 import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
@@ -340,7 +340,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	telemetry = new ExperimentationTelemetry(new TelemetryReporter(ingestionKey));
 	context.subscriptions.push(telemetry);
 
-	return await deferredActivate(context, showPRController);
+	const deferred = await deferredActivate(context, showPRController);
+	await commands.setContext(contexts.ACTIVATED, true);
+	return deferred;
 }
 
 async function setGitSettingContexts(context: vscode.ExtensionContext) {

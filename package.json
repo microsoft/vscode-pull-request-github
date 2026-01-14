@@ -41,7 +41,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.124.0",
+	"version": "0.126.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.107.0"
@@ -3610,12 +3610,12 @@
 				{
 					"command": "pr.checkoutFromDescription",
 					"group": "navigation@0",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
 					"group": "navigation@1",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
 				}
 			]
 		},
