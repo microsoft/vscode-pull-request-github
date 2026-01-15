@@ -32,6 +32,7 @@ import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
+import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
@@ -51,7 +52,6 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
-import { IssueChatContextItem } from './lm/issueContextProvider';
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
