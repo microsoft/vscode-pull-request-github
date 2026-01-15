@@ -350,7 +350,7 @@ body img.avatar {
 .label {
 	display: flex;
 	justify-content: normal;
-	padding: 0 2px 0 8px;
+	padding: 0 8px;
 	border-radius: 20px;
 	border-style: solid;
 	border-width: 1px;
