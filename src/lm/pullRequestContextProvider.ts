@@ -12,8 +12,14 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { PrsTreeModel } from '../view/prsTreeModel';
 
-interface PRChatContextItem extends vscode.ChatContextItem {
+export interface PRChatContextItem extends vscode.ChatContextItem {
 	pr?: PullRequestModel;
+}
+
+export namespace PRChatContextItem {
+	export function is(item: unknown): item is PRChatContextItem {
+		return (item as PRChatContextItem).pr !== undefined;
+	}
 }
 
 export class PullRequestContextProvider extends Disposable implements vscode.ChatContextProvider {
@@ -112,6 +118,10 @@ Active pull request (may not be the same as open pull request): ${folderManager.
 			label: `#${pr.number} ${pr.title}`,
 			modelDescription: 'The GitHub pull request the user is viewing.',
 			pr,
+			command: {
+				command: 'pr.openDescription',
+				title: vscode.l10n.t('Open Pull Request')
+			}
 		};
 	}
 
