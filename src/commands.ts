@@ -32,6 +32,8 @@ import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
+import { IssueChatContextItem } from './lm/issueContextProvider';
+import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
@@ -895,7 +897,7 @@ export function registerCommands(
 		}),
 	);
 
-	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | CrossChatSessionWithPR | undefined) {
+	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | CrossChatSessionWithPR | PRChatContextItem | IssueChatContextItem | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -919,6 +921,10 @@ export function registerCommands(
 					number: argument.pullRequestDetails.number,
 					preventDefaultContextMenuItems: true,
 				}))?.pr;
+			} else if (PRChatContextItem.is(argument)) {
+				issueModel = argument.pr;
+			} else if (IssueChatContextItem.is(argument)) {
+				issueModel = argument.issue;
 			} else {
 				issueModel = argument;
 			}
