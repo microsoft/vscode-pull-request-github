@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
 import { onceEvent } from '../common/utils';
+import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -22,7 +23,8 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 
 	constructor(private readonly _prsTreeModel: PrsTreeModel,
 		private readonly _reposManager: RepositoriesManager,
-		private readonly _git: GitApiImpl
+		private readonly _git: GitApiImpl,
+		private readonly _context: vscode.ExtensionContext
 	) {
 		super();
 	}
@@ -96,6 +98,7 @@ Active pull request (may not be the same as open pull request): ${folderManager.
 		}
 		context.value = await this._resolvedPrValue(context.pr);
 		context.modelDescription = 'All the information about the GitHub pull request the user is viewing, including comments, review threads, and changes.';
+		context.tooltip = await issueMarkdown(context.pr, this._context, this._reposManager);
 		return context;
 	}
 
@@ -111,6 +114,7 @@ Active pull request (may not be the same as open pull request): ${folderManager.
 			icon: new vscode.ThemeIcon('git-pull-request'),
 			label: `#${pr.number} ${pr.title}`,
 			modelDescription: 'The GitHub pull request the user is viewing.',
+			tooltip: new vscode.MarkdownString(`#${pr.number} ${pr.title}`),
 			pr,
 		};
 	}
