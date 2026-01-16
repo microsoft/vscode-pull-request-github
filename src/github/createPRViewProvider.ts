@@ -1376,7 +1376,42 @@ Don't forget to commit your template file to the repository so that it can be us
 					const compareRepositoryName = message.args.compareRepo;
 					const compareBranchName = message.args.compareBranch;
 					const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
-					const compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+					let compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+
+					// Fetch upstream to get accurate ahead/behind count
+					if (compareBranch.upstream) {
+						await this._folderRepositoryManager.repository.fetch(compareBranch.upstream.remote, compareBranch.upstream.name);
+						// Re-fetch branch info after fetch to get accurate ahead count
+						compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+					}
+
+					// Check for unpushed commits when there's an upstream
+					if (compareBranch.upstream && compareBranch.ahead && compareBranch.ahead > 0) {
+						const pushCommits = vscode.l10n.t('Push Commits');
+						const continueWithoutPushing = vscode.l10n.t('Continue Without Pushing');
+						const commitCount = compareBranch.ahead;
+						const messageResult = await vscode.window.showInformationMessage(
+							vscode.l10n.t({
+								message: 'You have {0} unpushed commit(s) on \'{1}\'.\n\nDo you want to push them before creating the pull request?',
+								comment: ['{0} is the number of commits, {1} is the branch name'],
+								args: [commitCount, compareBranchName]
+							}),
+							{ modal: true },
+							pushCommits,
+							continueWithoutPushing
+						);
+						if (messageResult === pushCommits) {
+							progress.report({ message: vscode.l10n.t('Pushing commits'), increment: 10 });
+							totalIncrement += 10;
+							await this._folderRepositoryManager.repository.push(compareBranch.upstream.remote, compareBranchName);
+						} else if (messageResult !== continueWithoutPushing) {
+							// User cancelled (clicked X or pressed Escape)
+							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+							return;
+						}
+						// If continueWithoutPushing was selected, just continue with PR creation
+					}
+
 					let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo((githubRepo) => {
 						return (githubRepo.remote.owner === compareOwner) && (githubRepo.remote.repositoryName === compareRepositoryName);
 					}) : undefined;
