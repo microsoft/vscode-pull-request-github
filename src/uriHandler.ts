@@ -160,11 +160,7 @@ export class UriHandler implements vscode.UriHandler {
 		if (!resolved) {
 			return;
 		}
-		const pullRequest = await this._resolvePullRequestFromIdentity(resolved.identity, resolved.folderManager);
-		if (!pullRequest) {
-			return;
-		}
-		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.identity, pullRequest);
+		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.identity);
 	}
 
 	private async _openPullRequestChanges(uri: vscode.Uri): Promise<void> {
