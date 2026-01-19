@@ -194,3 +194,13 @@ export interface ChangeBaseReply {
 	base: string;
 	events: TimelineEvent[];
 }
+
+/**
+ * Represents an unresolved PR or issue identity - just enough info to show the overview
+ * panel before the full model is loaded.
+ */
+export interface UnresolvedIdentity {
+	owner: string;
+	repo: string;
+	number: number;
+}

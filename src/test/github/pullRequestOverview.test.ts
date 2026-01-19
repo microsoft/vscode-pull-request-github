@@ -82,8 +82,9 @@ describe('PullRequestOverview', function () {
 
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
 
-			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
 
 			assert(
 				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
@@ -116,12 +117,13 @@ describe('PullRequestOverview', function () {
 
 			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
+			const identity0 = { owner: prModel0.remote.owner, repo: prModel0.remote.repositoryName, number: prModel0.number };
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'validateDraftMode').resolves(true);
 			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
-			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel0);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity0, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
@@ -130,12 +132,13 @@ describe('PullRequestOverview', function () {
 
 			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
 			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
+			const identity1 = { owner: prModel1.remote.owner, repo: prModel1.remote.repositoryName, number: prModel1.number };
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'validateDraftMode').resolves(true);
 			sinon.stub(prModel1, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
-			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel1);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity1, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);

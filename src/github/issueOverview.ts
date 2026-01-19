@@ -12,7 +12,7 @@ import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, Repo
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
+import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -34,6 +34,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;
+	protected _identity: UnresolvedIdentity;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 
@@ -41,7 +42,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
-		issue: IssueModel,
+		identity: UnresolvedIdentity,
+		issue?: IssueModel,
 		toTheSide: Boolean = false,
 		_preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
@@ -58,7 +60,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		if (IssueOverviewPanel.currentPanel) {
 			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
-			const title = `Issue #${issue.number.toString()}`;
+			const title = `Issue #${identity.number.toString()}`;
 			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(
 				telemetry,
 				extensionUri,
@@ -71,7 +73,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			);
 		}
 
-		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
+		await IssueOverviewPanel.currentPanel!.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
 	public static refresh(): void {
@@ -287,7 +289,32 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		// none for issues
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
+	/**
+	 * Resolve a model from an unresolved identity.
+	 * Subclasses can override to resolve different types (e.g., pull requests vs issues).
+	 */
+	protected async resolveModel(identity: UnresolvedIdentity): Promise<TItem | undefined> {
+		return this._folderRepositoryManager.resolveIssue(
+			identity.owner,
+			identity.repo,
+			identity.number
+		) as Promise<TItem | undefined>;
+	}
+
+	/**
+	 * Get the display name for the item type (for error messages).
+	 */
+	protected getItemTypeName(): string {
+		return 'issue';
+	}
+
+	/**
+	 * Update the panel with an unresolved identity and optional model.
+	 * If no model is provided, it will be resolved from the identity.
+	 */
+	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem, progressLocation?: string): Promise<void> {
+		this._identity = identity;
+
 		if (this._folderRepositoryManager !== foldersManager) {
 			this._folderRepositoryManager = foldersManager;
 			this.registerPrListeners();
@@ -298,17 +325,37 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			scrollPosition: this._scrollPosition,
 		});
 
-		if (!this._item || (this._item.number !== issueModel.number) || !this._panel.webview.html) {
+		const isNewItem = !this._item || (this._item.number !== identity.number);
+		if (isNewItem || !this._panel.webview.html) {
 			this._panel.webview.html = this.getHtmlForWebview();
 			this._postMessage({ command: 'pr.clear' });
+		}
 
+		// If no model provided, resolve it from the identity
+		if (!issueModel) {
+			const resolvedModel = await this.resolveModel(identity);
+			if (!resolvedModel) {
+				throw new Error(
+					`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`,
+				);
+			}
+			issueModel = resolvedModel;
 		}
 
 		if (progressLocation) {
-			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel));
+			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel!));
 		} else {
 			return this.updateItem(issueModel);
 		}
+	}
+
+	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
+		const identity: UnresolvedIdentity = {
+			owner: issueModel.remote.owner,
+			repo: issueModel.remote.repositoryName,
+			number: issueModel.number
+		};
+		return this.updateWithIdentity(foldersManager, identity, issueModel, progressLocation);
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
