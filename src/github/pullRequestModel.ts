@@ -647,7 +647,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
-		const deletedReviewComments = comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository));
+		const deletedReviewComments = comments.nodes.map(comment => parseGraphQLComment(comment, false, false, this.githubRepository));
 
 		// Update local state: remove all draft comments (and their threads if emptied) that belonged to the deleted review
 		const deletedCommentIds = new Set(deletedReviewComments.map(c => c.id));
@@ -822,7 +822,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const { comment } = data.addPullRequestReviewComment;
-		const newComment = parseGraphQLComment(comment, false, this.githubRepository);
+		const newComment = parseGraphQLComment(comment, false, false, this.githubRepository);
 
 		if (isSingleComment) {
 			newComment.isDraft = false;
@@ -1024,6 +1024,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const newComment = parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
+			!!comment.isOutdated,
 			this.githubRepository
 		);
 		if (threadWithComment) {
@@ -1401,7 +1402,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this.setReviewThreadCacheFromRaw(raw);
 
-		this.comments = raw.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
+		this.comments = raw.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, node.isOutdated, this.githubRepository), remote))
 			.reduce((prev, curr) => prev.concat(curr), [])
 			.sort((a: IComment, b: IComment) => {
 				return a.createdAt > b.createdAt ? 1 : -1;

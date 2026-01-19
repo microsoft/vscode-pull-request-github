@@ -65,6 +65,7 @@ export interface IComment {
 	graphNodeId: string;
 	reactions?: Reaction[];
 	isResolved?: boolean;
+	isOutdated?: boolean;
 }
 
 const COPILOT_AUTHOR = {
