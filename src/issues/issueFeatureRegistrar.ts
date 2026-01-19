@@ -1528,7 +1528,12 @@ ${options?.body ?? ''}\n
 								await vscode.env.clipboard.writeText(issue.html_url);
 								break;
 							case openIssue:
-								await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, constFolderManager, issue);
+								const identity = {
+									owner: issue.remote.owner,
+									repo: issue.remote.repositoryName,
+									number: issue.number
+								};
+								await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, constFolderManager, identity, issue);
 								break;
 						}
 					});

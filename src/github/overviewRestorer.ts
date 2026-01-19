@@ -53,20 +53,21 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 			repo = await folderManager.createGitHubRepositoryFromOwnerName(state.owner, state.repo);
 		}
 
+		const identity = { owner: state.owner, repo: state.repo, number: state.number };
 		if (state.isIssue) {
 			const issueModel = await repo.getIssue(state.number, true);
 			if (!issueModel) {
 				webviewPanel.dispose();
 				return;
 			}
-			return IssueOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, issueModel, undefined, true, webviewPanel);
+			return IssueOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, identity, issueModel, undefined, true, webviewPanel);
 		} else {
 			const pullRequestModel = await repo.getPullRequest(state.number, true);
 			if (!pullRequestModel) {
 				webviewPanel.dispose();
 				return;
 			}
-			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, pullRequestModel, undefined, true, webviewPanel);
+			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, identity, pullRequestModel, undefined, true, webviewPanel);
 		}
 	}
 

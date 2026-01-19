@@ -81,11 +81,16 @@ export async function openDescription(
 	if (revealNode) {
 		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	}
+	const identity = {
+		owner: issue.remote.owner,
+		repo: issue.remote.repositoryName,
+		number: issue.number
+	};
 	// Create and show a new webview
 	if (issue instanceof PullRequestModel) {
-		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue, undefined, preserveFocus);
+		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, identity, issue, undefined, preserveFocus);
 	} else {
-		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue);
+		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, identity, issue);
 		/* __GDPR__
 			"issue.openDescription" : {}
 		*/
@@ -1022,8 +1027,13 @@ export function registerCommands(
 			const pr = descriptionNode.pullRequestModel;
 			const pullRequest = ensurePR(folderManager, pr);
 			descriptionNode.reveal(descriptionNode, { select: true, focus: true });
+			const identity = {
+				owner: pullRequest.remote.owner,
+				repo: pullRequest.remote.repositoryName,
+				number: pullRequest.number
+			};
 			// Create and show a new webview
-			PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, pullRequest, true);
+			PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, identity, pullRequest, true);
 
 			/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}

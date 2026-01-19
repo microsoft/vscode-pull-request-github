@@ -25,7 +25,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -64,7 +64,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
-		issue: PullRequestModel,
+		identity: UnresolvedIdentity,
+		issue?: PullRequestModel,
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
@@ -75,7 +76,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
+		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
@@ -88,7 +89,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, preserveFocus);
 		} else {
-			const title = `Pull Request #${issue.number.toString()}`;
+			const title = `Pull Request #${identity.number.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(
 				telemetry,
 				extensionUri,
@@ -99,7 +100,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			);
 		}
 
-		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
+		await PullRequestOverviewPanel.currentPanel!.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
 	protected override set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
@@ -379,20 +380,43 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	/**
+	 * Override to resolve pull requests instead of issues.
+	 */
+	protected override async resolveModel(identity: UnresolvedIdentity): Promise<PullRequestModel | undefined> {
+		return this._folderRepositoryManager.resolvePullRequest(
+			identity.owner,
+			identity.repo,
+			identity.number
+		);
+	}
+
+	protected override getItemTypeName(): string {
+		return 'Pull Request';
+	}
+
+	public override async updateWithIdentity(
+		folderRepositoryManager: FolderRepositoryManager,
+		identity: UnresolvedIdentity,
+		pullRequestModel?: PullRequestModel,
+		progressLocation?: string
+	): Promise<void> {
+		await super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
+
+		// Notify that this PR overview is now active
+		PullRequestOverviewPanel._onVisible.fire(this._item);
+	}
+
 	public override async update(
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	): Promise<void> {
-		const result = super.update(folderRepositoryManager, pullRequestModel, 'pr:github');
-		if (this._folderRepositoryManager !== folderRepositoryManager) {
-			this.registerPrListeners();
-		}
-
-		await result;
-		// Notify that this PR overview is now active
-		PullRequestOverviewPanel._onVisible.fire(pullRequestModel);
-
-		return result;
+		const identity: UnresolvedIdentity = {
+			owner: pullRequestModel.remote.owner,
+			repo: pullRequestModel.remote.repositoryName,
+			number: pullRequestModel.number
+		};
+		return this.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, 'pr:github');
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
