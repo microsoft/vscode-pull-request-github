@@ -427,7 +427,14 @@ export const MergeOnGitHub = () => {
 };
 
 export const MergeSimple = (pr: PullRequest) => {
-	const { merge, updatePR } = useContext(PullRequestContext);
+	const { merge, updatePR, enqueue } = useContext(PullRequestContext);
+
+	if (pr.mergeQueueMethod) {
+		return <div className='button-container'>
+			<button onClick={() => enqueue()}>Add to Merge Queue</button>
+		</div>;
+	}
+
 	async function submitAction(selected: MergeMethod): Promise<void> {
 		const newContext = await merge({
 			title: '',

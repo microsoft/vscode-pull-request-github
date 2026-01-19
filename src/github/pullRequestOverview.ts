@@ -356,7 +356,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				autoMerge: pullRequest.autoMerge,
 				allowAutoMerge: pullRequest.allowAutoMerge,
 				autoMergeMethod: pullRequest.autoMergeMethod,
-				mergeQueueMethod: mergeQueueMethod,
+				mergeQueueMethod,
 				mergeQueueEntry: pullRequest.mergeQueueEntry,
 				mergeCommitMeta: pullRequest.mergeCommitMeta,
 				squashCommitMeta: pullRequest.squashCommitMeta,

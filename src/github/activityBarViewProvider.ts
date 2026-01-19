@@ -200,10 +200,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				pullRequestModel.canEdit(),
 				pullRequestModel.validateDraftMode(),
 				pullRequestModel.getCoAuthors(),
-				ensureEmojis(this._folderRepositoryManager.context)
+				this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+				ensureEmojis(this._folderRepositoryManager.context),
 			]);
 			this._updatingPromise = updatingPromise;
-			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors] = await updatingPromise;
+			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors, mergeQueueMethod] = await updatingPromise;
 
 			if (!pullRequest) {
 				throw new Error(
@@ -285,6 +286,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				events: timelineEvents,
 				mergeMethodsAvailability,
 				defaultMergeMethod,
+				mergeQueueMethod,
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch,
 				isIssue: false,
