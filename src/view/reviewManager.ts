@@ -976,7 +976,7 @@ export class ReviewManager extends Disposable {
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 			await Promise.all([pr.initializeReviewThreadCacheAndReviewComments(), pr.initializePullRequestFileViewState()]);
 			this._folderRepoManager.setFileViewedContext();
-			const outdatedComments = pr.comments.filter(comment => !comment.position);
+			const outdatedComments = pr.comments.filter(comment => comment.isOutdated || !comment.position);
 
 			const commitsGroup = groupBy(outdatedComments, comment => comment.originalCommitId!);
 			const obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];

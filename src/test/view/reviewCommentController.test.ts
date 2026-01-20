@@ -205,6 +205,7 @@ describe('ReviewCommentController', function () {
 							createdAt: '',
 							htmlUrl: '',
 							graphNodeId: '',
+							isOutdated: false
 						}
 					],
 					subjectType: SubjectType.LINE
