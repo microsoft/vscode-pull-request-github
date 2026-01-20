@@ -491,7 +491,12 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 
 	public async openReview(): Promise<void> {
-		await PullRequestOverviewPanel.createOrShow(this._telemetry, this._folderRepoManager.context.extensionUri, this._folderRepoManager, this.pullRequestModel);
+		const identity = {
+			owner: this.pullRequestModel.remote.owner,
+			repo: this.pullRequestModel.remote.repositoryName,
+			number: this.pullRequestModel.number
+		};
+		await PullRequestOverviewPanel.createOrShow(this._telemetry, this._folderRepoManager.context.extensionUri, this._folderRepoManager, identity, this.pullRequestModel);
 		PullRequestOverviewPanel.scrollToReview();
 
 		/* __GDPR__

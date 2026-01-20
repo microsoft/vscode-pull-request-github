@@ -32,6 +32,8 @@ import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { OverviewContext } from './github/views';
+import { IssueChatContextItem } from './lm/issueContextProvider';
+import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
@@ -79,11 +81,16 @@ export async function openDescription(
 	if (revealNode) {
 		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	}
+	const identity = {
+		owner: issue.remote.owner,
+		repo: issue.remote.repositoryName,
+		number: issue.number
+	};
 	// Create and show a new webview
 	if (issue instanceof PullRequestModel) {
-		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue, undefined, preserveFocus);
+		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, identity, issue, undefined, preserveFocus);
 	} else {
-		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue);
+		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, identity, issue);
 		/* __GDPR__
 			"issue.openDescription" : {}
 		*/
@@ -895,7 +902,7 @@ export function registerCommands(
 		}),
 	);
 
-	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | CrossChatSessionWithPR | undefined) {
+	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | CrossChatSessionWithPR | PRChatContextItem | IssueChatContextItem | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -919,6 +926,10 @@ export function registerCommands(
 					number: argument.pullRequestDetails.number,
 					preventDefaultContextMenuItems: true,
 				}))?.pr;
+			} else if (PRChatContextItem.is(argument)) {
+				issueModel = argument.pr;
+			} else if (IssueChatContextItem.is(argument)) {
+				issueModel = argument.issue;
 			} else {
 				issueModel = argument;
 			}
@@ -1016,8 +1027,13 @@ export function registerCommands(
 			const pr = descriptionNode.pullRequestModel;
 			const pullRequest = ensurePR(folderManager, pr);
 			descriptionNode.reveal(descriptionNode, { select: true, focus: true });
+			const identity = {
+				owner: pullRequest.remote.owner,
+				repo: pullRequest.remote.repositoryName,
+				number: pullRequest.number
+			};
 			// Create and show a new webview
-			PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, pullRequest, true);
+			PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, identity, pullRequest, true);
 
 			/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}

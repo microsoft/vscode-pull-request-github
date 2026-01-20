@@ -14,6 +14,7 @@ import { IssueOverviewPanel } from './github/issueOverview';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { UnresolvedIdentity } from './github/views';
 import { ReviewsManager } from './view/reviewsManager';
 
 export const PENDING_CHECKOUT_PULL_REQUEST_KEY = 'pendingCheckoutPullRequest';
@@ -129,14 +130,11 @@ export class UriHandler implements vscode.UriHandler {
 			return;
 		}
 		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo) ?? this._reposManagers.folderManagers[0];
-		const issue = await folderManager.resolveIssue(params.owner, params.repo, params.issueNumber, true);
-		if (!issue) {
-			return;
-		}
-		return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, issue);
+		const identity = { owner: params.owner, repo: params.repo, number: params.issueNumber };
+		return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity);
 	}
 
-	private async _resolvePullRequestFromUri(uri: vscode.Uri): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel } | undefined> {
+	private async _resolveIdentityFromUri(uri: vscode.Uri): Promise<{ folderManager: FolderRepositoryManager, identity: UnresolvedIdentity } | undefined> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request URI.'));
@@ -144,29 +142,37 @@ export class UriHandler implements vscode.UriHandler {
 			return;
 		}
 		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo) ?? this._reposManagers.folderManagers[0];
-		const pullRequest = await folderManager.resolvePullRequest(params.owner, params.repo, params.pullRequestNumber);
+		return { folderManager, identity: { owner: params.owner, repo: params.repo, number: params.pullRequestNumber } };
+	}
+
+	private async _resolvePullRequestFromIdentity(identity: UnresolvedIdentity, folderManager: FolderRepositoryManager): Promise<PullRequestModel | undefined> {
+		const pullRequest = await folderManager.resolvePullRequest(identity.owner, identity.repo, identity.number);
 		if (!pullRequest) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Pull request {0}/{1}#{2} not found.', params.owner, params.repo, params.pullRequestNumber));
-			Logger.error(`Pull request not found: ${params.owner}/${params.repo}#${params.pullRequestNumber}`, UriHandler.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Pull request {0}/{1}#{2} not found.', identity.owner, identity.repo, identity.number));
+			Logger.error(`Pull request not found: ${identity.owner}/${identity.repo}#${identity.number}`, UriHandler.ID);
 			return;
 		}
-		return { folderManager, pullRequest };
+		return pullRequest;
 	}
 
 	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
-		const resolved = await this._resolvePullRequestFromUri(uri);
+		const resolved = await this._resolveIdentityFromUri(uri);
 		if (!resolved) {
 			return;
 		}
-		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.pullRequest);
+		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.identity);
 	}
 
 	private async _openPullRequestChanges(uri: vscode.Uri): Promise<void> {
-		const resolved = await this._resolvePullRequestFromUri(uri);
+		const resolved = await this._resolveIdentityFromUri(uri);
 		if (!resolved) {
 			return;
 		}
-		return PullRequestModel.openChanges(resolved.folderManager, resolved.pullRequest);
+		const pullRequest = await this._resolvePullRequestFromIdentity(resolved.identity, resolved.folderManager);
+		if (!pullRequest) {
+			return;
+		}
+		return PullRequestModel.openChanges(resolved.folderManager, pullRequest);
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {

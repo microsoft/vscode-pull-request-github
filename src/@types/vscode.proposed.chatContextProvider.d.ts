@@ -49,7 +49,7 @@ declare module 'vscode' {
 		value?: string;
 		/**
 		 * An optional command that is executed when the context item is clicked.
-		 * The original context item will be passed as the first argument to the command.
+		 * The original context item will be passed as an argument to the command.
 		 */
 		command?: Command;
 	}

@@ -12,8 +12,14 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel } from '../github/utils';
 import { IssueQueryResult, StateManager } from '../issues/stateManager';
 
-interface IssueChatContextItem extends vscode.ChatContextItem {
+export interface IssueChatContextItem extends vscode.ChatContextItem {
 	issue: IssueModel;
+}
+
+export namespace IssueChatContextItem {
+	export function is(item: unknown): item is IssueChatContextItem {
+		return (item as IssueChatContextItem).issue !== undefined;
+	}
 }
 
 export class IssueContextProvider implements vscode.ChatContextProvider {
@@ -70,6 +76,10 @@ export class IssueContextProvider implements vscode.ChatContextProvider {
 			modelDescription: 'The GitHub issue the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${issue.number} ${issue.title}`),
 			issue,
+			command: {
+				command: 'issue.openDescription',
+				title: vscode.l10n.t('Open Issue')
+			}
 		};
 	}
 
