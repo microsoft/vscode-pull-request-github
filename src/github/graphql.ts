@@ -39,7 +39,7 @@ export interface CrossReferencedEvent {
 	id: string;
 	actor: Actor;
 	createdAt: string;
-	source: {
+	source?: {
 		__typename: string;
 		number: number;
 		url: string;
