@@ -142,7 +142,7 @@ input[type='checkbox'] {
 body button:disabled,
 input[type='submit']:disabled {
 	opacity: 0.4;
-	border: 1px solid var(--vscode-button-border, transparent) !important;
+	border: 1px solid var(--vscode-button-background, transparent) !important;
 }
 
 body .hidden {
@@ -396,6 +396,8 @@ button.split-left {
 
 .split.disabled {
 	opacity: 0.4;
+	border-top: 1px solid var(--vscode-button-background);
+	border-bottom: 1px solid var(--vscode-button-background);
 }
 
 .split.secondary {
