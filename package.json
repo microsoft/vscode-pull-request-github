@@ -3100,6 +3100,16 @@
 					"command": "pr.unresolveReviewThreadFromView",
 					"group": "context@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+				},
+				{
+					"command": "pr.applySuggestion",
+					"group": "context@2",
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+				},
+				{
+					"command": "pr.applySuggestionWithCopilot",
+					"group": "context@2",
+					"when": "commentController =~ /^github-review/ && !(comment =~ /hasSuggestion/)"
 				}
 			],
 			"editor/title": [
