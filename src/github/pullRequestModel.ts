@@ -1215,7 +1215,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return this.updateBranchWithGraphQL();
 		}
 
-		// When there are conflicts, use the REST API approach with conflict resolution
+		// For Conflict state, use the REST API approach with conflict resolution.
+		// For Unknown or NotMergeable states, the REST API approach will also be used as a fallback,
+		// though these states may fail for other reasons (e.g., blocked by branch protection).
 		return this.updateBranchWithConflictResolution(model);
 	}
 
@@ -1225,6 +1227,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	private async updateBranchWithGraphQL(): Promise<boolean> {
 		Logger.debug(`Updating branch using GraphQL UpdatePullRequestBranch mutation - enter`, GitHubRepository.ID);
+
+		if (!this.head?.sha) {
+			Logger.error(`Cannot update branch: head SHA is not available`, GitHubRepository.ID);
+			return false;
+		}
+
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -1233,7 +1241,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				variables: {
 					input: {
 						pullRequestId: this.graphNodeId,
-						expectedHeadOid: this.head?.sha
+						expectedHeadOid: this.head.sha
 					}
 				}
 			});
