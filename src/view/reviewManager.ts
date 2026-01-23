@@ -84,7 +84,7 @@ export class ReviewManager extends Disposable {
 	 * Track whether this repository is currently selected in the UI.
 	 * Used to show/hide the status bar item based on repository selection.
 	 */
-	private _isRepositorySelected: boolean = true;
+	private _isRepositorySelected!: boolean;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -250,12 +250,12 @@ export class ReviewManager extends Disposable {
 
 	/**
 	 * Updates the status bar visibility based on whether this repository is selected.
-	 * If there's an active PR and the repository is selected, show the status bar.
+	 * If there's an active PR (or switching to review mode) and the repository is selected, show the status bar.
 	 * Otherwise, hide it.
 	 */
 	private updateStatusBarVisibility() {
 		if (this._statusBarItem) {
-			if (this._isRepositorySelected && this._folderRepoManager.activePullRequest) {
+			if (this._isRepositorySelected && (this._folderRepoManager.activePullRequest || this._switchingToReviewMode)) {
 				this._statusBarItem.show();
 			} else {
 				this._statusBarItem.hide();
