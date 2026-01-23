@@ -44,6 +44,7 @@ import {
 	TimelineEventsResponse,
 	UnresolveReviewThreadResponse,
 	UpdateIssueResponse,
+	UpdatePullRequestBranchResponse,
 } from './graphql';
 import {
 	AccountType,
@@ -1206,6 +1207,50 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - enter`, GitHubRepository.ID);
+
+		// When there are no conflicts, use the GitHub GraphQL API's UpdatePullRequestBranch mutation
+		// This is simpler and more efficient than manually creating trees and commits
+		if (this.item.mergeable !== PullRequestMergeability.Conflict) {
+			return this.updateBranchWithGraphQL();
+		}
+
+		// When there are conflicts, use the REST API approach with conflict resolution
+		return this.updateBranchWithConflictResolution(model);
+	}
+
+	/**
+	 * Update the branch using the GitHub GraphQL API's UpdatePullRequestBranch mutation.
+	 * This is used when there are no conflicts between the head and base branches.
+	 */
+	private async updateBranchWithGraphQL(): Promise<boolean> {
+		Logger.debug(`Updating branch using GraphQL UpdatePullRequestBranch mutation - enter`, GitHubRepository.ID);
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			await mutate<UpdatePullRequestBranchResponse>({
+				mutation: schema.UpdatePullRequestBranch,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId,
+						expectedHeadOid: this.head?.sha
+					}
+				}
+			});
+
+			Logger.debug(`Updating branch using GraphQL UpdatePullRequestBranch mutation - done`, GitHubRepository.ID);
+			return true;
+		} catch (e) {
+			Logger.error(`Updating branch using GraphQL UpdatePullRequestBranch mutation failed: ${e}`, GitHubRepository.ID);
+			return false;
+		}
+	}
+
+	/**
+	 * Update the branch with conflict resolution using the REST API.
+	 * This is used when there are conflicts between the head and base branches.
+	 */
+	private async updateBranchWithConflictResolution(model: ConflictResolutionModel): Promise<boolean> {
+		Logger.debug(`Updating branch ${model.prHeadBranchName} with conflict resolution - enter`, GitHubRepository.ID);
 		try {
 			const { octokit } = await this.githubRepository.ensure();
 
@@ -1225,10 +1270,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			await octokit.call(octokit.api.git.updateRef, { owner: model.prHeadOwner, repo: model.repositoryName, ref: `heads/${model.prHeadBranchName}`, sha: newCommitSha });
 
 		} catch (e) {
-			Logger.error(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} failed: ${e}`, GitHubRepository.ID);
+			Logger.error(`Updating branch ${model.prHeadBranchName} with conflict resolution failed: ${e}`, GitHubRepository.ID);
 			return false;
 		}
-		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - done`, GitHubRepository.ID);
+		Logger.debug(`Updating branch ${model.prHeadBranchName} with conflict resolution - done`, GitHubRepository.ID);
 		return true;
 	}
 

@@ -807,3 +807,12 @@ mutation EnqueuePullRequest($input: EnqueuePullRequestInput!) {
 		}
 	}
 }
+
+mutation UpdatePullRequestBranch($input: UpdatePullRequestBranchInput!) {
+	updatePullRequestBranch(input: $input) {
+		pullRequest {
+			id
+			headRefOid
+		}
+	}
+}

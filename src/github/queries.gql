@@ -764,3 +764,12 @@ mutation ReplaceActorsForAssignable($input: ReplaceActorsForAssignableInput!) {
 		}
 	}
 }
+
+mutation UpdatePullRequestBranch($input: UpdatePullRequestBranchInput!) {
+	updatePullRequestBranch(input: $input) {
+		pullRequest {
+			id
+			headRefOid
+		}
+	}
+}
