@@ -41,7 +41,7 @@ import { NotificationsFeatureRegister } from './notifications/notificationsFeatu
 import { NotificationsManager } from './notifications/notificationsManager';
 import { NotificationsProvider } from './notifications/notificationsProvider';
 import { ThemeWatcher } from './themeWatcher';
-import { resumePendingCheckout, UriHandler } from './uriHandler';
+import { resumePendingCheckout, resumePendingOpenPR, UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CommitsDecorationProvider } from './view/commitsDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
@@ -287,6 +287,8 @@ async function init(
 
 	// Resume any pending checkout request stored before workspace reopened.
 	await resumePendingCheckout(reviewsManager, context, reposManager);
+	// Resume any pending open PR request stored before workspace reopened.
+	await resumePendingOpenPR(context, reposManager, reviewsManager, telemetry);
 
 	initChat(context, credentialStore, reposManager);
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git)));

@@ -18,12 +18,23 @@ import { UnresolvedIdentity } from './github/views';
 import { ReviewsManager } from './view/reviewsManager';
 
 export const PENDING_CHECKOUT_PULL_REQUEST_KEY = 'pendingCheckoutPullRequest';
+export const PENDING_OPEN_PULL_REQUEST_KEY = 'pendingOpenPullRequest';
+
+type PendingActionType = 'checkout' | 'open' | 'openChanges';
 
 interface PendingCheckoutPayload {
 	owner: string;
 	repo: string;
 	pullRequestNumber: number;
 	timestamp: number; // epoch millis when the pending checkout was stored
+}
+
+interface PendingOpenPayload {
+	owner: string;
+	repo: string;
+	pullRequestNumber: number;
+	actionType: PendingActionType;
+	timestamp: number;
 }
 
 function withCheckoutProgress<T>(owner: string, repo: string, prNumber: number, task: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Promise<T>): Promise<T> {
@@ -100,6 +111,46 @@ export async function showCheckoutPrompt(owner: string, repo: string, prNumber: 
 	return selection === confirm;
 }
 
+export async function resumePendingOpenPR(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewsManager: ReviewsManager, telemetry: ITelemetry): Promise<void> {
+	const pending = context.globalState.get<PendingOpenPayload>(PENDING_OPEN_PULL_REQUEST_KEY);
+	if (!pending) {
+		return;
+	}
+	// Validate freshness (5 minutes)
+	const maxAgeMs = 5 * 60 * 1000;
+	if (!pending.timestamp || Date.now() - pending.timestamp > maxAgeMs) {
+		await context.globalState.update(PENDING_OPEN_PULL_REQUEST_KEY, undefined);
+		Logger.debug('Stale pending open entry cleared (older than 5 minutes).', UriHandler.ID);
+		return;
+	}
+	const attempt = async () => {
+		const folderManager = reposManager.getManagerForRepository(pending.owner, pending.repo);
+		if (!folderManager) {
+			return false;
+		}
+		const identity: UnresolvedIdentity = { owner: pending.owner, repo: pending.repo, number: pending.pullRequestNumber };
+		if (pending.actionType === 'open') {
+			await PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, identity);
+		} else if (pending.actionType === 'openChanges') {
+			const pullRequest = await folderManager.resolvePullRequest(identity.owner, identity.repo, identity.number);
+			if (pullRequest) {
+				await PullRequestModel.openChanges(folderManager, pullRequest);
+			}
+		} else if (pending.actionType === 'checkout') {
+			await performPullRequestCheckout(reviewsManager, folderManager, pending.owner, pending.repo, pending.pullRequestNumber);
+		}
+		await context.globalState.update(PENDING_OPEN_PULL_REQUEST_KEY, undefined);
+		return true;
+	};
+	if (!(await attempt())) {
+		const disposable = reposManager.onDidLoadAnyRepositories(async () => {
+			if (await attempt()) {
+				disposable.dispose();
+			}
+		});
+	}
+}
+
 export class UriHandler implements vscode.UriHandler {
 	public static readonly ID = 'UriHandler';
 	constructor(private readonly _reposManagers: RepositoriesManager,
@@ -134,50 +185,70 @@ export class UriHandler implements vscode.UriHandler {
 		return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity);
 	}
 
-	private async _resolveIdentityFromUri(uri: vscode.Uri): Promise<{ folderManager: FolderRepositoryManager, identity: UnresolvedIdentity } | undefined> {
+	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
 		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
 		if (!params) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request URI.'));
 			Logger.error('Failed to parse pull request URI.', UriHandler.ID);
 			return;
 		}
-		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo) ?? this._reposManagers.folderManagers[0];
-		return { folderManager, identity: { owner: params.owner, repo: params.repo, number: params.pullRequestNumber } };
-	}
 
-	private async _resolvePullRequestFromIdentity(identity: UnresolvedIdentity, folderManager: FolderRepositoryManager): Promise<PullRequestModel | undefined> {
-		const pullRequest = await folderManager.resolvePullRequest(identity.owner, identity.repo, identity.number);
-		if (!pullRequest) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Pull request {0}/{1}#{2} not found.', identity.owner, identity.repo, identity.number));
-			Logger.error(`Pull request not found: ${identity.owner}/${identity.repo}#${identity.number}`, UriHandler.ID);
-			return;
+		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo);
+		if (folderManager) {
+			const identity: UnresolvedIdentity = { owner: params.owner, repo: params.repo, number: params.pullRequestNumber };
+			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity);
 		}
-		return pullRequest;
-	}
 
-	private async _openPullRequestWebview(uri: vscode.Uri): Promise<void> {
-		const resolved = await this._resolveIdentityFromUri(uri);
-		if (!resolved) {
-			return;
-		}
-		return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, resolved.folderManager, resolved.identity);
+		// Repository not found locally, offer to locate or clone
+		await this._locateOrCloneRepository(params, 'open');
 	}
 
 	private async _openPullRequestChanges(uri: vscode.Uri): Promise<void> {
-		const resolved = await this._resolveIdentityFromUri(uri);
-		if (!resolved) {
+		const params = fromOpenOrCheckoutPullRequestWebviewUri(uri);
+		if (!params) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request URI.'));
+			Logger.error('Failed to parse pull request URI.', UriHandler.ID);
 			return;
 		}
-		const pullRequest = await this._resolvePullRequestFromIdentity(resolved.identity, resolved.folderManager);
-		if (!pullRequest) {
-			return;
+
+		const folderManager = this._reposManagers.getManagerForRepository(params.owner, params.repo);
+		if (folderManager) {
+			const identity: UnresolvedIdentity = { owner: params.owner, repo: params.repo, number: params.pullRequestNumber };
+			const pullRequest = await folderManager.resolvePullRequest(identity.owner, identity.repo, identity.number);
+			if (!pullRequest) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Pull request {0}/{1}#{2} not found.', identity.owner, identity.repo, identity.number));
+				Logger.error(`Pull request not found: ${identity.owner}/${identity.repo}#${identity.number}`, UriHandler.ID);
+				return;
+			}
+			return PullRequestModel.openChanges(folderManager, pullRequest);
 		}
-		return PullRequestModel.openChanges(resolved.folderManager, pullRequest);
+
+		// Repository not found locally, offer to locate or clone
+		await this._locateOrCloneRepository(params, 'openChanges');
+	}
+
+	private async _locateOrCloneRepository(params: { owner: string; repo: string; pullRequestNumber: number }, actionType: PendingActionType): Promise<void> {
+		const remoteUri = vscode.Uri.parse(`https://github.com/${params.owner}/${params.repo}`);
+		try {
+			const workspaces = await this._git.getRepositoryWorkspace(remoteUri);
+			if (workspaces && workspaces.length) {
+				Logger.appendLine(`Found workspaces for ${remoteUri.toString()}: ${workspaces.map(w => w.toString()).join(', ')}`, UriHandler.ID);
+				await this._savePendingActionAndOpenFolder(params, actionType, workspaces[0]);
+			} else {
+				await this._showCloneOffer(remoteUri, params, actionType);
+			}
+		} catch (e) {
+			Logger.error(`Failed attempting workspace open for PR action: ${e instanceof Error ? e.message : String(e)}`, UriHandler.ID);
+		}
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
-		const payload: PendingCheckoutPayload = { ...params, timestamp: Date.now() };
-		await this._context.globalState.update(PENDING_CHECKOUT_PULL_REQUEST_KEY, payload);
+		return this._savePendingActionAndOpenFolder(params, 'checkout', folderUri);
+	}
+
+	private async _savePendingActionAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, actionType: PendingActionType, folderUri: vscode.Uri): Promise<void> {
+		const payload: PendingOpenPayload = { ...params, actionType, timestamp: Date.now() };
+		await this._context.globalState.update(PENDING_OPEN_PULL_REQUEST_KEY, payload);
 		const isEmpty = vscode.workspace.workspaceFolders === undefined || vscode.workspace.workspaceFolders.length === 0;
 		await commands.openFolder(folderUri, { forceNewWindow: !isEmpty, forceReuseWindow: isEmpty });
 	}
@@ -216,10 +287,10 @@ export class UriHandler implements vscode.UriHandler {
 		});
 	}
 
-	private async _showCloneOffer(remoteUri: vscode.Uri, params: { owner: string; repo: string; pullRequestNumber: number }): Promise<void> {
+	private async _showCloneOffer(remoteUri: vscode.Uri, params: { owner: string; repo: string; pullRequestNumber: number }, actionType: PendingActionType = 'checkout'): Promise<void> {
 		const cloneLabel = vscode.l10n.t('Clone Repository');
-		const choice = await vscode.window.showErrorMessage(
-			vscode.l10n.t('Could not find a folder for repository {0}/{1}. Please clone or open the repository manually.', params.owner, params.repo),
+		const choice = await vscode.window.showInformationMessage(
+			vscode.l10n.t('Could not find a folder for repository {0}/{1}. Would you like to clone it?', params.owner, params.repo),
 			cloneLabel
 		);
 		Logger.warn(`No repository workspace found for ${remoteUri.toString()}`, UriHandler.ID);
@@ -227,7 +298,7 @@ export class UriHandler implements vscode.UriHandler {
 			try {
 				const clonedWorkspaceUri = await this._git.clone(remoteUri, { postCloneAction: 'none' });
 				if (clonedWorkspaceUri) {
-					await this._savePendingCheckoutAndOpenFolder(params, clonedWorkspaceUri);
+					await this._savePendingActionAndOpenFolder(params, actionType, clonedWorkspaceUri);
 				} else {
 					Logger.warn(`Clone API returned null for ${remoteUri.toString()}`, UriHandler.ID);
 				}

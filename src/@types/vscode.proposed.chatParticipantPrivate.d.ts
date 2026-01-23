@@ -61,16 +61,9 @@ declare module 'vscode' {
 		readonly attempt: number;
 
 		/**
-		 * The session identifier for this chat request.
-		 *
-		 * @deprecated Use {@link chatSessionResource} instead.
+		 * The session identifier for this chat request
 		 */
 		readonly sessionId: string;
-
-		/**
-		 * The resource URI for the chat session this request belongs to.
-		 */
-		readonly sessionResource: Uri;
 
 		/**
 		 * If automatic command detection is enabled.
@@ -100,16 +93,7 @@ declare module 'vscode' {
 		 */
 		readonly editedFileEvents?: ChatRequestEditedFileEvent[];
 
-		/**
-		 * Unique ID for the subagent invocation, used to group tool calls from the same subagent run together.
-		 * Pass this to tool invocations when calling tools from within a subagent context.
-		 */
-		readonly subAgentInvocationId?: string;
-
-		/**
-		 * Display name of the subagent that is invoking this request.
-		 */
-		readonly subAgentName?: string;
+		readonly isSubagent?: boolean;
 	}
 
 	export enum ChatRequestEditedFileEventKind {
@@ -246,15 +230,13 @@ declare module 'vscode' {
 
 	export interface LanguageModelToolInvocationOptions<T> {
 		chatRequestId?: string;
-		/** @deprecated Use {@link chatSessionResource} instead */
 		chatSessionId?: string;
-		chatSessionResource?: Uri;
 		chatInteractionId?: string;
 		terminalCommand?: string;
 		/**
-		 * Unique ID for the subagent invocation, used to group tool calls from the same subagent run together.
+		 * Lets us add some nicer UI to toolcalls that came from a sub-agent, but in the long run, this should probably just be rendered in a similar way to thinking text + tool call groups
 		 */
-		subAgentInvocationId?: string;
+		fromSubAgent?: boolean;
 	}
 
 	export interface LanguageModelToolInvocationPrepareOptions<T> {
@@ -263,9 +245,7 @@ declare module 'vscode' {
 		 */
 		input: T;
 		chatRequestId?: string;
-		/** @deprecated Use {@link chatSessionResource} instead */
 		chatSessionId?: string;
-		chatSessionResource?: Uri;
 		chatInteractionId?: string;
 	}
 
@@ -336,6 +316,67 @@ declare module 'vscode' {
 
 	export namespace lm {
 		export function registerLanguageModelProxyProvider(provider: LanguageModelProxyProvider): Disposable;
+	}
+
+	// #endregion
+
+	// #region CustomAgentsProvider
+
+	/**
+	 * Represents a custom agent resource file (e.g., .agent.md or .prompt.md) available for a repository.
+	 */
+	export interface CustomAgentResource {
+		/**
+		 * The unique identifier/name of the custom agent resource.
+		 */
+		readonly name: string;
+
+		/**
+		 * A description of what the custom agent resource does.
+		 */
+		readonly description: string;
+
+		/**
+		 * The URI to the agent or prompt resource file.
+		 */
+		readonly uri: Uri;
+
+		/**
+		 * Indicates whether the custom agent resource is editable. Defaults to false.
+		 */
+		readonly isEditable?: boolean;
+	}
+
+	/**
+	 * Options for querying custom agents.
+	 */
+	export interface CustomAgentQueryOptions { }
+
+	/**
+	 * A provider that supplies custom agent resources (from .agent.md and .prompt.md files) for repositories.
+	 */
+	export interface CustomAgentsProvider {
+		/**
+		 * An optional event to signal that custom agents have changed.
+		 */
+		readonly onDidChangeCustomAgents?: Event<void>;
+
+		/**
+		 * Provide the list of custom agent resources available for a given repository.
+		 * @param options Optional query parameters.
+		 * @param token A cancellation token.
+		 * @returns An array of custom agent resources or a promise that resolves to such.
+		 */
+		provideCustomAgents(options: CustomAgentQueryOptions, token: CancellationToken): ProviderResult<CustomAgentResource[]>;
+	}
+
+	export namespace chat {
+		/**
+		 * Register a provider for custom agents.
+		 * @param provider The custom agents provider.
+		 * @returns A disposable that unregisters the provider when disposed.
+		 */
+		export function registerCustomAgentsProvider(provider: CustomAgentsProvider): Disposable;
 	}
 
 	// #endregion
