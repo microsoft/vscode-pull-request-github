@@ -86,7 +86,7 @@ export class ChatParticipant extends Disposable {
 
 		const allTools: vscode.LanguageModelChatTool[] = [];
 		for (const tool of vscode.lm.tools) {
-			if (request.tools.has(tool.name) && request.tools.get(tool.name)) {
+			if (request.tools.has(tool) && request.tools.get(tool)) {
 				allTools.push(tool);
 			} else if (tool.name.startsWith('github-pull-request')) {
 				allTools.push(tool);
