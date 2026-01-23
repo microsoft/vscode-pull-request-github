@@ -773,7 +773,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				assignees: template.assignees,
 			};
 		}
-		this.makeNewIssueFile(uri, options);
+		await this.makeNewIssueFile(uri, options);
 	}
 
 	async createIssueFromFile() {
