@@ -3552,11 +3552,11 @@
 				},
 				{
 					"command": "pr.copyPrLink",
-					"when": "webviewId == PullRequestOverview && github:copyMenu"
+					"when": "(webviewId == PullRequestOverview || webviewId == IssueOverview) && github:copyMenu"
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "webviewId == PullRequestOverview && github:copyMenu"
+					"when": "(webviewId == PullRequestOverview || webviewId == IssueOverview) && github:copyMenu"
 				},
 				{
 					"command": "pr.readyForReviewDescription",
