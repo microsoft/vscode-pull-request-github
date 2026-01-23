@@ -1208,9 +1208,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - enter`, GitHubRepository.ID);
 
-		// When there are no conflicts, use the GitHub GraphQL API's UpdatePullRequestBranch mutation
-		// This is simpler and more efficient than manually creating trees and commits
-		if (this.item.mergeable !== PullRequestMergeability.Conflict) {
+		// When there are no conflicts, use the GitHub GraphQL API's UpdatePullRequestBranch mutation.
+		// This is simpler and more efficient than manually creating trees and commits.
+		// The GraphQL API is suitable for Mergeable and Behind states, which can be cleanly updated.
+		if (this.item.mergeable === PullRequestMergeability.Mergeable || this.item.mergeable === PullRequestMergeability.Behind) {
 			return this.updateBranchWithGraphQL();
 		}
 
