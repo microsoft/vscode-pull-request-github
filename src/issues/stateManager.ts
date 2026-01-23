@@ -186,6 +186,11 @@ export class StateManager {
 					updateRepository(that, repository);
 				}),
 			);
+			that.context.subscriptions.push(
+				repository.ui.onDidChange(() => {
+					that.updateStatusBar();
+				}),
+			);
 		}
 
 		this.context.subscriptions.push(this.gitAPI.onDidOpenRepository(repository => {
@@ -416,6 +421,16 @@ export class StateManager {
 			.map(state => state!.currentIssue!);
 	}
 
+	/**
+	 * Returns current issues filtered to only include those from selected repositories.
+	 * Used for displaying the status bar item.
+	 */
+	private currentIssuesForSelectedRepos(): CurrentIssue[] {
+		return Array.from(this._singleRepoStates.values())
+			.filter(state => state?.currentIssue && state.folderManager.repository.ui.selected)
+			.map(state => state!.currentIssue!);
+	}
+
 	maxIssueNumber(uri: vscode.Uri): number {
 		return this._singleRepoStates.get(uri.path)?.maxIssueNumber ?? 0;
 	}
@@ -461,7 +476,7 @@ export class StateManager {
 	}
 
 	private updateStatusBar() {
-		const currentIssues = this.currentIssues();
+		const currentIssues = this.currentIssuesForSelectedRepos();
 		const shouldShowStatusBarItem = currentIssues.length > 0;
 		if (!shouldShowStatusBarItem) {
 			if (this.statusBarItem) {
