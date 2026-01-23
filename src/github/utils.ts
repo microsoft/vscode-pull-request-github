@@ -1265,6 +1265,9 @@ export async function parseCombinedTimelineEvents(
 				break;
 			case Common.EventType.CrossReferenced:
 				const crossRefEv = event as GraphQL.CrossReferencedEvent;
+				if (!crossRefEv.source) {
+					break;
+				}
 				const isIssue = crossRefEv.source.__typename === 'Issue';
 				const extensionUrl = isIssue
 					? await toOpenIssueWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, issueNumber: crossRefEv.source.number })
