@@ -1120,7 +1120,7 @@ export class IssueFeatureRegistrar extends Disposable {
 			quickInput.busy = true;
 			this.createIssueInfo = { document, newIssue, lineNumber, insertIndex };
 
-			this.makeNewIssueFile(document.uri, { title, body, assignees });
+			await this.makeNewIssueFile(document.uri, { title, body, assignees });
 			quickInput.busy = false;
 			quickInput.hide();
 		});
