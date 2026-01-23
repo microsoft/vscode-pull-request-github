@@ -1565,32 +1565,40 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: OverviewContext | undefined) => {
-			let pr: PullRequestModel | undefined;
+			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
-				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
+				item = await folderManager?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				if (!item) {
+					item = await folderManager?.resolveIssue(params.owner, params.repo, params.number);
+				}
 			} else {
 				const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 					.map(folderManager => folderManager.activePullRequest!)
 					.filter(activePR => !!activePR);
-				pr = await chooseItem<PullRequestModel>(
+				item = await chooseItem<PullRequestModel>(
 					activePullRequests,
 					itemValue => ({ label: `${itemValue.number}: ${itemValue.title}` }),
 					{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
 				);
 			}
-			if (pr) {
-				return vscode.env.clipboard.writeText(vscodeDevPrLink(pr));
+			if (item) {
+				return vscode.env.clipboard.writeText(vscodeDevPrLink(item));
 			}
 		}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyPrLink', async (params: OverviewContext | undefined) => {
-			let pr: PullRequestModel | undefined;
+			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
-				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
+				item = await folderManager?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				if (!item) {
+					item = await folderManager?.resolveIssue(params.owner, params.repo, params.number);
+				}
 			}
-			if (pr) {
-				return vscode.env.clipboard.writeText(pr.html_url);
+			if (item) {
+				return vscode.env.clipboard.writeText(item.html_url);
 			}
 		}));
 
