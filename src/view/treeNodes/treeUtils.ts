@@ -35,9 +35,9 @@ export namespace TreeUtils {
 					continue;
 				}
 				if (!checkedNodes.includes(selected) && !uncheckedNodes.includes(selected)) {
-					if (selected.checkboxState.state === vscode.TreeItemCheckboxState.Unchecked) {
+					if (selected.checkboxState?.state === vscode.TreeItemCheckboxState.Unchecked) {
 						checkedNodes.push(selected);
-					} else {
+					} else if (selected.checkboxState?.state === vscode.TreeItemCheckboxState.Checked) {
 						uncheckedNodes.push(selected);
 					}
 				}
