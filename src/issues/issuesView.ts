@@ -101,10 +101,15 @@ export class IssuesTreeData
 		}
 
 		if (avatarUser) {
-			treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
-				(element.isOpen
-					? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
+			// For enterprise, use placeholder icon instead of trying to fetch avatar
+			if (element.githubRepository.remote.isEnterprise) {
+				treeItem.iconPath = new vscode.ThemeIcon('github');
+			} else {
+				treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
+					(element.isOpen
+						? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+						: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
+			}
 		} else {
 			// Use GitHub codicon when assignee setting is selected but no assignees exist
 			treeItem.iconPath = new vscode.ThemeIcon('github');
