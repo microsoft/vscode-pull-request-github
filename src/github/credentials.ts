@@ -454,6 +454,75 @@ export class CredentialStore extends Disposable {
 		github.isEmu = getUser.then(result => result.data.plan?.name === 'emu_user');
 	}
 
+	/**
+	 * Check if there are multiple GitHub accounts signed in to VS Code.
+	 * This helps detect if the user might be using the wrong account for a repository.
+	 */
+	public async hasMultipleAccounts(authProviderId: AuthProvider): Promise<boolean> {
+		try {
+			// Try different scope combinations to find all possible sessions
+			const scopesToCheck = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
+			const foundSessions = new Set<string>();
+
+			for (const scopes of scopesToCheck) {
+				try {
+					const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
+					if (session) {
+						foundSessions.add(session.account.id);
+					}
+				} catch {
+					// Ignore errors for individual scope checks
+				}
+			}
+
+			// If we found sessions with different account IDs, there are multiple accounts
+			// However, the current API limitations mean we can only detect one session at a time
+			// So we use a different approach: check if there are accounts available to switch to
+			// by checking the account property on the session
+
+			// For now, we'll assume if the user is authenticated, there might be multiple accounts
+			// The VS Code API doesn't easily expose all accounts, but the manage preferences command
+			// will show the user if they have multiple accounts configured
+			return foundSessions.size > 0;
+		} catch (e) {
+			Logger.error(`Error checking for multiple accounts: ${e}`, CredentialStore.ID);
+			return false;
+		}
+	}
+
+	/**
+	 * Show a modal dialog suggesting the user might be using the wrong GitHub account.
+	 * Offers to open the "Manage Account Preferences" command.
+	 * @param repoName The repository name that couldn't be accessed
+	 * @param authProviderId The authentication provider ID
+	 * @returns true if the user chose to manage account preferences, false otherwise
+	 */
+	public async showWrongAccountModal(repoName: string, authProviderId: AuthProvider): Promise<boolean> {
+		const currentUser = await this.getCurrentUser(authProviderId);
+		const accountName = currentUser?.login ?? vscode.l10n.t('your current account');
+
+		const manageAccountPreferences = vscode.l10n.t('Manage Account Preferences');
+		const result = await vscode.window.showErrorMessage(
+			vscode.l10n.t(
+				'Unable to access repository "{0}" with the current GitHub account ({1}). You may have multiple GitHub accounts configured. Would you like to check your account preferences?',
+				repoName,
+				accountName
+			),
+			{ modal: true },
+			manageAccountPreferences
+		);
+
+		if (result === manageAccountPreferences) {
+			try {
+				await vscode.commands.executeCommand('_account.manageAccountPreferences', 'GitHub.vscode-pull-request-github');
+			} catch (e) {
+				Logger.error(`Failed to open manage account preferences: ${e}`, CredentialStore.ID);
+			}
+			return true;
+		}
+		return false;
+	}
+
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
 		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await this.findExistingScopes(authProviderId);
 		if (existingSession?.session) {

@@ -1360,10 +1360,17 @@ export class FolderRepositoryManager extends Disposable {
 		} catch (e) {
 			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);
 			if (e.status === 404) {
-				// not found
-				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote ${githubRepository.remote.remoteName} with query failed, please check if the repo ${githubRepository.remote.owner}/${githubRepository.remote.repositoryName} is valid.`,
-				);
+				// not found - this might be due to using the wrong account
+				const repoName = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
+				const hasMultipleAccounts = await this._credentialStore.hasMultipleAccounts(githubRepository.remote.authProviderId);
+				if (hasMultipleAccounts) {
+					// Show modal suggesting the user might be using the wrong account
+					await this._credentialStore.showWrongAccountModal(repoName, githubRepository.remote.authProviderId);
+				} else {
+					vscode.window.showWarningMessage(
+						vscode.l10n.t('Fetching pull requests for remote {0} with query failed, please check if the repo {1} is valid.', githubRepository.remote.remoteName, repoName),
+					);
+				}
 			} else {
 				throw e;
 			}
