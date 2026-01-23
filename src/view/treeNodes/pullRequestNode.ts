@@ -270,16 +270,20 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
+	private async _getAuthorIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
+		// For enterprise, use placeholder icon instead of trying to fetch avatar
+		if (this.pullRequestModel.githubRepository.remote.isEnterprise) {
+			return new vscode.ThemeIcon('github');
+		}
+		return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+			?? new vscode.ThemeIcon('github');
+	}
+
 	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus();
 		const theme = this._folderReposManager.themeWatcher.themeData;
 		if (copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
-			// For enterprise, use placeholder icon instead of trying to fetch avatar
-			if (this.pullRequestModel.githubRepository.remote.isEnterprise) {
-				return new vscode.ThemeIcon('github');
-			}
-			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-				?? new vscode.ThemeIcon('github');
+			return this._getAuthorIcon();
 		}
 		switch (copilotWorkingStatus) {
 			case CopilotWorkingStatus.InProgress:
@@ -298,12 +302,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 					dark: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'dark'), getListErrorForeground(theme, 'dark'))
 				};
 			default:
-				// For enterprise, use placeholder icon instead of trying to fetch avatar
-				if (this.pullRequestModel.githubRepository.remote.isEnterprise) {
-					return new vscode.ThemeIcon('github');
-				}
-				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-					?? new vscode.ThemeIcon('github');
+				return this._getAuthorIcon();
 		}
 	}
 
