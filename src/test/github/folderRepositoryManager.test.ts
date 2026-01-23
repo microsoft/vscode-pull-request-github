@@ -230,4 +230,108 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.title, 'title');
 		assert.strictEqual(result?.body, '* This is a list item with two lines that have a line break between them\n  * This is a nested list item that also has two lines that should have been merged');
 	});
+
+	it('handles basic numeric list continuation', async function () {
+		const message = Promise.resolve('title\n\n1.  Basic numeric list\n    continuation.\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  Basic numeric list continuation. Third line');
+	});
+
+	it('handles additional spaces OK for continuation', async function () {
+		const message = Promise.resolve('title\n\n2.  Additional spaces are\n    OK for a continuation (unless it\'s 4 spaces which would be a code block).\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '2.  Additional spaces are OK for a continuation (unless it\'s 4 spaces which would be a code block). Third line');
+	});
+
+	it('handles asterisk list with extra spaces', async function () {
+		const message = Promise.resolve('title\n\n*   Additional spaces are\n    OK for a continuation (unless it\'s 4 spaces which would be a code block).\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Additional spaces are OK for a continuation (unless it\'s 4 spaces which would be a code block). Third line');
+	});
+
+	it('handles multi-digit numbers (10.)', async function () {
+		const message = Promise.resolve('title\n\n10.  Multi-digit numbers should also\n     work for a continuation.\n     Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '10.  Multi-digit numbers should also work for a continuation. Third line');
+	});
+
+	it('handles multi-paragraph list - numbered', async function () {
+		const message = Promise.resolve('title\n\n11.  Multi-paragraph lists are also supported.\n\n     Second paragraph in the same list item.\n     Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '11.  Multi-paragraph lists are also supported.\n\n     Second paragraph in the same list item. Third line');
+	});
+
+	it('handles multi-paragraph list - asterisk', async function () {
+		const message = Promise.resolve('title\n\n*   Multi-paragraph lists are also supported.\n\n    Second paragraph in the same list item.\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Multi-paragraph lists are also supported.\n\n    Second paragraph in the same list item. Third line');
+	});
+
+	it('handles item with code block - numbered', async function () {
+		const message = Promise.resolve('title\n\n1.  Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+	});
+
+	it('handles item with code block - asterisk', async function () {
+		const message = Promise.resolve('title\n\n*   Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+	});
+
+	it('handles fewer spaces OK - numbered (1 space)', async function () {
+		const message = Promise.resolve('title\n\n1.  Fewer spaces are also OK\n for a list continuation (as long as there\'s at least one space)');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  Fewer spaces are also OK for a list continuation (as long as there\'s at least one space)');
+	});
+
+	it('handles fewer spaces OK - asterisk (1 space)', async function () {
+		const message = Promise.resolve('title\n\n*   Fewer spaces are also OK\n for a list continuation (as long as there\'s at least one space)');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Fewer spaces are also OK for a list continuation (as long as there\'s at least one space)');
+	});
+
+	it('handles nested numbered lists', async function () {
+		const message = Promise.resolve('title\n\n1.  First level item\n    continuation of first level\n    1.  Nested numbered item\n        with continuation');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  First level item continuation of first level\n    1.  Nested numbered item with continuation');
+	});
+
+	it('handles nested multi-digit numbered lists', async function () {
+		const message = Promise.resolve('title\n\n10.  First level item with\n     multi-line content\n     10.  Nested with multi-digit\n          number and continuation');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '10.  First level item with multi-line content\n     10.  Nested with multi-digit number and continuation');
+	});
+
+	it('handles nested multi-paragraph lists', async function () {
+		const message = Promise.resolve('title\n\n*   Outer item\n\n    Second paragraph of outer\n    with continuation\n    *   Inner item\n\n        Second paragraph of inner\n        with continuation');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Outer item\n\n    Second paragraph of outer with continuation\n    *   Inner item\n\n        Second paragraph of inner with continuation');
+	});
 });

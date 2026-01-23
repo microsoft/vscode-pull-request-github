@@ -3067,8 +3067,8 @@ function unwrapCommitMessageBody(body: string): string {
 		return body;
 	}
 
-	// Pattern to detect list item markers at the start of a line
-	const LIST_ITEM_PATTERN = /^[ \t]*([*+\-]|\d+\.)\s/;
+	// Pattern to detect list item markers at the start of a line and capture the marker
+	const LIST_ITEM_PATTERN = /^([ \t]*)([*+\-]|\d+\.)([ \t]+)/;
 	// Pattern to detect blockquote markers
 	const BLOCKQUOTE_PATTERN = /^[ \t]*>/;
 	// Pattern to detect fenced code block markers
@@ -3083,11 +3083,22 @@ function unwrapCommitMessageBody(body: string): string {
 		return base.length > 0 && !/\s$/.test(base) ? `${base} ${addition}` : `${base}${addition}`;
 	};
 
+	// Get the content indent for a list item (position where actual content starts)
+	const getListItemContentIndent = (line: string): number => {
+		const match = line.match(LIST_ITEM_PATTERN);
+		if (!match) {
+			return 0;
+		}
+		// Content indent = leading whitespace + marker + space after marker
+		return match[1].length + match[2].length + match[3].length;
+	};
+
 	const lines = body.split('\n');
 	const result: string[] = [];
 	let i = 0;
 	let inFencedBlock = false;
-	const listIndentStack: number[] = [];
+	// Stack stores { markerIndent, contentIndent } for each nesting level
+	const listStack: { markerIndent: number; contentIndent: number }[] = [];
 
 	const getNextNonBlankLineInfo = (
 		startIndex: number,
@@ -3106,19 +3117,23 @@ function unwrapCommitMessageBody(body: string): string {
 		return undefined;
 	};
 
-	const getActiveListIndent = (lineIndent: number): number | undefined => {
-		for (let idx = listIndentStack.length - 1; idx >= 0; idx--) {
-			const indentForLevel = listIndentStack[idx];
-			if (lineIndent >= indentForLevel + 2) {
-				listIndentStack.length = idx + 1;
-				return indentForLevel;
+	// Find the active list context for a given line indent
+	// Returns the content indent if the line is within an active list context
+	const getActiveListContentIndent = (lineIndent: number): number | undefined => {
+		for (let idx = listStack.length - 1; idx >= 0; idx--) {
+			const { markerIndent, contentIndent } = listStack[idx];
+			// A line is part of a list item if it has at least 1 space indent
+			// (but less than contentIndent + 4 which would be a code block)
+			if (lineIndent >= 1 && lineIndent >= markerIndent) {
+				listStack.length = idx + 1;
+				return contentIndent;
 			}
-			listIndentStack.pop();
+			listStack.pop();
 		}
 		return undefined;
 	};
 
-	const shouldJoinListContinuation = (lineIndex: number, activeIndent: number, baseLine: string): boolean => {
+	const shouldJoinListContinuation = (lineIndex: number, contentIndent: number, baseLine: string): boolean => {
 		const currentLine = lines[lineIndex];
 		if (!currentLine) {
 			return false;
@@ -3142,12 +3157,13 @@ function unwrapCommitMessageBody(body: string): string {
 		}
 
 		const currentIndent = getLeadingWhitespaceLength(currentLine);
-		if (currentIndent < activeIndent + 2) {
+		// Need at least 1 space to be a continuation
+		if (currentIndent < 1) {
 			return false;
 		}
 
-		// Treat indented code blocks (4+ spaces beyond the bullet) as preserve-only.
-		if (currentIndent >= activeIndent + 4) {
+		// 4+ spaces beyond content indent is an indented code block
+		if (currentIndent >= contentIndent + 4) {
 			return false;
 		}
 
@@ -3156,8 +3172,12 @@ function unwrapCommitMessageBody(body: string): string {
 			return true;
 		}
 
-		if (nextInfo.isListItem && nextInfo.indent <= activeIndent) {
-			return false;
+		// If next line is a list item at or before the current list level, don't join
+		if (nextInfo.isListItem) {
+			const currentListLevel = listStack.length > 0 ? listStack[listStack.length - 1].markerIndent : 0;
+			if (nextInfo.indent <= currentListLevel) {
+				return false;
+			}
 		}
 
 		return true;
@@ -3166,11 +3186,11 @@ function unwrapCommitMessageBody(body: string): string {
 	while (i < lines.length) {
 		const line = lines[i];
 
-		// Preserve blank lines
+		// Preserve blank lines but don't clear list context
+		// (multi-paragraph lists are allowed in GitHub markdown)
 		if (line.trim() === '') {
 			result.push(line);
 			i++;
-			listIndentStack.length = 0;
 			continue;
 		}
 
@@ -3190,26 +3210,25 @@ function unwrapCommitMessageBody(body: string): string {
 		}
 
 		const lineIndent = getLeadingWhitespaceLength(line);
-		const isListItem = LIST_ITEM_PATTERN.test(line);
+		const listItemMatch = line.match(LIST_ITEM_PATTERN);
 
-		if (isListItem) {
-			while (listIndentStack.length && lineIndent < listIndentStack[listIndentStack.length - 1]) {
-				listIndentStack.pop();
+		if (listItemMatch) {
+			const markerIndent = listItemMatch[1].length;
+			const contentIndent = getListItemContentIndent(line);
+
+			// Pop list levels that are at or beyond this indent
+			while (listStack.length && markerIndent <= listStack[listStack.length - 1].markerIndent) {
+				listStack.pop();
 			}
 
-			if (!listIndentStack.length || lineIndent > listIndentStack[listIndentStack.length - 1]) {
-				listIndentStack.push(lineIndent);
-			} else {
-				listIndentStack[listIndentStack.length - 1] = lineIndent;
-			}
-
+			listStack.push({ markerIndent, contentIndent });
 			result.push(line);
 			i++;
 			continue;
 		}
 
-		const activeListIndent = getActiveListIndent(lineIndent);
-		const codeIndentThreshold = activeListIndent !== undefined ? activeListIndent + 4 : 4;
+		const activeContentIndent = getActiveListContentIndent(lineIndent);
+		const codeIndentThreshold = activeContentIndent !== undefined ? activeContentIndent + 4 : 4;
 		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
 		const isIndentedCode = lineIndent >= codeIndentThreshold;
 
@@ -3219,34 +3238,84 @@ function unwrapCommitMessageBody(body: string): string {
 			continue;
 		}
 
-		if (activeListIndent !== undefined && lineIndent >= activeListIndent + 2) {
+		// Handle list item continuations
+		if (activeContentIndent !== undefined && lineIndent >= 1) {
 			const baseIndex = result.length - 1;
-			if (baseIndex >= 0) {
-				let baseLine = result[baseIndex];
+			// Only try to join with previous line if it's not blank
+			// Multi-paragraph lists have blank lines that should be preserved
+			const baseLine = baseIndex >= 0 ? result[baseIndex] : '';
+			const previousLineIsBlank = baseLine.trim() === '';
+
+			if (!previousLineIsBlank && baseIndex >= 0) {
+				let joinedLine = baseLine;
 				let appended = false;
 				let currentIndex = i;
 
 				while (
 					currentIndex < lines.length &&
-					shouldJoinListContinuation(currentIndex, activeListIndent, baseLine)
+					shouldJoinListContinuation(currentIndex, activeContentIndent, joinedLine)
 				) {
 					const continuationText = lines[currentIndex].trim();
 					if (continuationText) {
-						baseLine = appendWithSpace(baseLine, continuationText);
+						joinedLine = appendWithSpace(joinedLine, continuationText);
 						appended = true;
 					}
 					currentIndex++;
 				}
 
 				if (appended) {
-					result[baseIndex] = baseLine;
+					result[baseIndex] = joinedLine;
 					i = currentIndex;
 					continue;
 				}
 			}
 
-			result.push(line);
+			// For multi-paragraph continuations or standalone indented lines,
+			// preserve indentation but unwrap consecutive continuation lines
+			let joinedLine = line;
 			i++;
+
+			while (i < lines.length) {
+				const nextLine = lines[i];
+
+				if (nextLine.trim() === '') {
+					break;
+				}
+
+				if (FENCE_PATTERN.test(nextLine)) {
+					break;
+				}
+
+				if (LIST_ITEM_PATTERN.test(nextLine)) {
+					break;
+				}
+
+				if (BLOCKQUOTE_PATTERN.test(nextLine)) {
+					break;
+				}
+
+				const nextIndent = getLeadingWhitespaceLength(nextLine);
+				// Check for code block
+				if (nextIndent >= activeContentIndent + 4) {
+					break;
+				}
+
+				// Must have at least 1 space to be a continuation
+				if (nextIndent < 1) {
+					break;
+				}
+
+				// Check for hard line break
+				if (hasHardLineBreak(joinedLine)) {
+					break;
+				}
+
+				// Join this line - preserve the original indentation for the first line
+				joinedLine = appendWithSpace(joinedLine, nextLine.trim());
+				i++;
+			}
+
+			result.push(joinedLine);
 			continue;
 		}
 
