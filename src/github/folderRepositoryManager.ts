@@ -1362,8 +1362,8 @@ export class FolderRepositoryManager extends Disposable {
 			if (e.status === 404) {
 				// not found - this might be due to using the wrong account
 				const repoName = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
-				const hasMultipleAccounts = await this._credentialStore.hasMultipleAccounts(githubRepository.remote.authProviderId);
-				if (hasMultipleAccounts) {
+				const isAuthenticated = await this._credentialStore.isAuthenticatedForAccountPreferences(githubRepository.remote.authProviderId);
+				if (isAuthenticated) {
 					// Show modal suggesting the user might be using the wrong account
 					await this._credentialStore.showWrongAccountModal(repoName, githubRepository.remote.authProviderId);
 				} else {

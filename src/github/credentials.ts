@@ -455,39 +455,13 @@ export class CredentialStore extends Disposable {
 	}
 
 	/**
-	 * Check if there are multiple GitHub accounts signed in to VS Code.
-	 * This helps detect if the user might be using the wrong account for a repository.
+	 * Check if the user is authenticated and might benefit from checking account preferences.
+	 * Note: Due to VS Code API limitations, we cannot directly check if multiple accounts are available.
+	 * This method returns true if the user is authenticated, as they may have multiple accounts
+	 * configured in VS Code that they can switch to via the "Manage Account Preferences" command.
 	 */
-	public async hasMultipleAccounts(authProviderId: AuthProvider): Promise<boolean> {
-		try {
-			// Try different scope combinations to find all possible sessions
-			const scopesToCheck = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
-			const foundSessions = new Set<string>();
-
-			for (const scopes of scopesToCheck) {
-				try {
-					const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
-					if (session) {
-						foundSessions.add(session.account.id);
-					}
-				} catch {
-					// Ignore errors for individual scope checks
-				}
-			}
-
-			// If we found sessions with different account IDs, there are multiple accounts
-			// However, the current API limitations mean we can only detect one session at a time
-			// So we use a different approach: check if there are accounts available to switch to
-			// by checking the account property on the session
-
-			// For now, we'll assume if the user is authenticated, there might be multiple accounts
-			// The VS Code API doesn't easily expose all accounts, but the manage preferences command
-			// will show the user if they have multiple accounts configured
-			return foundSessions.size > 0;
-		} catch (e) {
-			Logger.error(`Error checking for multiple accounts: ${e}`, CredentialStore.ID);
-			return false;
-		}
+	public async isAuthenticatedForAccountPreferences(authProviderId: AuthProvider): Promise<boolean> {
+		return this.isAuthenticated(authProviderId);
 	}
 
 	/**
@@ -498,8 +472,13 @@ export class CredentialStore extends Disposable {
 	 * @returns true if the user chose to manage account preferences, false otherwise
 	 */
 	public async showWrongAccountModal(repoName: string, authProviderId: AuthProvider): Promise<boolean> {
-		const currentUser = await this.getCurrentUser(authProviderId);
-		const accountName = currentUser?.login ?? vscode.l10n.t('your current account');
+		let accountName: string;
+		try {
+			const currentUser = await this.getCurrentUser(authProviderId);
+			accountName = currentUser?.login ?? vscode.l10n.t('your current account');
+		} catch {
+			accountName = vscode.l10n.t('your current account');
+		}
 
 		const manageAccountPreferences = vscode.l10n.t('Manage Account Preferences');
 		const result = await vscode.window.showErrorMessage(

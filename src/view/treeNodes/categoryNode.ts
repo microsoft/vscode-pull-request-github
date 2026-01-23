@@ -310,8 +310,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 						actions.push(vscode.l10n.t('Login again'));
 					} else if (e.status === 403 || e.response?.status === 403) {
 						// 403 forbidden - user might not have access with current account
-						const hasMultipleAccounts = await this.folderRepoManager.credentialStore.hasMultipleAccounts(AuthProvider.github);
-						if (hasMultipleAccounts) {
+						// Check both GitHub.com and Enterprise providers since we might have repos from either
+						const isAuthenticatedGitHub = await this.folderRepoManager.credentialStore.isAuthenticatedForAccountPreferences(AuthProvider.github);
+						const isAuthenticatedEnterprise = await this.folderRepoManager.credentialStore.isAuthenticatedForAccountPreferences(AuthProvider.githubEnterprise);
+						if (isAuthenticatedGitHub || isAuthenticatedEnterprise) {
 							actions.push(vscode.l10n.t('Check Account Preferences'));
 						}
 					}
