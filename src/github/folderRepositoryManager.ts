@@ -3356,7 +3356,7 @@ function unwrapCommitMessageBody(body: string): string {
 			}
 
 			// Join this line with a space
-			joinedLine += ' ' + nextLine;
+			joinedLine = appendWithSpace(joinedLine, nextLine.trim());
 			i++;
 		}
 
