@@ -20,7 +20,7 @@ import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public iconPath: vscode.Uri | undefined;
+	public iconPath: vscode.Uri | vscode.ThemeIcon | undefined;
 	public contextValue?: string;
 
 	constructor(
