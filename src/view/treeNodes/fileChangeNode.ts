@@ -75,7 +75,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
-	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
+	public checkboxState?: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
 
 	get status(): GitChangeType {
 		return this.changeModel.status;
@@ -155,13 +155,34 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
+	/**
+	 * Check if this file node is under a commit node in the tree hierarchy.
+	 * Files under commit nodes should not have checkboxes.
+	 */
+	private isUnderCommitNode(): boolean {
+		let current = this.parent;
+		while (current instanceof TreeNode) {
+			// CommitNode has contextValue set to 'commit'
+			if ((current as vscode.TreeItem).contextValue === 'commit') {
+				return true;
+			}
+			current = current.parent;
+		}
+		return false;
+	}
+
 	updateViewed(viewed: ViewedState) {
 		this.changeModel.updateViewed(viewed);
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		this.checkboxState = viewed === ViewedState.VIEWED ?
-			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark File as Unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
-			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark File as Viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
+		// Don't show checkboxes for files under commit nodes
+		if (!this.isUnderCommitNode()) {
+			this.checkboxState = viewed === ViewedState.VIEWED ?
+				{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark File as Unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
+				{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark File as Viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
+		} else {
+			this.checkboxState = undefined;
+		}
 		this.pullRequestManager.setFileViewedContext();
 	}
 
