@@ -242,10 +242,6 @@ export class UriHandler implements vscode.UriHandler {
 		}
 	}
 
-	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {
-		return this._savePendingActionAndOpenFolder(params, 'checkout', folderUri);
-	}
-
 	private async _savePendingActionAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, actionType: PendingActionType, folderUri: vscode.Uri): Promise<void> {
 		const payload: PendingOpenPayload = { ...params, actionType, timestamp: Date.now() };
 		await this._context.globalState.update(PENDING_OPEN_PULL_REQUEST_KEY, payload);
@@ -277,7 +273,7 @@ export class UriHandler implements vscode.UriHandler {
 				if (workspaces && workspaces.length) {
 					Logger.appendLine(`Found workspaces for ${remoteUri.toString()}: ${workspaces.map(w => w.toString()).join(', ')}`, UriHandler.ID);
 					progress.report({ message: vscode.l10n.t('Opening workspace') });
-					await this._savePendingCheckoutAndOpenFolder(params, workspaces[0]);
+					await this._savePendingActionAndOpenFolder(params, 'checkout', workspaces[0]);
 				} else {
 					this._showCloneOffer(remoteUri, params);
 				}
