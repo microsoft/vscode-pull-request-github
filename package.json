@@ -3556,7 +3556,7 @@
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "(webviewId == PullRequestOverview || webviewId == IssueOverview) && github:copyMenu"
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
 				},
 				{
 					"command": "pr.readyForReviewDescription",

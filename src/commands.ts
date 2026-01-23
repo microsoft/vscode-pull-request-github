@@ -1565,25 +1565,21 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: OverviewContext | undefined) => {
-			let item: PullRequestModel | IssueModel | undefined;
+			let pr: PullRequestModel | undefined;
 			if (params) {
-				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
-				item = await folderManager?.resolvePullRequest(params.owner, params.repo, params.number, true);
-				if (!item) {
-					item = await folderManager?.resolveIssue(params.owner, params.repo, params.number);
-				}
+				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
 			} else {
 				const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 					.map(folderManager => folderManager.activePullRequest!)
 					.filter(activePR => !!activePR);
-				item = await chooseItem<PullRequestModel>(
+				pr = await chooseItem<PullRequestModel>(
 					activePullRequests,
 					itemValue => ({ label: `${itemValue.number}: ${itemValue.title}` }),
 					{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
 				);
 			}
-			if (item) {
-				return vscode.env.clipboard.writeText(vscodeDevPrLink(item));
+			if (pr) {
+				return vscode.env.clipboard.writeText(vscodeDevPrLink(pr));
 			}
 		}));
 
