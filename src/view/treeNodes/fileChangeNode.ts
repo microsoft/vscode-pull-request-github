@@ -163,7 +163,9 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		let current = this.parent;
 		while (current instanceof TreeNode) {
 			// CommitNode has contextValue set to 'commit'
-			if ((current as vscode.TreeItem).contextValue === 'commit') {
+			// Since TreeNode doesn't define contextValue, we check if it exists and equals 'commit'
+			const treeItem = current as { contextValue?: string };
+			if (treeItem.contextValue === 'commit') {
 				return true;
 			}
 			current = current.parent;

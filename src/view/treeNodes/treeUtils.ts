@@ -35,6 +35,7 @@ export namespace TreeUtils {
 					continue;
 				}
 				if (!checkedNodes.includes(selected) && !uncheckedNodes.includes(selected)) {
+					// Only process files that have checkboxes (files without checkboxState, like those under commits, are skipped)
 					if (selected.checkboxState?.state === vscode.TreeItemCheckboxState.Unchecked) {
 						checkedNodes.push(selected);
 					} else if (selected.checkboxState?.state === vscode.TreeItemCheckboxState.Checked) {
