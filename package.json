@@ -2828,7 +2828,7 @@
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/",
 					"group": "2_pullrequest@1"
 				},
 				{
@@ -2873,7 +2873,7 @@
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/",
 					"group": "inline@0"
 				},
 				{
