@@ -272,7 +272,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 	private async _getAuthorIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
 		// For enterprise, use placeholder icon instead of trying to fetch avatar
-		if (this.pullRequestModel.githubRepository.remote.isEnterprise) {
+		if (!this.pullRequestModel.author.avatarUrl?.includes('githubusercontent.com')) {
 			return new vscode.ThemeIcon('github');
 		}
 		return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
