@@ -2017,14 +2017,6 @@
 					"when": "config.githubPullRequests.experimental.chat"
 				},
 				{
-					"command": "chat.refreshChatSessions",
-					"when": "config.githubPullRequests.experimental.chat"
-				},
-				{
-					"command": "vscode-pull-request-github.refreshChatSessions",
-					"when": "config.githubPullRequests.experimental.chat"
-				},
-				{
 					"command": "pr.configureRemotes",
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
