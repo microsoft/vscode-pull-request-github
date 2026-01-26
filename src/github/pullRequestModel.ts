@@ -1209,7 +1209,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		// For Conflict state, use the REST API approach with conflict resolution.
 		// For Unknown or NotMergeable states, the REST API approach will also be used as a fallback,
 		// though these states may fail for other reasons (e.g., blocked by branch protection).
-		return this.updateBranchWithConflictResolution(model!);
+		return this.updateBranchWithConflictResolution(model);
 	}
 
 	/**
