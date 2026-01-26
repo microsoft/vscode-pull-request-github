@@ -160,17 +160,9 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	 * Files under commit nodes should not have checkboxes.
 	 */
 	private isUnderCommitNode(): boolean {
-		let current = this.parent;
-		while (current instanceof TreeNode) {
-			// CommitNode has contextValue set to 'commit'
-			// Since TreeNode doesn't define contextValue, we check if it exists and equals 'commit'
-			const treeItem = current as { contextValue?: string };
-			if (treeItem.contextValue === 'commit') {
-				return true;
-			}
-			current = current.parent;
-		}
-		return false;
+		// If the file's sha is different from the PR's head sha, it's from an older commit
+		// and should not have a checkbox
+		return this.changeModel.sha !== undefined && this.changeModel.sha !== this.pullRequest.head?.sha;
 	}
 
 	updateViewed(viewed: ViewedState) {
