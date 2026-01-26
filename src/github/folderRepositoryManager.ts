@@ -2473,8 +2473,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			if (continueWithMerge) {
 				const updateSucceeded = await pullRequest.updateBranch(conflictModel);
-				// If the PR is currently checked out and update succeeded, pull to sync local branch
-				if (updateSucceeded && pullRequest.isActive && !isBrowser) {
+				// If the PR is currently checked out and update succeeded via GraphQL (no conflicts), pull to sync local branch
+				// When there are conflicts (REST API path), the update already pushes the changes, so no pull is needed
+				if (updateSucceeded && pullRequest.isActive && !isBrowser && hasNoConflicts) {
 					await this.repository.pull();
 				}
 				return updateSucceeded;
