@@ -2453,6 +2453,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
+
 		if (!pullRequest.isActive || isBrowser) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
@@ -2473,6 +2474,21 @@ export class FolderRepositoryManager extends Disposable {
 				return false;
 			}
 		}
+
+		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict) {
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
+				async () => {
+					const success = await pullRequest.updateBranchWithGraphQL();
+					if (success && pullRequest.isActive) {
+						await this.repository.pull();
+					}
+					return success;
+				}
+			);
+			return result;
+		}
+
 
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
@@ -3053,7 +3069,7 @@ export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ re
 /**
  * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
  * Similar to GitHub's behavior when converting commit messages to PR descriptions.
- * 
+ *
  * Rules:
  * - Preserves blank lines as paragraph breaks
  * - Preserves fenced code blocks (```)

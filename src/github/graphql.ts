@@ -545,6 +545,15 @@ export interface EnqueuePullRequestResponse {
 	}
 }
 
+export interface UpdatePullRequestBranchResponse {
+	updatePullRequestBranch: {
+		pullRequest: {
+			id: string;
+			headRefOid: string;
+		}
+	}
+}
+
 export interface SubmittedReview extends Review {
 	comments: {
 		nodes: ReviewComment[];
