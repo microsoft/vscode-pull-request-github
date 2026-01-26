@@ -1585,12 +1585,16 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyPrLink', async (params: OverviewContext | undefined) => {
-			let pr: PullRequestModel | undefined;
+			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
-				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
+				item = await folderManager?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				if (!item) {
+					item = await folderManager?.resolveIssue(params.owner, params.repo, params.number);
+				}
 			}
-			if (pr) {
-				return vscode.env.clipboard.writeText(pr.html_url);
+			if (item) {
+				return vscode.env.clipboard.writeText(item.html_url);
 			}
 		}));
 
