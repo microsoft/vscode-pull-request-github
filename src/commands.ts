@@ -1585,12 +1585,16 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyPrLink', async (params: OverviewContext | undefined) => {
-			let pr: PullRequestModel | undefined;
+			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
-				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
+				item = await folderManager?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				if (!item) {
+					item = await folderManager?.resolveIssue(params.owner, params.repo, params.number);
+				}
 			}
-			if (pr) {
-				return vscode.env.clipboard.writeText(pr.html_url);
+			if (item) {
+				return vscode.env.clipboard.writeText(item.html_url);
 			}
 		}));
 
@@ -1768,20 +1772,30 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
+		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment | GHPRCommentThread) => {
 			/* __GDPR__
 				"pr.applySuggestionWithCopilot" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.applySuggestionWithCopilot');
 
-			const commentThread = comment.parent;
+			const isThread = GHPRCommentThread.is(comment);
+			const commentThread = isThread ? comment : comment.parent;
+			const commentBody = isThread ? comment.comments[0].body : comment.body;
 			commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-			const message = comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body;
-			await vscode.commands.executeCommand('vscode.editorChat.start', {
-				initialRange: commentThread.range,
-				message: message,
-				autoSend: true,
-			});
+			const message = commentBody instanceof vscode.MarkdownString ? commentBody.value : commentBody;
+
+			if (isThread) {
+				// For threads, open the Chat view instead of inline chat
+				await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: message, isPartialQuery: true, agentMode: true });
+
+			} else {
+				// For single comments, use inline chat
+				await vscode.commands.executeCommand('vscode.editorChat.start', {
+					initialRange: commentThread.range,
+					message: message,
+					autoSend: true,
+				});
+			}
 		})
 	);
 	context.subscriptions.push(
