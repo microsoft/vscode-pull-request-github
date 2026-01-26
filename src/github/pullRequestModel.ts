@@ -1202,30 +1202,21 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async updateBranch(model: ConflictResolutionModel): Promise<boolean> {
-		if (this.item.mergeable === PullRequestMergeability.Conflict && (!model.resolvedConflicts || model.resolvedConflicts.size === 0)) {
+		if (!model.resolvedConflicts || model.resolvedConflicts.size === 0) {
 			throw new Error('Pull Request has conflicts but no resolutions were provided.');
 		}
-
 		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - enter`, GitHubRepository.ID);
-
-		// When there are no conflicts, use the GitHub GraphQL API's UpdatePullRequestBranch mutation.
-		// This is simpler and more efficient than manually creating trees and commits.
-		// The GraphQL API is suitable for Mergeable and Behind states, which can be cleanly updated.
-		if (this.item.mergeable === PullRequestMergeability.Mergeable || this.item.mergeable === PullRequestMergeability.Behind) {
-			return this.updateBranchWithGraphQL();
-		}
-
 		// For Conflict state, use the REST API approach with conflict resolution.
 		// For Unknown or NotMergeable states, the REST API approach will also be used as a fallback,
 		// though these states may fail for other reasons (e.g., blocked by branch protection).
-		return this.updateBranchWithConflictResolution(model);
+		return this.updateBranchWithConflictResolution(model!);
 	}
 
 	/**
 	 * Update the branch using the GitHub GraphQL API's UpdatePullRequestBranch mutation.
 	 * This is used when there are no conflicts between the head and base branches.
 	 */
-	private async updateBranchWithGraphQL(): Promise<boolean> {
+	public async updateBranchWithGraphQL(): Promise<boolean> {
 		Logger.debug(`Updating branch using GraphQL UpdatePullRequestBranch mutation - enter`, GitHubRepository.ID);
 
 		if (!this.head?.sha) {

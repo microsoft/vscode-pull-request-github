@@ -2453,11 +2453,8 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
-		const hasNoConflicts = pullRequest.item.mergeable === PullRequestMergeability.Mergeable || pullRequest.item.mergeable === PullRequestMergeability.Behind;
 
-		// Use GraphQL API when PR is not checked out, in browser, or when there are no conflicts
-		// The GraphQL API is simpler and more efficient for conflict-free updates
-		if (!pullRequest.isActive || isBrowser || hasNoConflicts) {
+		if (!pullRequest.isActive || isBrowser) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
 				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolved conflicts for this pull request. There are too many file changes.'), { modal: true, detail: isBrowser ? undefined : vscode.l10n.t('Please check out the pull request to resolve conflicts.') });
@@ -2472,17 +2469,26 @@ export class FolderRepositoryManager extends Disposable {
 			}
 
 			if (continueWithMerge) {
-				const updateSucceeded = await pullRequest.updateBranch(conflictModel);
-				// If the PR is currently checked out and update succeeded via GraphQL (no conflicts), pull to sync local branch
-				// When there are conflicts (REST API path), the update already pushes the changes, so no pull is needed
-				if (updateSucceeded && pullRequest.isActive && !isBrowser && hasNoConflicts) {
-					await this.repository.pull();
-				}
-				return updateSucceeded;
+				return pullRequest.updateBranch(conflictModel);
 			} else {
 				return false;
 			}
 		}
+
+		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict) {
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
+				async () => {
+					const success = await pullRequest.updateBranchWithGraphQL();
+					if (success && pullRequest.isActive) {
+						await this.repository.pull();
+					}
+					return success;
+				}
+			);
+			return result;
+		}
+
 
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
@@ -3063,7 +3069,7 @@ export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ re
 /**
  * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
  * Similar to GitHub's behavior when converting commit messages to PR descriptions.
- * 
+ *
  * Rules:
  * - Preserves blank lines as paragraph breaks
  * - Preserves fenced code blocks (```)
