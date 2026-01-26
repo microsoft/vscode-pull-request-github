@@ -2453,7 +2453,11 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
-		if (!pullRequest.isActive || isBrowser) {
+		const hasNoConflicts = pullRequest.item.mergeable === PullRequestMergeability.Mergeable || pullRequest.item.mergeable === PullRequestMergeability.Behind;
+
+		// Use GraphQL API when PR is not checked out, in browser, or when there are no conflicts
+		// The GraphQL API is simpler and more efficient for conflict-free updates
+		if (!pullRequest.isActive || isBrowser || hasNoConflicts) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
 				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolved conflicts for this pull request. There are too many file changes.'), { modal: true, detail: isBrowser ? undefined : vscode.l10n.t('Please check out the pull request to resolve conflicts.') });
@@ -2468,7 +2472,12 @@ export class FolderRepositoryManager extends Disposable {
 			}
 
 			if (continueWithMerge) {
-				return pullRequest.updateBranch(conflictModel);
+				const updateSucceeded = await pullRequest.updateBranch(conflictModel);
+				// If the PR is currently checked out and update succeeded, pull to sync local branch
+				if (updateSucceeded && pullRequest.isActive && !isBrowser) {
+					await this.repository.pull();
+				}
+				return updateSucceeded;
 			} else {
 				return false;
 			}
