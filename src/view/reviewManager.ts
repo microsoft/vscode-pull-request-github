@@ -263,6 +263,15 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
+	/**
+	 * Shows the status bar item only if this repository is currently selected.
+	 */
+	private showStatusBarIfSelected() {
+		if (this._isRepositorySelected) {
+			this.statusBarItem.show();
+		}
+	}
+
 	get repository(): Repository {
 		return this._repository;
 	}
@@ -588,9 +597,7 @@ export class ReviewManager extends Disposable {
 			arguments: [pr],
 		};
 		Logger.appendLine(`Display pull request status bar indicator.`, this.id);
-		if (this._isRepositorySelected) {
-			this.statusBarItem.show();
-		}
+		this.showStatusBarIfSelected();
 
 		this.layout(pr, updateLayout, this.justSwitchedToReviewMode ? false : silent);
 		this.justSwitchedToReviewMode = false;
@@ -1144,9 +1151,7 @@ export class ReviewManager extends Disposable {
 		Logger.appendLine(`Switch to Pull Request #${pr.number} - start`, this.id);
 		this.statusBarItem.text = vscode.l10n.t('{0} Switching to Review Mode', '$(sync~spin)');
 		this.statusBarItem.command = undefined;
-		if (this._isRepositorySelected) {
-			this.statusBarItem.show();
-		}
+		this.showStatusBarIfSelected();
 		this.switchingToReviewMode = true;
 		this._switchedToPullRequest = pr;
 
@@ -1195,9 +1200,7 @@ export class ReviewManager extends Disposable {
 		try {
 			this.statusBarItem.text = '$(sync~spin) ' + vscode.l10n.t('Fetching additional data: {0}', `pr/${pr.number}`);
 			this.statusBarItem.command = undefined;
-			if (this._isRepositorySelected) {
-				this.statusBarItem.show();
-			}
+			this.showStatusBarIfSelected();
 
 			await this._folderRepoManager.fulfillPullRequestMissingInfo(pr);
 			this._upgradePullRequestEditors(pr);
@@ -1218,9 +1221,7 @@ export class ReviewManager extends Disposable {
 		this.justSwitchedToReviewMode = true;
 		this.statusBarItem.text = vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = undefined;
-		if (this._isRepositorySelected) {
-			this.statusBarItem.show();
-		}
+		this.showStatusBarIfSelected();
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
