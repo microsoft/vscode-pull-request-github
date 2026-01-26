@@ -186,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 							p.databaseId(1111);
 							p.number(1111);
 							p.title('zero');
-							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg').url('https://github.com/me'));
+							p.author(a => a.login('me').avatarUrl('https://githubusercontent.com/me.jpg').url('https://githubusercontent.com/me'));
 							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
 							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
 						}),
