@@ -45,7 +45,7 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
-import { COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_REVIEWER, COPILOT_SWE_AGENT } from '../common/copilot';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
@@ -1060,9 +1060,9 @@ export function parseSelectRestTimelineEvents(
 
 	let sessionIndex = 0;
 	for (const event of events) {
-		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
+		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount, performed_via_github_app?: { slug: string } | null };
 		if (eventNode.created_at && eventNode.node_id) {
-			if (event.event === 'copilot_work_started') {
+			if (event.event === 'copilot_work_started' && eventNode.performed_via_github_app?.slug === COPILOT_SWE_AGENT) {
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotStarted,
@@ -1073,7 +1073,7 @@ export function parseSelectRestTimelineEvents(
 						sessionIndex
 					}
 				});
-			} else if (event.event === 'copilot_work_finished') {
+			} else if (event.event === 'copilot_work_finished' && eventNode.performed_via_github_app?.slug === COPILOT_SWE_AGENT) {
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotFinished,
@@ -1092,6 +1092,12 @@ export function parseSelectRestTimelineEvents(
 						...prSessionLink,
 						sessionIndex
 					}
+				});
+			} else if (event.event === 'copilot_work_started' && eventNode.performed_via_github_app?.slug === COPILOT_REVIEWER) {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotReviewStarted,
+					createdAt: eventNode.created_at,
 				});
 			}
 		}
@@ -1114,6 +1120,7 @@ export function eventTime(event: Common.TimelineEvent): Date | undefined {
 		case Common.EventType.CopilotStarted:
 		case Common.EventType.CopilotFinished:
 		case Common.EventType.CopilotFinishedError:
+		case Common.EventType.CopilotReviewStarted:
 			return new Date(event.createdAt);
 		case Common.EventType.Reviewed:
 			return new Date(event.submittedAt);
