@@ -102,7 +102,7 @@ export class IssuesTreeData
 
 		if (avatarUser) {
 			// For enterprise, use placeholder icon instead of trying to fetch avatar
-			if (!avatarUser.avatarUrl?.includes('githubusercontent.com')) {
+			if (!DataUri.isGitHubDotComAvatar(avatarUser.avatarUrl)) {
 				treeItem.iconPath = new vscode.ThemeIcon('github');
 			} else {
 				treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??

@@ -290,6 +290,16 @@ export namespace DataUri {
 		return asImageDataURI(contents);
 	}
 
+	/**
+	 * Checks if an avatar URL is from GitHub.com (as opposed to GitHub Enterprise).
+	 * GitHub.com avatar URLs contain 'githubusercontent.com', while enterprise avatar URLs do not.
+	 * @param avatarUrl The avatar URL to check
+	 * @returns true if the avatar is from GitHub.com, false otherwise
+	 */
+	export function isGitHubDotComAvatar(avatarUrl: string | undefined): boolean {
+		return avatarUrl?.includes('githubusercontent.com') ?? false;
+	}
+
 	export async function avatarCirclesAsImageDataUris(context: vscode.ExtensionContext, users: (IAccount | ITeam)[], height: number, width: number, localOnly?: boolean): Promise<(vscode.Uri | undefined)[]> {
 		let cacheLogOrder: string[];
 		const cacheLog = cacheLogUri(context);

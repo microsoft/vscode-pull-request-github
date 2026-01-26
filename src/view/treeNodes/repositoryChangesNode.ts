@@ -112,7 +112,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 	override async getTreeItem(): Promise<vscode.TreeItem> {
 		this.setLabel();
 		// For enterprise, use placeholder icon instead of trying to fetch avatar
-		if (!this.pullRequestModel.author.avatarUrl?.includes('githubusercontent.com')) {
+		if (!DataUri.isGitHubDotComAvatar(this.pullRequestModel.author.avatarUrl)) {
 			this.iconPath = new vscode.ThemeIcon('github');
 		} else {
 			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [this.pullRequestModel.author], 16, 16))[0];
