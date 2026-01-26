@@ -220,7 +220,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private isUpdateBranchWithGitHubEnabled(): boolean {
-		return this._item.isActive || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get('experimentalUpdateBranchWithGitHub', false);
+		// With the GraphQL UpdatePullRequestBranch API, we can update branches even when not checked out
+		// (as long as there are no conflicts). The conflict check is done in updateBranch().
+		return true;
 	}
 
 	protected override continueOnGitHub() {
