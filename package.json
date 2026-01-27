@@ -3602,12 +3602,12 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-cloud-agent && config.githubPullRequests.experimental.chat",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-cloud-agent && config.githubPullRequests.experimental.chat",
 					"group": "context"
 				}
 			],
@@ -3615,12 +3615,12 @@
 				{
 					"command": "pr.checkoutFromDescription",
 					"group": "navigation@0",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated && config.githubPullRequests.experimental.chat"
 				},
 				{
 					"command": "pr.applyChangesFromDescription",
 					"group": "navigation@1",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated && config.githubPullRequests.experimental.chat"
 				}
 			]
 		},
