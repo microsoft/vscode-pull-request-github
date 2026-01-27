@@ -874,6 +874,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async enqueue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.enqueuePullRequest();
+
+		// Check if auto-delete branch setting is enabled
+		const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
+		if (deleteBranchAfterMerge && result) {
+			// For merge queues, only delete the local branch since the PR isn't merged yet
+			await PullRequestReviewCommon.autoDeleteLocalBranchAfterEnqueue(this._folderRepositoryManager, this._item);
+		}
+
 		this._replyMessage(message, { mergeQueueEntry: result });
 	}
 
