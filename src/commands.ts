@@ -1787,7 +1787,7 @@ ${contents}
 			if (isThread) {
 				// For threads, open the Chat view instead of inline chat
 				await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: message, isPartialQuery: true, agentMode: true });
-
+				await vscode.commands.executeCommand(commands.OPEN_CHAT);
 			} else {
 				// For single comments, use inline chat
 				await vscode.commands.executeCommand('vscode.editorChat.start', {
