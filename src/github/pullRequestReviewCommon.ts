@@ -428,6 +428,39 @@ export namespace PullRequestReviewCommon {
 	}
 
 	/**
+	 * Automatically delete the local branch after adding to a merge queue.
+	 * Only deletes the local branch since the PR isn't merged yet.
+	 */
+	export async function autoDeleteLocalBranchAfterEnqueue(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<void> {
+		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
+		const defaultBranch = await folderRepositoryManager.getPullRequestRepositoryDefaultBranch(item);
+
+		// Get user preference for local branch deletion
+		const deleteLocalBranch = vscode.workspace
+			.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_LOCAL_BRANCH}`, true);
+
+		if (!branchInfo || !deleteLocalBranch) {
+			return;
+		}
+
+		const selectedActions: SelectedAction[] = [{ type: 'local' }];
+
+		// Execute deletion
+		const deletedBranchTypes = await performBranchDeletion(folderRepositoryManager, item, defaultBranch, branchInfo, selectedActions);
+
+		// Show notification
+		if (deletedBranchTypes.includes('local')) {
+			const branchName = branchInfo.branch || item.head?.ref;
+			if (branchName) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('Deleted local branch {0}.', branchName)
+				);
+			}
+		}
+	}
+
+	/**
 	 * Automatically delete branches after merge based on user preferences.
 	 * This function does not show any prompts - it uses the default deletion method preferences.
 	 */
