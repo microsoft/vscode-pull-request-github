@@ -879,7 +879,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
 		if (deleteBranchAfterMerge && result) {
 			// For merge queues, only delete the local branch since the PR isn't merged yet
-			await PullRequestReviewCommon.autoDeleteLocalBranchAfterEnqueue(this._folderRepositoryManager, this._item);
+			try {
+				await PullRequestReviewCommon.autoDeleteLocalBranchAfterEnqueue(this._folderRepositoryManager, this._item);
+			} catch (e) {
+				Logger.appendLine(`Auto-delete local branch after enqueue failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+				void vscode.window.showWarningMessage(vscode.l10n.t('Auto-deleting the local branch after enqueueing to the merge queue failed.'));
+			}
 		}
 
 		this._replyMessage(message, { mergeQueueEntry: result });
