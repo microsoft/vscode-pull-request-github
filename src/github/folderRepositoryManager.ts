@@ -3068,7 +3068,7 @@ function unwrapCommitMessageBody(body: string): string {
 	}
 
 	// Pattern to detect list item markers at the start of a line and capture the marker
-	const LIST_ITEM_PATTERN = /^([ \t]*)([*+\-]|\d+\.)([ \t]+)/;
+	const LIST_ITEM_PATTERN = /^(?<leadingWhitespace>[ \t]*)(?<marker>[*+\-]|\d+\.)(?<markerTrailingWhitespace>[ \t]+)/;
 	// Pattern to detect blockquote markers
 	const BLOCKQUOTE_PATTERN = /^[ \t]*>/;
 	// Pattern to detect fenced code block markers
@@ -3086,11 +3086,11 @@ function unwrapCommitMessageBody(body: string): string {
 	// Get the content indent for a list item (position where actual content starts)
 	const getListItemContentIndent = (line: string): number => {
 		const match = line.match(LIST_ITEM_PATTERN);
-		if (!match) {
+		if (!match?.groups) {
 			return 0;
 		}
 		// Content indent = leading whitespace + marker + space after marker
-		return match[1].length + match[2].length + match[3].length;
+		return match.groups.leadingWhitespace.length + match.groups.marker.length + match.groups.markerTrailingWhitespace.length;
 	};
 
 	const lines = body.split('\n');
@@ -3212,8 +3212,8 @@ function unwrapCommitMessageBody(body: string): string {
 		const lineIndent = getLeadingWhitespaceLength(line);
 		const listItemMatch = line.match(LIST_ITEM_PATTERN);
 
-		if (listItemMatch) {
-			const markerIndent = listItemMatch[1].length;
+		if (listItemMatch?.groups) {
+			const markerIndent = listItemMatch.groups.leadingWhitespace.length;
 			const contentIndent = getListItemContentIndent(line);
 
 			// Pop list levels that are at or beyond this indent
