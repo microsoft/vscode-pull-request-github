@@ -1646,7 +1646,12 @@ ${options?.body ?? ''}\n
 		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, true, context);
 		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
 
-		if (withPermalinks.length === 1) {
+		// Only use selection text when the context is from a gutter click (not a vscode.Uri) or editor selection,
+		// not when from a file tab context menu (context is just a vscode.Uri).
+		const firstContext = context.length > 0 ? context[0] : undefined;
+		const contextIsFromTab = firstContext instanceof vscode.Uri;
+
+		if (withPermalinks.length === 1 && !contextIsFromTab) {
 			const selection = this.getMarkdownLinkText(withPermalinks[0].range);
 			if (selection) {
 				return vscode.env.clipboard.writeText(`[${selection.trim()}](${withPermalinks[0].permalink})`);
