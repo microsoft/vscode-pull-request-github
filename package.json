@@ -2013,6 +2013,10 @@
 					"when": "false"
 				},
 				{
+					"command": "workbench.action.chat.refreshChatSessions",
+					"when": "config.githubPullRequests.experimental.chat"
+				},
+				{
 					"command": "pr.configureRemotes",
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
