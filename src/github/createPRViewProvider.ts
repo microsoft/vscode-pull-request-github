@@ -797,6 +797,19 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			// Ignore and fall back to commit message
 			Logger.debug(`Error while getting total commits: ${e}`, CreatePullRequestViewProvider.ID);
 		}
+
+		// Apply variable substitution to title and description
+		const activeIssue = this._folderRepositoryManager.activeIssue;
+		let currentUser: string | undefined;
+		try {
+			currentUser = activeIssue ? (await this._folderRepositoryManager.getCurrentUser(activeIssue.githubRepository)).login : undefined;
+		} catch (e) {
+			Logger.debug(`Failed to get current user for variable substitution: ${e}`, CreatePullRequestViewProvider.ID);
+			currentUser = undefined;
+		}
+		title = variableSubstitution(title, activeIssue, this._pullRequestDefaults, currentUser);
+		description = variableSubstitution(description, activeIssue, this._pullRequestDefaults, currentUser);
+
 		return { title, description };
 	}
 
