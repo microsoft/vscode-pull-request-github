@@ -322,7 +322,7 @@ export interface LatestUpdatesResponse {
 			timelineItems: {
 				nodes: ({
 					createdAt: string;
-				} | LatestCommit | LatestReviewThread)[];
+				} | LatestCommit | LatestReviewThread | null)[];
 			}
 		}
 	}
