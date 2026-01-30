@@ -66,7 +66,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 				toggleDetails();
 			}
 		}
-	}, status?.statuses);
+	}, [status?.statuses]);
 
 	return state === GithubItemStateEnum.Open && status?.statuses.length ? (
 		<>
@@ -589,7 +589,8 @@ const CHECK_STATE_ORDER: Record<CheckState, number> = {
 
 const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
 	// Sort statuses to group by state: failure first, then pending, neutral, and success
-	const sortedStatuses = statuses.sort((a, b) => {
+	// Use slice() to avoid mutating the original array
+	const sortedStatuses = statuses.slice().sort((a, b) => {
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
 
