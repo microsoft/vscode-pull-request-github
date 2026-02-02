@@ -212,6 +212,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				);
 			}
 
+			if (!currentUser) {
+				throw new Error('Unable to get current user');
+			}
+
+			if (!pullRequest.author) {
+				throw new Error('Pull request author is missing');
+			}
+
 			if (!this._item.equals(pullRequestModel)) {
 				return;
 			}
