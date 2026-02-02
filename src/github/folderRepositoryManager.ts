@@ -41,8 +41,10 @@ import { GitHubRemote, parseRemote, parseRepositoryRemotes, parseRepositoryRemot
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
+	CHAT_SETTINGS_NAMESPACE,
 	CHECKOUT_DEFAULT_BRANCH,
 	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
+	DISABLE_AI_FEATURES,
 	GIT,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
@@ -3029,10 +3031,16 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public getTitleAndDescriptionProvider(searchTerm?: string) {
+		if (vscode.workspace.getConfiguration(CHAT_SETTINGS_NAMESPACE).get<boolean>(DISABLE_AI_FEATURES, false)) {
+			return undefined;
+		}
 		return this._git.getTitleAndDescriptionProvider(searchTerm);
 	}
 
 	public getAutoReviewer() {
+		if (vscode.workspace.getConfiguration(CHAT_SETTINGS_NAMESPACE).get<boolean>(DISABLE_AI_FEATURES, false)) {
+			return undefined;
+		}
 		return this._git.getReviewerCommentsProvider();
 	}
 

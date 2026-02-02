@@ -95,6 +95,10 @@ export const OPEN_VIEW = 'openView';
 export const WORKBENCH = 'workbench';
 export const COLOR_THEME = 'colorTheme';
 
+// Chat
+export const CHAT_SETTINGS_NAMESPACE = 'chat';
+export const DISABLE_AI_FEATURES = 'disableAIFeatures';
+
 // Coding Agent
 
 export const CODING_AGENT = `${PR_SETTINGS_NAMESPACE}.codingAgent`;
