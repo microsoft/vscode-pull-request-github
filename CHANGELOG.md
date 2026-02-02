@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.128.0
+
+### Changes
+
+- "Apply Suggestion with Copilot" is now available from the "Comments" view, in addition to the comment widget in the editor. When run from this context, it will open the Chat view.
+- When a PR branch is automatically deleted after merge, a notification is shown to inform you that the branch was deleted and you were switched to another branch.
+- The issue URL in the issue webview is now copyable via the right-click context menu.
+- The "Pull Request" status bar item reflects the currently selected repo when using `"scm.repositories.selectionMode": "single"`.
+
+### Fixes
+
+- timelineItem nodes can be null. https://github.com/microsoft/vscode-pull-request-github/issues/8447
+- Branch auto delete does not work with merge queues. https://github.com/microsoft/vscode-pull-request-github/issues/8435
+- Error: we couldn't find commit. https://github.com/microsoft/vscode-pull-request-github/issues/8401
+- Multi-diff button for current pull request is gone. https://github.com/microsoft/vscode-pull-request-github/issues/8387
+- Do not create notifications for copilot PRs which are in progress. https://github.com/microsoft/vscode-pull-request-github/issues/8380
+- Error viewing PR descriptions in ghe. https://github.com/microsoft/vscode-pull-request-github/issues/8378
+- Marking a file as viewed on an older commit marks the file as viewed for all versions of the file. https://github.com/microsoft/vscode-pull-request-github/issues/8313
+- Use the GH GraphQL API UpdatePullRequestBranch for pulling in updates when there are no conflicts. https://github.com/microsoft/vscode-pull-request-github/issues/8231
+- "Copilot started work" should not be the same message for CCA and CCR. https://github.com/microsoft/vscode-pull-request-github/issues/8211
+- "Edit Description" button does nothing when using the Create Issue From Selection command. https://github.com/microsoft/vscode-pull-request-github/issues/8184
+- Avatar does not show in PR details page. https://github.com/microsoft/vscode-pull-request-github/issues/8152
+
 ## 0.126.0
 
 ### Changes
