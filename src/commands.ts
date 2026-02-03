@@ -558,7 +558,7 @@ export function registerCommands(
 		/** GitHub repository owner/organization name */
 		owner?: string;
 		/** GitHub repository name */
-		repo?: string;
+		name?: string;
 		[key: string]: unknown;
 	}
 
@@ -569,8 +569,8 @@ export function registerCommands(
 	 * @returns FolderRepositoryManager or undefined if no folder managers exist
 	 */
 	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): FolderRepositoryManager | undefined {
-		if (metadata?.owner && metadata?.repo) {
-			return reposManager.getManagerForRepository(metadata.owner, metadata.repo) ?? reposManager.folderManagers[0];
+		if (metadata?.owner && metadata?.name) {
+			return reposManager.getManagerForRepository(metadata.owner, metadata.name) ?? reposManager.folderManagers[0];
 		}
 		return reposManager.folderManagers.length > 0 ? reposManager.folderManagers[0] : undefined;
 	}
