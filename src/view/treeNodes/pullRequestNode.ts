@@ -323,7 +323,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			label += `#${number}: `;
 		}
 
-		let labelTitle = title.length > 50 ? `${title.substring(0, 50)}...` : title;
+		const horizontalScrolling = vscode.workspace.getConfiguration('workbench').get<boolean>('list.horizontalScrolling', false);
+		let labelTitle = (!horizontalScrolling && title.length > 50) ? `${title.substring(0, 50)}...` : title;
 		if (COPILOT_ACCOUNTS[author.login]) {
 			labelTitle = labelTitle.replace('[WIP]', '');
 		}
