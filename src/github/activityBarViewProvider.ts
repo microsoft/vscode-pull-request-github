@@ -308,6 +308,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);
+		} finally {
+			this._updatingPromise = undefined;
 		}
 	}
 
