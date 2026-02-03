@@ -1712,7 +1712,7 @@ ${contents}
 						prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
 					}
 				}
-				if (selected.selectedItem?.prNumber) {
+				if (selected.selectedItem?.prNumber && !prModel) {
 					// User selected from the list
 					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.selectedItem.prNumber);
 				}
