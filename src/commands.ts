@@ -567,7 +567,7 @@ export function registerCommands(
 		}
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: { owner?: string; repo?: string;[key: string]: unknown }) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -578,7 +578,15 @@ export function registerCommands(
 			if (!prNumber) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
 			}
-			const folderManager = reposManager.folderManagers[0];
+			// Use metadata to find the correct repository if available
+			let folderManager: FolderRepositoryManager | undefined;
+			if (metadata?.owner && metadata?.repo) {
+				folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.repo);
+			}
+			folderManager = folderManager ?? reposManager.folderManagers[0];
+			if (!folderManager) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
+			}
 			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
 			if (!pullRequest) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
@@ -595,7 +603,7 @@ export function registerCommands(
 
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: { owner?: string; repo?: string;[key: string]: unknown }) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
@@ -616,7 +624,15 @@ export function registerCommands(
 				async (task) => {
 					task.report({ increment: 30 });
 
-					const folderManager = reposManager.folderManagers[0];
+					// Use metadata to find the correct repository if available
+					let folderManager: FolderRepositoryManager | undefined;
+					if (metadata?.owner && metadata?.repo) {
+						folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.repo);
+					}
+					folderManager = folderManager ?? reposManager.folderManagers[0];
+					if (!folderManager) {
+						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
+					}
 					const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
 					if (!pullRequest) {
 						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
