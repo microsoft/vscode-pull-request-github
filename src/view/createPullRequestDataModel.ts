@@ -45,7 +45,7 @@ export class CreatePullRequestDataModel extends Disposable {
 		super();
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
-		this._compareBranch = baseBranch;
+		this._compareBranch = compareBranch;
 		this._gitcontentProvider = new GitContentProvider(this.folderRepositoryManager);
 		this._compareGitHubRepository = this.folderRepositoryManager.gitHubRepositories.find(githubRepo => githubRepo.remote.owner === compareOwner && githubRepo.remote.repositoryName === repositoryName);
 		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager.gitHubRepositories);
