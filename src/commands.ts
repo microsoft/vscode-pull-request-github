@@ -550,6 +550,19 @@ export function registerCommands(
 		}
 	};
 
+	interface SessionMetadata {
+		owner?: string;
+		repo?: string;
+		[key: string]: unknown;
+	}
+
+	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): FolderRepositoryManager | undefined {
+		if (metadata?.owner && metadata?.repo) {
+			return reposManager.getManagerForRepository(metadata.owner, metadata.repo) ?? reposManager.folderManagers[0];
+		}
+		return reposManager.folderManagers[0];
+	}
+
 	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
 		const contextAsPath: Partial<{ path: string }> = (ctx as { path: string });
 		return !!contextAsPath.path;
@@ -567,7 +580,7 @@ export function registerCommands(
 		}
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: { owner?: string; repo?: string;[key: string]: unknown }) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: SessionMetadata) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -579,11 +592,7 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
 			}
 			// Use metadata to find the correct repository if available
-			let folderManager: FolderRepositoryManager | undefined;
-			if (metadata?.owner && metadata?.repo) {
-				folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.repo);
-			}
-			folderManager = folderManager ?? reposManager.folderManagers[0];
+			const folderManager = getFolderManagerFromMetadata(metadata);
 			if (!folderManager) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
 			}
@@ -603,7 +612,7 @@ export function registerCommands(
 
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: { owner?: string; repo?: string;[key: string]: unknown }) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: SessionMetadata) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
@@ -625,11 +634,7 @@ export function registerCommands(
 					task.report({ increment: 30 });
 
 					// Use metadata to find the correct repository if available
-					let folderManager: FolderRepositoryManager | undefined;
-					if (metadata?.owner && metadata?.repo) {
-						folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.repo);
-					}
-					folderManager = folderManager ?? reposManager.folderManagers[0];
+					const folderManager = getFolderManagerFromMetadata(metadata);
 					if (!folderManager) {
 						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
 					}
