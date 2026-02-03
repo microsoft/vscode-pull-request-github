@@ -550,17 +550,29 @@ export function registerCommands(
 		}
 	};
 
+	/**
+	 * Metadata passed from chat/agent sessions containing repository information.
+	 * This is provided by VS Code when commands are invoked from chat session toolbars.
+	 */
 	interface SessionMetadata {
+		/** GitHub repository owner/organization name */
 		owner?: string;
+		/** GitHub repository name */
 		repo?: string;
 		[key: string]: unknown;
 	}
 
+	/**
+	 * Get the folder manager for a repository based on metadata.
+	 * Falls back to the first folder manager if metadata is not provided or repository not found.
+	 * @param metadata Session metadata containing owner and repo information
+	 * @returns FolderRepositoryManager or undefined if no folder managers exist
+	 */
 	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): FolderRepositoryManager | undefined {
 		if (metadata?.owner && metadata?.repo) {
 			return reposManager.getManagerForRepository(metadata.owner, metadata.repo) ?? reposManager.folderManagers[0];
 		}
-		return reposManager.folderManagers[0];
+		return reposManager.folderManagers.length > 0 ? reposManager.folderManagers[0] : undefined;
 	}
 
 	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
