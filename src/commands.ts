@@ -563,16 +563,30 @@ export function registerCommands(
 	}
 
 	/**
-	 * Get the folder manager for a repository based on metadata.
+	 * Get the folder manager and GitHub repository for a repository based on metadata.
 	 * Falls back to the first folder manager if metadata is not provided or repository not found.
 	 * @param metadata Session metadata containing owner and repo information
-	 * @returns FolderRepositoryManager or undefined if no folder managers exist
+	 * @returns Object with folderManager and githubRepo, or undefined if no folder managers exist
 	 */
-	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): FolderRepositoryManager | undefined {
+	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): { folderManager: FolderRepositoryManager; githubRepo: GitHubRepository } | undefined {
 		if (metadata?.owner && metadata?.name) {
-			return reposManager.getManagerForRepository(metadata.owner, metadata.name) ?? reposManager.folderManagers[0];
+			const folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.name) ?? reposManager.folderManagers[0];
+			if (!folderManager || folderManager.gitHubRepositories.length === 0) {
+				return undefined;
+			}
+			const githubRepo = folderManager.gitHubRepositories.find(
+				repo => repo.remote.owner === metadata.owner && repo.remote.repositoryName === metadata.name
+			) ?? folderManager.gitHubRepositories[0];
+			return { folderManager, githubRepo };
 		}
-		return reposManager.folderManagers.length > 0 ? reposManager.folderManagers[0] : undefined;
+		if (reposManager.folderManagers.length === 0) {
+			return undefined;
+		}
+		const folderManager = reposManager.folderManagers[0];
+		if (folderManager.gitHubRepositories.length === 0) {
+			return undefined;
+		}
+		return { folderManager, githubRepo: folderManager.gitHubRepositories[0] };
 	}
 
 	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
@@ -604,11 +618,12 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
 			}
 			// Use metadata to find the correct repository if available
-			const folderManager = getFolderManagerFromMetadata(metadata);
-			if (!folderManager) {
+			const result = getFolderManagerFromMetadata(metadata);
+			if (!result) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
 			}
-			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
+			const { folderManager, githubRepo } = result;
+			const pullRequest = await folderManager.fetchById(githubRepo, Number(prNumber));
 			if (!pullRequest) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
 			}
@@ -646,11 +661,12 @@ export function registerCommands(
 					task.report({ increment: 30 });
 
 					// Use metadata to find the correct repository if available
-					const folderManager = getFolderManagerFromMetadata(metadata);
-					if (!folderManager) {
+					const result = getFolderManagerFromMetadata(metadata);
+					if (!result) {
 						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
 					}
-					const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
+					const { folderManager, githubRepo } = result;
+					const pullRequest = await folderManager.fetchById(githubRepo, Number(prNumber));
 					if (!pullRequest) {
 						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
 					}
