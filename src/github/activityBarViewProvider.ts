@@ -205,6 +205,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			]);
 			this._updatingPromise = updatingPromise;
 			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors, mergeQueueMethod] = await updatingPromise;
+			this._updatingPromise = undefined;
 
 			if (!pullRequest) {
 				throw new Error(
@@ -307,8 +308,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);
-		} finally {
-			this._updatingPromise = undefined;
 		}
 	}
 
