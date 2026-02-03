@@ -1696,31 +1696,12 @@ ${contents}
 			quickPick.matchOnDescription = true;
 			quickPick.matchOnDetail = true;
 			quickPick.show();
-			quickPick.busy = true;
 
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
 
-			// Fetch all open PRs (lightweight query)
 			try {
-				const prs = await githubRepo.repo.getPullRequestNumbers();
-				if (!prs) {
-					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
-				}
-				// Sort PRs by number in descending order (most recent first)
-				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
-					label: `#${pr.number} ${pr.title}`,
-					description: `by @${pr.author.login}`,
-					prNumber: pr.number
-				}));
-
-				quickPick.items = prItems;
-				quickPick.busy = false;
-
-				// Handle selection
-
-				const selected = await new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
+				const selectedPromise = new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
 						let selectedString: string | undefined;
 						let selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined;
@@ -1738,30 +1719,49 @@ ${contents}
 					hideDisposable = quickPick.onDidHide(() => resolve({ selectedItem: undefined, selectedString: undefined }));
 				});
 
+				const prs = await githubRepo.repo.getPullRequestNumbers();
+				if (!prs) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
+				}
+				// Sort PRs by number in descending order (most recent first)
+				const sortedPRs = prs.sort((a, b) => b.number - a.number);
+				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
+					label: `#${pr.number} ${pr.title}`,
+					description: `by @${pr.author.login}`,
+					prNumber: pr.number
+				}));
+
+				quickPick.items = prItems;
+				const selected = await selectedPromise;
+				quickPick.busy = true;
+
 				if (!selected.selectedItem && !selected.selectedString) {
 					return;
 				}
-				quickPick.busy = true;
 				let prModel: PullRequestModel | undefined;
 
 				// Check if user selected from the list or typed a custom value
 				if (selected.selectedString) {
 					// User typed a PR number or URL
 					const parseResult = validateAndParseInput(selected.selectedString, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-					if (!parseResult.isValid) {
+					if (!parseResult.isValid && !selected.selectedItem) {
 						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 					}
-					// The user may have just entered part of a number and meant to select it from the list
-					const selectedItemNumber = selected.selectedItem?.prNumber;
-					if (selectedItemNumber !== undefined) {
-						const parsedDigits = parseResult.prNumber.toString();
-						const selectedDigits = selectedItemNumber.toString();
-						if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
-							parseResult.prNumber = selectedItemNumber;
+
+					if (parseResult.prNumber !== undefined) {
+						// The user may have just entered part of a number and meant to select it from the list
+						const selectedItemNumber = selected.selectedItem?.prNumber;
+						if (selectedItemNumber !== undefined) {
+							const parsedDigits = parseResult.prNumber.toString();
+							const selectedDigits = selectedItemNumber.toString();
+							if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
+								parseResult.prNumber = selectedItemNumber;
+							}
 						}
+						prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
 					}
-					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-				} else if (selected.selectedItem?.prNumber) {
+				}
+				if (selected.selectedItem?.prNumber && !prModel) {
 					// User selected from the list
 					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.selectedItem.prNumber);
 				}
