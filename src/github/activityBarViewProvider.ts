@@ -203,7 +203,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
 				ensureEmojis(this._folderRepositoryManager.context),
 			]);
-			this._updatingPromise = updatingPromise;
+			const clearingPromise = updatingPromise.finally(() => {
+				if (this._updatingPromise === clearingPromise) {
+					this._updatingPromise = undefined;
+				}
+			});
+			this._updatingPromise = clearingPromise;
 			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft, coAuthors, mergeQueueMethod] = await updatingPromise;
 
 			if (!pullRequest) {
