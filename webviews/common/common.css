@@ -25,9 +25,9 @@ button,
 input[type='submit'] {
 	color: var(--vscode-button-foreground);
 	font-family: var(--vscode-font-family);
-	border-radius: 2px;
+	border-radius: 4px;
 	border: 1px solid transparent;
-	padding: 4px 12px;
+	padding: 3px 12px;
 	font-size: 13px;
 	line-height: 18px;
 	white-space: nowrap;
@@ -40,11 +40,11 @@ input[type='submit'] {
 }
 
 input.select-left {
-	border-radius: 2px 0 0 2px;
+	border-radius: 4px 0 0 4px;
 }
 
 button.select-right {
-	border-radius: 0 2px 2px 0;
+	border-radius: 0 4px 4px 0;
 	width: 24px;
 	position: relative;
 }
@@ -96,7 +96,7 @@ input[type='text'] {
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-font-family);
-	border-radius: 2px;
+	border-radius: 4px;
 }
 
 textarea::placeholder,
@@ -108,7 +108,7 @@ select {
 	display: block;
 	box-sizing: border-box;
 	padding: 4px 8px;
-	border-radius: 2px;
+	border-radius: 4px;
 	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-dropdown-background);
@@ -117,13 +117,62 @@ select {
 
 textarea:focus,
 input[type='text']:focus,
-input[type='checkbox']:focus,
 select:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
 input[type='checkbox'] {
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	width: 18px;
+	height: 18px;
+	min-width: 18px;
+	min-height: 18px;
+	flex-shrink: 0;
+	margin: 0;
+	border: 1px solid var(--vscode-checkbox-border);
+	background-color: var(--vscode-checkbox-background);
+	border-radius: 3px;
+	cursor: pointer;
+	outline: none;
+}
+
+input[type='checkbox']:checked {
+	background-color: var(--vscode-checkbox-selectBackground, var(--vscode-checkbox-background));
+}
+
+.checkbox-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.checkbox-wrapper::after {
+	content: '';
+	position: absolute;
+	top: 1px;
+	left: 6px;
+	width: 5px;
+	height: 10px;
+	border: solid var(--vscode-checkbox-foreground);
+	border-width: 0 1px 1px 0;
+	transform: rotate(45deg);
+	pointer-events: none;
+	opacity: 0;
+}
+
+.checkbox-wrapper:has(input:checked)::after {
+	opacity: 1;
+}
+
+input[type='checkbox']:focus {
+	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 1px;
+}
+
+input[type='checkbox']:not(:checked):hover {
+	background-color: var(--vscode-inputOption-hoverBackground);
 }
 
 .vscode-high-contrast input[type='checkbox'] {
@@ -283,9 +332,9 @@ body img.avatar {
 #status-checks .automerge-section {
 	align-items: center;
 	padding: 16px;
-	background: var(--vscode-editorHoverWidget-background);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
 .automerge-section .merge-select-container {
@@ -371,7 +420,7 @@ body img.avatar {
 }
 
 button.split-left {
-	border-radius: 2px 0 0 2px;
+	border-radius: 4px 0 0 4px;
 	flex-grow: 1;
 	overflow: hidden;
 	white-space: nowrap;
@@ -407,7 +456,7 @@ button.split-left {
 }
 
 button.split-right {
-	border-radius: 0 2px 2px 0;
+	border-radius: 0 4px 4px 0;
 	cursor: pointer;
 	width: 24px;
 	position: relative;
