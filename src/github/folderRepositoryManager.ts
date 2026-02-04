@@ -3221,6 +3221,64 @@ function unwrapCommitMessageBody(body: string): string {
 			continue;
 		}
 
+		// Handle non-indented lines that should be joined to a previous list item
+		// This happens when commit messages are wrapped at 72 characters
+		// Check this BEFORE calling getActiveListContentIndent which would clear the stack
+		if (listStack.length > 0 && lineIndent === 0 && !LIST_ITEM_PATTERN.test(line)) {
+			const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
+			if (!isBlockquote) {
+				const baseIndex = result.length - 1;
+				const baseLine = baseIndex >= 0 ? result[baseIndex] : '';
+				const previousLineIsBlank = baseLine.trim() === '';
+
+				if (!previousLineIsBlank && baseIndex >= 0) {
+					// Join this line and any following non-list-item lines with the previous list item
+					let joinedLine = baseLine;
+					let currentIndex = i;
+
+					while (currentIndex < lines.length) {
+						const currentLine = lines[currentIndex];
+						const trimmed = currentLine.trim();
+
+						// Stop at blank lines
+						if (!trimmed) {
+							break;
+						}
+
+						// Stop at list items
+						if (LIST_ITEM_PATTERN.test(currentLine)) {
+							break;
+						}
+
+						// Stop at blockquotes or fences
+						if (BLOCKQUOTE_PATTERN.test(currentLine) || FENCE_PATTERN.test(currentLine)) {
+							break;
+						}
+
+						// Stop at indented code blocks
+						const currentLineIndent = getLeadingWhitespaceLength(currentLine);
+						if (currentLineIndent >= 4) {
+							break;
+						}
+
+						// Stop if previous line has hard line break
+						if (hasHardLineBreak(joinedLine)) {
+							break;
+						}
+
+						joinedLine = appendWithSpace(joinedLine, trimmed);
+						currentIndex++;
+					}
+
+					if (currentIndex > i) {
+						result[baseIndex] = joinedLine;
+						i = currentIndex;
+						continue;
+					}
+				}
+			}
+		}
+
 		const activeContentIndent = getActiveListContentIndent(lineIndent);
 		const codeIndentThreshold = activeContentIndent !== undefined ? activeContentIndent + 4 : 4;
 		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
