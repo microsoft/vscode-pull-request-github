@@ -334,4 +334,12 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.title, 'title');
 		assert.strictEqual(result?.body, '*   Outer item\n\n    Second paragraph of outer with continuation\n    *   Inner item\n\n        Second paragraph of inner with continuation');
 	});
+
+	it('handles first list item needs to be unwrapped', async function () {
+		const message = Promise.resolve('This is a test\n\n- A fslilenfilnf flen felslnf lsefl fnels  Leknef\nLkdfnle  lfkenSlefn Lnkef LefnLienf LIfnels\n- B\n- C');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'This is a test');
+		assert.strictEqual(result?.body, '- A fslilenfilnf flen felslnf lsefl fnels  Leknef Lkdfnle  lfkenSlefn Lnkef LefnLienf LIfnels\n- B\n- C');
+	});
 });
