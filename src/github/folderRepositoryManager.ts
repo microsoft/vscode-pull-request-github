@@ -3124,23 +3124,6 @@ function unwrapCommitMessageBody(body: string): string {
 	// Stack stores { markerIndent, contentIndent } for each nesting level
 	const listStack: { markerIndent: number; contentIndent: number }[] = [];
 
-	const getNextNonBlankLineInfo = (
-		startIndex: number,
-	): { line: string; indent: number; isListItem: boolean } | undefined => {
-		for (let idx = startIndex; idx < lines.length; idx++) {
-			const candidate = lines[idx];
-			if (candidate.trim() === '') {
-				continue;
-			}
-			return {
-				line: candidate,
-				indent: getLeadingWhitespaceLength(candidate),
-				isListItem: LIST_ITEM_PATTERN.test(candidate),
-			};
-		}
-		return undefined;
-	};
-
 	// Find the active list context for a given line indent
 	// Returns the content indent if the line is within an active list context
 	const getActiveListContentIndent = (lineIndent: number): number | undefined => {
@@ -3189,19 +3172,6 @@ function unwrapCommitMessageBody(body: string): string {
 		// 4+ spaces beyond content indent is an indented code block
 		if (currentIndent >= contentIndent + 4) {
 			return false;
-		}
-
-		const nextInfo = getNextNonBlankLineInfo(lineIndex + 1);
-		if (!nextInfo) {
-			return true;
-		}
-
-		// If next line is a list item at or before the current list level, don't join
-		if (nextInfo.isListItem) {
-			const currentListLevel = listStack.length > 0 ? listStack[listStack.length - 1].markerIndent : 0;
-			if (nextInfo.indent <= currentListLevel) {
-				return false;
-			}
 		}
 
 		return true;

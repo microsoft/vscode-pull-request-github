@@ -191,12 +191,12 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.body, '- Item 1\n  - Nested item 1.1\n  - Nested item 1.2\n- Item 2');
 	});
 
-	it('preserves list item continuations', async function () {
+	it('unwraps list item continuations', async function () {
 		const message = Promise.resolve('title\n\n- This is a list item that is long\n  and continues on the next line\n- Second item');
 
 		const result = await titleAndBodyFrom(message);
 		assert.strictEqual(result?.title, 'title');
-		assert.strictEqual(result?.body, '- This is a list item that is long\n  and continues on the next line\n- Second item');
+		assert.strictEqual(result?.body, '- This is a list item that is long and continues on the next line\n- Second item');
 	});
 
 	it('preserves indented code blocks but not list continuations', async function () {
@@ -207,12 +207,12 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.body, 'Regular paragraph.\n\n    This is code\n    More code\n\nAnother paragraph.');
 	});
 
-	it('unwraps regular text but preserves list item continuations', async function () {
+	it('unwraps regular text and list item continuations', async function () {
 		const message = Promise.resolve('title\n\nThis is wrapped text\nthat should be joined.\n\n- List item with\n  continuation\n- Another item');
 
 		const result = await titleAndBodyFrom(message);
 		assert.strictEqual(result?.title, 'title');
-		assert.strictEqual(result?.body, 'This is wrapped text that should be joined.\n\n- List item with\n  continuation\n- Another item');
+		assert.strictEqual(result?.body, 'This is wrapped text that should be joined.\n\n- List item with continuation\n- Another item');
 	});
 
 	it('handles complex nested lists with wrapped paragraphs', async function () {
@@ -220,7 +220,7 @@ describe('titleAndBodyFrom', function () {
 
 		const result = await titleAndBodyFrom(message);
 		assert.strictEqual(result?.title, 'title');
-		assert.strictEqual(result?.body, 'Wrapped paragraph across lines.\n\n- Item 1\n  - Nested item\n    More nested content\n- Item 2\n\nAnother wrapped paragraph here.');
+		assert.strictEqual(result?.body, 'Wrapped paragraph across lines.\n\n- Item 1\n  - Nested item More nested content\n- Item 2\n\nAnother wrapped paragraph here.');
 	});
 
 	it('handles nested lists', async function () {
