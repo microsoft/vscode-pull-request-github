@@ -31,7 +31,9 @@ export function isValidWorkspaceUri(uri: vscode.Uri): boolean {
 	// On Windows, valid paths have a drive letter (e.g., C:\...)
 	// On Unix, valid paths start with / followed by directory names
 	const fsPath = uri.fsPath;
-	// Check if the path is just a number (invalid)
+	// Check if the path is just a number (invalid).
+	// The optional leading [/\\] handles both Unix paths (/1234) and potential Windows paths (\1234),
+	// though in practice fsPath typically includes a leading separator.
 	if (/^[/\\]?\d+$/.test(fsPath)) {
 		return false;
 	}
