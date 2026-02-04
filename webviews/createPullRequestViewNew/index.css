@@ -181,17 +181,21 @@ textarea {
 }
 
 .validation-error {
-	padding: 5px;
+	padding: 3px 5px;
 	border: 1px solid var(--vscode-inputValidation-errorBorder);
 	background-color: var(--vscode-inputValidation-errorBackground);
 	color: var(--vscode-inputValidation-errorForeground);
+	border-radius: 4px;
+	margin-top: 4px
 }
 
 .validation-warning {
-	padding: 5px;
+	padding: 3px 5px;
 	border: 1px solid var(--vscode-inputValidation-warningBorder);
 	background-color: var(--vscode-inputValidation-warningBackground);
 	color: var(--vscode-inputValidation-warningForeground);
+	border-radius: 4px;
+	margin-top: 4px
 }
 
 .below-input-error {
