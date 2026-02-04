@@ -10,7 +10,7 @@ import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, LIST_HORIZONTAL_SCROLLING, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE, WORKBENCH } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
@@ -270,12 +270,20 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
+	private async _getAuthorIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
+		// For enterprise, use placeholder icon instead of trying to fetch avatar
+		if (!DataUri.isGitHubDotComAvatar(this.pullRequestModel.author.avatarUrl)) {
+			return new vscode.ThemeIcon('github');
+		}
+		return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+			?? new vscode.ThemeIcon('github');
+	}
+
 	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus();
 		const theme = this._folderReposManager.themeWatcher.themeData;
 		if (copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
-			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-				?? new vscode.ThemeIcon('github');
+			return this._getAuthorIcon();
 		}
 		switch (copilotWorkingStatus) {
 			case CopilotWorkingStatus.InProgress:
@@ -294,8 +302,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 					dark: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'dark'), getListErrorForeground(theme, 'dark'))
 				};
 			default:
-				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-					?? new vscode.ThemeIcon('github');
+				return this._getAuthorIcon();
 		}
 	}
 
@@ -316,7 +323,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			label += `#${number}: `;
 		}
 
-		let labelTitle = title.length > 50 ? `${title.substring(0, 50)}...` : title;
+		const horizontalScrolling = vscode.workspace.getConfiguration(WORKBENCH).get<boolean>(LIST_HORIZONTAL_SCROLLING, false);
+		let labelTitle = (horizontalScrolling && title.length > 50) ? `${title.substring(0, 50)}...` : title;
 		if (COPILOT_ACCOUNTS[author.login]) {
 			labelTitle = labelTitle.replace('[WIP]', '');
 		}

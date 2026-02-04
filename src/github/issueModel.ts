@@ -450,13 +450,13 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 				...(data.repository.pullRequest.comments.nodes.map(node => new Date(node.updatedAt))),
 				...(data.repository.pullRequest.comments.nodes.flatMap(node => node.reactions.nodes.map(reaction => new Date(reaction.createdAt)))),
 				...(data.repository.pullRequest.timelineItems.nodes.map(node => {
-					const latestCommit = node as Partial<LatestCommit>;
-					if (latestCommit.commit?.committedDate) {
+					const latestCommit = node as (Partial<LatestCommit> | null);
+					if (latestCommit?.commit?.committedDate) {
 						return new Date(latestCommit.commit.committedDate);
 					}
-					const latestReviewThread = node as Partial<LatestReviewThread>;
-					if ((latestReviewThread.comments?.nodes.length ?? 0) > 0) {
-						return new Date(latestReviewThread.comments!.nodes[0].createdAt);
+					const latestReviewThread = node as (Partial<LatestReviewThread> | null);
+					if ((latestReviewThread?.comments?.nodes.length ?? 0) > 0) {
+						return new Date(latestReviewThread!.comments!.nodes[0].createdAt);
 					}
 					return new Date((node as { createdAt: string }).createdAt);
 				}))

@@ -20,7 +20,7 @@ import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public iconPath: vscode.Uri | undefined;
+	public iconPath: vscode.Uri | vscode.ThemeIcon | undefined;
 	public contextValue?: string;
 
 	constructor(
@@ -40,8 +40,13 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		if (this.commit.author) {
-			const author: IAccount = { id: this.commit.author.node_id, login: this.commit.author.login, url: this.commit.author.url, avatarUrl: this.commit.author.avatar_url, accountType: this.commit.author.type as AccountType };
-			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [author], 16, 16))[0];
+			// For enterprise, use placeholder icon instead of trying to fetch avatar
+			if (!DataUri.isGitHubDotComAvatar(this.commit.author.avatar_url)) {
+				this.iconPath = new vscode.ThemeIcon('github');
+			} else {
+				const author: IAccount = { id: this.commit.author.node_id, login: this.commit.author.login, url: this.commit.author.url, avatarUrl: this.commit.author.avatar_url, accountType: this.commit.author.type as AccountType };
+				this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [author], 16, 16))[0];
+			}
 		}
 		return this;
 	}

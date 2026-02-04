@@ -94,6 +94,11 @@ export const OPEN_VIEW = 'openView';
 // Workbench
 export const WORKBENCH = 'workbench';
 export const COLOR_THEME = 'colorTheme';
+export const LIST_HORIZONTAL_SCROLLING = 'list.horizontalScrolling';
+
+// Chat
+export const CHAT_SETTINGS_NAMESPACE = 'chat';
+export const DISABLE_AI_FEATURES = 'disableAIFeatures';
 
 // Coding Agent
 

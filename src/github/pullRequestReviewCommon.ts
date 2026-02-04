@@ -162,13 +162,16 @@ export namespace PullRequestReviewCommon {
 		refreshAfterUpdate: () => Promise<void>,
 		checkUpdateEnabled?: () => boolean
 	): Promise<void> {
-		if (checkUpdateEnabled && !checkUpdateEnabled()) {
-			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch must be checked out to be updated.'), { modal: true });
+		// When there are conflicts and the PR is not checked out, we need local checkout to resolve them
+		const hasConflicts = ctx.item.item.mergeable === PullRequestMergeability.Conflict;
+		if (hasConflicts && checkUpdateEnabled && !checkUpdateEnabled()) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch must be checked out to resolve conflicts.'), { modal: true });
 			return ctx.replyMessage(message, {});
 		}
 
-		if (ctx.folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || ctx.folderRepositoryManager.repository.state.indexChanges.length > 0) {
-			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
+		// Working tree/index checks only apply when the PR is checked out
+		if (ctx.item.isActive && (ctx.folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || ctx.folderRepositoryManager.repository.state.indexChanges.length > 0)) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when there are changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return ctx.replyMessage(message, {});
 		}
 		const mergeSucceeded = await ctx.folderRepositoryManager.tryMergeBaseIntoHead(ctx.item, true);
@@ -422,6 +425,39 @@ export namespace PullRequestReviewCommon {
 
 		await Promise.all(promises);
 		return deletedBranchTypes;
+	}
+
+	/**
+	 * Automatically delete the local branch after adding to a merge queue.
+	 * Only deletes the local branch since the PR isn't merged yet.
+	 */
+	export async function autoDeleteLocalBranchAfterEnqueue(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<void> {
+		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
+		const defaultBranch = await folderRepositoryManager.getPullRequestRepositoryDefaultBranch(item);
+
+		// Get user preference for local branch deletion
+		const deleteLocalBranch = vscode.workspace
+			.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_LOCAL_BRANCH}`, true);
+
+		if (!branchInfo || !deleteLocalBranch) {
+			return;
+		}
+
+		const selectedActions: SelectedAction[] = [{ type: 'local' }];
+
+		// Execute deletion
+		const deletedBranchTypes = await performBranchDeletion(folderRepositoryManager, item, defaultBranch, branchInfo, selectedActions);
+
+		// Show notification
+		if (deletedBranchTypes.includes('local')) {
+			const branchName = branchInfo.branch || item.head?.ref;
+			if (branchName) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('Deleted local branch {0}.', branchName)
+				);
+			}
+		}
 	}
 
 	/**

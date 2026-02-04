@@ -17,6 +17,7 @@ import {
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
+	PullRequestMergeability,
 	ReviewEventEnum,
 	ReviewState,
 } from './interface';
@@ -220,7 +221,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private isUpdateBranchWithGitHubEnabled(): boolean {
-		return this._item.isActive || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get('experimentalUpdateBranchWithGitHub', false);
+		// With the GraphQL UpdatePullRequestBranch API, we can update branches even when not checked out
+		// (as long as there are no conflicts). If there are conflicts, we need the branch to be checked out.
+		const hasConflicts = this._item.item.mergeable === PullRequestMergeability.Conflict;
+		if (hasConflicts) {
+			return this._item.isActive;
+		}
+		return true;
 	}
 
 	protected override continueOnGitHub() {
@@ -272,7 +279,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				pullRequestModel.validateDraftMode(),
 				this._folderRepositoryManager.getAssignableUsers()
 			]);
-			this._updatingPromise = updatingPromise;
+			const clearingPromise = updatingPromise.finally(() => {
+				if (this._updatingPromise === clearingPromise) {
+					this._updatingPromise = undefined;
+				}
+			});
+			this._updatingPromise = clearingPromise;
 
 			const [
 				pullRequest,
@@ -293,7 +305,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				hasReviewDraft,
 				assignableUsers
 			] = await updatingPromise;
-			this._updatingPromise = undefined;
+
 			if (!pullRequest) {
 				throw new Error(
 					`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
@@ -867,6 +879,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async enqueue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.enqueuePullRequest();
+
+		// Check if auto-delete branch setting is enabled
+		const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
+		if (deleteBranchAfterMerge && result) {
+			// For merge queues, only delete the local branch since the PR isn't merged yet
+			try {
+				await PullRequestReviewCommon.autoDeleteLocalBranchAfterEnqueue(this._folderRepositoryManager, this._item);
+			} catch (e) {
+				Logger.appendLine(`Auto-delete local branch after enqueue failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+				void vscode.window.showWarningMessage(vscode.l10n.t('Auto-deleting the local branch after enqueueing to the merge queue failed.'));
+			}
+		}
+
 		this._replyMessage(message, { mergeQueueEntry: result });
 	}
 

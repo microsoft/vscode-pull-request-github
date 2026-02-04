@@ -322,7 +322,7 @@ export interface LatestUpdatesResponse {
 			timelineItems: {
 				nodes: ({
 					createdAt: string;
-				} | LatestCommit | LatestReviewThread)[];
+				} | LatestCommit | LatestReviewThread | null)[];
 			}
 		}
 	}
@@ -542,6 +542,15 @@ export interface DequeuePullRequestResponse {
 export interface EnqueuePullRequestResponse {
 	enqueuePullRequest: {
 		mergeQueueEntry: MergeQueueEntry;
+	}
+}
+
+export interface UpdatePullRequestBranchResponse {
+	updatePullRequestBranch: {
+		pullRequest: {
+			id: string;
+			headRefOid: string;
+		}
 	}
 }
 

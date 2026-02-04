@@ -6,7 +6,7 @@
 import React, { useContext, useRef, useState } from 'react';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { addIcon, checkIcon, circleFilledIcon, closeIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
+import { addIcon, checkIcon, circleFilledIcon, closeIcon, commentIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -19,6 +19,7 @@ import {
 	CommitEvent,
 	CopilotFinishedErrorEvent,
 	CopilotFinishedEvent,
+	CopilotReviewStartedEvent,
 	CopilotStartedEvent,
 	CrossReferencedEvent,
 	EventType,
@@ -100,6 +101,8 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				return <CopilotFinishedEventView key={`copilotFinished${event.id}`} {...event} />;
 			case EventType.CopilotFinishedError:
 				return <CopilotFinishedErrorEventView key={`copilotFinishedError${event.id}`} {...event} />;
+			case EventType.CopilotReviewStarted:
+				return <CopilotReviewStartedEventView key={`copilotReviewStarted${event.id}`} {...event} />;
 			default:
 				throw new UnreachableCaseError(event);
 		}
@@ -606,6 +609,20 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 				<div className="commit-message-detail">
 					<a onClick={handleSessionLogClick} title="View session log (Ctrl/Cmd+Click to open in second editor group)">Copilot has encountered an error. See logs for additional details.</a>
 				</div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotReviewStartedEventView = (event: CopilotReviewStartedEvent) => {
+	const { createdAt } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{commentIcon}
+				{nbsp}
+				<div className="message">Copilot started reviewing</div>
 			</div>
 			<Timestamp date={createdAt} />
 		</div>
