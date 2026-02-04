@@ -1427,8 +1427,20 @@
 				"icon": "$(git-compare)"
 			},
 			{
+				"command": "pr.checkoutFromChat",
+				"title": "%command.pr.checkoutFromChat.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-compare)"
+			},
+			{
 				"command": "pr.applyChangesFromDescription",
 				"title": "%command.pr.applyChangesFromDescription.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-stash-apply)"
+			},
+			{
+				"command": "pr.applyChangesFromChat",
+				"title": "%command.pr.applyChangesFromChat.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(git-stash-apply)"
 			},
@@ -2173,7 +2185,15 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.checkoutFromChat",
+					"when": "false"
+				},
+				{
 					"command": "pr.applyChangesFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.applyChangesFromChat",
 					"when": "false"
 				},
 				{
@@ -3613,12 +3633,12 @@
 			],
 			"chat/input/editing/sessionToolbar": [
 				{
-					"command": "pr.checkoutFromDescription",
+					"command": "pr.checkoutFromChat",
 					"group": "navigation@0",
 					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated && !config.chat.disableAIFeatures"
 				},
 				{
-					"command": "pr.applyChangesFromDescription",
+					"command": "pr.applyChangesFromChat",
 					"group": "navigation@1",
 					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated && !config.chat.disableAIFeatures"
 				}

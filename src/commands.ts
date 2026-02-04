@@ -606,29 +606,49 @@ export function registerCommands(
 		}
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: SessionMetadata) => {
+	type ChatCommandArgs = { path: string } | [{ path: string } | undefined, SessionMetadata | undefined] | undefined;
+
+	function parseChatCommandArgs(ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata): { ctx: { path: string } | undefined; metadata: SessionMetadata | undefined } {
+		if (Array.isArray(ctxOrArgs)) {
+			return { ctx: ctxOrArgs[0], metadata: ctxOrArgs[1] };
+		}
+		return { ctx: ctxOrArgs, metadata: metadataArg };
+	}
+
+	async function resolvePrFromChat(ctx: { path: string }, metadata: SessionMetadata | undefined): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel; prNumber: number } | undefined> {
+		const prNumber = prNumberFromUriPath(ctx.path);
+		if (!prNumber) {
+			return undefined;
+		}
+		const result = getFolderManagerFromMetadata(metadata);
+		if (!result) {
+			return undefined;
+		}
+		const { folderManager, githubRepo } = result;
+		const pullRequest = await folderManager.fetchById(githubRepo, prNumber);
+		if (!pullRequest) {
+			return undefined;
+		}
+		return { folderManager, pullRequest, prNumber };
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
-		if (contextHasPath(ctx)) {
-			const { path } = ctx;
-			const prNumber = prNumberFromUriPath(path);
-			if (!prNumber) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
-			}
-			// Use metadata to find the correct repository if available
-			const result = getFolderManagerFromMetadata(metadata);
-			if (!result) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
-			}
-			const { folderManager, githubRepo } = result;
-			const pullRequest = await folderManager.fetchById(githubRepo, Number(prNumber));
-			if (!pullRequest) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
-			}
+		const resolved = await resolvePrFromChat(ctx, metadata);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request from chat context.'));
+		}
 
-			return reviewsManager.switchToPr(folderManager, pullRequest, folderManager.repository, true);
+		return reviewsManager.switchToPr(resolved.folderManager, resolved.pullRequest, resolved.folderManager.repository, true);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
 		const resolved = await resolvePr(ctx);
@@ -636,45 +656,34 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return reviewsManager.switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
-
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined, metadata?: SessionMetadata) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
 
-		if (contextHasPath(ctx)) {
-			const { path } = ctx;
-			const prNumber = prNumberFromUriPath(path);
-			if (!prNumber) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
-			}
+		const resolved = await resolvePrFromChat(ctx, metadata);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request from chat context.'));
+		}
 
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('Applying changes from pull request #{0}', prNumber.toString()),
-					cancellable: false
-				},
-				async (task) => {
-					task.report({ increment: 30 });
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Applying changes from pull request #{0}', resolved.prNumber.toString()),
+				cancellable: false
+			},
+			async (task) => {
+				task.report({ increment: 30 });
+				return applyPullRequestChanges(task, resolved.folderManager, resolved.pullRequest);
+			});
+	}));
 
-					// Use metadata to find the correct repository if available
-					const result = getFolderManagerFromMetadata(metadata);
-					if (!result) {
-						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository manager.'));
-					}
-					const { folderManager, githubRepo } = result;
-					const pullRequest = await folderManager.fetchById(githubRepo, Number(prNumber));
-					if (!pullRequest) {
-						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
-					}
-
-					return applyPullRequestChanges(task, folderManager, pullRequest);
-				});
-
-			return;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
 
 		await vscode.window.withProgress(
