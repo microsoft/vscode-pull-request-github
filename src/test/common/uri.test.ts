@@ -6,8 +6,41 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { fromOpenOrCheckoutPullRequestWebviewUri } from '../../common/uri';
+import { isValidWorkspaceUri } from '../../uriHandler';
 
 describe('uri', () => {
+	describe('isValidWorkspaceUri', () => {
+		it('should return true for valid Unix file URIs', () => {
+			const uri = vscode.Uri.parse('file:///home/user/repos/vscode');
+			assert.strictEqual(isValidWorkspaceUri(uri), true);
+		});
+
+		it('should return true for valid Windows file URIs', () => {
+			const uri = vscode.Uri.parse('file:///c%3A/Users/dmitriv/repos/vscode');
+			assert.strictEqual(isValidWorkspaceUri(uri), true);
+		});
+
+		it('should return false for numeric-only path URIs (timestamps)', () => {
+			const uri = vscode.Uri.parse('file:///1761808101585');
+			assert.strictEqual(isValidWorkspaceUri(uri), false);
+		});
+
+		it('should return false for non-file scheme URIs', () => {
+			const uri = vscode.Uri.parse('https://github.com/microsoft/vscode');
+			assert.strictEqual(isValidWorkspaceUri(uri), false);
+		});
+
+		it('should return true for paths that contain numbers mixed with letters', () => {
+			const uri = vscode.Uri.parse('file:///home/user123/repos');
+			assert.strictEqual(isValidWorkspaceUri(uri), true);
+		});
+
+		it('should return true for paths that end with numbers', () => {
+			const uri = vscode.Uri.parse('file:///home/project/version2');
+			assert.strictEqual(isValidWorkspaceUri(uri), true);
+		});
+	});
+
 	describe('fromOpenOrCheckoutPullRequestWebviewUri', () => {
 		it('should parse the new simplified format with uri parameter', () => {
 			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/checkout-pull-request?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460');

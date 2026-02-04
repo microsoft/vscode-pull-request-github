@@ -19,6 +19,25 @@ import { ReviewsManager } from './view/reviewsManager';
 
 export const PENDING_CHECKOUT_PULL_REQUEST_KEY = 'pendingCheckoutPullRequest';
 
+/**
+ * Validates that a workspace URI has a valid file path.
+ * Filters out invalid URIs like file:///1761808101585 (which are numeric timestamps).
+ */
+export function isValidWorkspaceUri(uri: vscode.Uri): boolean {
+	if (uri.scheme !== 'file') {
+		return false;
+	}
+	// The fsPath should be a proper file system path, not just a number
+	// On Windows, valid paths have a drive letter (e.g., C:\...)
+	// On Unix, valid paths start with / followed by directory names
+	const fsPath = uri.fsPath;
+	// Check if the path is just a number (invalid)
+	if (/^[/\\]?\d+$/.test(fsPath)) {
+		return false;
+	}
+	return true;
+}
+
 interface PendingCheckoutPayload {
 	owner: string;
 	repo: string;
@@ -199,10 +218,12 @@ export class UriHandler implements vscode.UriHandler {
 			try {
 				progress.report({ message: vscode.l10n.t('Locating workspace') });
 				const remoteUri = vscode.Uri.parse(`https://github.com/${params.owner}/${params.repo}`);
-				const workspaces = await this._git.getRepositoryWorkspace(remoteUri);
+				const allWorkspaces = await this._git.getRepositoryWorkspace(remoteUri);
 				if (token.isCancellationRequested) {
 					return;
 				}
+				// Filter out invalid workspace URIs (e.g., URIs with numeric-only paths)
+				const workspaces = allWorkspaces?.filter(isValidWorkspaceUri);
 				if (workspaces && workspaces.length) {
 					Logger.appendLine(`Found workspaces for ${remoteUri.toString()}: ${workspaces.map(w => w.toString()).join(', ')}`, UriHandler.ID);
 					progress.report({ message: vscode.l10n.t('Opening workspace') });
