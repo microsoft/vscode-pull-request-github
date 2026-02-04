@@ -192,9 +192,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._reviewThreadsCache = undefined;
 	}
 
-	public async initializeReviewThreadCache(): Promise<void> {
-		await this.getReviewThreads();
+	public async initializeReviewThreadCache(): Promise<IReviewThread[]> {
+		const threads = await this.getReviewThreads();
 		this._reviewThreadsCacheInitialized = true;
+		return threads;
 	}
 
 	public get reviewThreadsCache(): IReviewThread[] {
@@ -1442,12 +1443,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async initializeReviewThreadCacheAndReviewComments(): Promise<void> {
-		const { remote } = await this.githubRepository.ensure();
-		const raw = await this.getRawReviewComments();
+		const threads = await this.initializeReviewThreadCache();
 
-		this.setReviewThreadCacheFromRaw(raw);
-
-		this.comments = raw.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, node.isOutdated, this.githubRepository), remote))
+		this.comments = threads.map(node => node.comments)
 			.reduce((prev, curr) => prev.concat(curr), [])
 			.sort((a: IComment, b: IComment) => {
 				return a.createdAt > b.createdAt ? 1 : -1;
