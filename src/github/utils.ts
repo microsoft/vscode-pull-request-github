@@ -1662,9 +1662,8 @@ export function getStateFromQuery(query: string): GithubItemStateEnum | undefine
 			return GithubItemStateEnum.Closed;
 		case 'merged':
 			return GithubItemStateEnum.Merged;
-		default:
-			return undefined;
 	}
+	return undefined;
 }
 
 export function isInCodespaces(): boolean {

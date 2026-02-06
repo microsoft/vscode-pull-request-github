@@ -1366,7 +1366,7 @@ export class FolderRepositoryManager extends Disposable {
 			return {
 				items: filteredPullRequests,
 				hasMorePages,
-				totalCount: data.total_count
+				totalCount: data.total_count - (pullRequests.length - filteredPullRequests.length)
 			};
 		} catch (e) {
 			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);
