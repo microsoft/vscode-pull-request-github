@@ -22,6 +22,7 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getOverrideBranch,
 	getPRFetchQuery,
+	getStateFromQuery,
 	loginComparator,
 	parseGraphQLPullRequest,
 	teamComparator,
@@ -1353,12 +1354,19 @@ export class FolderRepositoryManager extends Disposable {
 				})))
 				.filter(item => item !== null) as PullRequestModel[];
 
+			// GitHub's search API can return stale results whose state doesn't match the query.
+			// Post-filter to ensure only PRs with the requested state are included.
+			const queryState = getStateFromQuery(categoryQuery);
+			const filteredPullRequests = queryState
+				? pullRequests.filter(pr => pr.state === queryState)
+				: pullRequests;
+
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, this.id);
 
 			return {
-				items: pullRequests,
+				items: filteredPullRequests,
 				hasMorePages,
-				totalCount: data.total_count
+				totalCount: data.total_count - (pullRequests.length - filteredPullRequests.length)
 			};
 		} catch (e) {
 			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);

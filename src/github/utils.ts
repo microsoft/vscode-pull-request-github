@@ -13,6 +13,7 @@ import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
 	AccountType,
+	GithubItemStateEnum,
 	IAccount,
 	IActor,
 	IGitHubRef,
@@ -1641,6 +1642,28 @@ export function insertNewCommitsSinceReview(
 export function getPRFetchQuery(user: string, query: string): string {
 	const filter = query.replace(/\$\{user\}/g, user);
 	return `is:pull-request ${filter} type:pr`;
+}
+
+/**
+ * Parse a GitHub search query for a state qualifier (e.g. `is:open`, `is:closed`, `is:merged`).
+ * Returns the corresponding GithubItemStateEnum if found, or undefined if no state is specified.
+ * GitHub's search API can return stale results that don't match the requested state,
+ * so callers can use this to post-filter.
+ */
+export function getStateFromQuery(query: string): GithubItemStateEnum | undefined {
+	const match = query.match(/(?:^|\s)is:(?<state>open|closed|merged)(?:\s|$)/i);
+	if (!match?.groups?.state) {
+		return undefined;
+	}
+	switch (match.groups.state.toLowerCase()) {
+		case 'open':
+			return GithubItemStateEnum.Open;
+		case 'closed':
+			return GithubItemStateEnum.Closed;
+		case 'merged':
+			return GithubItemStateEnum.Merged;
+	}
+	return undefined;
 }
 
 export function isInCodespaces(): boolean {
