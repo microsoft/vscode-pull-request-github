@@ -172,17 +172,17 @@ body .comment-container .review-comment-header {
 	padding: 8px 16px;
 	color: var(--vscode-foreground);
 	align-items: center;
-	background: var(--vscode-editorWidget-background);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .review-comment-header.no-details {
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	border-bottom-left-radius: 0px;
+	border-bottom-right-radius: 0px;
 }
 
 .description-header {
@@ -249,9 +249,9 @@ body .comment-container .review-comment-header {
 }
 
 .status-item:first-of-type {
-	background: var(--vscode-editorWidget-background);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 }
 
 .status-item,
@@ -315,9 +315,9 @@ button.input-box {
 .merge-queue-container,
 .ready-for-review-container {
 	padding: 16px;
-	background-color: var(--vscode-editorWidget-background);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	background-color: var(--vscode-panel-background);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -344,7 +344,7 @@ button.input-box {
 
 #status-checks {
 	border: 1px solid var(--vscode-editorHoverWidget-border);
-	border-radius: 4px;
+	border-radius: 6px;
 }
 
 #status-checks .label {
@@ -378,9 +378,9 @@ button.input-box {
 #status-checks .merge-select-container {
 	display: flex;
 	align-items: center;
-	background-color: var(--vscode-editorWidget-background);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	background-color: var(--vscode-panel-background);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
 #status-checks .merge-select-container>* {
@@ -434,7 +434,7 @@ body .diff .diffPath {
 .comment-container form,
 #merge-comment-form {
 	padding: 16px;
-	background-color: var(--vscode-editorWidget-background);
+	background-color: var(--vscode-panel-background);
 }
 
 body .comment-container .comment-body,
@@ -827,7 +827,7 @@ button.secondary.change-base {
 	display: flex;
 	margin: 0;
 	align-items: center;
-	border-radius: 4px;
+	border-radius: 6px;
 	border: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -851,8 +851,8 @@ button.secondary.change-base {
 	padding: 16px;
 	background-color: var(--vscode-editorHoverWidget-background);
 	border-top: 1px solid var(--vscode-editorHoverWidget-border);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
 .review-comment-container .review-comment .review-comment-header {
@@ -1104,7 +1104,7 @@ code {
 .comment-body pre:not(.hljs),
 .comment-body pre.hljs code>div {
 	padding: 16px;
-	border-radius: 3px;
+	border-radius: 6px;
 	overflow: auto;
 }
 
@@ -1209,9 +1209,9 @@ code {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	background: var(--vscode-editorWidget-background);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 }
 
 .resolved-container .diffPath:hover {
@@ -1417,14 +1417,14 @@ code {
 }
 
 .comment-body .Box-header {
-	background-color: var(--vscode-editorWidget-background);
+	background-color: var(--vscode-panel-background);
 	color: var(--vscode-disabledForeground);
 	border-bottom-style: solid;
 	border-bottom-width: 1px;
 	padding: 8px 16px;
 	border-bottom-color: var(--vscode-editorHoverWidget-border);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 }
 
 .comment-body .blob-num {

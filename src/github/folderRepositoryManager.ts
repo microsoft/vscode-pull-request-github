@@ -34,6 +34,7 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
+import { unwrapCommitMessageBody } from '../common/gitUtils';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
@@ -41,8 +42,10 @@ import { GitHubRemote, parseRemote, parseRepositoryRemotes, parseRepositoryRemot
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
+	CHAT_SETTINGS_NAMESPACE,
 	CHECKOUT_DEFAULT_BRANCH,
 	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
+	DISABLE_AI_FEATURES,
 	GIT,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
@@ -2453,6 +2456,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
+
 		if (!pullRequest.isActive || isBrowser) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
@@ -2473,6 +2477,21 @@ export class FolderRepositoryManager extends Disposable {
 				return false;
 			}
 		}
+
+		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict) {
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
+				async () => {
+					const success = await pullRequest.updateBranchWithGraphQL();
+					if (success && pullRequest.isActive) {
+						await this.repository.pull();
+					}
+					return success;
+				}
+			);
+			return result;
+		}
+
 
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
@@ -3013,10 +3032,16 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public getTitleAndDescriptionProvider(searchTerm?: string) {
+		if (vscode.workspace.getConfiguration(CHAT_SETTINGS_NAMESPACE).get<boolean>(DISABLE_AI_FEATURES, false)) {
+			return undefined;
+		}
 		return this._git.getTitleAndDescriptionProvider(searchTerm);
 	}
 
 	public getAutoReviewer() {
+		if (vscode.workspace.getConfiguration(CHAT_SETTINGS_NAMESPACE).get<boolean>(DISABLE_AI_FEATURES, false)) {
+			return undefined;
+		}
 		return this._git.getReviewerCommentsProvider();
 	}
 
@@ -3049,253 +3074,6 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
-
-/**
- * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
- * Similar to GitHub's behavior when converting commit messages to PR descriptions.
- * 
- * Rules:
- * - Preserves blank lines as paragraph breaks
- * - Preserves fenced code blocks (```)
- * - Preserves list items (-, *, +, numbered)
- * - Preserves blockquotes (>)
- * - Preserves indented code blocks (4+ spaces at start, when not in a list context)
- * - Joins consecutive plain text lines that appear to be wrapped mid-sentence
- */
-function unwrapCommitMessageBody(body: string): string {
-	if (!body) {
-		return body;
-	}
-
-	// Pattern to detect list item markers at the start of a line
-	const LIST_ITEM_PATTERN = /^[ \t]*([*+\-]|\d+\.)\s/;
-	// Pattern to detect blockquote markers
-	const BLOCKQUOTE_PATTERN = /^[ \t]*>/;
-	// Pattern to detect fenced code block markers
-	const FENCE_PATTERN = /^[ \t]*```/;
-
-	const getLeadingWhitespaceLength = (text: string): number => text.match(/^[ \t]*/)?.[0].length ?? 0;
-	const hasHardLineBreak = (text: string): boolean => / {2}$/.test(text);
-	const appendWithSpace = (base: string, addition: string): string => {
-		if (!addition) {
-			return base;
-		}
-		return base.length > 0 && !/\s$/.test(base) ? `${base} ${addition}` : `${base}${addition}`;
-	};
-
-	const lines = body.split('\n');
-	const result: string[] = [];
-	let i = 0;
-	let inFencedBlock = false;
-	const listIndentStack: number[] = [];
-
-	const getNextNonBlankLineInfo = (
-		startIndex: number,
-	): { line: string; indent: number; isListItem: boolean } | undefined => {
-		for (let idx = startIndex; idx < lines.length; idx++) {
-			const candidate = lines[idx];
-			if (candidate.trim() === '') {
-				continue;
-			}
-			return {
-				line: candidate,
-				indent: getLeadingWhitespaceLength(candidate),
-				isListItem: LIST_ITEM_PATTERN.test(candidate),
-			};
-		}
-		return undefined;
-	};
-
-	const getActiveListIndent = (lineIndent: number): number | undefined => {
-		for (let idx = listIndentStack.length - 1; idx >= 0; idx--) {
-			const indentForLevel = listIndentStack[idx];
-			if (lineIndent >= indentForLevel + 2) {
-				listIndentStack.length = idx + 1;
-				return indentForLevel;
-			}
-			listIndentStack.pop();
-		}
-		return undefined;
-	};
-
-	const shouldJoinListContinuation = (lineIndex: number, activeIndent: number, baseLine: string): boolean => {
-		const currentLine = lines[lineIndex];
-		if (!currentLine) {
-			return false;
-		}
-
-		const trimmed = currentLine.trim();
-		if (!trimmed) {
-			return false;
-		}
-
-		if (hasHardLineBreak(baseLine) || hasHardLineBreak(currentLine)) {
-			return false;
-		}
-
-		if (LIST_ITEM_PATTERN.test(currentLine)) {
-			return false;
-		}
-
-		if (BLOCKQUOTE_PATTERN.test(currentLine) || FENCE_PATTERN.test(currentLine)) {
-			return false;
-		}
-
-		const currentIndent = getLeadingWhitespaceLength(currentLine);
-		if (currentIndent < activeIndent + 2) {
-			return false;
-		}
-
-		// Treat indented code blocks (4+ spaces beyond the bullet) as preserve-only.
-		if (currentIndent >= activeIndent + 4) {
-			return false;
-		}
-
-		const nextInfo = getNextNonBlankLineInfo(lineIndex + 1);
-		if (!nextInfo) {
-			return true;
-		}
-
-		if (nextInfo.isListItem && nextInfo.indent <= activeIndent) {
-			return false;
-		}
-
-		return true;
-	};
-
-	while (i < lines.length) {
-		const line = lines[i];
-
-		// Preserve blank lines
-		if (line.trim() === '') {
-			result.push(line);
-			i++;
-			listIndentStack.length = 0;
-			continue;
-		}
-
-		// Check for fenced code block markers
-		if (FENCE_PATTERN.test(line)) {
-			inFencedBlock = !inFencedBlock;
-			result.push(line);
-			i++;
-			continue;
-		}
-
-		// Preserve everything inside fenced code blocks
-		if (inFencedBlock) {
-			result.push(line);
-			i++;
-			continue;
-		}
-
-		const lineIndent = getLeadingWhitespaceLength(line);
-		const isListItem = LIST_ITEM_PATTERN.test(line);
-
-		if (isListItem) {
-			while (listIndentStack.length && lineIndent < listIndentStack[listIndentStack.length - 1]) {
-				listIndentStack.pop();
-			}
-
-			if (!listIndentStack.length || lineIndent > listIndentStack[listIndentStack.length - 1]) {
-				listIndentStack.push(lineIndent);
-			} else {
-				listIndentStack[listIndentStack.length - 1] = lineIndent;
-			}
-
-			result.push(line);
-			i++;
-			continue;
-		}
-
-		const activeListIndent = getActiveListIndent(lineIndent);
-		const codeIndentThreshold = activeListIndent !== undefined ? activeListIndent + 4 : 4;
-		const isBlockquote = BLOCKQUOTE_PATTERN.test(line);
-		const isIndentedCode = lineIndent >= codeIndentThreshold;
-
-		if (isBlockquote || isIndentedCode) {
-			result.push(line);
-			i++;
-			continue;
-		}
-
-		if (activeListIndent !== undefined && lineIndent >= activeListIndent + 2) {
-			const baseIndex = result.length - 1;
-			if (baseIndex >= 0) {
-				let baseLine = result[baseIndex];
-				let appended = false;
-				let currentIndex = i;
-
-				while (
-					currentIndex < lines.length &&
-					shouldJoinListContinuation(currentIndex, activeListIndent, baseLine)
-				) {
-					const continuationText = lines[currentIndex].trim();
-					if (continuationText) {
-						baseLine = appendWithSpace(baseLine, continuationText);
-						appended = true;
-					}
-					currentIndex++;
-				}
-
-				if (appended) {
-					result[baseIndex] = baseLine;
-					i = currentIndex;
-					continue;
-				}
-			}
-
-			result.push(line);
-			i++;
-			continue;
-		}
-
-		// Start accumulating lines that should be joined (plain text)
-		let joinedLine = line;
-		i++;
-
-		// Keep joining lines until we hit a blank line or a line that shouldn't be joined
-		while (i < lines.length) {
-			const nextLine = lines[i];
-
-			// Stop at blank lines
-			if (nextLine.trim() === '') {
-				break;
-			}
-
-			// Stop at fenced code blocks
-			if (FENCE_PATTERN.test(nextLine)) {
-				break;
-			}
-
-			// Stop at list items
-			if (LIST_ITEM_PATTERN.test(nextLine)) {
-				break;
-			}
-
-			// Stop at blockquotes
-			if (BLOCKQUOTE_PATTERN.test(nextLine)) {
-				break;
-			}
-
-			// Check if next line is indented code (4+ spaces, when not in a list context)
-			const nextLeadingSpaces = getLeadingWhitespaceLength(nextLine);
-			const nextIsIndentedCode = nextLeadingSpaces >= 4;
-
-			if (nextIsIndentedCode) {
-				break;
-			}
-
-			// Join this line with a space
-			joinedLine += ' ' + nextLine;
-			i++;
-		}
-
-		result.push(joinedLine);
-	}
-
-	return result.join('\n');
-}
 
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;

@@ -41,10 +41,10 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.126.0",
+	"version": "0.128.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.107.0"
+		"vscode": "^1.109.0"
 	},
 	"categories": [
 		"Other",
@@ -1427,8 +1427,20 @@
 				"icon": "$(git-compare)"
 			},
 			{
+				"command": "pr.checkoutFromChat",
+				"title": "%command.pr.checkoutFromChat.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-compare)"
+			},
+			{
 				"command": "pr.applyChangesFromDescription",
 				"title": "%command.pr.applyChangesFromDescription.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-stash-apply)"
+			},
+			{
+				"command": "pr.applyChangesFromChat",
+				"title": "%command.pr.applyChangesFromChat.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(git-stash-apply)"
 			},
@@ -2173,7 +2185,15 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.checkoutFromChat",
+					"when": "false"
+				},
+				{
 					"command": "pr.applyChangesFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.applyChangesFromChat",
 					"when": "false"
 				},
 				{
@@ -2863,7 +2883,7 @@
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures",
 					"group": "5_pullrequest@2"
 				},
 				{
@@ -2889,7 +2909,7 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "issues_0@0",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures"
 				},
 				{
 					"command": "notification.openOnGitHub",
@@ -3037,17 +3057,17 @@
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures",
 					"group": "issues_1@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures",
 					"group": "issues_1@1"
 				},
 				{
 					"command": "issue.assignToCodingAgent",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled && !config.chat.disableAIFeatures",
 					"group": "issues_1@2"
 				},
 				{
@@ -3104,7 +3124,7 @@
 				{
 					"command": "pr.applySuggestionWithCopilot",
 					"group": "context@2",
-					"when": "commentController =~ /^github-review/"
+					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
 				}
 			],
 			"editor/title": [
@@ -3261,7 +3281,7 @@
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
-					"when": "commentController =~ /^github-review/"
+					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
 				}
 			],
 			"comments/comment/title": [
@@ -3273,7 +3293,7 @@
 				{
 					"command": "pr.applySuggestionWithCopilot",
 					"group": "overflow@0",
-					"when": "commentController =~ /^github-review/"
+					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
 				},
 				{
 					"command": "pr.editComment",
@@ -3602,25 +3622,25 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openChanges",
-					"when": "chatSessionType == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-cloud-agent && !config.chat.disableAIFeatures",
 					"group": "inline"
 				},
 				{
 					"command": "pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-cloud-agent",
+					"when": "chatSessionType == copilot-cloud-agent && !config.chat.disableAIFeatures",
 					"group": "context"
 				}
 			],
 			"chat/input/editing/sessionToolbar": [
 				{
-					"command": "pr.checkoutFromDescription",
+					"command": "pr.checkoutFromChat",
 					"group": "navigation@0",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated && !config.chat.disableAIFeatures"
 				},
 				{
-					"command": "pr.applyChangesFromDescription",
+					"command": "pr.applyChangesFromChat",
 					"group": "navigation@1",
-					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated"
+					"when": "chatSessionType == copilot-cloud-agent && workspaceFolderCount > 0 && github.vscode-pull-request-github.activated && !config.chat.disableAIFeatures"
 				}
 			]
 		},

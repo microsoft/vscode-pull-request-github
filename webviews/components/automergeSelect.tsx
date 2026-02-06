@@ -48,7 +48,7 @@ export const AutoMerge = ({
 
 	return (
 		<div className="automerge-section">
-			<div className="automerge-checkbox-wrapper">
+			<div className="automerge-checkbox-wrapper checkbox-wrapper">
 				<input
 					id="automerge-checkbox"
 					type="checkbox"

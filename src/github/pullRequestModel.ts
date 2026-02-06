@@ -44,6 +44,7 @@ import {
 	TimelineEventsResponse,
 	UnresolveReviewThreadResponse,
 	UpdateIssueResponse,
+	UpdatePullRequestBranchResponse,
 } from './graphql';
 import {
 	AccountType,
@@ -191,9 +192,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._reviewThreadsCache = undefined;
 	}
 
-	public async initializeReviewThreadCache(): Promise<void> {
-		await this.getReviewThreads();
+	public async initializeReviewThreadCache(): Promise<IReviewThread[]> {
+		const threads = await this.getReviewThreads();
 		this._reviewThreadsCacheInitialized = true;
+		return threads;
 	}
 
 	public get reviewThreadsCache(): IReviewThread[] {
@@ -1201,11 +1203,55 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async updateBranch(model: ConflictResolutionModel): Promise<boolean> {
-		if (this.item.mergeable === PullRequestMergeability.Conflict && (!model.resolvedConflicts || model.resolvedConflicts.size === 0)) {
+		if (!model.resolvedConflicts || model.resolvedConflicts.size === 0) {
 			throw new Error('Pull Request has conflicts but no resolutions were provided.');
 		}
-
 		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - enter`, GitHubRepository.ID);
+		// For Conflict state, use the REST API approach with conflict resolution.
+		// For Unknown or NotMergeable states, the REST API approach will also be used as a fallback,
+		// though these states may fail for other reasons (e.g., blocked by branch protection).
+		return this.updateBranchWithConflictResolution(model);
+	}
+
+	/**
+	 * Update the branch using the GitHub GraphQL API's UpdatePullRequestBranch mutation.
+	 * This is used when there are no conflicts between the head and base branches.
+	 */
+	public async updateBranchWithGraphQL(): Promise<boolean> {
+		Logger.debug(`Updating branch using GraphQL UpdatePullRequestBranch mutation - enter`, GitHubRepository.ID);
+
+		if (!this.head?.sha) {
+			Logger.error(`Cannot update branch: head SHA is not available`, GitHubRepository.ID);
+			return false;
+		}
+
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			await mutate<UpdatePullRequestBranchResponse>({
+				mutation: schema.UpdatePullRequestBranch,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId,
+						expectedHeadOid: this.head.sha
+					}
+				}
+			});
+
+			Logger.debug(`Updating branch using GraphQL UpdatePullRequestBranch mutation - done`, GitHubRepository.ID);
+			return true;
+		} catch (e) {
+			Logger.error(`Updating branch using GraphQL UpdatePullRequestBranch mutation failed: ${e}`, GitHubRepository.ID);
+			return false;
+		}
+	}
+
+	/**
+	 * Update the branch with conflict resolution using the REST API.
+	 * This is used when there are conflicts between the head and base branches.
+	 */
+	private async updateBranchWithConflictResolution(model: ConflictResolutionModel): Promise<boolean> {
+		Logger.debug(`Updating branch ${model.prHeadBranchName} with conflict resolution - enter`, GitHubRepository.ID);
 		try {
 			const { octokit } = await this.githubRepository.ensure();
 
@@ -1225,10 +1271,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			await octokit.call(octokit.api.git.updateRef, { owner: model.prHeadOwner, repo: model.repositoryName, ref: `heads/${model.prHeadBranchName}`, sha: newCommitSha });
 
 		} catch (e) {
-			Logger.error(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} failed: ${e}`, GitHubRepository.ID);
+			Logger.error(`Updating branch ${model.prHeadBranchName} with conflict resolution failed: ${e}`, GitHubRepository.ID);
 			return false;
 		}
-		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - done`, GitHubRepository.ID);
+		Logger.debug(`Updating branch ${model.prHeadBranchName} with conflict resolution - done`, GitHubRepository.ID);
 		return true;
 	}
 
@@ -1397,12 +1443,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async initializeReviewThreadCacheAndReviewComments(): Promise<void> {
-		const { remote } = await this.githubRepository.ensure();
-		const raw = await this.getRawReviewComments();
+		const threads = await this.initializeReviewThreadCache();
 
-		this.setReviewThreadCacheFromRaw(raw);
-
-		this.comments = raw.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, node.isOutdated, this.githubRepository), remote))
+		this.comments = threads.map(node => node.comments)
 			.reduce((prev, curr) => prev.concat(curr), [])
 			.sort((a: IComment, b: IComment) => {
 				return a.createdAt > b.createdAt ? 1 : -1;

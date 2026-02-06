@@ -186,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 							p.databaseId(1111);
 							p.number(1111);
 							p.title('zero');
-							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg').url('https://github.com/me'));
+							p.author(a => a.login('me').avatarUrl('https://githubusercontent.com/me.jpg').url('https://githubusercontent.com/me'));
 							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
 							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
 						}),
@@ -203,7 +203,7 @@ describe('GitHub Pull Requests view', function () {
 							p.databaseId(2222);
 							p.number(2222);
 							p.title('one');
-							p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
+							p.author(a => a.login('you').avatarUrl('https://githubusercontent.com/you.jpg'));
 							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
 							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
 						}),
@@ -257,7 +257,7 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive:hasHeadRef');
-			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
+			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://githubusercontent.com/me.jpg');
 
 			const label1 = (localItem1.label as vscode.TreeItemLabel2).label;
 			assert.ok(label1 instanceof vscode.MarkdownString);
@@ -266,7 +266,7 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active:hasHeadRef');
-			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
+			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://githubusercontent.com/you.jpg');
 		});
 	});
 });

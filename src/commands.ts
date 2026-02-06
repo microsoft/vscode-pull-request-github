@@ -550,6 +550,45 @@ export function registerCommands(
 		}
 	};
 
+	/**
+	 * Metadata passed from chat/agent sessions containing repository information.
+	 * This is provided by VS Code when commands are invoked from chat session toolbars.
+	 */
+	interface SessionMetadata {
+		/** GitHub repository owner/organization name */
+		owner?: string;
+		/** GitHub repository name */
+		name?: string;
+		[key: string]: unknown;
+	}
+
+	/**
+	 * Get the folder manager and GitHub repository for a repository based on metadata.
+	 * Falls back to the first folder manager if metadata is not provided or repository not found.
+	 * @param metadata Session metadata containing owner and repo information
+	 * @returns Object with folderManager and githubRepo, or undefined if no folder managers exist
+	 */
+	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): { folderManager: FolderRepositoryManager; githubRepo: GitHubRepository } | undefined {
+		if (metadata?.owner && metadata?.name) {
+			const folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.name) ?? reposManager.folderManagers[0];
+			if (!folderManager || folderManager.gitHubRepositories.length === 0) {
+				return undefined;
+			}
+			const githubRepo = folderManager.gitHubRepositories.find(
+				repo => repo.remote.owner === metadata.owner && repo.remote.repositoryName === metadata.name
+			) ?? folderManager.gitHubRepositories[0];
+			return { folderManager, githubRepo };
+		}
+		if (reposManager.folderManagers.length === 0) {
+			return undefined;
+		}
+		const folderManager = reposManager.folderManagers[0];
+		if (folderManager.gitHubRepositories.length === 0) {
+			return undefined;
+		}
+		return { folderManager, githubRepo: folderManager.gitHubRepositories[0] };
+	}
+
 	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
 		const contextAsPath: Partial<{ path: string }> = (ctx as { path: string });
 		return !!contextAsPath.path;
@@ -567,24 +606,49 @@ export function registerCommands(
 		}
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+	type ChatCommandArgs = { path: string } | [{ path: string } | undefined, SessionMetadata | undefined] | undefined;
+
+	function parseChatCommandArgs(ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata): { ctx: { path: string } | undefined; metadata: SessionMetadata | undefined } {
+		if (Array.isArray(ctxOrArgs)) {
+			return { ctx: ctxOrArgs[0], metadata: ctxOrArgs[1] };
+		}
+		return { ctx: ctxOrArgs, metadata: metadataArg };
+	}
+
+	async function resolvePrFromChat(ctx: { path: string }, metadata: SessionMetadata | undefined): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel; prNumber: number } | undefined> {
+		const prNumber = prNumberFromUriPath(ctx.path);
+		if (!prNumber) {
+			return undefined;
+		}
+		const result = getFolderManagerFromMetadata(metadata);
+		if (!result) {
+			return undefined;
+		}
+		const { folderManager, githubRepo } = result;
+		const pullRequest = await folderManager.fetchById(githubRepo, prNumber);
+		if (!pullRequest) {
+			return undefined;
+		}
+		return { folderManager, pullRequest, prNumber };
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
-		if (contextHasPath(ctx)) {
-			const { path } = ctx;
-			const prNumber = prNumberFromUriPath(path);
-			if (!prNumber) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
-			}
-			const folderManager = reposManager.folderManagers[0];
-			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
-			if (!pullRequest) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
-			}
+		const resolved = await resolvePrFromChat(ctx, metadata);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request from chat context.'));
+		}
 
-			return reviewsManager.switchToPr(folderManager, pullRequest, folderManager.repository, true);
+		return reviewsManager.switchToPr(resolved.folderManager, resolved.pullRequest, resolved.folderManager.repository, true);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
 		const resolved = await resolvePr(ctx);
@@ -592,40 +656,34 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return reviewsManager.switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
-
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
 
-		if (contextHasPath(ctx)) {
-			const { path } = ctx;
-			const prNumber = prNumberFromUriPath(path);
-			if (!prNumber) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
-			}
+		const resolved = await resolvePrFromChat(ctx, metadata);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request from chat context.'));
+		}
 
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('Applying changes from pull request #{0}', prNumber.toString()),
-					cancellable: false
-				},
-				async (task) => {
-					task.report({ increment: 30 });
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Applying changes from pull request #{0}', resolved.prNumber.toString()),
+				cancellable: false
+			},
+			async (task) => {
+				task.report({ increment: 30 });
+				return applyPullRequestChanges(task, resolved.folderManager, resolved.pullRequest);
+			});
+	}));
 
-					const folderManager = reposManager.folderManagers[0];
-					const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
-					if (!pullRequest) {
-						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
-					}
-
-					return applyPullRequestChanges(task, folderManager, pullRequest);
-				});
-
-			return;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
 
 		await vscode.window.withProgress(
@@ -1647,31 +1705,12 @@ ${contents}
 			quickPick.matchOnDescription = true;
 			quickPick.matchOnDetail = true;
 			quickPick.show();
-			quickPick.busy = true;
 
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
 
-			// Fetch all open PRs (lightweight query)
 			try {
-				const prs = await githubRepo.repo.getPullRequestNumbers();
-				if (!prs) {
-					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
-				}
-				// Sort PRs by number in descending order (most recent first)
-				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
-					label: `#${pr.number} ${pr.title}`,
-					description: `by @${pr.author.login}`,
-					prNumber: pr.number
-				}));
-
-				quickPick.items = prItems;
-				quickPick.busy = false;
-
-				// Handle selection
-
-				const selected = await new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
+				const selectedPromise = new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
 						let selectedString: string | undefined;
 						let selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined;
@@ -1689,30 +1728,49 @@ ${contents}
 					hideDisposable = quickPick.onDidHide(() => resolve({ selectedItem: undefined, selectedString: undefined }));
 				});
 
+				const prs = await githubRepo.repo.getPullRequestNumbers();
+				if (!prs) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
+				}
+				// Sort PRs by number in descending order (most recent first)
+				const sortedPRs = prs.sort((a, b) => b.number - a.number);
+				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
+					label: `#${pr.number} ${pr.title}`,
+					description: `by @${pr.author.login}`,
+					prNumber: pr.number
+				}));
+
+				quickPick.items = prItems;
+				const selected = await selectedPromise;
+				quickPick.busy = true;
+
 				if (!selected.selectedItem && !selected.selectedString) {
 					return;
 				}
-				quickPick.busy = true;
 				let prModel: PullRequestModel | undefined;
 
 				// Check if user selected from the list or typed a custom value
 				if (selected.selectedString) {
 					// User typed a PR number or URL
 					const parseResult = validateAndParseInput(selected.selectedString, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-					if (!parseResult.isValid) {
+					if (!parseResult.isValid && !selected.selectedItem) {
 						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 					}
-					// The user may have just entered part of a number and meant to select it from the list
-					const selectedItemNumber = selected.selectedItem?.prNumber;
-					if (selectedItemNumber !== undefined) {
-						const parsedDigits = parseResult.prNumber.toString();
-						const selectedDigits = selectedItemNumber.toString();
-						if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
-							parseResult.prNumber = selectedItemNumber;
+
+					if (parseResult.prNumber !== undefined) {
+						// The user may have just entered part of a number and meant to select it from the list
+						const selectedItemNumber = selected.selectedItem?.prNumber;
+						if (selectedItemNumber !== undefined) {
+							const parsedDigits = parseResult.prNumber.toString();
+							const selectedDigits = selectedItemNumber.toString();
+							if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
+								parseResult.prNumber = selectedItemNumber;
+							}
 						}
+						prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
 					}
-					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-				} else if (selected.selectedItem?.prNumber) {
+				}
+				if (selected.selectedItem?.prNumber && !prModel) {
 					// User selected from the list
 					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.selectedItem.prNumber);
 				}
@@ -1787,7 +1845,7 @@ ${contents}
 			if (isThread) {
 				// For threads, open the Chat view instead of inline chat
 				await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: message, isPartialQuery: true, agentMode: true });
-
+				await vscode.commands.executeCommand(commands.OPEN_CHAT);
 			} else {
 				// For single comments, use inline chat
 				await vscode.commands.executeCommand('vscode.editorChat.start', {
