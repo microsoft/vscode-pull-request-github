@@ -265,7 +265,7 @@ async function init(
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
 	const issueStateManager = new StateManager(git, reposManager, context);
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, issueStateManager, copilotRemoteAgentManager);
+	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, issueStateManager);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
