@@ -12,7 +12,7 @@ import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest, ReviewType } from '../../src/github/views';
+import { PullRequest, ReviewCommentContext, ReviewType } from '../../src/github/views';
 import { ariaAnnouncementForReview } from '../common/aria';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -415,6 +415,9 @@ export function AddComment({
 	lastReviewType,
 	busy,
 	hasReviewDraft,
+	owner,
+	repo,
+	number
 }: PullRequest) {
 	const { updatePR, requestChanges, approve, close, openOnGitHub, submit } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
@@ -516,7 +519,7 @@ export function AddComment({
 
 
 				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
+					optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
 					defaultAction={defaultSubmitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
@@ -558,10 +561,14 @@ const COMMENT_METHODS = {
 	requestChanges: 'Request Changes',
 };
 
-const makeCommentMenuContext = (availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
-	const createMenuContexts: Record<string, boolean | string> = {
+const makeCommentMenuContext = (owner: string, repo: string, number: number, availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
+	const createMenuContexts: ReviewCommentContext = {
 		'preventDefaultContextMenuItems': true,
 		'github:reviewCommentMenu': true,
+		owner,
+		repo,
+		number,
+		body: pendingCommentText ?? '',
 	};
 	if (availableActions.approve) {
 		if (availableActions.approve === COMMENT_METHODS.approve) {
@@ -665,7 +672,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			/>
 			<div className='comment-button'>
 				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}
+					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}
 					defaultAction={defaultSubmitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
