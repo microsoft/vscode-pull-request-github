@@ -21,7 +21,7 @@ import {
 	ReviewEventEnum,
 	ReviewState,
 } from './interface';
-import { IssueOverviewPanel } from './issueOverview';
+import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
@@ -42,10 +42,11 @@ import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webv
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
 	public static override readonly viewType = PULL_REQUEST_OVERVIEW_VIEW_TYPE;
+
 	/**
-	 * Track the currently panel. Only allow a single panel to exist at a time.
+	 * All open PR panels, keyed by "owner/repo#number".
 	 */
-	public static override currentPanel?: PullRequestOverviewPanel;
+	protected static override _panels: Map<string, PullRequestOverviewPanel> = new Map();
 
 	/**
 	 * Event emitter for when a PR overview becomes active
@@ -85,13 +86,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				? vscode.window.activeTextEditor.viewColumn
 				: vscode.ViewColumn.One;
 
-		// If we already have a panel, show it.
-		// Otherwise, create a new panel.
-		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, preserveFocus);
+		const key = panelKey(identity.owner, identity.repo, identity.number);
+		let panel = this._panels.get(key);
+		if (panel) {
+			panel._panel.reveal(activeColumn, preserveFocus);
 		} else {
 			const title = `Pull Request #${identity.number.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(
+			panel = new PullRequestOverviewPanel(
 				telemetry,
 				extensionUri,
 				activeColumn || vscode.ViewColumn.Active,
@@ -99,27 +100,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				folderRepositoryManager,
 				existingPanel
 			);
+			this._panels.set(key, panel);
 		}
 
-		await PullRequestOverviewPanel.currentPanel!.updateWithIdentity(folderRepositoryManager, identity, issue);
-	}
-
-	protected override set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
-		PullRequestOverviewPanel.currentPanel = panel;
-	}
-
-	public static refreshActive(): void {
-		const panel = this.getActivePanel();
-		if (panel) {
-			panel.refreshPanel();
-		}
-	}
-
-	public static override refresh(owner: string, repo: string, number: number): void {
-		const panel = this.findPanel(owner, repo, number);
-		if (panel) {
-			panel.refreshPanel();
-		}
+		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
 	public static scrollToReview(owner: string, repo: string, number: number): void {
@@ -136,40 +120,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._postMessage({ command: 'pr.scrollToPendingReview' });
 	}
 
+
 	/**
-	 * Get the currently active pull request from the current panel
+	 * Get the currently active pull request from the active panel
 	 */
 	public static getCurrentPullRequest(): PullRequestModel | undefined {
-		return this.currentPanel?._item;
+		return this.getActivePanel()?._item;
 	}
 
 	/**
 	 * Return the panel whose webview is currently active (focused),
 	 * or `undefined` when no PR panel is active.
-	 * Today there is at most one panel; with multiple panels this
-	 * will iterate the panel map.
 	 */
 	public static override getActivePanel(): PullRequestOverviewPanel | undefined {
-		if (this.currentPanel?._panel.active) {
-			return this.currentPanel;
-		}
-		return undefined;
+		return super.getActivePanel() as PullRequestOverviewPanel | undefined;
 	}
 
 	/**
 	 * Find the panel showing a specific pull request.
-	 * Currently there is at most one panel, but this will support
-	 * multiple panels in the future.
 	 */
-	public static findPanel(owner: string, repo: string, number: number): PullRequestOverviewPanel | undefined {
-		const panel = this.currentPanel;
-		if (panel && panel._item &&
-			panel._item.remote.owner === owner &&
-			panel._item.remote.repositoryName === repo &&
-			panel._item.number === number) {
-			return panel;
-		}
-		return undefined;
+	public static override findPanel(owner: string, repo: string, number: number): PullRequestOverviewPanel | undefined {
+		return super.findPanel(owner, repo, number) as PullRequestOverviewPanel | undefined;
 	}
 
 	/**

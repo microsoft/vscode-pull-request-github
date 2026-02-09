@@ -23,12 +23,16 @@ import { asPromise, formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewBase } from '../common/webview';
 
+export function panelKey(owner: string, repo: string, number: number): string {
+	return `${owner}/${repo}#${number}`;
+}
+
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
 	/**
-	 * Track the currently panel. Only allow a single panel to exist at a time.
+	 * All open panels, keyed by "owner/repo#number".
 	 */
-	public static currentPanel?: IssueOverviewPanel;
+	protected static _panels: Map<string, IssueOverviewPanel> = new Map();
 
 	public static readonly viewType: string = 'IssueOverview';
 
@@ -55,13 +59,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				? vscode.window.activeTextEditor.viewColumn
 				: vscode.ViewColumn.One;
 
-		// If we already have a panel, show it.
-		// Otherwise, create a new panel.
-		if (IssueOverviewPanel.currentPanel) {
-			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
+		const key = panelKey(identity.owner, identity.repo, identity.number);
+		let panel = this._panels.get(key);
+		if (panel) {
+			panel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Issue #${identity.number.toString()}`;
-			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(
+			panel = new IssueOverviewPanel(
 				telemetry,
 				extensionUri,
 				activeColumn || vscode.ViewColumn.Active,
@@ -71,28 +75,37 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				existingPanel,
 				undefined
 			);
+			this._panels.set(key, panel);
 		}
 
-		await IssueOverviewPanel.currentPanel!.updateWithIdentity(folderRepositoryManager, identity, issue);
+		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
-	public static refresh(_owner?: string, _repo?: string, _number?: number): void {
-		if (this.currentPanel) {
-			this.currentPanel.refreshPanel();
+	public static refresh(owner: string, repo: string, number: number): void {
+		const panel = this.findPanel(owner, repo, number);
+		if (panel) {
+			panel.refreshPanel();
 		}
 	}
 
 	/**
 	 * Return the panel whose webview is currently active (focused),
 	 * or `undefined` when no issue/PR panel is active.
-	 * Today there is at most one panel; with multiple panels this
-	 * will iterate the panel map.
 	 */
 	public static getActivePanel(): IssueOverviewPanel | undefined {
-		if (this.currentPanel?._panel.active) {
-			return this.currentPanel;
+		for (const panel of this._panels.values()) {
+			if (panel._panel.active) {
+				return panel;
+			}
 		}
 		return undefined;
+	}
+
+	/**
+	 * Find the panel showing a specific issue.
+	 */
+	public static findPanel(owner: string, repo: string, number: number): IssueOverviewPanel | undefined {
+		return this._panels.get(panelKey(owner, repo, number));
 	}
 
 	protected setPanelTitle(title: string): void {
@@ -756,13 +769,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		this._replyMessage(message, result);
 	}
 
-	protected set _currentPanel(panel: IssueOverviewPanel | undefined) {
-		IssueOverviewPanel.currentPanel = panel;
+	protected _removeFromPanels(): void {
+		if (this._identity) {
+			const key = panelKey(this._identity.owner, this._identity.repo, this._identity.number);
+			// Use the subclass's own static _panels map via this.constructor
+			(this.constructor as unknown as typeof IssueOverviewPanel)._panels.delete(key);
+		}
 	}
 
 	public override dispose() {
 		super.dispose();
-		this._currentPanel = undefined;
+		this._removeFromPanels();
 		this._webview = undefined;
 	}
 
