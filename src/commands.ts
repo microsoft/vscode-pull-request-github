@@ -31,7 +31,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
-import { OverviewContext } from './github/views';
+import { BaseContext, OverviewContext } from './github/views';
 import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
@@ -141,6 +141,9 @@ export function registerCommands(
 	tree: PullRequestsTreeDataProvider
 ) {
 	const logId = 'RegisterCommands';
+
+	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
@@ -484,7 +487,7 @@ export function registerCommands(
 
 		}));
 
-	const resolvePr = async (context: OverviewContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
+	const resolvePr = async (context: BaseContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
 		if (!context) {
 			return undefined;
 		}
@@ -589,7 +592,7 @@ export function registerCommands(
 		return { folderManager, githubRepo: folderManager.gitHubRepositories[0] };
 	}
 
-	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
+	function contextHasPath(ctx: BaseContext | { path: string } | undefined): ctx is { path: string } {
 		const contextAsPath: Partial<{ path: string }> = (ctx as { path: string });
 		return !!contextAsPath.path;
 	}
@@ -646,7 +649,7 @@ export function registerCommands(
 		return reviewsManager.switchToPr(resolved.folderManager, resolved.pullRequest, resolved.folderManager.repository, true);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: BaseContext | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -681,7 +684,7 @@ export function registerCommands(
 			});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: BaseContext | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
@@ -741,7 +744,7 @@ export function registerCommands(
 				pullRequestModel = pullRequest;
 			}
 			else {
-				const resolved = await resolvePr(pr as OverviewContext);
+				const resolved = await resolvePr(pr as BaseContext);
 				pullRequestModel = resolved?.pr;
 			}
 
@@ -821,7 +824,7 @@ export function registerCommands(
 		),
 	);
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -832,7 +835,7 @@ export function registerCommands(
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -1622,7 +1625,7 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: OverviewContext | undefined) => {
+		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: BaseContext | undefined) => {
 			let pr: PullRequestModel | undefined;
 			if (params) {
 				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
@@ -1642,7 +1645,7 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyPrLink', async (params: OverviewContext | undefined) => {
+		vscode.commands.registerCommand('pr.copyPrLink', async (params: BaseContext | undefined) => {
 			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
 				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);

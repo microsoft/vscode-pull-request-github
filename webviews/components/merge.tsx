@@ -30,7 +30,7 @@ import {
 	reviewerId,
 	ReviewState,
 } from '../../src/github/interface';
-import { PullRequest } from '../../src/github/views';
+import { PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
 
@@ -339,12 +339,26 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 			</div>
 			<div className='button-container'>
 				<ContextDropdown
-					optionsContext={() => JSON.stringify({
-						'preventDefaultContextMenuItems': true,
-						'github:readyForReviewMenu': true,
-						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf,
-						'mergeMethod': mergeMethod
-					})}
+					optionsContext={() => {
+						if (!pr) {
+							throw new Error('PR context is required for ready for review options');
+						}
+						let ctx: ReadyForReviewContext | ReadyForReviewAndMergeContext = {
+							'preventDefaultContextMenuItems': true,
+							'github:readyForReviewMenu': true,
+							owner: pr.owner,
+							repo: pr.repo,
+							number: pr.number,
+						};
+						if (isCopilotOnMyBehalf) {
+							ctx = {
+								...ctx,
+								'github:readyForReviewMenuWithMerge': true,
+								mergeMethod,
+							};
+						}
+						return JSON.stringify(ctx);
+					}}
 					defaultAction={markReadyForReview}
 					defaultOptionLabel={() => 'Ready for Review'}
 					defaultOptionValue={() => 'ready'}

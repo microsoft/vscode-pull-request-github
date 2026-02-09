@@ -26,7 +26,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReviewType, UnresolvedIdentity } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -127,6 +127,75 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.currentPanel?._item;
 	}
 
+	/**
+	 * Find the panel showing a specific pull request.
+	 * Currently there is at most one panel, but this will support
+	 * multiple panels in the future.
+	 */
+	public static findPanel(owner: string, repo: string, number: number): PullRequestOverviewPanel | undefined {
+		const panel = this.currentPanel;
+		if (panel && panel._item &&
+			panel._item.remote.owner === owner &&
+			panel._item.remote.repositoryName === repo &&
+			panel._item.number === number) {
+			return panel;
+		}
+		return undefined;
+	}
+
+	/**
+	 * Register the webview context-menu commands once globally,
+	 * rather than per panel instance.  Each command receives the
+	 * PR identity (owner / repo / number) from the webview context
+	 * and looks up the matching panel.
+	 */
+	public static registerGlobalCommands(context: vscode.ExtensionContext, telemetry: ITelemetry): void {
+		context.subscriptions.push(
+			vscode.commands.registerCommand('pr.readyForReviewDescription', async (ctx: ReadyForReviewContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return panel.readyForReviewCommand();
+				}
+			}),
+			vscode.commands.registerCommand('pr.readyForReviewAndMergeDescription', async (ctx: ReadyForReviewAndMergeContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return panel.readyForReviewAndMergeCommand(ctx);
+				}
+			}),
+			vscode.commands.registerCommand('review.approveDescription', (ctx: ReviewCommentContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return panel.approvePullRequestCommand(ctx);
+				}
+			}),
+			vscode.commands.registerCommand('review.commentDescription', (ctx: ReviewCommentContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return panel.submitReviewCommand(ctx);
+				}
+			}),
+			vscode.commands.registerCommand('review.requestChangesDescription', (ctx: ReviewCommentContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return panel.requestChangesCommand(ctx);
+				}
+			}),
+			vscode.commands.registerCommand('review.approveOnDotComDescription', (ctx: ReviewCommentContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return openPullRequestOnGitHub(panel._item, telemetry);
+				}
+			}),
+			vscode.commands.registerCommand('review.requestChangesOnDotComDescription', (ctx: ReviewCommentContext) => {
+				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
+				if (panel) {
+					return openPullRequestOnGitHub(panel._item, telemetry);
+				}
+			}),
+		);
+	}
+
 	protected constructor(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
@@ -143,22 +212,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this.registerPrListeners();
 
 		this.setVisibilityContext();
-
-		this._register(vscode.commands.registerCommand('pr.readyForReviewDescription', async () => {
-			return this.readyForReviewCommand();
-		}));
-		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMergeDescription', async (context: { mergeMethod: MergeMethod }) => {
-			return this.readyForReviewAndMergeCommand(context);
-		}));
-		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
-		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
-		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
-		this._register(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
-			return openPullRequestOnGitHub(this._item, this._telemetry);
-		}));
-		this._register(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
-			return openPullRequestOnGitHub(this._item, this._telemetry);
-		}));
 	}
 
 	protected override registerPrListeners() {
