@@ -92,7 +92,7 @@ Active pull request (may not be the same as open pull request): ${folderManager.
 	}
 
 	async provideChatContextForResource(_options: { resource: vscode.Uri }, _token: vscode.CancellationToken): Promise<PRChatContextItem | undefined> {
-		const item = PullRequestOverviewPanel.currentPanel?.getCurrentItem();
+		const item = PullRequestOverviewPanel.getActivePanel()?.getCurrentItem();
 		if (item) {
 			return this._prToUnresolvedContext(item);
 		}

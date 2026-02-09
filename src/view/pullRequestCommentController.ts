@@ -497,7 +497,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			number: this.pullRequestModel.number
 		};
 		await PullRequestOverviewPanel.createOrShow(this._telemetry, this._folderRepoManager.context.extensionUri, this._folderRepoManager, identity, this.pullRequestModel);
-		PullRequestOverviewPanel.scrollToReview();
+		PullRequestOverviewPanel.scrollToReview(identity.owner, identity.repo, identity.number);
 
 		/* __GDPR__
 			"pr.openDescription" : {}

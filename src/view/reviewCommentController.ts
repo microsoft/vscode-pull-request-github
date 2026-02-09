@@ -723,7 +723,10 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 	public async openReview(): Promise<void> {
 		await this._reviewManager.openDescription();
-		PullRequestOverviewPanel.scrollToReview();
+		const pr = this._folderRepoManager.activePullRequest;
+		if (pr) {
+			PullRequestOverviewPanel.scrollToReview(pr.remote.owner, pr.remote.repositoryName, pr.number);
+		}
 	}
 
 	// #endregion

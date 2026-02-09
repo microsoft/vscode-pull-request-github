@@ -82,6 +82,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
+	/**
+	 * Return the panel whose webview is currently active (focused),
+	 * or `undefined` when no issue/PR panel is active.
+	 * Today there is at most one panel; with multiple panels this
+	 * will iterate the panel map.
+	 */
+	public static getActivePanel(): IssueOverviewPanel | undefined {
+		if (this.currentPanel?._panel.active) {
+			return this.currentPanel;
+		}
+		return undefined;
+	}
+
 	protected setPanelTitle(title: string): void {
 		try {
 			this._panel.title = title;
