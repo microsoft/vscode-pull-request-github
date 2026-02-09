@@ -108,8 +108,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		PullRequestOverviewPanel.currentPanel = panel;
 	}
 
-	public static override refresh(): void {
+	public static refreshActive(): void {
 		const panel = this.getActivePanel();
+		if (panel) {
+			panel.refreshPanel();
+		}
+	}
+
+	public static override refresh(owner: string, repo: string, number: number): void {
+		const panel = this.findPanel(owner, repo, number);
 		if (panel) {
 			panel.refreshPanel();
 		}
