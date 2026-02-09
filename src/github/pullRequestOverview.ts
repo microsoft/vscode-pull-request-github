@@ -109,15 +109,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	public static override refresh(): void {
-		if (this.currentPanel) {
-			this.currentPanel.refreshPanel();
+		const panel = this.getActivePanel();
+		if (panel) {
+			panel.refreshPanel();
 		}
 	}
 
-	public static scrollToReview(): void {
-		if (this.currentPanel) {
-			this.currentPanel._postMessage({ command: 'pr.scrollToPendingReview' });
+	public static scrollToReview(owner: string, repo: string, number: number): void {
+		const panel = this.findPanel(owner, repo, number);
+		if (panel) {
+			panel.scrollToPendingReview();
 		}
+	}
+
+	/**
+	 * Scroll the webview to the pending review section.
+	 */
+	public scrollToPendingReview(): void {
+		this._postMessage({ command: 'pr.scrollToPendingReview' });
 	}
 
 	/**
@@ -125,6 +134,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 */
 	public static getCurrentPullRequest(): PullRequestModel | undefined {
 		return this.currentPanel?._item;
+	}
+
+	/**
+	 * Return the panel whose webview is currently active (focused),
+	 * or `undefined` when no PR panel is active.
+	 * Today there is at most one panel; with multiple panels this
+	 * will iterate the panel map.
+	 */
+	public static override getActivePanel(): PullRequestOverviewPanel | undefined {
+		if (this.currentPanel?._panel.active) {
+			return this.currentPanel;
+		}
+		return undefined;
 	}
 
 	/**

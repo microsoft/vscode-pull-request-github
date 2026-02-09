@@ -1065,16 +1065,18 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshDescription', async () => {
-			if (PullRequestOverviewPanel.currentPanel) {
-				PullRequestOverviewPanel.refresh();
+			const panel = PullRequestOverviewPanel.getActivePanel();
+			if (panel) {
+				panel.refreshPanel();
 			}
 		}),
 	);
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.focusDescriptionInput',
 		async () => {
-			if (PullRequestOverviewPanel.currentPanel) {
-				PullRequestOverviewPanel.scrollToReview();
+			const panel = PullRequestOverviewPanel.getActivePanel();
+			if (panel) {
+				panel.scrollToPendingReview();
 			}
 		}
 	));

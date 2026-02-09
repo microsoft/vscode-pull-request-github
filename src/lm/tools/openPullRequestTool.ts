@@ -13,8 +13,8 @@ export class OpenPullRequestTool extends PullRequestTool {
 	public static readonly toolId = 'github-pull-request_openPullRequest';
 
 	protected _findActivePullRequest(): PullRequestModel | undefined {
-		// First check if there's a PR overview panel open
-		const panelPR = PullRequestOverviewPanel.currentPanel?.getCurrentItem();
+		// First check if there's an active PR overview panel
+		const panelPR = PullRequestOverviewPanel.getActivePanel()?.getCurrentItem();
 		if (panelPR) {
 			return panelPR;
 		}
