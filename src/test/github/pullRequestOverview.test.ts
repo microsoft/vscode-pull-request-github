@@ -11,6 +11,7 @@ import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
+import { panelKey } from '../../github/issueOverview';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { Protocol } from '../../common/protocol';
@@ -58,8 +59,9 @@ describe('PullRequestOverview', function () {
 	});
 
 	afterEach(function () {
-		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel.dispose();
+		// Dispose all open panels
+		for (const panel of (PullRequestOverviewPanel as any)._panels.values()) {
+			panel.dispose();
 		}
 
 		pullRequestManager.dispose();
@@ -69,7 +71,7 @@ describe('PullRequestOverview', function () {
 
 	describe('createOrShow', function () {
 		it('creates a new panel', async function () {
-			assert.strictEqual(PullRequestOverviewPanel.currentPanel, undefined);
+			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
 			repo.addGraphQLPullRequest(builder => {
@@ -94,10 +96,10 @@ describe('PullRequestOverview', function () {
 					enableFindWidget: true
 				}),
 			);
-			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
+			assert.notStrictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
-		it('reveals and updates an existing panel', async function () {
+		it('reveals an existing panel for the same PR', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
 			repo.addGraphQLPullRequest(builder => {
@@ -125,10 +127,49 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity0, prModel0);
 
-			const panel0 = PullRequestOverviewPanel.currentPanel;
+			const panel0 = PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number);
 			assert.notStrictEqual(panel0, undefined);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
+
+			// Opening the same PR again should reuse the existing panel
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity0, prModel0);
+
+			assert.strictEqual(panel0, PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number));
+			assert.strictEqual(createWebviewPanel.callCount, 1);
+		});
+
+		it('creates separate panels for different PRs', async function () {
+			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
+
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(2000));
+					});
+				});
+			});
+
+			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
+			const identity0 = { owner: prModel0.remote.owner, repo: prModel0.remote.repositoryName, number: prModel0.number };
+			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
+			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel0, 'validateDraftMode').resolves(true);
+			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity0, prModel0);
+
+			const panel0 = PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number);
+			assert.notStrictEqual(panel0, undefined);
+			assert.strictEqual(createWebviewPanel.callCount, 1);
 
 			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
 			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
@@ -140,9 +181,12 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel1, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity1, prModel1);
 
-			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
-			assert.strictEqual(createWebviewPanel.callCount, 1);
-			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #2000');
+			const panel1 = PullRequestOverviewPanel.findPanel(identity1.owner, identity1.repo, identity1.number);
+			assert.notStrictEqual(panel1, undefined);
+			assert.notStrictEqual(panel0, panel1);
+			assert.strictEqual(createWebviewPanel.callCount, 2);
+			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
+			assert.strictEqual(panel1!.getCurrentTitle(), 'Pull Request #2000');
 		});
 	});
 });
