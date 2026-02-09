@@ -1524,7 +1524,11 @@ ${contents}
 				ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.updateComments();
 			}
 
-			PullRequestOverviewPanel.refresh();
+			PullRequestOverviewPanel.refresh(
+				prNode.pullRequestModel.remote.owner,
+				prNode.pullRequestModel.remote.repositoryName,
+				prNode.pullRequestModel.number,
+			);
 		}),
 	);
 

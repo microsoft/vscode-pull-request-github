@@ -76,7 +76,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		await IssueOverviewPanel.currentPanel!.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
-	public static refresh(): void {
+	public static refresh(_owner?: string, _repo?: string, _number?: number): void {
 		if (this.currentPanel) {
 			this.currentPanel.refreshPanel();
 		}
