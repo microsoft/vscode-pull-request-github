@@ -61,7 +61,6 @@ import {
 	YamlIssueTemplate,
 } from './util';
 import { OctokitCommon } from '../github/common';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -93,8 +92,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		private reviewsManager: ReviewsManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
-		private readonly _stateManager: StateManager,
-		private copilotRemoteAgentManager: CopilotRemoteAgentManager,
+		private readonly _stateManager: StateManager
 	) {
 		super();
 		this._newIssueCache = new NewIssueCache(context);
@@ -608,7 +606,7 @@ export class IssueFeatureRegistrar extends Disposable {
 			this._register(
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
-			const todoProvider = new IssueTodoProvider(this.context, this.copilotRemoteAgentManager);
+			const todoProvider = new IssueTodoProvider(this.context);
 			this._register(
 				vscode.languages.registerCodeActionsProvider('*', todoProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
