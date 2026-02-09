@@ -113,12 +113,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	public static refreshActive(): void {
+		const panel = this.getActivePanel();
+		if (panel) {
+			panel.refreshPanel();
+		}
+	}
+
+	public static override refresh(owner: string, repo: string, number: number): void {
+		const panel = this.findPanel(owner, repo, number);
+		if (panel) {
+			panel.refreshPanel();
+		}
+	}
+
 	/**
 	 * Scroll the webview to the pending review section.
 	 */
 	public scrollToPendingReview(): void {
 		this._postMessage({ command: 'pr.scrollToPendingReview' });
 	}
+
 
 	/**
 	 * Get the currently active pull request from the active panel

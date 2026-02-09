@@ -81,8 +81,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
-	public static refresh(): void {
-		for (const panel of this._panels.values()) {
+	public static refresh(owner: string, repo: string, number: number): void {
+		const panel = this.findPanel(owner, repo, number);
+		if (panel) {
 			panel.refreshPanel();
 		}
 	}
