@@ -15,7 +15,7 @@ import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { AUTO_REPO_DETECTION, AutoRepoDetectionVariants, BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, IGNORE_SUBMODULES, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
@@ -237,13 +237,20 @@ async function init(
 			reviewsManager.addReviewManager(newReviewManager);
 		}
 
-		// Check if repo is in one of the workspace folders or vice versa
-		Logger.debug(`Checking if repo ${repo.rootUri.fsPath} is in a workspace folder.`, ACTIVATION);
-		Logger.debug(`Workspace folders: ${workspaceFolders?.map(folder => folder.uri.fsPath).join(', ')}`, ACTIVATION);
-		if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath, true) || isDescendant(repo.rootUri.fsPath, folder.uri.fsPath, true))) {
-			Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
-			return;
+		const detectionMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<AutoRepoDetectionVariants>(AUTO_REPO_DETECTION, 'workspace');
+		const shouldFilterByWorkspace = detectionMode === 'workspace';
+
+		if (shouldFilterByWorkspace) {
+			Logger.debug(`Checking if repo ${repo.rootUri.fsPath} is in a workspace folder.`, ACTIVATION);
+			Logger.debug(`Workspace folders: ${workspaceFolders?.map(folder => folder.uri.fsPath).join(', ')}`, ACTIVATION);
+			if (workspaceFolders && !workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, repo.rootUri.fsPath, true) || isDescendant(repo.rootUri.fsPath, folder.uri.fsPath, true))) {
+				Logger.appendLine(`Repo ${repo.rootUri} is not in a workspace folder, ignoring.`, ACTIVATION);
+				return;
+			}
+		} else {
+			Logger.debug(`Auto-detection is enabled for all Git repositories.`, ACTIVATION);
 		}
+
 		addRepo();
 		const disposable = repo.state.onDidChange(() => {
 			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`, ACTIVATION);
