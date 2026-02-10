@@ -220,7 +220,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			await this.update(this._folderRepositoryManager, this._item);
+			await this.updateItem(this._item);
 		}
 	}
 
@@ -340,19 +340,14 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem, progressLocation?: string): Promise<void> {
 		this._identity = identity;
-
-		if (this._folderRepositoryManager !== foldersManager) {
-			this._folderRepositoryManager = foldersManager;
-			this.registerPrListeners();
-		}
+		this._folderRepositoryManager = foldersManager;
 
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
-		const isNewItem = !this._item || (this._item.number !== identity.number);
-		if (isNewItem || !this._panel.webview.html) {
+		if (!this._panel.webview.html) {
 			this._panel.webview.html = this.getHtmlForWebview();
 			this._postMessage({ command: 'pr.clear' });
 		}
@@ -373,15 +368,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		} else {
 			return this.updateItem(issueModel);
 		}
-	}
-
-	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
-		const identity: UnresolvedIdentity = {
-			owner: issueModel.remote.owner,
-			repo: issueModel.remote.repositoryName,
-			number: issueModel.number
-		};
-		return this.updateWithIdentity(foldersManager, identity, issueModel, progressLocation);
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
