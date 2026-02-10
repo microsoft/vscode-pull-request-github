@@ -120,7 +120,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._postMessage({ command: 'pr.scrollToPendingReview' });
 	}
 
-
 	/**
 	 * Get the currently active pull request from the active panel
 	 */
@@ -297,16 +296,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
-		const isSamePullRequest = pullRequestModel.equals(this._item);
-		if (this._updatingPromise && isSamePullRequest) {
+		if (this._updatingPromise) {
 			Logger.error('Already updating pull request webview', PullRequestOverviewPanel.ID);
 			return;
-		} else if (this._updatingPromise && !isSamePullRequest) {
-			this._item = pullRequestModel;
-			await this._updatingPromise;
-		} else {
-			this._item = pullRequestModel;
 		}
+		this._item = pullRequestModel;
 
 		try {
 			const updatingPromise = Promise.all([
@@ -363,11 +357,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				throw new Error(
 					`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
 				);
-			}
-
-			if (!this._item.equals(pullRequestModel)) {
-				// Updated PR is no longer the current one
-				return;
 			}
 
 			this._item = pullRequest;
@@ -470,18 +459,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		// Notify that this PR overview is now active
 		PullRequestOverviewPanel._onVisible.fire(this._item);
-	}
-
-	public override async update(
-		folderRepositoryManager: FolderRepositoryManager,
-		pullRequestModel: PullRequestModel,
-	): Promise<void> {
-		const identity: UnresolvedIdentity = {
-			owner: pullRequestModel.remote.owner,
-			repo: pullRequestModel.remote.repositoryName,
-			number: pullRequestModel.number
-		};
-		return this.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, 'pr:github');
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
