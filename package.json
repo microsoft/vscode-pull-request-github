@@ -88,16 +88,6 @@
 				"displayName": "GitHub Issues"
 			}
 		],
-		"chatParticipants": [
-			{
-				"id": "githubpr",
-				"name": "githubpr",
-				"fullName": "GitHub Pull Requests",
-				"description": "Chat participant for GitHub Pull Requests extension",
-				"when": "config.githubPullRequests.experimental.chat",
-				"isSticky": true
-			}
-		],
 		"configuration": {
 			"type": "object",
 			"title": "GitHub Pull Requests",
@@ -2909,32 +2899,32 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "issues_0@0",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures"
 				},
 				{
 					"command": "notification.openOnGitHub",
 					"group": "issues_0@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "notification.markAsRead",
 					"group": "inline@3",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "notification.markAsRead",
 					"group": "issues_0@2",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "notification.markAsDone",
 					"group": "inline@4",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "notification.markAsDone",
 					"group": "issues_0@3",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
@@ -3747,6 +3737,20 @@
 				}
 			}
 		],
+		"chatSkills": [
+			{
+				"path": "./src/lm/skills/summarize-github-issue-pr-notification/SKILL.md"
+			},
+			{
+				"path": "./src/lm/skills/suggest-fix-issue/SKILL.md"
+			},
+			{
+				"path": "./src/lm/skills/form-github-search-query/SKILL.md"
+			},
+			{
+				"path": "./src/lm/skills/show-github-search-result/SKILL.md"
+			}
+		],
 		"languageModelTools": [
 			{
 				"name": "github-pull-request_issue_fetch",
@@ -3793,6 +3797,42 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
+				"name": "github-pull-request_labels_fetch",
+				"tags": [
+					"github",
+					"labels"
+				],
+				"toolReferenceName": "labels_fetch",
+				"displayName": "%languageModelTools.github-pull-request_labels_fetch.displayName%",
+				"modelDescription": "Fetch all labels from a GitHub repository. Returns the label names, colors, and descriptions.",
+				"icon": "$(tag)",
+				"canBeReferencedInPrompt": true,
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to fetch labels from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to fetch labels from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to fetch labels from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						}
+					}
+				},
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
 				"name": "github-pull-request_notification_fetch",
 				"tags": [
 					"github",
@@ -3802,7 +3842,7 @@
 				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
 				"modelDescription": "Get a GitHub notification's details as a JSON object.",
 				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
+				"canBeReferencedInPrompt": true,
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -3818,284 +3858,6 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"name": "github-pull-request_issue_summarize",
-				"tags": [
-					"github",
-					"issues",
-					"prs"
-				],
-				"toolReferenceName": "issue_summarize",
-				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
-				"modelDescription": "Summarizes a GitHub issue or pull request. A summary is a great way to describe an issue or pull request.",
-				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
-				"inputSchema": {
-					"type": "object",
-					"properties": {
-						"title": {
-							"type": "string",
-							"description": "The title of the issue/PR"
-						},
-						"body": {
-							"type": "string",
-							"description": "The body of the issue/PR"
-						},
-						"owner": {
-							"type": "string",
-							"description": "The owner of the repo in which the issue/PR is located"
-						},
-						"repo": {
-							"type": "string",
-							"description": "The repo in which the issue/PR is located"
-						},
-						"comments": {
-							"type": "array",
-							"items": {
-								"type": "object",
-								"properties": {
-									"body": {
-										"type": "string",
-										"description": "The comment body"
-									},
-									"author": {
-										"type": "string",
-										"description": "The author of the comment"
-									}
-								}
-							},
-							"description": "The array of associated string comments"
-						},
-						"fileChanges": {
-							"type": "array",
-							"items": {
-								"type": "object",
-								"properties": {
-									"fileName": {
-										"type": "string",
-										"description": "The name of the file of the change"
-									},
-									"patch": {
-										"type": "string",
-										"description": "The patch of the change"
-									}
-								}
-							},
-							"description": "For a PR, the array of associated file changes"
-						}
-					},
-					"required": [
-						"title",
-						"body",
-						"comments",
-						"owner",
-						"repo"
-					]
-				},
-				"when": "config.githubPullRequests.experimental.chat"
-			},
-			{
-				"name": "github-pull-request_notification_summarize",
-				"tags": [
-					"github",
-					"notification"
-				],
-				"toolReferenceName": "notification_summarize",
-				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
-				"modelDescription": "Summarizes a GitHub notification. A summary is a great way to describe a notification.",
-				"icon": "$(info)",
-				"canBeReferencedInPrompt": false,
-				"inputSchema": {
-					"type": "object",
-					"properties": {
-						"lastReadAt": {
-							"type": "string",
-							"description": "The last read time of the notification."
-						},
-						"lastUpdatedAt": {
-							"type": "string",
-							"description": "The last updated time of the notification."
-						},
-						"unread": {
-							"type": "boolean",
-							"description": "Whether the notification is unread."
-						},
-						"title": {
-							"type": "string",
-							"description": "The title of the notification issue/PR"
-						},
-						"body": {
-							"type": "string",
-							"description": "The body of the notification issue/PR"
-						},
-						"owner": {
-							"type": "string",
-							"description": "The owner of the repo in which the issue/PR is located"
-						},
-						"repo": {
-							"type": "string",
-							"description": "The repo in which the issue/PR is located"
-						},
-						"comments": {
-							"type": "array",
-							"items": {
-								"type": "object",
-								"properties": {
-									"body": {
-										"type": "string",
-										"description": "The comment body"
-									},
-									"author": {
-										"type": "string",
-										"description": "The author of the comment"
-									}
-								}
-							},
-							"description": "The array of unread comments under the issue/PR of the notification"
-						},
-						"threadId": {
-							"type": "number",
-							"description": "The thread id of the notification"
-						},
-						"notificationKey": {
-							"type": "string",
-							"description": "The key of the notification"
-						},
-						"itemNumber": {
-							"type": "string",
-							"description": "The number of the issue/PR in the notification"
-						},
-						"itemType": {
-							"type": "string",
-							"description": "The type of the item in the notification - whether it is an issue or a PR"
-						},
-						"fileChanges": {
-							"type": "array",
-							"items": {
-								"type": "object",
-								"properties": {
-									"fileName": {
-										"type": "string",
-										"description": "The name of the file of the change"
-									},
-									"patch": {
-										"type": "string",
-										"description": "The patch of the change"
-									}
-								},
-								"required": [
-									"fileName",
-									"patch"
-								]
-							},
-							"description": "For a notification about a PR, the array of associated file changes"
-						}
-					},
-					"required": [
-						"title",
-						"comments",
-						"lastUpdatedAt",
-						"unread",
-						"threadId",
-						"notificationKey",
-						"owner",
-						"repo",
-						"itemNumber",
-						"itemType"
-					]
-				},
-				"when": "config.githubPullRequests.experimental.chat"
-			},
-			{
-				"name": "github-pull-request_suggest-fix",
-				"tags": [
-					"github",
-					"issues"
-				],
-				"toolReferenceName": "suggest-fix",
-				"displayName": "%languageModelTools.github-pull-request_suggest-fix.displayName%",
-				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
-				"icon": "$(info)",
-				"canBeReferencedInPrompt": true,
-				"inputSchema": {
-					"type": "object",
-					"properties": {
-						"repo": {
-							"type": "object",
-							"description": "The repository to get the issue from.",
-							"properties": {
-								"owner": {
-									"type": "string",
-									"description": "The owner of the repository to get the issue from."
-								},
-								"name": {
-									"type": "string",
-									"description": "The name of the repository to get the issue from."
-								}
-							},
-							"required": [
-								"owner",
-								"name"
-							]
-						},
-						"issueNumber": {
-							"type": "number",
-							"description": "The number of the issue to get."
-						}
-					},
-					"required": [
-						"issueNumber",
-						"repo"
-					]
-				},
-				"when": "config.githubPullRequests.experimental.chat"
-			},
-			{
-				"name": "github-pull-request_formSearchQuery",
-				"tags": [
-					"github",
-					"issues",
-					"search",
-					"query",
-					"natural language"
-				],
-				"toolReferenceName": "searchSyntax",
-				"displayName": "%languageModelTools.github-pull-request_formSearchQuery.displayName%",
-				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
-				"icon": "$(search)",
-				"canBeReferencedInPrompt": true,
-				"inputSchema": {
-					"type": "object",
-					"properties": {
-						"repo": {
-							"type": "object",
-							"description": "The repository to get the issue from.",
-							"properties": {
-								"owner": {
-									"type": "string",
-									"description": "The owner of the repository to get the issue from."
-								},
-								"name": {
-									"type": "string",
-									"description": "The name of the repository to get the issue from."
-								}
-							},
-							"required": [
-								"owner",
-								"name"
-							]
-						},
-						"naturalLanguageString": {
-							"type": "string",
-							"description": "A plain text description of what the search should be."
-						}
-					},
-					"required": [
-						"naturalLanguageString"
-					]
-				},
-				"when": "config.githubPullRequests.experimental.chat"
-			},
-			{
 				"name": "github-pull-request_doSearch",
 				"tags": [
 					"github",
@@ -4104,7 +3866,7 @@
 				],
 				"toolReferenceName": "doSearch",
 				"displayName": "%languageModelTools.github-pull-request_doSearch.displayName%",
-				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
+				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Make sure to form a good search query first",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
 				"inputSchema": {
@@ -4136,137 +3898,6 @@
 					"required": [
 						"query",
 						"repo"
-					]
-				},
-				"when": "config.githubPullRequests.experimental.chat"
-			},
-			{
-				"name": "github-pull-request_renderIssues",
-				"tags": [
-					"github",
-					"issues",
-					"render",
-					"display"
-				],
-				"toolReferenceName": "renderIssues",
-				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
-				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
-				"icon": "$(paintcan)",
-				"canBeReferencedInPrompt": true,
-				"inputSchema": {
-					"type": "object",
-					"properties": {
-						"arrayOfIssues": {
-							"type": "array",
-							"description": "An array of GitHub Issues.",
-							"items": {
-								"type": "object",
-								"properties": {
-									"title": {
-										"type": "string",
-										"description": "The title of the issue."
-									},
-									"number": {
-										"type": "number",
-										"description": "The number of the issue."
-									},
-									"url": {
-										"type": "string",
-										"description": "The URL of the issue."
-									},
-									"state": {
-										"type": "string",
-										"description": "The state of the issue (open/closed)."
-									},
-									"createdAt": {
-										"type": "string",
-										"description": "The creation date of the issue."
-									},
-									"updatedAt": {
-										"type": "string",
-										"description": "The last update date of the issue."
-									},
-									"closedAt": {
-										"type": "string",
-										"description": "The closing date of the issue."
-									},
-									"author": {
-										"type": "object",
-										"description": "The author of the issue.",
-										"properties": {
-											"login": {
-												"type": "string",
-												"description": "The login of the author."
-											},
-											"url": {
-												"type": "string",
-												"description": "The URL of the author's profile."
-											}
-										}
-									},
-									"labels": {
-										"type": "array",
-										"description": "The labels associated with the issue.",
-										"items": {
-											"type": "object",
-											"properties": {
-												"name": {
-													"type": "string",
-													"description": "The name of the label."
-												},
-												"color": {
-													"type": "string",
-													"description": "The color of the label."
-												}
-											}
-										}
-									},
-									"assignees": {
-										"type": "array",
-										"description": "The assignees of the issue.",
-										"items": {
-											"type": "object",
-											"properties": {
-												"login": {
-													"type": "string",
-													"description": "The login of the assignee."
-												},
-												"url": {
-													"type": "string",
-													"description": "The URL of the assignee's profile."
-												}
-											}
-										}
-									},
-									"commentCount": {
-										"type": "number",
-										"description": "The number of comments on the issue."
-									},
-									"reactionCount": {
-										"type": "number",
-										"description": "The number of reactions on the issue."
-									}
-								},
-								"required": [
-									"title",
-									"number",
-									"url",
-									"state",
-									"createdAt",
-									"author",
-									"commentCount",
-									"reactionCount"
-								]
-							}
-						},
-						"totalIssues": {
-							"type": "number",
-							"description": "The total number of issues in the search."
-						}
-					},
-					"required": [
-						"arrayOfIssues",
-						"totalIssues"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"

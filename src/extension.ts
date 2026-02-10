@@ -33,7 +33,6 @@ import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { StateManager } from './issues/stateManager';
 import { IssueContextProvider } from './lm/issueContextProvider';
-import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { PullRequestContextProvider } from './lm/pullRequestContextProvider';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
@@ -300,17 +299,11 @@ async function init(
 }
 
 function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager) {
-	const createParticipant = () => {
-		const chatParticipantState = new ChatParticipantState();
-		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState);
-	};
-
 	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
 	if (chatEnabled()) {
-		createParticipant();
+		registerTools(context, credentialStore, reposManager);
 	} else {
-		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_CHAT, chatEnabled, createParticipant, context.subscriptions);
+		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_CHAT, chatEnabled, () => registerTools(context, credentialStore, reposManager), context.subscriptions);
 	}
 }
 

@@ -565,11 +565,13 @@ export class IssueFeatureRegistrar extends Disposable {
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
 				if (issue instanceof IssueModel) {
-					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+					commands.executeCommand(commands.SHOW_CHAT);
 				} else {
 					const pullRequestModel = issue.pullRequestModel;
 					const remote = pullRequestModel.githubRepository.remote;
-					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number) });
+					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number) });
+					commands.executeCommand(commands.SHOW_CHAT);
 				}
 			}),
 		);
@@ -582,7 +584,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				"issue.chatSuggestFix" : {}
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
-				commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+				commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+				commands.executeCommand(commands.SHOW_CHAT);
 			}),
 		);
 		this._register(vscode.commands.registerCommand('issues.configureIssuesViewlet', async () => {
