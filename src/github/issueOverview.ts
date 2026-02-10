@@ -354,7 +354,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const isNewItem = !this._item || (this._item.number !== identity.number);
 		if (isNewItem || !this._panel.webview.html) {
 			this._panel.webview.html = this.getHtmlForWebview();
-			this._postMessage({ command: 'pr.clear' });
+			if (this._item) {
+				this._postMessage({ command: 'pr.clear' });
+			}
 		}
 
 		// If no model provided, resolve it from the identity
