@@ -418,6 +418,7 @@
 	"welcome.github.activePullRequest.contents": "Loading...",
 	"languageModelTools.github-pull-request_issue_fetch.displayName": "Get a GitHub Issue or pull request",
 	"languageModelTools.github-pull-request_issue_summarize.displayName": "Summarize a GitHub Issue or pull request",
+	"languageModelTools.github-pull-request_labels_fetch.displayName": "Fetch labels from a GitHub repository",
 	"languageModelTools.github-pull-request_notification_fetch.displayName": "Get a GitHub Notification",
 	"languageModelTools.github-pull-request_notification_summarize.displayName": "Summarize a GitHub Notification",
 	"languageModelTools.github-pull-request_suggest-fix.displayName": "Suggest a Fix for a GitHub Issue",

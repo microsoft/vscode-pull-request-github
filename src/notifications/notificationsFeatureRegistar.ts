@@ -93,7 +93,7 @@ export class NotificationsFeatureRegister extends Disposable {
 					"notification.chatSummarizeNotification" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.chatSummarizeNotification');
-				vscode.commands.executeCommand(chatCommand(), vscode.l10n.t('@githubpr Summarize notification with thread ID #{0}', notification.notification.id));
+				vscode.commands.executeCommand(chatCommand(), vscode.l10n.t('Summarize notification with thread ID #{0}', notification.notification.id));
 			})
 		);
 		this._register(
