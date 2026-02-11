@@ -13,6 +13,7 @@ import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
 	AccountType,
+	GithubItemStateEnum,
 	IAccount,
 	IActor,
 	IGitHubRef,
@@ -45,7 +46,7 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
-import { COPILOT_SWE_AGENT } from '../common/copilot';
+import { COPILOT_REVIEWER, COPILOT_SWE_AGENT } from '../common/copilot';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
@@ -1060,9 +1061,9 @@ export function parseSelectRestTimelineEvents(
 
 	let sessionIndex = 0;
 	for (const event of events) {
-		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
+		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount, performed_via_github_app?: { slug: string } | null };
 		if (eventNode.created_at && eventNode.node_id) {
-			if (event.event === 'copilot_work_started') {
+			if (event.event === 'copilot_work_started' && eventNode.performed_via_github_app?.slug === COPILOT_SWE_AGENT) {
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotStarted,
@@ -1073,7 +1074,7 @@ export function parseSelectRestTimelineEvents(
 						sessionIndex
 					}
 				});
-			} else if (event.event === 'copilot_work_finished') {
+			} else if (event.event === 'copilot_work_finished' && eventNode.performed_via_github_app?.slug === COPILOT_SWE_AGENT) {
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotFinished,
@@ -1092,6 +1093,12 @@ export function parseSelectRestTimelineEvents(
 						...prSessionLink,
 						sessionIndex
 					}
+				});
+			} else if (event.event === 'copilot_work_started' && eventNode.performed_via_github_app?.slug === COPILOT_REVIEWER) {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotReviewStarted,
+					createdAt: eventNode.created_at,
 				});
 			}
 		}
@@ -1114,6 +1121,7 @@ export function eventTime(event: Common.TimelineEvent): Date | undefined {
 		case Common.EventType.CopilotStarted:
 		case Common.EventType.CopilotFinished:
 		case Common.EventType.CopilotFinishedError:
+		case Common.EventType.CopilotReviewStarted:
 			return new Date(event.createdAt);
 		case Common.EventType.Reviewed:
 			return new Date(event.submittedAt);
@@ -1634,6 +1642,28 @@ export function insertNewCommitsSinceReview(
 export function getPRFetchQuery(user: string, query: string): string {
 	const filter = query.replace(/\$\{user\}/g, user);
 	return `is:pull-request ${filter} type:pr`;
+}
+
+/**
+ * Parse a GitHub search query for a state qualifier (e.g. `is:open`, `is:closed`, `is:merged`).
+ * Returns the corresponding GithubItemStateEnum if found, or undefined if no state is specified.
+ * GitHub's search API can return stale results that don't match the requested state,
+ * so callers can use this to post-filter.
+ */
+export function getStateFromQuery(query: string): GithubItemStateEnum | undefined {
+	const match = query.match(/(?:^|\s)is:(?<state>open|closed|merged)(?:\s|$)/i);
+	if (!match?.groups?.state) {
+		return undefined;
+	}
+	switch (match.groups.state.toLowerCase()) {
+		case 'open':
+			return GithubItemStateEnum.Open;
+		case 'closed':
+			return GithubItemStateEnum.Closed;
+		case 'merged':
+			return GithubItemStateEnum.Merged;
+	}
+	return undefined;
 }
 
 export function isInCodespaces(): boolean {

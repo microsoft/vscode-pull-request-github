@@ -290,6 +290,16 @@ export namespace DataUri {
 		return asImageDataURI(contents);
 	}
 
+	/**
+	 * Checks if an avatar URL is from GitHub.com (as opposed to GitHub Enterprise).
+	 * GitHub.com avatar URLs contain 'githubusercontent.com', while enterprise avatar URLs do not.
+	 * @param avatarUrl The avatar URL to check
+	 * @returns true if the avatar is from GitHub.com, false otherwise
+	 */
+	export function isGitHubDotComAvatar(avatarUrl: string | undefined): boolean {
+		return avatarUrl?.includes('githubusercontent.com') ?? false;
+	}
+
 	export async function avatarCirclesAsImageDataUris(context: vscode.ExtensionContext, users: (IAccount | ITeam)[], height: number, width: number, localOnly?: boolean): Promise<(vscode.Uri | undefined)[]> {
 		let cacheLogOrder: string[];
 		const cacheLog = cacheLogUri(context);
@@ -789,7 +799,8 @@ export enum Schemes {
 	Git = 'git', // File content from the git extension
 	PRQuery = 'prquery', // PR query tree item
 	GitHubCommit = 'githubcommit', // file content from GitHub for a commit
-	CommitsNode = 'commitsnode' // Commits tree node, for decorations
+	CommitsNode = 'commitsnode', // Commits tree node, for decorations
+	CheckRunLog = 'checkrunlog' // Check run log content
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

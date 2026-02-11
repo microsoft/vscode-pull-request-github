@@ -80,6 +80,11 @@ export class ReviewManager extends Disposable {
 	 * Used to enter review mode for this PR regardless of its state (open/closed/merged).
 	 */
 	private _switchedToPullRequest?: PullRequestModel;
+	/**
+	 * Track whether this repository is currently selected in the UI.
+	 * Used to show/hide the status bar item based on repository selection.
+	 */
+	private _isRepositorySelected!: boolean;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -109,6 +114,7 @@ export class ReviewManager extends Disposable {
 	) {
 		super();
 		this._switchingToReviewMode = false;
+		this._isRepositorySelected = _repository.ui.selected;
 
 		this._previousRepositoryState = {
 			HEAD: _repository.state.HEAD,
@@ -190,6 +196,11 @@ export class ReviewManager extends Disposable {
 			this.registerQuickDiff();
 		}));
 
+		this._register(this._repository.ui.onDidChange(() => {
+			this._isRepositorySelected = this._repository.ui.selected;
+			this.updateStatusBarVisibility();
+		}));
+
 		this._register(GitHubCreatePullRequestLinkProvider.registerProvider(this, this._folderRepoManager));
 	}
 
@@ -235,6 +246,30 @@ export class ReviewManager extends Disposable {
 		}
 
 		return this._statusBarItem;
+	}
+
+	/**
+	 * Updates the status bar visibility based on whether this repository is selected.
+	 * If there's an active PR (or switching to review mode) and the repository is selected, show the status bar.
+	 * Otherwise, hide it.
+	 */
+	private updateStatusBarVisibility() {
+		if (this._statusBarItem) {
+			if (this._isRepositorySelected && (this._folderRepoManager.activePullRequest || this._switchingToReviewMode)) {
+				this._statusBarItem.show();
+			} else {
+				this._statusBarItem.hide();
+			}
+		}
+	}
+
+	/**
+	 * Shows the status bar item only if this repository is currently selected.
+	 */
+	private showStatusBarIfSelected() {
+		if (this._isRepositorySelected) {
+			this.statusBarItem.show();
+		}
 	}
 
 	get repository(): Repository {
@@ -562,7 +597,7 @@ export class ReviewManager extends Disposable {
 			arguments: [pr],
 		};
 		Logger.appendLine(`Display pull request status bar indicator.`, this.id);
-		this.statusBarItem.show();
+		this.showStatusBarIfSelected();
 
 		this.layout(pr, updateLayout, this.justSwitchedToReviewMode ? false : silent);
 		this.justSwitchedToReviewMode = false;
@@ -1116,7 +1151,7 @@ export class ReviewManager extends Disposable {
 		Logger.appendLine(`Switch to Pull Request #${pr.number} - start`, this.id);
 		this.statusBarItem.text = vscode.l10n.t('{0} Switching to Review Mode', '$(sync~spin)');
 		this.statusBarItem.command = undefined;
-		this.statusBarItem.show();
+		this.showStatusBarIfSelected();
 		this.switchingToReviewMode = true;
 		this._switchedToPullRequest = pr;
 
@@ -1165,7 +1200,7 @@ export class ReviewManager extends Disposable {
 		try {
 			this.statusBarItem.text = '$(sync~spin) ' + vscode.l10n.t('Fetching additional data: {0}', `pr/${pr.number}`);
 			this.statusBarItem.command = undefined;
-			this.statusBarItem.show();
+			this.showStatusBarIfSelected();
 
 			await this._folderRepoManager.fulfillPullRequestMissingInfo(pr);
 			this._upgradePullRequestEditors(pr);
@@ -1186,7 +1221,7 @@ export class ReviewManager extends Disposable {
 		this.justSwitchedToReviewMode = true;
 		this.statusBarItem.text = vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = undefined;
-		this.statusBarItem.show();
+		this.showStatusBarIfSelected();
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {

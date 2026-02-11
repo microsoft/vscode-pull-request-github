@@ -93,6 +93,7 @@ declare module 'vscode' {
 		/**
 		 * An optional command that is executed when the context item is clicked.
 		 * The original context item will be passed as the first argument to the command.
+		 * The original context item will be passed as the first argument to the command.
 		 */
 		command?: Command;
 	}
@@ -156,6 +157,7 @@ declare module 'vscode' {
 		 * Chat context items can be provided without a `value`, as the `value` can be resolved later using `resolveChatContext`.
 		 * `resolveChatContext` is only called for items that do not have a `value`.
 		 *
+		 * Called when the resource is a webview or a text editor.
 		 * Called when the resource is a webview or a text editor.
 		 *
 		 * @param options Options include the resource for which to provide context.

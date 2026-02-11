@@ -49,6 +49,7 @@ import {
 	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
+	PullRequestCheckStatus,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
 	User,
@@ -968,6 +969,54 @@ export class GitHubRepository extends Disposable {
 		return jobs.data.jobs;
 	}
 
+	async getCheckRunLogs(checkRunDatabaseId: number): Promise<string> {
+		Logger.debug(`Fetch check run logs - enter`, this.id);
+		const { octokit, remote } = await this.ensure();
+
+		// Try GitHub Actions logs first (works for Actions workflow runs)
+		try {
+			const result = await octokit.call(octokit.api.actions.downloadJobLogsForWorkflowRun, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				job_id: checkRunDatabaseId,
+			});
+			Logger.debug(`Fetch check run logs via Actions API - done`, this.id);
+			return result.data as string;
+		} catch {
+			// Not a GitHub Actions job - fall through to Checks API
+		}
+
+		// Fall back to Checks API output (works for any GitHub App, e.g. Azure Pipelines)
+		try {
+			const result = await octokit.call(octokit.api.checks.get, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				check_run_id: checkRunDatabaseId,
+			});
+			const output = result.data.output;
+			const parts: string[] = [];
+			if (output.title) {
+				parts.push(output.title);
+				parts.push('');
+			}
+			if (output.summary) {
+				parts.push(output.summary);
+				parts.push('');
+			}
+			if (output.text) {
+				parts.push(output.text);
+			}
+			if (parts.length === 0) {
+				return 'No log output available for this check run.';
+			}
+			Logger.debug(`Fetch check run logs via Checks API - done`, this.id);
+			return parts.join('\n');
+		} catch (e) {
+			Logger.error(`Unable to fetch check run logs: ${e}`, this.id);
+			throw e;
+		}
+	}
+
 	async fork(): Promise<string | undefined> {
 		try {
 			Logger.debug(`Fork repository`, this.id);
@@ -1668,7 +1717,7 @@ export class GitHubRepository extends Disposable {
 			});
 		} catch (e) {
 			// There's an issue with the GetChecks that can result in SAML errors.
-			if (isSamlError(e)) {
+			if (isSamlError(e) || this.remote.isEnterprise) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
 				// The issue is specifically with the CheckSuite property. Make the query again, but without that property.
 				if (!captureUseFallbackChecks) {
@@ -1688,51 +1737,60 @@ export class GitHubRepository extends Disposable {
 		// We always fetch the status checks for only the last commit, so there should only be one node present
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
 
-		const checks: PullRequestChecks = !statusCheckRollup
-			? {
+		let checks: PullRequestChecks;
+		if (!statusCheckRollup) {
+			checks = {
 				state: CheckState.Success,
 				statuses: []
-			}
-			: {
-				state: this.mapStateAsCheckState(statusCheckRollup.state),
-				statuses: statusCheckRollup.contexts.nodes.map(context => {
-					if (isCheckRun(context)) {
-						return {
-							id: context.id,
-							url: context.checkSuite?.app?.url,
-							avatarUrl:
-								context.checkSuite?.app?.logoUrl &&
-								getAvatarWithEnterpriseFallback(
-									context.checkSuite.app.logoUrl,
-									undefined,
-									this.remote.isEnterprise,
-								),
-							state: this.mapStateAsCheckState(context.conclusion),
-							description: context.title,
-							context: context.name,
-							workflowName: context.checkSuite?.workflowRun?.workflow.name,
-							event: context.checkSuite?.workflowRun?.event,
-							targetUrl: context.detailsUrl,
-							isRequired: context.isRequired,
-						};
-					} else {
-						return {
-							id: context.id,
-							url: context.targetUrl ?? undefined,
-							avatarUrl: context.avatarUrl
-								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
-								: undefined,
-							state: this.mapStateAsCheckState(context.state),
-							description: context.description,
-							context: context.context,
-							workflowName: undefined,
-							event: undefined,
-							targetUrl: context.targetUrl,
-							isRequired: context.isRequired,
-						};
-					}
-				}),
 			};
+		} else {
+			const dedupedStatuses = this.deduplicateStatusChecks(statusCheckRollup.contexts.nodes.map(context => {
+				if (isCheckRun(context)) {
+					return {
+						id: context.id,
+						databaseId: context.databaseId,
+						url: context.checkSuite?.app?.url,
+						avatarUrl:
+							context.checkSuite?.app?.logoUrl &&
+							getAvatarWithEnterpriseFallback(
+								context.checkSuite.app.logoUrl,
+								undefined,
+								this.remote.isEnterprise,
+							),
+						state: this.mapStateAsCheckState(context.conclusion),
+						description: context.title,
+						context: context.name,
+						workflowName: context.checkSuite?.workflowRun?.workflow.name,
+						event: context.checkSuite?.workflowRun?.event,
+						targetUrl: context.detailsUrl,
+						isRequired: context.isRequired,
+						isCheckRun: true,
+					};
+				} else {
+					return {
+						id: context.id,
+						databaseId: undefined,
+						url: context.targetUrl ?? undefined,
+						avatarUrl: context.avatarUrl
+							? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
+							: undefined,
+						state: this.mapStateAsCheckState(context.state),
+						description: context.description,
+						context: context.context,
+						workflowName: undefined,
+						event: undefined,
+						targetUrl: context.targetUrl,
+						isRequired: context.isRequired,
+						isCheckRun: false,
+					};
+				}
+			}));
+
+			checks = {
+				state: this.computeOverallCheckState(dedupedStatuses),
+				statuses: dedupedStatuses
+			};
+		}
 
 		let reviewRequirement: PullRequestReviewRequirement | null = null;
 		const rule = result.data.repository.pullRequest.baseRef?.refUpdateRule;
@@ -1744,6 +1802,7 @@ export class GitHubRepository extends Disposable {
 					checks.state = CheckState.Pending;
 					checks.statuses.push({
 						id: '',
+						databaseId: undefined,
 						url: undefined,
 						avatarUrl: undefined,
 						state: CheckState.Pending,
@@ -1752,7 +1811,8 @@ export class GitHubRepository extends Disposable {
 						workflowName: undefined,
 						event: undefined,
 						targetUrl: prUrl,
-						isRequired: true
+						isRequired: true,
+						isCheckRun: false
 					});
 				}
 			}
@@ -1806,5 +1866,75 @@ export class GitHubRepository extends Disposable {
 		}
 
 		return CheckState.Unknown;
+	}
+
+	/**
+	 * Deduplicate status checks by context (check name).
+	 * When a check is re-run on the same commit (e.g., when a PR is closed and reopened),
+	 * GitHub's API returns all check run instances. This method keeps only one entry per
+	 * check context, preferring pending/running checks over completed ones, and the most
+	 * recent completed check when all are completed.
+	 */
+	private deduplicateStatusChecks(statuses: PullRequestCheckStatus[]): PullRequestCheckStatus[] {
+		const statusByContext = new Map<string, PullRequestCheckStatus>();
+
+		for (const status of statuses) {
+			const existing = statusByContext.get(status.context);
+			if (!existing) {
+				statusByContext.set(status.context, status);
+				continue;
+			}
+
+			// Prefer pending/unknown checks over completed ones (they represent the latest run)
+			const existingIsPending = existing.state === CheckState.Pending || existing.state === CheckState.Unknown;
+			const currentIsPending = status.state === CheckState.Pending || status.state === CheckState.Unknown;
+
+			if (currentIsPending && !existingIsPending) {
+				// Current is pending, existing is completed - prefer current
+				statusByContext.set(status.context, status);
+			} else if (!currentIsPending && existingIsPending) {
+				// Current is completed, existing is pending - keep existing
+				continue;
+			} else {
+				// Both are same type (both pending or both completed)
+				// Prefer the one with a higher ID (more recent), as GitHub IDs are monotonically increasing
+				if (status.id > existing.id) {
+					statusByContext.set(status.context, status);
+				}
+			}
+		}
+
+		return Array.from(statusByContext.values());
+	}
+
+	/**
+	 * Compute the overall check state from individual status checks.
+	 * - If any check has failed, the overall state is failure
+	 * - If any check is pending/unknown (and none have failed), the overall state is pending
+	 * - If all checks are successful or neutral/skipped, the overall state is success
+	 */
+	private computeOverallCheckState(statuses: PullRequestCheckStatus[]): CheckState {
+		if (statuses.length === 0) {
+			return CheckState.Success;
+		}
+
+		let hasFailure = false;
+		let hasPending = false;
+
+		for (const status of statuses) {
+			if (status.state === CheckState.Failure) {
+				hasFailure = true;
+			} else if (status.state === CheckState.Pending || status.state === CheckState.Unknown) {
+				hasPending = true;
+			}
+		}
+
+		if (hasFailure) {
+			return CheckState.Failure;
+		}
+		if (hasPending) {
+			return CheckState.Pending;
+		}
+		return CheckState.Success;
 	}
 }

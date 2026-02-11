@@ -1088,6 +1088,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 									}
 									... on CheckRun {
 										id
+										databaseId
 										conclusion
 										title
 										detailsUrl
@@ -1171,6 +1172,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 									}
 									... on CheckRun {
 										id
+										databaseId
 										conclusion
 										title
 										detailsUrl

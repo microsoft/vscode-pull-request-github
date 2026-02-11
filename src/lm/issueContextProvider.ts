@@ -29,7 +29,7 @@ export class IssueContextProvider implements vscode.ChatExplicitContextProvider<
 	) { }
 
 	async provideResourceChatContext(_options: { resource: vscode.Uri; }, _token: vscode.CancellationToken): Promise<IssueChatContextItem | undefined> {
-		const item = IssueOverviewPanel.currentPanel?.getCurrentItem();
+		const item = IssueOverviewPanel.getActivePanel()?.getCurrentItem();;
 		if (item) {
 			return this._issueToUnresolvedContext(item);
 		}

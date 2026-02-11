@@ -31,7 +31,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
-import { OverviewContext } from './github/views';
+import { BaseContext, OverviewContext } from './github/views';
 import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
@@ -141,6 +141,9 @@ export function registerCommands(
 	tree: PullRequestsTreeDataProvider
 ) {
 	const logId = 'RegisterCommands';
+
+	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
@@ -484,7 +487,7 @@ export function registerCommands(
 
 		}));
 
-	const resolvePr = async (context: OverviewContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
+	const resolvePr = async (context: BaseContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
 		if (!context) {
 			return undefined;
 		}
@@ -550,7 +553,46 @@ export function registerCommands(
 		}
 	};
 
-	function contextHasPath(ctx: OverviewContext | { path: string } | undefined): ctx is { path: string } {
+	/**
+	 * Metadata passed from chat/agent sessions containing repository information.
+	 * This is provided by VS Code when commands are invoked from chat session toolbars.
+	 */
+	interface SessionMetadata {
+		/** GitHub repository owner/organization name */
+		owner?: string;
+		/** GitHub repository name */
+		name?: string;
+		[key: string]: unknown;
+	}
+
+	/**
+	 * Get the folder manager and GitHub repository for a repository based on metadata.
+	 * Falls back to the first folder manager if metadata is not provided or repository not found.
+	 * @param metadata Session metadata containing owner and repo information
+	 * @returns Object with folderManager and githubRepo, or undefined if no folder managers exist
+	 */
+	function getFolderManagerFromMetadata(metadata: SessionMetadata | undefined): { folderManager: FolderRepositoryManager; githubRepo: GitHubRepository } | undefined {
+		if (metadata?.owner && metadata?.name) {
+			const folderManager = reposManager.getManagerForRepository(metadata.owner, metadata.name) ?? reposManager.folderManagers[0];
+			if (!folderManager || folderManager.gitHubRepositories.length === 0) {
+				return undefined;
+			}
+			const githubRepo = folderManager.gitHubRepositories.find(
+				repo => repo.remote.owner === metadata.owner && repo.remote.repositoryName === metadata.name
+			) ?? folderManager.gitHubRepositories[0];
+			return { folderManager, githubRepo };
+		}
+		if (reposManager.folderManagers.length === 0) {
+			return undefined;
+		}
+		const folderManager = reposManager.folderManagers[0];
+		if (folderManager.gitHubRepositories.length === 0) {
+			return undefined;
+		}
+		return { folderManager, githubRepo: folderManager.gitHubRepositories[0] };
+	}
+
+	function contextHasPath(ctx: BaseContext | { path: string } | undefined): ctx is { path: string } {
 		const contextAsPath: Partial<{ path: string }> = (ctx as { path: string });
 		return !!contextAsPath.path;
 	}
@@ -567,24 +609,49 @@ export function registerCommands(
 		}
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+	type ChatCommandArgs = { path: string } | [{ path: string } | undefined, SessionMetadata | undefined] | undefined;
+
+	function parseChatCommandArgs(ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata): { ctx: { path: string } | undefined; metadata: SessionMetadata | undefined } {
+		if (Array.isArray(ctxOrArgs)) {
+			return { ctx: ctxOrArgs[0], metadata: ctxOrArgs[1] };
+		}
+		return { ctx: ctxOrArgs, metadata: metadataArg };
+	}
+
+	async function resolvePrFromChat(ctx: { path: string }, metadata: SessionMetadata | undefined): Promise<{ folderManager: FolderRepositoryManager; pullRequest: PullRequestModel; prNumber: number } | undefined> {
+		const prNumber = prNumberFromUriPath(ctx.path);
+		if (!prNumber) {
+			return undefined;
+		}
+		const result = getFolderManagerFromMetadata(metadata);
+		if (!result) {
+			return undefined;
+		}
+		const { folderManager, githubRepo } = result;
+		const pullRequest = await folderManager.fetchById(githubRepo, prNumber);
+		if (!pullRequest) {
+			return undefined;
+		}
+		return { folderManager, pullRequest, prNumber };
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
-		if (contextHasPath(ctx)) {
-			const { path } = ctx;
-			const prNumber = prNumberFromUriPath(path);
-			if (!prNumber) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request number found in context path.'));
-			}
-			const folderManager = reposManager.folderManagers[0];
-			const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
-			if (!pullRequest) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
-			}
+		const resolved = await resolvePrFromChat(ctx, metadata);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request from chat context.'));
+		}
 
-			return reviewsManager.switchToPr(folderManager, pullRequest, folderManager.repository, true);
+		return reviewsManager.switchToPr(resolved.folderManager, resolved.pullRequest, resolved.folderManager.repository, true);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: BaseContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
 
 		const resolved = await resolvePr(ctx);
@@ -592,40 +659,34 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return reviewsManager.switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
-
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: OverviewContext | { path: string } | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
 
-		if (contextHasPath(ctx)) {
-			const { path } = ctx;
-			const prNumber = prNumberFromUriPath(path);
-			if (!prNumber) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to parse pull request number.'));
-			}
+		const resolved = await resolvePrFromChat(ctx, metadata);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request from chat context.'));
+		}
 
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('Applying changes from pull request #{0}', prNumber.toString()),
-					cancellable: false
-				},
-				async (task) => {
-					task.report({ increment: 30 });
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Applying changes from pull request #{0}', resolved.prNumber.toString()),
+				cancellable: false
+			},
+			async (task) => {
+				task.report({ increment: 30 });
+				return applyPullRequestChanges(task, resolved.folderManager, resolved.pullRequest);
+			});
+	}));
 
-					const folderManager = reposManager.folderManagers[0];
-					const pullRequest = await folderManager.fetchById(folderManager.gitHubRepositories[0], Number(prNumber));
-					if (!pullRequest) {
-						return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0}', prNumber.toString()));
-					}
-
-					return applyPullRequestChanges(task, folderManager, pullRequest);
-				});
-
-			return;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: BaseContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
 
 		await vscode.window.withProgress(
@@ -683,7 +744,7 @@ export function registerCommands(
 				pullRequestModel = pullRequest;
 			}
 			else {
-				const resolved = await resolvePr(pr as OverviewContext);
+				const resolved = await resolvePr(pr as BaseContext);
 				pullRequestModel = resolved?.pr;
 			}
 
@@ -763,7 +824,7 @@ export function registerCommands(
 		),
 	);
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -774,7 +835,7 @@ export function registerCommands(
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: OverviewContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -1004,16 +1065,18 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshDescription', async () => {
-			if (PullRequestOverviewPanel.currentPanel) {
-				PullRequestOverviewPanel.refresh();
+			const panel = PullRequestOverviewPanel.getActivePanel();
+			if (panel) {
+				panel.refreshPanel();
 			}
 		}),
 	);
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.focusDescriptionInput',
 		async () => {
-			if (PullRequestOverviewPanel.currentPanel) {
-				PullRequestOverviewPanel.scrollToReview();
+			const panel = PullRequestOverviewPanel.getActivePanel();
+			if (panel) {
+				panel.scrollToPendingReview();
 			}
 		}
 	));
@@ -1461,7 +1524,11 @@ ${contents}
 				ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.updateComments();
 			}
 
-			PullRequestOverviewPanel.refresh();
+			PullRequestOverviewPanel.refresh(
+				prNode.pullRequestModel.remote.owner,
+				prNode.pullRequestModel.remote.repositoryName,
+				prNode.pullRequestModel.number,
+			);
 		}),
 	);
 
@@ -1564,7 +1631,7 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: OverviewContext | undefined) => {
+		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: BaseContext | undefined) => {
 			let pr: PullRequestModel | undefined;
 			if (params) {
 				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
@@ -1584,13 +1651,17 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyPrLink', async (params: OverviewContext | undefined) => {
-			let pr: PullRequestModel | undefined;
+		vscode.commands.registerCommand('pr.copyPrLink', async (params: BaseContext | undefined) => {
+			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
-				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
+				item = await folderManager?.resolvePullRequest(params.owner, params.repo, params.number, true);
+				if (!item) {
+					item = await folderManager?.resolveIssue(params.owner, params.repo, params.number);
+				}
 			}
-			if (pr) {
-				return vscode.env.clipboard.writeText(pr.html_url);
+			if (item) {
+				return vscode.env.clipboard.writeText(item.html_url);
 			}
 		}));
 
@@ -1643,31 +1714,12 @@ ${contents}
 			quickPick.matchOnDescription = true;
 			quickPick.matchOnDetail = true;
 			quickPick.show();
-			quickPick.busy = true;
 
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
 
-			// Fetch all open PRs (lightweight query)
 			try {
-				const prs = await githubRepo.repo.getPullRequestNumbers();
-				if (!prs) {
-					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
-				}
-				// Sort PRs by number in descending order (most recent first)
-				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
-					label: `#${pr.number} ${pr.title}`,
-					description: `by @${pr.author.login}`,
-					prNumber: pr.number
-				}));
-
-				quickPick.items = prItems;
-				quickPick.busy = false;
-
-				// Handle selection
-
-				const selected = await new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
+				const selectedPromise = new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
 					acceptDisposable = quickPick.onDidAccept(() => {
 						let selectedString: string | undefined;
 						let selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined;
@@ -1685,30 +1737,49 @@ ${contents}
 					hideDisposable = quickPick.onDidHide(() => resolve({ selectedItem: undefined, selectedString: undefined }));
 				});
 
+				const prs = await githubRepo.repo.getPullRequestNumbers();
+				if (!prs) {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Failed to fetch pull requests'));
+				}
+				// Sort PRs by number in descending order (most recent first)
+				const sortedPRs = prs.sort((a, b) => b.number - a.number);
+				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
+					label: `#${pr.number} ${pr.title}`,
+					description: `by @${pr.author.login}`,
+					prNumber: pr.number
+				}));
+
+				quickPick.items = prItems;
+				const selected = await selectedPromise;
+				quickPick.busy = true;
+
 				if (!selected.selectedItem && !selected.selectedString) {
 					return;
 				}
-				quickPick.busy = true;
 				let prModel: PullRequestModel | undefined;
 
 				// Check if user selected from the list or typed a custom value
 				if (selected.selectedString) {
 					// User typed a PR number or URL
 					const parseResult = validateAndParseInput(selected.selectedString, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-					if (!parseResult.isValid) {
+					if (!parseResult.isValid && !selected.selectedItem) {
 						return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 					}
-					// The user may have just entered part of a number and meant to select it from the list
-					const selectedItemNumber = selected.selectedItem?.prNumber;
-					if (selectedItemNumber !== undefined) {
-						const parsedDigits = parseResult.prNumber.toString();
-						const selectedDigits = selectedItemNumber.toString();
-						if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
-							parseResult.prNumber = selectedItemNumber;
+
+					if (parseResult.prNumber !== undefined) {
+						// The user may have just entered part of a number and meant to select it from the list
+						const selectedItemNumber = selected.selectedItem?.prNumber;
+						if (selectedItemNumber !== undefined) {
+							const parsedDigits = parseResult.prNumber.toString();
+							const selectedDigits = selectedItemNumber.toString();
+							if (selectedDigits.length > parsedDigits.length && selectedDigits.startsWith(parsedDigits)) {
+								parseResult.prNumber = selectedItemNumber;
+							}
 						}
+						prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
 					}
-					prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
-				} else if (selected.selectedItem?.prNumber) {
+				}
+				if (selected.selectedItem?.prNumber && !prModel) {
 					// User selected from the list
 					prModel = await githubRepo.manager.fetchById(githubRepo.repo, selected.selectedItem.prNumber);
 				}
@@ -1768,20 +1839,30 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
+		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment | GHPRCommentThread) => {
 			/* __GDPR__
 				"pr.applySuggestionWithCopilot" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.applySuggestionWithCopilot');
 
-			const commentThread = comment.parent;
+			const isThread = GHPRCommentThread.is(comment);
+			const commentThread = isThread ? comment : comment.parent;
+			const commentBody = isThread ? comment.comments[0].body : comment.body;
 			commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-			const message = comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body;
-			await vscode.commands.executeCommand('vscode.editorChat.start', {
-				initialRange: commentThread.range,
-				message: message,
-				autoSend: true,
-			});
+			const message = commentBody instanceof vscode.MarkdownString ? commentBody.value : commentBody;
+
+			if (isThread) {
+				// For threads, open the Chat view instead of inline chat
+				await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: message, isPartialQuery: true, agentMode: true });
+				await vscode.commands.executeCommand(commands.OPEN_CHAT);
+			} else {
+				// For single comments, use inline chat
+				await vscode.commands.executeCommand('vscode.editorChat.start', {
+					initialRange: commentThread.range,
+					message: message,
+					autoSend: true,
+				});
+			}
 		})
 	);
 	context.subscriptions.push(

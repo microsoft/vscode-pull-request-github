@@ -15,7 +15,7 @@ import React, {
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
-import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -30,7 +30,7 @@ import {
 	reviewerId,
 	ReviewState,
 } from '../../src/github/interface';
-import { PullRequest } from '../../src/github/views';
+import { PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
 
@@ -66,7 +66,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 				toggleDetails();
 			}
 		}
-	}, status?.statuses);
+	}, [status?.statuses]);
 
 	return state === GithubItemStateEnum.Open && status?.statuses.length ? (
 		<>
@@ -339,12 +339,26 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 			</div>
 			<div className='button-container'>
 				<ContextDropdown
-					optionsContext={() => JSON.stringify({
-						'preventDefaultContextMenuItems': true,
-						'github:readyForReviewMenu': true,
-						'github:readyForReviewMenuWithMerge': isCopilotOnMyBehalf,
-						'mergeMethod': mergeMethod
-					})}
+					optionsContext={() => {
+						if (!pr) {
+							throw new Error('PR context is required for ready for review options');
+						}
+						let ctx: ReadyForReviewContext | ReadyForReviewAndMergeContext = {
+							'preventDefaultContextMenuItems': true,
+							'github:readyForReviewMenu': true,
+							owner: pr.owner,
+							repo: pr.repo,
+							number: pr.number,
+						};
+						if (isCopilotOnMyBehalf) {
+							ctx = {
+								...ctx,
+								'github:readyForReviewMenuWithMerge': true,
+								mergeMethod,
+							};
+						}
+						return JSON.stringify(ctx);
+					}}
 					defaultAction={markReadyForReview}
 					defaultOptionLabel={() => 'Ready for Review'}
 					defaultOptionValue={() => 'ready'}
@@ -588,10 +602,22 @@ const CHECK_STATE_ORDER: Record<CheckState, number> = {
 };
 
 const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
+	const { viewCheckLogs } = useContext(PullRequestContext);
+	const [loadingLogId, setLoadingLogId] = useState<string | null>(null);
 	// Sort statuses to group by state: failure first, then pending, neutral, and success
-	const sortedStatuses = statuses.sort((a, b) => {
+	// Use slice() to avoid mutating the original array
+	const sortedStatuses = statuses.slice().sort((a, b) => {
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
+
+	const handleViewLogs = async (s: PullRequestCheckStatus) => {
+		setLoadingLogId(s.id);
+		try {
+			await viewCheckLogs(s);
+		} finally {
+			setLoadingLogId(null);
+		}
+	};
 
 	return (
 		<div className='status-scroll'>
@@ -613,6 +639,13 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 							<a href={s.targetUrl} title={s.targetUrl}>
 								Details
 							</a>
+						) : null}
+						{s.isCheckRun && s.databaseId ? (
+							s.state === CheckState.Failure ? (
+								<button className="icon-button" title="View Logs" onClick={() => handleViewLogs(s)}>
+									{loadingLogId === s.id ? loadingIcon : outputIcon}
+								</button>
+							) : <span className="view-check-logs-placeholder" />
 						) : null}
 					</div>
 				</div>

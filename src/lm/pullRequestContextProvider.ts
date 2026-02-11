@@ -107,7 +107,7 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 	}
 
 	async provideResourceChatContext(_options: { resource: vscode.Uri; }, _token: vscode.CancellationToken): Promise<PRChatContextItem | undefined> {
-		const item = PullRequestOverviewPanel.currentPanel?.getCurrentItem();
+		const item = PullRequestOverviewPanel.getActivePanel()?.getCurrentItem();
 		if (item) {
 			return this._prToUnresolvedContext(item);
 		}

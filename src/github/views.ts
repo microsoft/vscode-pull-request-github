@@ -177,7 +177,7 @@ export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
 
-export interface OverviewContext {
+export interface BaseContext {
 	'preventDefaultContextMenuItems': true;
 	owner: string;
 	repo: string;
@@ -185,9 +185,39 @@ export interface OverviewContext {
 	[key: string]: boolean | string | number;
 }
 
+export interface OverviewContext extends BaseContext {
+	'github:checkoutMenu': true;
+}
+
+export interface ReadyForReviewContext extends BaseContext {
+	'github:readyForReviewMenu': true;
+}
+
+export interface ReadyForReviewAndMergeContext extends ReadyForReviewContext {
+	'github:readyForReviewMenuWithMerge': true;
+	mergeMethod: MergeMethod;
+}
+
 export interface CodingAgentContext extends SessionLinkInfo {
 	'preventDefaultContextMenuItems': true;
+	'github:codingAgentMenu': true;
 	[key: string]: boolean | string | number | undefined;
+}
+
+export interface ReviewCommentContext {
+	'preventDefaultContextMenuItems': true;
+	'github:reviewCommentMenu': true,
+	owner: string;
+	repo: string;
+	number: number;
+	body: string;
+	'github:reviewCommentApprove'?: boolean;
+	'github:reviewCommentApproveOnDotCom'?: boolean;
+	'github:reviewCommentComment'?: boolean;
+	'github:reviewCommentCommentEnabled'?: boolean;
+	'github:reviewCommentRequestChanges'?: boolean;
+	'github:reviewRequestChangesEnabled'?: boolean;
+	'github:reviewCommentRequestChangesOnDotCom'?: boolean;
 }
 
 export interface ChangeBaseReply {

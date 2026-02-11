@@ -26,6 +26,7 @@ export namespace contexts {
 export namespace commands {
 	export const OPEN_CHAT = 'workbench.action.chat.open';
 	export const NEW_CHAT = 'workbench.action.chat.newChat';
+	export const SHOW_CHAT = 'workbench.panel.chat';
 	export const CHAT_SETUP_ACTION_ID = 'workbench.action.chat.triggerSetup';
 
 	export const QUICK_CHAT_OPEN = 'workbench.action.quickchat.toggle';

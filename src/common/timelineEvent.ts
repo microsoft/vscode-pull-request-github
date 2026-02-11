@@ -26,6 +26,7 @@ export enum EventType {
 	CopilotStarted,
 	CopilotFinished,
 	CopilotFinishedError,
+	CopilotReviewStarted,
 	Other,
 }
 
@@ -202,4 +203,10 @@ export interface CopilotFinishedErrorEvent {
 	sessionLink: SessionLinkInfo;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | BaseRefChangedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent;
+export interface CopilotReviewStartedEvent {
+	id: string;
+	event: EventType.CopilotReviewStarted;
+	createdAt: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | BaseRefChangedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent | CopilotReviewStartedEvent;

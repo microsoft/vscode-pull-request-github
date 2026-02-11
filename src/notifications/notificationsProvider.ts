@@ -8,7 +8,7 @@ import { NotificationTreeItem } from './notificationItem';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHAT_SETTINGS_NAMESPACE, DISABLE_AI_FEATURES, EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { OctokitCommon } from '../github/common';
 import { CredentialStore, GitHub } from '../github/credentials';
 import { Issue, Notification, NotificationSubjectType } from '../github/interface';
@@ -137,6 +137,9 @@ export class NotificationsProvider extends Disposable {
 	}
 
 	async getNotificationsPriority(notifications: NotificationTreeItem[]): Promise<INotificationPriority[]> {
+		if (vscode.workspace.getConfiguration(CHAT_SETTINGS_NAMESPACE).get<boolean>(DISABLE_AI_FEATURES, false)) {
+			return [];
+		}
 		const notificationBatchSize = 5;
 		const notificationBatches: NotificationTreeItem[][] = [];
 		for (let i = 0; i < notifications.length; i += notificationBatchSize) {

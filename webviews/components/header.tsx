@@ -10,7 +10,7 @@ import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
-import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
+import { BaseContext, CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
 import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
@@ -112,7 +112,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		</form>
 	);
 
-	const context: OverviewContext = {
+	const context: BaseContext = {
 		'preventDefaultContextMenuItems': true,
 		owner,
 		repo,
@@ -197,10 +197,10 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 
 	const context: CodingAgentContext = {
 		'preventDefaultContextMenuItems': true,
+		'github:codingAgentMenu': true,
 		...sessionLink
 	};
 
-	context['github:codingAgentMenu'] = true;
 	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
 
 	if (sessionLink) {
@@ -337,12 +337,12 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 
 	const context: OverviewContext = {
 		'preventDefaultContextMenuItems': true,
+		'github:checkoutMenu': true,
 		owner,
 		repo,
 		number
 	};
 
-	context['github:checkoutMenu'] = true;
 	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
 
 	if (isCurrentlyCheckedOut) {

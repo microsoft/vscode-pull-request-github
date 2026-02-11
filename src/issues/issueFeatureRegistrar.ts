@@ -61,7 +61,6 @@ import {
 	YamlIssueTemplate,
 } from './util';
 import { OctokitCommon } from '../github/common';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -93,8 +92,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		private reviewsManager: ReviewsManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
-		private readonly _stateManager: StateManager,
-		private copilotRemoteAgentManager: CopilotRemoteAgentManager,
+		private readonly _stateManager: StateManager
 	) {
 		super();
 		this._newIssueCache = new NewIssueCache(context);
@@ -567,11 +565,13 @@ export class IssueFeatureRegistrar extends Disposable {
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
 				if (issue instanceof IssueModel) {
-					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+					commands.executeCommand(commands.SHOW_CHAT);
 				} else {
 					const pullRequestModel = issue.pullRequestModel;
 					const remote = pullRequestModel.githubRepository.remote;
-					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number) });
+					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Summarize pull request {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number) });
+					commands.executeCommand(commands.SHOW_CHAT);
 				}
 			}),
 		);
@@ -584,7 +584,8 @@ export class IssueFeatureRegistrar extends Disposable {
 				"issue.chatSuggestFix" : {}
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
-				commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+				commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
+				commands.executeCommand(commands.SHOW_CHAT);
 			}),
 		);
 		this._register(vscode.commands.registerCommand('issues.configureIssuesViewlet', async () => {
@@ -608,7 +609,7 @@ export class IssueFeatureRegistrar extends Disposable {
 			this._register(
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
-			const todoProvider = new IssueTodoProvider(this.context, this.copilotRemoteAgentManager);
+			const todoProvider = new IssueTodoProvider(this.context);
 			this._register(
 				vscode.languages.registerCodeActionsProvider('*', todoProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
@@ -773,7 +774,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				assignees: template.assignees,
 			};
 		}
-		this.makeNewIssueFile(uri, options);
+		await this.makeNewIssueFile(uri, options);
 	}
 
 	async createIssueFromFile() {
@@ -1120,7 +1121,7 @@ export class IssueFeatureRegistrar extends Disposable {
 			quickInput.busy = true;
 			this.createIssueInfo = { document, newIssue, lineNumber, insertIndex };
 
-			this.makeNewIssueFile(document.uri, { title, body, assignees });
+			await this.makeNewIssueFile(document.uri, { title, body, assignees });
 			quickInput.busy = false;
 			quickInput.hide();
 		});
@@ -1646,7 +1647,12 @@ ${options?.body ?? ''}\n
 		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, true, context);
 		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
 
-		if (withPermalinks.length === 1) {
+		// Only use selection text when the context is from a gutter click (not a vscode.Uri) or editor selection,
+		// not when from a file tab context menu (context is just a vscode.Uri).
+		const firstContext = context.length > 0 ? context[0] : undefined;
+		const contextIsFromTab = firstContext instanceof vscode.Uri;
+
+		if (withPermalinks.length === 1 && !contextIsFromTab) {
 			const selection = this.getMarkdownLinkText(withPermalinks[0].range);
 			if (selection) {
 				return vscode.env.clipboard.writeText(`[${selection.trim()}](${withPermalinks[0].permalink})`);
