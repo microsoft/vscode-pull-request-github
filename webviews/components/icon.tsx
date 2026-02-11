@@ -49,6 +49,7 @@ export const threeBars = <Icon src={require('../../resources/icons/codicons/thre
 export const trashIcon = <Icon src={require('../../resources/icons/codicons/trash.svg')} />;
 export const warningIcon = <Icon src={require('../../resources/icons/codicons/warning.svg')} />;
 export const prMergeIcon = <Icon src={require('../../resources/icons/codicons/merge.svg')} />;
+export const outputIcon = <Icon src={require('../../resources/icons/codicons/output.svg')} />;
 export const skipIcon = <Icon src={require('../../resources/icons/codicons/skip.svg')} className='skip' />;
 
 // Other icons

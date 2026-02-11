@@ -7,7 +7,9 @@
 import * as vscode from 'vscode';
 import { FetchIssueResult } from './fetchIssueTool';
 import { GitChangeType, InMemFileChange } from '../../common/file';
+import Logger from '../../common/logger';
 import { CommentEvent, EventType, ReviewEvent } from '../../common/timelineEvent';
+import { CheckState } from '../../github/interface';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 
@@ -50,6 +52,26 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		}
 
 		const status = await pullRequest.getStatusChecks();
+		const statuses = status[0]?.statuses ?? [];
+
+		// Fetch logs for failed check runs in parallel
+		const statusChecks = await Promise.all(statuses.map(async (s) => {
+			const entry: Record<string, any> = {
+				context: s.context,
+				description: s.description,
+				state: s.state,
+				name: s.workflowName,
+				targetUrl: s.targetUrl,
+			};
+			if (s.state === CheckState.Failure && s.isCheckRun && s.databaseId) {
+				try {
+					entry.logs = await pullRequest.githubRepository.getCheckRunLogs(s.databaseId);
+				} catch (e) {
+					Logger.error(`Failed to fetch check run logs for ${s.context}: ${e}`, 'PullRequestTool');
+				}
+			}
+			return entry;
+		}));
 		const timeline = (pullRequest.timelineEvents && pullRequest.timelineEvents.length > 0) ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
 		const pullRequestInfo = {
 			title: pullRequest.title,
@@ -72,15 +94,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 				};
 			}),
 			state: pullRequest.state,
-			statusChecks: status[0]?.statuses.map((status) => {
-				return {
-					context: status.context,
-					description: status.description,
-					state: status.state,
-					name: status.workflowName,
-					targetUrl: status.targetUrl
-				};
-			}),
+			statusChecks,
 			reviewRequirements: {
 				approvalsNeeded: status[1]?.count ?? 0,
 				currentApprovals: status[1]?.approvals.length ?? 0,
