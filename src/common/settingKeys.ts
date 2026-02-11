@@ -43,6 +43,8 @@ export type PullPRBranchVariants = 'never' | 'pull' | 'pullAndMergeBase' | 'pull
 export const UPSTREAM_REMOTE = 'upstreamRemote';
 export const DEFAULT_CREATE_OPTION = 'defaultCreateOption';
 export const CREATE_BASE_BRANCH = 'createDefaultBaseBranch';
+export const AUTO_REPO_DETECTION = 'autoRepositoryDetection';
+export type AutoRepoDetectionVariants = 'workspace' | true;
 
 export const ISSUES_SETTINGS_NAMESPACE = 'githubIssues';
 export const ASSIGN_WHEN_WORKING = 'assignWhenWorking';

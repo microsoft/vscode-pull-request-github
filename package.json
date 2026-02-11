@@ -180,6 +180,18 @@
 					},
 					"markdownDescription": "%githubPullRequests.remotes.markdownDescription%"
 				},
+				"githubPullRequests.autoRepositoryDetection": {
+					"markdownDescription": "%githubPullRequests.autoRepositoryDetection.markdownDescription%",
+					"default": "workspace",
+					"enum": [
+						"workspace",
+						true
+					],
+					"markdownEnumDescriptions": [
+						"%githubPullRequests.autoRepositoryDetection.workspace%",
+						"%githubPullRequests.autoRepositoryDetection.true%"
+					]
+				},
 				"githubPullRequests.includeRemotes": {
 					"type": "string",
 					"enum": [
