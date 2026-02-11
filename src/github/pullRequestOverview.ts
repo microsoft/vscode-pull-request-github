@@ -91,7 +91,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		if (panel) {
 			panel._panel.reveal(activeColumn, preserveFocus);
 		} else {
-			const title = `Pull Request #${identity.number.toString()}`;
+			const title = `#${identity.number.toString()}`;
 			panel = new PullRequestOverviewPanel(
 				telemetry,
 				extensionUri,
@@ -364,7 +364,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._repositoryDefaultBranch = defaultBranch!;
 			this._teamsCount = orgTeamsCount;
 			this._assignableUsers = assignableUsers;
-			this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
+			this.setPanelTitle(this.buildPanelTitle(pullRequestModel.number, pullRequestModel.title));
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;

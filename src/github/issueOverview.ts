@@ -64,7 +64,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		if (panel) {
 			panel._panel.reveal(activeColumn, true);
 		} else {
-			const title = `Issue #${identity.number.toString()}`;
+			const title = `#${identity.number.toString()}`;
 			panel = new IssueOverviewPanel(
 				telemetry,
 				extensionUri,
@@ -108,6 +108,21 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._panels.get(panelKey(owner, repo, number));
 	}
 
+	/**
+	 * Build a short panel title: `#<number> <truncated title>`.
+	 * The item title is truncated to approximately `maxLength` characters on a
+	 * word boundary and suffixed with "..." when it doesn't fit in full.
+	 */
+	protected buildPanelTitle(itemNumber: number, itemTitle: string, maxLength: number = 20): string {
+		let truncated = itemTitle;
+		if (itemTitle.length > maxLength) {
+			const lastSpace = itemTitle.lastIndexOf(' ', maxLength);
+			const cutOff = lastSpace > 0 ? lastSpace : maxLength;
+			truncated = itemTitle.substring(0, cutOff) + '...';
+		}
+		return `#${itemNumber} ${truncated}`;
+	}
+
 	protected setPanelTitle(title: string): void {
 		try {
 			this._panel.title = title;
@@ -125,10 +140,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		folderRepositoryManager: FolderRepositoryManager,
 		private readonly type: string = IssueOverviewPanel.viewType,
 		existingPanel?: vscode.WebviewPanel,
-		iconSubpath?: {
+		iconSubpath: {
 			light: string,
 			dark: string,
-		}
+		} = {
+				light: 'resources/icons/issue_webview.svg',
+				dark: 'resources/icons/dark/issue_webview.svg',
+			}
 	) {
 		super();
 		this._folderRepositoryManager = folderRepositoryManager;
@@ -144,12 +162,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			enableFindWidget: true
 		}));
 
-		if (iconSubpath) {
-			this._panel.iconPath = {
-				dark: vscode.Uri.joinPath(_extensionUri, iconSubpath.dark),
-				light: vscode.Uri.joinPath(_extensionUri, iconSubpath.light)
-			};
-		}
+		this._panel.iconPath = {
+			dark: vscode.Uri.joinPath(_extensionUri, iconSubpath.dark),
+			light: vscode.Uri.joinPath(_extensionUri, iconSubpath.light)
+		};
 
 		this._webview = this._panel.webview;
 		super.initialize();
@@ -298,7 +314,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 
 			this._item = issue as TItem;
-			this.setPanelTitle(`Issue #${issueModel.number.toString()}`);
+			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
