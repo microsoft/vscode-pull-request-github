@@ -2091,10 +2091,10 @@ ${contents}
 				/* __GDPR__
 					"pr.generatedTitleAndDescription" : {
 						"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-						"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight"
+						"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 					}
 				*/
-				this._telemetry.sendTelemetryEvent('pr.generatedTitleAndDescription', { providerTitle: provider?.title, source: 'command' });
+				telemetry.sendTelemetryEvent('pr.generatedTitleAndDescription', { providerTitle: provider?.title, source: 'command' });
 
 				tokenSource.dispose();
 
