@@ -981,7 +981,7 @@ export class GitHubRepository extends Disposable {
 				job_id: checkRunDatabaseId,
 			});
 			Logger.debug(`Fetch check run logs via Actions API - done`, this.id);
-			return result.data as unknown as string;
+			return result.data as string;
 		} catch {
 			// Not a GitHub Actions job - fall through to Checks API
 		}

@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { Schemes } from '../common/uri';
+import { formatError } from '../common/utils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 interface CheckRunLogParams {
@@ -51,8 +52,8 @@ export class CheckRunLogContentProvider implements vscode.TextDocumentContentPro
 				try {
 					return await repo.getCheckRunLogs(params.checkRunDatabaseId);
 				} catch (e) {
-					Logger.error(`Failed to fetch check run logs: ${e}`, 'CheckRunLog');
-					return `Failed to fetch check run logs: ${e}`;
+					Logger.error(`Failed to fetch check run logs: ${formatError(e)}`, 'CheckRunLog');
+					return `Failed to fetch check run logs. See logs for details.`;
 				}
 			}
 		}

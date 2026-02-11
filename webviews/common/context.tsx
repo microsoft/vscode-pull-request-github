@@ -363,7 +363,7 @@ export class PRContext {
 
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
-		public openCommitChanges = async (commitSha: string) => {
+	public openCommitChanges = async (commitSha: string) => {
 		this.updatePR({ loadingCommit: commitSha });
 		try {
 			const args: OpenCommitChangesArgs = { commitSha };

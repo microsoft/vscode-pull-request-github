@@ -239,7 +239,8 @@ body .comment-container .review-comment-header {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	}
+}
+
 .view-check-logs-placeholder {
 	width: 20px;
 }
