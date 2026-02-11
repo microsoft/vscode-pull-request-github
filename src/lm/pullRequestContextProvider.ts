@@ -24,7 +24,7 @@ export namespace PRChatContextItem {
 }
 
 export class WorkspaceContextProvider extends Disposable implements vscode.ChatWorkspaceContextProvider {
-	private readonly _onDidChangeWorkspaceChatContext = new vscode.EventEmitter<void>();
+	private readonly _onDidChangeWorkspaceChatContext = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeWorkspaceChatContext = this._onDidChangeWorkspaceChatContext.event;
 
 	constructor(

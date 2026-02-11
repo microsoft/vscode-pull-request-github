@@ -270,14 +270,16 @@ async function init(
 	await issuesFeatures.initialize();
 
 	const workspaceContextProvider = new WorkspaceContextProvider(reposManager, git);
-	vscode.chat.registerChatWorkspaceContextProvider('githubpr', workspaceContextProvider);
+	context.subscriptions.push(workspaceContextProvider);
+	context.subscriptions.push(vscode.chat.registerChatWorkspaceContextProvider('githubpr', workspaceContextProvider));
 	workspaceContextProvider.initialize();
 	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, context);
-	vscode.chat.registerChatExplicitContextProvider('githubpr', pullRequestContextProvider);
-	vscode.chat.registerChatResourceContextProvider({ scheme: 'webview-panel', pattern: '**/webview-PullRequestOverview**' }, 'githubpr', pullRequestContextProvider);
+	context.subscriptions.push(pullRequestContextProvider);
+	context.subscriptions.push(vscode.chat.registerChatExplicitContextProvider('githubpr', pullRequestContextProvider));
+	context.subscriptions.push(vscode.chat.registerChatResourceContextProvider({ scheme: 'webview-panel', pattern: '**/webview-PullRequestOverview**' }, 'githubpr', pullRequestContextProvider));
 	const issueContextProvider = new IssueContextProvider(issueStateManager, reposManager, context);
-	vscode.chat.registerChatExplicitContextProvider('githubissue', issueContextProvider);
-	vscode.chat.registerChatResourceContextProvider({ scheme: 'webview-panel', pattern: '**/webview-IssueOverview**' }, 'githubissue', issueContextProvider);
+	context.subscriptions.push(vscode.chat.registerChatExplicitContextProvider('githubissue', issueContextProvider));
+	context.subscriptions.push(vscode.chat.registerChatResourceContextProvider({ scheme: 'webview-panel', pattern: '**/webview-IssueOverview**' }, 'githubissue', issueContextProvider));
 
 	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, notificationsManager);
 	context.subscriptions.push(notificationsFeatures);
