@@ -10,7 +10,7 @@ import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
+import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
 
 export class PRContext {
@@ -360,6 +360,8 @@ export class PRContext {
 	};
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
+
+	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
 		public openCommitChanges = async (commitSha: string) => {
 		this.updatePR({ loadingCommit: commitSha });

@@ -969,6 +969,54 @@ export class GitHubRepository extends Disposable {
 		return jobs.data.jobs;
 	}
 
+	async getCheckRunLogs(checkRunDatabaseId: number): Promise<string> {
+		Logger.debug(`Fetch check run logs - enter`, this.id);
+		const { octokit, remote } = await this.ensure();
+
+		// Try GitHub Actions logs first (works for Actions workflow runs)
+		try {
+			const result = await octokit.call(octokit.api.actions.downloadJobLogsForWorkflowRun, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				job_id: checkRunDatabaseId,
+			});
+			Logger.debug(`Fetch check run logs via Actions API - done`, this.id);
+			return result.data as unknown as string;
+		} catch {
+			// Not a GitHub Actions job - fall through to Checks API
+		}
+
+		// Fall back to Checks API output (works for any GitHub App, e.g. Azure Pipelines)
+		try {
+			const result = await octokit.call(octokit.api.checks.get, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				check_run_id: checkRunDatabaseId,
+			});
+			const output = result.data.output;
+			const parts: string[] = [];
+			if (output.title) {
+				parts.push(output.title);
+				parts.push('');
+			}
+			if (output.summary) {
+				parts.push(output.summary);
+				parts.push('');
+			}
+			if (output.text) {
+				parts.push(output.text);
+			}
+			if (parts.length === 0) {
+				return 'No log output available for this check run.';
+			}
+			Logger.debug(`Fetch check run logs via Checks API - done`, this.id);
+			return parts.join('\n');
+		} catch (e) {
+			Logger.error(`Unable to fetch check run logs: ${e}`, this.id);
+			throw e;
+		}
+	}
+
 	async fork(): Promise<string | undefined> {
 		try {
 			Logger.debug(`Fork repository`, this.id);
@@ -1700,6 +1748,7 @@ export class GitHubRepository extends Disposable {
 				if (isCheckRun(context)) {
 					return {
 						id: context.id,
+						databaseId: context.databaseId,
 						url: context.checkSuite?.app?.url,
 						avatarUrl:
 							context.checkSuite?.app?.logoUrl &&
@@ -1715,10 +1764,12 @@ export class GitHubRepository extends Disposable {
 						event: context.checkSuite?.workflowRun?.event,
 						targetUrl: context.detailsUrl,
 						isRequired: context.isRequired,
+						isCheckRun: true,
 					};
 				} else {
 					return {
 						id: context.id,
+						databaseId: undefined,
 						url: context.targetUrl ?? undefined,
 						avatarUrl: context.avatarUrl
 							? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
@@ -1730,6 +1781,7 @@ export class GitHubRepository extends Disposable {
 						event: undefined,
 						targetUrl: context.targetUrl,
 						isRequired: context.isRequired,
+						isCheckRun: false,
 					};
 				}
 			}));
@@ -1750,6 +1802,7 @@ export class GitHubRepository extends Disposable {
 					checks.state = CheckState.Pending;
 					checks.statuses.push({
 						id: '',
+						databaseId: undefined,
 						url: undefined,
 						avatarUrl: undefined,
 						state: CheckState.Pending,
@@ -1758,7 +1811,8 @@ export class GitHubRepository extends Disposable {
 						workflowName: undefined,
 						event: undefined,
 						targetUrl: prUrl,
-						isRequired: true
+						isRequired: true,
+						isCheckRun: false
 					});
 				}
 			}

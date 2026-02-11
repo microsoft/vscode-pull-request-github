@@ -237,6 +237,11 @@ body .comment-container .review-comment-header {
 
 .status-check > div:not(.status-check-details) {
 	display: flex;
+	align-items: center;
+	gap: 4px;
+	}
+.view-check-logs-placeholder {
+	width: 20px;
 }
 
 #merge-on-github {
@@ -356,6 +361,10 @@ button.input-box {
 	cursor: pointer;
 }
 
+#status-checks .icon-button:hover,
+#status-checks .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
 #status-checks summary {
 	display: flex;
 	align-items: center;

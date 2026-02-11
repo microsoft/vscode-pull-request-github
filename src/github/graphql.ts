@@ -994,6 +994,7 @@ export interface StatusContext {
 export interface CheckRun {
 	__typename: string;
 	id: string;
+	databaseId: number | null;
 	conclusion:
 	| 'ACTION_REQUIRED'
 	| 'CANCELLED'

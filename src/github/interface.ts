@@ -346,6 +346,7 @@ export enum CheckState {
 
 export interface PullRequestCheckStatus {
 	id: string;
+	databaseId: number | null | undefined;
 	url: string | undefined;
 	avatarUrl: string | undefined;
 	state: CheckState;
@@ -355,6 +356,7 @@ export interface PullRequestCheckStatus {
 	workflowName: string | undefined;
 	event: string | undefined;
 	isRequired: boolean;
+	isCheckRun: boolean;
 }
 
 export interface PullRequestChecks {

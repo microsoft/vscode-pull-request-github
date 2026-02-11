@@ -17,6 +17,7 @@ import {
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
+	PullRequestCheckStatus,
 	PullRequestMergeability,
 	ReviewEventEnum,
 	ReviewState,
@@ -38,6 +39,7 @@ import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -542,6 +544,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openSessionLog(message);
 			case 'pr.cancel-coding-agent':
 				return this.cancelCodingAgent(message);
+			case 'pr.view-check-logs':
+				return this.viewCheckLogs(message);
 			case 'pr.openCommitChanges':
 				return this.openCommitChanges(message);
 			case 'pr.delete-review':
@@ -661,6 +665,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			return vscode.commands.executeCommand('vscode.open', resource);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async viewCheckLogs(message: IRequestMessage<{ status: PullRequestCheckStatus }>): Promise<void> {
+		try {
+			const { status } = message.args;
+			if (!status.databaseId) {
+				return this._replyMessage(message, { error: 'Logs are only available for GitHub Actions check runs.' });
+			}
+			const uri = toCheckRunLogUri({
+				owner: this._item.remote.owner,
+				repo: this._item.remote.repositoryName,
+				checkRunDatabaseId: status.databaseId,
+				checkName: status.context,
+			});
+
+			await vscode.window.showTextDocument(uri, { preview: true, preserveFocus: false });
+			return this._replyMessage(message, {});
+		} catch (e) {
+			Logger.error(`View check run logs failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			return this._replyMessage(message, { error: formatError(e) });
 		}
 	}
 

@@ -15,7 +15,7 @@ import React, {
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
-import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -602,11 +602,22 @@ const CHECK_STATE_ORDER: Record<CheckState, number> = {
 };
 
 const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
+	const { viewCheckLogs } = useContext(PullRequestContext);
+	const [loadingLogId, setLoadingLogId] = useState<string | null>(null);
 	// Sort statuses to group by state: failure first, then pending, neutral, and success
 	// Use slice() to avoid mutating the original array
 	const sortedStatuses = statuses.slice().sort((a, b) => {
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
+
+	const handleViewLogs = async (s: PullRequestCheckStatus) => {
+		setLoadingLogId(s.id);
+		try {
+			await viewCheckLogs(s);
+		} finally {
+			setLoadingLogId(null);
+		}
+	};
 
 	return (
 		<div className='status-scroll'>
@@ -628,6 +639,13 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 							<a href={s.targetUrl} title={s.targetUrl}>
 								Details
 							</a>
+						) : null}
+						{s.isCheckRun && s.databaseId ? (
+							s.state === CheckState.Failure ? (
+								<button className="icon-button" title="View Logs" onClick={() => handleViewLogs(s)}>
+									{loadingLogId === s.id ? loadingIcon : outputIcon}
+								</button>
+							) : <span className="view-check-logs-placeholder" />
 						) : null}
 					</div>
 				</div>
