@@ -89,7 +89,7 @@ describe('PullRequestOverview', function () {
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
 
 			assert(
-				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
+				createWebviewPanel.calledWith(sinonMatch.string, '#1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
 					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist')],
@@ -130,7 +130,7 @@ describe('PullRequestOverview', function () {
 			const panel0 = PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number);
 			assert.notStrictEqual(panel0, undefined);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
-			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
+			assert.strictEqual(panel0!.getCurrentTitle(), '#1000 New feature');
 
 			// Opening the same PR again should reuse the existing panel
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity0, prModel0);
@@ -185,8 +185,8 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(panel1, undefined);
 			assert.notStrictEqual(panel0, panel1);
 			assert.strictEqual(createWebviewPanel.callCount, 2);
-			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
-			assert.strictEqual(panel1!.getCurrentTitle(), 'Pull Request #2000');
+			assert.strictEqual(panel0!.getCurrentTitle(), '#1000 New feature');
+			assert.strictEqual(panel1!.getCurrentTitle(), '#2000 New feature');
 		});
 	});
 });
