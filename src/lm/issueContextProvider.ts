@@ -22,27 +22,35 @@ export namespace IssueChatContextItem {
 	}
 }
 
-export class IssueContextProvider implements vscode.ChatContextProvider {
+export class IssueContextProvider implements vscode.ChatExplicitContextProvider<IssueChatContextItem>, vscode.ChatResourceContextProvider<IssueChatContextItem> {
 	constructor(private readonly _stateManager: StateManager,
 		private readonly _reposManager: RepositoriesManager,
 		private readonly _context: vscode.ExtensionContext
 	) { }
 
-	async provideChatContextForResource(_options: { resource: vscode.Uri }, _token: vscode.CancellationToken): Promise<IssueChatContextItem | undefined> {
+	async provideResourceChatContext(_options: { resource: vscode.Uri; }, _token: vscode.CancellationToken): Promise<IssueChatContextItem | undefined> {
 		const item = IssueOverviewPanel.currentPanel?.getCurrentItem();
 		if (item) {
 			return this._issueToUnresolvedContext(item);
 		}
 	}
 
-	async resolveChatContext(context: IssueChatContextItem, _token: vscode.CancellationToken): Promise<vscode.ChatContextItem> {
+	resolveExplicitChatContext(context: IssueChatContextItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatContextItem> {
+		return this._resolveChatContext(context, token);
+	}
+
+	resolveResourceChatContext(context: IssueChatContextItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatContextItem> {
+		return this._resolveChatContext(context, token);
+	}
+
+	private async _resolveChatContext(context: IssueChatContextItem, _token: vscode.CancellationToken): Promise<vscode.ChatContextItem> {
 		context.value = await this._resolvedIssueValue(context.issue);
 		context.modelDescription = 'All the information about the GitHub issue the user is viewing, including comments.';
 		context.tooltip = await issueMarkdown(context.issue, this._context, this._reposManager);
 		return context;
 	}
 
-	async provideChatContextExplicit(_token: vscode.CancellationToken): Promise<IssueChatContextItem[] | undefined> {
+	async provideExplicitChatContext(_token: vscode.CancellationToken): Promise<IssueChatContextItem[]> {
 		const contextItems: IssueChatContextItem[] = [];
 		const seenIssues: Set<string> = new Set();
 		for (const folderManager of this._reposManager.folderManagers) {
