@@ -11,6 +11,7 @@ import Logger from '../common/logger';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
+import { getIssueNumberLabelFromParsed, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 
 export interface CreateModelChangeEvent {
 	baseOwner?: string;
@@ -251,5 +252,58 @@ export class CreatePullRequestDataModel extends Disposable {
 			await this.gitHubCommits();
 		}
 		return this._gitHubMergeBase!;
+	}
+
+	public async getCommitsAndPatches(): Promise<{ commitMessages: string[]; patches: { patch: string; fileUri: string; previousFileUri?: string }[] }> {
+		let commitMessages: string[];
+		let patches: ({ patch: string; fileUri: string; previousFileUri?: string } | undefined)[] | undefined;
+		if (await this.getCompareHasUpstream()) {
+			[commitMessages, patches] = await Promise.all([
+				this.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
+				this.gitHubFiles().then(rawPatches => rawPatches?.map(file => {
+					if (!file.patch) {
+						return;
+					}
+					const fileUri = vscode.Uri.joinPath(this.folderRepositoryManager.repository.rootUri, file.filename).toString();
+					const previousFileUri = file.previous_filename ? vscode.Uri.joinPath(this.folderRepositoryManager.repository.rootUri, file.previous_filename).toString() : undefined;
+					return { patch: file.patch, fileUri, previousFileUri };
+				}))]);
+		} else {
+			[commitMessages, patches] = await Promise.all([
+				this.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
+				Promise.all((await this.gitFiles()).map(async (file) => {
+					return {
+						patch: await this.folderRepositoryManager.repository.diffBetween(this._baseBranch, this._compareBranch, file.uri.fsPath),
+						fileUri: file.uri.toString(),
+					};
+				}))]);
+		}
+		const filteredPatches: { patch: string; fileUri: string; previousFileUri?: string }[] =
+			patches?.filter<{ patch: string; fileUri: string; previousFileUri?: string }>((patch): patch is { patch: string; fileUri: string; previousFileUri?: string } => !!patch) ?? [];
+		return { commitMessages, patches: filteredPatches };
+	}
+
+	public async findIssueContext(commits: string[]): Promise<{ content: string; reference: string }[] | undefined> {
+		const issues: Promise<{ content: string; reference: string } | undefined>[] = [];
+		for (const commit of commits) {
+			const tryParse = parseIssueExpressionOutput(commit.match(ISSUE_OR_URL_EXPRESSION));
+			if (tryParse) {
+				const owner = tryParse.owner ?? this._baseOwner;
+				const name = tryParse.name ?? this.repositoryName;
+				issues.push(new Promise(resolve => {
+					this.folderRepositoryManager.resolveIssue(owner, name, tryParse.issueNumber).then(issue => {
+						if (issue) {
+							resolve({ content: `${issue.title}\n${issue.body}`, reference: getIssueNumberLabelFromParsed(tryParse) });
+						} else {
+							resolve(undefined);
+						}
+					}).catch(() => resolve(undefined));
+				}));
+			}
+		}
+		if (issues.length) {
+			return (await Promise.all(issues)).filter(issue => !!issue) as { content: string; reference: string }[];
+		}
+		return undefined;
 	}
 }

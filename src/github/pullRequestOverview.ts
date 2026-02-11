@@ -1022,6 +1022,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this.generatingDescriptionCancellationToken.token
 			);
 
+			/* __GDPR__
+				"pr.generatedTitleAndDescription" : {
+					"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight"
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.generatedTitleAndDescription', { providerTitle: provider?.title, source: 'regenerate' });
+
 			this.generatingDescriptionCancellationToken = undefined;
 			return this._replyMessage(message, { description: result?.description });
 		} catch (e) {

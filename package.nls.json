@@ -357,6 +357,7 @@
 	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"command.pr.checkoutChatSessionPullRequest.title": "Checkout Pull Request",
+	"command.pr.generateTitleAndDescription.title": "Generate Pull Request Title and Description",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment": [
