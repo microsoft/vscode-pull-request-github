@@ -36,6 +36,7 @@ import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
+import { CreatePullRequestDataModel } from './view/createPullRequestDataModel';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { PrsTreeModel } from './view/prsTreeModel';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -2043,5 +2044,67 @@ ${contents}
 				return vscode.env.clipboard.writeText(pr.html_url);
 			}
 		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.generateTitleAndDescription', async (args: { rootUri: vscode.Uri; baseBranch: string; compareBranch: string }) => {
+			if (!args?.rootUri || !args?.baseBranch || !args?.compareBranch) {
+				Logger.error('Missing required arguments for pr.generateTitleAndDescription', logId);
+				return undefined;
+			}
+
+			const folderManager = reposManager.getManagerForFile(args.rootUri);
+			if (!folderManager) {
+				Logger.error('Unable to find a repository for the provided rootUri.', logId);
+				return undefined;
+			}
+
+			const origin = await folderManager.getOrigin();
+			const defaults = await folderManager.getPullRequestDefaults();
+
+			const model = new CreatePullRequestDataModel(
+				folderManager,
+				defaults.owner,
+				args.baseBranch,
+				origin.remote.owner,
+				args.compareBranch,
+				origin.remote.repositoryName,
+			);
+
+			try {
+				const { commitMessages, patches } = await model.getCommitsAndPatches();
+				const issues = await model.findIssueContext(commitMessages);
+				const template = await folderManager.getPullRequestTemplateBody(defaults.owner);
+
+				const provider = folderManager.getTitleAndDescriptionProvider();
+				if (!provider) {
+					Logger.error('No title and description provider available.', logId);
+					return undefined;
+				}
+
+				const tokenSource = new vscode.CancellationTokenSource();
+				const result = await provider.provider.provideTitleAndDescription(
+					{ commitMessages, patches, issues, template },
+					tokenSource.token,
+				);
+
+				/* __GDPR__
+					"pr.generatedTitleAndDescription" : {
+						"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+						"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					}
+				*/
+				telemetry.sendTelemetryEvent('pr.generatedTitleAndDescription', { providerTitle: provider?.title, source: 'command' });
+
+				tokenSource.dispose();
+
+				return result ? { title: result.title, description: result.description } : undefined;
+			} catch (e) {
+				Logger.error(`Error generating title and description: ${formatError(e)}`, logId);
+				return undefined;
+			} finally {
+				model.dispose();
+			}
+		}),
 	);
 }

@@ -16,7 +16,7 @@ import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { branchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
-import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
@@ -1142,57 +1142,8 @@ Don't forget to commit your template file to the repository so that it can be us
 		return this._replyMessage(message, chooseResult);
 	}
 
-	private async findIssueContext(commits: string[]): Promise<{ content: string, reference: string }[] | undefined> {
-		const issues: Promise<{ content: string, reference: string } | undefined>[] = [];
-		for (const commit of commits) {
-			const tryParse = parseIssueExpressionOutput(commit.match(ISSUE_OR_URL_EXPRESSION));
-			if (tryParse) {
-				const owner = tryParse.owner ?? this.model.baseOwner;
-				const name = tryParse.name ?? this.model.repositoryName;
-				issues.push(new Promise(resolve => {
-					this._folderRepositoryManager.resolveIssue(owner, name, tryParse.issueNumber).then(issue => {
-						if (issue) {
-							resolve({ content: `${issue.title}\n${issue.body}`, reference: getIssueNumberLabelFromParsed(tryParse) });
-						} else {
-							resolve(undefined);
-						}
-					}).catch(() => resolve(undefined));
-				}));
-			}
-		}
-		if (issues.length) {
-			return (await Promise.all(issues)).filter(issue => !!issue) as { content: string, reference: string }[];
-		}
-		return undefined;
-	}
-
 	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
-		let commitMessages: string[];
-		let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[] | undefined;
-		if (await this.model.getCompareHasUpstream()) {
-			[commitMessages, patches] = await Promise.all([
-				this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
-				this.model.gitHubFiles().then(rawPatches => rawPatches?.map(file => {
-					if (!file.patch) {
-						return;
-					}
-					const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
-					const previousFileUri = file.previous_filename ? vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() : undefined;
-					return { patch: file.patch, fileUri, previousFileUri };
-				}))]);
-		} else {
-			[commitMessages, patches] = await Promise.all([
-				this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
-				Promise.all((await this.model.gitFiles()).map(async (file) => {
-					return {
-						patch: await this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath),
-						fileUri: file.uri.toString(),
-					};
-				}))]);
-		}
-		const filteredPatches: { patch: string, fileUri: string, previousFileUri?: string }[] =
-			patches?.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch) ?? [];
-		return { commitMessages, patches: filteredPatches };
+		return this.model.getCommitsAndPatches();
 	}
 
 	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
@@ -1201,7 +1152,7 @@ Don't forget to commit your template file to the repository so that it can be us
 			try {
 				const templatePromise = this.getPullRequestTemplate(); // Fetch in parallel
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
-				const issues = await this.findIssueContext(commitMessages);
+				const issues = await this.model.findIssueContext(commitMessages);
 				const template = await templatePromise;
 
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
