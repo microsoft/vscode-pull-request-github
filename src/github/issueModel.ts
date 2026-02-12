@@ -446,24 +446,25 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			const times = [
 				time,
 				new Date(data.repository.pullRequest.updatedAt),
-				...(data.repository.pullRequest.reactions.nodes.map(node => new Date(node.createdAt))),
+				...(data.repository.pullRequest.reactions.nodes.filter((node): node is { createdAt: string } => !!node).map(node => new Date(node.createdAt))),
 				...(data.repository.pullRequest.comments.nodes.map(node => new Date(node.updatedAt))),
-				...(data.repository.pullRequest.comments.nodes.flatMap(node => node.reactions.nodes.map(reaction => new Date(reaction.createdAt)))),
+				...(data.repository.pullRequest.comments.nodes.flatMap(node => node.reactions.nodes.filter((reaction): reaction is { createdAt: string } => !!reaction).map(reaction => new Date(reaction.createdAt)))),
 				...(data.repository.pullRequest.timelineItems.nodes.map(node => {
 					const latestCommit = node as (Partial<LatestCommit> | null);
 					if (latestCommit?.commit?.committedDate) {
 						return new Date(latestCommit.commit.committedDate);
 					}
 					const latestReviewThread = node as (Partial<LatestReviewThread> | null);
-					if ((latestReviewThread?.comments?.nodes.length ?? 0) > 0) {
+					if (((latestReviewThread?.comments?.nodes.length ?? 0) > 0) && latestReviewThread!.comments!.nodes[0]) {
 						return new Date(latestReviewThread!.comments!.nodes[0].createdAt);
+					} else if (node) {
+						return new Date((node as { createdAt: string }).createdAt);
 					}
-					return new Date((node as { createdAt: string }).createdAt);
 				}))
 			];
 
 			// Sort times and return the most recent one
-			return new Date(Math.max(...times.map(t => t.getTime())));
+			return new Date(Math.max(...times.filter((t): t is Date => !!t).map(t => t.getTime())));
 		} catch (e) {
 			Logger.error(`Error fetching timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
 			return time; // Return the original time in case of an error

@@ -294,9 +294,9 @@ export interface LatestCommit {
 
 export interface LatestReviewThread {
 	comments: {
-		nodes: {
+		nodes: ({
 			createdAt: string;
-		}[];
+		} | null)[];
 	}
 }
 
@@ -304,18 +304,18 @@ export interface LatestUpdatesResponse {
 	repository: {
 		pullRequest: {
 			reactions: {
-				nodes: {
+				nodes: ({
 					createdAt: string;
-				}[];
+				} | null)[];
 			}
 			updatedAt: string;
 			comments: {
 				nodes: {
 					updatedAt: string;
 					reactions: {
-						nodes: {
+						nodes: ({
 							createdAt: string;
-						}[];
+						} | null)[];
 					}
 				}[];
 			}
