@@ -296,7 +296,7 @@ export interface LatestReviewThread {
 	comments: {
 		nodes: ({
 			createdAt: string;
-		} | undefined)[];
+		} | null)[];
 	}
 }
 
@@ -306,7 +306,7 @@ export interface LatestUpdatesResponse {
 			reactions: {
 				nodes: ({
 					createdAt: string;
-				} | undefined)[];
+				} | null)[];
 			}
 			updatedAt: string;
 			comments: {
@@ -315,7 +315,7 @@ export interface LatestUpdatesResponse {
 					reactions: {
 						nodes: ({
 							createdAt: string;
-						} | undefined)[];
+						} | null)[];
 					}
 				}[];
 			}

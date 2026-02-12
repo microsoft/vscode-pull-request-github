@@ -457,13 +457,14 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 					const latestReviewThread = node as (Partial<LatestReviewThread> | null);
 					if (((latestReviewThread?.comments?.nodes.length ?? 0) > 0) && latestReviewThread!.comments!.nodes[0]) {
 						return new Date(latestReviewThread!.comments!.nodes[0].createdAt);
+					} else if (node) {
+						return new Date((node as { createdAt: string }).createdAt);
 					}
-					return new Date((node as { createdAt: string }).createdAt);
 				}))
 			];
 
 			// Sort times and return the most recent one
-			return new Date(Math.max(...times.map(t => t.getTime())));
+			return new Date(Math.max(...times.filter((t): t is Date => !!t).map(t => t.getTime())));
 		} catch (e) {
 			Logger.error(`Error fetching timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
 			return time; // Return the original time in case of an error
