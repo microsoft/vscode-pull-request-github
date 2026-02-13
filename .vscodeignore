@@ -11,6 +11,7 @@ documentation/**
 node_modules/**
 scripts/**
 src/**
+!src/lm/skills/**
 webviews/**
 **/test/**
 .eslintcache*
