@@ -896,27 +896,51 @@ export function registerCommands(
 
 					const worktreePath = worktreeUri.fsPath;
 
-					// Create the worktree using git command
+					// Create the worktree using a VS Code task
 					progress.report({ message: vscode.l10n.t('Creating worktree at {0}...', worktreePath) });
 
 					const trackedBranchName = `${remoteName}/${branchName}`;
 					const localBranchName = `pr-${pullRequestModel.number}/${branchName}`;
 
 					try {
-						// Execute git worktree add command
-						const terminal = vscode.window.createTerminal({
-							name: vscode.l10n.t('Git Worktree'),
-							cwd: repoRootPath,
-							hideFromUser: true,
+						// Create a VS Code task to execute the git worktree command
+						const taskDefinition: vscode.TaskDefinition = {
+							type: 'shell'
+						};
+
+						const shellExecution = new vscode.ShellExecution('git', [
+							'worktree', 'add',
+							'-b', { value: localBranchName, quoting: vscode.ShellQuoting.Strong },
+							{ value: worktreePath, quoting: vscode.ShellQuoting.Strong },
+							{ value: trackedBranchName, quoting: vscode.ShellQuoting.Strong }
+						], {
+							cwd: repoRootPath
 						});
 
-						// Create worktree with a new local branch tracking the remote
-						terminal.sendText(`git worktree add -b "${localBranchName}" "${worktreePath}" "${trackedBranchName}" && exit`);
+						const task = new vscode.Task(
+							taskDefinition,
+							vscode.TaskScope.Workspace,
+							vscode.l10n.t('Create Worktree for Pull Request #{0}', pullRequestModel.number),
+							'git',
+							shellExecution
+						);
 
-						// Wait a bit for the command to complete
-						await new Promise(resolve => setTimeout(resolve, 2000));
+						// Execute the task and wait for completion
+						const taskExecution = await vscode.tasks.executeTask(task);
 
-						terminal.dispose();
+						// Wait for task to complete
+						await new Promise<void>((resolve, reject) => {
+							const disposable = vscode.tasks.onDidEndTaskProcess(e => {
+								if (e.execution === taskExecution) {
+									disposable.dispose();
+									if (e.exitCode === 0) {
+										resolve();
+									} else {
+										reject(new Error(vscode.l10n.t('Git worktree command failed with exit code {0}', e.exitCode?.toString() ?? 'unknown')));
+									}
+								}
+							});
+						});
 
 						// Ask user if they want to open the worktree
 						const openAction = vscode.l10n.t('Open in New Window');
