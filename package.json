@@ -246,6 +246,12 @@
 						}
 					]
 				},
+				"githubPullRequests.queriesRefreshInterval": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"markdownDescription": "%githubPullRequests.queriesRefreshInterval.markdownDescription%"
+				},
 				"githubPullRequests.labelCreated": {
 					"type": "array",
 					"items": {
