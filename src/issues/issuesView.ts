@@ -195,8 +195,10 @@ export class IssuesTreeData
 			for (const fm of this.manager.folderManagers) {
 				const issueCol = this.stateManager.getIssueCollection(fm.repository.rootUri);
 				const queryResultPromises = Array.from(issueCol.values());
-				const queryResults = await Promise.all(queryResultPromises);
-				const hasMatchingIssues = queryResults.some(r => r.issues && r.issues.length > 0);
+				const queryResults = await Promise.allSettled(queryResultPromises);
+				const hasMatchingIssues = queryResults.some(r =>
+					r.status === 'fulfilled' && r.value.issues && r.value.issues.length > 0
+				);
 				if (hasMatchingIssues) {
 					managersWithIssues.push(fm);
 				}
