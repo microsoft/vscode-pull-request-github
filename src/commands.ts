@@ -847,6 +847,9 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
 			}
 
+			// Store validated head to avoid non-null assertions later
+			const prHead = pullRequestModel.head;
+
 			// Get the folder manager to access the repository
 			const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
 			if (!folderManager) {
@@ -867,7 +870,7 @@ export function registerCommands(
 				},
 				async (progress) => {
 					// Generate a branch name for the worktree
-					const branchName = pullRequestModel.head!.ref;
+					const branchName = prHead.ref;
 					const remoteName = pullRequestModel.remote.remoteName;
 
 					// Fetch the PR branch first
@@ -875,7 +878,8 @@ export function registerCommands(
 					try {
 						await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
 					} catch (e) {
-						Logger.appendLine(`Failed to fetch branch ${branchName}: ${e}`, logId);
+						const errorMessage = e instanceof Error ? e.message : String(e);
+						Logger.appendLine(`Failed to fetch branch ${branchName}: ${errorMessage}`, logId);
 						// Continue even if fetch fails - the branch might already be available locally
 					}
 
@@ -900,7 +904,7 @@ export function registerCommands(
 					progress.report({ message: vscode.l10n.t('Creating worktree at {0}...', worktreePath) });
 
 					const trackedBranchName = `${remoteName}/${branchName}`;
-					const localBranchName = `pr-${pullRequestModel.number}/${branchName}`;
+					const localBranchName = `pr-${pullRequestModel.number}-${branchName}`;
 
 					try {
 						// Create a VS Code task to execute the git worktree command
