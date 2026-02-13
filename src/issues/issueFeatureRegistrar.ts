@@ -143,19 +143,6 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.assignToCodingAgent',
-				(issueModel: any) => {
-					/* __GDPR__
-				"issue.assignToCodingAgent" : {}
-			*/
-					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
-					return this.assignToCodingAgent(issueModel);
-				},
-				this,
-			),
-		);
-		this._register(
-			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
@@ -1673,38 +1660,4 @@ ${options?.body ?? ''}\n
 		return undefined;
 	}
 
-	async assignToCodingAgent(issueModel: any) {
-		if (!issueModel) {
-			return;
-		}
-
-		// Check if the issue model is an IssueModel
-		if (!(issueModel instanceof IssueModel)) {
-			return;
-		}
-
-		try {
-			// Get the folder manager for this issue
-			const folderManager = this.manager.getManagerForIssueModel(issueModel);
-			if (!folderManager) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Failed to find repository for issue #{0}', issueModel.number));
-				return;
-			}
-
-			// Get assignable users and find the copilot user
-			const assignableUsers = await folderManager.getAssignableUsers();
-			const copilotUser = assignableUsers[issueModel.remote.remoteName]?.find(user => COPILOT_ACCOUNTS[user.login]);
-
-			if (!copilotUser) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Copilot coding agent is not available for assignment in this repository'));
-				return;
-			}
-
-			// Assign the issue to the copilot user
-			await issueModel.replaceAssignees([...(issueModel.assignees ?? []), copilotUser]);
-			vscode.window.showInformationMessage(vscode.l10n.t('Issue #{0} has been assigned to Copilot coding agent', issueModel.number));
-		} catch (error) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to assign issue to coding agent: {0}', error.message));
-		}
-	}
 }
