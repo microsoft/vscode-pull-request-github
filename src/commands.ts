@@ -826,8 +826,8 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
-			if (pr === undefined) {
+		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | unknown) => {
+			if (pr === undefined || !(pr instanceof PRNode)) {
 				Logger.error('Unexpectedly received undefined when picking a PR for worktree checkout.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
@@ -835,12 +835,8 @@ export function registerCommands(
 			let pullRequestModel: PullRequestModel;
 			let repository: Repository | undefined;
 
-			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
-				pullRequestModel = pr.pullRequestModel;
-				repository = pr.repository;
-			} else {
-				pullRequestModel = pr;
-			}
+			pullRequestModel = pr.pullRequestModel;
+			repository = pr.repository;
 
 			// Validate that the PR has a valid head branch
 			if (!pullRequestModel.head) {
@@ -904,7 +900,7 @@ export function registerCommands(
 					progress.report({ message: vscode.l10n.t('Creating worktree at {0}...', worktreePath) });
 
 					const trackedBranchName = `${remoteName}/${branchName}`;
-					const localBranchName = `pr-${pullRequestModel.number}-${branchName}`;
+					const localBranchName = branchName;
 
 					try {
 						// Create a VS Code task to execute the git worktree command
