@@ -1204,6 +1204,18 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "pr.createCommentAndResolve",
+				"title": "%command.pr.createCommentAndResolve.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!commentIsEmpty"
+			},
+			{
+				"command": "pr.createSingleCommentAndResolve",
+				"title": "%command.pr.createSingleCommentAndResolve.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!commentIsEmpty"
+			},
+			{
 				"command": "pr.makeSuggestion",
 				"title": "%command.pr.makeSuggestion.title%",
 				"category": "%command.pull.request.category%"
@@ -2312,6 +2324,14 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.createCommentAndResolve",
+					"when": "false"
+				},
+				{
+					"command": "pr.createSingleCommentAndResolve",
+					"when": "false"
+				},
+				{
 					"command": "pr.makeSuggestion",
 					"when": "false"
 				},
@@ -3239,6 +3259,16 @@
 					"command": "pr.createSingleComment",
 					"group": "inline@2",
 					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || commentController =~ /^github-review/ && !reviewInDraftMode)"
+				},
+				{
+					"command": "pr.createCommentAndResolve",
+					"group": "inline@3",
+					"when": "commentThread =~ /canResolve/ && ((commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode))"
+				},
+				{
+					"command": "pr.createSingleCommentAndResolve",
+					"group": "inline@3",
+					"when": "commentThread =~ /canResolve/ && config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				}
 			],
 			"comments/comment/editorActions": [
