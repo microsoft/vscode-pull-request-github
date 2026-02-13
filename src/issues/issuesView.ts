@@ -157,7 +157,7 @@ export class IssuesTreeData
 
 	getChildren(
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem | undefined,
-	): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	): FolderRepositoryManager[] | QueryNode[] | Promise<FolderRepositoryManager[] | QueryNode[] | IssueItem[] | IssueGroupNode[]> {
 		if (element === undefined && this.manager.state !== ReposManagerState.RepositoriesLoaded) {
 			return this.getStateChildren();
 		} else {
@@ -185,12 +185,23 @@ export class IssuesTreeData
 		}
 	}
 
-	private getRootChildren(): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	private async getRootChildren(): Promise<FolderRepositoryManager[] | QueryNode[] | IssueItem[] | IssueGroupNode[]> {
 		// If there's only one folder manager go straight to the query nodes
 		if (this.manager.folderManagers.length === 1) {
 			return this.getRepoChildren(this.manager.folderManagers[0]);
 		} else if (this.manager.folderManagers.length > 1) {
-			return this.manager.folderManagers;
+			// Hide repositories that have no matching issues in any query
+			const managersWithIssues: FolderRepositoryManager[] = [];
+			for (const fm of this.manager.folderManagers) {
+				const issueCol = this.stateManager.getIssueCollection(fm.repository.rootUri);
+				const queryResultPromises = Array.from(issueCol.values());
+				const queryResults = await Promise.all(queryResultPromises);
+				const hasMatchingIssues = queryResults.some(r => r.issues && r.issues.length > 0);
+				if (hasMatchingIssues) {
+					managersWithIssues.push(fm);
+				}
+			}
+			return managersWithIssues;
 		} else {
 			return [];
 		}
@@ -246,7 +257,7 @@ export class IssuesTreeData
 
 	getIssuesChildren(
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem | undefined,
-	): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	): FolderRepositoryManager[] | QueryNode[] | Promise<FolderRepositoryManager[] | QueryNode[] | IssueItem[] | IssueGroupNode[]> {
 		if (element === undefined) {
 			return this.getRootChildren();
 		} else if (element instanceof FolderRepositoryManager) {
