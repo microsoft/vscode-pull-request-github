@@ -859,18 +859,17 @@ export function registerCommands(
 			*/
 			telemetry.sendTelemetryEvent('pr.checkoutInWorktree');
 
-			return vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('Checking out Pull Request #{0} in worktree', pullRequestModel.number),
-				},
-				async (progress) => {
-					// Generate a branch name for the worktree
-					const branchName = prHead.ref;
-					const remoteName = pullRequestModel.remote.remoteName;
+			// Prepare for parallel operations
+			const repoRootPath = repositoryToUse.rootUri.fsPath;
+			const parentDir = pathLib.dirname(repoRootPath);
+			const defaultWorktreePath = pathLib.join(parentDir, `pr-${pullRequestModel.number}`);
+			const branchName = prHead.ref;
+			const remoteName = pullRequestModel.remote.remoteName;
 
-					// Fetch the PR branch first
-					progress.report({ message: vscode.l10n.t('Fetching branch {0}...', branchName) });
+			// Run fetch and worktree location selection in parallel
+			const [, worktreeUri] = await Promise.all([
+				// Fetch the PR branch
+				(async () => {
 					try {
 						await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
 					} catch (e) {
@@ -878,59 +877,62 @@ export function registerCommands(
 						Logger.appendLine(`Failed to fetch branch ${branchName}: ${errorMessage}`, logId);
 						// Continue even if fetch fails - the branch might already be available locally
 					}
+				})(),
+				// Ask user for worktree location
+				vscode.window.showSaveDialog({
+					defaultUri: vscode.Uri.file(defaultWorktreePath),
+					title: vscode.l10n.t('Select Worktree Location'),
+					saveLabel: vscode.l10n.t('Create Worktree'),
+				})
+			]);
 
-					// Ask user for worktree location
-					const repoRootPath = repositoryToUse.rootUri.fsPath;
-					const parentDir = pathLib.dirname(repoRootPath);
-					const defaultWorktreePath = pathLib.join(parentDir, `pr-${pullRequestModel.number}`);
+			if (!worktreeUri) {
+				return; // User cancelled
+			}
 
-					const worktreeUri = await vscode.window.showSaveDialog({
-						defaultUri: vscode.Uri.file(defaultWorktreePath),
-						title: vscode.l10n.t('Select Worktree Location'),
-						saveLabel: vscode.l10n.t('Create Worktree'),
-					});
+			const worktreePath = worktreeUri.fsPath;
+			const trackedBranchName = `${remoteName}/${branchName}`;
 
-					if (!worktreeUri) {
-						return; // User cancelled
-					}
+			try {
+				// Check if the createWorktree API is available
+				if (!repositoryToUse.createWorktree) {
+					throw new Error(vscode.l10n.t('Git worktree API is not available. Please update VS Code to the latest version.'));
+				}
 
-					const worktreePath = worktreeUri.fsPath;
+				// Store reference to ensure type narrowing
+				const createWorktree = repositoryToUse.createWorktree;
 
-					// Create the worktree using the git extension API
-					progress.report({ message: vscode.l10n.t('Creating worktree at {0}...', worktreePath) });
-
-					const trackedBranchName = `${remoteName}/${branchName}`;
-
-					try {
-						// Check if the createWorktree API is available
-						if (!repositoryToUse.createWorktree) {
-							throw new Error(vscode.l10n.t('Git worktree API is not available. Please update VS Code to the latest version.'));
-						}
-
+				// Create the worktree with progress
+				await vscode.window.withProgress(
+					{
+						location: vscode.ProgressLocation.Notification,
+						title: vscode.l10n.t('Creating worktree for Pull Request #{0}...', pullRequestModel.number),
+					},
+					async () => {
 						// Use the git extension's createWorktree API
-						await repositoryToUse.createWorktree({
+						await createWorktree({
 							path: worktreePath,
 							commitish: trackedBranchName,
 							branch: branchName
 						});
-
-						// Ask user if they want to open the worktree
-						const openAction = vscode.l10n.t('Open in New Window');
-						const result = await vscode.window.showInformationMessage(
-							vscode.l10n.t('Worktree created for Pull Request #{0}', pullRequestModel.number),
-							openAction
-						);
-
-						if (result === openAction) {
-							await commands.openFolder(worktreeUri, { forceNewWindow: true });
-						}
-					} catch (e) {
-						const errorMessage = e instanceof Error ? e.message : String(e);
-						Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
-						return vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
 					}
+				);
+
+				// Ask user if they want to open the worktree (after progress is finished)
+				const openAction = vscode.l10n.t('Open in New Window');
+				const result = await vscode.window.showInformationMessage(
+					vscode.l10n.t('Worktree created for Pull Request #{0}', pullRequestModel.number),
+					openAction
+				);
+
+				if (result === openAction) {
+					await commands.openFolder(worktreeUri, { forceNewWindow: true });
 				}
-			);
+			} catch (e) {
+				const errorMessage = e instanceof Error ? e.message : String(e);
+				Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
+			}
 		}),
 	);
 
