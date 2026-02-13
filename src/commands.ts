@@ -899,9 +899,6 @@ export function registerCommands(
 					throw new Error(vscode.l10n.t('Git worktree API is not available. Please update VS Code to the latest version.'));
 				}
 
-				// Store reference to ensure type narrowing
-				const createWorktree = repositoryToUse.createWorktree;
-
 				// Create the worktree with progress
 				await vscode.window.withProgress(
 					{
@@ -910,7 +907,7 @@ export function registerCommands(
 					},
 					async () => {
 						// Use the git extension's createWorktree API
-						await createWorktree({
+						await repositoryToUse.createWorktree!({
 							path: worktreePath,
 							commitish: trackedBranchName,
 							branch: branchName
