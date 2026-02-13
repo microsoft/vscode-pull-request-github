@@ -526,6 +526,15 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		};
 
+		const retrySamlAuth = async (repos: GitHubRepository[]): Promise<GitHubRepository[]> => {
+			const retryResult = await this._credentialStore.showSamlMessageAndAuth(repos.map(repo => repo.remote.owner));
+			if (retryResult.canceled) {
+				return repos;
+			}
+			const retryTest = await Promise.all(repos.map(repo => repo.resolveRemote()));
+			return retryTest.map((result, index) => !result ? repos[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+		};
+
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
 			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
@@ -540,12 +549,29 @@ export class FolderRepositoryManager extends Disposable {
 				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
 				// Make a test call to see if the user has SAML enabled.
 				if (stillMissing.length > 0) {
+					const reauthenticate = vscode.l10n.t('Reauthenticate');
 					if (stillMissing.length === repositories.length) {
-						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
+						const choice = await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true }, reauthenticate);
+						if (choice === reauthenticate) {
+							const stillMissingAfterRetry = await retrySamlAuth(stillMissing);
+							// Only proceed if all repositories now have SAML access
+							if (stillMissingAfterRetry.length === 0) {
+								// Success! Continue with initialization
+								return false;
+							}
+						}
 						this.dispose();
 						return true;
 					}
-					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
+					const choice = await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true }, reauthenticate);
+					if (choice === reauthenticate) {
+						const stillMissingAfterRetry = await retrySamlAuth(stillMissing);
+						// Accept partial success - if some repositories now have access, continue
+						if (stillMissingAfterRetry.length < stillMissing.length) {
+							cleanUpMissingSaml(stillMissingAfterRetry);
+							return false;
+						}
+					}
 					cleanUpMissingSaml(stillMissing);
 				}
 			}
