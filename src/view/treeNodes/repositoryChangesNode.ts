@@ -15,6 +15,7 @@ import { ReviewModel } from '../reviewModel';
 import { CommitsNode } from './commitsCategoryNode';
 import { FilesCategoryNode } from './filesCategoryNode';
 import { BaseTreeNode, TreeNode } from './treeNode';
+import { compareIgnoreCase } from '../../common/utils';
 
 export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
@@ -79,7 +80,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
 		if (this.parent.view.visible && activeEditorUri) {
-			const matchingFile = this._reviewModel.localFileChanges.find(change => change.changeModel.filePath.toString() === activeEditorUri);
+			const matchingFile = this._reviewModel.localFileChanges.find(change => compareIgnoreCase(change.changeModel.filePath.toString(), activeEditorUri) === 0);
 			if (matchingFile) {
 				this.reveal(matchingFile, { select: true });
 			}
