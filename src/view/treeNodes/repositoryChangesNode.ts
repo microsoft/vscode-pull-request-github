@@ -51,7 +51,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		this.getTreeItem();
 
 		this._register(vscode.window.onDidChangeActiveTextEditor(e => {
-			if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(FILE_AUTO_REVEAL)) {
+			if (this.isFileAutoRevealEnabled()) {
 				const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
 				if (tabInput instanceof vscode.TabInputTextDiff) {
 					if ((tabInput.original.scheme === Schemes.Review)
@@ -66,6 +66,9 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		}));
 
 		this._register(this.parent.view.onDidChangeVisibility(_ => {
+			if (!this.isFileAutoRevealEnabled()) {
+				return;
+			}
 			const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
 			this.revealActiveEditorInTree(activeEditorUri);
 		}));
@@ -77,10 +80,19 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		}));
 	}
 
+	private isFileAutoRevealEnabled(): boolean {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(FILE_AUTO_REVEAL, true);
+	}
+
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
+		// File nodes are wired into the tree when FilesCategoryNode children are built.
+		// Skip reveal attempts before that to avoid invalid handle lookups.
+		if (!this._filesCategoryNode) {
+			return;
+		}
 		if (this.parent.view.visible && activeEditorUri) {
 			const matchingFile = this._reviewModel.localFileChanges.find(change => change.changeModel.filePath.toString() === activeEditorUri);
-			if (matchingFile) {
+			if (matchingFile && matchingFile.parent !== this.parent) {
 				this.reveal(matchingFile, { select: true });
 			}
 		}
