@@ -130,6 +130,32 @@ export class CredentialStore extends Disposable {
 		await this.context.globalState.update(LAST_USED_SCOPES_GITHUB_KEY, this._scopes);
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
+
+	private async tryInitializeFromEnvironmentToken(authProviderId: AuthProvider): Promise<AuthResult | undefined> {
+		if (isEnterprise(authProviderId)) {
+			return undefined;
+		}
+		const token = process.env.GITHUB_OAUTH_TOKEN;
+		if (!token) {
+			return undefined;
+		}
+		Logger.debug('Attempting authentication using GITHUB_OAUTH_TOKEN environment variable.', CredentialStore.ID);
+		try {
+			const github = await this.createHub(token, authProviderId);
+			this._githubAPI = github;
+			this._sessionId = 'environment-token';
+			if (!this._isInitialized) {
+				this._isInitialized = true;
+				this._onDidInitialize.fire();
+			}
+			Logger.appendLine('Successfully authenticated using GITHUB_OAUTH_TOKEN environment variable.', CredentialStore.ID);
+			return { canceled: false };
+		} catch (e) {
+			Logger.error(`Failed to authenticate using GITHUB_OAUTH_TOKEN: ${e.message}`, CredentialStore.ID);
+			return undefined;
+		}
+	}
+
 	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
 		if (isEnterprise(authProviderId)) {
@@ -137,6 +163,11 @@ export class CredentialStore extends Disposable {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return { canceled: false };
 			}
+		}
+
+		const envResult = await this.tryInitializeFromEnvironmentToken(authProviderId);
+		if (envResult) {
+			return envResult;
 		}
 
 		if (getAuthSessionOptions.createIfNone === undefined && getAuthSessionOptions.forceNewSession === undefined) {
