@@ -42,7 +42,14 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 					<span>{text}</span>
 				</div>
 				<span className="sticky-header-title" dangerouslySetInnerHTML={{ __html: pr.titleHTML }} />
-				<a className="sticky-header-number" href={pr.url}>#{pr.number}</a>
+				<a
+					className="sticky-header-number"
+					href={pr.url}
+					title={pr.url}
+					data-vscode-context={JSON.stringify({ url: pr.url })}
+				>
+					#{pr.number}
+				</a>
 				<button title="Copy Link" onClick={copyPrLink} className="icon-button sticky-header-copy" aria-label="Copy Pull Request Link">
 					{copyIcon}
 				</button>
