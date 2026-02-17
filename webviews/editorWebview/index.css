@@ -95,6 +95,15 @@ textarea:focus,
 	fill: var(--vscode-button-foreground);
 }
 
+.vscode-high-contrast .sticky-header-left #sticky-status {
+	border: 1px solid var(--vscode-contrastBorder);
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.vscode-high-contrast .sticky-header-left #sticky-status svg path {
+	fill: var(--vscode-button-foreground);
+}
 .sticky-header-title {
 	font-weight: 600;
 	white-space: nowrap;
