@@ -37,7 +37,7 @@ declare module 'vscode' {
 		 *
 		 * @deprecated Use {@linkcode createChatSessionItemController} instead.
 		 *
-		 * To use this, also make sure to also add `chatSessions` contribution in the `package.json`.
+		 * To use this, also make sure to add `chatSessions` contribution in the `package.json`.
 		 *
 		 * @param chatSessionType The type of chat session the provider is for.
 		 * @param provider The provider to register.
@@ -49,7 +49,7 @@ declare module 'vscode' {
 		/**
 		 * Creates a new {@link ChatSessionItemController chat session item controller} with the given unique identifier.
 		 *
-		 * To use this, also make sure to also add `chatSessions` contribution in the `package.json`.
+		 * To use this, also make sure to add `chatSessions` contribution in the `package.json`.
 		 *
 		 * @param chatSessionType The type of chat session the provider is for.
 		 * @param refreshHandler The controller's {@link ChatSessionItemController.refreshHandler refresh handler}.
@@ -176,7 +176,7 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * A chat session show in the UI.
+	 * A chat session shown in the UI.
 	 *
 	 * This should be created by calling a {@link ChatSessionItemController.createChatSessionItem createChatSessionItem}
 	 * method on the controller. The item can then be added to the controller's {@link ChatSessionItemController.items items collection}
@@ -186,7 +186,7 @@ declare module 'vscode' {
 		/**
 		 * The resource associated with the chat session.
 		 *
-		 * This is uniquely identifies the chat session and is used to open the chat session.
+		 * This uniquely identifies the chat session and is used to open the chat session.
 		 */
 		readonly resource: Uri;
 
