@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import * as React from 'react';
 import { cleanup, render } from 'react-testing-library';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Overview } from '../overview';
@@ -15,7 +15,7 @@ import { PullRequestBuilder } from './builder/pullRequest';
 describe('Overview', function () {
 	let sinon: SinonSandbox;
 	let observerCallback: IntersectionObserverCallback;
-	let mockIntersectionObserver: any;
+	let mockIntersectionObserver: SinonStub;
 
 	beforeEach(function () {
 		sinon = createSandbox();
