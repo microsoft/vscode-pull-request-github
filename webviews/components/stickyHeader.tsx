@@ -48,7 +48,14 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 					className="sticky-header-number"
 					href={pr.url}
 					title={pr.url}
-					data-vscode-context={JSON.stringify({ url: pr.url })}
+					data-vscode-context={JSON.stringify({
+						url: pr.url,
+						preventDefaultContextMenuItems: true,
+						owner: pr.owner,
+						repo: pr.repo,
+						number: pr.number,
+						'github:copyMenu': true,
+					})}
 				>
 					#{pr.number}
 				</a>
