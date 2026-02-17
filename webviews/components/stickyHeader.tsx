@@ -34,10 +34,18 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 	const { text, color, icon } = getStatus(pr.state, !!pr.isDraft, pr.isIssue, pr.stateReason);
 	const { copyPrLink } = React.useContext(PullRequestContext);
 
-	const hiddenProps: Record<string, string> = visible ? {} : { inert: '', 'aria-hidden': 'true' };
+	const stickyRef = React.useCallback((node: HTMLDivElement | null) => {
+		if (node) {
+			if (visible) {
+				node.removeAttribute('inert');
+			} else {
+				node.setAttribute('inert', '');
+			}
+		}
+	}, [visible]);
 
 	return (
-		<div className={`sticky-header${visible ? ' visible' : ''}`} {...hiddenProps}>
+		<div ref={stickyRef} className={`sticky-header${visible ? ' visible' : ''}`}>
 			<div className="sticky-header-left">
 				<div id="sticky-status" className={`status-badge-${color}`}>
 					<span className="icon">{icon}</span>
