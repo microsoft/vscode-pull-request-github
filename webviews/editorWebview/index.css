@@ -64,6 +64,10 @@ textarea:focus,
 	pointer-events: none;
 }
 
+.vscode-high-contrast .sticky-header {
+	box-shadow: none;
+}
+
 .sticky-header.visible {
 	transform: translateY(0);
 	opacity: 1;
