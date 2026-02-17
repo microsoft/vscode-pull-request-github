@@ -75,6 +75,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+			manageCheckboxStateManually: true
 		}));
 
 		this._register(this._view.onDidChangeVisibility(e => {
