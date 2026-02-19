@@ -825,6 +825,110 @@ export function registerCommands(
 		),
 	);
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | unknown) => {
+			if (pr === undefined || !(pr instanceof PRNode)) {
+				Logger.error('Unexpectedly received undefined when picking a PR for worktree checkout.', logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel;
+			let repository: Repository | undefined;
+
+			pullRequestModel = pr.pullRequestModel;
+			repository = pr.repository;
+
+			// Validate that the PR has a valid head branch
+			if (!pullRequestModel.head) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
+			}
+
+			// Store validated head to avoid non-null assertions later
+			const prHead = pullRequestModel.head;
+
+			// Get the folder manager to access the repository
+			const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
+			if (!folderManager) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
+			}
+
+			const repositoryToUse = repository || folderManager.repository;
+
+			/* __GDPR__
+				"pr.checkoutInWorktree" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.checkoutInWorktree');
+
+			// Prepare for operations
+			const repoRootPath = repositoryToUse.rootUri.fsPath;
+			const parentDir = pathLib.dirname(repoRootPath);
+			const defaultWorktreePath = pathLib.join(parentDir, `pr-${pullRequestModel.number}`);
+			const branchName = prHead.ref;
+			const remoteName = pullRequestModel.remote.remoteName;
+
+			// Ask user for worktree location first (not in progress)
+			const worktreeUri = await vscode.window.showSaveDialog({
+				defaultUri: vscode.Uri.file(defaultWorktreePath),
+				title: vscode.l10n.t('Select Worktree Location'),
+				saveLabel: vscode.l10n.t('Create Worktree'),
+			});
+
+			if (!worktreeUri) {
+				return; // User cancelled
+			}
+
+			const worktreePath = worktreeUri.fsPath;
+			const trackedBranchName = `${remoteName}/${branchName}`;
+
+			try {
+				// Check if the createWorktree API is available
+				if (!repositoryToUse.createWorktree) {
+					throw new Error(vscode.l10n.t('Git worktree API is not available. Please update VS Code to the latest version.'));
+				}
+
+				// Start progress for fetch and worktree creation
+				await vscode.window.withProgress(
+					{
+						location: vscode.ProgressLocation.Notification,
+						title: vscode.l10n.t('Creating worktree for Pull Request #{0}...', pullRequestModel.number),
+					},
+					async () => {
+						// Fetch the PR branch first
+						try {
+							await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
+						} catch (e) {
+							const errorMessage = e instanceof Error ? e.message : String(e);
+							Logger.appendLine(`Failed to fetch branch ${branchName}: ${errorMessage}`, logId);
+							// Continue even if fetch fails - the branch might already be available locally
+						}
+
+						// Use the git extension's createWorktree API
+						await repositoryToUse.createWorktree!({
+							path: worktreePath,
+							commitish: trackedBranchName,
+							branch: branchName
+						});
+					}
+				);
+
+				// Ask user if they want to open the worktree (after progress is finished)
+				const openAction = vscode.l10n.t('Open in New Window');
+				const result = await vscode.window.showInformationMessage(
+					vscode.l10n.t('Worktree created for Pull Request #{0}', pullRequestModel.number),
+					openAction
+				);
+
+				if (result === openAction) {
+					await commands.openFolder(worktreeUri, { forceNewWindow: true });
+				}
+			} catch (e) {
+				const errorMessage = e instanceof Error ? e.message : String(e);
+				Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
+			}
+		}),
+	);
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
