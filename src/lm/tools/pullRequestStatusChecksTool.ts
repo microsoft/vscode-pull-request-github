@@ -51,10 +51,9 @@ export class PullRequestStatusChecksTool extends RepoToolBase<StatusChecksToolPa
 		const pullRequest = issueOrPullRequest;
 		const status = await pullRequest.getStatusChecks();
 		const statuses = status[0]?.statuses ?? [];
-		const failures = statuses.filter(s => s.state === CheckState.Failure);
 
-		// Fetch logs for failed check runs in parallel
-		const failedChecks = await Promise.all(failures.map(async (s) => {
+		// Return all status checks, but only fetch logs for failures
+		const statusChecks = await Promise.all(statuses.map(async (s) => {
 			const entry: Record<string, any> = {
 				context: s.context,
 				description: s.description,
@@ -62,7 +61,7 @@ export class PullRequestStatusChecksTool extends RepoToolBase<StatusChecksToolPa
 				name: s.workflowName,
 				targetUrl: s.targetUrl,
 			};
-			if (s.isCheckRun && s.databaseId) {
+			if (s.state === CheckState.Failure && s.isCheckRun && s.databaseId) {
 				try {
 					entry.logs = await pullRequest.githubRepository.getCheckRunLogs(s.databaseId);
 				} catch (e) {
@@ -73,7 +72,7 @@ export class PullRequestStatusChecksTool extends RepoToolBase<StatusChecksToolPa
 		}));
 
 		const statusChecksInfo = {
-			failedChecks,
+			statusChecks,
 			reviewRequirements: {
 				approvalsNeeded: status[1]?.count ?? 0,
 				currentApprovals: status[1]?.approvals.length ?? 0,
