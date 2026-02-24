@@ -11,7 +11,7 @@ import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
-import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE, SHOW_ONLY_OWNED_FILES } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { SessionLinkInfo } from './common/timelineEvent';
@@ -1515,6 +1515,14 @@ ${contents}
 			const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 			const currentValue = config.get<boolean>(HIDE_VIEWED_FILES, false);
 			config.update(HIDE_VIEWED_FILES, !currentValue, vscode.ConfigurationTarget.Global);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleShowOnlyOwnedFiles', _ => {
+			const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+			const currentValue = config.get<boolean>(SHOW_ONLY_OWNED_FILES, false);
+			config.update(SHOW_ONLY_OWNED_FILES, !currentValue, vscode.ConfigurationTarget.Global);
 		}),
 	);
 
