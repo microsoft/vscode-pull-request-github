@@ -50,6 +50,13 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		}
 
 		const timeline = (pullRequest.timelineEvents && pullRequest.timelineEvents.length > 0) ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
+		const reviewAndCommentEvents = timeline.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented);
+
+		if ((pullRequest.comments.length === 0) && (reviewAndCommentEvents.length !== 0)) {
+			// Probably missing some comments
+			await pullRequest.initializeReviewThreadCacheAndReviewComments();
+		}
+
 		const pullRequestInfo = {
 			title: pullRequest.title,
 			body: pullRequest.body,
@@ -63,7 +70,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 					file: comment.path
 				};
 			}),
-			timelineComments: timeline.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented).map(event => {
+			timelineComments: reviewAndCommentEvents.map(event => {
 				return {
 					author: event.user?.login,
 					body: event.body,
