@@ -43,11 +43,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected _scrollPosition = { x: 0, y: 0 };
 
 	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
+		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
-			: (panel ? undefined : (vscode.window.activeTextEditor
-				? vscode.window.activeTextEditor.viewColumn
-				: vscode.ViewColumn.One));
+			: (panel ? undefined : tabViewColumn);
 		return activeColumn;
 	}
 
