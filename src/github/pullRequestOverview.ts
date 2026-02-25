@@ -82,14 +82,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		*/
 		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 
-		const activeColumn = toTheSide
-			? vscode.ViewColumn.Beside
-			: vscode.window.activeTextEditor
-				? vscode.window.activeTextEditor.viewColumn
-				: vscode.ViewColumn.One;
-
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
+
+		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
+
 		if (panel) {
 			panel._panel.reveal(activeColumn, preserveFocus);
 		} else {
