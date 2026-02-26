@@ -485,6 +485,54 @@ export class CredentialStore extends Disposable {
 		github.isEmu = getUser.then(result => result.data.plan?.name === 'emu_user');
 	}
 
+	/**
+	 * Check if the user is authenticated and might benefit from checking account preferences.
+	 * Note: Due to VS Code API limitations, we cannot directly check if multiple accounts are available.
+	 * This method returns true if the user is authenticated, as they may have multiple accounts
+	 * configured in VS Code that they can switch to via the "Manage Account Preferences" command.
+	 */
+	public async isAuthenticatedForAccountPreferences(authProviderId: AuthProvider): Promise<boolean> {
+		return this.isAuthenticated(authProviderId);
+	}
+
+	/**
+	 * Show a modal dialog suggesting the user might be using the wrong GitHub account.
+	 * Offers to open the "Manage Account Preferences" command.
+	 * @param repoName The repository name that couldn't be accessed
+	 * @param authProviderId The authentication provider ID
+	 * @returns true if the user chose to manage account preferences, false otherwise
+	 */
+	public async showWrongAccountModal(repoName: string, authProviderId: AuthProvider): Promise<boolean> {
+		let accountName: string;
+		try {
+			const currentUser = await this.getCurrentUser(authProviderId);
+			accountName = currentUser?.login ?? vscode.l10n.t('your current account');
+		} catch {
+			accountName = vscode.l10n.t('your current account');
+		}
+
+		const manageAccountPreferences = vscode.l10n.t('Manage Account Preferences');
+		const result = await vscode.window.showErrorMessage(
+			vscode.l10n.t(
+				'Unable to access repository "{0}" with the current GitHub account ({1}). You may have multiple GitHub accounts configured. Would you like to check your account preferences?',
+				repoName,
+				accountName
+			),
+			{ modal: true },
+			manageAccountPreferences
+		);
+
+		if (result === manageAccountPreferences) {
+			try {
+				await vscode.commands.executeCommand('_account.manageAccountPreferences', 'GitHub.vscode-pull-request-github');
+			} catch (e) {
+				Logger.error(`Failed to open manage account preferences: ${e}`, CredentialStore.ID);
+			}
+			return true;
+		}
+		return false;
+	}
+
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
 		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await this.findExistingScopes(authProviderId);
 		if (existingSession?.session) {
