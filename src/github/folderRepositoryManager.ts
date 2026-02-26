@@ -11,7 +11,7 @@ import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { CopilotWorkingStatus, GitHubRepository, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { CopilotWorkingStatus, GitHubRepository, isRateLimitError, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestResponse, PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
@@ -2957,7 +2957,16 @@ export class FolderRepositoryManager extends Disposable {
 			pushRemote,
 			this.credentialStore,
 		);
-		const permission = await githubRepo.getViewerPermission();
+		let permission: ViewerPermission;
+		try {
+			permission = await githubRepo.getViewerPermission();
+		} catch (e) {
+			if (isRateLimitError(e)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'), { modal: true });
+				return;
+			}
+			throw e;
+		}
 		let selectedRemote: GitHubRemote | undefined;
 		if (
 			permission === ViewerPermission.Read ||
