@@ -124,6 +124,26 @@ export enum ViewerPermission {
 	Write = 'WRITE',
 }
 
+export class RateLimitError extends Error {
+	constructor(message?: string) {
+		super(message ?? 'GitHub API rate limit exceeded');
+		this.name = 'RateLimitError';
+	}
+}
+
+export function isRateLimitError(e: unknown): boolean {
+	if (e instanceof RateLimitError) {
+		return true;
+	}
+	if (e instanceof Error) {
+		const msg = e.message.toLowerCase();
+		if (msg.includes('rate limit') || msg.includes('secondary rate') || msg.includes('abuse detection')) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export enum TeamReviewerRefreshKind {
 	None,
 	Try,
@@ -941,6 +961,9 @@ export class GitHubRepository extends Disposable {
 			return parseGraphQLViewerPermission(data);
 		} catch (e) {
 			Logger.error(`Unable to fetch viewer permission: ${e}`, this.id);
+			if (isRateLimitError(e)) {
+				throw new RateLimitError();
+			}
 			return ViewerPermission.Unknown;
 		}
 	}
