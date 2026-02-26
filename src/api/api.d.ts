@@ -209,6 +209,9 @@ export interface Repository {
 	add(paths: string[]): Promise<void>;
 	merge(ref: string): Promise<void>;
 	mergeAbort(): Promise<void>;
+
+	createWorktree?(options?: { path?: string; commitish?: string; branch?: string }): Promise<string>;
+	deleteWorktree?(path: string, options?: { force?: boolean }): Promise<void>;
 }
 
 /**
