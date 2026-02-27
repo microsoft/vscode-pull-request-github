@@ -667,14 +667,17 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
-		this._defaultCompareBranch = compareBranch!.name!;
-		this.model.setCompareBranch(compareBranch!.name);
-		this.changeBranch(compareBranch!.name!, false).then(async titleAndDescription => {
+		if (!compareBranch?.name) {
+			return;
+		}
+		this._defaultCompareBranch = compareBranch.name;
+		this.model.setCompareBranch(compareBranch.name);
+		this.changeBranch(compareBranch.name, false).then(async titleAndDescription => {
 			const params: Partial<CreateParamsNew> = {
 				defaultTitle: titleAndDescription.title,
 				defaultDescription: titleAndDescription.description,
-				compareBranch: compareBranch?.name,
-				defaultCompareBranch: compareBranch?.name,
+				compareBranch: compareBranch.name,
+				defaultCompareBranch: compareBranch.name,
 				warning: await this.existingPRMessage(),
 			};
 			return this._postMessage({

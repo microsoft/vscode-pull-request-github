@@ -195,6 +195,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.updateViewed(viewed);
 	}
 
+	public refreshFileViewedContext() {
+		this.pullRequestManager.setFileViewedContext();
+	}
+
 	updateShowOptions() {
 		const reviewThreads = this.pullRequest.reviewThreadsCache;
 		const reviewThreadsByFile = groupBy(reviewThreads, thread => thread.path);

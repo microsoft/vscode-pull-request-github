@@ -42,25 +42,30 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 
+	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
+		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
+		const activeColumn = toTheSide
+			? vscode.ViewColumn.Beside
+			: (panel ? undefined : tabViewColumn);
+		return activeColumn;
+	}
+
 	public static async createOrShow(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
 		issue?: IssueModel,
-		toTheSide: Boolean = false,
+		toTheSide: boolean = false,
 		_preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
 	) {
 		await ensureEmojis(folderRepositoryManager.context);
-		const activeColumn = toTheSide
-			? vscode.ViewColumn.Beside
-			: vscode.window.activeTextEditor
-				? vscode.window.activeTextEditor.viewColumn
-				: vscode.ViewColumn.One;
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
+		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
+
 		if (panel) {
 			panel._panel.reveal(activeColumn, true);
 		} else {

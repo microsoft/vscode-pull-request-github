@@ -15,30 +15,18 @@ export namespace TreeUtils {
 		const checkedNodes: FileChangeNode[] = [];
 		const uncheckedNodes: FileChangeNode[] = [];
 
-		// The first item is the one the user actually clicked.
-		// Only collect missing descendants if a directory was clicked directly.
-		const firstNode = checkboxUpdates.items[0]?.[0];
-
-		const eventNodes = new Set<TreeNode>(checkboxUpdates.items.map(([node]) => node));
-
-		checkboxUpdates.items.forEach(checkboxUpdate => {
-			const node = checkboxUpdate[0];
-			const newState = checkboxUpdate[1];
-
+		for (const [node, newState] of checkboxUpdates.items) {
 			if (node instanceof FileChangeNode) {
 				if (newState === vscode.TreeItemCheckboxState.Checked) {
 					checkedNodes.push(node);
 				} else {
 					uncheckedNodes.push(node);
 				}
-			} else if (firstNode instanceof DirectoryTreeNode && node === firstNode) {
-				// VS Code auto-propagates to rendered children, but unrendered children
-				// (due to virtual scrolling) won't be in the event. Collect those missing ones.
-				collectMissingDescendants(firstNode, newState, checkedNodes, uncheckedNodes, eventNodes);
+				node.updateFromCheckboxChanged(newState);
+			} else if (node instanceof DirectoryTreeNode) {
+				collectAllDescendants(node, newState, checkedNodes, uncheckedNodes);
 			}
-
-			node.updateFromCheckboxChanged(newState);
-		});
+		}
 
 		if (selectionContainsUpdates) {
 			for (const selected of selection) {
@@ -48,41 +36,72 @@ export namespace TreeUtils {
 				if (!checkedNodes.includes(selected) && !uncheckedNodes.includes(selected)) {
 					// Only process files that have checkboxes (files without checkboxState, like those under commits, are skipped)
 					if (selected.checkboxState?.state === vscode.TreeItemCheckboxState.Unchecked) {
+						selected.updateFromCheckboxChanged(vscode.TreeItemCheckboxState.Checked);
 						checkedNodes.push(selected);
 					} else if (selected.checkboxState?.state === vscode.TreeItemCheckboxState.Checked) {
+						selected.updateFromCheckboxChanged(vscode.TreeItemCheckboxState.Unchecked);
 						uncheckedNodes.push(selected);
 					}
 				}
 			}
 		}
 
+		// Refresh the tree so checkbox visual state updates.
+		// Refreshing the topmost affected directory will cascade to all descendants.
+		const allAffected = [...checkedNodes, ...uncheckedNodes];
+		const refreshedDirs = new Set<DirectoryTreeNode>();
+		for (const node of allAffected) {
+			let topDir: DirectoryTreeNode | undefined;
+			let parent = node.getParent();
+			while (parent instanceof DirectoryTreeNode) {
+				topDir = parent;
+				parent = parent.getParent();
+			}
+			if (topDir && !refreshedDirs.has(topDir)) {
+				refreshedDirs.add(topDir);
+				topDir.refresh(topDir);
+			}
+		}
+		// If a directory was clicked directly, also refresh it
+		for (const [node] of checkboxUpdates.items) {
+			if (node instanceof DirectoryTreeNode && !refreshedDirs.has(node)) {
+				refreshedDirs.add(node);
+				node.refresh(node);
+			}
+		}
+		// For flat layout (files have no directory parent), refresh file nodes directly
+		for (const node of allAffected) {
+			const parent = node.getParent();
+			if (!(parent instanceof DirectoryTreeNode)) {
+				node.refresh(node);
+			}
+		}
+
+		// Send API requests without firing state change events (UI is already updated optimistically).
+		// This prevents race conditions where overlapping markFiles calls cause checkboxes to flicker.
 		if (checkedNodes.length > 0) {
 			const prModel = checkedNodes[0].pullRequest;
 			const filenames = checkedNodes.map(n => n.fileName);
-			prModel.markFiles(filenames, true, 'viewed');
+			prModel.markFiles(filenames, false, 'viewed').then(() => {
+				checkedNodes[0].refreshFileViewedContext();
+			});
 		}
 		if (uncheckedNodes.length > 0) {
 			const prModel = uncheckedNodes[0].pullRequest;
 			const filenames = uncheckedNodes.map(n => n.fileName);
-			prModel.markFiles(filenames, true, 'unviewed');
+			prModel.markFiles(filenames, false, 'unviewed').then(() => {
+				uncheckedNodes[0].refreshFileViewedContext();
+			});
 		}
 	}
 
-	/**
-	 * Collect descendant FileChangeNodes that are NOT already in the event.
-	 * These are children VS Code missed because they weren't rendered (virtual scrolling).
-	 */
-	function collectMissingDescendants(
+	function collectAllDescendants(
 		dirNode: DirectoryTreeNode,
 		newState: vscode.TreeItemCheckboxState,
 		checkedNodes: FileChangeNode[],
-		uncheckedNodes: FileChangeNode[],
-		eventNodes: Set<TreeNode>
+		uncheckedNodes: FileChangeNode[]
 	): void {
 		for (const child of dirNode._children) {
-			if (eventNodes.has(child)) {
-				continue;
-			}
 			if (child instanceof FileChangeNode) {
 				if (newState === vscode.TreeItemCheckboxState.Checked) {
 					checkedNodes.push(child);
@@ -91,7 +110,7 @@ export namespace TreeUtils {
 				}
 				child.updateFromCheckboxChanged(newState);
 			} else if (child instanceof DirectoryTreeNode) {
-				collectMissingDescendants(child, newState, checkedNodes, uncheckedNodes, eventNodes);
+				collectAllDescendants(child, newState, checkedNodes, uncheckedNodes);
 			}
 		}
 	}

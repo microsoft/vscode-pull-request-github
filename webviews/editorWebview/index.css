@@ -43,6 +43,105 @@ textarea:focus,
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
+/* Sticky Header */
+
+.sticky-header {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 200;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 32px;
+	background: var(--vscode-editor-background);
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+	transform: translateY(-100%);
+	opacity: 0;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+	pointer-events: none;
+}
+
+.vscode-high-contrast .sticky-header {
+	box-shadow: none;
+}
+
+.sticky-header.visible {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.sticky-header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.sticky-header-left #sticky-status {
+	flex-shrink: 0;
+	box-sizing: border-box;
+	line-height: 18px;
+	color: var(--vscode-button-foreground);
+	border-radius: 18px;
+	padding: 2px 10px;
+	font-weight: 600;
+	font-size: 12px;
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.sticky-header-left #sticky-status svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+.vscode-high-contrast .sticky-header-left #sticky-status {
+	border: 1px solid var(--vscode-contrastBorder);
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.vscode-high-contrast .sticky-header-left #sticky-status svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+.sticky-header-title {
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.sticky-header-number {
+	flex-shrink: 0;
+	color: var(--vscode-textLink-foreground);
+	white-space: nowrap;
+}
+
+.sticky-header-number:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.sticky-header .icon-button {
+	color: var(--vscode-foreground);
+}
+
+.sticky-header .icon-button:hover,
+.sticky-header .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	cursor: pointer;
+}
+
+.sticky-header .icon-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
 .title-text {
 	margin-right: 5px;
 }
