@@ -341,9 +341,9 @@ export interface Embodied {
  * Ensures embedded videos can be unmuted via their player controls.
  * GitHub sets the HTML `muted` attribute on rendered `<video>` elements,
  * which causes the audio controls to be greyed-out inside VS Code
- * webviews. Removing the *attribute* while keeping the *property* set
- * means the video stays muted by default but the user can click the
- * unmute button in the player controls.
+ * webviews. We remove both the attribute and the muted property and
+ * instead set `volume = 0` so the video starts silent while keeping
+ * the volume controls fully functional.
  */
 function allowVideoUnmute(container: HTMLDivElement | null): void {
 	if (!container) {
@@ -352,8 +352,8 @@ function allowVideoUnmute(container: HTMLDivElement | null): void {
 	for (const el of Array.from(container.getElementsByTagName('video'))) {
 		if (el.hasAttribute('muted')) {
 			el.removeAttribute('muted');
-			// Keep the video muted by default - users can unmute via controls.
-			el.muted = true;
+			el.muted = false;
+			el.volume = 0;
 		}
 	}
 }
