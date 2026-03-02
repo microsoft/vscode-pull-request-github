@@ -338,19 +338,22 @@ export interface Embodied {
 }
 
 /**
- * Clears the `muted` state on any `<video>` elements within the given
- * container so that users can hear audio in embedded videos. GitHub sets
- * `muted` by default on rendered video elements, which causes the audio
- * controls to be greyed-out inside VS Code webviews.
+ * Ensures embedded videos can be unmuted via their player controls.
+ * GitHub sets the HTML `muted` attribute on rendered `<video>` elements,
+ * which causes the audio controls to be greyed-out inside VS Code
+ * webviews. Removing the *attribute* while keeping the *property* set
+ * means the video stays muted by default but the user can click the
+ * unmute button in the player controls.
  */
-function enableVideoAudio(container: HTMLDivElement | null): void {
+function allowVideoUnmute(container: HTMLDivElement | null): void {
 	if (!container) {
 		return;
 	}
 	for (const el of Array.from(container.getElementsByTagName('video'))) {
 		if (el.hasAttribute('muted')) {
 			el.removeAttribute('muted');
-			el.muted = false;
+			// Keep the video muted by default - users can unmute via controls.
+			el.muted = true;
 		}
 	}
 }
@@ -359,7 +362,7 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 	const bodyContainerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		enableVideoAudio(bodyContainerRef.current);
+		allowVideoUnmute(bodyContainerRef.current);
 	}, [bodyHTML]);
 
 	if (!body && !bodyHTML) {
