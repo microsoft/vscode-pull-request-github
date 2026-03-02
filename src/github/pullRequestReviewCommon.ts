@@ -13,7 +13,7 @@ import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, Subm
 import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
-import { formatError } from '../common/utils';
+import { formatError, isDescendant } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 
 /**
@@ -34,7 +34,7 @@ function isWorktreeInWorkspace(worktreePath: string): boolean {
 	if (!workspaceFolders) {
 		return false;
 	}
-	return workspaceFolders.some(folder => folder.uri.fsPath === worktreePath);
+	return workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, worktreePath));
 }
 
 /**
