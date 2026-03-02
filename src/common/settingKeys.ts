@@ -36,6 +36,7 @@ export const DEFAULT_MERGE_METHOD = 'defaultMergeMethod';
 export const DEFAULT_DELETION_METHOD = 'defaultDeletionMethod';
 export const SELECT_LOCAL_BRANCH = 'selectLocalBranch';
 export const SELECT_REMOTE = 'selectRemote';
+export const SELECT_WORKTREE = 'selectWorktree';
 export const DELETE_BRANCH_AFTER_MERGE = 'deleteBranchAfterMerge';
 export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';

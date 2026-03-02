@@ -10,7 +10,7 @@ import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewe
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
-import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE } from '../common/settingKeys';
+import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -289,7 +289,8 @@ export namespace PullRequestReviewCommon {
 	}
 
 	interface SelectedAction {
-		type: 'remoteHead' | 'local' | 'remote' | 'suspend'
+		type: 'remoteHead' | 'local' | 'remote' | 'suspend' | 'worktree'
+		worktreePath?: string;
 	};
 
 	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
@@ -331,6 +332,19 @@ export namespace PullRequestReviewCommon {
 					label: vscode.l10n.t('Delete remote {0}, which is no longer used by any other branch', branchInfo.remote),
 					type: 'remote',
 					picked: !!preferredRemoteDeletionMethod,
+				});
+			}
+
+			const worktreePath = await folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
+			if (worktreePath) {
+				const preferredWorktreeDeletion = vscode.workspace
+					.getConfiguration(PR_SETTINGS_NAMESPACE)
+					.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`);
+				actions.push({
+					label: vscode.l10n.t('Remove worktree {0}', worktreePath),
+					type: 'worktree',
+					worktreePath,
+					picked: !!preferredWorktreeDeletion,
 				});
 			}
 		}
@@ -384,7 +398,16 @@ export namespace PullRequestReviewCommon {
 		const isBranchActive = item.equals(folderRepositoryManager.activePullRequest) || (folderRepositoryManager.repository.state.HEAD?.name && folderRepositoryManager.repository.state.HEAD.name === branchInfo?.branch);
 		const deletedBranchTypes: string[] = [];
 
-		const promises = selectedActions.map(async action => {
+		// Remove worktree first, before deleting the branch, since a branch checked out
+		// in a worktree cannot be deleted.
+		const worktreeAction = selectedActions.find(a => a.type === 'worktree');
+		if (worktreeAction?.worktreePath) {
+			await folderRepositoryManager.removeWorktree(worktreeAction.worktreePath);
+			deletedBranchTypes.push(worktreeAction.type);
+		}
+
+		const remainingActions = selectedActions.filter(a => a.type !== 'worktree');
+		const promises = remainingActions.map(async action => {
 			switch (action.type) {
 				case 'remoteHead':
 					await folderRepositoryManager.deleteBranch(item);
@@ -495,6 +518,17 @@ export namespace PullRequestReviewCommon {
 		// Delete remote if it's no longer used and preference is set
 		if (branchInfo && branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse && deleteRemote) {
 			selectedActions.push({ type: 'remote' });
+		}
+
+		// Remove worktree if preference is set
+		const deleteWorktree = vscode.workspace
+			.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`, false);
+		if (branchInfo && deleteWorktree) {
+			const worktreePath = await folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
+			if (worktreePath) {
+				selectedActions.push({ type: 'worktree', worktreePath });
+			}
 		}
 
 		// Execute all deletions in parallel

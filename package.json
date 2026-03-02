@@ -309,6 +309,11 @@
 					"default": true,
 					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
 				},
+				"githubPullRequests.defaultDeletionMethod.selectWorktree": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.defaultDeletionMethod.selectWorktree.description%"
+				},
 				"githubPullRequests.deleteBranchAfterMerge": {
 					"type": "boolean",
 					"default": false,

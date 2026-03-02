@@ -2450,6 +2450,57 @@ export class FolderRepositoryManager extends Disposable {
 		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
+	async getWorktreeForBranch(branchName: string): Promise<string | undefined> {
+		try {
+			const { execFile } = await import('child_process');
+			const { promisify } = await import('util');
+			const execFileAsync = promisify(execFile);
+			const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
+			const { stdout } = await execFileAsync(gitPath, ['worktree', 'list', '--porcelain'], {
+				cwd: this.repository.rootUri.fsPath,
+			});
+
+			const worktrees = stdout.split('\n\n');
+			for (const entry of worktrees) {
+				const lines = entry.trim().split('\n');
+				let worktreePath: string | undefined;
+				let branch: string | undefined;
+				for (const line of lines) {
+					if (line.startsWith('worktree ')) {
+						worktreePath = line.substring('worktree '.length);
+					} else if (line.startsWith('branch ')) {
+						branch = line.substring('branch '.length);
+						// branch line is like "branch refs/heads/branchName"
+						const prefix = 'refs/heads/';
+						if (branch.startsWith(prefix)) {
+							branch = branch.substring(prefix.length);
+						}
+					}
+				}
+				if (branch === branchName && worktreePath) {
+					// Don't return the main worktree (the repository root itself)
+					const repoRoot = this.repository.rootUri.fsPath;
+					if (nodePath.resolve(worktreePath) !== nodePath.resolve(repoRoot)) {
+						return worktreePath;
+					}
+				}
+			}
+		} catch (e) {
+			Logger.error(`Failed to get worktree for branch ${branchName}: ${e}`, this.id);
+		}
+		return undefined;
+	}
+
+	async removeWorktree(worktreePath: string): Promise<void> {
+		const { execFile } = await import('child_process');
+		const { promisify } = await import('util');
+		const execFileAsync = promisify(execFile);
+		const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
+		await execFileAsync(gitPath, ['worktree', 'remove', worktreePath], {
+			cwd: this.repository.rootUri.fsPath,
+		});
+	}
+
 	async fetchAndCheckout(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<void> {
 		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest, progress);
 	}
