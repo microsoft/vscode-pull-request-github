@@ -290,6 +290,7 @@ export namespace PullRequestReviewCommon {
 
 	interface SelectedAction {
 		type: 'remoteHead' | 'local' | 'remote' | 'suspend' | 'worktree'
+		/** Path to the worktree directory to remove. Only used when type is 'worktree'. */
 		worktreePath?: string;
 	};
 

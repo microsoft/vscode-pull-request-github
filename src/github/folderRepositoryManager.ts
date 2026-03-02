@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { execFile } from 'child_process';
 import * as nodePath from 'path';
+import { promisify } from 'util';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
@@ -2452,8 +2454,6 @@ export class FolderRepositoryManager extends Disposable {
 
 	async getWorktreeForBranch(branchName: string): Promise<string | undefined> {
 		try {
-			const { execFile } = await import('child_process');
-			const { promisify } = await import('util');
 			const execFileAsync = promisify(execFile);
 			const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
 			const { stdout } = await execFileAsync(gitPath, ['worktree', 'list', '--porcelain'], {
@@ -2492,13 +2492,16 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {
-		const { execFile } = await import('child_process');
-		const { promisify } = await import('util');
-		const execFileAsync = promisify(execFile);
-		const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
-		await execFileAsync(gitPath, ['worktree', 'remove', worktreePath], {
-			cwd: this.repository.rootUri.fsPath,
-		});
+		try {
+			const execFileAsync = promisify(execFile);
+			const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
+			await execFileAsync(gitPath, ['worktree', 'remove', worktreePath], {
+				cwd: this.repository.rootUri.fsPath,
+			});
+		} catch (e) {
+			Logger.error(`Failed to remove worktree ${worktreePath}: ${e}`, this.id);
+			throw e;
+		}
 	}
 
 	async fetchAndCheckout(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<void> {
