@@ -274,6 +274,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private isUpdateBranchWithGitHubEnabled(): boolean {
 		// With the GraphQL UpdatePullRequestBranch API, we can update branches even when not checked out
 		// (as long as there are no conflicts). If there are conflicts, we need the branch to be checked out.
+		// GitHub Enterprise doesn't support the GraphQL UpdatePullRequestBranch mutation,
+		// so we always need the branch to be checked out for enterprise.
+		if (this._item.githubRepository.remote.isEnterprise) {
+			return this._item.isActive;
+		}
 		const hasConflicts = this._item.item.mergeable === PullRequestMergeability.Conflict;
 		if (hasConflicts) {
 			return this._item.isActive;

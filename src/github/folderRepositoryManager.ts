@@ -2486,7 +2486,7 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}
 
-		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict) {
+		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict && !pullRequest.githubRepository.remote.isEnterprise) {
 			const result = await vscode.window.withProgress(
 				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
 				async () => {
