@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.130.0
+
+### Changes
+
+- Multiple PR and issue descriptions can be open at once.
+- Repositories without matching issues are now hidden in the Issues view.
+- The setting `githubPullRequests.autoRepositoryDetection` can be set to `true` to include repositories that are outside of the workspace.
+
+### Fixes
+
+- GitHub Pull Requests: Refresh Chat Sessions command remains available with disableAIFeature set to true. https://github.com/microsoft/vscode-pull-request-github/issues/8376
+- Share permalink as markdown on tab should use filename for link text. https://github.com/microsoft/vscode-pull-request-github/issues/4663
+- "Branch does not exist locally" while rebasing. https://github.com/microsoft/vscode-pull-request-github/issues/8487
+- Coding Agent UI: Closed pull requests are not detected as closed. https://github.com/microsoft/vscode-pull-request-github/issues/8482
+- The "Refresh Pull Request Comments" command does not work. https://github.com/microsoft/vscode-pull-request-github/issues/8445
+- Popup "delegate to agent" unremovable. https://github.com/microsoft/vscode-pull-request-github/issues/8496
+- There is no indicator of what repository the PR relates to. https://github.com/microsoft/vscode-pull-request-github/issues/8174
+- PR titles cropped unnecessarily. https://github.com/microsoft/vscode-pull-request-github/issues/8453
+- PR tool descriptions are not user-oriented. https://github.com/microsoft/vscode-pull-request-github/issues/8510
+- New "check out PR by number" is confusing. https://github.com/microsoft/vscode-pull-request-github/issues/8455
+- Refreshing PR does not refresh rerun status checks. https://github.com/microsoft/vscode-pull-request-github/issues/8449
+- Improve commit line break unwrapping. https://github.com/microsoft/vscode-pull-request-github/issues/8345
+
+**_Thank You_**
+
+* [@gvilums (Georgijs)](https://github.com/gvilums): Fix PR tree reveal errors for flat file layout [PR #8522](https://github.com/microsoft/vscode-pull-request-github/pull/8522)
+
 ## 0.128.0
 
 ### Changes
