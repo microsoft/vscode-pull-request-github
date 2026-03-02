@@ -337,34 +337,7 @@ export interface Embodied {
 	specialDisplayBodyPostfix?: string;
 }
 
-/**
- * Ensures embedded videos can be unmuted via their player controls.
- * GitHub sets the HTML `muted` attribute on rendered `<video>` elements,
- * which causes the audio controls to be greyed-out inside VS Code
- * webviews. We remove both the attribute and the muted property and
- * instead set `volume = 0` so the video starts silent while keeping
- * the volume controls fully functional.
- */
-function allowVideoUnmute(container: HTMLDivElement | null): void {
-	if (!container) {
-		return;
-	}
-	for (const el of Array.from(container.getElementsByTagName('video'))) {
-		if (el.hasAttribute('muted')) {
-			el.removeAttribute('muted');
-			el.muted = false;
-			el.volume = 0;
-		}
-	}
-}
-
 export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty, specialDisplayBodyPostfix }: Embodied) => {
-	const bodyContainerRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		allowVideoUnmute(bodyContainerRef.current);
-	}, [bodyHTML]);
-
 	if (!body && !bodyHTML) {
 		if (allowEmpty) {
 			return null;
@@ -377,7 +350,7 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
-	const renderedBody = <div ref={bodyContainerRef} dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
+	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
 
 	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
 	const applyPatchButton =
