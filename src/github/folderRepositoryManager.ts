@@ -3,9 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { execFile } from 'child_process';
 import * as nodePath from 'path';
-import { promisify } from 'util';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
@@ -62,6 +60,7 @@ import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { AsyncPredicate, batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { getWorktreeForBranch as envGetWorktreeForBranch, removeWorktree as envRemoveWorktree } from '../env/node/gitWorktree';
 import { BRANCHES_ASSOCIATED_WITH_PRS, LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { IThemeWatcher } from '../themeWatcher';
@@ -2454,37 +2453,7 @@ export class FolderRepositoryManager extends Disposable {
 
 	async getWorktreeForBranch(branchName: string): Promise<string | undefined> {
 		try {
-			const execFileAsync = promisify(execFile);
-			const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
-			const { stdout } = await execFileAsync(gitPath, ['worktree', 'list', '--porcelain'], {
-				cwd: this.repository.rootUri.fsPath,
-			});
-
-			const worktrees = stdout.split('\n\n');
-			for (const entry of worktrees) {
-				const lines = entry.trim().split('\n');
-				let worktreePath: string | undefined;
-				let branch: string | undefined;
-				for (const line of lines) {
-					if (line.startsWith('worktree ')) {
-						worktreePath = line.substring('worktree '.length);
-					} else if (line.startsWith('branch ')) {
-						branch = line.substring('branch '.length);
-						// branch line is like "branch refs/heads/branchName"
-						const prefix = 'refs/heads/';
-						if (branch.startsWith(prefix)) {
-							branch = branch.substring(prefix.length);
-						}
-					}
-				}
-				if (branch === branchName && worktreePath) {
-					// Don't return the main worktree (the repository root itself)
-					const repoRoot = this.repository.rootUri.fsPath;
-					if (nodePath.resolve(worktreePath) !== nodePath.resolve(repoRoot)) {
-						return worktreePath;
-					}
-				}
-			}
+			return await envGetWorktreeForBranch(branchName, this.repository.rootUri.fsPath);
 		} catch (e) {
 			Logger.error(`Failed to get worktree for branch ${branchName}: ${e}`, this.id);
 		}
@@ -2493,11 +2462,7 @@ export class FolderRepositoryManager extends Disposable {
 
 	async removeWorktree(worktreePath: string): Promise<void> {
 		try {
-			const execFileAsync = promisify(execFile);
-			const gitPath = vscode.workspace.getConfiguration('git').get<string>('path') || 'git';
-			await execFileAsync(gitPath, ['worktree', 'remove', worktreePath], {
-				cwd: this.repository.rootUri.fsPath,
-			});
+			await envRemoveWorktree(worktreePath, this.repository.rootUri.fsPath);
 		} catch (e) {
 			Logger.error(`Failed to remove worktree ${worktreePath}: ${e}`, this.id);
 			throw e;

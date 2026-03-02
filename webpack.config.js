@@ -349,6 +349,7 @@ async function getExtensionConfig(target, mode, env) {
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
 						'../../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
+						'../env/node/gitWorktree': path.resolve(__dirname, 'src', 'env', 'browser', 'gitWorktree'),
 						'./env/node/gitProviders/api': path.resolve(
 							__dirname,
 							'src',
