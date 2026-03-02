@@ -92,7 +92,13 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 			return;
 		}
 		if (this.parent.view.visible && activeEditorUri) {
-			const matchingFile = this._reviewModel.localFileChanges.find(change => compareIgnoreCase(change.changeModel.filePath.toString(), activeEditorUri) === 0);
+			const matchingFile = this._reviewModel.localFileChanges.find(change => {
+				const changePath = change.changeModel.filePath.toString();
+				if (process.platform === 'win32') {
+					return compareIgnoreCase(changePath, activeEditorUri) === 0;
+				}
+				return changePath === activeEditorUri;
+			});
 			if (matchingFile && matchingFile.parent !== this.parent) {
 				this.reveal(matchingFile, { select: true });
 			}
