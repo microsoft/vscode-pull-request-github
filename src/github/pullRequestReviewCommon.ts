@@ -29,6 +29,14 @@ export interface ReviewContext {
 	getTimeline(): Promise<TimelineEvent[]>;
 }
 
+function isWorktreeInWorkspace(worktreePath: string): boolean {
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	if (!workspaceFolders) {
+		return false;
+	}
+	return workspaceFolders.some(folder => folder.uri.fsPath === worktreePath);
+}
+
 /**
  * Utility functions for handling pull request reviews.
  * These are shared between PullRequestOverviewPanel and PullRequestViewProvider.
@@ -337,7 +345,7 @@ export namespace PullRequestReviewCommon {
 			}
 
 			const worktreePath = folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
-			if (worktreePath) {
+			if (worktreePath && !isWorktreeInWorkspace(worktreePath)) {
 				const preferredWorktreeDeletion = vscode.workspace
 					.getConfiguration(PR_SETTINGS_NAMESPACE)
 					.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`);
@@ -527,7 +535,7 @@ export namespace PullRequestReviewCommon {
 			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`, false);
 		if (branchInfo && deleteWorktree) {
 			const worktreePath = folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
-			if (worktreePath) {
+			if (worktreePath && !isWorktreeInWorkspace(worktreePath)) {
 				selectedActions.push({ type: 'worktree', worktreePath });
 			}
 		}
