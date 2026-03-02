@@ -295,7 +295,11 @@ export namespace PullRequestReviewCommon {
 	};
 
 	function isWorktreeInWorkspace(worktreePath: string): boolean {
-		return !!vscode.workspace.workspaceFolders?.some(folder => folder.uri.fsPath === worktreePath);
+		return !!vscode.workspace.workspaceFolders?.some(folder => {
+			const folderPath = folder.uri.fsPath;
+			return folderPath === worktreePath ||
+				(process.platform === 'win32' && folderPath.toLowerCase() === worktreePath.toLowerCase());
+		});
 	}
 
 	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
