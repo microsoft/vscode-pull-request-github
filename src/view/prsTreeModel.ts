@@ -132,6 +132,8 @@ export class PrsTreeModel extends Disposable {
 			if (changed.added) {
 				repoEvents(changed.added);
 				this._onDidChangeData.fire(changed.added);
+			} else {
+				this._onDidChangeData.fire();
 			}
 		}));
 

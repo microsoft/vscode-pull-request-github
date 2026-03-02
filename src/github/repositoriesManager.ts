@@ -134,6 +134,24 @@ export class RepositoriesManager extends Disposable {
 		}
 	}
 
+	async removeMissingRepos(): Promise<void> {
+		const managersToRemove: FolderRepositoryManager[] = [];
+		for (const manager of this._folderManagers) {
+			const uri = manager.repository.rootUri;
+			if (uri.scheme === 'file') {
+				try {
+					await vscode.workspace.fs.stat(uri);
+				} catch {
+					managersToRemove.push(manager);
+				}
+			}
+		}
+		for (const manager of managersToRemove) {
+			Logger.appendLine(`Removing stale repository ${manager.repository.rootUri} (path no longer exists).`, RepositoriesManager.ID);
+			this.removeRepo(manager.repository);
+		}
+	}
+
 	getManagerForIssueModel(issueModel: IssueModel | undefined): FolderRepositoryManager | undefined {
 		if (issueModel === undefined) {
 			return undefined;
