@@ -336,7 +336,7 @@ export namespace PullRequestReviewCommon {
 				});
 			}
 
-			const worktreePath = await folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
+			const worktreePath = folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
 			if (worktreePath) {
 				const preferredWorktreeDeletion = vscode.workspace
 					.getConfiguration(PR_SETTINGS_NAMESPACE)
@@ -526,7 +526,7 @@ export namespace PullRequestReviewCommon {
 			.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`, false);
 		if (branchInfo && deleteWorktree) {
-			const worktreePath = await folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
+			const worktreePath = folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
 			if (worktreePath) {
 				selectedActions.push({ type: 'worktree', worktreePath });
 			}

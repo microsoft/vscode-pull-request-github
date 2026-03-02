@@ -53,6 +53,14 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
+export interface Worktree {
+	readonly path: string;
+	readonly name: string;
+	readonly ref: string;
+	readonly main: boolean;
+	readonly detached: boolean;
+}
+
 export { Status } from './api1';
 
 export interface Change {

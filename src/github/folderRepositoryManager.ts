@@ -60,7 +60,6 @@ import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { AsyncPredicate, batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { getWorktreeForBranch as envGetWorktreeForBranch, removeWorktree as envRemoveWorktree } from '../env/node/gitWorktree';
 import { BRANCHES_ASSOCIATED_WITH_PRS, LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { IThemeWatcher } from '../themeWatcher';
@@ -2451,18 +2450,29 @@ export class FolderRepositoryManager extends Disposable {
 		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
-	async getWorktreeForBranch(branchName: string): Promise<string | undefined> {
-		try {
-			return await envGetWorktreeForBranch(branchName, this.repository.rootUri.fsPath);
-		} catch (e) {
-			Logger.error(`Failed to get worktree for branch ${branchName}: ${e}`, this.id);
+	getWorktreeForBranch(branchName: string): string | undefined {
+		const worktrees = this.repository.state.worktrees;
+		if (!worktrees) {
+			return undefined;
 		}
-		return undefined;
+		const refsHeadsPrefix = 'refs/heads/';
+		const worktree = worktrees.find(wt => {
+			if (wt.main) {
+				return false;
+			}
+			const ref = wt.ref.startsWith(refsHeadsPrefix) ? wt.ref.substring(refsHeadsPrefix.length) : wt.ref;
+			return ref === branchName;
+		});
+		return worktree?.path;
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {
+		if (!this.repository.deleteWorktree) {
+			Logger.error(`deleteWorktree is not available on this repository`, this.id);
+			return;
+		}
 		try {
-			await envRemoveWorktree(worktreePath, this.repository.rootUri.fsPath);
+			await this.repository.deleteWorktree(worktreePath);
 		} catch (e) {
 			Logger.error(`Failed to remove worktree ${worktreePath}: ${e}`, this.id);
 			throw e;
