@@ -103,7 +103,7 @@ export class ReviewsManager extends Disposable {
 		);
 		if (reviewManagerIndex >= 0) {
 			const manager = this._reviewManagers[reviewManagerIndex];
-			this._reviewManagers.splice(reviewManagerIndex);
+			this._reviewManagers.splice(reviewManagerIndex, 1);
 			manager.dispose();
 		}
 	}

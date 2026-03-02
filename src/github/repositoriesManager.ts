@@ -127,7 +127,7 @@ export class RepositoriesManager extends Disposable {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
 			disposeAll(this._subs.get(folderManager)!);
 			this._subs.delete(folderManager);
-			this._folderManagers.splice(existingFolderManagerIndex);
+			this._folderManagers.splice(existingFolderManagerIndex, 1);
 			folderManager.dispose();
 			this.updateActiveReviewCount();
 			this._onDidChangeFolderRepositories.fire({});
