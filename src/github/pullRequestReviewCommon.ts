@@ -302,6 +302,10 @@ export namespace PullRequestReviewCommon {
 		worktreePath?: string;
 	};
 
+	function isWorktreeInWorkspace(worktreePath: string): boolean {
+		return !!vscode.workspace.workspaceFolders?.some(folder => folder.uri.fsPath === worktreePath);
+	}
+
 	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
 		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
 		const actions: (vscode.QuickPickItem & SelectedAction)[] = [];
