@@ -34,8 +34,8 @@ describe('RepositoriesManager', function () {
 		mockThemeWatcher = new MockThemeWatcher();
 		context = new MockExtensionContext();
 		telemetry = new MockTelemetry();
-		reposManager = new RepositoriesManager(credentialStore, telemetry);
 		credentialStore = new CredentialStore(telemetry, context);
+		reposManager = new RepositoriesManager(credentialStore, telemetry);
 		createPrHelper = new CreatePullRequestHelper();
 	});
 
