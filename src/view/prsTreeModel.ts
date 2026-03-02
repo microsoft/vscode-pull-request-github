@@ -133,6 +133,21 @@ export class PrsTreeModel extends Disposable {
 				repoEvents(changed.added);
 				this._onDidChangeData.fire(changed.added);
 			} else {
+				const activeManagers = new Set(this._reposManager.folderManagers);
+
+				for (const [manager, disposables] of this._repoEvents) {
+					if (!activeManagers.has(manager)) {
+						disposeAll(disposables);
+						this._repoEvents.delete(manager);
+					}
+				}
+
+				for (const [manager, disposables] of this._activePRDisposables) {
+					if (!activeManagers.has(manager)) {
+						disposeAll(disposables);
+						this._activePRDisposables.delete(manager);
+					}
+				}
 				this._onDidChangeData.fire();
 			}
 		}));
