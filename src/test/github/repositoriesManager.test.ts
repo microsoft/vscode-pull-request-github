@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 
@@ -141,13 +144,29 @@ describe('RepositoriesManager', function () {
 	});
 
 	describe('removeMissingRepos', function () {
+		let tmpDir: string;
+
+		beforeEach(function () {
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-pr-test-'));
+		});
+
+		afterEach(function () {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		});
+
 		it('removes folder managers whose root URIs no longer exist on disk', async function () {
+			const existingDir = path.join(tmpDir, 'existing-repo');
+			fs.mkdirSync(existingDir);
+
+			const removedDir = path.join(tmpDir, 'removed-worktree');
+			fs.mkdirSync(removedDir);
+
 			const repo1 = new MockRepository();
-			repo1.rootUri = vscode.Uri.file('/existing-repo');
+			repo1.rootUri = vscode.Uri.file(existingDir);
 			repo1.addRemote('origin', 'git@github.com:aaa/bbb');
 
 			const repo2 = new MockRepository();
-			repo2.rootUri = vscode.Uri.file('/removed-worktree');
+			repo2.rootUri = vscode.Uri.file(removedDir);
 			repo2.addRemote('origin', 'git@github.com:aaa/bbb');
 
 			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repo1, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
@@ -155,14 +174,8 @@ describe('RepositoriesManager', function () {
 
 			assert.strictEqual(reposManager.folderManagers.length, 2);
 
-			// Stub vscode.workspace.fs.stat to succeed for repo1 and fail for repo2
-			const statStub = sinon.stub(vscode.workspace.fs, 'stat');
-			statStub.callsFake(async (uri: vscode.Uri) => {
-				if (uri.fsPath === repo2.rootUri.fsPath) {
-					throw vscode.FileSystemError.FileNotFound(uri);
-				}
-				return { type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 };
-			});
+			// Remove the directory to simulate worktree deletion
+			fs.rmSync(removedDir, { recursive: true });
 
 			await reposManager.removeMissingRepos();
 
@@ -171,19 +184,22 @@ describe('RepositoriesManager', function () {
 		});
 
 		it('keeps all repos when all paths exist on disk', async function () {
+			const dir1 = path.join(tmpDir, 'repo1');
+			fs.mkdirSync(dir1);
+
+			const dir2 = path.join(tmpDir, 'repo2');
+			fs.mkdirSync(dir2);
+
 			const repo1 = new MockRepository();
-			repo1.rootUri = vscode.Uri.file('/repo1');
+			repo1.rootUri = vscode.Uri.file(dir1);
 			repo1.addRemote('origin', 'git@github.com:aaa/bbb');
 
 			const repo2 = new MockRepository();
-			repo2.rootUri = vscode.Uri.file('/repo2');
+			repo2.rootUri = vscode.Uri.file(dir2);
 			repo2.addRemote('origin', 'git@github.com:ccc/ddd');
 
 			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repo1, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 			reposManager.insertFolderManager(new FolderRepositoryManager(1, context, repo2, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
-
-			const statStub = sinon.stub(vscode.workspace.fs, 'stat');
-			statStub.resolves({ type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 });
 
 			await reposManager.removeMissingRepos();
 
