@@ -62,8 +62,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this.refreshAllQueryResults(true);
 			}
 		}));
-		this._register(vscode.commands.registerCommand('pr.refreshList', async _ => {
-			await this._reposManager.removeMissingRepos();
+		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.prsTreeModel.forceClearCache();
 			this.refreshAllQueryResults(true);
 		}));

@@ -4,9 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 
@@ -143,73 +140,78 @@ describe('RepositoriesManager', function () {
 		});
 	});
 
-	describe('removeMissingRepos', function () {
-		let tmpDir: string;
+	describe('worktree change detection', function () {
+		it('removes folder manager when its worktree is removed from the main repo', function () {
+			const mainRepo = new MockRepository();
+			mainRepo.rootUri = vscode.Uri.file('/main-repo');
+			mainRepo.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		beforeEach(function () {
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-pr-test-'));
-		});
+			const worktreeRepo = new MockRepository();
+			worktreeRepo.rootUri = vscode.Uri.file('/main-repo/worktrees/feature');
+			worktreeRepo.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		afterEach(function () {
-			fs.rmSync(tmpDir, { recursive: true, force: true });
-		});
-
-		it('removes folder managers whose root URIs no longer exist on disk', async function () {
-			const existingDir = path.join(tmpDir, 'existing-repo');
-			fs.mkdirSync(existingDir);
-
-			const removedDir = path.join(tmpDir, 'removed-worktree');
-			fs.mkdirSync(removedDir);
-
-			const repo1 = new MockRepository();
-			repo1.rootUri = vscode.Uri.file(existingDir);
-			repo1.addRemote('origin', 'git@github.com:aaa/bbb');
-
-			const repo2 = new MockRepository();
-			repo2.rootUri = vscode.Uri.file(removedDir);
-			repo2.addRemote('origin', 'git@github.com:aaa/bbb');
-
-			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repo1, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
-			reposManager.insertFolderManager(new FolderRepositoryManager(1, context, repo2, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
+			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, mainRepo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
+			reposManager.insertFolderManager(new FolderRepositoryManager(1, context, worktreeRepo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 
 			assert.strictEqual(reposManager.folderManagers.length, 2);
 
-			// Remove the directory to simulate worktree deletion
-			fs.rmSync(removedDir, { recursive: true });
+			// Set initial worktrees on the main repo (includes the worktree)
+			mainRepo.setWorktrees([
+				{ name: 'main-repo', path: '/main-repo', ref: 'main', main: true, detached: false },
+				{ name: 'feature', path: '/main-repo/worktrees/feature', ref: 'feature', main: false, detached: false },
+			]);
 
-			await reposManager.removeMissingRepos();
+			assert.strictEqual(reposManager.folderManagers.length, 2);
+
+			// Worktree is removed - main repo state changes with updated worktrees
+			mainRepo.setWorktrees([
+				{ name: 'main-repo', path: '/main-repo', ref: 'main', main: true, detached: false },
+			]);
 
 			assert.strictEqual(reposManager.folderManagers.length, 1);
-			assert.strictEqual(reposManager.folderManagers[0].repository.rootUri.toString(), repo1.rootUri.toString());
+			assert.strictEqual(reposManager.folderManagers[0].repository.rootUri.toString(), mainRepo.rootUri.toString());
 		});
 
-		it('keeps all repos when all paths exist on disk', async function () {
-			const dir1 = path.join(tmpDir, 'repo1');
-			fs.mkdirSync(dir1);
+		it('does not remove folder managers when worktrees remain unchanged', function () {
+			const mainRepo = new MockRepository();
+			mainRepo.rootUri = vscode.Uri.file('/main-repo');
+			mainRepo.addRemote('origin', 'git@github.com:aaa/bbb');
 
-			const dir2 = path.join(tmpDir, 'repo2');
-			fs.mkdirSync(dir2);
+			const worktreeRepo = new MockRepository();
+			worktreeRepo.rootUri = vscode.Uri.file('/main-repo/worktrees/feature');
+			worktreeRepo.addRemote('origin', 'git@github.com:aaa/bbb');
 
-			const repo1 = new MockRepository();
-			repo1.rootUri = vscode.Uri.file(dir1);
-			repo1.addRemote('origin', 'git@github.com:aaa/bbb');
+			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, mainRepo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
+			reposManager.insertFolderManager(new FolderRepositoryManager(1, context, worktreeRepo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 
-			const repo2 = new MockRepository();
-			repo2.rootUri = vscode.Uri.file(dir2);
-			repo2.addRemote('origin', 'git@github.com:ccc/ddd');
+			// Set initial worktrees
+			mainRepo.setWorktrees([
+				{ name: 'main-repo', path: '/main-repo', ref: 'main', main: true, detached: false },
+				{ name: 'feature', path: '/main-repo/worktrees/feature', ref: 'feature', main: false, detached: false },
+			]);
 
-			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repo1, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
-			reposManager.insertFolderManager(new FolderRepositoryManager(1, context, repo2, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
-
-			await reposManager.removeMissingRepos();
+			// Fire state change again with same worktrees
+			mainRepo.setWorktrees([
+				{ name: 'main-repo', path: '/main-repo', ref: 'main', main: true, detached: false },
+				{ name: 'feature', path: '/main-repo/worktrees/feature', ref: 'feature', main: false, detached: false },
+			]);
 
 			assert.strictEqual(reposManager.folderManagers.length, 2);
 		});
 
-		it('does nothing when there are no folder managers', async function () {
-			assert.strictEqual(reposManager.folderManagers.length, 0);
-			await reposManager.removeMissingRepos();
-			assert.strictEqual(reposManager.folderManagers.length, 0);
+		it('does nothing when worktrees property is not available', function () {
+			const repo = new MockRepository();
+			repo.rootUri = vscode.Uri.file('/repo');
+			repo.addRemote('origin', 'git@github.com:aaa/bbb');
+
+			reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
+
+			assert.strictEqual(reposManager.folderManagers.length, 1);
+
+			// Fire state change without setting worktrees (stays undefined)
+			(repo as any)._onDidChangeState.fire();
+
+			assert.strictEqual(reposManager.folderManagers.length, 1);
 		});
 	});
 });
