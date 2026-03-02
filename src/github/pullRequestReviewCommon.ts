@@ -13,7 +13,7 @@ import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, Subm
 import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
-import { formatError, isDescendant } from '../common/utils';
+import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 
 /**
@@ -27,14 +27,6 @@ export interface ReviewContext {
 	replyMessage(message: IRequestMessage<any>, response: any): void;
 	throwError(message: IRequestMessage<any> | undefined, error: string): void;
 	getTimeline(): Promise<TimelineEvent[]>;
-}
-
-function isWorktreeInWorkspace(worktreePath: string): boolean {
-	const workspaceFolders = vscode.workspace.workspaceFolders;
-	if (!workspaceFolders) {
-		return false;
-	}
-	return workspaceFolders.some(folder => isDescendant(folder.uri.fsPath, worktreePath));
 }
 
 /**
