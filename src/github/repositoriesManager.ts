@@ -91,8 +91,37 @@ export class RepositoriesManager extends Disposable {
 			folderManager.onDidChangeAnyPullRequests(e => this._onDidChangeAnyPullRequests.fire(e)),
 			folderManager.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)),
 			folderManager.onDidChangeGithubRepositories(() => this._onDidAddAnyGitHubRepository.fire(folderManager)),
+			folderManager.repository.state.onDidChange(() => this.checkWorktreeChanges(folderManager.repository)),
 		];
 		this._subs.set(folderManager, disposables);
+	}
+
+	private _previousWorktrees: Map<string, Set<string>> = new Map();
+
+	private checkWorktreeChanges(repo: Repository): void {
+		const worktrees = repo.state.worktrees;
+		if (!worktrees) {
+			return;
+		}
+
+		const repoKey = repo.rootUri.toString();
+		const currentPaths = new Set(worktrees.map(wt => vscode.Uri.file(wt.path).toString()));
+		const previousPaths = this._previousWorktrees.get(repoKey);
+		this._previousWorktrees.set(repoKey, currentPaths);
+
+		if (!previousPaths) {
+			return;
+		}
+
+		for (const previousPath of previousPaths) {
+			if (!currentPaths.has(previousPath)) {
+				const folderManager = this._folderManagers.find(m => m.repository.rootUri.toString() === previousPath);
+				if (folderManager) {
+					Logger.appendLine(`Removing folder manager for removed worktree ${previousPath}`, RepositoriesManager.ID);
+					this.removeRepo(folderManager.repository);
+				}
+			}
+		}
 	}
 
 	insertFolderManager(folderManager: FolderRepositoryManager) {
@@ -127,7 +156,7 @@ export class RepositoriesManager extends Disposable {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
 			disposeAll(this._subs.get(folderManager)!);
 			this._subs.delete(folderManager);
-			this._folderManagers.splice(existingFolderManagerIndex);
+			this._folderManagers.splice(existingFolderManagerIndex, 1);
 			folderManager.dispose();
 			this.updateActiveReviewCount();
 			this._onDidChangeFolderRepositories.fire({});

@@ -53,6 +53,14 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
+export interface Worktree {
+	readonly name: string;
+	readonly path: string;
+	readonly ref: string;
+	readonly main: boolean;
+	readonly detached: boolean;
+}
+
 export { Status } from './api1';
 
 export interface Change {
@@ -71,6 +79,7 @@ export interface RepositoryState {
 	readonly HEAD: Branch | undefined;
 	readonly remotes: Remote[];
 	readonly submodules: Submodule[];
+	readonly worktrees?: Worktree[];
 	readonly rebaseCommit: Commit | undefined;
 
 	readonly mergeChanges: Change[];
