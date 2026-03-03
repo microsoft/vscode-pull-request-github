@@ -2450,6 +2450,35 @@ export class FolderRepositoryManager extends Disposable {
 		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
+	getWorktreeForBranch(branchName: string): vscode.Uri | undefined {
+		const worktrees = this.repository.state.worktrees;
+		if (!worktrees) {
+			return undefined;
+		}
+		const refsHeadsPrefix = 'refs/heads/';
+		const worktree = worktrees.find(wt => {
+			if (wt.main) {
+				return false;
+			}
+			const ref = wt.ref.startsWith(refsHeadsPrefix) ? wt.ref.substring(refsHeadsPrefix.length) : wt.ref;
+			return ref === branchName;
+		});
+		return worktree ? vscode.Uri.file(worktree.path) : undefined;
+	}
+
+	async removeWorktree(worktreePath: string): Promise<void> {
+		if (!this.repository.deleteWorktree) {
+			Logger.error(`deleteWorktree is not available on this repository`, this.id);
+			return;
+		}
+		try {
+			await this.repository.deleteWorktree(worktreePath);
+		} catch (e) {
+			Logger.error(`Failed to remove worktree ${worktreePath}: ${e}`, this.id);
+			throw e;
+		}
+	}
+
 	async fetchAndCheckout(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<void> {
 		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest, progress);
 	}
