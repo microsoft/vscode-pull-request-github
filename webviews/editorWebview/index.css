@@ -636,12 +636,12 @@ body button .icon {
 
 .subtitle .avatar,
 .subtitle .avatar-icon svg {
+	margin-top: 2px;
 	margin-right: 6px;
 }
 
 .subtitle .author {
 	display: flex;
-	align-items: center;
 }
 
 .merge-branches {
@@ -861,7 +861,7 @@ button.secondary.change-base {
 
 .commit .commit-message .avatar-container,
 .merged .merged-message .avatar-container {
-	margin-right: 4px;
+	margin-right: 6px;
 	flex-shrink: 0;
 }
 
