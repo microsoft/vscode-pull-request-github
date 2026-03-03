@@ -104,6 +104,10 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 export async function setReplyAuthor(thread: vscode.CommentThread | vscode.CommentThread2, currentUser: IAccount, context: vscode.ExtensionContext) {
 	if (currentUser.avatarUrl) {
 		const thread2 = thread as vscode.CommentThread2;
+		if (!DataUri.isGitHubDotComAvatar(currentUser.avatarUrl)) {
+			thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: undefined };
+			return;
+		}
 		thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: vscode.Uri.parse(currentUser.avatarUrl) };
 		const uri = await DataUri.avatarCirclesAsImageDataUris(context, [currentUser], 28, 28);
 		thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: uri[0] };
