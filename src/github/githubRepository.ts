@@ -1073,6 +1073,56 @@ export class GitHubRepository extends Disposable {
 		return await this._credentialStore.getCurrentUser(this.remote.authProviderId);
 	}
 
+	private _codeownersCache: { ref: string; entries: import('../common/codeowners').CodeownersEntry[] } | undefined;
+
+	async getCodeownersEntries(ref: string): Promise<import('../common/codeowners').CodeownersEntry[]> {
+		if (this._codeownersCache?.ref === ref) {
+			return this._codeownersCache.entries;
+		}
+		const { CODEOWNERS_PATHS, parseCodeownersFile } = await import('../common/codeowners');
+		for (const filePath of CODEOWNERS_PATHS) {
+			try {
+				const content = await this.getFile(filePath, ref);
+				if (content.length > 0) {
+					const text = new TextDecoder().decode(content);
+					const entries = parseCodeownersFile(text);
+					this._codeownersCache = { ref, entries };
+					Logger.debug(`Loaded CODEOWNERS from ${filePath} (${entries.length} rules)`, this.id);
+					return entries;
+				}
+			} catch {
+				// File not found at this path, try next
+			}
+		}
+		this._codeownersCache = { ref, entries: [] };
+		return [];
+	}
+
+	private _userTeamSlugsCache: string[] | undefined;
+
+	async getAuthenticatedUserTeamSlugs(): Promise<string[]> {
+		if (this._userTeamSlugsCache) {
+			return this._userTeamSlugsCache;
+		}
+		if (!this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId)) {
+			Logger.debug('Skipping team slug fetch - no additional scopes (read:org)', this.id);
+			this._userTeamSlugsCache = [];
+			return [];
+		}
+		try {
+			const { octokit, remote } = await this.ensureAdditionalScopes();
+			const { data } = await octokit.call(octokit.api.teams.listForAuthenticatedUser, { per_page: 100 });
+			this._userTeamSlugsCache = data
+				.filter(team => team.organization.login.toLowerCase() === remote.owner.toLowerCase())
+				.map(team => `@${team.organization.login}/${team.slug}`);
+			return this._userTeamSlugsCache;
+		} catch (e) {
+			Logger.debug(`Unable to fetch user teams: ${e}`, this.id);
+			this._userTeamSlugsCache = [];
+			return [];
+		}
+	}
+
 	async getAuthenticatedUserEmails(): Promise<string[]> {
 		try {
 			Logger.debug(`Fetch authenticated user emails - enter`, this.id);

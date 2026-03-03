@@ -294,6 +294,11 @@
 					"default": false,
 					"description": "%githubPullRequests.hideViewedFiles.description%"
 				},
+				"githubPullRequests.showOnlyOwnedFiles": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.showOnlyOwnedFiles.description%"
+				},
 				"githubPullRequests.fileAutoReveal": {
 					"type": "boolean",
 					"default": true,
@@ -1152,6 +1157,12 @@
 				"command": "pr.toggleHideViewedFiles",
 				"title": "%command.pr.toggleHideViewedFiles.title%",
 				"icon": "$(filter)",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.toggleShowOnlyOwnedFiles",
+				"title": "%command.pr.toggleShowOnlyOwnedFiles.title%",
+				"icon": "$(person)",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2280,6 +2291,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.toggleShowOnlyOwnedFiles",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshChanges",
 					"when": "false"
 				},
@@ -2727,6 +2742,11 @@
 				},
 				{
 					"command": "pr.toggleHideViewedFiles",
+					"when": "view == prStatus:github",
+					"group": "navigation1"
+				},
+				{
+					"command": "pr.toggleShowOnlyOwnedFiles",
 					"when": "view == prStatus:github",
 					"group": "navigation1"
 				},
