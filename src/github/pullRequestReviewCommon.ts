@@ -537,7 +537,7 @@ export namespace PullRequestReviewCommon {
 		if (branchInfo && deleteWorktree) {
 			const worktreePath = folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
 			if (worktreePath && !isWorktreeInWorkspace(worktreePath)) {
-				selectedActions.push({ type: 'worktree', worktreePath });
+				selectedActions.push({ type: 'worktree', worktreePath: worktreePath.fsPath });
 			}
 		}
 
