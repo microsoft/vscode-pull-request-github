@@ -758,7 +758,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		const name = compareBranch.name;
 		const branchNameTitle = (name: string) => {
-			return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+			const nameWithSpaces = name.replace(/[-_]/g, ' ');
+			return `${nameWithSpaces.charAt(0).toUpperCase()}${nameWithSpaces.slice(1)}`;
 		};
 
 		// If branchName is selected, use the branch name as the title
