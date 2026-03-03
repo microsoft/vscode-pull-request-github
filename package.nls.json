@@ -208,6 +208,7 @@
 	"command.pr.openChanges.title": "Open Changes",
 	"command.pr.pickOnVscodeDev.title": "Checkout Pull Request on vscode.dev",
 	"command.pr.pickOnCodespaces.title": "Checkout Pull Request on Codespaces",
+	"command.pr.pickInWorktree.title": "Checkout Pull Request in Worktree",
 	"command.pr.exit.title": "Checkout Default Branch",
 	"command.pr.dismissNotification.title": "Dismiss Notification",
 	"command.pr.markAllCopilotNotificationsAsRead.title": "Dismiss All Copilot Notifications",

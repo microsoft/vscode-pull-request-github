@@ -989,6 +989,12 @@
 				"icon": "$(cloud)"
 			},
 			{
+				"command": "pr.pickInWorktree",
+				"title": "%command.pr.pickInWorktree.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(folder-library)"
+			},
+			{
 				"command": "pr.exit",
 				"title": "%command.pr.exit.title%",
 				"category": "%command.pull.request.category%"
@@ -2060,6 +2066,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.pickInWorktree",
+					"when": "false"
+				},
+				{
 					"command": "pr.exit",
 					"when": "github:inReviewMode"
 				},
@@ -2856,6 +2866,11 @@
 					"command": "pr.pickOnCodespaces",
 					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
 					"group": "1_pullrequest@3"
+				},
+				{
+					"command": "pr.pickInWorktree",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && !isWeb",
+					"group": "1_pullrequest@4"
 				},
 				{
 					"command": "pr.openChanges",
