@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri } from 'vscode';
+import { EventEmitter, Uri } from 'vscode';
 import { RefType } from '../../api/api1';
 
 import type {
@@ -19,6 +19,7 @@ import type {
 	BranchQuery,
 	FetchOptions,
 	RefQuery,
+	Worktree,
 } from '../../api/api';
 
 type Mutable<T> = {
@@ -67,6 +68,8 @@ export class MockRepository implements Repository {
 		return Promise.reject(new Error(`Unexpected log(${options})`));
 	}
 
+	private _onDidChangeState = new EventEmitter<void>();
+
 	private _state: Mutable<RepositoryState & { refs: Ref[] }> = {
 		HEAD: {
 			type: RefType.Head
@@ -74,11 +77,12 @@ export class MockRepository implements Repository {
 		refs: [],
 		remotes: [],
 		submodules: [],
+		worktrees: undefined,
 		rebaseCommit: undefined,
 		mergeChanges: [],
 		indexChanges: [],
 		workingTreeChanges: [],
-		onDidChange: () => ({ dispose() { } }),
+		onDidChange: this._onDidChangeState.event,
 	};
 	private _config: Map<string, string> = new Map();
 	private _branches: Branch[] = [];
@@ -336,5 +340,10 @@ export class MockRepository implements Repository {
 
 	mergeAbort(): Promise<void> {
 		return Promise.reject(new Error(`Unexpected mergeAbort`));
+	}
+
+	setWorktrees(worktrees: Worktree[]) {
+		this._state.worktrees = worktrees;
+		this._onDidChangeState.fire();
 	}
 }

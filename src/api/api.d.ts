@@ -54,8 +54,8 @@ export interface Remote {
 }
 
 export interface Worktree {
-	readonly path: string;
 	readonly name: string;
+	readonly path: string;
 	readonly ref: string;
 	readonly main: boolean;
 	readonly detached: boolean;
