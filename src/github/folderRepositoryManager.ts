@@ -2450,7 +2450,7 @@ export class FolderRepositoryManager extends Disposable {
 		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
-	getWorktreeForBranch(branchName: string): string | undefined {
+	getWorktreeForBranch(branchName: string): vscode.Uri | undefined {
 		const worktrees = this.repository.state.worktrees;
 		if (!worktrees) {
 			return undefined;
@@ -2463,7 +2463,7 @@ export class FolderRepositoryManager extends Disposable {
 			const ref = wt.ref.startsWith(refsHeadsPrefix) ? wt.ref.substring(refsHeadsPrefix.length) : wt.ref;
 			return ref === branchName;
 		});
-		return worktree?.path;
+		return worktree ? vscode.Uri.file(worktree.path) : undefined;
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {

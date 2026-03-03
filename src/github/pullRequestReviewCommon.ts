@@ -294,11 +294,12 @@ export namespace PullRequestReviewCommon {
 		worktreePath?: string;
 	};
 
-	function isWorktreeInWorkspace(worktreePath: string): boolean {
+	function isWorktreeInWorkspace(worktreePath: vscode.Uri): boolean {
+		const worktreeFsPath = worktreePath.fsPath;
 		return !!vscode.workspace.workspaceFolders?.some(folder => {
 			const folderPath = folder.uri.fsPath;
-			return folderPath === worktreePath ||
-				(process.platform === 'win32' && folderPath.toLowerCase() === worktreePath.toLowerCase());
+			return folderPath === worktreeFsPath ||
+				(process.platform === 'win32' && folderPath.toLowerCase() === worktreeFsPath.toLowerCase());
 		});
 	}
 
@@ -350,9 +351,9 @@ export namespace PullRequestReviewCommon {
 					.getConfiguration(PR_SETTINGS_NAMESPACE)
 					.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`);
 				actions.push({
-					label: vscode.l10n.t('Remove worktree {0}', worktreePath),
+					label: vscode.l10n.t('Remove worktree {0}', worktreePath.fsPath),
 					type: 'worktree',
-					worktreePath,
+					worktreePath: worktreePath.fsPath,
 					picked: !!preferredWorktreeDeletion,
 				});
 			}
