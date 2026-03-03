@@ -10,10 +10,11 @@ import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
-import { FILE_LIST_LAYOUT, LIST_HORIZONTAL_SCROLLING, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE, WORKBENCH } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, LIST_HORIZONTAL_SCROLLING, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, PullRequestAvatarDisplay, SHOW_PULL_REQUEST_NUMBER_IN_TREE, WORKBENCH } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
+import { GithubItemStateEnum } from '../../github/interface';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
@@ -140,7 +141,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 	protected registerConfigurationChange() {
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`) || e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)) {
 				this.refresh();
 			}
 		}));
@@ -279,11 +280,33 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			?? new vscode.ThemeIcon('github');
 	}
 
+	private async _getBaseIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
+		const { state, isDraft } = this.pullRequestModel;
+		const iconMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullRequestAvatarDisplay>(PULL_REQUEST_AVATAR_DISPLAY, 'author');
+		if (iconMode === 'state') {
+			return new vscode.ThemeIcon(
+				state === GithubItemStateEnum.Closed ? 'git-pull-request-closed'
+					: state === GithubItemStateEnum.Merged ? 'git-merge'
+						: isDraft ? 'git-pull-request-draft'
+							: 'git-pull-request',
+				new vscode.ThemeColor(
+					state === GithubItemStateEnum.Closed ? 'pullRequests.closed'
+						: state === GithubItemStateEnum.Merged ? 'pullRequests.merged'
+							: isDraft ? 'pullRequests.draft'
+								: 'pullRequests.open'
+				)
+			);
+		} else if (iconMode === 'generic') {
+			return new vscode.ThemeIcon('github');
+		}
+		return this._getAuthorIcon();
+	}
+
 	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus();
 		const theme = this._folderReposManager.themeWatcher.themeData;
 		if (copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
-			return this._getAuthorIcon();
+			return this._getBaseIcon();
 		}
 		switch (copilotWorkingStatus) {
 			case CopilotWorkingStatus.InProgress:
@@ -302,7 +325,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 					dark: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'dark'), getListErrorForeground(theme, 'dark'))
 				};
 			default:
-				return this._getAuthorIcon();
+				return this._getBaseIcon();
 		}
 	}
 
@@ -331,7 +354,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		// Escape any $(...) syntax to avoid rendering PR titles as icons.
 		label += labelTitle.replace(/\$\([a-zA-Z0-9~-]+\)/g, '\\$&');
 
-		if (isDraft) {
+		const iconMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullRequestAvatarDisplay>(PULL_REQUEST_AVATAR_DISPLAY, 'author');
+		if (isDraft && iconMode !== 'state') {
 			label = `_${label}_`;
 		}
 

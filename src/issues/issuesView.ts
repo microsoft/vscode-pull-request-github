@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { commands, contexts } from '../common/executeCommands';
-import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ISSUE_AVATAR_DISPLAY, IssueAvatarDisplay, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
@@ -91,28 +91,36 @@ export class IssuesTreeData
 
 		const avatarDisplaySetting = vscode.workspace
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
-			.get<'author' | 'assignee'>(ISSUE_AVATAR_DISPLAY, 'author');
+			.get<IssueAvatarDisplay>(ISSUE_AVATAR_DISPLAY, 'author');
 
-		let avatarUser: IAccount | undefined;
-		if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
-			avatarUser = element.assignees[0];
-		} else if (avatarDisplaySetting === 'author') {
-			avatarUser = element.author;
-		}
-
-		if (avatarUser) {
-			// For enterprise, use placeholder icon instead of trying to fetch avatar
-			if (!DataUri.isGitHubDotComAvatar(avatarUser.avatarUrl)) {
-				treeItem.iconPath = new vscode.ThemeIcon('github');
-			} else {
-				treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
-					(element.isOpen
-						? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-						: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
-			}
+		if (avatarDisplaySetting === 'state') {
+			treeItem.iconPath = element.isOpen
+				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+		} else if (avatarDisplaySetting === 'generic') {
+			treeItem.iconPath = new vscode.ThemeIcon('issues');
 		} else {
-			// Use GitHub codicon when assignee setting is selected but no assignees exist
-			treeItem.iconPath = new vscode.ThemeIcon('github');
+			let avatarUser: IAccount | undefined;
+			if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
+				avatarUser = element.assignees[0];
+			} else {
+				avatarUser = element.author;
+			}
+
+			if (avatarUser) {
+				// For enterprise, use placeholder icon instead of trying to fetch avatar
+				if (!DataUri.isGitHubDotComAvatar(avatarUser.avatarUrl)) {
+					treeItem.iconPath = new vscode.ThemeIcon('github');
+				} else {
+					treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
+						(element.isOpen
+							? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+							: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
+				}
+			} else {
+				// Use GitHub codicon when assignee setting is selected but no assignees exist
+				treeItem.iconPath = new vscode.ThemeIcon('github');
+			}
 		}
 
 		treeItem.command = {

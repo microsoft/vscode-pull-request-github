@@ -73,6 +73,10 @@ export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore
 export const WEBVIEW_REFRESH_INTERVAL = 'webviewRefreshInterval';
 export const DEV_MODE = 'devMode';
 
+export const PULL_REQUEST_AVATAR_DISPLAY = 'pullRequestAvatarDisplay';
+export type IssueAvatarDisplay = 'author' | 'assignee' | 'state' | 'generic';
+export type PullRequestAvatarDisplay = 'author' | 'state' | 'generic';
+
 // git
 export const GIT = 'git';
 export const PULL_BEFORE_CHECKOUT = 'pullBeforeCheckout';

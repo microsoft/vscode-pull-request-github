@@ -802,11 +802,15 @@
 					"type": "string",
 					"enum": [
 						"author",
-						"assignee"
+						"assignee",
+						"state",
+						"generic"
 					],
 					"enumDescriptions": [
 						"%githubIssues.issueAvatarDisplay.author%",
-						"%githubIssues.issueAvatarDisplay.assignee%"
+						"%githubIssues.issueAvatarDisplay.assignee%",
+						"%githubIssues.issueAvatarDisplay.state%",
+						"%githubIssues.issueAvatarDisplay.generic%"
 					],
 					"default": "author",
 					"description": "%githubIssues.issueAvatarDisplay.description%"
@@ -841,6 +845,21 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
+				},
+				"githubPullRequests.pullRequestAvatarDisplay": {
+					"type": "string",
+					"enum": [
+						"author",
+						"state",
+						"generic"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.pullRequestAvatarDisplay.author%",
+						"%githubPullRequests.pullRequestAvatarDisplay.state%",
+						"%githubPullRequests.pullRequestAvatarDisplay.generic%"
+					],
+					"default": "author",
+					"description": "%githubPullRequests.pullRequestAvatarDisplay.description%"
 				},
 				"githubIssues.alwaysPromptForNewIssueRepo": {
 					"type": "boolean",
