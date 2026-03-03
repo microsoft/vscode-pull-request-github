@@ -10,7 +10,7 @@ import {
 	PullRequestDefaults,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, isRateLimitError, ViewerPermission } from './githubRepository';
 import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
@@ -211,13 +211,47 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
 
-		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
-			this.getTitleAndDescription(defaultCompareBranch, defaultBaseBranch),
-			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
-			defaultOrigin.getViewerPermission(),
-			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
-			this.getPullRequestDefaultLabels(defaultBaseRemote)
-		]);
+		let defaultTitleAndDescription: { title: string; description: string };
+		let mergeConfiguration: RepoAccessAndMergeMethods;
+		let viewerPermission: ViewerPermission;
+		let mergeQueueMethodForBranch: MergeMethod | undefined;
+		let labels: ILabel[];
+		try {
+			[defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
+				this.getTitleAndDescription(defaultCompareBranch, defaultBaseBranch),
+				this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
+				defaultOrigin.getViewerPermission(),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
+				this.getPullRequestDefaultLabels(defaultBaseRemote)
+			]);
+		} catch (e) {
+			if (isRateLimitError(e)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'));
+			}
+			Logger.error(`Error initializing create pull request view: ${e}`, BaseCreatePullRequestViewProvider.ID);
+			return {
+				canModifyBranches: true,
+				defaultBaseRemote,
+				defaultBaseBranch,
+				defaultCompareRemote,
+				defaultCompareBranch: this._defaultCompareBranch,
+				defaultTitle: '',
+				defaultDescription: '',
+				baseHasMergeQueue: false,
+				remoteCount: remotes.length,
+				autoMergeDefault: false,
+				createError: '',
+				isDraftDefault: false,
+				isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+				generateTitleAndDescriptionTitle: undefined,
+				creating: false,
+				initializeWithGeneratedTitleAndDescription: false,
+				preReviewState: PreReviewState.None,
+				preReviewer: undefined,
+				reviewing: false,
+				usingTemplate: false,
+			};
+		}
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
 		const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
@@ -994,7 +1028,18 @@ Don't forget to commit your template file to the repository so that it can be us
 	}
 
 	private async processRemoteAndBranchResult(githubRepository: GitHubRepository, result: { remote: RemoteInfo, branch: string }, isBase: boolean) {
-		const [defaultBranch, viewerPermission] = await Promise.all([githubRepository.getDefaultBranch(), githubRepository.getViewerPermission()]);
+		let viewerPermission: ViewerPermission;
+		try {
+			viewerPermission = await githubRepository.getViewerPermission();
+		} catch (e) {
+			if (isRateLimitError(e)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'));
+				viewerPermission = ViewerPermission.Unknown;
+			} else {
+				throw e;
+			}
+		}
+		const defaultBranch = await githubRepository.getDefaultBranch();
 
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 		let chooseResult: ChooseBaseRemoteAndBranchResult | ChooseCompareRemoteAndBranchResult;
