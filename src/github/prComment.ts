@@ -5,15 +5,15 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { GitHubRepository } from './githubRepository';
+import { IAccount } from './interface';
+import { updateCommentReactions } from './utils';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { escapeRegExp, stringReplaceAsync } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
-import { IAccount } from './interface';
-import { updateCommentReactions } from './utils';
 
 export interface GHPRCommentThread extends vscode.CommentThread2 {
 	gitHubThreadId: string;
@@ -107,6 +107,11 @@ abstract class CommentBase implements vscode.Comment {
 	 */
 	public contextValue: string;
 
+	/**
+	 * The state of the comment (Published or Draft)
+	 */
+	public state?: vscode.CommentState;
+
 	constructor(
 		parent: GHPRCommentThread,
 	) {
@@ -173,6 +178,7 @@ export class TemporaryComment extends CommentBase {
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
+		this.state = isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
 		this.contextValue = 'temporary,canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment.rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
@@ -190,7 +196,9 @@ export class TemporaryComment extends CommentBase {
 	}
 
 	get body(): string | vscode.MarkdownString {
-		return new vscode.MarkdownString(this.input);
+		const s = new vscode.MarkdownString(this.input);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	get author(): vscode.CommentAuthorInformation {
@@ -209,6 +217,7 @@ export class TemporaryComment extends CommentBase {
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
+export const COMMIT_SHA_EXPRESSION = /(?<![`\/\w])([0-9a-f]{7})([0-9a-f]{33})?(?![`\/\w])/g;
 
 export class GHPRComment extends CommentBase {
 	private static ID = 'GHPRComment';
@@ -247,6 +256,7 @@ export class GHPRComment extends CommentBase {
 		updateCommentReactions(this, comment.reactions);
 
 		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
+		this.state = comment.isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
 
 		const contextValues: string[] = [];
 		if (comment.canEdit) {
@@ -286,7 +296,9 @@ export class GHPRComment extends CommentBase {
 
 		const oldLabel = this.label;
 		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
-		if (this.label !== oldLabel) {
+		const newState = comment.isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
+		if (this.label !== oldLabel || this.state !== newState) {
+			this.state = newState;
 			refresh = true;
 		}
 
@@ -332,6 +344,7 @@ export class GHPRComment extends CommentBase {
 		if (match) {
 			return suggestionBody ? suggestionBody : '';
 		}
+		return undefined;
 	}
 
 	public commentEditId() {
@@ -409,6 +422,36 @@ ${lineContents}
 		return replaceImages(body, html, this.githubRepository?.remote.host);
 	}
 
+	private replaceCommitShas(body: string): string {
+		const githubRepository = this.githubRepository;
+		if (!githubRepository) {
+			return body;
+		}
+
+		// Match commit SHAs that are:
+		// - Either 7 or 40 hex characters
+		// - Not already part of a URL or markdown link
+		// - Not inside code blocks (backticks)
+		return body.replace(COMMIT_SHA_EXPRESSION, (match, shortSha, remaining, offset) => {
+			// Don't replace if inside code blocks
+			const beforeMatch = body.substring(0, offset);
+			const backtickCount = (beforeMatch.match(/`/g)?.length ?? 0);
+			if (backtickCount % 2 === 1) {
+				return match;
+			}
+
+			// Don't replace if already part of a markdown link
+			if (beforeMatch.endsWith('[') || body.substring(offset + match.length).startsWith(']')) {
+				return match;
+			}
+
+			const owner = githubRepository.remote.owner;
+			const repo = githubRepository.remote.repositoryName;
+			const commitUrl = `https://${githubRepository.remote.host}/${owner}/${repo}/commit/${match}`;
+			return `[${shortSha}](${commitUrl})`;
+		});
+	}
+
 	private replaceNewlines(body: string) {
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
@@ -451,7 +494,8 @@ ${lineContents}
 			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${url})`;
 		});
 
-		const permalinkReplaced = await this.replacePermalink(linkified);
+		const commitShasReplaced = this.replaceCommitShas(linkified);
+		const permalinkReplaced = await this.replacePermalink(commitShasReplaced);
 		await emojiPromise;
 		return this.postpendSpecialAuthorComment(emojify(this.replaceImg(this.replaceSuggestion(permalinkReplaced))));
 	}
@@ -476,11 +520,15 @@ ${lineContents}
 		if (this.mode === vscode.CommentMode.Editing) {
 			return this._rawBody;
 		}
-		return new vscode.MarkdownString(this.replacedBody);
+		const s = new vscode.MarkdownString(this.replacedBody);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 
 	protected getCancelEditBody() {
-		return new vscode.MarkdownString(this.rawComment.body);
+		const s = new vscode.MarkdownString(this.rawComment.body);
+		s.supportAlertSyntax = true;
+		return s;
 	}
 }
 

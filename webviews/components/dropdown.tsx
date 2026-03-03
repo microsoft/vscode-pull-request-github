@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import { chevronIcon } from './icon';
+import { chevronDownIcon } from './icon';
 
 const enum KEYCODES {
 	esc = 27,
@@ -98,7 +98,7 @@ export const Dropdown = ({ options, defaultOption, disabled, submitAction, chang
 				/>
 					<div className={`split${disabled ? ' disabled' : ''}`}><div className={`separator${disabled ? ' disabled' : ''}`}></div></div>
 				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' onClick={onClick}>
-					{chevronIcon}
+					{chevronDownIcon}
 				</button>
 			</div>
 			<div className={areOptionsVisible ? 'options-select' : 'hidden'}>

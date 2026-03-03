@@ -10,7 +10,7 @@ body {
 textarea {
 	min-height: 80px;
 	max-height: 500px;
-	border-radius: 2px;
+	border-radius: 4px;
 }
 
 .form-actions {
@@ -75,7 +75,17 @@ form,
 	width: 100%;
 }
 
-.button-container button {
+.button-container>button {
+	width: 100%;
+}
+
+.button-container:has(> .dropdown-container) {
+	display: flex;
+	min-width: 0;
+}
+
+.dropdown-container {
+	flex-grow: 1;
 	width: 100%;
 }
 
@@ -184,9 +194,5 @@ button .icon svg {
 }
 
 button.split-left {
-	border-radius: 2px 0 0 2px;
-	flex-grow: 1;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
+	display: block;
 }

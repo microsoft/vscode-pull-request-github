@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URL } from 'url';
 import LRUCache from 'lru-cache';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
+import { StateManager } from './stateManager';
 import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
@@ -17,7 +17,6 @@ import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getEnterpriseUri, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
-import { StateManager } from './stateManager';
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -92,7 +91,34 @@ export interface IssueTemplate {
 	name: string | undefined,
 	about: string | undefined,
 	title: string | undefined,
+	labels: string[] | undefined,
+	assignees: string[] | undefined,
 	body: string | undefined
+}
+
+export interface YamlIssueTemplate {
+	name?: string;
+	description?: string;
+	about?: string;
+	title?: string;
+	labels?: string[];
+	assignees?: string[];
+	body?: YamlTemplateField[];
+}
+
+export interface YamlTemplateField {
+	type: 'markdown' | 'textarea' | 'input' | 'dropdown' | 'checkboxes';
+	id?: string;
+	attributes?: {
+		label?: string;
+		description?: string;
+		placeholder?: string;
+		value?: string;
+		options?: (string | { label?: string; required?: boolean })[];
+	};
+	validations?: {
+		required?: boolean;
+	};
 }
 
 const HEAD = 'HEAD';
@@ -183,11 +209,9 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 function extractContext(context: LinkContext): { fileUri: vscode.Uri | undefined, lineNumber: number | undefined } {
 	if (context instanceof vscode.Uri) {
 		return { fileUri: context, lineNumber: undefined };
-	} else if (context !== undefined && 'lineNumber' in context && 'uri' in context) {
-		return { fileUri: context.uri, lineNumber: context.lineNumber };
-	} else {
-		return { fileUri: undefined, lineNumber: undefined };
 	}
+	const asEditorLineNumberContext = context as Partial<EditorLineNumberContext> | undefined;
+	return { fileUri: asEditorLineNumberContext?.uri, lineNumber: asEditorLineNumberContext?.lineNumber };
 }
 
 function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
@@ -201,7 +225,7 @@ function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { ur
 		uri = fileUri;
 		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath && !vscode.window.activeNotebookEditor) {
 			if (lineNumber !== undefined && (vscode.window.activeTextEditor.selection.isEmpty || !vscode.window.activeTextEditor.selection.contains(new vscode.Position(lineNumber - 1, 0)))) {
-				range = new vscode.Range(new vscode.Position(lineNumber - 1, 0), new vscode.Position(lineNumber - 1, 1));
+				range = new vscode.Range(new vscode.Position(lineNumber - 1, 0), new vscode.Position(lineNumber - 1, vscode.window.activeTextEditor.document.lineAt(lineNumber - 1).text.length));
 			} else {
 				range = vscode.window.activeTextEditor.selection;
 			}
@@ -228,6 +252,7 @@ export interface PermalinkInfo {
 	permalink: string | undefined;
 	error: string | undefined;
 	originalFile: vscode.Uri | undefined;
+	range: vscode.Range | vscode.NotebookRange | undefined;
 }
 
 export function getSimpleUpstream(repository: Repository) {
@@ -287,12 +312,12 @@ export async function createSinglePermalink(
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
-		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined, range: undefined };
 	}
 
 	const repository = getRepositoryForFile(gitAPI, uri);
 	if (!repository) {
-		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
+		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri, range };
 	}
 
 	let commitHash: string | undefined;
@@ -304,7 +329,7 @@ export async function createSinglePermalink(
 		try {
 			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
 			if (log.length === 0) {
-				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
+				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri, range };
 			}
 			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
 			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
@@ -321,9 +346,9 @@ export async function createSinglePermalink(
 
 	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
-		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
+		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri, range };
 	}
-	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+	const upstream: Remote & { fetchUrl: string } = rawUpstream as Remote & { fetchUrl: string };
 
 	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
 
@@ -333,7 +358,8 @@ export async function createSinglePermalink(
 		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
 			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
 		error: undefined,
-		originalFile: uri
+		originalFile: uri,
+		range
 	};
 	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
 	return result;
@@ -365,22 +391,9 @@ export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github
 	const enterpriseUri = getEnterpriseUri();
 	let fetchUrl = upstream.fetchUrl;
 	if (enterpriseUri && fetchUrl) {
-		// upstream's origin by https
-		if (fetchUrl.startsWith('https://') && !fetchUrl.startsWith('https://github.com/')) {
-			const host = new URL(fetchUrl).host;
-			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
-				resultHost = enterpriseUri.authority;
-			}
-		}
-		if (fetchUrl.startsWith('ssh://')) {
-			fetchUrl = fetchUrl.substr('ssh://'.length);
-		}
-		// upstream's origin by ssh
-		if ((fetchUrl.startsWith('git@') || fetchUrl.includes('@git')) && !fetchUrl.startsWith('git@github.com')) {
-			const host = fetchUrl.split('@')[1]?.split(':')[0];
-			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
-				resultHost = enterpriseUri.authority;
-			}
+		const protocol = new Protocol(fetchUrl);
+		if (protocol.host.startsWith(enterpriseUri.authority) || !protocol.host.includes('github.com')) {
+			resultHost = enterpriseUri.authority;
 		}
 	}
 	return `https://${resultHost}`;
@@ -420,11 +433,11 @@ export async function createSingleGitHubLink(
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context);
 	if (!uri) {
-		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined, range: undefined };
 	}
 	const folderManager = managers.getManagerForFile(uri);
 	if (!folderManager) {
-		return { permalink: undefined, error: vscode.l10n.t('Current file does not belong to an open repository.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('Current file does not belong to an open repository.'), originalFile: undefined, range: undefined };
 	}
 	let branchName = folderManager.repository.state.HEAD?.name;
 	if (!branchName) {
@@ -435,7 +448,7 @@ export async function createSingleGitHubLink(
 	}
 	const upstream = getSimpleUpstream(folderManager.repository);
 	if (!upstream?.fetchUrl) {
-		return { permalink: undefined, error: vscode.l10n.t('Repository does not have any remotes.'), originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('Repository does not have any remotes.'), originalFile: undefined, range: undefined };
 	}
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
@@ -444,7 +457,8 @@ export async function createSingleGitHubLink(
 		permalink: (`${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${encodedBranchAndFilePath
 			}${includeRange ? rangeString(range) : ''}`),
 		error: undefined,
-		originalFile: uri
+		originalFile: uri,
+		range
 	};
 }
 
@@ -533,12 +547,11 @@ export async function pushAndCreatePR(
 }
 
 export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
-	if (document.languageId !== 'markdown' && document.languageId !== 'plaintext') {
-		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
-		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
-			return false;
-		}
+	const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+	if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+		return false;
 	}
+
 	return true;
 }
 

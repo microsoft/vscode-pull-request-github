@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
 import Logger, { PR_TREE } from '../../common/logger';
-import { AUTO_REVEAL, EXPLORER } from '../../common/settingKeys';
+import { FILE_AUTO_REVEAL, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { DataUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -51,7 +51,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		this.getTreeItem();
 
 		this._register(vscode.window.onDidChangeActiveTextEditor(e => {
-			if (vscode.workspace.getConfiguration(EXPLORER).get(AUTO_REVEAL)) {
+			if (this.isFileAutoRevealEnabled()) {
 				const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
 				if (tabInput instanceof vscode.TabInputTextDiff) {
 					if ((tabInput.original.scheme === Schemes.Review)
@@ -66,6 +66,9 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		}));
 
 		this._register(this.parent.view.onDidChangeVisibility(_ => {
+			if (!this.isFileAutoRevealEnabled()) {
+				return;
+			}
 			const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
 			this.revealActiveEditorInTree(activeEditorUri);
 		}));
@@ -77,10 +80,19 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		}));
 	}
 
+	private isFileAutoRevealEnabled(): boolean {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(FILE_AUTO_REVEAL, true);
+	}
+
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
+		// File nodes are wired into the tree when FilesCategoryNode children are built.
+		// Skip reveal attempts before that to avoid invalid handle lookups.
+		if (!this._filesCategoryNode) {
+			return;
+		}
 		if (this.parent.view.visible && activeEditorUri) {
 			const matchingFile = this._reviewModel.localFileChanges.find(change => change.changeModel.filePath.toString() === activeEditorUri);
-			if (matchingFile) {
+			if (matchingFile && matchingFile.parent !== this.parent) {
 				this.reveal(matchingFile, { select: true });
 			}
 		}
@@ -111,7 +123,12 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 
 	override async getTreeItem(): Promise<vscode.TreeItem> {
 		this.setLabel();
-		this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [this.pullRequestModel.author], 16, 16))[0];
+		// For enterprise, use placeholder icon instead of trying to fetch avatar
+		if (!DataUri.isGitHubDotComAvatar(this.pullRequestModel.author.avatarUrl)) {
+			this.iconPath = new vscode.ThemeIcon('github');
+		} else {
+			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [this.pullRequestModel.author], 16, 16))[0];
+		}
 		this.description = undefined;
 		if (this.parent.children?.length && this.parent.children.length > 1) {
 			const allSameOwner = this.parent.children.every(child => {

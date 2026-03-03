@@ -20,7 +20,7 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
-import { GitHubRemote, Remote } from '../../common/remote';
+import { GitHubRemote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
@@ -30,7 +30,6 @@ import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { ReviewModel } from '../../view/reviewModel';
-import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
@@ -38,8 +37,10 @@ import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
 import { AccountType } from '../../github/interface';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { asPromise } from '../../common/utils';
+import { PrsTreeModel } from '../../view/prsTreeModel';
+import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -63,8 +64,8 @@ describe('ReviewCommentController', function () {
 	let reviewManager: ReviewManager;
 	let reposManager: RepositoriesManager;
 	let gitApiImpl: GitApiImpl;
-	let copilotManager: CopilotRemoteAgentManager;
 	let mockThemeWatcher: MockThemeWatcher;
+	let mockPrsTreeModel: PrsTreeModel;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -78,12 +79,11 @@ describe('ReviewCommentController', function () {
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager = new RepositoriesManager(credentialStore, telemetry);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
+		gitApiImpl = new GitApiImpl(reposManager);
+		mockPrsTreeModel = new MockPrsTreeModel() as unknown as PrsTreeModel;
+		provider = new PullRequestsTreeDataProvider(mockPrsTreeModel, telemetry, context, reposManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
-		Resource.initialize(context);
-		gitApiImpl = new GitApiImpl(reposManager);
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper, mockThemeWatcher);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);
@@ -205,6 +205,7 @@ describe('ReviewCommentController', function () {
 							createdAt: '',
 							htmlUrl: '',
 							graphNodeId: '',
+							isOutdated: false
 						}
 					],
 					subjectType: SubjectType.LINE
@@ -328,8 +329,9 @@ describe('ReviewCommentController', function () {
 				}
 			)
 
+			const newReviewThreadPromise = asPromise(activePullRequest.onDidChangeReviewThreads);
 			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
-
+			await newReviewThreadPromise;
 			assert.strictEqual(thread.comments.length, 1);
 			assert.strictEqual(thread.comments[0].parent, thread);
 

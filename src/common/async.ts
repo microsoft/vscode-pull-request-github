@@ -36,13 +36,13 @@ export function throttle<T>(fn: () => Promise<T>): () => Promise<T> {
 	return trigger;
 }
 
-export function debounce(fn: () => any, delay: number): () => void {
+export function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
 	let timer: NodeJS.Timeout | undefined;
 
-	return () => {
+	return (...args: Parameters<T>) => {
 		if (timer) {
 			clearTimeout(timer);
 		}
-		timer = setTimeout(() => fn(), delay);
+		timer = setTimeout(() => fn(...args), delay);
 	};
 }

@@ -188,7 +188,7 @@ export interface Repository {
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
 	getRefs?(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>; // Optional, because Remote Hub doesn't support this
 
-	getMergeBase(ref1: string, ref2: string): Promise<string>;
+	getMergeBase(ref1: string, ref2: string): Promise<string | undefined>;
 
 	status(): Promise<void>;
 	checkout(treeish: string): Promise<void>;
@@ -239,10 +239,12 @@ export interface IGit {
 	readonly onDidPublish?: Event<PublishEvent>;
 
 	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
+	getRepositoryWorkspace?(uri: Uri): Promise<Uri[] | null>;
+	clone?(uri: Uri, options?: CloneOptions): Promise<Uri | null>;
 }
 
 export interface TitleAndDescriptionProvider {
-	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[], template?: string }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
 export interface ReviewerComments {

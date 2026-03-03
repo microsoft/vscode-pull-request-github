@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -18,7 +17,10 @@ import {
 	PullRequestReviewRequirement,
 	Reaction,
 	ReviewState,
+	StateReason,
 } from './interface';
+import { IComment } from '../common/comment';
+import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
 export enum ReviewType {
 	Comment = 'comment',
@@ -42,6 +44,7 @@ export interface Issue {
 	bodyHTML?: string;
 	author: IAccount;
 	state: GithubItemStateEnum; // TODO: don't allow merged
+	stateReason?: StateReason;
 	events: TimelineEvent[];
 	labels: DisplayLabel[];
 	assignees: IAccount[];
@@ -64,6 +67,7 @@ export interface Issue {
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
+	canRequestCopilotReview: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
 }
@@ -79,6 +83,7 @@ export interface PullRequest extends Issue {
 	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	repositoryDefaultBranch: string;
+	doneCheckoutBranch: string;
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;
@@ -105,6 +110,8 @@ export interface PullRequest extends Issue {
 	lastReviewType?: ReviewType;
 	revertable?: boolean;
 	busy?: boolean;
+	loadingCommit?: string;
+	generateDescriptionTitle?: string;
 }
 
 export interface ProjectItemsReply {
@@ -116,10 +123,25 @@ export interface ChangeAssigneesReply {
 	events: TimelineEvent[];
 }
 
+export interface ChangeReviewersReply {
+	reviewers: ReviewState[];
+}
+
 export interface SubmitReviewReply {
 	events?: TimelineEvent[];
 	reviewedEvent: ReviewEvent | CommentEvent;
 	reviewers?: ReviewState[];
+}
+
+export interface ReadyForReviewReply {
+	isDraft: boolean;
+	reviewEvent?: ReviewEvent;
+	reviewers?: ReviewState[];
+	autoMerge?: boolean;
+}
+
+export interface ConvertToDraftReply {
+	isDraft: boolean;
 }
 
 export interface MergeArguments {
@@ -135,6 +157,11 @@ export interface MergeResult {
 	events?: TimelineEvent[];
 }
 
+export interface DeleteReviewResult {
+	deletedReviewId: number;
+	deletedReviewComments: IComment[];
+}
+
 export enum PreReviewState {
 	None = 0,
 	Available,
@@ -142,17 +169,68 @@ export enum PreReviewState {
 	ReviewedWithoutComments
 }
 
+export interface ChangeTemplateReply {
+	description: string;
+}
+
 export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
 
-export interface OverviewContext {
+export interface BaseContext {
 	'preventDefaultContextMenuItems': true;
 	owner: string;
 	repo: string;
 	number: number;
+	[key: string]: boolean | string | number;
+}
+
+export interface OverviewContext extends BaseContext {
+	'github:checkoutMenu': true;
+}
+
+export interface ReadyForReviewContext extends BaseContext {
+	'github:readyForReviewMenu': true;
+}
+
+export interface ReadyForReviewAndMergeContext extends ReadyForReviewContext {
+	'github:readyForReviewMenuWithMerge': true;
+	mergeMethod: MergeMethod;
 }
 
 export interface CodingAgentContext extends SessionLinkInfo {
 	'preventDefaultContextMenuItems': true;
+	'github:codingAgentMenu': true;
+	[key: string]: boolean | string | number | undefined;
+}
+
+export interface ReviewCommentContext {
+	'preventDefaultContextMenuItems': true;
+	'github:reviewCommentMenu': true,
+	owner: string;
+	repo: string;
+	number: number;
+	body: string;
+	'github:reviewCommentApprove'?: boolean;
+	'github:reviewCommentApproveOnDotCom'?: boolean;
+	'github:reviewCommentComment'?: boolean;
+	'github:reviewCommentCommentEnabled'?: boolean;
+	'github:reviewCommentRequestChanges'?: boolean;
+	'github:reviewRequestChangesEnabled'?: boolean;
+	'github:reviewCommentRequestChangesOnDotCom'?: boolean;
+}
+
+export interface ChangeBaseReply {
+	base: string;
+	events: TimelineEvent[];
+}
+
+/**
+ * Represents an unresolved PR or issue identity - just enough info to show the overview
+ * panel before the full model is loaded.
+ */
+export interface UnresolvedIdentity {
+	owner: string;
+	repo: string;
+	number: number;
 }

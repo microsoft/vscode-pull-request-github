@@ -4,12 +4,27 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { EventType, TimelineEvent } from './timelineEvent';
+import { AccountType, IAccount } from '../github/interface';
+
+export const COPILOT_SWE_AGENT = 'copilot-swe-agent';
+export const COPILOT_CLOUD_AGENT = 'copilot-cloud-agent';
+export const COPILOT_REVIEWER = 'copilot-pull-request-reviewer';
+export const COPILOT_REVIEWER_ID = 'BOT_kgDOCnlnWA';
 
 export const COPILOT_LOGINS = [
-	'copilot-pull-request-reviewer',
-	'copilot-swe-agent',
+	COPILOT_REVIEWER,
+	COPILOT_SWE_AGENT,
 	'Copilot'
 ];
+
+export const COPILOT_REVIEWER_ACCOUNT: IAccount = {
+	login: COPILOT_REVIEWER,
+	id: COPILOT_REVIEWER_ID,
+	url: '',
+	avatarUrl: '',
+	name: 'Copilot',
+	accountType: AccountType.Bot
+};
 
 export enum CopilotPRStatus {
 	None = 0,

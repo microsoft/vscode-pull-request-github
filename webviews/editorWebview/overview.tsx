@@ -9,7 +9,8 @@ import { PullRequest } from '../../src/github/views';
 import { AddComment, CommentView } from '../components/comment';
 import { Header } from '../components/header';
 import { StatusChecksSection } from '../components/merge';
-import Sidebar from '../components/sidebar';
+import Sidebar, { CollapsibleSidebar } from '../components/sidebar';
+import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
 import { Timeline } from '../components/timeline';
 
 const useMediaQuery = (query: string) => {
@@ -30,17 +31,20 @@ const useMediaQuery = (query: string) => {
 };
 
 export const Overview = (pr: PullRequest) => {
-	const isSingleColumnLayout = useMediaQuery('(max-width: 925px)');
+	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
+	const titleRef = React.useRef<HTMLDivElement>(null);
+	const isStuck = useStickyHeader(titleRef);
 
 	return <>
-		<div id="title" className="title">
+		<StickyHeader pr={pr} visible={isStuck} />
+		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />
 			</div>
 		</div>
 		{isSingleColumnLayout ?
 			<>
-				<Sidebar {...pr} />
+				<CollapsibleSidebar {...pr}/>
 				<Main {...pr} />
 			</>
 			:

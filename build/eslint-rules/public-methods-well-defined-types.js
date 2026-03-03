@@ -59,9 +59,11 @@ module.exports = {
 
 				// Type references with inline type arguments: Promise<{x: string}>, Array<{y: number}>
 				case 'TSTypeReference':
-					// Check if any type arguments contain inline types
-					if (typeNode.typeParameters && typeNode.typeParameters.params) {
-						return typeNode.typeParameters.params.some(isInlineType);
+					// ESLint 9 / @typescript-eslint v8 may expose generic instantiations on `typeArguments` instead of `typeParameters`.
+					// Support both shapes defensively.
+					const typeArgs = typeNode.typeParameters || typeNode.typeArguments;
+					if (typeArgs && typeArgs.params) {
+						return typeArgs.params.some(isInlineType);
 					}
 					return false;
 

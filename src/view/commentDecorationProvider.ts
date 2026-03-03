@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { TreeDecorationProvider } from './treeDecorationProviders';
 import { fromFileChangeNodeUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { TreeDecorationProvider } from './treeDecorationProviders';
 
 export class CommentDecorationProvider extends TreeDecorationProvider {
 

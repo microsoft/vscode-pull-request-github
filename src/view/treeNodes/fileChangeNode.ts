@@ -57,7 +57,7 @@ async function openDiffCommand(
 	return {
 		command: 'vscode.diff',
 		arguments: [parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts],
-		title: 'Open Changed File in PR',
+		title: 'Open Changed File in pull request',
 	};
 }
 
@@ -68,14 +68,14 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?:
 		| string
 		| vscode.Uri
-		| { light: string | vscode.Uri; dark: string | vscode.Uri }
+		| { light: vscode.Uri; dark: vscode.Uri }
 		| vscode.ThemeIcon;
 	public fileChangeResourceUri: vscode.Uri;
 	public contextValue: string;
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
-	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
+	public checkboxState?: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
 
 	get status(): GitChangeType {
 		return this.changeModel.status;
@@ -155,13 +155,28 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
+	/**
+	 * Check if this file node is under a commit node in the tree hierarchy.
+	 * Files under commit nodes should not have checkboxes.
+	 */
+	private isUnderCommitNode(): boolean {
+		// If the file's sha is different from the PR's head sha, it's from an older commit
+		// and should not have a checkbox
+		return this.changeModel.sha !== undefined && this.changeModel.sha !== this.pullRequest.head?.sha;
+	}
+
 	updateViewed(viewed: ViewedState) {
 		this.changeModel.updateViewed(viewed);
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		this.checkboxState = viewed === ViewedState.VIEWED ?
-			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark File as Unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
-			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark File as Viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
+		// Don't show checkboxes for files under commit nodes
+		if (!this.isUnderCommitNode()) {
+			this.checkboxState = viewed === ViewedState.VIEWED ?
+				{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark File as Unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
+				{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark File as Viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
+		} else {
+			this.checkboxState = undefined;
+		}
 		this.pullRequestManager.setFileViewedContext();
 	}
 
@@ -178,6 +193,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	override updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
 		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
 		this.updateViewed(viewed);
+	}
+
+	public refreshFileViewedContext() {
+		this.pullRequestManager.setFileViewedContext();
 	}
 
 	updateShowOptions() {

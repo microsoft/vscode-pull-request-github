@@ -123,6 +123,9 @@ fragment Commit on PullRequestCommit {
 		oid
 		message
 		committedDate
+		statusCheckRollup {
+			state
+		}
 	}
 	url
 }
@@ -205,6 +208,17 @@ fragment ReopenedEvent on ReopenedEvent {
 		...Actor
 	}
 	createdAt
+}
+
+fragment BaseRefChangedEvent on BaseRefChangedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	currentRefName
+	previousRefName
 }
 
 fragment Review on PullRequestReview {
@@ -309,6 +323,27 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
+					...BaseRefChangedEvent
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestActivityTimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 5) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...ClosedEvent
 				}
 			}
 		}
@@ -339,348 +374,14 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 	}
 }
 
-query LatestUpdates($owner: String!, $name: String!, $number: Int!, $since: DateTime!) {
+query LatestReviewCommit($owner: String!, $name: String!, $number: Int!, $author: String!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
+			reviews(last: 1, author: $author, states: [APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED]) {
 				nodes {
-					createdAt
-				}
-			}
-			updatedAt
-			comments(orderBy: {direction:DESC, field: UPDATED_AT}, first: 1) {
-				nodes {
-					updatedAt
-					reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
-						nodes {
-							createdAt
-						}
+					commit {
+						oid
 					}
-				}
-			}
-			timelineItems(since: $since, first: 1) {
-				nodes {
-					... on AddedToMergeQueueEvent {
-						createdAt
-					}
-					... on AddedToProjectEvent {
-						createdAt
-					}
-					... on AssignedEvent {
-						createdAt
-					}
-					... on AutoMergeDisabledEvent {
-						createdAt
-					}
-					... on AutoMergeEnabledEvent {
-						createdAt
-					}
-					... on AutoRebaseEnabledEvent {
-						createdAt
-					}
-					... on AutoSquashEnabledEvent {
-						createdAt
-					}
-					... on AutomaticBaseChangeFailedEvent {
-						createdAt
-					}
-					... on AutomaticBaseChangeSucceededEvent {
-						createdAt
-					}
-					... on BaseRefChangedEvent {
-						createdAt
-					}
-					... on BaseRefDeletedEvent {
-						createdAt
-					}
-					... on BaseRefForcePushedEvent {
-						createdAt
-					}
-					... on ClosedEvent {
-						createdAt
-					}
-					... on CommentDeletedEvent {
-						createdAt
-					}
-					... on ConnectedEvent {
-						createdAt
-					}
-					... on ConvertToDraftEvent {
-						createdAt
-					}
-					... on ConvertedNoteToIssueEvent {
-						createdAt
-					}
-					... on ConvertedToDiscussionEvent {
-						createdAt
-					}
-					... on CrossReferencedEvent {
-						createdAt
-					}
-					... on DemilestonedEvent {
-						createdAt
-					}
-					... on DeployedEvent {
-						createdAt
-					}
-					... on DeploymentEnvironmentChangedEvent {
-						createdAt
-					}
-					... on DisconnectedEvent {
-						createdAt
-					}
-					... on HeadRefDeletedEvent {
-						createdAt
-					}
-					... on HeadRefForcePushedEvent {
-						createdAt
-					}
-					... on HeadRefRestoredEvent {
-						createdAt
-					}
-					... on IssueComment {
-						createdAt
-					}
-					... on IssueTypeAddedEvent {
-						createdAt
-					}
-					... on LabeledEvent {
-						createdAt
-					}
-					... on LockedEvent {
-						createdAt
-					}
-					... on MarkedAsDuplicateEvent {
-						createdAt
-					}
-					... on MentionedEvent {
-						createdAt
-					}
-					... on MergedEvent {
-						createdAt
-					}
-					... on MilestonedEvent {
-						createdAt
-					}
-					... on MovedColumnsInProjectEvent {
-						createdAt
-					}
-					... on PinnedEvent {
-						createdAt
-					}
-					... on PullRequestCommit {
-						commit {
-							committedDate
-						}
-					}
-					... on PullRequestReview {
-						createdAt
-					}
-					... on PullRequestReviewThread {
-						comments(last: 1) {
-							nodes {
-								createdAt
-							}
-						}
-					}
-					... on PullRequestRevisionMarker {
-						createdAt
-					}
-					... on ReadyForReviewEvent {
-						createdAt
-					}
-					... on ReferencedEvent {
-						createdAt
-					}
-					... on RemovedFromMergeQueueEvent {
-						createdAt
-					}
-					... on RemovedFromProjectEvent {
-						createdAt
-					}
-					... on RenamedTitleEvent {
-						createdAt
-					}
-					... on ReopenedEvent {
-						createdAt
-					}
-					... on ReviewDismissedEvent {
-						createdAt
-					}
-					... on ReviewRequestRemovedEvent {
-						createdAt
-					}
-					... on ReviewRequestedEvent {
-						createdAt
-					}
-					... on SubscribedEvent {
-						createdAt
-					}
-					... on TransferredEvent {
-						createdAt
-					}
-					... on UnassignedEvent {
-						createdAt
-					}
-					... on UnlabeledEvent {
-						createdAt
-					}
-					... on UnlockedEvent {
-						createdAt
-					}
-					... on UnmarkedAsDuplicateEvent {
-						createdAt
-					}
-					... on UnpinnedEvent {
-						createdAt
-					}
-					... on UnsubscribedEvent {
-						createdAt
-					}
-					... on UserBlockedEvent {
-						createdAt
-					}
-				}
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query LatestIssueUpdates($owner: String!, $name: String!, $number: Int!, $since: DateTime!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest: issue(number: $number) {
-			reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
-				nodes {
-					createdAt
-				}
-			}
-			updatedAt
-			comments(orderBy: {direction:DESC, field: UPDATED_AT}, first: 1) {
-				nodes {
-					updatedAt
-					reactions(orderBy:{direction:DESC, field: CREATED_AT}, first: 1) {
-						nodes {
-							createdAt
-						}
-					}
-				}
-			}
-			timelineItems(since: $since, first: 1) {
-				nodes {
-					... on AddedToProjectEvent {
-						createdAt
-					}
-					... on AssignedEvent {
-						createdAt
-					}
-					... on ClosedEvent {
-						createdAt
-					}
-					... on CommentDeletedEvent {
-						createdAt
-					}
-					... on ConnectedEvent {
-						createdAt
-					}
-					... on ConvertedNoteToIssueEvent {
-						createdAt
-					}
-					... on ConvertedToDiscussionEvent {
-						createdAt
-					}
-					... on CrossReferencedEvent {
-						createdAt
-					}
-					... on DemilestonedEvent {
-						createdAt
-					}
-					... on DisconnectedEvent {
-						createdAt
-					}
-					... on IssueComment {
-						createdAt
-					}
-					... on IssueTypeAddedEvent {
-						createdAt
-					}
-					... on LabeledEvent {
-						createdAt
-					}
-					... on LockedEvent {
-						createdAt
-					}
-					... on MarkedAsDuplicateEvent {
-						createdAt
-					}
-					... on MentionedEvent {
-						createdAt
-					}
-					... on MilestonedEvent {
-						createdAt
-					}
-					... on MovedColumnsInProjectEvent {
-						createdAt
-					}
-					... on PinnedEvent {
-						createdAt
-					}
-					... on ReferencedEvent {
-						createdAt
-					}
-					... on RemovedFromProjectEvent {
-						createdAt
-					}
-					... on RenamedTitleEvent {
-						createdAt
-					}
-					... on ReopenedEvent {
-						createdAt
-					}
-					... on SubscribedEvent {
-						createdAt
-					}
-					... on TransferredEvent {
-						createdAt
-					}
-					... on UnassignedEvent {
-						createdAt
-					}
-					... on UnlabeledEvent {
-						createdAt
-					}
-					... on UnlockedEvent {
-						createdAt
-					}
-					... on UnmarkedAsDuplicateEvent {
-						createdAt
-					}
-					... on UnpinnedEvent {
-						createdAt
-					}
-					... on UnsubscribedEvent {
-						createdAt
-					}
-					... on UserBlockedEvent {
-						createdAt
-					}
-				}
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest(number: $number) {
-			viewerLatestReview {
-				commit {
-					oid
 				}
 			}
 		}
@@ -1019,6 +720,27 @@ query PullRequestTemplates($owner: String!, $name: String!) {
 	}
 }
 
+fragment PullRequestNumberFragment on PullRequest {
+	number
+	title
+	author {
+		login
+	}
+}
+
+query PullRequestNumbers($owner: String!, $name: String!, $first: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequests(first: $first, states: OPEN, orderBy: { field: CREATED_AT, direction: DESC }) {
+			nodes {
+				...PullRequestNumberFragment
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {
@@ -1067,6 +789,16 @@ mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
 			mergeStateStatus
 			viewerCanEnableAutoMerge
 			viewerCanDisableAutoMerge
+		}
+	}
+}
+
+mutation ConvertToDraft($input: ConvertPullRequestToDraftInput!) {
+	convertPullRequestToDraft(input: $input) {
+		pullRequest {
+			isDraft
+			mergeable
+			mergeStateStatus
 		}
 	}
 }
@@ -1213,9 +945,9 @@ query GetBranch($owner: String!, $name: String!, $qualifiedName: String!) {
 	}
 }
 
-query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String) {
+query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
 	repository(owner: $owner, name: $name) {
-		refs(first: $first, after: $after, refPrefix: "refs/heads/") {
+		refs(first: $first, after: $after, refPrefix: "refs/heads/", query: $query) {
 			nodes {
 				name
 			}
@@ -1236,6 +968,23 @@ query MaxIssue($owner: String!, $name: String!) {
 			edges {
 				node {
 					... on Issue {
+						number
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query MaxPullRequest($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		issues: pullRequests(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
+			edges {
+				node {
+					... on PullRequest {
 						number
 					}
 				}
@@ -1339,6 +1088,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 									}
 									... on CheckRun {
 										id
+										databaseId
 										conclusion
 										title
 										detailsUrl
@@ -1422,6 +1172,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 									}
 									... on CheckRun {
 										id
+										databaseId
 										conclusion
 										title
 										detailsUrl
@@ -1546,6 +1297,7 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
+					...BaseRefChangedEvent
 				}
 			}
 		}

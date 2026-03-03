@@ -4,7 +4,56 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { replaceImages } from '../../github/prComment';
+import { COMMIT_SHA_EXPRESSION, replaceImages } from '../../github/prComment';
+
+describe('commit SHA replacement', function () {
+	it('should match 7-character commit SHAs', function () {
+		const text = 'Fixed in commit 5cf56bc and also in abc1234';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		assert.strictEqual(matches.length, 2);
+		assert.strictEqual(matches[0][1], '5cf56bc');
+		assert.strictEqual(matches[1][1], 'abc1234');
+	});
+
+	it('should match 40-character commit SHAs', function () {
+		const text = 'Fixed in commit 5cf56bc1234567890abcdef1234567890abcdef0';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		assert.strictEqual(matches.length, 1);
+		assert.strictEqual(matches[0][0], '5cf56bc1234567890abcdef1234567890abcdef0');
+	});
+
+	it('should not match SHAs in URLs', function () {
+		const text = 'https://github.com/owner/repo/commit/5cf56bc';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		assert.strictEqual(matches.length, 0);
+	});
+
+	it('should not match SHAs in code blocks', function () {
+		const text = 'Fixed in commit 5cf56bc but not in `abc1234`';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		// The regex should only match the first SHA, not the one inside backticks
+		assert.strictEqual(matches.length, 1);
+		assert.strictEqual(matches[0][1], '5cf56bc');
+	});
+
+	it('should not match non-hex strings', function () {
+		const text = 'Not a SHA: 1234xyz or ABCDEFG';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		assert.strictEqual(matches.length, 0);
+	});
+
+	it('should not match SHAs with alphanumeric prefix', function () {
+		const text = 'prefix5cf56bc is not a SHA';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		assert.strictEqual(matches.length, 0);
+	});
+
+	it('should not match SHAs with alphanumeric suffix', function () {
+		const text = '5cf56bcsuffix is not a SHA';
+		const matches = Array.from(text.matchAll(COMMIT_SHA_EXPRESSION));
+		assert.strictEqual(matches.length, 0);
+	});
+});
 
 describe('replace images', function () {
 	it('github.com', function () {

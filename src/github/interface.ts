@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import { ReviewStateValue } from '../common/timelineEvent';
 
 export enum PRType {
@@ -49,6 +48,11 @@ export interface ReadyForReview {
 	isDraft: boolean;
 	mergeable: PullRequestMergeability;
 	allowAutoMerge: boolean;
+}
+
+export interface ConvertToDraft {
+	isDraft: boolean;
+	mergeable: PullRequestMergeability;
 }
 
 export interface IActor {
@@ -105,15 +109,16 @@ export interface MergeQueueEntry {
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
 	// We can literally get different login values for copilot depending on where it's coming from (already assignee vs suggested assingee)
-	return isTeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
+	return isITeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
+	return isITeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
-export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
-	return 'org' in reviewer;
+export function isITeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
+	const asITeam = reviewer as Partial<ITeam>;
+	return !!asITeam.org;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -121,10 +126,11 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
-export function isSuggestedReviewer(
+export function isISuggestedReviewer(
 	reviewer: IAccount | ISuggestedReviewer | ITeam
 ): reviewer is ISuggestedReviewer {
-	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
+	const asISuggestedReviewer = reviewer as Partial<ISuggestedReviewer>;
+	return !!asISuggestedReviewer.isAuthor && !!asISuggestedReviewer.isCommenter;
 }
 
 export interface IProject {
@@ -183,10 +189,12 @@ export interface IIssueComment {
 export interface Reaction {
 	label: string;
 	count: number;
-	icon?: vscode.Uri;
+	icon?: string;
 	viewerHasReacted: boolean;
 	reactors: readonly string[];
 }
+
+export type StateReason = 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
 
 export interface Issue {
 	id: number;
@@ -194,6 +202,7 @@ export interface Issue {
 	url: string;
 	number: number;
 	state: string;
+	stateReason?: StateReason;
 	body: string;
 	bodyHTML?: string;
 	title: string;
@@ -234,6 +243,8 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	hasComments?: boolean;
+	additions?: number;
+	deletions?: number;
 }
 
 export enum NotificationSubjectType {
@@ -254,7 +265,7 @@ export interface Notification {
 	};
 	reason: string;
 	unread: boolean;
-	updatedAd: Date;
+	updatedAt: Date;
 	lastReadAt: Date | undefined;
 }
 
@@ -335,6 +346,7 @@ export enum CheckState {
 
 export interface PullRequestCheckStatus {
 	id: string;
+	databaseId: number | null | undefined;
 	url: string | undefined;
 	avatarUrl: string | undefined;
 	state: CheckState;
@@ -344,6 +356,7 @@ export interface PullRequestCheckStatus {
 	workflowName: string | undefined;
 	event: string | undefined;
 	isRequired: boolean;
+	isCheckRun: boolean;
 }
 
 export interface PullRequestChecks {

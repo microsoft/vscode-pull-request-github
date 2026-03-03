@@ -9,6 +9,10 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
+import { CommentControllerBase } from './commentControllBase';
+import { RemoteFileChangeModel } from './fileChangeModel';
+import { ReviewManager } from './reviewManager';
+import { ReviewModel } from './reviewModel';
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
@@ -19,7 +23,7 @@ import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, uniqBy } from '../common/utils';
+import { arrayFindIndexAsync, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -35,10 +39,6 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
-import { CommentControllerBase } from './commentControllBase';
-import { RemoteFileChangeModel } from './fileChangeModel';
-import { ReviewManager } from './reviewManager';
-import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export interface SuggestionInformation {
@@ -275,12 +275,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		);
 
 		this._register(
-			activePullRequest.onDidChangeReviewThreads(e => {
+			activePullRequest.onDidChangeReviewThreads(async e => {
 				const githubRepositories = this.githubReposForPullRequest(this._folderRepoManager.activePullRequest);
-				e.added.forEach(async thread => {
+				for (const thread of e.added) {
 					const { path } = thread;
 
-					const index = this._pendingCommentThreadAdds.findIndex(async t => {
+					const index = await arrayFindIndexAsync(this._pendingCommentThreadAdds, async t => {
 						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
 							return false;
@@ -297,7 +297,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 						newThread = this._pendingCommentThreadAdds[index];
 						newThread.gitHubThreadId = thread.id;
 						newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread, githubRepositories));
-						updateThreadWithRange(this._context, newThread, thread, githubRepositories);
+						updateThreadWithRange(this._context, newThread, thread, githubRepositories, undefined, true);
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
@@ -324,24 +324,24 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					} else {
 						threadMap[path] = [newThread];
 					}
-				});
+				}
 
-				e.changed.forEach(thread => {
+				for (const thread of e.changed) {
 					const match = this._findMatchingThread(thread);
 					if (match.index > -1) {
 						const matchingThread = match.threadMap[thread.path][match.index];
 						updateThread(this._context, matchingThread, thread, githubRepositories);
 					}
-				});
+				}
 
-				e.removed.forEach(thread => {
+				for (const thread of e.removed) {
 					const match = this._findMatchingThread(thread);
 					if (match.index > -1) {
 						const matchingThread = match.threadMap[thread.path][match.index];
 						match.threadMap[thread.path].splice(match.index, 1);
 						matchingThread.dispose();
 					}
-				});
+				}
 
 				this.updateResourcesWithCommentingRanges();
 			}),
@@ -723,7 +723,10 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 	public async openReview(): Promise<void> {
 		await this._reviewManager.openDescription();
-		PullRequestOverviewPanel.scrollToReview();
+		const pr = this._folderRepoManager.activePullRequest;
+		if (pr) {
+			PullRequestOverviewPanel.scrollToReview(pr.remote.owner, pr.remote.repositoryName, pr.number);
+		}
 	}
 
 	// #endregion
@@ -985,7 +988,14 @@ ${suggestionInformation.suggestionContent}
 				);
 			}
 		} catch (e) {
-			throw new Error(formatError(e));
+			// Ignore permission errors when removing reactions due to race conditions
+			// See: https://github.com/microsoft/vscode/issues/69321
+			const errorMessage = formatError(e);
+			if (errorMessage.includes('does not have the correct permissions to execute `RemoveReaction`')) {
+				// Silently ignore this error - it occurs when quickly toggling reactions
+				return;
+			}
+			throw new Error(errorMessage);
 		}
 	}
 

@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { resolve } from '../env/node/ssh';
 import Logger from './logger';
+import { resolve } from '../env/node/ssh';
 
 
 export enum ProtocolType {

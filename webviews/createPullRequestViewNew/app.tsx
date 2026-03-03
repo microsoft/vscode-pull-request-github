@@ -5,13 +5,15 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParamsNew, RemoteInfo } from '../../common/views';
-import { isTeam, MergeMethod } from '../../src/github/interface';
+import { RemoteInfo } from '../../common/types';
+import { CreateParamsNew } from '../../common/views';
+import { isITeam, MergeMethod } from '../../src/github/interface';
+import { ChangeTemplateReply } from '../../src/github/views';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, projectIcon, reviewerIcon, sparkleIcon, stopCircleIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -171,10 +173,21 @@ export function main() {
 					}
 				}
 
+				function openDescriptionSettings(_event: React.MouseEvent | React.KeyboardEvent): void {
+					ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+				}
+
 				async function generateTitle(useCopilot?: boolean) {
 					setGeneratingTitle(true);
 					await ctx.generateTitle(!!useCopilot);
 					setGeneratingTitle(false);
+				}
+
+				async function changeTemplate() {
+					const result: ChangeTemplateReply = await ctx.postMessage({ command: 'pr.changeTemplate' });
+					if (result && result.description) {
+						ctx.updateState({ pendingDescription: result.description });
+					}
 				}
 
 
@@ -191,7 +204,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{gitCompareIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -219,6 +232,7 @@ export function main() {
 						</div>
 					</div>
 
+					<label htmlFor='title' className='input-title'>Title</label>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -230,7 +244,6 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
-							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -248,7 +261,7 @@ export function main() {
 					<div className='group-additions'>
 						{params.assignees && (params.assignees.length > 0) ?
 							<div className='assignees'>
-								<span title='Assignees' aria-hidden='true'>{assigneeIcon}</span>
+								<span title='Assignees' aria-hidden='true'>{accountIcon}</span>
 								<ul aria-label='Assignees' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
@@ -266,7 +279,7 @@ export function main() {
 
 						{params.reviewers && (params.reviewers.length > 0) ?
 							<div className='reviewers'>
-								<span title='Reviewers' aria-hidden='true'>{reviewerIcon}</span>
+								<span title='Reviewers' aria-hidden='true'>{feedbackIcon}</span>
 								<ul aria-label='Reviewers' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
@@ -275,7 +288,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isTeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
+												{isITeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
 											</span>
 										</li>)}
 								</ul>
@@ -284,7 +297,7 @@ export function main() {
 
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
-								<span title='Labels' aria-hidden='true'>{labelIcon}</span>
+								<span title='Labels' aria-hidden='true'>{tagIcon}</span>
 								<ul aria-label='Labels' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
@@ -324,12 +337,19 @@ export function main() {
 							: null}
 					</div>
 
+					<div className='description-title'>
+						<label htmlFor='description' className='input-title'>Description</label>
+						<div className='description-actions'>
+							{ctx.createParams.usingTemplate ?
+								<a title='Change template' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => changeTemplate()} tabIndex={0}>{notebookTemplate}</a> : null}
+							<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
+						</div>
+					</div>
 					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
-							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
@@ -370,7 +390,9 @@ export function main() {
 	);
 }
 
-export function Root({ children }) {
+interface RootProps { children: (params: CreateParamsNew) => JSX.Element }
+
+export function Root({ children }: RootProps): JSX.Element {
 	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
@@ -378,5 +400,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return children(pr);
+	return <>{children(pr)}</>;
 }

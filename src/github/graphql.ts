@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
+import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 
 interface PageInfo {
 	hasNextPage: boolean;
@@ -39,7 +39,7 @@ export interface CrossReferencedEvent {
 	id: string;
 	actor: Actor;
 	createdAt: string;
-	source: {
+	source?: {
 		__typename: string;
 		number: number;
 		url: string;
@@ -66,6 +66,15 @@ export interface ReopenedEvent {
 	id: string;
 	actor: Actor;
 	createdAt: string;
+}
+
+export interface BaseRefChangedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+	currentRefName: string;
+	previousRefName: string;
 }
 
 export interface AbbreviatedIssueComment {
@@ -121,11 +130,18 @@ export interface Account extends Actor {
 }
 
 export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
-	return !!x && 'name' in x && 'email' in x;
+	const asAccount = x as Partial<Account>;
+	return !!asAccount && (asAccount?.name !== undefined) && (asAccount?.email !== undefined);
 }
 
 export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
-	return !!x && 'slug' in x;
+	const asTeam = x as Partial<Team>;
+	return !!asTeam && (asTeam?.slug !== undefined);
+}
+
+export function isBot(x: Actor | Team | Node | undefined | null): x is Actor {
+	const asBot = x as Partial<Actor>;
+	return !!asBot && !!asBot.id?.startsWith('BOT_');
 }
 
 export interface Team {
@@ -186,6 +202,9 @@ export interface Commit {
 		oid: string;
 		message: string;
 		committedDate: Date;
+		statusCheckRollup?: {
+			state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+		};
 	};
 
 	url: string;
@@ -260,7 +279,7 @@ export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | BaseRefChangedEvent | null)[];
 			};
 		};
 	} | null;
@@ -275,9 +294,9 @@ export interface LatestCommit {
 
 export interface LatestReviewThread {
 	comments: {
-		nodes: {
+		nodes: ({
 			createdAt: string;
-		}[];
+		} | null)[];
 	}
 }
 
@@ -285,25 +304,25 @@ export interface LatestUpdatesResponse {
 	repository: {
 		pullRequest: {
 			reactions: {
-				nodes: {
+				nodes: ({
 					createdAt: string;
-				}[];
+				} | null)[];
 			}
 			updatedAt: string;
 			comments: {
 				nodes: {
 					updatedAt: string;
 					reactions: {
-						nodes: {
+						nodes: ({
 							createdAt: string;
-						}[];
+						} | null)[];
 					}
 				}[];
 			}
 			timelineItems: {
 				nodes: ({
 					createdAt: string;
-				} | LatestCommit | LatestReviewThread)[];
+				} | LatestCommit | LatestReviewThread | null)[];
 			}
 		}
 	}
@@ -312,10 +331,12 @@ export interface LatestUpdatesResponse {
 export interface LatestReviewCommitResponse {
 	repository: {
 		pullRequest: {
-			viewerLatestReview: {
-				commit: {
-					oid: string;
-				}
+			reviews: {
+				nodes: {
+					commit: {
+						oid: string;
+					}
+				}[];
 			};
 		};
 	} | null;
@@ -338,6 +359,14 @@ export interface GetReviewRequestsResponse {
 					requestedReviewer: Actor | Account | Team | Node | null;
 				}[];
 			};
+		};
+	} | null;
+}
+
+export interface AddReviewRequestResponse {
+	requestReviews: {
+		pullRequest: {
+			id: string;
 		};
 	} | null;
 }
@@ -486,6 +515,16 @@ export interface MarkPullRequestReadyForReviewResponse {
 	};
 }
 
+export interface ConvertPullRequestToDraftResponse {
+	convertPullRequestToDraft: {
+		pullRequest: {
+			isDraft: boolean;
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+		};
+	};
+}
+
 export interface MergeQueueForBranchResponse {
 	repository: {
 		mergeQueue?: {
@@ -503,6 +542,15 @@ export interface DequeuePullRequestResponse {
 export interface EnqueuePullRequestResponse {
 	enqueuePullRequest: {
 		mergeQueueEntry: MergeQueueEntry;
+	}
+}
+
+export interface UpdatePullRequestBranchResponse {
+	updatePullRequestBranch: {
+		pullRequest: {
+			id: string;
+			headRefOid: string;
+		}
 	}
 }
 
@@ -636,6 +684,7 @@ export interface Issue {
 	number: number;
 	url: string;
 	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
+	stateReason?: 'REOPENED' | 'NOT_PLANNED' | 'COMPLETED' | 'DUPLICATE';
 	body: string;
 	bodyHTML: string;
 	title: string;
@@ -717,6 +766,8 @@ export interface PullRequest extends Issue {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
+	additions?: number;
+	deletions?: number;
 }
 
 export enum DefaultCommitTitle {
@@ -836,6 +887,23 @@ export interface PullRequestsResponse {
 	} | null;
 }
 
+export interface PullRequestNumbersResponse {
+	repository: {
+		pullRequests: {
+			nodes: PullRequestNumberData[]
+		}
+	} | null;
+	rateLimit: RateLimit;
+}
+
+export interface PullRequestNumberData {
+	number: number;
+	title: string;
+	author: {
+		login: string;
+	};
+}
+
 export interface MaxIssueResponse {
 	repository: {
 		issues: {
@@ -926,6 +994,7 @@ export interface StatusContext {
 export interface CheckRun {
 	__typename: string;
 	id: string;
+	databaseId: number | null;
 	conclusion:
 	| 'ACTION_REQUIRED'
 	| 'CANCELLED'
@@ -1043,7 +1112,7 @@ export interface MergePullRequestResponse {
 	mergePullRequest: {
 		pullRequest: PullRequest & {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[]
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | BaseRefChangedEvent)[]
 			}
 		};
 	}

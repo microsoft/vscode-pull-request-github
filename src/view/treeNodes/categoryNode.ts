@@ -4,20 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../../common/types';
 import { AuthenticationError } from '../../common/authentication';
+import { DEV_MODE, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
-import { COPILOT_QUERY, Schemes } from '../../common/uri';
+import { toQueryUri } from '../../common/uri';
 import { formatError } from '../../common/utils';
 import { isCopilotQuery } from '../../github/copilotPrWatcher';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
-import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { extractRepoFromQuery } from '../../github/utils';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import { IQueryInfo } from './workspaceFolderNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -32,7 +34,7 @@ export enum PRCategoryActionType {
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: { light: vscode.Uri; dark: vscode.Uri };
 	public type: PRCategoryActionType;
 	public command?: vscode.Command;
 
@@ -132,15 +134,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public resourceUri: vscode.Uri;
 	public tooltip?: string | vscode.MarkdownString | undefined;
 	readonly isCopilot: boolean;
+	private _repo: RemoteInfo | undefined;
 
 	constructor(
 		parent: TreeNodeParent,
 		readonly folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
-		private _notificationProvider: NotificationProvider,
+		private _notificationProvider: NotificationsManager,
 		private _prsTreeModel: PrsTreeModel,
-		private _copilotManager: CopilotRemoteAgentManager,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
@@ -148,7 +150,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.prs = new Map();
 		this.isCopilot = !!_categoryQuery && isCopilotQuery(_categoryQuery);
-		const hasCopilotChanges = this.isCopilot && this._copilotManager.notificationsCount > 0;
 
 		switch (this.type) {
 			case PRType.All:
@@ -167,22 +168,24 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		this.resourceUri = vscode.Uri.parse(Schemes.PRQuery);
+		// Check if dev mode is enabled to collapse all queries
+		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
 
-		if (hasCopilotChanges) {
-			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-			this.resourceUri = COPILOT_QUERY;
-		} else if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
-			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		if (devMode) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		} else {
-			this.collapsibleState =
-				this._prsTreeModel.expandedQueries?.has(this.id)
-					? vscode.TreeItemCollapsibleState.Expanded
-					: vscode.TreeItemCollapsibleState.Collapsed;
+			if ((this._prsTreeModel.expandedQueries === undefined) && (this.type === PRType.All)) {
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+			} else {
+				this.collapsibleState =
+					this._prsTreeModel.expandedQueries?.has(this.id)
+						? vscode.TreeItemCollapsibleState.Expanded
+						: vscode.TreeItemCollapsibleState.Collapsed;
+			}
 		}
 
 		if (this._categoryQuery) {
-			this.contextValue = 'query';
+			this.contextValue = this.isCopilot ? 'copilot-query' : 'query';
 		}
 
 		if (this.isCopilot) {
@@ -196,15 +199,17 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			this.tooltip = this.label;
 		}
+	}
 
-		this.description = this._getDescription();
+	get repo(): RemoteInfo | undefined {
+		return this._repo;
 	}
 
 	private _getDescription(): string | undefined {
-		if (!this.isCopilot) {
+		if (!this.isCopilot || !this._repo) {
 			return undefined;
 		}
-		const counts = this._copilotManager.getCounts();
+		const counts = this._prsTreeModel.getCopilotCounts(this._repo.owner, this._repo.repositoryName);
 		if (counts.total === 0) {
 			return undefined;
 		} else if (counts.error > 0) {
@@ -292,23 +297,27 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
-				const error = formatError(e);
-				const actions: string[] = [];
-				if (error.includes('Bad credentials')) {
-					actions.push(vscode.l10n.t('Login again'));
-				}
-				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
-					if (action && action === actions[0]) {
-						this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+				if (this.isCopilot && (e.response.status === 422) && e.message.includes('the users do not exist')) {
+					// Skip it, it's copilot and the repo doesn't have copilot
+				} else {
+					const error = formatError(e);
+					const actions: string[] = [];
+					if (error.includes('Bad credentials')) {
+						actions.push(vscode.l10n.t('Login again'));
 					}
-				});
-				needLogin = e instanceof AuthenticationError;
+					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
+						if (action && action === actions[0]) {
+							this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+						}
+					});
+					needLogin = e instanceof AuthenticationError;
+				}
 			}
 		}
 
 		if (this.prs.size > 0) {
 			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
-				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
+				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider, this._prsTreeModel),
 			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
@@ -327,7 +336,21 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	async getTreeItem(): Promise<vscode.TreeItem> {
+		this.description = this._getDescription();
+		if (!this._repo) {
+			this._repo = await extractRepoFromQuery(this.folderRepoManager, this._categoryQuery);
+		}
+		this.resourceUri = toQueryUri({ remote: this._repo, isCopilot: this.isCopilot });
+
+		// Update contextValue based on current notification state
+		if (this._categoryQuery) {
+			const hasNotifications = this.isCopilot && this._repo && this._prsTreeModel.getCopilotNotificationsCount(this._repo.owner, this._repo.repositoryName) > 0;
+			this.contextValue = this.isCopilot ?
+				(hasNotifications ? 'copilot-query-with-notifications' : 'copilot-query') :
+				'query';
+		}
+
 		return this;
 	}
 }

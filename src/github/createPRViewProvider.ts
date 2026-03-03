@@ -4,8 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, TitleAndDescriptionArgs } from '../../common/views';
-import type { Branch, Ref } from '../api/api';
+import {
+	byRemoteName,
+	FolderRepositoryManager,
+	PullRequestDefaults,
+	titleAndBodyFrom,
+} from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
+import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
+import { PullRequestModel } from './pullRequestModel';
+import { getDefaultMergeMethod } from './pullRequestOverview';
+import { branchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
+import { RemoteInfo } from '../../common/types';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
+import type { Branch } from '../api/api';
+import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
@@ -23,23 +39,10 @@ import {
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { PREVIOUS_CREATE_METHOD } from '../extensionState';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewViewBase } from '../common/webview';
+import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
-import {
-	byRemoteName,
-	FolderRepositoryManager,
-	PullRequestDefaults,
-	titleAndBodyFrom,
-} from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
-import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
-import { PullRequestModel } from './pullRequestModel';
-import { getDefaultMergeMethod } from './pullRequestOverview';
-import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
-import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
-import { DisplayLabel, PreReviewState } from './views';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
@@ -131,6 +134,27 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
+	protected saveRecentlyUsedBranch(owner: string, repositoryName: string, branchName: string): void {
+		const repoKey = `${owner}/${repositoryName}`;
+		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
+
+		// Get the current list for this repo
+		let recentBranches = state.branches[repoKey] || [];
+
+		// Remove the branch if it's already in the list
+		recentBranches = recentBranches.filter(b => b !== branchName);
+
+		// Add it to the front
+		recentBranches.unshift(branchName);
+
+		// Limit to 10 branches
+		recentBranches = recentBranches.slice(0, 10);
+
+		// Save back to state
+		state.branches[repoKey] = recentBranches;
+		this._folderRepositoryManager.context.workspaceState.update(RECENTLY_USED_BRANCHES, state);
+	}
+
 	private initializeWhenVisibleDisposable: vscode.Disposable | undefined;
 	public async initializeParams(reset: boolean = false): Promise<void> {
 		if (this._view?.visible === false && this.initializeWhenVisibleDisposable === undefined) {
@@ -216,7 +240,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
-		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
+		const descriptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (descriptionSource === 'Copilot');
+		const usingTemplate: boolean = descriptionSource === 'template';
 		const defaultTitleAndDescriptionProvider = this.getTitleAndDescriptionProvider()?.title;
 		if (defaultTitleAndDescriptionProvider) {
 			/* __GDPR__
@@ -253,7 +279,8 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			initializeWithGeneratedTitleAndDescription: useCopilot,
 			preReviewState: PreReviewState.None,
 			preReviewer: preReviewer?.title,
-			reviewing: false
+			reviewing: false,
+			usingTemplate
 		};
 
 		return params;
@@ -276,7 +303,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		if (!configuration) {
 			return;
 		}
-		const resolved = await variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
+		const resolved = variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
 		if (!resolved) {
 			return;
 		}
@@ -315,7 +342,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			const users: IAccount[] = [];
 			const teams: ITeam[] = [];
 			for (const reviewer of reviewers) {
-				if (isTeam(reviewer)) {
+				if (isITeam(reviewer)) {
 					teams.push(reviewer);
 				} else {
 					users.push(reviewer);
@@ -503,6 +530,10 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return this._replyMessage(message, undefined);
 	}
 
+	private async openDescriptionSettings(): Promise<void> {
+		return vscode.commands.executeCommand('workbench.action.openSettings', 'githubPullRequests.pullRequestDescription');
+	}
+
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -537,6 +568,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
 
+			case 'pr.openDescriptionSettings':
+				return this.openDescriptionSettings();
+
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}
@@ -548,7 +582,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	private _getHtmlForWebview() {
-		const nonce = getNonce();
+		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-create-pr-view-new.js');
 
@@ -628,33 +662,30 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return undefined;
 		}
 
-		const [pr, compareBranch] = await Promise.all([await this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
+		const [pr, compareBranch] = await Promise.all([this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
 		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
 	}
 
 	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
-		const branchChanged = compareBranch && (compareBranch.name !== this.model.compareBranch);
-		const currentCompareRemote = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === this.model.compareOwner)?.remote.remoteName;
-		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== currentCompareRemote);
-		if (branchChanged || branchRemoteChanged) {
-			this._defaultCompareBranch = compareBranch!.name!;
-			this.model.setCompareBranch(compareBranch!.name);
-			this.changeBranch(compareBranch!.name!, false).then(async titleAndDescription => {
-				const params: Partial<CreateParamsNew> = {
-					defaultTitle: titleAndDescription.title,
-					defaultDescription: titleAndDescription.description,
-					compareBranch: compareBranch?.name,
-					defaultCompareBranch: compareBranch?.name,
-					warning: await this.existingPRMessage(),
-				};
-				if (!branchRemoteChanged) {
-					return this._postMessage({
-						command: 'pr.initialize',
-						params,
-					});
-				}
-			});
+		if (!compareBranch?.name) {
+			return;
 		}
+		this._defaultCompareBranch = compareBranch.name;
+		this.model.setCompareBranch(compareBranch.name);
+		this.changeBranch(compareBranch.name, false).then(async titleAndDescription => {
+			const params: Partial<CreateParamsNew> = {
+				defaultTitle: titleAndDescription.title,
+				defaultDescription: titleAndDescription.description,
+				compareBranch: compareBranch.name,
+				defaultCompareBranch: compareBranch.name,
+				warning: await this.existingPRMessage(),
+			};
+			return this._postMessage({
+				command: 'pr.initialize',
+				params,
+			});
+		});
+
 	}
 
 	public override show(compareBranch?: Branch): void {
@@ -686,8 +717,21 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
-		if (descrptionSource === 'none') {
+		const descriptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		if (descriptionSource === 'none') {
+			return { title, description };
+		}
+
+		const name = compareBranch.name;
+		const branchNameTitle = (name: string) => {
+			return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+		};
+
+		// If branchName is selected, use the branch name as the title
+		if (descriptionSource === 'branchName') {
+			if (name) {
+				title = branchNameTitle(name);
+			}
 			return { title, description };
 		}
 
@@ -699,11 +743,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
 		try {
-			const name = compareBranch.name;
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descrptionSource === 'template' ? await this.getPullRequestTemplate() : undefined
+				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
@@ -725,7 +768,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			}
 			// Set title
 			if (useBranchName && name) {
-				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+				title = branchNameTitle(name);
 			} else if (name && lastCommit) {
 				title = lastCommit.title;
 			}
@@ -762,6 +805,140 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
 		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+	}
+
+	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
+		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
+
+		if (!templates || templates.length === 0) {
+			// No templates found - show helpful options
+			const learnMore = vscode.l10n.t('Learn More');
+			const createTemplate = vscode.l10n.t('Create Template');
+			const selected = await vscode.window.showQuickPick(
+				[
+					{
+						label: createTemplate,
+						description: vscode.l10n.t('Create a new pull request template')
+					},
+					{
+						label: learnMore,
+						description: vscode.l10n.t('Open GitHub documentation')
+					}
+				],
+				{
+					placeHolder: vscode.l10n.t('No pull request templates found'),
+					ignoreFocusOut: true
+				}
+			);
+
+			if (selected?.label === learnMore) {
+				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository'));
+			} else if (selected?.label === createTemplate) {
+				await this.createPullRequestTemplate();
+			}
+			return this._replyMessage(message, undefined);
+		}
+
+		// Multiple templates exist - show quick pick
+		const selectedTemplate = await vscode.window.showQuickPick(
+			templates.map((template, index) => {
+				// Try to extract a meaningful name from the template (first line or first few chars)
+				const firstLine = template.split('\n')[0].trim();
+				const label = firstLine || vscode.l10n.t('Template {0}', index + 1);
+				return {
+					label: label.substring(0, 50) + (label.length > 50 ? '...' : ''),
+					description: vscode.l10n.t('{0} characters', template.length),
+					template: template
+				};
+			}),
+			{
+				placeHolder: vscode.l10n.t('Select a pull request template'),
+				ignoreFocusOut: true
+			}
+		);
+
+		if (selectedTemplate) {
+			const reply: ChangeTemplateReply = {
+				description: selectedTemplate.template
+			};
+			return this._replyMessage(message, reply);
+		}
+		return this._replyMessage(message, undefined);
+	}
+
+	private async createPullRequestTemplate(): Promise<void> {
+		// Show options for where to create the template
+		const templateLocations = [
+			{
+				label: '.github/pull_request_template.md',
+				description: vscode.l10n.t('Default location for a single template')
+			},
+			{
+				label: 'docs/pull_request_template.md',
+				description: vscode.l10n.t('Alternative location in docs folder')
+			},
+			{
+				label: '.github/PULL_REQUEST_TEMPLATE/template.md',
+				description: vscode.l10n.t('For multiple templates')
+			}
+		];
+
+		const selected = await vscode.window.showQuickPick(templateLocations, {
+			placeHolder: vscode.l10n.t('Choose where to create the pull request template'),
+			ignoreFocusOut: true
+		});
+
+		if (!selected) {
+			return;
+		}
+
+		// Get the repository root
+		const workspaceFolder = this._folderRepositoryManager.repository.rootUri;
+		const templatePath = vscode.Uri.joinPath(workspaceFolder, selected.label);
+
+		// Default template content
+		const templateContent = `## Sample Pull Request Template Description
+
+This is a sample pull request template. You can customize it to fit your project's needs.
+
+Don't forget to commit your template file to the repository so that it can be used for future pull requests!
+`;
+
+		try {
+			// Ensure all parent directories exist by creating them step by step
+			const pathParts = selected.label.split('/');
+			let currentPath = workspaceFolder;
+
+			// Create each directory in the path (excluding the file name)
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				currentPath = vscode.Uri.joinPath(currentPath, pathParts[i]);
+				try {
+					await vscode.workspace.fs.createDirectory(currentPath);
+				} catch (e) {
+					// Re-throw if it's not a FileSystemError about the directory already existing
+					if (e instanceof vscode.FileSystemError && e.code !== 'FileExists') {
+						throw e;
+					}
+					// Directory already exists, which is fine
+				}
+			}
+
+			// Create the template file
+			const encoder = new TextEncoder();
+			await vscode.workspace.fs.writeFile(templatePath, encoder.encode(templateContent));
+
+			// Open the file for editing
+			const document = await vscode.workspace.openTextDocument(templatePath);
+			await vscode.window.showTextDocument(document);
+
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('Pull request template created at {0}', selected.label)
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Failed to create pull request template: {0}', error instanceof Error ? error.message : String(error))
+			);
+		}
 	}
 
 	protected async detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined> {
@@ -816,40 +993,6 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		});
 	}
 
-	private async branchPicks(githubRepository: GitHubRepository, changeRepoMessage: string, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
-		let branches: (string | Ref)[];
-		if (isBase) {
-			// For the base, we only want to show branches from GitHub.
-			branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
-		} else {
-			// For the compare, we only want to show local branches.
-			branches = (await this._folderRepositoryManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
-		}
-		// TODO: @alexr00 - Add sorting so that the most likely to be used branch (ex main or release if base) is at the top of the list.
-		const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = branches.map(branch => {
-			const branchName = typeof branch === 'string' ? branch : branch.name!;
-			const pick: (vscode.QuickPickItem & { remote: RemoteInfo, branch: string }) = {
-				iconPath: new vscode.ThemeIcon('git-branch'),
-				label: branchName,
-				remote: {
-					owner: githubRepository.remote.owner,
-					repositoryName: githubRepository.remote.repositoryName
-				},
-				branch: branchName
-			};
-			return pick;
-		});
-		branchPicks.unshift({
-			kind: vscode.QuickPickItemKind.Separator,
-			label: `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
-		});
-		branchPicks.unshift({
-			iconPath: new vscode.ThemeIcon('repo'),
-			label: changeRepoMessage
-		});
-		return branchPicks;
-	}
-
 	private async processRemoteAndBranchResult(githubRepository: GitHubRepository, result: { remote: RemoteInfo, branch: string }, isBase: boolean) {
 		const [defaultBranch, viewerPermission] = await Promise.all([githubRepository.getDefaultBranch(), githubRepository.getViewerPermission()]);
 
@@ -860,6 +1003,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
 			this.model.baseOwner = result.remote.owner;
 			this.model.baseBranch = result.branch;
+
+			// Save the selected base branch to recently used branches
+			this.saveRecentlyUsedBranch(result.remote.owner, result.remote.repositoryName, result.branch);
+
 			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this.model.compareBranch);
 			const [mergeConfiguration, titleAndDescription, mergeQueueMethodForBranch] = await Promise.all([
 				this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName),
@@ -923,10 +1070,35 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		const branchPlaceholder = isBase ? vscode.l10n.t('Choose a base branch') : vscode.l10n.t('Choose a branch to merge');
 		const repositoryPlaceholder = isBase ? vscode.l10n.t('Choose a base repository') : vscode.l10n.t('Choose a repository to merge from');
 
+		let updateCounter = 0;
+		const updateItems = async (githubRepository: GitHubRepository, prefix: string | undefined) => {
+			const currentUpdate = ++updateCounter;
+			quickPick.busy = true;
+			const items = await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase, prefix);
+			if (currentUpdate === updateCounter) {
+				quickPick.items = items;
+				quickPick.busy = false;
+			}
+		};
+		const debounced = debounce(updateItems, 300);
+		let onDidChangeValueDisposable: vscode.Disposable | undefined;
+		const addValueChangeListener = () => {
+			if (githubRepository && !onDidChangeValueDisposable) {
+				onDidChangeValueDisposable = quickPick.onDidChangeValue(async value => {
+					return debounced(githubRepository!, value);
+				});
+			}
+		};
+		addValueChangeListener();
+
 		quickPick.placeholder = githubRepository ? branchPlaceholder : remotePlaceholder;
 		quickPick.show();
 		quickPick.busy = true;
-		quickPick.items = githubRepository ? await this.branchPicks(githubRepository, chooseDifferentRemote, isBase) : await this.remotePicks(isBase);
+		if (githubRepository) {
+			await updateItems(githubRepository, undefined);
+		} else {
+			quickPick.items = await this.remotePicks(isBase);
+		}
 		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
 		quickPick.activeItems = activeItem ? [activeItem] : [];
 		quickPick.busy = false;
@@ -945,7 +1117,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					const selectedRemote = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo };
 					quickPick.busy = true;
 					githubRepository = this._folderRepositoryManager.findRepo(repo => repo.remote.owner === selectedRemote.remote.owner && repo.remote.repositoryName === selectedRemote.remote.repositoryName)!;
-					quickPick.items = await this.branchPicks(githubRepository, chooseDifferentRemote, isBase);
+					await updateItems(githubRepository, undefined);
+					addValueChangeListener();
 					quickPick.placeholder = branchPlaceholder;
 					quickPick.busy = false;
 				} else if (selectedPick.branch && selectedPick.remote) {
@@ -959,6 +1132,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		if (!result || !githubRepository) {
 			quickPick.hide();
 			quickPick.dispose();
+			onDidChangeValueDisposable?.dispose();
 			return;
 		}
 
@@ -967,71 +1141,25 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		quickPick.hide();
 		quickPick.dispose();
+		onDidChangeValueDisposable?.dispose();
 		return this._replyMessage(message, chooseResult);
 	}
 
-	private async findIssueContext(commits: string[]): Promise<{ content: string, reference: string }[] | undefined> {
-		const issues: Promise<{ content: string, reference: string } | undefined>[] = [];
-		for (const commit of commits) {
-			const tryParse = parseIssueExpressionOutput(commit.match(ISSUE_OR_URL_EXPRESSION));
-			if (tryParse) {
-				const owner = tryParse.owner ?? this.model.baseOwner;
-				const name = tryParse.name ?? this.model.repositoryName;
-				issues.push(new Promise(resolve => {
-					this._folderRepositoryManager.resolveIssue(owner, name, tryParse.issueNumber).then(issue => {
-						if (issue) {
-							resolve({ content: `${issue.title}\n${issue.body}`, reference: getIssueNumberLabelFromParsed(tryParse) });
-						} else {
-							resolve(undefined);
-						}
-					}).catch(() => resolve(undefined));
-				}));
-			}
-		}
-		if (issues.length) {
-			return (await Promise.all(issues)).filter(issue => !!issue) as { content: string, reference: string }[];
-		}
-		return undefined;
-	}
-
 	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
-		let commitMessages: string[];
-		let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[] | undefined;
-		if (await this.model.getCompareHasUpstream()) {
-			[commitMessages, patches] = await Promise.all([
-				this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
-				this.model.gitHubFiles().then(rawPatches => rawPatches?.map(file => {
-					if (!file.patch) {
-						return;
-					}
-					const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
-					const previousFileUri = file.previous_filename ? vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() : undefined;
-					return { patch: file.patch, fileUri, previousFileUri };
-				}))]);
-		} else {
-			[commitMessages, patches] = await Promise.all([
-				this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
-				Promise.all((await this.model.gitFiles()).map(async (file) => {
-					return {
-						patch: await this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath),
-						fileUri: file.uri.toString(),
-					};
-				}))]);
-		}
-		const filteredPatches: { patch: string, fileUri: string, previousFileUri?: string }[] =
-			patches?.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch) ?? [];
-		return { commitMessages, patches: filteredPatches };
+		return this.model.getCommitsAndPatches();
 	}
 
 	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
+				const templatePromise = this.getPullRequestTemplate(); // Fetch in parallel
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
-				const issues = await this.findIssueContext(commitMessages);
+				const issues = await this.model.findIssueContext(commitMessages);
+				const template = await templatePromise;
 
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues }, token);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues, template }, token);
 
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
@@ -1202,7 +1330,42 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					const compareRepositoryName = message.args.compareRepo;
 					const compareBranchName = message.args.compareBranch;
 					const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
-					const compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+					let compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+
+					// Fetch upstream to get accurate ahead/behind count
+					if (compareBranch.upstream) {
+						await this._folderRepositoryManager.repository.fetch(compareBranch.upstream.remote, compareBranch.upstream.name);
+						// Re-fetch branch info after fetch to get accurate ahead count
+						compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+					}
+
+					// Check for unpushed commits when there's an upstream
+					if (compareBranch.upstream && compareBranch.ahead && compareBranch.ahead > 0) {
+						const pushCommits = vscode.l10n.t('Push Commits');
+						const continueWithoutPushing = vscode.l10n.t('Continue Without Pushing');
+						const commitCount = compareBranch.ahead;
+						const messageResult = await vscode.window.showInformationMessage(
+							vscode.l10n.t({
+								message: 'You have {0} unpushed commit(s) on \'{1}\'.\n\nDo you want to push them before creating the pull request?',
+								comment: ['{0} is the number of commits, {1} is the branch name'],
+								args: [commitCount, compareBranchName]
+							}),
+							{ modal: true },
+							pushCommits,
+							continueWithoutPushing
+						);
+						if (messageResult === pushCommits) {
+							progress.report({ message: vscode.l10n.t('Pushing commits'), increment: 10 });
+							totalIncrement += 10;
+							await this._folderRepositoryManager.repository.push(compareBranch.upstream.remote, compareBranchName);
+						} else if (messageResult !== continueWithoutPushing) {
+							// User cancelled (clicked X or pressed Escape)
+							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+							return;
+						}
+						// If continueWithoutPushing was selected, just continue with PR creation
+					}
+
 					let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo((githubRepo) => {
 						return (githubRepo.remote.owner === compareOwner) && (githubRepo.remote.repositoryName === compareRepositoryName);
 					}) : undefined;
@@ -1261,6 +1424,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					if (!createdPR) {
 						this._throwError(message, vscode.l10n.t('There must be a difference in commits to create a pull request.'));
 					} else {
+						// Save the base branch to recently used branches after successful PR creation
+						this.saveRecentlyUsedBranch(message.args.owner, message.args.repo, message.args.base);
 						await this.postCreate(message, createdPR);
 					}
 				} catch (e) {
@@ -1302,9 +1467,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		} else {
 			try {
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
-				await this.model.setCompareBranch(newBranch);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
+			}
+			if (compareBranch) {
+				await this.model.setCompareBranch(newBranch);
 			}
 		}
 
@@ -1330,6 +1497,9 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 			case 'pr.cancelGenerateTitleAndDescription':
 				return this.cancelGenerateTitleAndDescription();
+
+			case 'pr.changeTemplate':
+				return this.changeTemplate(message);
 
 			case 'pr.preReview':
 				return this.preReview(message);

@@ -11,7 +11,9 @@ documentation/**
 node_modules/**
 scripts/**
 src/**
+!src/lm/skills/**
 webviews/**
+**/test/**
 .eslintcache*
 .eslintignore
 .eslintrc*
@@ -28,8 +30,7 @@ azure-pipeline.*
 yarn.lock
 **/*.map
 **/*.svg
-!**/output.svg
-!**/pr_webview.svg
+!**/git-pull-request_webview.svg
 **/*.ts
 *.vsix
 **/*.bak

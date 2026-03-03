@@ -4,17 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as buffer from 'buffer';
-import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
-import { Disposable, disposeAll } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { GitHubRemote, parseRemote } from '../common/remote';
-import { ITelemetry } from '../common/telemetry';
-import { PullRequestCommentController } from '../view/pullRequestCommentController';
-import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
-import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
+import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
@@ -34,6 +27,8 @@ import {
 	OrganizationTeamsCountResponse,
 	OrganizationTeamsResponse,
 	OrgProjectsResponse,
+	PullRequestNumberData,
+	PullRequestNumbersResponse,
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
@@ -54,6 +49,7 @@ import {
 	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
+	PullRequestCheckStatus,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
 	User,
@@ -79,27 +75,42 @@ import {
 	parseMilestone,
 	restPaginate,
 } from './utils';
+import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
+
+import { Disposable, disposeAll } from '../common/lifecycle';
+
+import Logger from '../common/logger';
+import { GitHubRemote, parseRemote } from '../common/remote';
+
+
+import { BRANCH_LIST_TIMEOUT, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
+
+import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
+
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
 
-export interface ItemsData {
-	items: any[];
+export interface ItemsData<T> {
+	items: T[];
 	hasMorePages: boolean;
 	totalCount?: number;
 }
 
-export interface IssueData extends ItemsData {
+export interface IssueData extends ItemsData<Issue> {
 	items: Issue[];
 	hasMorePages: boolean;
 }
 
-export interface PullRequestData extends ItemsData {
+export interface PullRequestData extends ItemsData<PullRequestModel> {
 	items: PullRequestModel[];
 }
 
-export interface MilestoneData extends ItemsData {
+export interface MilestoneData extends ItemsData<{ milestone: IMilestone; issues: IssueModel[] }> {
 	items: { milestone: IMilestone; issues: IssueModel[] }[];
 	hasMorePages: boolean;
 }
@@ -129,9 +140,7 @@ export interface ForkDetails {
 	};
 }
 
-export interface IMetadata extends OctokitCommon.ReposGetResponseData {
-	currentUser: any;
-}
+export type IMetadata = OctokitCommon.ReposGetResponseData;
 
 export enum GraphQLErrorType {
 	Unprocessable = 'UNPROCESSABLE',
@@ -171,8 +180,17 @@ export class GitHubRepository extends Disposable {
 			value.model.dispose();
 		}
 	});
+	private _issueModelsByNumber: LRUCache<number, { model: IssueModel, disposables: vscode.Disposable[] }> = new LRUCache({
+		maxAge: 1000 * 60 * 60 * 4 /* 4 hours */, stale: true, updateAgeOnGet: true,
+		dispose: (_key, value) => {
+			disposeAll(value.disposables);
+			value.model.dispose();
+		}
+	});
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
+	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -198,19 +216,26 @@ export class GitHubRepository extends Disposable {
 		return this._pullRequestModelsByNumber.get(prNumber)?.model;
 	}
 
+	getExistingIssueModel(issueNumber: number): IssueModel | undefined {
+		return this._issueModelsByNumber.get(issueNumber)?.model;
+	}
+
 	get pullRequestModels(): PullRequestModel[] {
 		return Array.from(this._pullRequestModelsByNumber.values().map(value => value.model));
 	}
 
+	get issueModels(): IssueModel[] {
+		return Array.from(this._issueModelsByNumber.values().map(value => value.model));
+	}
+
 	public async ensureCommentsController(): Promise<void> {
 		try {
+			await this.ensure();
 			if (this.commentsController) {
 				return;
 			}
-
-			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.remoteName}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
@@ -244,7 +269,7 @@ export class GitHubRepository extends Disposable {
 		silent: boolean = false
 	) {
 		super();
-		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as unknown as Schema, defaultSchema as unknown as Schema);
+		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -278,17 +303,18 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables?: OperationVariables }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
 			Logger.debug(`Not available for query: ${logValue ?? 'unknown'}`, GRAPHQL_COMPONENT_ID);
-			return {
-				data: null,
+			const empty: ApolloQueryResult<T> = {
+				data: null as T,
 				loading: false,
 				networkStatus: NetworkStatus.error,
 				stale: false,
-			} as any;
+			} satisfies ApolloQueryResult<T>;
+			return empty;
 		}
 
 		let rsp;
@@ -300,6 +326,7 @@ export class GitHubRepository extends Disposable {
 			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
+				query.variables = legacyFallback.variables;
 				return this.query(query, ignoreSamlErrors);
 			}
 
@@ -307,7 +334,7 @@ export class GitHubRepository extends Disposable {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
 				query.query = this.schema[(query.query.definitions[0] as { name: { value: string } }).name.value];
 				rsp = await gql.query<T>(query);
 			} else if (ignoreSamlErrors && isSamlError(e)) {
@@ -329,15 +356,13 @@ export class GitHubRepository extends Disposable {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation.context as string}`, GRAPHQL_COMPONENT_ID);
-			return {
-				data: null,
-				loading: false,
-				networkStatus: NetworkStatus.error,
-				stale: false,
-			} as any;
+			const empty: FetchResult<T> = {
+				data: null
+			};
+			return empty;
 		}
 
-		let rsp;
+		let rsp: FetchResult<T>;
 		try {
 			rsp = await gql.mutate<T>(mutation);
 		} catch (e) {
@@ -374,7 +399,8 @@ export class GitHubRepository extends Disposable {
 			repo
 		});
 		Logger.debug(`Fetch metadata for repo ${owner}/${repo} - done`, this.id);
-		return ({ ...result.data, currentUser: (octokit as any).currentUser } as unknown) as IMetadata;
+		const metadata = { ...result.data, currentUser: await this._hub?.currentUser };
+		return metadata;
 	}
 
 	async getMetadata(): Promise<IMetadata> {
@@ -427,14 +453,14 @@ export class GitHubRepository extends Disposable {
 		}
 
 		if (oldHub !== this._hub) {
-			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
 			} else {
 				if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, extraSchema.default);
 				} else {
-					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 				}
 			}
 		}
@@ -498,7 +524,7 @@ export class GitHubRepository extends Disposable {
 						squash: data.allow_squash_merge ?? false,
 						rebase: data.allow_rebase_merge ?? false,
 					},
-					viewerCanAutoMerge: ((data as any).allow_auto_merge && hasWritePermission) ?? false
+					viewerCanAutoMerge: (data.allow_auto_merge && hasWritePermission) ?? false
 				};
 			}
 			return this._repoAccessAndMergeMethods;
@@ -637,6 +663,40 @@ export class GitHubRepository extends Disposable {
 				// not found
 				vscode.window.showWarningMessage(
 					`Fetching all pull requests for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
+				);
+			} else {
+				throw e;
+			}
+		}
+		return undefined;
+	}
+
+	async getPullRequestNumbers(): Promise<PullRequestNumberData[] | undefined> {
+		let remote: GitHubRemote | undefined;
+		try {
+			Logger.debug(`Fetch pull request numbers - enter`, this.id);
+			const ensured = await this.ensure();
+			remote = ensured.remote;
+			const { query, schema } = ensured;
+			const { data } = await query<PullRequestNumbersResponse>({
+				query: schema.PullRequestNumbers,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					first: 100,
+				},
+			});
+			Logger.debug(`Fetch pull request numbers - done`, this.id);
+
+			if (data?.repository?.pullRequests) {
+				return data.repository.pullRequests.nodes;
+			}
+		} catch (e) {
+			Logger.error(`Fetching pull request numbers failed: ${e}`, this.id);
+			if (e.status === 404) {
+				// not found
+				vscode.window.showWarningMessage(
+					`Fetching pull request numbers for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
 				);
 			} else {
 				throw e;
@@ -835,27 +895,35 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getMaxIssue(): Promise<number | undefined> {
+	private async _getMaxItem(isIssue: boolean): Promise<number | undefined> {
 		try {
-			Logger.debug(`Fetch max issue - enter`, this.id);
+			Logger.debug(`Fetch max ${isIssue ? 'issue' : 'pull request'} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
 			const { data } = await query<MaxIssueResponse>({
-				query: schema.MaxIssue,
+				query: isIssue ? schema.MaxIssue : schema.MaxPullRequest,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
 				},
 			});
-			Logger.debug(`Fetch max issue - done`, this.id);
+			Logger.debug(`Fetch max ${isIssue ? 'issue' : 'pull request'} - done`, this.id);
 
 			if (data?.repository && data.repository.issues.edges.length === 1) {
 				return data.repository.issues.edges[0].node.number;
 			}
 			return;
 		} catch (e) {
-			Logger.error(`Unable to fetch issues with query: ${e}`, this.id);
+			Logger.error(`Unable to fetch ${isIssue ? 'issues' : 'pull requests'} with query: ${e}`, this.id);
 			return;
 		}
+	}
+
+	async getMaxIssue(): Promise<number | undefined> {
+		return this._getMaxItem(true);
+	}
+
+	async getMaxPullRequest(): Promise<number | undefined> {
+		return this._getMaxItem(false);
 	}
 
 	async getViewerPermission(): Promise<ViewerPermission> {
@@ -899,6 +967,54 @@ export class GitHubRepository extends Disposable {
 			run_id: workflowRunId
 		});
 		return jobs.data.jobs;
+	}
+
+	async getCheckRunLogs(checkRunDatabaseId: number): Promise<string> {
+		Logger.debug(`Fetch check run logs - enter`, this.id);
+		const { octokit, remote } = await this.ensure();
+
+		// Try GitHub Actions logs first (works for Actions workflow runs)
+		try {
+			const result = await octokit.call(octokit.api.actions.downloadJobLogsForWorkflowRun, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				job_id: checkRunDatabaseId,
+			});
+			Logger.debug(`Fetch check run logs via Actions API - done`, this.id);
+			return result.data as string;
+		} catch {
+			// Not a GitHub Actions job - fall through to Checks API
+		}
+
+		// Fall back to Checks API output (works for any GitHub App, e.g. Azure Pipelines)
+		try {
+			const result = await octokit.call(octokit.api.checks.get, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				check_run_id: checkRunDatabaseId,
+			});
+			const output = result.data.output;
+			const parts: string[] = [];
+			if (output.title) {
+				parts.push(output.title);
+				parts.push('');
+			}
+			if (output.summary) {
+				parts.push(output.summary);
+				parts.push('');
+			}
+			if (output.text) {
+				parts.push(output.text);
+			}
+			if (parts.length === 0) {
+				return 'No log output available for this check run.';
+			}
+			Logger.debug(`Fetch check run logs via Checks API - done`, this.id);
+			return parts.join('\n');
+		} catch (e) {
+			Logger.error(`Unable to fetch check run logs: ${e}`, this.id);
+			throw e;
+		}
 	}
 
 	async fork(): Promise<string | undefined> {
@@ -992,6 +1108,19 @@ export class GitHubRepository extends Disposable {
 		return model;
 	}
 
+	private createOrUpdateIssueModel(issue: Issue): IssueModel {
+		let model = this._issueModelsByNumber.get(issue.number)?.model;
+		if (model) {
+			model.update(issue);
+		} else {
+			model = new IssueModel(this.telemetry, this, this.remote, issue);
+			// No issue-specific event emitters yet; store empty disposables list for symmetry/cleanup
+			const disposables: vscode.Disposable[] = [];
+			this._issueModelsByNumber.set(issue.number, { model, disposables });
+		}
+		return model;
+	}
+
 	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
 		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
@@ -1077,14 +1206,23 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			return this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			return pr;
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, this.id);
 			return;
 		}
 	}
 
-	async getIssue(id: number, withComments: boolean = false): Promise<IssueModel | undefined> {
+	async getIssue(id: number, withComments: boolean = false, useCache: boolean = false): Promise<IssueModel | undefined> {
+		if (useCache) {
+			const cached = this._issueModelsByNumber.get(id)?.model;
+			if (cached) {
+				Logger.debug(`Using cached issue model for ${id}`, this.id);
+				return cached;
+			}
+		}
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
@@ -1104,7 +1242,9 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this, remote, await parseGraphQLIssue(data.repository.issue, this));
+			const issue = this.createOrUpdateIssueModel(await parseGraphQLIssue(data.repository.issue, this));
+			await issue.getLastUpdateTime(new Date(issue.item.updatedAt));
+			return issue;
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;
@@ -1129,7 +1269,7 @@ export class GitHubRepository extends Disposable {
 					path: filePath,
 					ref,
 				},
-			)) as any;
+			)) as { data: { content: string; encoding: string; sha: string } };
 
 			if (Array.isArray(fileContent.data)) {
 				throw new Error(`Unexpected array response when getting file ${filePath}`);
@@ -1157,7 +1297,7 @@ export class GitHubRepository extends Disposable {
 			Logger.debug(`Fetch blob file ${filePath} - done`, this.id);
 		}
 
-		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
+		const buff = buffer.Buffer.from(contents, fileContent.data.encoding as BufferEncoding);
 		Logger.debug(`Fetch file ${filePath}, file length ${contents.length} - done`, this.id);
 		return buff;
 	}
@@ -1178,7 +1318,7 @@ export class GitHubRepository extends Disposable {
 		return data.repository?.ref?.target.oid;
 	}
 
-	async listBranches(owner: string, repositoryName: string): Promise<string[]> {
+	async listBranches(owner: string, repositoryName: string, prefix: string | undefined): Promise<string[]> {
 		const { query, remote, schema } = await this.ensure();
 		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, this.id);
 
@@ -1187,6 +1327,7 @@ export class GitHubRepository extends Disposable {
 		const branches: string[] = [];
 		const defaultBranch = (await this.getMetadataForRepo(owner, repositoryName)).default_branch;
 		const startingTime = new Date().getTime();
+		const timeout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(BRANCH_LIST_TIMEOUT, 5000);
 
 		do {
 			try {
@@ -1197,12 +1338,13 @@ export class GitHubRepository extends Disposable {
 						name: remote.repositoryName,
 						first: 100,
 						after: after,
+						query: prefix ? prefix : null,
 					},
 				});
 
 				branches.push(...data.repository.refs.nodes.map(node => node.name));
-				if (new Date().getTime() - startingTime > 5000) {
-					Logger.warn('List branches timeout hit.', this.id);
+				if (new Date().getTime() - startingTime > timeout) {
+					Logger.warn(`List branches timeout hit after ${timeout}ms.`, this.id);
 					break;
 				}
 				hasNextPage = data.repository.refs.pageInfo.hasNextPage;
@@ -1323,6 +1465,14 @@ export class GitHubRepository extends Disposable {
 							first: 100,
 							after: after,
 						},
+					}, false, {
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after,
+						}
 					});
 
 				} else {
@@ -1345,9 +1495,9 @@ export class GitHubRepository extends Disposable {
 				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
 
 				ret.push(
-					...users?.nodes.map(node => {
+					...(users?.nodes.map(node => {
 						return parseAccount(node, this);
-					}),
+					}) || []),
 				);
 
 				hasNextPage = users?.pageInfo.hasNextPage;
@@ -1567,7 +1717,7 @@ export class GitHubRepository extends Disposable {
 			});
 		} catch (e) {
 			// There's an issue with the GetChecks that can result in SAML errors.
-			if (isSamlError(e)) {
+			if (isSamlError(e) || this.remote.isEnterprise) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
 				// The issue is specifically with the CheckSuite property. Make the query again, but without that property.
 				if (!captureUseFallbackChecks) {
@@ -1587,51 +1737,60 @@ export class GitHubRepository extends Disposable {
 		// We always fetch the status checks for only the last commit, so there should only be one node present
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
 
-		const checks: PullRequestChecks = !statusCheckRollup
-			? {
+		let checks: PullRequestChecks;
+		if (!statusCheckRollup) {
+			checks = {
 				state: CheckState.Success,
 				statuses: []
-			}
-			: {
-				state: this.mapStateAsCheckState(statusCheckRollup.state),
-				statuses: statusCheckRollup.contexts.nodes.map(context => {
-					if (isCheckRun(context)) {
-						return {
-							id: context.id,
-							url: context.checkSuite?.app?.url,
-							avatarUrl:
-								context.checkSuite?.app?.logoUrl &&
-								getAvatarWithEnterpriseFallback(
-									context.checkSuite.app.logoUrl,
-									undefined,
-									this.remote.isEnterprise,
-								),
-							state: this.mapStateAsCheckState(context.conclusion),
-							description: context.title,
-							context: context.name,
-							workflowName: context.checkSuite?.workflowRun?.workflow.name,
-							event: context.checkSuite?.workflowRun?.event,
-							targetUrl: context.detailsUrl,
-							isRequired: context.isRequired,
-						};
-					} else {
-						return {
-							id: context.id,
-							url: context.targetUrl ?? undefined,
-							avatarUrl: context.avatarUrl
-								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
-								: undefined,
-							state: this.mapStateAsCheckState(context.state),
-							description: context.description,
-							context: context.context,
-							workflowName: undefined,
-							event: undefined,
-							targetUrl: context.targetUrl,
-							isRequired: context.isRequired,
-						};
-					}
-				}),
 			};
+		} else {
+			const dedupedStatuses = this.deduplicateStatusChecks(statusCheckRollup.contexts.nodes.map(context => {
+				if (isCheckRun(context)) {
+					return {
+						id: context.id,
+						databaseId: context.databaseId,
+						url: context.checkSuite?.app?.url,
+						avatarUrl:
+							context.checkSuite?.app?.logoUrl &&
+							getAvatarWithEnterpriseFallback(
+								context.checkSuite.app.logoUrl,
+								undefined,
+								this.remote.isEnterprise,
+							),
+						state: this.mapStateAsCheckState(context.conclusion),
+						description: context.title,
+						context: context.name,
+						workflowName: context.checkSuite?.workflowRun?.workflow.name,
+						event: context.checkSuite?.workflowRun?.event,
+						targetUrl: context.detailsUrl,
+						isRequired: context.isRequired,
+						isCheckRun: true,
+					};
+				} else {
+					return {
+						id: context.id,
+						databaseId: undefined,
+						url: context.targetUrl ?? undefined,
+						avatarUrl: context.avatarUrl
+							? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
+							: undefined,
+						state: this.mapStateAsCheckState(context.state),
+						description: context.description,
+						context: context.context,
+						workflowName: undefined,
+						event: undefined,
+						targetUrl: context.targetUrl,
+						isRequired: context.isRequired,
+						isCheckRun: false,
+					};
+				}
+			}));
+
+			checks = {
+				state: this.computeOverallCheckState(dedupedStatuses),
+				statuses: dedupedStatuses
+			};
+		}
 
 		let reviewRequirement: PullRequestReviewRequirement | null = null;
 		const rule = result.data.repository.pullRequest.baseRef?.refUpdateRule;
@@ -1643,6 +1802,7 @@ export class GitHubRepository extends Disposable {
 					checks.state = CheckState.Pending;
 					checks.statuses.push({
 						id: '',
+						databaseId: undefined,
 						url: undefined,
 						avatarUrl: undefined,
 						state: CheckState.Pending,
@@ -1651,7 +1811,8 @@ export class GitHubRepository extends Disposable {
 						workflowName: undefined,
 						event: undefined,
 						targetUrl: prUrl,
-						isRequired: true
+						isRequired: true,
+						isCheckRun: false
 					});
 				}
 			}
@@ -1705,5 +1866,75 @@ export class GitHubRepository extends Disposable {
 		}
 
 		return CheckState.Unknown;
+	}
+
+	/**
+	 * Deduplicate status checks by context (check name).
+	 * When a check is re-run on the same commit (e.g., when a PR is closed and reopened),
+	 * GitHub's API returns all check run instances. This method keeps only one entry per
+	 * check context, preferring pending/running checks over completed ones, and the most
+	 * recent completed check when all are completed.
+	 */
+	private deduplicateStatusChecks(statuses: PullRequestCheckStatus[]): PullRequestCheckStatus[] {
+		const statusByContext = new Map<string, PullRequestCheckStatus>();
+
+		for (const status of statuses) {
+			const existing = statusByContext.get(status.context);
+			if (!existing) {
+				statusByContext.set(status.context, status);
+				continue;
+			}
+
+			// Prefer pending/unknown checks over completed ones (they represent the latest run)
+			const existingIsPending = existing.state === CheckState.Pending || existing.state === CheckState.Unknown;
+			const currentIsPending = status.state === CheckState.Pending || status.state === CheckState.Unknown;
+
+			if (currentIsPending && !existingIsPending) {
+				// Current is pending, existing is completed - prefer current
+				statusByContext.set(status.context, status);
+			} else if (!currentIsPending && existingIsPending) {
+				// Current is completed, existing is pending - keep existing
+				continue;
+			} else {
+				// Both are same type (both pending or both completed)
+				// Prefer the one with a higher ID (more recent), as GitHub IDs are monotonically increasing
+				if (status.id > existing.id) {
+					statusByContext.set(status.context, status);
+				}
+			}
+		}
+
+		return Array.from(statusByContext.values());
+	}
+
+	/**
+	 * Compute the overall check state from individual status checks.
+	 * - If any check has failed, the overall state is failure
+	 * - If any check is pending/unknown (and none have failed), the overall state is pending
+	 * - If all checks are successful or neutral/skipped, the overall state is success
+	 */
+	private computeOverallCheckState(statuses: PullRequestCheckStatus[]): CheckState {
+		if (statuses.length === 0) {
+			return CheckState.Success;
+		}
+
+		let hasFailure = false;
+		let hasPending = false;
+
+		for (const status of statuses) {
+			if (status.state === CheckState.Failure) {
+				hasFailure = true;
+			} else if (status.state === CheckState.Pending || status.state === CheckState.Unknown) {
+				hasPending = true;
+			}
+		}
+
+		if (hasFailure) {
+			return CheckState.Failure;
+		}
+		if (hasPending) {
+			return CheckState.Pending;
+		}
+		return CheckState.Success;
 	}
 }

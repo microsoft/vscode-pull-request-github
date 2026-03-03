@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
+import { PrsTreeModel } from './prsTreeModel';
+import { ReviewModel } from './reviewModel';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -12,26 +15,21 @@ import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../co
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
-import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PullRequestChangeEvent } from '../github/githubRepository';
 import { PRType } from '../github/interface';
 import { issueMarkdown } from '../github/markdownUtils';
-import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
-import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
-import { PrsTreeModel } from './prsTreeModel';
-import { ReviewModel } from './reviewModel';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { PRNode } from './treeNodes/pullRequestNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { NotificationsManager } from '../notifications/notificationsManager';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode[] | TreeNode | void>();
@@ -46,39 +44,38 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 	private readonly _view: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
-	public notificationProvider: NotificationProvider;
-	public readonly prsTreeModel: PrsTreeModel;
+	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
+	constructor(public readonly prsTreeModel: PrsTreeModel, private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
 		super();
-		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
 		this._register(this.prsTreeModel.onDidChangeData(e => {
 			if (e instanceof FolderRepositoryManager) {
 				this.refreshRepo(e);
 			} else if (Array.isArray(e)) {
 				this.refreshPullRequests(e);
 			} else {
-				this.refresh(undefined, true);
+				this.refreshAllQueryResults(true);
 			}
 		}));
-		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
-			this.refresh(undefined, true);
+			this.prsTreeModel.forceClearCache();
+			this.refreshAllQueryResults(true);
 		}));
 
 		this._register(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
 			node.fetchNextPage = true;
-			this._onDidChangeTreeData.fire(node);
+			this.refresh(node);
 		}));
 
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+			manageCheckboxStateManually: true
 		}));
 
 		this._register(this._view.onDidChangeVisibility(e => {
@@ -100,22 +97,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			}
 		});
 
-		this._register(this._copilotManager.onDidChangeStates(() => {
-			this.refresh(undefined);
+		this._register(this.prsTreeModel.onDidChangeCopilotStates(() => {
+			this.refreshAllQueryResults();
 		}));
 
-		this._register(this._copilotManager.onDidChangeNotifications(() => {
-			if (this._copilotManager.notificationsCount > 0) {
-				this._view.badge = {
-					tooltip: this._copilotManager.notificationsCount === 1 ? vscode.l10n.t('Coding agent has 1 pull request to view') : vscode.l10n.t('Coding agent has {0} pull requests to view', this._copilotManager.notificationsCount),
-					value: this._copilotManager.notificationsCount
-				};
-			} else {
-				this._view.badge = undefined;
-			}
+		this._register(this.prsTreeModel.onDidChangeCopilotNotifications(() => {
+			this.updateBadge();
 		}));
-
-		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh(undefined, true)));
+		this.updateBadge();
 
 		// Listen for PR overview panel changes to sync the tree view
 		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
@@ -157,7 +146,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
-				this._onDidChangeTreeData.fire();
+				this.refreshAll();
 			}
 		}));
 
@@ -169,6 +158,80 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+	}
+
+	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {
+		return notifications.filter(notification => {
+			if (!this.prsTreeModel.hasPullRequest(notification)) {
+				return false;
+			}
+			return !this.prsTreeModel.hasCopilotNotification(notification.remote.owner, notification.remote.repositoryName, notification.number);
+		});
+	}
+
+	private updateBadge() {
+		const isPRNotificationsOn = this._notificationsProvider?.isPRNotificationsOn();
+
+		const prNotificationsCount = isPRNotificationsOn ? this.filterNotificationsToKnown(this._notificationsProvider!.prNotifications).length : 0;
+		const copilotCount = this.prsTreeModel.copilotNotificationsCount;
+		const totalCount = prNotificationsCount + copilotCount;
+
+		if (totalCount === 0) {
+			this._view.badge = undefined;
+			return;
+		}
+
+		if (prNotificationsCount > 0 && copilotCount > 0) {
+			if (copilotCount === 1) {
+				if (prNotificationsCount === 1) {
+					this._view.badge = {
+						tooltip: vscode.l10n.t('Coding agent has 1 pull request to view, plus 1 other pull request notification'),
+						value: totalCount
+					};
+				} else {
+					this._view.badge = {
+						tooltip: vscode.l10n.t(`Coding agent has 1 pull request to view, plus {0} other pull request notifications`, prNotificationsCount),
+						value: totalCount
+					};
+				}
+			} else {
+				if (prNotificationsCount === 1) {
+					this._view.badge = {
+						tooltip: vscode.l10n.t('Coding agent has {0} pull requests to view, plus 1 other pull request notification', copilotCount),
+						value: totalCount
+					};
+				} else {
+					this._view.badge = {
+						tooltip: vscode.l10n.t(`Coding agent has {0} pull requests to view, plus {1} other pull request notifications`, copilotCount, prNotificationsCount),
+						value: totalCount
+					};
+				}
+			}
+		} else if (copilotCount > 0) {
+			if (copilotCount === 1) {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`Coding agent has 1 pull request to view`),
+					value: totalCount
+				};
+			} else {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`Coding agent has {0} pull requests to view`, copilotCount),
+					value: totalCount
+				};
+			}
+		} else if (prNotificationsCount > 0) {
+			if (prNotificationsCount === 1) {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`1 pull request notification`),
+					value: totalCount
+				};
+			} else {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`{0} pull request notifications`, prNotificationsCount),
+					value: totalCount
+				};
+			}
+		}
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel) {
@@ -250,6 +313,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	 * Search for PR node within a category node
 	 */
 	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		if (categoryNode.collapsibleState !== vscode.TreeItemCollapsibleState.Expanded) {
+			return;
+		}
 		const children = await categoryNode.getChildren(false);
 		for (const child of children) {
 			if (child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName)) {
@@ -259,52 +325,97 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return undefined;
 	}
 
-	initialize(reviewModels: ReviewModel[], credentialStore: CredentialStore) {
+	initialize(reviewModels: ReviewModel[], notificationsManager: NotificationsManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
 
 		this._initialized = true;
-		this._register(
-			this._reposManager.onDidChangeState(() => {
-				this.refresh();
-			}),
-		);
+		this._register(this._reposManager.onDidChangeState(() => {
+			this.refreshAll();
+		}));
+		this._register(this._reposManager.onDidLoadAnyRepositories(() => {
+			this.refreshAll();
+		}));
 
 		for (const model of reviewModels) {
-			this._register(model.onDidChangeLocalFileChanges(_ => { this.refresh(); }));
+			this._register(model.onDidChangeLocalFileChanges(_ => { this.refreshAllQueryResults(); }));
 		}
 
-		this.notificationProvider = this._register(new NotificationProvider(this, credentialStore, this._reposManager));
+		this._notificationsProvider = notificationsManager;
+		this._register(this._notificationsProvider.onDidChangeNotifications(() => {
+			this.updateBadge();
+		}));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._notificationsProvider));
 
 		this.initializeCategories();
-		this.refresh();
+		this.refreshAll();
 	}
 
 	private async initializeCategories() {
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
-				this.refresh();
+				this.refreshAll();
 			}
 		}));
 	}
 
-	refresh(node?: TreeNode, reset?: boolean): void {
+	refreshAll(reset?: boolean) {
+		this.tryReset(!!reset);
+		this._onDidChangeTreeData.fire();
+	}
+
+	private tryReset(reset: boolean) {
 		if (reset) {
 			this.prsTreeModel.clearCache(true);
 		}
-		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
+	}
+
+	private refreshAllQueryResults(reset?: boolean) {
+		this.tryReset(!!reset);
+
+		if (!this._children || this._children.length === 0) {
+			this._onDidChangeTreeData.fire();
+			return;
+		}
+
+		if (this._children[0] instanceof WorkspaceFolderNode) {
+			(this._children as WorkspaceFolderNode[]).forEach(folderNode => this.refreshQueryResultsForFolder(folderNode));
+			return;
+		}
+		this.refreshQueryResultsForFolder();
+	}
+
+	private refreshQueryResultsForFolder(manager?: WorkspaceFolderNode, reset?: boolean) {
+		if (!manager && this._children[0] instanceof WorkspaceFolderNode) {
+			// Not permitted. There're multiple folder nodes, therefore must specify which one to refresh
+			throw new Error('Must specify a folder node to refresh when there are multiple folder nodes');
+		}
+
+		if (!this._children || this._children.length === 0) {
+			this._onDidChangeTreeData.fire();
+			return;
+		}
+		const queries = manager?.children ?? this._children;
+		this.tryReset(!!reset);
+
+		this._onDidChangeTreeData.fire([...queries]);
+	}
+
+	refresh(node: TreeNode, reset?: boolean): void {
+		this.tryReset(!!reset);
+		return this._onDidChangeTreeData.fire(node);
 	}
 
 	private refreshRepo(manager: FolderRepositoryManager): void {
 		if ((this._children.length === 0) || (this._children[0] instanceof CategoryTreeNode && this._children[0].folderRepoManager === manager)) {
-			return this.refresh(undefined, true);
+			return this.refreshQueryResultsForFolder(undefined, true);
 		}
 		if (this._children[0] instanceof WorkspaceFolderNode) {
 			const children: WorkspaceFolderNode[] = this._children as WorkspaceFolderNode[];
 			const node = children.find(node => node.folderManager === manager);
 			if (node) {
-				this._onDidChangeTreeData.fire(node);
+				this.refreshQueryResultsForFolder(node);
 				return;
 			}
 		}
@@ -450,10 +561,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
-					this.notificationProvider,
+					this._notificationsProvider!,
 					this._context,
 					this.prsTreeModel,
-					this._copilotManager,
 				);
 			} else {
 				result = gitHubFolderManagers.map(
@@ -463,10 +573,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 							folderManager.repository.rootUri,
 							folderManager,
 							this._telemetry,
-							this.notificationProvider,
+							this._notificationsProvider!,
 							this._context,
-							this.prsTreeModel,
-							this._copilotManager
+							this.prsTreeModel
 						),
 				);
 			}

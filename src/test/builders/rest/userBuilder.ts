@@ -17,7 +17,9 @@ type UserUnion =
 	| OctokitCommon.PullsListResponseItemHeadRepoOwner
 	| OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
 
-export const UserBuilder = createBuilderClass<Required<UserUnion>>()({
+type NonNullUser = NonNullable<UserUnion>;
+
+export const UserBuilder = createBuilderClass<NonNullUser>()({
 	id: { default: 0 },
 	node_id: { default: 'node0' },
 	login: { default: 'octocat' },

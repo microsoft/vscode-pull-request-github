@@ -7,14 +7,13 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
-import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PrsTreeModel } from '../prsTreeModel';
 import { CategoryTreeNode, isAllQuery, isLocalQuery } from './categoryNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
 
 export interface IQueryInfo {
 	label: string;
@@ -24,17 +23,16 @@ export interface IQueryInfo {
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	protected override _children: CategoryTreeNode[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: { light: vscode.Uri; dark: vscode.Uri };
 
 	constructor(
 		parent: TreeNodeParent,
 		uri: vscode.Uri,
 		public readonly folderManager: FolderRepositoryManager,
 		private telemetry: ITelemetry,
-		private notificationProvider: NotificationProvider,
+		private notificationProvider: NotificationsManager,
 		private context: vscode.ExtensionContext,
-		private readonly _prsTreeModel: PrsTreeModel,
-		private readonly _copilotMananger: CopilotRemoteAgentManager
+		private readonly _prsTreeModel: PrsTreeModel
 	) {
 		super(parent);
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
@@ -68,7 +66,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		if (!shouldDispose && this._children) {
 			return this._children;
 		}
-		this._children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel, this._copilotMananger);
+		this._children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel);
 		return this._children;
 	}
 
@@ -76,21 +74,22 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		folderManager: FolderRepositoryManager,
 		telemetry: ITelemetry,
 		parent: TreeNodeParent,
-		notificationProvider: NotificationProvider,
+		notificationProvider: NotificationsManager,
 		context: vscode.ExtensionContext,
 		prsTreeModel: PrsTreeModel,
-		copilotManager: CopilotRemoteAgentManager
 	) {
-		const queryCategories = (await WorkspaceFolderNode.getQueries(folderManager)).map(
-			queryInfo => {
-				if (isLocalQuery(queryInfo)) {
-					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel, copilotManager);
-				} else if (isAllQuery(queryInfo)) {
-					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel, copilotManager);
-				}
-				return new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, copilotManager, queryInfo.label, queryInfo.query);
+		const queries = await WorkspaceFolderNode.getQueries(folderManager);
+		const queryCategories: Map<string, CategoryTreeNode> = new Map();
+		for (const queryInfo of queries) {
+			if (isLocalQuery(queryInfo)) {
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel));
+			} else if (isAllQuery(queryInfo)) {
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel));
+			} else {
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query));
 			}
-		);
-		return queryCategories;
+		}
+
+		return Array.from(queryCategories.values());
 	}
 }

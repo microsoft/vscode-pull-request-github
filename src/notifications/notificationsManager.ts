@@ -4,22 +4,27 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem } from './notificationItem';
+import { NotificationsProvider } from './notificationsProvider';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
-import { NotificationSubjectType } from '../github/interface';
+import { AccountType, NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem } from './notificationItem';
-import { NotificationsProvider } from './notificationsProvider';
 
 export interface INotificationTreeItems {
 	readonly notifications: NotificationTreeItem[];
 	readonly hasNextPage: boolean
+	readonly pollInterval: number;
+	readonly lastModified: string;
 }
 
 export enum NotificationsSortMethod {
@@ -28,6 +33,11 @@ export enum NotificationsSortMethod {
 }
 
 export class NotificationsManager extends Disposable implements vscode.TreeDataProvider<NotificationTreeDataItem> {
+	private static ID = 'NotificationsManager';
+
+	// List of automated users that should be ignored when determining meaningful events
+	private static readonly AUTOMATED_USERS = ['vs-code-engineering'];
+
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = this._register(new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>());
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
@@ -39,6 +49,10 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _dateTime: Date = new Date();
 	private _fetchNotifications: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
+
+	private _pollingDuration: number = 60; // Default polling duration
+	private _pollingHandler: NodeJS.Timeout | null;
+	private _pollingLastModified: string;
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 	get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
@@ -52,6 +66,17 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		super();
 		this._register(this._onDidChangeTreeData);
 		this._register(this._onDidChangeNotifications);
+		this._startPolling();
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
+				if (this.isPRNotificationsOn() && !this._pollingHandler) {
+					this._startPolling();
+				}
+			}
+		}));
+		this._register(PullRequestOverviewPanel.onVisible(e => {
+			this.markPrNotificationsAsRead(e);
+		}));
 	}
 
 	//#region TreeDataProvider
@@ -99,7 +124,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		if (notification.subject.type === NotificationSubjectType.Issue && model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed'));
 		}
 		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
 			item.iconPath = model.isOpen
@@ -160,7 +185,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName})  \n`);
 		markdown.appendMarkdown(`**${notification.subject.title}**  \n`);
 		markdown.appendMarkdown(`Type: ${notification.subject.type}  \n`);
-		markdown.appendMarkdown(`Updated: ${notification.updatedAd.toLocaleString()}  \n`);
+		markdown.appendMarkdown(`Updated: ${notification.updatedAt.toLocaleString()}  \n`);
 		markdown.appendMarkdown(`Reason: ${notification.reason}  \n`);
 
 		return markdown;
@@ -168,13 +193,21 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	//#endregion
 
+	public get prNotifications(): PullRequestModel[] {
+		return Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest).map(n => n.model) as PullRequestModel[];
+	}
+
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
+		let pollInterval = this._pollingDuration;
+		let lastModified = this._pollingLastModified;
 		if (this._fetchNotifications) {
 			// Get raw notifications
 			const notificationsData = await this._notificationProvider.getNotifications(this._dateTime.toISOString(), this._pageCount);
 			if (!notificationsData) {
 				return undefined;
 			}
+			pollInterval = notificationsData.pollInterval;
+			lastModified = notificationsData.lastModified;
 
 			// Resolve notifications
 			const notificationTreeItems = new Map<string, NotificationTreeItem>();
@@ -224,7 +257,9 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 		return {
 			notifications: this._sortNotifications(notifications),
-			hasNextPage: this._hasNextPage
+			hasNextPage: this._hasNextPage,
+			pollInterval,
+			lastModified
 		};
 	}
 
@@ -291,6 +326,22 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 	}
 
+	private _isBot(user: { login: string, accountType?: AccountType }): boolean {
+		// Check if accountType indicates this is a bot
+		if (user.accountType === AccountType.Bot) {
+			return true;
+		}
+		// Check for common bot naming patterns
+		if (user.login.endsWith('[bot]')) {
+			return true;
+		}
+		// Check for specific automated users
+		if (NotificationsManager.AUTOMATED_USERS.includes(user.login)) {
+			return true;
+		}
+		return false;
+	}
+
 	private _getMeaningfulEventTime(event: TimelineEvent, currentUser: string, isCurrentUser: boolean): Date | undefined {
 		const userCheck = (testUser?: string) => {
 			if (isCurrentUser) {
@@ -301,17 +352,17 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		};
 
 		if (event.event === EventType.Committed) {
-			if (userCheck(event.author.login)) {
+			if (!this._isBot(event.author) && userCheck(event.author.login)) {
 				return new Date(event.committedDate);
 			}
 		} else if (event.event === EventType.Commented) {
-			if (userCheck(event.user?.login)) {
+			if (event.user && !this._isBot(event.user) && userCheck(event.user.login)) {
 				return new Date(event.createdAt);
 			}
 		} else if (event.event === EventType.Reviewed) {
 			// We only count empty reviews as meaningful if the user is the current user
 			if (isCurrentUser || (event.comments.length > 0 || event.body.length > 0)) {
-				if (userCheck(event.user?.login)) {
+				if (event.user && !this._isBot(event.user) && userCheck(event.user.login)) {
 					return new Date(event.submittedAt);
 				}
 			}
@@ -320,7 +371,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	public async markPullRequests(markAsDone: boolean = false): Promise<void> {
 		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest);
-		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents(notification.model as PullRequestModel)));
+		const timelines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getActivityTimelineEvents()));
 
 		const markPromises: Promise<void>[] = [];
 
@@ -328,7 +379,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			const currentUser = await this._credentialStore.getCurrentUser(notification.model.remote.authProviderId);
 
 			// Check that there have been no comments, reviews, or commits, since last read
-			const timeline = timlines[index];
+			const timeline = timelines[index];
 			let userLastEvent: Date | undefined = undefined;
 			let nonUserLastEvent: Date | undefined = undefined;
 			for (let i = timeline.length - 1; i >= 0; i--) {
@@ -368,11 +419,86 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	private _sortNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
 		if (this._sortingMethod === NotificationsSortMethod.Timestamp) {
-			return notifications.sort((n1, n2) => n2.notification.updatedAd.getTime() - n1.notification.updatedAd.getTime());
+			return notifications.sort((n1, n2) => n2.notification.updatedAt.getTime() - n1.notification.updatedAt.getTime());
 		} else if (this._sortingMethod === NotificationsSortMethod.Priority) {
 			return notifications.sort((n1, n2) => Number(n2.priority) - Number(n1.priority));
 		}
 
 		return notifications;
+	}
+
+	public isPRNotificationsOn() {
+		return (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<NotificationVariants>(NOTIFICATION_SETTING) === 'pullRequests');
+	}
+
+	private async _pollForNewNotifications() {
+		this._pageCount = 1;
+		this._dateTime = new Date();
+		this._notifications.clear();
+		this._fetchNotifications = true;
+
+		const response = await this.getNotifications();
+		if (!response) {
+			return;
+		}
+
+		// Adapt polling interval if it has changed.
+		if (response.pollInterval !== this._pollingDuration) {
+			this._pollingDuration = response.pollInterval;
+			if (this._pollingHandler && this.isPRNotificationsOn()) {
+				Logger.appendLine('Notifications: Clearing interval', NotificationsManager.ID);
+				clearInterval(this._pollingHandler);
+				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`, NotificationsManager.ID);
+				this._startPolling();
+			}
+		}
+		if (response.lastModified !== this._pollingLastModified) {
+			this._pollingLastModified = response.lastModified;
+			this._onDidChangeTreeData.fire();
+		}
+		// this._onDidChangeNotifications.fire(oldPRNodesToUpdate);
+	}
+
+	private _startPolling() {
+		if (!this.isPRNotificationsOn()) {
+			return;
+		}
+		this._pollForNewNotifications();
+		this._pollingHandler = setInterval(
+			function (notificationProvider: NotificationsManager) {
+				notificationProvider._pollForNewNotifications();
+			},
+			this._pollingDuration * 1000,
+			this
+		);
+		this._register({ dispose: () => clearInterval(this._pollingHandler!) });
+	}
+
+	private _findNotificationKeyForIssueModel(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): string | undefined {
+		for (const [key, notification] of this._notifications.entries()) {
+			if ((issueModel instanceof IssueModel || issueModel instanceof PullRequestModel)) {
+				if (notification.model.equals(issueModel)) {
+					return key;
+				}
+			} else {
+				if (notification.notification.owner === issueModel.owner &&
+					notification.notification.name === issueModel.repo &&
+					notification.model.number === issueModel.number) {
+					return key;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	public markPrNotificationsAsRead(issueModel: IssueModel): void {
+		const notificationKey = this._findNotificationKeyForIssueModel(issueModel);
+		if (notificationKey) {
+			this.markAsRead({ threadId: this._notifications.get(notificationKey)!.notification.id, notificationKey });
+		}
+	}
+
+	public hasNotification(issueModel: IssueModel | PullRequestModel | { owner: string; repo: string; number: number }): boolean {
+		return this._findNotificationKeyForIssueModel(issueModel) !== undefined;
 	}
 }

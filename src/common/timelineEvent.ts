@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, IActor, Reaction } from '../github/interface';
 import { IComment } from './comment';
+import { IAccount, IActor, Reaction } from '../github/interface';
 
 export enum EventType {
 	Committed,
@@ -22,9 +22,11 @@ export enum EventType {
 	CrossReferenced,
 	Closed,
 	Reopened,
+	BaseRefChanged,
 	CopilotStarted,
 	CopilotFinished,
 	CopilotFinishedError,
+	CopilotReviewStarted,
 	Other,
 }
 
@@ -81,6 +83,7 @@ export interface CommitEvent {
 	message: string;
 	bodyHTML?: string;
 	committedDate: Date;
+	status?: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 }
 
 export interface NewCommitsSinceReviewEvent {
@@ -155,6 +158,15 @@ export interface ReopenedEvent {
 	createdAt: string;
 }
 
+export interface BaseRefChangedEvent {
+	id: string;
+	event: EventType.BaseRefChanged;
+	actor: IActor;
+	createdAt: string;
+	currentRefName: string;
+	previousRefName: string;
+}
+
 export interface SessionPullInfo {
 	id: number;
 	host: string;
@@ -191,4 +203,10 @@ export interface CopilotFinishedErrorEvent {
 	sessionLink: SessionLinkInfo;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent;
+export interface CopilotReviewStartedEvent {
+	id: string;
+	event: EventType.CopilotReviewStarted;
+	createdAt: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | BaseRefChangedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent | CopilotReviewStartedEvent;

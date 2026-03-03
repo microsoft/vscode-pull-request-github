@@ -6,15 +6,15 @@
 import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
-import { ensureEmojis } from '../common/emoji';
-import Logger from '../common/logger';
-import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
 import { PullRequestDefaults } from './folderRepositoryManager';
 import { GithubItemStateEnum, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { getIssueNumberLabelFromParsed, ISSUE_OR_URL_EXPRESSION, makeLabel, parseIssueExpressionOutput, UnsatisfiedChecks } from './utils';
+import { ensureEmojis } from '../common/emoji';
+import Logger from '../common/logger';
+import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
 
 function getIconString(issue: IssueModel) {
 	switch (issue.state) {
@@ -38,7 +38,9 @@ function getIconMarkdown(issue: IssueModel) {
 			return `<span style="color:#22863a;">$(issues)</span>`;
 		}
 		case GithubItemStateEnum.Closed: {
-			return `<span style="color:#cb2431;">$(issue-closed)</span>`;
+			// Use grey for issues closed as "not planned", purple for "completed"
+			const color = issue.stateReason !== 'COMPLETED' ? '#6a737d' : '#8957e5';
+			return `<span style="color:${color};">$(issue-closed)</span>`;
 		}
 	}
 }
@@ -173,6 +175,7 @@ export async function issueMarkdown(
 	const title = marked
 		.parse(titleWithDraft, {
 			renderer: new PlainTextRenderer(),
+			smartypants: true,
 		})
 		.trim();
 	markdown.appendMarkdown(
@@ -180,6 +183,7 @@ export async function issueMarkdown(
 	);
 	let body = marked.parse(issue.body, {
 		renderer: new PlainTextRenderer(),
+		smartypants: true,
 	});
 	markdown.appendMarkdown('  \n');
 	body = body.length > ISSUE_BODY_LENGTH ? body.substr(0, ISSUE_BODY_LENGTH) + '...' : body;
@@ -213,7 +217,7 @@ export async function issueMarkdown(
 					comment.body.length > ISSUE_BODY_LENGTH
 						? comment.body.substr(0, ISSUE_BODY_LENGTH) + '...'
 						: comment.body,
-					{ renderer: new PlainTextRenderer() },
+					{ renderer: new PlainTextRenderer(), smartypants: true },
 				);
 				commentText = await findLinksInIssue(commentText, issue);
 				markdown.appendMarkdown(commentText);
@@ -233,6 +237,13 @@ export async function issueMarkdown(
 }
 
 export class PlainTextRenderer extends marked.Renderer {
+	private allowSimpleMarkdown: boolean;
+
+	constructor(allowSimpleMarkdown: boolean = false) {
+		super();
+		this.allowSimpleMarkdown = allowSimpleMarkdown;
+	}
+
 	override code(code: string, _infostring: string | undefined): string {
 		return code;
 	}
@@ -282,6 +293,9 @@ export class PlainTextRenderer extends marked.Renderer {
 		return text;
 	}
 	override codespan(code: string): string {
+		if (this.allowSimpleMarkdown) {
+			return `\`${code}\``;
+		}
 		return `\\\`${code}\\\``;
 	}
 	override br(): string {

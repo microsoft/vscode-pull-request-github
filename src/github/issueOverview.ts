@@ -7,6 +7,12 @@
 import * as vscode from 'vscode';
 import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { IssueModel } from './issueModel';
+import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
+import { isInCodespaces, vscodeDevPrLink } from './utils';
+import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -14,64 +20,112 @@ import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/setti
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
-import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
-import { IssueModel } from './issueModel';
-import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
-import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewBase } from '../common/webview';
+
+export function panelKey(owner: string, repo: string, number: number): string {
+	return `${owner}/${repo}#${number}`;
+}
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
 	/**
-	 * Track the currently panel. Only allow a single panel to exist at a time.
+	 * All open panels, keyed by "owner/repo#number".
 	 */
-	public static currentPanel?: IssueOverviewPanel;
+	protected static _panels: Map<string, IssueOverviewPanel> = new Map();
 
-	private static readonly _viewType: string = 'IssueOverview';
+	public static readonly viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;
+	protected _identity: UnresolvedIdentity;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+
+	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
+		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
+		const activeColumn = toTheSide
+			? vscode.ViewColumn.Beside
+			: (panel ? undefined : tabViewColumn);
+		return activeColumn;
+	}
 
 	public static async createOrShow(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
-		issue: IssueModel,
-		toTheSide: Boolean = false,
+		identity: UnresolvedIdentity,
+		issue?: IssueModel,
+		toTheSide: boolean = false,
+		_preserveFocus: boolean = true,
+		existingPanel?: vscode.WebviewPanel
 	) {
 		await ensureEmojis(folderRepositoryManager.context);
-		const activeColumn = toTheSide
-			? vscode.ViewColumn.Beside
-			: vscode.window.activeTextEditor
-				? vscode.window.activeTextEditor.viewColumn
-				: vscode.ViewColumn.One;
 
-		// If we already have a panel, show it.
-		// Otherwise, create a new panel.
-		if (IssueOverviewPanel.currentPanel) {
-			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
+		const key = panelKey(identity.owner, identity.repo, identity.number);
+		let panel = this._panels.get(key);
+		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
+
+		if (panel) {
+			panel._panel.reveal(activeColumn, true);
 		} else {
-			const title = `Issue #${issue.number.toString()}`;
-			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(
+			const title = `#${identity.number.toString()}`;
+			panel = new IssueOverviewPanel(
 				telemetry,
 				extensionUri,
 				activeColumn || vscode.ViewColumn.Active,
 				title,
 				folderRepositoryManager,
+				undefined,
+				existingPanel,
+				undefined
 			);
+			this._panels.set(key, panel);
 		}
 
-		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
+		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
 	}
 
-	public static refresh(): void {
-		if (this.currentPanel) {
-			this.currentPanel.refreshPanel();
+	public static refresh(owner: string, repo: string, number: number): void {
+		const panel = this.findPanel(owner, repo, number);
+		if (panel) {
+			panel.refreshPanel();
 		}
+	}
+
+	/**
+	 * Return the panel whose webview is currently active (focused),
+	 * or `undefined` when no issue/PR panel is active.
+	 */
+	public static getActivePanel(): IssueOverviewPanel | undefined {
+		for (const panel of this._panels.values()) {
+			if (panel._panel.active) {
+				return panel;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Find the panel showing a specific issue.
+	 */
+	public static findPanel(owner: string, repo: string, number: number): IssueOverviewPanel | undefined {
+		return this._panels.get(panelKey(owner, repo, number));
+	}
+
+	/**
+	 * Build a short panel title: `#<number> <truncated title>`.
+	 * The item title is truncated to approximately `maxLength` characters on a
+	 * word boundary and suffixed with "..." when it doesn't fit in full.
+	 */
+	protected buildPanelTitle(itemNumber: number, itemTitle: string, maxLength: number = 20): string {
+		let truncated = itemTitle;
+		if (itemTitle.length > maxLength) {
+			const lastSpace = itemTitle.lastIndexOf(' ', maxLength);
+			const cutOff = lastSpace > 0 ? lastSpace : maxLength;
+			truncated = itemTitle.substring(0, cutOff) + '...';
+		}
+		return `#${itemNumber} ${truncated}`;
 	}
 
 	protected setPanelTitle(title: string): void {
@@ -89,17 +143,21 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
-		private readonly type: string = IssueOverviewPanel._viewType,
-		iconSubpath?: {
+		private readonly type: string = IssueOverviewPanel.viewType,
+		existingPanel?: vscode.WebviewPanel,
+		iconSubpath: {
 			light: string,
 			dark: string,
-		}
+		} = {
+				light: 'resources/icons/issue_webview.svg',
+				dark: 'resources/icons/dark/issue_webview.svg',
+			}
 	) {
 		super();
 		this._folderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
-		this._panel = this._register(vscode.window.createWebviewPanel(type, title, column, {
+		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
 			retainContextWhenHidden: true,
@@ -109,12 +167,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			enableFindWidget: true
 		}));
 
-		if (iconSubpath) {
-			this._panel.iconPath = {
-				dark: vscode.Uri.joinPath(_extensionUri, iconSubpath.dark),
-				light: vscode.Uri.joinPath(_extensionUri, iconSubpath.light)
-			};
-		}
+		this._panel.iconPath = {
+			dark: vscode.Uri.joinPath(_extensionUri, iconSubpath.dark),
+			light: vscode.Uri.joinPath(_extensionUri, iconSubpath.light)
+		};
 
 		this._webview = this._panel.webview;
 		super.initialize();
@@ -185,7 +241,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			await this.update(this._folderRepositoryManager, this._item);
+			await this.updateItem(this._item);
 		}
 	}
 
@@ -194,7 +250,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
-		const hasWritePermission = repositoryAccess!.hasWritePermission;
+		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const labels = issue.item.labels.map(label => ({
 			...label,
@@ -214,6 +270,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			labels: labels,
 			author: issue.author,
 			state: issue.state,
+			stateReason: issue.stateReason,
 			events: timelineEvents,
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,
@@ -225,6 +282,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			isEnterprise: issue.githubRepository.remote.isEnterprise,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
+			canRequestCopilotReview: false,
 			reactions: issue.item.reactions,
 			isAuthor: issue.author.login === currentUser.login,
 		};
@@ -247,7 +305,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.getIssueTimelineEvents(issueModel),
+				issueModel.getIssueTimelineEvents(),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -261,7 +319,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 
 			this._item = issue as TItem;
-			this.setPanelTitle(`Issue #${issueModel.number.toString()}`);
+			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
@@ -278,25 +336,58 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		// none for issues
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
-		if (this._folderRepositoryManager !== foldersManager) {
-			this._folderRepositoryManager = foldersManager;
-			this.registerPrListeners();
-		}
+	/**
+	 * Resolve a model from an unresolved identity.
+	 * Subclasses can override to resolve different types (e.g., pull requests vs issues).
+	 */
+	protected async resolveModel(identity: UnresolvedIdentity): Promise<TItem | undefined> {
+		return this._folderRepositoryManager.resolveIssue(
+			identity.owner,
+			identity.repo,
+			identity.number
+		) as Promise<TItem | undefined>;
+	}
+
+	/**
+	 * Get the display name for the item type (for error messages).
+	 */
+	protected getItemTypeName(): string {
+		return 'issue';
+	}
+
+	/**
+	 * Update the panel with an unresolved identity and optional model.
+	 * If no model is provided, it will be resolved from the identity.
+	 */
+	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem, progressLocation?: string): Promise<void> {
+		this._identity = identity;
+		this._folderRepositoryManager = foldersManager;
 
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
-		if (!this._item || (this._item.number !== issueModel.number) || !this._panel.webview.html) {
+		if (!this._panel.webview.html) {
 			this._panel.webview.html = this.getHtmlForWebview();
-			this._postMessage({ command: 'pr.clear' });
+			if (this._item) {
+				this._postMessage({ command: 'pr.clear' });
+			}
+		}
 
+		// If no model provided, resolve it from the identity
+		if (!issueModel) {
+			const resolvedModel = await this.resolveModel(identity);
+			if (!resolvedModel) {
+				throw new Error(
+					`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`,
+				);
+			}
+			issueModel = resolvedModel;
 		}
 
 		if (progressLocation) {
-			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel));
+			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel!));
 		} else {
 			return this.updateItem(issueModel);
 		}
@@ -353,7 +444,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+				return openPullRequestOnGitHub(this._item, this._telemetry);
 			case 'pr.debug':
 				return this.webviewDebug(message);
 			default:
@@ -501,7 +592,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.getIssueTimelineEvents(this._item);
+		return this._item.getIssueTimelineEvents();
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
@@ -687,18 +778,22 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		this._replyMessage(message, result);
 	}
 
-	protected set _currentPanel(panel: IssueOverviewPanel | undefined) {
-		IssueOverviewPanel.currentPanel = panel;
+	protected _removeFromPanels(): void {
+		if (this._identity) {
+			const key = panelKey(this._identity.owner, this._identity.repo, this._identity.number);
+			// Use the subclass's own static _panels map via this.constructor
+			(this.constructor as unknown as typeof IssueOverviewPanel)._panels.delete(key);
+		}
 	}
 
 	public override dispose() {
 		super.dispose();
-		this._currentPanel = undefined;
+		this._removeFromPanels();
 		this._webview = undefined;
 	}
 
 	protected getHtmlForWebview() {
-		const nonce = getNonce();
+		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-pr-description.js');
 

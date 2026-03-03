@@ -9,7 +9,11 @@ import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { IAccount } from './interface';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
+import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 import { AuthProvider } from '../common/authentication';
+import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
@@ -17,9 +21,6 @@ import { GITHUB_ENTERPRISE, URI } from '../common/settingKeys';
 import { initBasedOnSettingChange } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
-import { IAccount } from './interface';
-import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
@@ -121,10 +122,40 @@ export class CredentialStore extends Disposable {
 		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES_OLD);
 	}
 
+	get scopes() {
+		return this._scopes;
+	}
+
 	private async saveScopesInState() {
 		await this.context.globalState.update(LAST_USED_SCOPES_GITHUB_KEY, this._scopes);
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
+
+	private async tryInitializeFromEnvironmentToken(authProviderId: AuthProvider): Promise<AuthResult | undefined> {
+		if (isEnterprise(authProviderId)) {
+			return undefined;
+		}
+		const token = process.env.GITHUB_OAUTH_TOKEN;
+		if (!token) {
+			return undefined;
+		}
+		Logger.debug('Attempting authentication using GITHUB_OAUTH_TOKEN environment variable.', CredentialStore.ID);
+		try {
+			const github = await this.createHub(token, authProviderId);
+			this._githubAPI = github;
+			this._sessionId = 'environment-token';
+			if (!this._isInitialized) {
+				this._isInitialized = true;
+				this._onDidInitialize.fire();
+			}
+			Logger.appendLine('Successfully authenticated using GITHUB_OAUTH_TOKEN environment variable.', CredentialStore.ID);
+			return { canceled: false };
+		} catch (e) {
+			Logger.error(`Failed to authenticate using GITHUB_OAUTH_TOKEN: ${e.message}`, CredentialStore.ID);
+			return undefined;
+		}
+	}
+
 	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
 		if (isEnterprise(authProviderId)) {
@@ -132,6 +163,11 @@ export class CredentialStore extends Disposable {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return { canceled: false };
 			}
+		}
+
+		const envResult = await this.tryInitializeFromEnvironmentToken(authProviderId);
+		if (envResult) {
+			return envResult;
 		}
 
 		if (getAuthSessionOptions.createIfNone === undefined && getAuthSessionOptions.forceNewSession === undefined) {
@@ -285,6 +321,33 @@ export class CredentialStore extends Disposable {
 			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
 		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
+	}
+
+	async tryPromptForCopilotAuth(): Promise<boolean> {
+		if (this.isAnyAuthenticated()) {
+			return true;
+		}
+
+		const chatSetupResult = await commands.executeCommand(commands.CHAT_SETUP_ACTION_ID, 'agent', { additionalScopes: this.scopes });
+		if (!chatSetupResult) {
+			return false;
+		}
+
+		const result = await this.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
+
+		/* __GDPR__
+			"remoteAgent.command.auth" : {
+				"succeeded" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
+			succeeded: result.canceled ? 'false' : 'true'
+		});
+
+		if (result.canceled) {
+			return false;
+		}
+		return true;
 	}
 
 	public areScopesExtra(authProviderId: AuthProvider): boolean {
@@ -519,7 +582,7 @@ const link = (url: string, token: string) =>
 		createHttpLink({
 			uri: `${url}/graphql`,
 			// https://github.com/apollographql/apollo-link/issues/513
-			fetch: fetch as any,
+			fetch: fetch as (((input: URL | string, init?: RequestInit) => Promise<Response>) | undefined),
 		}),
 	);
 

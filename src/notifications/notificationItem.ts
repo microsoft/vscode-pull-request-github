@@ -23,3 +23,8 @@ export interface NotificationTreeItem {
 export function isNotificationTreeItem(item: unknown): item is NotificationTreeItem {
 	return !!item && (item as Partial<NotificationTreeItem>).kind === 'notification';
 }
+
+export interface NotificationID {
+	threadId: string;
+	notificationKey: string;
+}

@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { AccountBuilder } from './account';
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
 import { PullRequest } from '../../../../src/github/views';
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
 
-import { AccountBuilder } from './account';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	owner: { default: 'owner' },
@@ -33,6 +33,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isAuthor: { default: true },
 	commitsCount: { default: 10 },
 	repositoryDefaultBranch: { default: 'main' },
+	doneCheckoutBranch: { default: 'main' },
 	canEdit: { default: true },
 	hasWritePermission: { default: true },
 	pendingCommentText: { default: undefined },
@@ -61,6 +62,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	busy: { default: undefined },
 	lastReviewType: { default: undefined },
 	canAssignCopilot: { default: false },
+	canRequestCopilotReview: { default: false },
 	isCopilotOnMyBehalf: { default: false },
 	reactions: { default: [] },
 });

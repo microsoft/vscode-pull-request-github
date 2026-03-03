@@ -5,23 +5,31 @@
 
 import React from 'react';
 
-export class ErrorBoundary extends React.Component {
-	constructor(props) {
+interface ErrorBoundaryProps {
+	children?: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+	hasError: boolean;
+}
+
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+	constructor(props: ErrorBoundaryProps) {
 		super(props);
 		this.state = { hasError: false };
 	}
 
-	static getDerivedStateFromError(_error) {
+	static getDerivedStateFromError(_error: unknown): ErrorBoundaryState {
 		return { hasError: true };
 	}
 
-	override componentDidCatch(error, errorInfo) {
-		console.log(error);
-		console.log(errorInfo);
+	override componentDidCatch(error: unknown, errorInfo: React.ErrorInfo): void {
+		console.error(error);
+		console.error(errorInfo);
 	}
 
-	override render() {
-		if ((this.state as any).hasError) {
+	override render(): React.ReactNode {
+		if (this.state.hasError) {
 			return <div>Something went wrong.</div>;
 		}
 

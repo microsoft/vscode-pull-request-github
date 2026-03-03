@@ -5,7 +5,8 @@
 
 'use strict';
 import * as vscode from 'vscode';
-import { PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
+import { commands } from './executeCommands';
+import { CHAT_SETTINGS_NAMESPACE, DISABLE_AI_FEATURES, PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
 
 export function getReviewMode(): { merged: boolean, closed: boolean } {
 	const desktopDefaults = { merged: false, closed: false };
@@ -53,7 +54,17 @@ export function editQuery(namespace: string, queryName: string) {
 	const inputBox = vscode.window.createQuickPick();
 	inputBox.title = vscode.l10n.t('Edit Query "{0}"', queryName ?? '');
 	inputBox.value = queryValue ?? '';
-	inputBox.items = [{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true }, { iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true }, { iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true }];
+	const items: vscode.QuickPickItem[] = [
+		{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true },
+		{ iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true },
+		{ iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true }
+	];
+	const aiDisabled = vscode.workspace.getConfiguration(CHAT_SETTINGS_NAMESPACE).get<boolean>(DISABLE_AI_FEATURES, false);
+	const editWithAIItem = { iconPath: new vscode.ThemeIcon('sparkle'), label: vscode.l10n.t('Edit with AI'), alwaysShow: true };
+	if (!aiDisabled) {
+		items.push(editWithAIItem);
+	}
+	inputBox.items = items;
 	inputBox.activeItems = [];
 	inputBox.selectedItems = [];
 	inputBox.onDidAccept(async () => {
@@ -76,12 +87,18 @@ export function editQuery(namespace: string, queryName: string) {
 				newValue.find((query) => query.label === queryName)!.query = newQuery;
 				await config.update(QUERIES, newValue, target);
 			}
+			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[1]) {
 			addNewQuery(config, inspect, inputBox.value);
+			inputBox.dispose();
 		} else if (inputBox.selectedItems[0] === inputBox.items[2]) {
 			openSettingsAtQuery(config, inspect, queryName);
+			inputBox.dispose();
+		} else if (inputBox.selectedItems[0] === editWithAIItem) {
+			inputBox.ignoreFocusOut = true;
+			await openCopilotForQuery(inputBox.value);
+			inputBox.busy = false;
 		}
-		inputBox.dispose();
 	});
 	inputBox.onDidHide(() => inputBox.dispose());
 	inputBox.show();
@@ -151,4 +168,11 @@ async function openSettingsAtQuery(config: vscode.WorkspaceConfiguration, inspec
 			editor.selection = new vscode.Selection(position, position);
 		}
 	}
+}
+
+async function openCopilotForQuery(currentQuery: string) {
+	const chatMessage = vscode.l10n.t('I want to edit this GitHub search query: \n```\n{0}\n```\nOutput only one, minimally modified query in a codeblock.\nModify it so that it ', currentQuery);
+
+	// Open chat with the query pre-populated
+	await vscode.commands.executeCommand(commands.NEW_CHAT, { inputValue: chatMessage, isPartialQuery: true, agentMode: false });
 }

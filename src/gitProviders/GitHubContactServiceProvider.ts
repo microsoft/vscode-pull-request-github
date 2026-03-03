@@ -18,7 +18,7 @@ interface ContactServiceProvider {
 
 interface NotifyContactServiceEventArgs {
 	type: string;
-	body?: any | undefined;
+	body?: { contacts: Contact[]; exclusive?: boolean } | undefined;
 }
 
 /**
@@ -132,7 +132,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		}
 	}
 
-	private notify(type: string, body: any) {
+	private notify(type: string, body: { contacts: Contact[]; exclusive?: boolean }) {
 		this.onNotifiedEmitter.fire({
 			type,
 			body,

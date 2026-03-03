@@ -1,3 +1,9 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// @ts-nocheck
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -6,20 +12,6 @@ import Mocha from 'mocha';
 import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
 import { EXTENSION_ID } from '../constants';
 
-function addTests(mocha: Mocha, root: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		glob('**/**.test.js', { cwd: root }, (error, files) => {
-			if (error) {
-				return reject(error);
-			}
-
-			for (const testFile of files) {
-				mocha.addFile(path.join(root, testFile));
-			}
-			resolve();
-		});
-	});
-}
 
 async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null, failures?: number) => void): Promise<any> {
 	// Ensure the dev-mode extension is activated
@@ -31,10 +23,34 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 		ui: 'bdd',
 		color: true
 	});
-	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
+	// Load globalHooks if it exists
+	try {
+		mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
+	} catch (e) {
+		// globalHooks might not exist in webpack bundle, ignore
+	}
 
-	await addTests(mocha, testsRoot);
-	await addTests(mocha, path.resolve(testsRoot, '../../../webviews/'));
+	// Import all test files using webpack's require.context
+	try {
+		// Load tests from src/test directory only
+		// Webview tests are compiled separately with the webview configuration
+		const importAll = (r: __WebpackModuleApi.RequireContext) => r.keys().forEach(r);
+		importAll(require.context('./', true, /\.test$/));
+	} catch (e) {
+		// Fallback if 'require.context' is not available (e.g., in non-webpack environments)
+		const files = glob.sync('**/*.test.js', {
+			cwd: testsRoot,
+			absolute: true,
+			// Browser/webview tests are loaded via the separate browser runner
+			ignore: ['browser/**']
+		});
+		if (!files.length) {
+			console.log('Fallback test discovery found no test files. Original error:', e);
+		}
+		for (const f of files) {
+			mocha.addFile(f);
+		}
+	}
 
 	if (process.env.TEST_JUNIT_XML_PATH) {
 		mocha.reporter('mocha-multi-reporters', {

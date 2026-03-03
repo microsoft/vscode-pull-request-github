@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
+import { getMessageHandler, MessageHandler, vscode } from './message';
+import { RemoteInfo } from '../../common/types';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
 import { PreReviewState } from '../../src/github/views';
-import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParamsNew = {
 	canModifyBranches: true,
@@ -33,7 +34,8 @@ const defaultCreateParams: CreateParamsNew = {
 	baseHasMergeQueue: false,
 	preReviewState: PreReviewState.None,
 	preReviewer: undefined,
-	reviewing: false
+	reviewing: false,
+	usingTemplate: false
 };
 
 export class CreatePRContextNew {
@@ -109,6 +111,8 @@ export class CreatePRContextNew {
 			currentRemote,
 			currentBranch
 		};
+		const startingBaseOwner = this.createParams.baseRemote?.owner;
+		const startingBaseRepo = this.createParams.baseRemote?.repositoryName;
 		const response: ChooseBaseRemoteAndBranchResult = await this.postMessage({
 			command: 'pr.changeBaseRemoteAndBranch',
 			args
@@ -119,7 +123,7 @@ export class CreatePRContextNew {
 			baseBranch: response.baseBranch,
 			createError: ''
 		};
-		if ((this.createParams.baseRemote?.owner !== response.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== response.baseRemote.repositoryName)) {
+		if ((startingBaseOwner !== response.baseRemote.owner) || (startingBaseRepo !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
 			updateValues.allowAutoMerge = response.allowAutoMerge;
 			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
@@ -127,6 +131,8 @@ export class CreatePRContextNew {
 			updateValues.baseHasMergeQueue = response.baseHasMergeQueue;
 			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
 				updateValues.autoMerge = this.createParams.isDraft ? false : updateValues.autoMergeDefault;
+			} else if (this.createParams.allowAutoMerge && !updateValues.allowAutoMerge) {
+				updateValues.autoMerge = false;
 			}
 			updateValues.defaultTitle = response.defaultTitle;
 			if ((this.createParams.pendingTitle === undefined) || (this.createParams.pendingTitle === this.createParams.defaultTitle)) {
@@ -205,17 +211,17 @@ export class CreatePRContextNew {
 		if (this._descriptionStack.length > 0) {
 			this.updateState({ pendingDescription: this._descriptionStack.pop() });
 		}
-	}
+	};
 
 	public preReview = async (): Promise<void> => {
 		this.updateState({ reviewing: true });
 		const result: PreReviewState = await this.postMessage({ command: 'pr.preReview' });
 		this.updateState({ preReviewState: result, reviewing: false });
-	}
+	};
 
 	public cancelPreReview = async (): Promise<void> => {
 		return this.postMessage({ command: 'pr.cancelPreReview' });
-	}
+	};
 
 	public validate = (): boolean => {
 		let isValid = true;

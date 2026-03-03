@@ -9,7 +9,6 @@ import { CredentialStore, GitHub } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { hasEnterpriseUri } from '../../github/utils';
-import { ChatParticipantState } from '../participants';
 
 export interface IToolCall {
 	tool: vscode.LanguageModelToolInformation;
@@ -37,7 +36,7 @@ export interface IssueResult {
 }
 
 export abstract class ToolBase<T> implements vscode.LanguageModelTool<T> {
-	constructor(protected readonly chatParticipantState: ChatParticipantState) { }
+	constructor() { }
 	abstract invoke(options: vscode.LanguageModelToolInvocationOptions<T>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelToolResult>;
 }
 
@@ -50,8 +49,8 @@ export async function concatAsyncIterable(asyncIterable: AsyncIterable<string>):
 }
 
 export abstract class RepoToolBase<T> extends ToolBase<T> {
-	constructor(private readonly credentialStore: CredentialStore, private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-		super(chatParticipantState);
+	constructor(private readonly credentialStore: CredentialStore, private readonly repositoriesManager: RepositoriesManager) {
+		super();
 	}
 
 	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {

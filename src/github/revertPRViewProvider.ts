@@ -6,9 +6,6 @@
 import * as vscode from 'vscode';
 import { CreateParamsNew, CreatePullRequestNew } from '../../common/views';
 import { openDescription } from '../commands';
-import { commands, contexts } from '../common/executeCommands';
-import { ITelemetry } from '../common/telemetry';
-import { IRequestMessage } from '../common/webview';
 import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel } from './createPRViewProvider';
 import {
 	FolderRepositoryManager,
@@ -16,6 +13,9 @@ import {
 } from './folderRepositoryManager';
 import { BaseBranchMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
+import { commands, contexts } from '../common/executeCommands';
+import { ITelemetry } from '../common/telemetry';
+import { IRequestMessage } from '../common/webview';
 
 export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProvider implements vscode.WebviewViewProvider {
 	constructor(

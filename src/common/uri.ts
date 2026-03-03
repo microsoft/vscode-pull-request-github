@@ -9,14 +9,15 @@ import { Buffer } from 'buffer';
 import * as pathUtils from 'path';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';
 import { EXTENSION_ID } from '../constants';
-import { IAccount, ITeam, reviewerId } from '../github/interface';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
 import Logger from './logger';
 import { TemporaryState } from './temporaryState';
 import { compareIgnoreCase } from './utils';
+import { IAccount, isITeam, ITeam, reviewerId } from '../github/interface';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export interface ReviewUriParams {
 	path: string;
@@ -52,7 +53,8 @@ export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
 }
 
 export interface PRNodeUriParams {
-	prIdentifier: string
+	prIdentifier: string;
+	showCopilot?: boolean;
 }
 
 export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
@@ -193,7 +195,7 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 
 		if (ImageMimetypes.indexOf(mimetype) > -1) {
 			const contents = await repository.buffer(ref, absolutePath);
-			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents);
+			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents, false, repository.rootUri);
 		}
 	} catch (err) {
 		return;
@@ -204,7 +206,17 @@ export namespace DataUri {
 	const iconsFolder = 'userIcons';
 
 	function iconFilename(user: IAccount | ITeam): string {
-		return `${reviewerId(user)}.jpg`;
+		// Include avatarUrl hash to invalidate cache when URL changes
+		const baseId = reviewerId(user);
+		if (user.avatarUrl) {
+			// Create a simple hash of the URL to detect changes
+			const urlHash = user.avatarUrl.split('').reduce((a, b) => {
+				a = ((a << 5) - a) + b.charCodeAt(0);
+				return a & a;
+			}, 0);
+			return `${baseId}_${Math.abs(urlHash)}.jpg`;
+		}
+		return `${baseId}.jpg`;
 	}
 
 	function cacheLocation(context: vscode.ExtensionContext): vscode.Uri {
@@ -268,6 +280,26 @@ export namespace DataUri {
 		return asImageDataURI(contents);
 	}
 
+	function genericUserIconAsImageDataURI(width: number, height: number): vscode.Uri {
+		// The account icon
+		const foreground = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? '#FFFFFF' : '#000000';
+		const svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+<path d="M16 7.992C16 3.58 12.416 0 8 0S0 3.58 0 7.992c0 2.43 1.104 4.62 2.832 6.09.016.016.032.016.032.032.144.112.288.224.448.336.08.048.144.111.224.175A7.98 7.98 0 0 0 8.016 16a7.98 7.98 0 0 0 4.48-1.375c.08-.048.144-.111.224-.16.144-.111.304-.223.448-.335.016-.016.032-.016.032-.032 1.696-1.487 2.8-3.676 2.8-6.106zm-8 7.001c-1.504 0-2.88-.48-4.016-1.279.016-.128.048-.255.08-.383a4.17 4.17 0 0 1 .416-.991c.176-.304.384-.576.64-.816.24-.24.528-.463.816-.639.304-.176.624-.304.976-.4A4.15 4.15 0 0 1 8 10.342a4.185 4.185 0 0 1 2.928 1.166c.368.368.656.8.864 1.295.112.288.192.592.24.911A7.03 7.03 0 0 1 8 14.993zm-2.448-7.4a2.49 2.49 0 0 1-.208-1.024c0-.351.064-.703.208-1.023.144-.32.336-.607.576-.847.24-.24.528-.431.848-.575.32-.144.672-.208 1.024-.208.368 0 .704.064 1.024.208.32.144.608.336.848.575.24.24.432.528.576.847.144.32.208.672.208 1.023 0 .368-.064.704-.208 1.023a2.84 2.84 0 0 1-.576.848 2.84 2.84 0 0 1-.848.575 2.715 2.715 0 0 1-2.064 0 2.84 2.84 0 0 1-.848-.575 2.526 2.526 0 0 1-.56-.848zm7.424 5.306c0-.032-.016-.048-.016-.08a5.22 5.22 0 0 0-.688-1.406 4.883 4.883 0 0 0-1.088-1.135 5.207 5.207 0 0 0-1.04-.608 2.82 2.82 0 0 0 .464-.383 4.2 4.2 0 0 0 .624-.784 3.624 3.624 0 0 0 .528-1.934 3.71 3.71 0 0 0-.288-1.47 3.799 3.799 0 0 0-.816-1.199 3.845 3.845 0 0 0-1.2-.8 3.72 3.72 0 0 0-1.472-.287 3.72 3.72 0 0 0-1.472.288 3.631 3.631 0 0 0-1.2.815 3.84 3.84 0 0 0-.8 1.199 3.71 3.71 0 0 0-.288 1.47c0 .352.048.688.144 1.007.096.336.224.64.4.927.16.288.384.544.624.784.144.144.304.271.48.383a5.12 5.12 0 0 0-1.04.624c-.416.32-.784.703-1.088 1.119a4.999 4.999 0 0 0-.688 1.406c-.016.032-.016.064-.016.08C1.776 11.636.992 9.91.992 7.992.992 4.14 4.144.991 8 .991s7.008 3.149 7.008 7.001a6.96 6.96 0 0 1-2.032 4.907z" fill="${foreground}"/>
+</svg>`;
+		const contents = Buffer.from(svgContent);
+		return asImageDataURI(contents);
+	}
+
+	/**
+	 * Checks if an avatar URL is from GitHub.com (as opposed to GitHub Enterprise).
+	 * GitHub.com avatar URLs contain 'githubusercontent.com', while enterprise avatar URLs do not.
+	 * @param avatarUrl The avatar URL to check
+	 * @returns true if the avatar is from GitHub.com, false otherwise
+	 */
+	export function isGitHubDotComAvatar(avatarUrl: string | undefined): boolean {
+		return avatarUrl?.includes('githubusercontent.com') ?? false;
+	}
+
 	export async function avatarCirclesAsImageDataUris(context: vscode.ExtensionContext, users: (IAccount | ITeam)[], height: number, width: number, localOnly?: boolean): Promise<(vscode.Uri | undefined)[]> {
 		let cacheLogOrder: string[];
 		const cacheLog = cacheLogUri(context);
@@ -280,7 +312,6 @@ export namespace DataUri {
 		const startingCacheSize = cacheLogOrder.length;
 
 		const results = await Promise.all(users.map(async (user) => {
-
 			const imageSourceUrl = user.avatarUrl;
 			if (imageSourceUrl === undefined) {
 				return undefined;
@@ -300,15 +331,27 @@ export namespace DataUri {
 				cacheMiss = true;
 				const doFetch = async () => {
 					const response = await fetch(imageSourceUrl.toString());
-					const buffer = await response.arrayBuffer();
-					await writeAvatarToCache(context, user, new Uint8Array(buffer));
-					innerImageContents = Buffer.from(buffer);
+					if (!response.ok) {
+						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+					}
+					if (response.headers.get('content-type')?.startsWith('image/')) {
+						const buffer = await response.arrayBuffer();
+						await writeAvatarToCache(context, user, new Uint8Array(buffer));
+						innerImageContents = Buffer.from(buffer);
+					}
 				};
 				try {
 					await doFetch();
 				} catch (e) {
 					// We retry once.
-					await doFetch();
+					try {
+						await doFetch();
+					} catch (retryError) {
+						// Log the error and return a generic user icon instead of crashing
+						const userIdentifier = isITeam(user) ? `${user.org}/${user.slug}` : user.login || 'unknown';
+						Logger.error(`Failed to fetch avatar after retry for user ${userIdentifier}: ${retryError}`, 'avatarCirclesAsImageDataUris');
+						return genericUserIconAsImageDataURI(width, height);
+					}
 				}
 			}
 			if (!innerImageContents) {
@@ -471,12 +514,15 @@ export function parsePRNodeIdentifier(identifier: string): { remote: string, prN
 }
 
 export function createPRNodeUri(
-	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
+	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string, showCopilot?: boolean
 ): vscode.Uri {
 	const identifier = createPRNodeIdentifier(pullRequest);
 	const params: PRNodeUriParams = {
 		prIdentifier: identifier,
 	};
+	if (showCopilot !== undefined) {
+		params.showCopilot = showCopilot;
+	}
 
 	const uri = vscode.Uri.parse(`PRNode:${identifier}`);
 
@@ -484,6 +530,36 @@ export function createPRNodeUri(
 		scheme: Schemes.PRNode,
 		query: JSON.stringify(params)
 	});
+}
+
+export interface CommitsNodeUriParams {
+	owner: string;
+	repo: string;
+	prNumber: number;
+}
+
+export function createCommitsNodeUri(owner: string, repo: string, prNumber: number): vscode.Uri {
+	const params: CommitsNodeUriParams = {
+		owner,
+		repo,
+		prNumber
+	};
+
+	return vscode.Uri.parse(`${Schemes.CommitsNode}:${owner}/${repo}/${prNumber}`).with({
+		scheme: Schemes.CommitsNode,
+		query: JSON.stringify(params)
+	});
+}
+
+export function fromCommitsNodeUri(uri: vscode.Uri): CommitsNodeUriParams | undefined {
+	if (uri.scheme !== Schemes.CommitsNode) {
+		return undefined;
+	}
+	try {
+		return JSON.parse(uri.query) as CommitsNodeUriParams;
+	} catch (e) {
+		return undefined;
+	}
 }
 
 export interface NotificationUriParams {
@@ -602,6 +678,8 @@ function validateOpenWebviewParams(owner?: string, repo?: string, number?: strin
 export enum UriHandlerPaths {
 	OpenIssueWebview = '/open-issue-webview',
 	OpenPullRequestWebview = '/open-pull-request-webview',
+	CheckoutPullRequest = '/checkout-pull-request',
+	OpenPullRequestChanges = '/open-pull-request-changes'
 }
 
 export interface OpenIssueWebviewUriParams {
@@ -642,19 +720,65 @@ export async function toOpenPullRequestWebviewUri(params: OpenPullRequestWebview
 	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestWebview, query }));
 }
 
-export function fromOpenPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
+export async function toOpenPullRequestChangesUri(params: OpenPullRequestWebviewUriParams): Promise<vscode.Uri> {
+	const query = JSON.stringify(params);
+	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestChanges, query }));
+}
+
+export function fromOpenOrCheckoutPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
 	if (compareIgnoreCase(uri.authority, EXTENSION_ID) !== 0) {
 		return;
 	}
-	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview) {
+	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview && uri.path !== UriHandlerPaths.CheckoutPullRequest && uri.path !== UriHandlerPaths.OpenPullRequestChanges) {
 		return;
 	}
 	try {
+		// Check if the query uses the new simplified format: uri=https://github.com/owner/repo/pull/number
+		const queryParams = new URLSearchParams(uri.query);
+		const uriParam = queryParams.get('uri');
+		if (uriParam) {
+			// Parse the GitHub PR URL - match only exact format ending with the PR number
+			// Use named regex groups for clarity
+			const prUrlRegex = /^https?:\/\/github\.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/pull\/(?<pullRequestNumber>\d+)$/;
+			const match = prUrlRegex.exec(uriParam);
+			if (match && match.groups) {
+				const { owner, repo, pullRequestNumber } = match.groups;
+				const params = {
+					owner,
+					repo,
+					pullRequestNumber: parseInt(pullRequestNumber, 10)
+				};
+				if (!validateOpenWebviewParams(params.owner, params.repo, params.pullRequestNumber.toString())) {
+					return;
+				}
+				return params;
+			}
+		}
+
+		// Fall back to the old JSON format for backward compatibility
 		const query = JSON.parse(uri.query.split('&')[0]);
 		if (!validateOpenWebviewParams(query.owner, query.repo, query.pullRequestNumber)) {
 			return;
 		}
 		return query;
+	} catch (e) { }
+}
+
+export function toQueryUri(params: { remote: RemoteInfo | undefined, isCopilot?: boolean }) {
+	const uri = vscode.Uri.from({ scheme: Schemes.PRQuery, path: params.isCopilot ? 'copilot' : undefined, query: params.remote ? JSON.stringify({ remote: params.remote }) : undefined });
+	return uri;
+}
+
+export function fromQueryUri(uri: vscode.Uri): { remote: RemoteInfo | undefined, isCopilot?: boolean } | undefined {
+	if (uri.scheme !== Schemes.PRQuery) {
+		return;
+	}
+	try {
+		const query = uri.query ? JSON.parse(uri.query) : undefined;
+		return {
+			remote: query.remote,
+			isCopilot: uri.path === 'copilot'
+		};
 	} catch (e) { }
 }
 
@@ -674,10 +798,10 @@ export enum Schemes {
 	Repo = 'repo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
 	PRQuery = 'prquery', // PR query tree item
-	GitHubCommit = 'githubcommit' // file content from GitHub for a commit
+	GitHubCommit = 'githubcommit', // file content from GitHub for a commit
+	CommitsNode = 'commitsnode', // Commits tree node, for decorations
+	CheckRunLog = 'checkrunlog' // Check run log content
 }
-
-export const COPILOT_QUERY = vscode.Uri.from({ scheme: Schemes.PRQuery, path: 'copilot' });
 
 export function resolvePath(from: vscode.Uri, to: string) {
 	if (from.scheme === Schemes.File) {

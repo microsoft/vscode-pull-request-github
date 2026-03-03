@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { IssueState, StateManager } from './stateManager';
 import { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
@@ -20,7 +21,6 @@ import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRe
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { variableSubstitution } from '../github/utils';
-import { IssueState, StateManager } from './stateManager';
 
 export class CurrentIssue extends Disposable {
 	private _branchName: string | undefined;
@@ -213,7 +213,7 @@ export class CurrentIssue extends Disposable {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		const branchNameConfig = await variableSubstitution(
+		const branchNameConfig = variableSubstitution(
 			await this.getBranchTitle(),
 			this.issue,
 			undefined,

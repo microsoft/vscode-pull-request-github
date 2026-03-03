@@ -17,7 +17,6 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -59,17 +58,11 @@ async function getWebviewConfig(mode, env, entry) {
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: {
-				enabled: true,
-				files: path.join(basePath, '**', '*.ts'),
-				options: { cache: true, configFile: path.join(__dirname, '.eslintrc.webviews.json') },
-			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
-		new MonacoWebpackPlugin(),
 	];
 
 	return {
@@ -81,6 +74,9 @@ async function getWebviewConfig(mode, env, entry) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
+			// Use absolute paths (file:///) in source maps instead of the default webpack:// scheme
+			devtoolModuleFilenameTemplate: info => 'file:///' + info.absoluteResourcePath.replace(/\\/g, '/'),
+			devtoolFallbackModuleFilenameTemplate: 'file:///[absolute-resource-path]'
 		},
 		optimization: {
 			minimizer: [
@@ -163,27 +159,14 @@ async function getWebviewConfig(mode, env, entry) {
  */
 async function getExtensionConfig(target, mode, env) {
 	const basePath = path.join(__dirname, 'src');
+	const glob = require('glob');
 
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new webpack.optimize.LimitChunkCountPlugin({
-			maxChunks: 1
-		}),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: {
-				enabled: true,
-				files: path.join(basePath, '**', '*.ts'),
-				options: {
-					cache: true,
-					configFile: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json',
-					),
-				},
-			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
@@ -191,6 +174,43 @@ async function getExtensionConfig(target, mode, env) {
 		}),
 		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
 	];
+
+	// Add fixtures copying plugin for node target (which has individual test files)
+	if (target === 'node') {
+		const fs = require('fs');
+		const srcRoot = 'src';
+		class CopyFixturesPlugin {
+			apply(compiler) {
+				compiler.hooks.afterEmit.tap('CopyFixturesPlugin', () => {
+					this.copyFixtures(srcRoot, compiler.options.output.path);
+				});
+			}
+
+			copyFixtures(inputDir, outputDir) {
+				try {
+					const files = fs.readdirSync(inputDir);
+					for (const file of files) {
+						const filePath = path.join(inputDir, file);
+						const stats = fs.statSync(filePath);
+						if (stats.isDirectory()) {
+							if (file === 'fixtures') {
+								const outputFilePath = path.join(outputDir, inputDir.substring(srcRoot.length), file);
+								const inputFilePath = path.join(inputDir, file);
+								fs.cpSync(inputFilePath, outputFilePath, { recursive: true, force: true });
+							} else {
+								this.copyFixtures(filePath, outputDir);
+							}
+						}
+					}
+				} catch (error) {
+					// Ignore errors during fixtures copying to not break the build
+					console.warn('Warning: Could not copy fixtures:', error.message);
+				}
+			}
+		}
+
+		plugins.push(new CopyFixturesPlugin());
+	}
 
 	if (target === 'webworker') {
 		plugins.push(new webpack.ProvidePlugin({
@@ -208,8 +228,28 @@ async function getExtensionConfig(target, mode, env) {
 	const entry = {
 		extension: './src/extension.ts',
 	};
+
+	// Add test entry points
 	if (target === 'webworker') {
 		entry['test/index'] = './src/test/browser/index.ts';
+	} else if (target === 'node') {
+		// Add main test runner
+		entry['test/index'] = './src/test/index.ts';
+
+		// Add individual test files as separate entry points
+		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname });
+		testFiles.forEach(testFile => {
+			// Convert src/test/github/utils.test.ts -> test/github/utils.test
+			const entryName = testFile.replace('src/', '').replace('.ts', '');
+			entry[entryName] = `./${testFile}`;
+		});
+	}
+
+	// Don't limit chunks for node target when we have individual test files
+	if (target !== 'node' || !('test/index' in entry && Object.keys(entry).some(key => key.endsWith('.test')))) {
+		plugins.unshift(new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}));
 	}
 
 	return {
@@ -223,6 +263,9 @@ async function getExtensionConfig(target, mode, env) {
 			libraryTarget: 'commonjs2',
 			filename: '[name].js',
 			chunkFilename: 'feature-[name].js',
+			// Use absolute paths (file:///) in source maps for easier debugging of tests & sources
+			devtoolModuleFilenameTemplate: info => 'file:///' + info.absoluteResourcePath.replace(/\\/g, '/'),
+			devtoolFallbackModuleFilenameTemplate: 'file:///[absolute-resource-path]',
 		},
 		optimization: {
 			minimizer: [
@@ -385,7 +428,6 @@ module.exports =
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
 				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
-				'webview-session-log-view': './webviews/sessionLogView/index.tsx',
 			}),
 		]);
 	};

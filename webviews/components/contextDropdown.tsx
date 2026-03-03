@@ -8,15 +8,16 @@ import { chevronDownIcon } from './icon';
 
 interface ContextDropdownProps {
 	optionsContext: () => string;
-	defaultOptionLabel: () => string;
+	defaultOptionLabel: () => string | React.ReactNode;
 	defaultOptionValue: () => string;
 	defaultAction: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
-	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[];
+	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void; optionDisabled?: boolean }[];
 	optionsTitle: string;
 	disabled?: boolean;
 	hasSingleAction?: boolean;
 	spreadable: boolean;
 	isSecondary?: boolean;
+	primaryOptionValue?: string;
 }
 
 function useWindowSize() {
@@ -32,7 +33,7 @@ function useWindowSize() {
 	return size;
 }
 
-export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction, spreadable, isSecondary }: ContextDropdownProps) => {
+export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction, spreadable, isSecondary, primaryOptionValue }: ContextDropdownProps) => {
 	const [expanded, setExpanded] = useState(false);
 	const onHideAction = (e: MouseEvent | KeyboardEvent) => {
 		if (e.target instanceof HTMLElement && e.target.classList.contains('split-right')) {
@@ -55,13 +56,15 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 	useWindowSize();
 
 	return <div className={`dropdown-container${spreadable ? ' spreadable' : ''}`} ref={divRef}>
-		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
-			return <button className='inlined-dropdown' key={value} title={label} disabled={disabled} onClick={action} value={value}>{label}</button>;
+		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action, optionDisabled }) => {
+			// Only the primary option should use the primary (blue) button style when expanded
+			const isPrimary = primaryOptionValue && value === primaryOptionValue;
+			return <button className={`inlined-dropdown${isPrimary ? '' : ' secondary'}`} key={value} title={label} disabled={optionDisabled || disabled} onClick={action} value={value}>{label}</button>;
 		})
 			:
 			<div className='primary-split-button'>
 				<button className={`split-left${isSecondary ? ' secondary' : ''}`} disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
-					title={defaultOptionLabel()}>
+					title={typeof defaultOptionLabel() === 'string' ? defaultOptionLabel() as string : optionsTitle}>
 					{defaultOptionLabel()}
 				</button>
 				{hasSingleAction ? null :

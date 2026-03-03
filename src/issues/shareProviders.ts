@@ -5,6 +5,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 import { Commit, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Disposable, disposeAll } from '../common/lifecycle';
@@ -12,7 +13,6 @@ import Logger from '../common/logger';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 
 export class ShareProviderManager extends Disposable {
 
@@ -218,27 +218,7 @@ export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShare
 	}
 
 	private async getMarkdownLinkText(item: vscode.ShareableItem): Promise<string | undefined> {
-		const fileName = pathLib.basename(item.resourceUri.path);
-
-		if (item.selection) {
-			const document = await vscode.workspace.openTextDocument(item.resourceUri);
-
-			const editorSelection = item.selection.start === item.selection.end
-				? item.selection
-				: new vscode.Range(item.selection.start, new vscode.Position(item.selection.start.line + 1, 0));
-
-			const selectedText = document.getText(editorSelection);
-			if (selectedText) {
-				return selectedText;
-			}
-
-			const wordRange = document.getWordRangeAtPosition(item.selection.start);
-			if (wordRange) {
-				return document.getText(wordRange);
-			}
-		}
-
-		return fileName;
+		return pathLib.basename(item.resourceUri.path);
 	}
 }
 
