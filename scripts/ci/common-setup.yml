@@ -4,6 +4,6 @@ steps:
     inputs:
       versionSpec: "20.x"
 
-  - script: yarn install --frozen-lockfile --check-files
+  - script: npm ci
     displayName: Install dependencies
     retryCountOnTaskFailure: 3

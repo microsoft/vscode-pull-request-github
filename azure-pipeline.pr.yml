@@ -6,7 +6,7 @@ jobs:
     steps:
       - template: scripts/ci/common-setup.yml
 
-      - script: yarn run compile
+      - script: npm run compile
         displayName: Compile
 
       - script: npm run hygiene
@@ -15,25 +15,25 @@ jobs:
       - script: npm run lint
         displayName: Run lint
 
-      - script: yarn run check:commands
+      - script: npm run check:commands
         displayName: Verify command registrations
 
-      - script: yarn run test
+      - script: npm run test
         displayName: Run test suite
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      # - script: yarn run browsertest --browserType=chromium
+      # - script: npm run browsertest --browserType=chromium
       #   displayName: Run test suite (chromium)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      # - script: yarn run browsertest --browserType=firefox
+      # - script: npm run browsertest --browserType=firefox
       #   displayName: Run test suite (firefox)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      # - script: yarn run browsertest --browserType=webkit
+      # - script: npm run browsertest --browserType=webkit
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
