@@ -29,10 +29,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "yarn"
+          cache: "npm"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
         env:
           # Skip Playwright browser downloads to avoid installation failures
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -48,7 +48,7 @@ jobs:
         continue-on-error: true
 
       - name: Update VS Code type definitions
-        run: yarn update-dts
+        run: npm run update-dts
 
       - name: Basic build verification
         run: |

@@ -22,12 +22,12 @@ webviews/**
 .gitignore-revs
 .prettierignore
 .prettierrc
-.yarnrc
+package-lock.json
 azure-pipeline.*
 **/tsconfig*.json
 *.tsbuildinfo
 **/webpack.config*.js
-yarn.lock
+npm-debug.log
 **/*.map
 **/*.svg
 !**/git-pull-request_webview.svg

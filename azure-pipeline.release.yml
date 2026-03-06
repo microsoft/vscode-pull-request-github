@@ -31,19 +31,19 @@ extends:
     nodeVersion: "20.x"
 
     buildSteps:
-      - script: yarn install --frozen-lockfile --check-files
+      - script: npm ci
         displayName: Install dependencies
         retryCountOnTaskFailure: 3
 
-      - script: yarn run bundle
+      - script: npm run bundle
         displayName: Compile
 
     testSteps:
-      - script: yarn install --frozen-lockfile --check-files
+      - script: npm ci
         displayName: Install dependencies
         retryCountOnTaskFailure: 3
 
-      - script: yarn run bundle
+      - script: npm run bundle
         displayName: Compile
 
       - bash: |
@@ -51,23 +51,23 @@ extends:
           echo ">>> Started xvfb"
         displayName: Start xvfb
 
-      - script: yarn run test
+      - script: npm run test
         displayName: Run test suite
         env:
           DISPLAY: ':99.0'
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      # - script: yarn run browsertest --browserType=chromium
+      # - script: npm run browsertest --browserType=chromium
       #   displayName: Run test suite (chromium)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      # - script: yarn run browsertest --browserType=firefox
+      # - script: npm run browsertest --browserType=firefox
       #   displayName: Run test suite (firefox)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      # - script: yarn run browsertest --browserType=webkit
+      # - script: npm run browsertest --browserType=webkit
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml

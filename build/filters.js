@@ -47,6 +47,7 @@ module.exports.indentationFilter = [
 
 	// except multiple specific files
 	'!**/package.json',
+	'!**/package-lock.json',
 	'!**/yarn.lock',
 	'!**/yarn-error.log',
 	'!**/fixtures/**/*'
@@ -70,6 +71,7 @@ module.exports.copyrightFilter = [
 	'!**/*.yml',
 	'!**/*.md',
 	'!package.nls.json',
+	'!**/package-lock.json',
 	'!**/*.svg',
 	'!src/integrations/gitlens/gitlens.d.ts',
 	'!**/fixtures/**'
