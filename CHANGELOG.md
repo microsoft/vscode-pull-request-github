@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.132.0
+
+### Changes
+
+- When `"githubPullRequests.pullRequestDescription"` is set to `"branchName"`, the branch name is now "title-ized" (dashes and underscores replaced with spaces, words capitalized) to match the behavior on github.com.
+- Pull requests in the sidebar views can now show icons representing their status (open, closed, merged, draft) with the setting `"githubPullRequests.pullRequestAvatarDisplay"`.
+
+### Fixes
+
+- Update with merge commit feature not working. https://github.com/microsoft/vscode-pull-request-github/issues/8553
+- Avatar doesn't show in comment widget with GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/8550
+- Can't easily open PR to the right. https://github.com/microsoft/vscode-pull-request-github/issues/8537
+- Stale worktree repo entry persists in PR sidebar after worktree removal. https://github.com/microsoft/vscode-pull-request-github/issues/8525
+- Wrong list of files when creating PR. https://github.com/microsoft/vscode-pull-request-github/issues/8457
+- Element with id All Open (URL) is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/8073
+
 ## 0.130.0
 
 ### Changes
