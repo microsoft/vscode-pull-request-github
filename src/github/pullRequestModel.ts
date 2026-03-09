@@ -742,6 +742,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const pendingReviewId = await this.getPendingReviewId();
 
 		const { mutate, schema } = await this.githubRepository.ensure();
+
+		let linePositioning: any;
+		let multilinePositioning: any;
+		if (startLine === endLine && startLine !== undefined) {
+			linePositioning = {
+				line: startLine,
+				path: commentPath,
+				commitOid: this.head?.sha
+			};
+		} else if (startLine !== undefined && endLine !== undefined) {
+			multilinePositioning = {
+				startLine,
+				endLine,
+				startPath: commentPath,
+				endPath: commentPath,
+				startCommitOid: this.head?.sha,
+				endCommitOid: this.head?.sha
+			};
+		}
+
 		const { data } = await mutate<AddReviewThreadResponse>({
 			mutation: schema.AddReviewThread,
 			variables: {
@@ -753,7 +773,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					startLine: startLine === endLine ? undefined : startLine,
 					line: (endLine === undefined) ? 0 : endLine,
 					side,
-					subjectType: (startLine === undefined || endLine === undefined) ? SubjectType.FILE : SubjectType.LINE
+					subjectType: (startLine === undefined || endLine === undefined) ? SubjectType.FILE : SubjectType.LINE,
+					linePositioning,
+					multilinePositioning
 				}
 			}
 		}, { mutation: schema.LegacyAddReviewThread, deleteProps: ['subjectType'] });
@@ -772,7 +794,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const thread = data.addPullRequestReviewThread.thread;
-		const newThread = parseGraphQLReviewThread(thread, this.githubRepository);
+		const newThread = parseGraphQLReviewThread(thread, this.githubRepository, this.head?.sha);
 		if (!this._reviewThreadsCache) {
 			this._reviewThreadsCache = [];
 		}
@@ -1453,7 +1475,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
-		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository));
+		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository, this.head?.sha));
 		const oldReviewThreads = this._reviewThreadsCache ?? [];
 		this._reviewThreadsCache = reviewThreads;
 		this.diffThreads(oldReviewThreads, reviewThreads);
@@ -2105,7 +2127,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const index = this._reviewThreadsCache?.findIndex(thread => thread.id === threadId) ?? -1;
 			if (index > -1) {
-				const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
+				const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository, this.head?.sha);
 				this._reviewThreadsCache?.splice(index, 1, thread);
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 			}
@@ -2148,7 +2170,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const index = this._reviewThreadsCache?.findIndex(thread => thread.id === threadId) ?? -1;
 			if (index > -1) {
-				const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
+				const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository, this.head?.sha);
 				this._reviewThreadsCache?.splice(index, 1, thread);
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 			}

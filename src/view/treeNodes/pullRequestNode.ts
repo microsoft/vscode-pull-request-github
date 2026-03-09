@@ -22,6 +22,7 @@ import { getIconForeground, getListErrorForeground, getListWarningForeground, ge
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { isEnterprise } from '../../github/utils';
 import { NotificationsManager } from '../../notifications/notificationsManager';
 import { PrsTreeModel } from '../prsTreeModel';
 
@@ -411,7 +412,11 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				return undefined;
 			}
 
-			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), enableFileComments: true };
+			if (isEnterprise(this.pullRequestModel.remote.authProviderId)) {
+				return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), enableFileComments: true };
+			} else {
+				return { ranges: [(new vscode.Range(0, 0, document.lineCount - 1, document.lineAt(document.lineCount).text.length))], enableFileComments: true };
+			}
 		}
 
 		return undefined;
