@@ -180,4 +180,12 @@ export interface OpenCommitChangesArgs {
 	commitSha: string;
 }
 
+export interface OpenLocalFileArgs {
+	file: string;
+	startLine: number;
+	endLine: number;
+}
+
+export type CheckFilesExistResult = Record<string, boolean>;
+
 // #endregion

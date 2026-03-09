@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { CloseResult } from '../../common/views';
+import { CheckFilesExistResult, CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
@@ -445,6 +445,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, this._telemetry);
+			case 'pr.open-local-file':
+				return this.openLocalFile(message);
+			case 'pr.check-files-exist':
+				return this.checkFilesExist(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
 			default:
@@ -759,6 +763,48 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						});
 				}
 			});
+	}
+
+	protected async openLocalFile(message: IRequestMessage<OpenLocalFileArgs>): Promise<void> {
+		try {
+			const { file, startLine, endLine } = message.args;
+			// Resolve relative path to absolute using repository root
+			const fileUri = vscode.Uri.joinPath(
+				this._item.githubRepository.rootUri,
+				file
+			);
+			const selection = new vscode.Range(
+				new vscode.Position(startLine - 1, 0),
+				new vscode.Position(endLine - 1, Number.MAX_SAFE_INTEGER)
+			);
+			const document = await vscode.workspace.openTextDocument(fileUri);
+			await vscode.window.showTextDocument(document, {
+				selection,
+				viewColumn: vscode.ViewColumn.One
+			});
+		} catch (e) {
+			Logger.error(`Open local file failed: ${formatError(e)}`, IssueOverviewPanel.ID);
+		}
+	}
+
+	private async checkFilesExist(message: IRequestMessage<string[]>): Promise<void> {
+		const files = message.args;
+		const results: CheckFilesExistResult = {};
+
+		await Promise.all(files.map(async (relativePath) => {
+			const localFile = vscode.Uri.joinPath(
+				this._item.githubRepository.rootUri,
+				relativePath
+			);
+			try {
+				const stat = await vscode.workspace.fs.stat(localFile);
+				results[relativePath] = stat.type === vscode.FileType.File;
+			} catch (e) {
+				results[relativePath] = false;
+			}
+		}));
+
+		return this._replyMessage(message, results);
 	}
 
 	protected async close(message: IRequestMessage<string>) {
