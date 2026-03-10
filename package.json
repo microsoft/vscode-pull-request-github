@@ -4101,7 +4101,7 @@
 		"merge-options": "3.0.4",
 		"minimist": "^1.2.6",
 		"mkdirp": "1.0.4",
-		"mocha": "^9.0.1",
+		"mocha": "^9.2.2",
 		"mocha-junit-reporter": "1.23.0",
 		"mocha-multi-reporters": "1.1.7",
 		"os-browserify": "^0.3.0",
