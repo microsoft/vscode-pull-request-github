@@ -4095,7 +4095,7 @@
 		"graphql-tag": "2.11.0",
 		"gulp-filter": "^7.0.0",
 		"husky": "^8.0.1",
-		"jsdom": "19.0.0",
+		"jsdom": "28.1.0",
 		"jsdom-global": "3.0.2",
 		"json5": "2.2.2",
 		"merge-options": "3.0.4",
