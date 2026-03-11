@@ -763,11 +763,15 @@
 									"type": "string",
 									"enum": [
 										"repository",
-										"milestone"
+										"milestone",
+										"issueType",
+										"labels"
 									],
 									"enumDescriptions": [
+										"%githubIssues.queries.groupBy.repository%",
 										"%githubIssues.queries.groupBy.milestone%",
-										"%githubIssues.queries.groupBy.repository%"
+										"%githubIssues.queries.groupBy.issueType%",
+										"%githubIssues.queries.groupBy.labels%"
 									]
 								}
 							}
