@@ -1649,18 +1649,19 @@ export class FolderRepositoryManager extends Disposable {
 					return this.createAndAddGitHubRepository(remote, this._credentialStore);
 				}
 
-				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`, this.id);
+				Logger.warn(`The remote '${upstreamRef.remote}' is not a GitHub repository. Falling back to configured GitHub remotes.`, this.id);
 
-				// No GitHubRepository? We currently won't try pushing elsewhere,
-				// so fail.
-				throw new BadUpstreamError(this.repository.state.HEAD!.name!, upstreamRef, 'is not a GitHub repo');
+				// No GitHubRepository? Fall back to using configured GitHub remotes
+				// instead of failing, to support scenarios where the upstream is set to
+				// a non-GitHub remote but GitHub remotes are configured separately.
+				// Fallback logic follows below (lines 1507-1514).
+			} else {
+				// Otherwise, we'll push upstream.
+				return upstream;
 			}
-
-			// Otherwise, we'll push upstream.
-			return upstream;
 		}
 
-		// If no upstream is set, let's go digging.
+		// If no upstream is set, or upstream is not a GitHub remote, let's go digging.
 		const [first, ...rest] = this._githubRepositories;
 		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
