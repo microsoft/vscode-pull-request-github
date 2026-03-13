@@ -334,6 +334,116 @@ async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: 
 	});
 }
 
+/**
+ * Process GitHub blob permalinks in HTML and add data attributes for local file handling.
+ * Finds blob permalinks (e.g., /blob/[sha]/file.ts#L10), checks if files exist locally,
+ * and adds data attributes to enable clicking to open local files.
+ */
+export async function processPermalinks(
+	bodyHTML: string,
+	githubRepository: GitHubRepository,
+	rootUri: vscode.Uri
+): Promise<string> {
+	try {
+		const repoName = escapeRegExp(githubRepository.remote.repositoryName);
+		const repoOwner = escapeRegExp(githubRepository.remote.owner);
+		const authority = escapeRegExp(githubRepository.remote.gitProtocol.url.authority);
+
+		// Process blob permalinks (exclude already processed links)
+		const blobPattern = new RegExp(
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${authority}\/${repoOwner}\/${repoName}\/blob\/[0-9a-f]{40}\/([^"#]+)#L(\\d+)(?:-L(\\d+))?"[^>]*?)>([^<]*?)<\/a>`,
+			'g'
+		);
+
+		return await stringReplaceAsync(bodyHTML, blobPattern, async (
+			fullMatch: string,
+			attributes: string,
+			filePath: string,
+			startLine: string,
+			endLine: string | undefined,
+			linkText: string
+		) => {
+			try {
+				// Extract the original URL from attributes
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
+				const originalUrl = hrefMatch ? hrefMatch[1] : '';
+
+				// Check if file exists locally
+				const localFileUri = vscode.Uri.joinPath(rootUri, filePath);
+				try {
+					const stat = await vscode.workspace.fs.stat(localFileUri);
+					if (stat.type === vscode.FileType.File) {
+						// File exists - add data attributes for local handling and "(view on GitHub)" suffix
+						const endLineValue = endLine || startLine;
+						return `<a data-permalink-processed="true" ${attributes} data-local-file="${filePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+					}
+				} catch {
+					// File doesn't exist - keep original link
+				}
+			} catch (error) {
+				Logger.warn(`Failed to process blob permalink: ${error}`, 'processPermalinks');
+			}
+			return fullMatch;
+		});
+	} catch (error) {
+		Logger.error(`Failed to process blob permalinks in HTML: ${error}`, 'processPermalinks');
+		return bodyHTML; // Return original HTML if processing fails
+	}
+}
+
+/**
+ * Process GitHub diff permalinks in HTML and add data attributes for local file handling.
+ * Finds diff permalinks (e.g., /pull/123/files#diff-[hash]R10), maps hashes to filenames,
+ * and adds data attributes to enable clicking to open diff views.
+ */
+export async function processDiffLinks(
+	bodyHTML: string,
+	githubRepository: GitHubRepository,
+	hashMap: Record<string, string>,
+	prNumber: number
+): Promise<string> {
+	try {
+		const repoName = escapeRegExp(githubRepository.remote.repositoryName);
+		const repoOwner = escapeRegExp(githubRepository.remote.owner);
+		const authority = escapeRegExp(githubRepository.remote.gitProtocol.url.authority);
+
+		const diffPattern = new RegExp(
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${authority}\/${repoOwner}\/${repoName}\/pull\/${prNumber}\/(?:files|changes)#diff-([a-f0-9]{64})(?:R(\\d+)(?:-R(\\d+))?)?"[^>]*?)>([^<]*?)<\/a>`,
+			'g'
+		);
+
+		return await stringReplaceAsync(bodyHTML, diffPattern, async (
+			fullMatch: string,
+			attributes: string,
+			diffHash: string,
+			startLine: string | undefined,
+			endLine: string | undefined,
+			linkText: string
+		) => {
+			try {
+				// Extract the original URL from attributes
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
+				const originalUrl = hrefMatch ? hrefMatch[1] : '';
+
+				// Look up filename from hash
+				const fileName = hashMap[diffHash];
+				if (fileName) {
+					// Hash found - add data attributes for diff handling and "(view on GitHub)" suffix
+					const startLineValue = startLine || '1';
+					const endLineValue = endLine || startLineValue;
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${fileName}" data-start-line="${startLineValue}" data-end-line="${endLineValue}" data-link-type="diff">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+				}
+			} catch (error) {
+				Logger.warn(`Failed to process diff permalink: ${error}`, 'processDiffLinks');
+			}
+			return fullMatch;
+		});
+	} catch (error) {
+		Logger.error(`Failed to process diff permalinks in HTML: ${error}`, 'processDiffLinks');
+		return bodyHTML; // Return original HTML if processing fails
+	}
+}
+
 export function convertRESTPullRequestToRawPullRequest(
 	pullRequest:
 		| OctokitCommon.PullsGetResponseData

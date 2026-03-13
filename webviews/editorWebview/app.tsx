@@ -41,6 +41,34 @@ export function Root({ children }) {
 		return () => window.removeEventListener('focus', handleWindowFocus);
 	}, []);
 
+	useEffect(() => {
+		const handleLinkClick = (event: MouseEvent) => {
+			const target = event.target as HTMLElement;
+			const anchor = target.closest('a[data-local-file]');
+			if (anchor) {
+				const file = anchor.getAttribute('data-local-file');
+				const startLine = anchor.getAttribute('data-start-line');
+				const endLine = anchor.getAttribute('data-end-line');
+				const linkType = anchor.getAttribute('data-link-type');
+				if (file && startLine && endLine) {
+					// Swallow the event
+					event.preventDefault();
+					event.stopPropagation();
+
+					// Open diff view for diff links, local file for blob permalinks
+					if (linkType === 'diff') {
+						ctx.openDiffFromLink(file, parseInt(startLine), parseInt(endLine));
+					} else {
+						ctx.openLocalFile(file, parseInt(startLine), parseInt(endLine));
+					}
+				}
+			}
+		};
+
+		document.addEventListener('click', handleLinkClick, true);
+		return () => document.removeEventListener('click', handleLinkClick, true);
+	}, [ctx]);
+
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',

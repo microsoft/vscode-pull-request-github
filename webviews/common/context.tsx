@@ -361,6 +361,12 @@ export class PRContext {
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
+	public openLocalFile = (file: string, startLine: number, endLine: number) =>
+		this.postMessage({ command: 'pr.open-local-file', args: { file, startLine, endLine } });
+
+	public openDiffFromLink = (file: string, startLine: number, endLine: number) =>
+		this.postMessage({ command: 'pr.open-diff-from-link', args: { file, startLine, endLine } });
+
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
 	public openCommitChanges = async (commitSha: string) => {
