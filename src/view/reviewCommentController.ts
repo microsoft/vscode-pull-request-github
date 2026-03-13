@@ -31,6 +31,7 @@ import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
 	getRepositoryForFile,
+	isEnterprise,
 	isFileInRepo,
 	setReplyAuthor,
 	threadRange,
@@ -522,25 +523,29 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			const ranges: vscode.Range[] = [];
 
 			if (matchedFile) {
-				const diffHunks = await matchedFile.changeModel.diffHunks();
-				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
-					Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);
-					return { ranges: [], enableFileComments: true };
-				}
-
-				const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
-
-				for (let i = 0; i < diffHunks.length; i++) {
-					const diffHunk = diffHunks[i];
-					const start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber, document.lineCount);
-					const end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1, document.lineCount);
-					if (start > 0 && end > 0) {
-						ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
+				if (!isEnterprise(this._folderRepoManager.activePullRequest.remote.authProviderId)) {
+					ranges.push(new vscode.Range(0, 0, document.lineCount - 1, document.lineAt(document.lineCount - 1).text.length - 1));
+				} else {
+					const diffHunks = await matchedFile.changeModel.diffHunks();
+					if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
+						Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);
+						return { ranges: [], enableFileComments: true };
 					}
-				}
 
-				if (ranges.length === 0) {
-					Logger.debug('No commenting ranges: File has diffs, but they could not be mapped to current lines.', ReviewCommentController.ID);
+					const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
+
+					for (let i = 0; i < diffHunks.length; i++) {
+						const diffHunk = diffHunks[i];
+						const start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber, document.lineCount);
+						const end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1, document.lineCount);
+						if (start > 0 && end > 0) {
+							ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
+						}
+					}
+
+					if (ranges.length === 0) {
+						Logger.debug('No commenting ranges: File has diffs, but they could not be mapped to current lines.', ReviewCommentController.ID);
+					}
 				}
 			} else {
 				Logger.debug('No commenting ranges: File does not match any of the files in the review.', ReviewCommentController.ID);
