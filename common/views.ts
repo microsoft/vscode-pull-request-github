@@ -186,6 +186,4 @@ export interface OpenLocalFileArgs {
 	endLine: number;
 }
 
-export type CheckFilesExistResult = Record<string, boolean>;
-
 // #endregion

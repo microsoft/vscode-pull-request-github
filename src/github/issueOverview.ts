@@ -5,13 +5,13 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { CheckFilesExistResult, CloseResult, OpenLocalFileArgs } from '../../common/views';
+import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
-import { isInCodespaces, vscodeDevPrLink } from './utils';
+import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
 import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
@@ -321,10 +321,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this._item = issue as TItem;
 			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
+			// Process permalinks in bodyHTML before sending to webview
+			issue.bodyHTML = await this.processLinksInBodyHtml(issue.bodyHTML);
+
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
+				pullrequest: this.getInitializeContext(currentUser, issue, await this.processTimelineEvents(timelineEvents), repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
 			});
 
 		} catch (e) {
@@ -447,8 +450,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return openPullRequestOnGitHub(this._item, this._telemetry);
 			case 'pr.open-local-file':
 				return this.openLocalFile(message);
-			case 'pr.check-files-exist':
-				return this.checkFilesExist(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
 			default:
@@ -572,16 +573,51 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		Logger.debug(message.args, IssueOverviewPanel.ID);
 	}
 
-	private editDescription(message: IRequestMessage<{ text: string }>) {
-		this._item
-			.edit({ body: message.args.text })
-			.then(result => {
-				this._replyMessage(message, { body: result.body, bodyHTML: result.bodyHTML });
-			})
-			.catch(e => {
-				this._throwError(message, e);
-				vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
-			});
+	/**
+	 * Process permalinks in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
+	 * to provide custom processing logic for different item types.
+	 * Returns undefined if bodyHTML is undefined.
+	 */
+	protected async processLinksInBodyHtml(bodyHTML: string | undefined): Promise<string | undefined> {
+		if (!bodyHTML) {
+			return bodyHTML;
+		}
+		return processPermalinks(
+			bodyHTML,
+			this._item.githubRepository,
+			this._item.githubRepository.rootUri
+		);
+	}
+
+	/**
+	 * Process permalinks in timeline events (comments, reviews, commits).
+	 * Updates bodyHTML fields for all events that contain them.
+	 */
+	protected async processTimelineEvents(events: TimelineEvent[]): Promise<TimelineEvent[]> {
+		return Promise.all(events.map(async (event) => {
+			if (event.event === EventType.Commented || event.event === EventType.Reviewed || event.event === EventType.Committed) {
+				event.bodyHTML = await this.processLinksInBodyHtml(event.bodyHTML);
+				// ReviewEvent also has comments array
+				if (event.event === EventType.Reviewed && event.comments) {
+					event.comments = await Promise.all(event.comments.map(async (comment: IComment) => {
+						comment.bodyHTML = await this.processLinksInBodyHtml(comment.bodyHTML);
+						return comment;
+					}));
+				}
+			}
+			return event;
+		}));
+	}
+
+	private async editDescription(message: IRequestMessage<{ text: string }>) {
+		try {
+			const result = await this._item.edit({ body: message.args.text });
+			const bodyHTML = await this.processLinksInBodyHtml(result.bodyHTML);
+			this._replyMessage(message, { body: result.body, bodyHTML });
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
+		}
 	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		return this._item
@@ -622,7 +658,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				await this._item.replaceAssignees(newAssignees);
-				const events = await this._getTimeline();
+				const events = await this.processTimelineEvents(await this._getTimeline());
 				const reply: ChangeAssigneesReply = {
 					assignees: newAssignees,
 					events
@@ -689,7 +725,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._getTimeline();
+			const events = await this.processTimelineEvents(await this._getTimeline());
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -707,7 +743,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(copilotUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._getTimeline();
+			const events = await this.processTimelineEvents(await this._getTimeline());
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -730,18 +766,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._item.editIssueComment(comment, text);
 	}
 
-	private editComment(message: IRequestMessage<{ comment: IComment; text: string }>) {
-		this.editCommentPromise(message.args.comment, message.args.text)
-			.then(result => {
-				this._replyMessage(message, {
-					body: result.body,
-					bodyHTML: result.bodyHTML,
-				});
-			})
-			.catch(e => {
-				this._throwError(message, e);
-				vscode.window.showErrorMessage(formatError(e));
-			});
+	private async editComment(message: IRequestMessage<{ comment: IComment; text: string }>) {
+		try {
+			const result = await this.editCommentPromise(message.args.comment, message.args.text);
+			const bodyHTML = await this.processLinksInBodyHtml(result.bodyHTML);
+			this._replyMessage(message, { body: result.body, bodyHTML });
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		}
 	}
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
@@ -785,26 +818,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		} catch (e) {
 			Logger.error(`Open local file failed: ${formatError(e)}`, IssueOverviewPanel.ID);
 		}
-	}
-
-	private async checkFilesExist(message: IRequestMessage<string[]>): Promise<void> {
-		const files = message.args;
-		const results: CheckFilesExistResult = {};
-
-		await Promise.all(files.map(async (relativePath) => {
-			const localFile = vscode.Uri.joinPath(
-				this._item.githubRepository.rootUri,
-				relativePath
-			);
-			try {
-				const stat = await vscode.workspace.fs.stat(localFile);
-				results[relativePath] = stat.type === vscode.FileType.File;
-			} catch (e) {
-				results[relativePath] = false;
-			}
-		}));
-
-		return this._replyMessage(message, results);
 	}
 
 	protected async close(message: IRequestMessage<string>) {
