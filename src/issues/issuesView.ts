@@ -243,23 +243,49 @@ export class IssuesTreeData
 			return issues;
 		}
 		const groupByValue = groupByOrder[indexInGroupByOrder];
-		if ((groupByValue !== 'milestone' && groupByValue !== 'repository') || groupByOrder.findIndex(groupBy => groupBy === groupByValue) !== indexInGroupByOrder) {
+		if ((groupByValue !== 'milestone' && groupByValue !== 'repository' && groupByValue !== 'issueType' && groupByValue !== 'labels') || groupByOrder.findIndex(groupBy => groupBy === groupByValue) !== indexInGroupByOrder) {
 			return this.getIssueGroupsForGroupIndex(repoRootUri, queryLabel, isFirst, groupByOrder, indexInGroupByOrder + 1, issues);
 		}
 
-		const groups = groupBy(issues, issue => {
-			if (groupByValue === 'repository') {
-				return `${issue.remote.owner}/${issue.remote.repositoryName}`;
-			} else {
-				return issue.milestone?.title ?? 'No Milestone';
+		const groups: { [key: string]: IssueItem[] } = {};
+
+		if (groupByValue === 'labels') {
+			// For labels, an issue can appear in multiple groups if it has multiple labels
+			for (const issue of issues) {
+				const issueLabels = issue.item.labels && issue.item.labels.length > 0
+					? issue.item.labels.map(l => l.name)
+					: ['No Labels'];
+				for (const label of issueLabels) {
+					if (!groups[label]) {
+						groups[label] = [];
+					}
+					groups[label].push(issue);
+				}
 			}
-		});
+		} else if (groupByValue === 'issueType') {
+			// Group by GitHub's native issue type (Bug, Feature, Task, etc.)
+			const groupsTemp = groupBy(issues, issue => {
+				return issue.item.issueType ?? 'No Issue Type';
+			});
+			Object.assign(groups, groupsTemp);
+		} else {
+			const groupsTemp = groupBy(issues, issue => {
+				if (groupByValue === 'repository') {
+					return `${issue.remote.owner}/${issue.remote.repositoryName}`;
+				} else if (groupByValue === 'milestone') {
+					return issue.milestone?.title ?? 'No Milestone';
+				}
+				return 'Other';
+			});
+			Object.assign(groups, groupsTemp);
+		}
 		const nodes: IssueGroupNode[] = [];
 		for (const group in groups) {
 			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, indexInGroupByOrder, group, groupByOrder, groups[group]));
 		}
 		return nodes;
 	}
+
 
 	private async getIssueGroupChildren(issueGroupNode: IssueGroupNode): Promise<IssueItem[] | IssueGroupNode[]> {
 		return this.getIssueGroupsForGroupIndex(issueGroupNode.repoRootUri, issueGroupNode.queryLabel, issueGroupNode.isInFirstQuery, issueGroupNode.groupByOrder, issueGroupNode.groupLevel + 1, issueGroupNode.issuesInGroup);
