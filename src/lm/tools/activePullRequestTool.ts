@@ -53,7 +53,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('There is no active pull request')]);
 		}
 
-		if ((options.input as PullRequestToolParams).refresh) {
+		if ((options.input as PullRequestToolParams | undefined)?.refresh) {
 			await Promise.all([
 				pullRequest.githubRepository.getPullRequest(pullRequest.number),
 				pullRequest.getTimelineEvents(),
@@ -98,7 +98,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 					return `File: ${change.fileName} was ${change.status === GitChangeType.ADD ? 'added' : change.status === GitChangeType.DELETE ? 'deleted' : 'modified'}.`;
 				}
 			}),
-			lastUpdatedAt: pullRequest.updatedAt.toLocaleString()
+			lastUpdatedAt: new Date(pullRequest.updatedAt).toLocaleString()
 		};
 
 		const result = new vscode.ExtendedLanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);

@@ -54,7 +54,7 @@ Work through the grouped comments file by file:
 ### 5. Verify
 
 After all changes are made:
-- Review that each originally unresolved comment has a corresponding code change or a note about why not code change was needed.
+- Review that each originally unresolved comment has a corresponding code change or a note about why no code change was needed.
 - Ensure no unrelated code was modified
 
 ### 6. Summarize
