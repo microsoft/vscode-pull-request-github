@@ -212,6 +212,8 @@ export class GitHubRepository extends Disposable {
 	private _areQueriesLimited: boolean = false;
 	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
 
+	private _branchesCache: Map<string, string[]> = new Map();
+
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
 	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
@@ -1341,6 +1343,14 @@ export class GitHubRepository extends Disposable {
 		return data.repository?.ref?.target.oid;
 	}
 
+	private static branchesCacheKey(owner: string, repositoryName: string): string {
+		return `${owner}/${repositoryName}`;
+	}
+
+	getCachedBranches(owner: string, repositoryName: string): string[] | undefined {
+		return this._branchesCache.get(GitHubRepository.branchesCacheKey(owner, repositoryName));
+	}
+
 	async listBranches(owner: string, repositoryName: string, prefix: string | undefined): Promise<string[]> {
 		const { query, remote, schema } = await this.ensure();
 		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, this.id);
@@ -1381,6 +1391,10 @@ export class GitHubRepository extends Disposable {
 		Logger.debug(`List branches for ${owner}/${repositoryName} - done`, this.id);
 		if (!branches.includes(defaultBranch)) {
 			branches.unshift(defaultBranch);
+		}
+		// Cache results for unprefixed queries
+		if (!prefix) {
+			this._branchesCache.set(GitHubRepository.branchesCacheKey(owner, repositoryName), branches);
 		}
 		return branches;
 	}

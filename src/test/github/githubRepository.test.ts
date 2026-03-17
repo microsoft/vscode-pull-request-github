@@ -52,4 +52,24 @@ describe('GitHubRepository', function () {
 			// assert(! dotcomRepository.isGitHubDotCom);
 		});
 	});
+
+	describe('getCachedBranches', function () {
+		it('returns undefined when no branches have been cached', function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const repo = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
+
+			assert.strictEqual(repo.getCachedBranches('owner', 'repo'), undefined);
+		});
+
+		it('returns undefined for a different owner/repo than what was cached', function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const repo = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
+
+			assert.strictEqual(repo.getCachedBranches('other-owner', 'other-repo'), undefined);
+		});
+	});
 });
