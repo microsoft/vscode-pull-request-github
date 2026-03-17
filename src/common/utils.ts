@@ -1093,7 +1093,7 @@ export async function processPermalinks(
 		) => {
 			try {
 				// Extract the original URL from attributes
-				const hrefMatch = attributes.match(/ href="([^"]+)"/);
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
 				const originalUrl = hrefMatch ? hrefMatch[1] : '';
 
 				// Check if file exists locally
@@ -1155,7 +1155,7 @@ export async function processDiffLinks(
 		) => {
 			try {
 				// Extract the original URL from attributes
-				const hrefMatch = attributes.match(/ href="([^"]+)"/);
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
 				const originalUrl = hrefMatch ? hrefMatch[1] : '';
 
 				// Look up filename from hash
