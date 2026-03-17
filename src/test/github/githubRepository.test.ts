@@ -63,7 +63,7 @@ describe('GitHubRepository', function () {
 			assert.strictEqual(repo.getCachedBranches('owner', 'repo'), undefined);
 		});
 
-		it('returns undefined for a different owner/repo than what was cached', function () {
+		it('returns undefined for an owner/repo with no cache entry', function () {
 			const url = 'https://github.com/owner/repo';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
