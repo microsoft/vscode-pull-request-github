@@ -510,7 +510,29 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository): IReviewThread {
+export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository, headCommitOid?: string): IReviewThread {
+	let startLine: number = 0;
+	let endLine: number = 0;
+	if (thread.positioning) {
+		if (thread.positioning.__typename === 'MultilineComment') {
+			startLine = thread.positioning.startLine!;
+			endLine = thread.positioning.endLine!;
+		} else if (thread.positioning.__typename === 'LineComment') {
+			startLine = thread.positioning.line!;
+			endLine = thread.positioning.line!;
+		}
+	} else {
+		startLine = thread.startLine ?? thread.line;
+		endLine = thread.line;
+	}
+
+	// There's a bug with comments outside the diff where they always show as outdated. Try to work around that.
+	let isOutdated = thread.isOutdated;
+	if (isOutdated && headCommitOid && thread.comments.nodes.length > 0 &&
+		thread.comments.nodes.every(comment => comment.commit.oid === headCommitOid)) {
+		isOutdated = false;
+	}
+
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
@@ -520,13 +542,13 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		viewerCanResolve: thread.viewerCanResolve,
 		viewerCanUnresolve: thread.viewerCanUnresolve,
 		path: thread.path,
-		startLine: thread.startLine ?? thread.line,
-		endLine: thread.line,
+		startLine,
+		endLine,
 		originalStartLine: thread.originalStartLine ?? thread.originalLine,
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
-		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository)),
+		isOutdated,
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, isOutdated, githubRepository)),
 		subjectType: thread.subjectType ?? SubjectType.LINE
 	};
 }
