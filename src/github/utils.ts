@@ -55,7 +55,7 @@ import { Remote } from '../common/remote';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { escapeRegExp, gitHubLabelColor, stringReplaceAsync, uniqBy } from '../common/utils';
+import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -345,49 +345,25 @@ export async function processPermalinks(
 	rootUri: vscode.Uri
 ): Promise<string> {
 	try {
-		const repoName = escapeRegExp(githubRepository.remote.repositoryName);
-		const repoOwner = escapeRegExp(githubRepository.remote.owner);
-		const authority = escapeRegExp(githubRepository.remote.gitProtocol.url.authority);
+		const repoName = githubRepository.remote.repositoryName;
+		const repoOwner = githubRepository.remote.owner;
+		const authority = githubRepository.remote.gitProtocol.url.authority;
 
-		// Process blob permalinks (exclude already processed links)
-		const blobPattern = new RegExp(
-			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${authority}\/${repoOwner}\/${repoName}\/blob\/[0-9a-f]{40}\/([^"#]+)#L(\\d+)(?:-L(\\d+))?"[^>]*?)>([^<]*?)<\/a>`,
-			'g'
-		);
-
-		return await stringReplaceAsync(bodyHTML, blobPattern, async (
-			fullMatch: string,
-			attributes: string,
-			filePath: string,
-			startLine: string,
-			endLine: string | undefined,
-			linkText: string
-		) => {
+		// Create file existence check callback
+		const fileExistsCheck = async (filePath: string): Promise<boolean> => {
 			try {
-				// Extract the original URL from attributes
-				const hrefMatch = attributes.match(/href="([^"]+)"/);
-				const originalUrl = hrefMatch ? hrefMatch[1] : '';
-
-				// Check if file exists locally
 				const localFileUri = vscode.Uri.joinPath(rootUri, filePath);
-				try {
-					const stat = await vscode.workspace.fs.stat(localFileUri);
-					if (stat.type === vscode.FileType.File) {
-						// File exists - add data attributes for local handling and "(view on GitHub)" suffix
-						const endLineValue = endLine || startLine;
-						return `<a data-permalink-processed="true" ${attributes} data-local-file="${filePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
-					}
-				} catch {
-					// File doesn't exist - keep original link
-				}
-			} catch (error) {
-				Logger.warn(`Failed to process blob permalink: ${error}`, 'processPermalinks');
+				const stat = await vscode.workspace.fs.stat(localFileUri);
+				return stat.type === vscode.FileType.File;
+			} catch {
+				return false;
 			}
-			return fullMatch;
-		});
+		};
+
+		return await processPermalinksCore(bodyHTML, repoOwner, repoName, authority, fileExistsCheck);
 	} catch (error) {
 		Logger.error(`Failed to process blob permalinks in HTML: ${error}`, 'processPermalinks');
-		return bodyHTML; // Return original HTML if processing fails
+		return bodyHTML;
 	}
 }
 
@@ -403,44 +379,14 @@ export async function processDiffLinks(
 	prNumber: number
 ): Promise<string> {
 	try {
-		const repoName = escapeRegExp(githubRepository.remote.repositoryName);
-		const repoOwner = escapeRegExp(githubRepository.remote.owner);
-		const authority = escapeRegExp(githubRepository.remote.gitProtocol.url.authority);
+		const repoName = githubRepository.remote.repositoryName;
+		const repoOwner = githubRepository.remote.owner;
+		const authority = githubRepository.remote.gitProtocol.url.authority;
 
-		const diffPattern = new RegExp(
-			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${authority}\/${repoOwner}\/${repoName}\/pull\/${prNumber}\/(?:files|changes)#diff-([a-f0-9]{64})(?:R(\\d+)(?:-R(\\d+))?)?"[^>]*?)>([^<]*?)<\/a>`,
-			'g'
-		);
-
-		return await stringReplaceAsync(bodyHTML, diffPattern, async (
-			fullMatch: string,
-			attributes: string,
-			diffHash: string,
-			startLine: string | undefined,
-			endLine: string | undefined,
-			linkText: string
-		) => {
-			try {
-				// Extract the original URL from attributes
-				const hrefMatch = attributes.match(/href="([^"]+)"/);
-				const originalUrl = hrefMatch ? hrefMatch[1] : '';
-
-				// Look up filename from hash
-				const fileName = hashMap[diffHash];
-				if (fileName) {
-					// Hash found - add data attributes for diff handling and "(view on GitHub)" suffix
-					const startLineValue = startLine || '1';
-					const endLineValue = endLine || startLineValue;
-					return `<a data-permalink-processed="true" ${attributes} data-local-file="${fileName}" data-start-line="${startLineValue}" data-end-line="${endLineValue}" data-link-type="diff">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
-				}
-			} catch (error) {
-				Logger.warn(`Failed to process diff permalink: ${error}`, 'processDiffLinks');
-			}
-			return fullMatch;
-		});
+		return await processDiffLinksCore(bodyHTML, repoOwner, repoName, authority, hashMap, prNumber);
 	} catch (error) {
 		Logger.error(`Failed to process diff permalinks in HTML: ${error}`, 'processDiffLinks');
-		return bodyHTML; // Return original HTML if processing fails
+		return bodyHTML;
 	}
 }
 

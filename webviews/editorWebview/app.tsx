@@ -7,6 +7,7 @@ import * as debounce from 'debounce';
 import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
+import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
 import { PullRequest } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -46,20 +47,17 @@ export function Root({ children }) {
 			const target = event.target as HTMLElement;
 			const anchor = target.closest('a[data-local-file]');
 			if (anchor) {
-				const file = anchor.getAttribute('data-local-file');
-				const startLine = anchor.getAttribute('data-start-line');
-				const endLine = anchor.getAttribute('data-end-line');
-				const linkType = anchor.getAttribute('data-link-type');
-				if (file && startLine && endLine) {
-					// Swallow the event
+				const metadata = extractCodeReferenceLinkMetadata(anchor);
+				if (metadata) {
+					// Prevent default navigation, handlers will fallback to opening the link externally if they fail
 					event.preventDefault();
 					event.stopPropagation();
 
 					// Open diff view for diff links, local file for blob permalinks
-					if (linkType === 'diff') {
-						ctx.openDiffFromLink(file, parseInt(startLine), parseInt(endLine));
+					if (metadata.linkType === 'diff') {
+						ctx.openDiffFromLink(metadata.localFile, metadata.startLine, metadata.endLine, metadata.href);
 					} else {
-						ctx.openLocalFile(file, parseInt(startLine), parseInt(endLine));
+						ctx.openLocalFile(metadata.localFile, metadata.startLine, metadata.endLine, metadata.href);
 					}
 				}
 			}

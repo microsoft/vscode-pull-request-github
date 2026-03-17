@@ -404,7 +404,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this.setPanelTitle(this.buildPanelTitle(pullRequestModel.number, pullRequestModel.title));
 
 			// Process permalinks in bodyHTML before sending to webview
-			pullRequest.bodyHTML = await this.processLinksInBodyHtml(pullRequest.bodyHTML);
+			const processedBodyHTML = await this.processLinksInBodyHtml(pullRequest.bodyHTML);
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
@@ -420,6 +420,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
 			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
 			const baseContext = this.getInitializeContext(currentUser, pullRequest, await this.processTimelineEvents(timelineEvents), repositoryAccess, viewerCanEdit, users);
+			// Override bodyHTML with processed version without mutating original pullRequest
+			baseContext.bodyHTML = processedBodyHTML;
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
@@ -663,8 +665,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	protected override _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.getTimelineEvents();
+	protected override async _getTimeline(): Promise<TimelineEvent[]> {
+		const events = await this._item.getTimelineEvents();
+		return this.processTimelineEvents(events);
 	}
 
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
@@ -676,7 +679,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openDiffFromLink(message: IRequestMessage<{ file: string; startLine: number; endLine: number }>): Promise<void> {
+	private async openDiffFromLink(message: IRequestMessage<{ file: string; startLine: number; endLine: number; href: string }>): Promise<void> {
 		try {
 			const { file, startLine } = message.args;
 			const fileChanges = await this._item.getFileChangesInfo();
@@ -684,23 +687,26 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				fileChange => fileChange.fileName === file || fileChange.previousFileName === file,
 			);
 
-			if (!change) {
-				Logger.warn(`Could not find file ${file} in PR changes`, PullRequestOverviewPanel.ID);
+			if (change) {
+
+				const pathSegments = file.split('/');
+				// GitHub line numbers are 1-indexed, VSCode selection API is 0-indexed
+				await PullRequestModel.openDiff(
+					this._folderRepositoryManager,
+					this._item,
+					change,
+					pathSegments[pathSegments.length - 1],
+					startLine - 1,
+				);
 				return;
 			}
-
-			const pathSegments = file.split('/');
-			// GitHub line numbers are 1-indexed, VSCode selection API is 0-indexed
-			return PullRequestModel.openDiff(
-				this._folderRepositoryManager,
-				this._item,
-				change,
-				pathSegments[pathSegments.length - 1],
-				startLine - 1,
-			);
+			Logger.warn(`Could not find file ${file} in PR changes`, PullRequestOverviewPanel.ID);
 		} catch (e) {
 			Logger.error(`Open diff from link failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
+
+		// Fallback to opening external URL
+		await vscode.env.openExternal(vscode.Uri.parse(message.args.href));
 	}
 
 	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
@@ -793,7 +799,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._item.unresolveReviewThread(message.args.threadId);
 			}
 			const timelineEvents = await this._getTimeline();
-			this._replyMessage(message, await this.processTimelineEvents(timelineEvents));
+			this._replyMessage(message, timelineEvents);
 		} catch (e) {
 			vscode.window.showErrorMessage(e);
 			this._replyMessage(message, undefined);

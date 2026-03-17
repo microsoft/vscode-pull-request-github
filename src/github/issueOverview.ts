@@ -322,12 +322,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
 			// Process permalinks in bodyHTML before sending to webview
-			issue.bodyHTML = await this.processLinksInBodyHtml(issue.bodyHTML);
+			const processedBodyHTML = await this.processLinksInBodyHtml(issue.bodyHTML);
+			const context = this.getInitializeContext(currentUser, issue, await this.processTimelineEvents(timelineEvents), repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+			// Override bodyHTML with processed version without mutating original issue
+			context.bodyHTML = processedBodyHTML;
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(currentUser, issue, await this.processTimelineEvents(timelineEvents), repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
+				pullrequest: context,
 			});
 
 		} catch (e) {
@@ -574,7 +577,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	/**
-	 * Process permalinks in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
+	 * Process code reference links in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
 	 * to provide custom processing logic for different item types.
 	 * Returns undefined if bodyHTML is undefined.
 	 */
@@ -590,22 +593,25 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	/**
-	 * Process permalinks in timeline events (comments, reviews, commits).
+	 * Process code reference links in timeline events (comments, reviews, commits).
 	 * Updates bodyHTML fields for all events that contain them.
 	 */
 	protected async processTimelineEvents(events: TimelineEvent[]): Promise<TimelineEvent[]> {
 		return Promise.all(events.map(async (event) => {
-			if (event.event === EventType.Commented || event.event === EventType.Reviewed || event.event === EventType.Committed) {
-				event.bodyHTML = await this.processLinksInBodyHtml(event.bodyHTML);
+			// Create a shallow copy to avoid mutating the original
+			const processedEvent = { ...event };
+
+			if (processedEvent.event === EventType.Commented || processedEvent.event === EventType.Reviewed || processedEvent.event === EventType.Committed) {
+				processedEvent.bodyHTML = await this.processLinksInBodyHtml(processedEvent.bodyHTML);
 				// ReviewEvent also has comments array
-				if (event.event === EventType.Reviewed && event.comments) {
-					event.comments = await Promise.all(event.comments.map(async (comment: IComment) => {
-						comment.bodyHTML = await this.processLinksInBodyHtml(comment.bodyHTML);
-						return comment;
-					}));
+				if (processedEvent.event === EventType.Reviewed && processedEvent.comments) {
+					processedEvent.comments = await Promise.all(processedEvent.comments.map(async (comment: IComment) => ({
+						...comment,
+						bodyHTML: await this.processLinksInBodyHtml(comment.bodyHTML)
+					})));
 				}
 			}
-			return event;
+			return processedEvent;
 		}));
 	}
 
@@ -631,8 +637,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	protected _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.getIssueTimelineEvents();
+	protected async _getTimeline(): Promise<TimelineEvent[]> {
+		const events = await this._item.getIssueTimelineEvents();
+		return this.processTimelineEvents(events);
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
@@ -658,7 +665,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				await this._item.replaceAssignees(newAssignees);
-				const events = await this.processTimelineEvents(await this._getTimeline());
+				const events = await this._getTimeline();
 				const reply: ChangeAssigneesReply = {
 					assignees: newAssignees,
 					events
@@ -725,7 +732,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this.processTimelineEvents(await this._getTimeline());
+			const events = await this._getTimeline();
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -743,7 +750,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(copilotUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this.processTimelineEvents(await this._getTimeline());
+			const events = await this._getTimeline();
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -817,6 +824,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 		} catch (e) {
 			Logger.error(`Open local file failed: ${formatError(e)}`, IssueOverviewPanel.ID);
+			// Fallback to opening external URL
+			await vscode.env.openExternal(vscode.Uri.parse(message.args.href));
 		}
 	}
 
