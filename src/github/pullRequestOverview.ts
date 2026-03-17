@@ -403,9 +403,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._assignableUsers = assignableUsers;
 			this.setPanelTitle(this.buildPanelTitle(pullRequestModel.number, pullRequestModel.title));
 
-			// Process permalinks in bodyHTML before sending to webview
-			const processedBodyHTML = await this.processLinksInBodyHtml(pullRequest.bodyHTML);
-
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 
@@ -419,9 +416,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
 			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
-			const baseContext = this.getInitializeContext(currentUser, pullRequest, await this.processTimelineEvents(timelineEvents), repositoryAccess, viewerCanEdit, users);
-			// Override bodyHTML with processed version without mutating original pullRequest
-			baseContext.bodyHTML = processedBodyHTML;
+			const baseContext = await this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 

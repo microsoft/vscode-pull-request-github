@@ -249,7 +249,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
+	protected async getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Promise<Issue> {
 		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const labels = issue.item.labels.map(label => ({
@@ -266,12 +266,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			url: issue.html_url,
 			createdAt: issue.createdAt,
 			body: issue.body,
-			bodyHTML: issue.bodyHTML,
+			bodyHTML: await this.processLinksInBodyHtml(issue.bodyHTML),
 			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			stateReason: issue.stateReason,
-			events: timelineEvents,
+			events: await this.processTimelineEvents(timelineEvents),
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,
 			hasWritePermission,
@@ -322,10 +322,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
 			// Process permalinks in bodyHTML before sending to webview
-			const processedBodyHTML = await this.processLinksInBodyHtml(issue.bodyHTML);
-			const context = this.getInitializeContext(currentUser, issue, await this.processTimelineEvents(timelineEvents), repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
-			// Override bodyHTML with processed version without mutating original issue
-			context.bodyHTML = processedBodyHTML;
+			const context = await this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
