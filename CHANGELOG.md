@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.132.1
+
+### Fixes
+
+- Can't add multiline GitHub PR Comment because Inline Chat button covers Comment button. https://github.com/microsoft/vscode-pull-request-github/issues/8504
+- Deleting a worktree after merging a PR mixes the main branch with the worktree. https://github.com/microsoft/vscode-pull-request-github/issues/8519
+- Missing issue webview icon.
+
 ## 0.132.0
 
 ### Changes

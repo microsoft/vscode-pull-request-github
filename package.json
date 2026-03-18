@@ -41,7 +41,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.132.0",
+	"version": "0.132.1",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.110.0"
@@ -3794,6 +3794,9 @@
 			},
 			{
 				"path": "./src/lm/skills/show-github-search-result/SKILL.md"
+			},
+			{
+				"path": "./src/lm/skills/address-pr-comments/SKILL.md"
 			}
 		],
 		"languageModelTools": [
@@ -3963,7 +3966,16 @@
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_activePullRequest.description%",
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"refresh": {
+							"type": "boolean",
+							"description": "Whether to fetch fresh data from GitHub or return cached data. Set to true to ensure the most up-to-date information, especially after recent changes. Set to false to improve performance when up-to-date information is not critical."
+						}
+					}
+				}
 			},
 			{
 				"name": "github-pull-request_pullRequestStatusChecks",
