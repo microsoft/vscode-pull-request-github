@@ -814,8 +814,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				new vscode.Position(startLine - 1, 0),
 				new vscode.Position(endLine - 1, Number.MAX_SAFE_INTEGER)
 			);
-			const document = await vscode.workspace.openTextDocument(fileUri);
-			await vscode.window.showTextDocument(document, {
+			await vscode.window.showTextDocument(fileUri, {
 				selection,
 				viewColumn: vscode.ViewColumn.One
 			});

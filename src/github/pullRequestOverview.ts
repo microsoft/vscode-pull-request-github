@@ -6,7 +6,7 @@
 
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
-import { OpenCommitChangesArgs } from '../../common/views';
+import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
@@ -674,7 +674,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openDiffFromLink(message: IRequestMessage<{ file: string; startLine: number; endLine: number; href: string }>): Promise<void> {
+	private async openDiffFromLink(message: IRequestMessage<OpenLocalFileArgs>): Promise<void> {
 		try {
 			const { file, startLine } = message.args;
 			const fileChanges = await this._item.getFileChangesInfo();
