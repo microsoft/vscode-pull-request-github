@@ -1057,9 +1057,9 @@ export function extractCodeReferenceLinkMetadata(anchor: Element): CodeReference
  * Process GitHub blob permalinks in HTML and add data attributes for local file handling.
  * Finds blob permalinks (e.g., /blob/[sha]/file.ts#L10), checks if files exist locally,
  * and adds data attributes to enable clicking to open local files.
+ * Supports links from any repository owner to work across forks.
  *
  * @param bodyHTML - The HTML content to process
- * @param repoOwner - GitHub repository owner
  * @param repoName - GitHub repository name
  * @param authority - Git protocol URL authority (e.g., 'github.com')
  * @param fileExistsCheck - Async function that checks if a file exists locally given its relative path
@@ -1067,19 +1067,18 @@ export function extractCodeReferenceLinkMetadata(anchor: Element): CodeReference
  */
 export async function processPermalinks(
 	bodyHTML: string,
-	repoOwner: string,
 	repoName: string,
 	authority: string,
 	fileExistsCheck: (filePath: string) => Promise<boolean>
 ): Promise<string> {
 	try {
 		const escapedRepoName = escapeRegExp(repoName);
-		const escapedRepoOwner = escapeRegExp(repoOwner);
 		const escapedAuthority = escapeRegExp(authority);
 
 		// Process blob permalinks (exclude already processed links)
+		// Allow any owner to support links across forks
 		const blobPattern = new RegExp(
-			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/${escapedRepoOwner}\/${escapedRepoName}\/blob\/[0-9a-f]{40}\/(?<filePath>[^"#]+)#L(?<startLine>\\d+)(?:-L(?<endLine>\\d+))?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/[^\/]+\/${escapedRepoName}\/blob\/[0-9a-f]{40}\/(?<filePath>[^"#]+)#L(?<startLine>\\d+)(?:-L(?<endLine>\\d+))?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
 			'g'
 		);
 

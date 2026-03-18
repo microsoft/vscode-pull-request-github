@@ -346,7 +346,6 @@ export async function processPermalinks(
 ): Promise<string> {
 	try {
 		const repoName = githubRepository.remote.repositoryName;
-		const repoOwner = githubRepository.remote.owner;
 		const authority = githubRepository.remote.gitProtocol.url.authority;
 
 		// Create file existence check callback
@@ -360,7 +359,7 @@ export async function processPermalinks(
 			}
 		};
 
-		return await processPermalinksCore(bodyHTML, repoOwner, repoName, authority, fileExistsCheck);
+		return await processPermalinksCore(bodyHTML, repoName, authority, fileExistsCheck);
 	} catch (error) {
 		Logger.error(`Failed to process blob permalinks in HTML: ${error}`, 'processPermalinks');
 		return bodyHTML;
