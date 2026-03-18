@@ -4177,5 +4177,8 @@
 		"diff": "8.0.3",
 		"serialize-javascript": "7.0.4"
 	},
+	"engines": {
+		"node": ">=20"
+	},
 	"license": "MIT"
 }
