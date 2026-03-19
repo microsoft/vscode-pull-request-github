@@ -1343,12 +1343,12 @@ export class GitHubRepository extends Disposable {
 		return data.repository?.ref?.target.oid;
 	}
 
-	private static branchesCacheKey(owner: string, repositoryName: string): string {
+	private branchesCacheKey(owner: string, repositoryName: string): string {
 		return `${owner}/${repositoryName}`;
 	}
 
 	getCachedBranches(owner: string, repositoryName: string): string[] | undefined {
-		return this._branchesCache.get(GitHubRepository.branchesCacheKey(owner, repositoryName));
+		return this._branchesCache.get(this.branchesCacheKey(owner, repositoryName));
 	}
 
 	async listBranches(owner: string, repositoryName: string, prefix: string | undefined): Promise<string[]> {
@@ -1394,7 +1394,7 @@ export class GitHubRepository extends Disposable {
 		}
 		// Cache results for unprefixed queries
 		if (!prefix) {
-			this._branchesCache.set(GitHubRepository.branchesCacheKey(owner, repositoryName), branches);
+			this._branchesCache.set(this.branchesCacheKey(owner, repositoryName), branches);
 		}
 		return branches;
 	}
