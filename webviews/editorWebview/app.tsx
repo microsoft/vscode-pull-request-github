@@ -7,6 +7,7 @@ import * as debounce from 'debounce';
 import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
+import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
 import { PullRequest } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -40,6 +41,31 @@ export function Root({ children }) {
 		window.addEventListener('focus', handleWindowFocus);
 		return () => window.removeEventListener('focus', handleWindowFocus);
 	}, []);
+
+	useEffect(() => {
+		const handleLinkClick = (event: MouseEvent) => {
+			const target = event.target as HTMLElement;
+			const anchor = target.closest('a[data-local-file]');
+			if (anchor) {
+				const metadata = extractCodeReferenceLinkMetadata(anchor);
+				if (metadata) {
+					// Prevent default navigation, handlers will fallback to opening the link externally if they fail
+					event.preventDefault();
+					event.stopPropagation();
+
+					// Open diff view for diff links, local file for blob permalinks
+					if (metadata.linkType === 'diff') {
+						ctx.openDiffFromLink(metadata.localFile, metadata.startLine, metadata.endLine, metadata.href);
+					} else {
+						ctx.openLocalFile(metadata.localFile, metadata.startLine, metadata.endLine, metadata.href);
+					}
+				}
+			}
+		};
+
+		document.addEventListener('click', handleLinkClick, true);
+		return () => document.removeEventListener('click', handleLinkClick, true);
+	}, [ctx]);
 
 	window.onscroll = debounce(() => {
 		ctx.postMessage({

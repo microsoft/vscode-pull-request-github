@@ -7,7 +7,7 @@ import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
 import { COMMENT_TEXTAREA_ID } from './constants';
 import { getMessageHandler, MessageHandler } from './message';
-import { CloseResult, DescriptionResult, OpenCommitChangesArgs } from '../../common/views';
+import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
@@ -361,6 +361,16 @@ export class PRContext {
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
+	public openLocalFile = (file: string, startLine: number, endLine: number, href: string) => {
+		const args: OpenLocalFileArgs = { file, startLine, endLine, href };
+		this.postMessage({ command: 'pr.open-local-file', args });
+	};
+
+	public openDiffFromLink = (file: string, startLine: number, endLine: number, href: string) => {
+		const args: OpenLocalFileArgs = { file, startLine, endLine, href };
+		this.postMessage({ command: 'pr.open-diff-from-link', args });
+	};
+	
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
 	public openCommitChanges = async (commitSha: string) => {

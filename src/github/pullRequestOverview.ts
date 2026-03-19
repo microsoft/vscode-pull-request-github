@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
-import { OpenCommitChangesArgs } from '../../common/views';
+import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
@@ -26,7 +27,7 @@ import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
-import { parseReviewers } from './utils';
+import { parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -233,6 +234,38 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	/**
+	 * Override to process permalinks with PR-specific logic (including diff links).
+	 * Returns undefined if bodyHTML is undefined.
+	 */
+	protected override async processLinksInBodyHtml(bodyHTML: string | undefined): Promise<string | undefined> {
+		if (!bodyHTML) {
+			return bodyHTML;
+		}
+		// Check cache first, otherwise fetch raw file changes
+		const rawFileChanges = this._item.rawFileChanges ?? await this._item.getRawFileChangesInfo();
+
+		// Create hash-to-filename mapping for diff links
+		const hashMap: Record<string, string> = {};
+		rawFileChanges.forEach(file => {
+			const hash = crypto.createHash('sha256').update(file.filename).digest('hex');
+			hashMap[hash] = file.filename;
+		});
+
+		let result = await processPermalinks(
+			bodyHTML,
+			this._item.githubRepository,
+			this._item.githubRepository.rootUri
+		);
+		result = await processDiffLinks(
+			result,
+			this._item.githubRepository,
+			hashMap,
+			this._item.number
+		);
+		return result;
+	}
+
 	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onDidChangeViewState(e);
 		this.setVisibilityContext();
@@ -383,7 +416,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
 			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
-			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
+			const baseContext = await this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
@@ -535,6 +568,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelGenerateDescription();
 			case 'pr.change-base-branch':
 				return this.changeBaseBranch(message);
+			case 'pr.open-diff-from-link':
+				return this.openDiffFromLink(message);
 		}
 	}
 
@@ -625,8 +660,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	protected override _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.getTimelineEvents();
+	protected override async _getTimeline(): Promise<TimelineEvent[]> {
+		const events = await this._item.getTimelineEvents();
+		return this.processTimelineEvents(events);
 	}
 
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
@@ -636,6 +672,36 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (e) {
 			Logger.error(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
+	}
+
+	private async openDiffFromLink(message: IRequestMessage<OpenLocalFileArgs>): Promise<void> {
+		try {
+			const { file, startLine } = message.args;
+			const fileChanges = await this._item.getFileChangesInfo();
+			const change = fileChanges.find(
+				fileChange => fileChange.fileName === file || fileChange.previousFileName === file,
+			);
+
+			if (change) {
+
+				const pathSegments = file.split('/');
+				// GitHub line numbers are 1-indexed, VSCode selection API is 0-indexed
+				await PullRequestModel.openDiff(
+					this._folderRepositoryManager,
+					this._item,
+					change,
+					pathSegments[pathSegments.length - 1],
+					startLine - 1,
+				);
+				return;
+			}
+			Logger.warn(`Could not find file ${file} in PR changes`, PullRequestOverviewPanel.ID);
+		} catch (e) {
+			Logger.error(`Open diff from link failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+
+		// Fallback to opening external URL
+		await vscode.env.openExternal(vscode.Uri.parse(message.args.href));
 	}
 
 	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
