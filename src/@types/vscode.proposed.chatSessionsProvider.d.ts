@@ -100,13 +100,27 @@ declare module 'vscode' {
 			readonly command?: string;
 		};
 
-		readonly sessionOptions: ReadonlyArray<{ optionId: string; value: string | ChatSessionProviderOptionItem }>;
+		readonly sessionOptions: ReadonlyArray<{ optionId: string; value: ChatSessionProviderOptionItem }>;
 	}
 
 	/**
 	 * Extension callback invoked when a new chat session is started.
 	 */
 	export type ChatSessionItemControllerNewItemHandler = (context: ChatSessionItemControllerNewItemHandlerContext, token: CancellationToken) => Thenable<ChatSessionItem>;
+
+	/**
+	 * Extension callback invoked to fork an existing chat session item managed by a {@linkcode ChatSessionItemController}.
+	 *
+	 * The handler should create a new session on the provider's backend and
+	 * return the new {@link ChatSessionItem} representing the forked session.
+	 *
+	 * @param sessionResource The resource of the chat session being forked.
+	 * @param request The request turn that marks the fork point. The forked session includes all turns
+	 * upto this request turn and includes this request turn itself. If undefined, fork the full session.
+	 * @param token A cancellation token.
+	 * @returns The forked session item.
+	 */
+	export type ChatSessionItemControllerForkHandler = (sessionResource: Uri, request: ChatRequestTurn2 | undefined, token: CancellationToken) => Thenable<ChatSessionItem> | ChatSessionItem;
 
 	/**
 	 * Manages chat sessions for a specific chat session type
@@ -144,6 +158,14 @@ declare module 'vscode' {
 		 * The returned chat session is added to the collection and shown in the UI.
 		 */
 		newChatSessionItemHandler?: ChatSessionItemControllerNewItemHandler;
+
+		/**
+		 * Invoked when an existing chat session is forked.
+		 *
+		 * When both this handler and {@linkcode ChatSession.forkHandler} are registered,
+		 * this handler takes precedence.
+		 */
+		forkHandler?: ChatSessionItemControllerForkHandler;
 
 		/**
 		 * Fired when an item's archived state changes.
@@ -374,12 +396,9 @@ declare module 'vscode' {
 		/**
 		 * Options configured for this session as key-value pairs.
 		 * Keys correspond to option group IDs (e.g., 'models', 'subagents').
-		 * Values can be either:
-		 * - A string (the option item ID) for backwards compatibility
-		 * - A ChatSessionProviderOptionItem object to include metadata like locked state
 		 * TODO: Strongly type the keys
 		 */
-		readonly options?: Record<string, string | ChatSessionProviderOptionItem>;
+		readonly options?: Record<string, ChatSessionProviderOptionItem>;
 
 		/**
 		 * Callback invoked by the editor for a currently running response. This allows the session to push items for the
@@ -399,6 +418,22 @@ declare module 'vscode' {
 		// TODO: Revisit this to align with code.
 		// TODO: pass in options?
 		readonly requestHandler: ChatRequestHandler | undefined;
+
+		/**
+		 * Handles a request to fork the session.
+		 *
+		 * The handler should create a new session on the provider's backend and
+		 * return the new {@link ChatSessionItem} representing the forked session.
+		 *
+		 * @deprecated Use {@linkcode ChatSessionItemController.forkHandler} instead. This remains supported for backwards compatibility.
+		 *
+		 * @param sessionResource The resource of the chat session being forked.
+		 * @param request The request turn that marks the fork point. The forked session includes all turns
+		 * until this request turn and includes this request turn itself. If undefined, fork the full session.
+		 * @param token A cancellation token.
+		 * @returns The forked session item.
+		 */
+		readonly forkHandler?: ChatSessionItemControllerForkHandler;
 	}
 
 	/**
@@ -421,7 +456,7 @@ declare module 'vscode' {
 			/**
 			 * The new value assigned to the option. When `undefined`, the option is cleared.
 			 */
-			readonly value: string | ChatSessionProviderOptionItem;
+			readonly value: ChatSessionProviderOptionItem;
 		}>;
 	}
 
@@ -454,7 +489,7 @@ declare module 'vscode' {
 		 * @return The {@link ChatSession chat session} associated with the given URI.
 		 */
 		provideChatSessionContent(resource: Uri, token: CancellationToken, context: {
-			readonly sessionOptions: ReadonlyArray<{ optionId: string; value: string | ChatSessionProviderOptionItem }>;
+			readonly sessionOptions: ReadonlyArray<{ optionId: string; value: ChatSessionProviderOptionItem }>;
 		}): Thenable<ChatSession> | ChatSession;
 
 		/**
@@ -479,7 +514,7 @@ declare module 'vscode' {
 		/**
 		 * The new value assigned to the option. When `undefined`, the option is cleared.
 		 */
-		readonly value: string | undefined;
+		readonly value: ChatSessionProviderOptionItem | undefined;
 	}
 
 	export namespace chat {
@@ -488,10 +523,11 @@ declare module 'vscode' {
 		 *
 		 * @param scheme The uri-scheme to register for. This must be unique.
 		 * @param provider The provider to register.
+		 * @param defaultChatParticipant The default {@link ChatParticipant chat participant} used in sessions provided by this provider.
 		 *
 		 * @returns A disposable that unregisters the provider when disposed.
 		 */
-		export function registerChatSessionContentProvider(scheme: string, provider: ChatSessionContentProvider, chatParticipant: ChatParticipant, capabilities?: ChatSessionCapabilities): Disposable;
+		export function registerChatSessionContentProvider(scheme: string, provider: ChatSessionContentProvider, defaultChatParticipant: ChatParticipant, capabilities?: ChatSessionCapabilities): Disposable;
 	}
 
 	export interface ChatContext {
@@ -508,7 +544,7 @@ declare module 'vscode' {
 		 * The initial option selections for the session, provided with the first request.
 		 * Contains the options the user selected (or defaults) before the session was created.
 		 */
-		readonly initialSessionOptions?: ReadonlyArray<{ optionId: string; value: string | ChatSessionProviderOptionItem }>;
+		readonly initialSessionOptions?: ReadonlyArray<{ optionId: string; value: ChatSessionProviderOptionItem }>;
 	}
 
 	export interface ChatSessionCapabilities {
@@ -631,6 +667,6 @@ declare module 'vscode' {
 		 *
 		 * Keys correspond to option group IDs (e.g., 'models', 'subagents').
 		 */
-		readonly newSessionOptions?: Record<string, string | ChatSessionProviderOptionItem>;
+		readonly newSessionOptions?: Record<string, ChatSessionProviderOptionItem>;
 	}
 }
