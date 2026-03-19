@@ -21,7 +21,7 @@ const webpack = require('webpack');
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
 		execFile(
-			'yarn',
+			'npx',
 			['tsc', `-p ${configFile}`, '--showConfig'],
 			{ cwd: __dirname, encoding: 'utf8', shell: true },
 			function (error, stdout, stderr) {
