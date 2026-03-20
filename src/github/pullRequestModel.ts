@@ -564,7 +564,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.hasPendingReview = false;
 			await this.updateDraftModeContext();
-			const reviewEvent = parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, this.githubRepository);
+			const reviewEvent = await parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, this.githubRepository);
 
 			const threadWithComment = (this._reviewThreadsCache ?? []).find(thread =>
 				thread.comments.length ? (thread.comments[0].pullRequestReviewId === reviewEvent.id) : undefined,
@@ -649,7 +649,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
-		const deletedReviewComments = comments.nodes.map(comment => parseGraphQLComment(comment, false, false, this.githubRepository));
+		const deletedReviewComments = await Promise.all(comments.nodes.map(comment => parseGraphQLComment(comment, false, false, this.githubRepository)));
 
 		// Update local state: remove all draft comments (and their threads if emptied) that belonged to the deleted review
 		const deletedCommentIds = new Set(deletedReviewComments.map(c => c.id));
@@ -772,7 +772,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const thread = data.addPullRequestReviewThread.thread;
-		const newThread = parseGraphQLReviewThread(thread, this.githubRepository);
+		const newThread = await parseGraphQLReviewThread(thread, this.githubRepository);
 		if (!this._reviewThreadsCache) {
 			this._reviewThreadsCache = [];
 		}
@@ -824,7 +824,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const { comment } = data.addPullRequestReviewComment;
-		const newComment = parseGraphQLComment(comment, false, false, this.githubRepository);
+		const newComment = await parseGraphQLComment(comment, false, false, this.githubRepository);
 
 		if (isSingleComment) {
 			newComment.isDraft = false;
@@ -1023,7 +1023,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error('Editing review comment failed.');
 		}
 
-		const newComment = parseGraphQLComment(
+		const newComment = await parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
 			!!comment.isOutdated,
@@ -1341,7 +1341,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return [];
 		}
 
-		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, githubRepository);
+		const reviewers: (IAccount | ITeam)[] = await parseGraphQLReviewers(data, githubRepository);
 		if (this.reviewers?.length !== reviewers.length || (this.reviewers.some(r => !reviewers.some(rr => rr.id === r.id)))) {
 			this.reviewers = reviewers;
 			this._onDidChange.fire({ reviewers: true });
@@ -1452,8 +1452,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 	}
 
-	private setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
-		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository));
+	private async setReviewThreadCacheFromRaw(raw: ReviewThread[]): Promise<IReviewThread[]> {
+		const reviewThreads: IReviewThread[] = await Promise.all(raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository)));
 		const oldReviewThreads = this._reviewThreadsCache ?? [];
 		this._reviewThreadsCache = reviewThreads;
 		this.diffThreads(oldReviewThreads, reviewThreads);
@@ -1556,7 +1556,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			per_page: 100
 		});
 		const workStartedInitiator = (timeline.data.find(event => event.event === 'copilot_work_started') as { actor: RestAccount } | undefined)?.actor;
-		return workStartedInitiator ? [parseAccount(workStartedInitiator, this.githubRepository)] : [];
+		return workStartedInitiator ? [await parseAccount(workStartedInitiator, this.githubRepository)] : [];
 	}
 
 	protected override getUpdatesQuery(schema: any): any {
@@ -2105,7 +2105,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const index = this._reviewThreadsCache?.findIndex(thread => thread.id === threadId) ?? -1;
 			if (index > -1) {
-				const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
+				const thread = await parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
 				this._reviewThreadsCache?.splice(index, 1, thread);
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 			}
@@ -2148,7 +2148,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			const index = this._reviewThreadsCache?.findIndex(thread => thread.id === threadId) ?? -1;
 			if (index > -1) {
-				const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
+				const thread = await parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
 				this._reviewThreadsCache?.splice(index, 1, thread);
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 			}

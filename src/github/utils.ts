@@ -509,7 +509,7 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository): IReviewThread {
+export async function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository): Promise<IReviewThread> {
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
@@ -525,12 +525,12 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository)),
+		comments: await Promise.all(thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository))),
 		subjectType: thread.subjectType ?? SubjectType.LINE
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository): IComment {
+export async function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository): Promise<IComment> {
 	const specialAuthor = COPILOT_ACCOUNTS[comment.author?.login ?? ''];
 	const c: IComment = {
 		id: comment.databaseId,
@@ -547,7 +547,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		commitId: comment.commit.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author ? parseAccount(comment.author, githubRepository) : undefined,
+		user: comment.author ? await parseAccount(comment.author, githubRepository) : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -564,7 +564,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 	return c;
 }
 
-export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRepository: GitHubRepository): IComment {
+export async function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRepository: GitHubRepository): Promise<IComment> {
 	return {
 		id: comment.databaseId,
 		url: comment.url,
@@ -573,7 +573,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
-		user: parseAccount(comment.author, githubRepository),
+		user: await parseAccount(comment.author, githubRepository),
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -643,10 +643,10 @@ export interface GraphQLAccount {
 	__typename: string;
 }
 
-export function parseAccount(
+export async function parseAccount(
 	author: GraphQLAccount | RestAccount | null,
 	githubRepository?: GitHubRepository,
-): IAccount {
+): Promise<IAccount> {
 	if (author) {
 		let avatarUrl: string;
 		let id: string;
@@ -668,7 +668,7 @@ export function parseAccount(
 
 		// In some places, Copilot comes in as a user, and in others as a bot
 
-		const finalAvatarUrl = githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl;
+		const finalAvatarUrl = githubRepository ? await getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl;
 
 		return {
 			login: author.login,
@@ -690,43 +690,43 @@ export function parseAccount(
 	}
 }
 
-function parseTeam(team: GraphQL.Team, githubRepository: GitHubRepository): ITeam {
+async function parseTeam(team: GraphQL.Team, githubRepository: GitHubRepository): Promise<ITeam> {
 	return {
 		name: team.name,
 		url: team.url,
-		avatarUrl: getAvatarWithEnterpriseFallback(team.avatarUrl, undefined, githubRepository.remote.isEnterprise),
+		avatarUrl: await getAvatarWithEnterpriseFallback(team.avatarUrl, undefined, githubRepository.remote.isEnterprise),
 		id: team.id,
 		org: githubRepository.remote.owner,
 		slug: team.slug
 	};
 }
 
-export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, repository: GitHubRepository): (IAccount | ITeam)[] {
+export async function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, repository: GitHubRepository): Promise<(IAccount | ITeam)[]> {
 	if (!data.repository) {
 		return [];
 	}
 	const reviewers: (IAccount | ITeam)[] = [];
 	for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
 		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
-			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
+			const team: ITeam = await parseTeam(reviewer.requestedReviewer, repository);
 			reviewers.push(team);
 		} else if (GraphQL.isAccount(reviewer.requestedReviewer) || GraphQL.isBot(reviewer.requestedReviewer)) {
-			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
+			const account: IAccount = await parseAccount(reviewer.requestedReviewer, repository);
 			reviewers.push(account);
 		}
 	}
 	return reviewers;
 }
 
-function parseActor(
+async function parseActor(
 	author: { login: string; url: string; avatarUrl: string; } | null,
 	githubRepository: GitHubRepository,
-): IActor {
+): Promise<IActor> {
 	if (author) {
 		return {
 			login: author.login,
 			url: author.url,
-			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
+			avatarUrl: await getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
 		};
 	} else {
 		return {
@@ -846,7 +846,7 @@ export async function parseGraphQLPullRequest(
 		head: parseRef(graphQLPullRequest.headRef?.name ?? graphQLPullRequest.headRefName, graphQLPullRequest.headRefOid, graphQLPullRequest.headRepository),
 		isRemoteBaseDeleted: !graphQLPullRequest.baseRef,
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
-		user: parseAccount(graphQLPullRequest.author, githubRepository),
+		user: await parseAccount(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
@@ -857,11 +857,11 @@ export async function parseGraphQLPullRequest(
 		viewerCanUpdate: graphQLPullRequest.viewerCanUpdate,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
-		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
-		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
+		suggestedReviewers: await parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
+		comments: await parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
 		projectItems: parseProjectItems(graphQLPullRequest.projectItems?.nodes),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
-		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAccount(assignee, githubRepository)),
+		assignees: graphQLPullRequest.assignees?.nodes ? await Promise.all(graphQLPullRequest.assignees.nodes.map(assignee => parseAccount(assignee, githubRepository))) : undefined,
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
 		reactionCount: graphQLPullRequest.reactions.totalCount,
 		reactions: parseGraphQLReaction(graphQLPullRequest.reactionGroups),
@@ -931,7 +931,7 @@ function parseCommits(commits: { commit: { message: string; }; }[]): { message: 
 	});
 }
 
-function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, githubRepository: GitHubRepository) {
+async function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, githubRepository: GitHubRepository) {
 	if (!comments) {
 		return;
 	}
@@ -944,7 +944,7 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 	}[] = [];
 	for (const comment of comments) {
 		parsedComments.push({
-			author: parseAccount(comment.author, githubRepository),
+			author: await parseAccount(comment.author, githubRepository),
 			body: comment.body,
 			databaseId: comment.databaseId,
 			reactionCount: comment.reactions.totalCount,
@@ -969,24 +969,24 @@ export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: 
 		titleHTML: issue.titleHTML,
 		createdAt: issue.createdAt,
 		updatedAt: issue.updatedAt,
-		assignees: issue.assignees?.nodes.map(assignee => parseAccount(assignee, githubRepository)),
-		user: parseAccount(issue.author, githubRepository),
+		assignees: issue.assignees?.nodes ? await Promise.all(issue.assignees.nodes.map(assignee => parseAccount(assignee, githubRepository))) : undefined,
+		user: await parseAccount(issue.author, githubRepository),
 		labels: issue.labels.nodes,
 		milestone: parseMilestone(issue.milestone),
 		repositoryName: issue.repository?.name ?? githubRepository.remote.repositoryName,
 		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
 		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
 		projectItems: parseProjectItems(issue.projectItems?.nodes),
-		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment, githubRepository)),
+		comments: issue.comments.nodes ? await Promise.all(issue.comments.nodes.map(comment => parseIssueComment(comment, githubRepository))) : undefined,
 		reactionCount: issue.reactions.totalCount,
 		reactions: parseGraphQLReaction(issue.reactionGroups),
 		commentCount: issue.comments.totalCount
 	};
 }
 
-function parseIssueComment(comment: GraphQL.AbbreviatedIssueComment, githubRepository: GitHubRepository): IIssueComment {
+async function parseIssueComment(comment: GraphQL.AbbreviatedIssueComment, githubRepository: GitHubRepository): Promise<IIssueComment> {
 	return {
-		author: parseAccount(comment.author, githubRepository),
+		author: await parseAccount(comment.author, githubRepository),
 		body: comment.body,
 		databaseId: comment.databaseId,
 		reactionCount: comment.reactions.totalCount,
@@ -994,20 +994,20 @@ function parseIssueComment(comment: GraphQL.AbbreviatedIssueComment, githubRepos
 	};
 }
 
-function parseSuggestedReviewers(
+async function parseSuggestedReviewers(
 	suggestedReviewers: GraphQL.SuggestedReviewerResponse[] | undefined,
-): ISuggestedReviewer[] {
+): Promise<ISuggestedReviewer[]> {
 	if (!suggestedReviewers) {
 		return [];
 	}
-	const ret: ISuggestedReviewer[] = suggestedReviewers.map(suggestedReviewer => {
-		const account = parseAccount(suggestedReviewer.reviewer, undefined);
+	const ret: ISuggestedReviewer[] = await Promise.all(suggestedReviewers.map(async suggestedReviewer => {
+		const account = await parseAccount(suggestedReviewer.reviewer, undefined);
 		return {
 			...account,
 			isAuthor: suggestedReviewer.isAuthor,
 			isCommenter: suggestedReviewer.isCommenter
 		};
-	});
+	}));
 
 	return ret.sort(loginComparator);
 }
@@ -1029,18 +1029,18 @@ export function teamComparator(a: ITeam, b: ITeam) {
 	return aKey.localeCompare(bKey, 'en', { sensitivity: 'accent' });
 }
 
-export function parseGraphQLReviewEvent(
+export async function parseGraphQLReviewEvent(
 	review: GraphQL.SubmittedReview,
 	githubRepository: GitHubRepository,
-): Common.ReviewEvent {
+): Promise<Common.ReviewEvent> {
 	return {
 		event: Common.EventType.Reviewed,
-		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false, false, githubRepository)).filter(c => !c.inReplyToId),
+		comments: (await Promise.all(review.comments.nodes.map(comment => parseGraphQLComment(comment, false, false, githubRepository)))).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
 		body: review.body,
 		bodyHTML: review.bodyHTML,
 		htmlUrl: review.url,
-		user: parseAccount(review.author, githubRepository),
+		user: await parseAccount(review.author, githubRepository),
 		authorAssociation: review.authorAssociation,
 		state: review.state,
 		id: review.databaseId,
@@ -1185,7 +1185,7 @@ export async function parseCombinedTimelineEvents(
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
-					user: parseAccount(commentEvent.author, githubRepository),
+					user: await parseAccount(commentEvent.author, githubRepository),
 					event: type,
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
@@ -1204,7 +1204,7 @@ export async function parseCombinedTimelineEvents(
 					body: reviewEvent.body,
 					bodyHTML: reviewEvent.bodyHTML,
 					htmlUrl: reviewEvent.url,
-					user: parseAccount(reviewEvent.author, githubRepository),
+					user: await parseAccount(reviewEvent.author, githubRepository),
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
@@ -1218,7 +1218,7 @@ export async function parseCombinedTimelineEvents(
 					event: type,
 					sha: commitEv.commit.oid,
 					author: commitEv.commit.author.user
-						? parseAccount(commitEv.commit.author.user, githubRepository)
+						? await parseAccount(commitEv.commit.author.user, githubRepository)
 						: { login: commitEv.commit.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
@@ -1232,7 +1232,7 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: mergeEv.id,
 					event: type,
-					user: parseActor(mergeEv.actor, githubRepository),
+					user: await parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
 					mergeRef: mergeEv.mergeRef.name,
 					sha: mergeEv.commit.oid,
@@ -1247,8 +1247,8 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: assignEv.id,
 					event: type,
-					assignees: [parseAccount(assignEv.user, githubRepository)],
-					actor: parseAccount(assignEv.actor),
+					assignees: [await parseAccount(assignEv.user, githubRepository)],
+					actor: await parseAccount(assignEv.actor),
 					createdAt: assignEv.createdAt,
 				});
 				break;
@@ -1258,8 +1258,8 @@ export async function parseCombinedTimelineEvents(
 				normalizedEvents.push({
 					id: unassignEv.id,
 					event: type,
-					unassignees: [parseAccount(unassignEv.user, githubRepository)],
-					actor: parseAccount(unassignEv.actor),
+					unassignees: [await parseAccount(unassignEv.user, githubRepository)],
+					actor: await parseAccount(unassignEv.actor),
 					createdAt: unassignEv.createdAt,
 				});
 				break;
@@ -1269,7 +1269,7 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: deletedEv.id,
 					event: type,
-					actor: parseAccount(deletedEv.actor, githubRepository),
+					actor: await parseAccount(deletedEv.actor, githubRepository),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
@@ -1286,7 +1286,7 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: crossRefEv.id,
 					event: type,
-					actor: parseAccount(crossRefEv.actor, githubRepository),
+					actor: await parseAccount(crossRefEv.actor, githubRepository),
 					createdAt: crossRefEv.createdAt,
 					source: {
 						url: crossRefEv.source.url,
@@ -1306,7 +1306,7 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: closedEv.id,
 					event: type,
-					actor: parseAccount(closedEv.actor, githubRepository),
+					actor: await parseAccount(closedEv.actor, githubRepository),
 					createdAt: closedEv.createdAt,
 				});
 				break;
@@ -1316,7 +1316,7 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: reopenedEv.id,
 					event: type,
-					actor: parseAccount(reopenedEv.actor, githubRepository),
+					actor: await parseAccount(reopenedEv.actor, githubRepository),
 					createdAt: reopenedEv.createdAt,
 				});
 				break;
@@ -1326,7 +1326,7 @@ export async function parseCombinedTimelineEvents(
 				addTimelineEvent({
 					id: baseRefChangedEv.id,
 					event: type,
-					actor: parseAccount(baseRefChangedEv.actor, githubRepository),
+					actor: await parseAccount(baseRefChangedEv.actor, githubRepository),
 					createdAt: baseRefChangedEv.createdAt,
 					currentRefName: baseRefChangedEv.currentRefName,
 					previousRefName: baseRefChangedEv.previousRefName,
@@ -1345,11 +1345,11 @@ export async function parseCombinedTimelineEvents(
 	return normalizedEvents;
 }
 
-export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: GitHubRepository): User {
+export async function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: GitHubRepository): Promise<User> {
 	return {
 		login: user.user.login,
 		name: user.user.name,
-		avatarUrl: getAvatarWithEnterpriseFallback(user.user.avatarUrl ?? '', undefined, githubRepository.remote.isEnterprise),
+		avatarUrl: await getAvatarWithEnterpriseFallback(user.user.avatarUrl ?? '', undefined, githubRepository.remote.isEnterprise),
 		url: user.user.url,
 		bio: user.user.bio,
 		company: user.user.company,
@@ -1698,16 +1698,20 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 
 // Use the Node.js built-in crypto module (not the browserify polyfill) to avoid md5.js/hash.js
 // bundled dependencies. In browser/webworker contexts Node.js crypto is unavailable, so we
-// fall back gracefully by returning undefined.
-function sha256Hex(data: string): string | undefined {
+// fall back to SubtleCrypto.
+async function sha256Hex(data: string): Promise<string | undefined> {
 	try {
 		return (require(/* webpackIgnore: true */ 'crypto') as typeof import('crypto')).createHash('sha256').update(data).digest('hex');
 	} catch {
-		return undefined;
+		// Browser/webworker context: use SubtleCrypto
+		const msgBuffer = new TextEncoder().encode(data);
+		const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', msgBuffer);
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+		return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 	}
 }
 
-export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
+export async function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): Promise<string | undefined> {
 
 	// For non-enterprise, always use the provided avatarUrl
 	if (!isEnterpriseRemote) {
@@ -1720,7 +1724,7 @@ export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string
 	}
 
 	// Only fallback to Gravatar if no avatarUrl is available and email is provided
-	const gravatarUrl = email ? generateGravatarUrl(sha256Hex(email.trim().toLowerCase())) : undefined;
+	const gravatarUrl = email ? generateGravatarUrl(await sha256Hex(email.trim().toLowerCase())) : undefined;
 	return gravatarUrl;
 }
 
