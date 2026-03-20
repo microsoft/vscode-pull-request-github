@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
@@ -1697,6 +1696,17 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 	return !!gravatarId ? `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=retro` : undefined;
 }
 
+// Use the Node.js built-in crypto module (not the browserify polyfill) to avoid md5.js/hash.js
+// bundled dependencies. In browser/webworker contexts Node.js crypto is unavailable, so we
+// fall back gracefully by returning undefined.
+function sha256Hex(data: string): string | undefined {
+	try {
+		return (require(/* webpackIgnore: true */ 'crypto') as typeof import('crypto')).createHash('sha256').update(data).digest('hex');
+	} catch {
+		return undefined;
+	}
+}
+
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
 
 	// For non-enterprise, always use the provided avatarUrl
@@ -1710,8 +1720,7 @@ export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string
 	}
 
 	// Only fallback to Gravatar if no avatarUrl is available and email is provided
-	const gravatarUrl = email ? generateGravatarUrl(
-		crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex')) : undefined;
+	const gravatarUrl = email ? generateGravatarUrl(sha256Hex(email.trim().toLowerCase())) : undefined;
 	return gravatarUrl;
 }
 

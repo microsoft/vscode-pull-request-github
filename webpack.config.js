@@ -141,7 +141,7 @@ async function getWebviewConfig(mode, env, entry) {
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.svg'],
 			fallback: {
-				crypto: require.resolve("crypto-browserify"),
+				crypto: false,
 				path: require.resolve('path-browserify'),
 				stream: require.resolve("stream-browserify"),
 				http: require.resolve("stream-http")
@@ -365,7 +365,7 @@ async function getExtensionConfig(target, mode, env) {
 			fallback:
 				target === 'webworker'
 					? {
-						crypto: require.resolve("crypto-browserify"),
+						crypto: false,
 						path: require.resolve('path-browserify'),
 						stream: require.resolve("stream-browserify"),
 						url: false,
