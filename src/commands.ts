@@ -1848,9 +1848,10 @@ ${contents}
 
 			const isThread = GHPRCommentThread.is(comment);
 			const commentThread = isThread ? comment : comment.parent;
-			const commentBody = isThread ? comment.comments[0].body : comment.body;
+			const firstComment = isThread ? comment.comments[0] : comment;
 			commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-			const message = commentBody instanceof vscode.MarkdownString ? commentBody.value : commentBody;
+			const message = firstComment instanceof GHPRComment ? firstComment.rawComment.body
+				: (firstComment.body instanceof vscode.MarkdownString ? firstComment.body.value : firstComment.body);
 
 			if (isThread) {
 				// For threads, open the Chat view instead of inline chat
