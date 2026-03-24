@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.132.2
+
+### Fixes
+
+- Button missing rounded corners on one side. https://github.com/microsoft/vscode-pull-request-github/issues/8609
+
 ## 0.132.1
 
 ### Fixes
