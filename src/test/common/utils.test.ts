@@ -53,7 +53,6 @@ describe('utils', () => {
 	});
 
 	describe('processPermalinks', () => {
-		const repoOwner = 'microsoft';
 		const repoName = 'vscode';
 		const authority = 'github.com';
 		const sha = 'a'.repeat(40);
@@ -65,7 +64,7 @@ describe('utils', () => {
 
 		it('should add data attributes when file exists locally', async () => {
 			const html = makePermalink('src/file.ts', 10);
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => true);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
 			assert(result.includes('data-local-file="src/file.ts"'));
 			assert(result.includes('data-start-line="10"'));
@@ -77,7 +76,7 @@ describe('utils', () => {
 
 		it('should set end line when range is specified', async () => {
 			const html = makePermalink('src/file.ts', 10, 20);
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => true);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
 			assert(result.includes('data-start-line="10"'));
 			assert(result.includes('data-end-line="20"'));
@@ -85,35 +84,35 @@ describe('utils', () => {
 
 		it('should not modify links when file does not exist locally', async () => {
 			const html = makePermalink('src/file.ts', 10);
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => false);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => false);
 
 			assert.strictEqual(result, html);
 		});
 
 		it('should not modify non-permalink links', async () => {
 			const html = '<a href="https://example.com">example</a>';
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => true);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
 			assert.strictEqual(result, html);
 		});
 
 		it('should not modify links to a different repo', async () => {
 			const html = `<a href="https://github.com/other/repo/blob/${sha}/src/file.ts#L10">link</a>`;
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => true);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
 			assert.strictEqual(result, html);
 		});
 
 		it('should skip already processed links', async () => {
 			const html = `<a data-permalink-processed="true" href="https://github.com/microsoft/vscode/blob/${sha}/src/file.ts#L10">link</a>`;
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => true);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
 			assert.strictEqual(result, html);
 		});
 
 		it('should process multiple links independently', async () => {
 			const html = makePermalink('src/exists.ts', 1) + makePermalink('src/missing.ts', 2);
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async (path) => path === 'src/exists.ts');
+			const result = await utils.processPermalinks(html, repoName, authority, async (path) => path === 'src/exists.ts');
 
 			assert(result.includes('data-local-file="src/exists.ts"'));
 			assert(!result.includes('data-local-file="src/missing.ts"'));
@@ -121,14 +120,14 @@ describe('utils', () => {
 
 		it('should return original HTML when fileExistsCheck throws', async () => {
 			const html = makePermalink('src/file.ts', 10);
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => { throw new Error('fail'); });
+			const result = await utils.processPermalinks(html, repoName, authority, async () => { throw new Error('fail'); });
 
 			assert.strictEqual(result, html);
 		});
 
 		it('should handle links without surrounding text', async () => {
 			const html = makePermalink('src/file.ts', 5);
-			const result = await utils.processPermalinks(html, repoOwner, repoName, authority, async () => true);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
 			assert(result.includes('link text'));
 			assert(result.includes('data-local-file="src/file.ts"'));
