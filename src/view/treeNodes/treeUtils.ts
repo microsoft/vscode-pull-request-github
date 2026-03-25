@@ -46,10 +46,10 @@ export namespace TreeUtils {
 			}
 		}
 
-		// Eagerly update ancestor directory checkbox states from bottom to top.
-		// With manageCheckboxStateManually, we must set directory states before refresh
-		// rather than relying solely on getTreeItem(), since VS Code may not apply
-		// checkboxState changes returned from getTreeItem() during a refresh.
+		// Eagerly update ancestor directory checkbox states by walking from each
+		// affected file up through its parent directories. With manageCheckboxStateManually,
+		// we must set directory states before refresh rather than relying solely on
+		// getTreeItem(), since VS Code may not apply checkboxState changes during a refresh.
 		const allAffected = [...checkedNodes, ...uncheckedNodes];
 		for (const node of allAffected) {
 			let parent = node.getParent();
