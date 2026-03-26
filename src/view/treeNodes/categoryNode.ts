@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { RemoteInfo } from '../../../common/types';
-import { AuthenticationError } from '../../common/authentication';
+import { AuthenticationError, AuthProvider } from '../../common/authentication';
 import { DEV_MODE, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { toQueryUri } from '../../common/uri';
@@ -299,15 +299,29 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			} catch (e) {
 				if (this.isCopilot && (e.response.status === 422) && e.message.includes('the users do not exist')) {
 					// Skip it, it's copilot and the repo doesn't have copilot
+				} else if (e.status === 404 || e.response?.status === 404) {
+					// 404 errors might indicate wrong account - this is handled in folderRepositoryManager
+					// but we catch it here to prevent duplicate error messages
+					needLogin = e instanceof AuthenticationError;
 				} else {
 					const error = formatError(e);
 					const actions: string[] = [];
 					if (error.includes('Bad credentials')) {
 						actions.push(vscode.l10n.t('Login again'));
+					} else if (e.status === 403 || e.response?.status === 403) {
+						// 403 forbidden - user might not have access with current account
+						// Check both GitHub.com and Enterprise providers since we might have repos from either
+						const isAuthenticatedGitHub = await this.folderRepoManager.credentialStore.isAuthenticatedForAccountPreferences(AuthProvider.github);
+						const isAuthenticatedEnterprise = await this.folderRepoManager.credentialStore.isAuthenticatedForAccountPreferences(AuthProvider.githubEnterprise);
+						if (isAuthenticatedGitHub || isAuthenticatedEnterprise) {
+							actions.push(vscode.l10n.t('Check Account Preferences'));
+						}
 					}
 					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
-						if (action && action === actions[0]) {
+						if (action === vscode.l10n.t('Login again')) {
 							this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+						} else if (action === vscode.l10n.t('Check Account Preferences')) {
+							vscode.commands.executeCommand('_account.manageAccountPreferences', 'GitHub.vscode-pull-request-github');
 						}
 					});
 					needLogin = e instanceof AuthenticationError;
