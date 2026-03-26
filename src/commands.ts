@@ -46,10 +46,12 @@ import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import {
 	FileChangeNode,
+	getPullRequestDiffViewState,
 	GitFileChangeNode,
 	InMemFileChangeNode,
 	openFileCommand,
 	RemoteFileChangeNode,
+	storePullRequestDiffViewState,
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
@@ -96,6 +98,32 @@ export async function openDescription(
 			"issue.openDescription" : {}
 		*/
 		telemetry.sendTelemetryEvent('issue.openDescription');
+	}
+}
+
+function cacheActivePullRequestDiffViewState(): void {
+	const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+	const editor = vscode.window.activeTextEditor;
+	if (!(input instanceof vscode.TabInputTextDiff) || !editor || editor.document.uri.toString() !== input.modified.toString()) {
+		return;
+	}
+
+	const visibleRange = editor.visibleRanges[0];
+	if (visibleRange) {
+		storePullRequestDiffViewState(input.original, input.modified, visibleRange);
+	}
+}
+
+function restoreActivePullRequestDiffViewState(): void {
+	const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+	const editor = vscode.window.activeTextEditor;
+	if (!(input instanceof vscode.TabInputTextDiff) || !editor || editor.document.uri.toString() !== input.modified.toString()) {
+		return;
+	}
+
+	const visibleRange = getPullRequestDiffViewState(input.original, input.modified);
+	if (visibleRange) {
+		editor.revealRange(visibleRange, vscode.TextEditorRevealType.AtTop);
 	}
 }
 
@@ -308,7 +336,10 @@ export function registerCommands(
 			if (!folderManager) {
 				return;
 			}
-			return fileChangeNode.openDiff(folderManager);
+			cacheActivePullRequestDiffViewState();
+			await fileChangeNode.openDiff(folderManager);
+			restoreActivePullRequestDiffViewState();
+			return;
 		} else if (fileChangeNode || vscode.window.activeTextEditor) {
 			const editor = fileChangeNode instanceof vscode.Uri ? vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === fileChangeNode.toString())! : vscode.window.activeTextEditor!;
 			const visibleRanges = editor.visibleRanges;
