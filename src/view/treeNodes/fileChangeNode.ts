@@ -15,6 +15,24 @@ import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRe
 import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
+const pullRequestDiffViewStates = new Map<string, vscode.Range>();
+
+export function getPullRequestDiffViewStateKey(original: vscode.Uri, modified: vscode.Uri): string {
+	return `${original.toString()}::${modified.toString()}`;
+}
+
+export function storePullRequestDiffViewState(original: vscode.Uri, modified: vscode.Uri, visibleRange: vscode.Range): void {
+	pullRequestDiffViewStates.set(getPullRequestDiffViewStateKey(original, modified), visibleRange);
+}
+
+export function getPullRequestDiffViewState(original: vscode.Uri, modified: vscode.Uri): vscode.Range | undefined {
+	return pullRequestDiffViewStates.get(getPullRequestDiffViewStateKey(original, modified));
+}
+
+export function clearPullRequestDiffViewStates(): void {
+	pullRequestDiffViewStates.clear();
+}
+
 export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentShowOptions = {}): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;
 	const opts = {
@@ -294,13 +312,11 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		if (this.status === GitChangeType.ADD) {
 			this.command = openFileCommand(this.changeModel.filePath);
 		} else {
-			this.command = await openDiffCommand(
-				this.folderRepositoryManager,
-				this.changeModel.parentFilePath,
-				this.changeModel.filePath,
-				undefined,
-				this.changeModel.status,
-			);
+			this.command = {
+				command: 'pr.openDiffView',
+				arguments: [this],
+				title: 'Open Changed File in pull request',
+			};
 		}
 	}
 }
@@ -408,13 +424,11 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		} else {
 			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
 			if (openDiff && this.status !== GitChangeType.ADD) {
-				this.command = await openDiffCommand(
-					this.pullRequestManager,
-					this.changeModel.parentFilePath,
-					this.changeModel.filePath,
-					this.opts,
-					this.status,
-				);
+				this.command = {
+					command: 'pr.openDiffView',
+					arguments: [this],
+					title: 'Open Changed File in pull request',
+				};
 			} else {
 				this.command = this.openFileCommand();
 			}
