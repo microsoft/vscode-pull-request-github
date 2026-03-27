@@ -74,6 +74,7 @@ export class WebviewBase extends Disposable {
 			seq: originalMessage.req,
 			res: message,
 		};
+		await this._waitForReady;
 		this._webview?.postMessage(reply);
 	}
 
@@ -82,6 +83,7 @@ export class WebviewBase extends Disposable {
 			seq: originalMessage?.req,
 			err: error,
 		};
+		await this._waitForReady;
 		this._webview?.postMessage(reply);
 	}
 }

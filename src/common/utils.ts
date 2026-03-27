@@ -1015,3 +1015,163 @@ export function truncate(value: string, maxLength: number, suffix = '...'): stri
 	}
 	return `${value.substr(0, maxLength)}${suffix}`;
 }
+
+/**
+ * Metadata extracted from code reference link data attributes.
+ * This interface defines the contract between the extension (which creates the attributes)
+ * and the webview (which reads them).
+ */
+export interface CodeReferenceLinkMetadata {
+	localFile: string;
+	startLine: number;
+	endLine: number;
+	linkType: 'blob' | 'diff';
+	href: string;
+}
+
+/**
+ * Extracts code reference link metadata from an anchor element's data attributes.
+ * Returns null if any required attributes are missing.
+ */
+export function extractCodeReferenceLinkMetadata(anchor: Element): CodeReferenceLinkMetadata | null {
+	const localFile = anchor.getAttribute('data-local-file');
+	const startLine = anchor.getAttribute('data-start-line');
+	const endLine = anchor.getAttribute('data-end-line');
+	const linkType = anchor.getAttribute('data-link-type');
+	const href = anchor.getAttribute('href');
+
+	if (!localFile || !startLine || !endLine || !linkType || !href) {
+		return null;
+	}
+
+	return {
+		localFile,
+		startLine: parseInt(startLine),
+		endLine: parseInt(endLine),
+		linkType: linkType as 'blob' | 'diff',
+		href
+	};
+}
+
+/**
+ * Process GitHub blob permalinks in HTML and add data attributes for local file handling.
+ * Finds blob permalinks (e.g., /blob/[sha]/file.ts#L10), checks if files exist locally,
+ * and adds data attributes to enable clicking to open local files.
+ * Supports links from any repository owner to work across forks.
+ *
+ * @param bodyHTML - The HTML content to process
+ * @param repoName - GitHub repository name
+ * @param authority - Git protocol URL authority (e.g., 'github.com')
+ * @param fileExistsCheck - Async function that checks if a file exists locally given its relative path
+ * @returns Promise resolving to processed HTML
+ */
+export async function processPermalinks(
+	bodyHTML: string,
+	repoName: string,
+	authority: string,
+	fileExistsCheck: (filePath: string) => Promise<boolean>
+): Promise<string> {
+	try {
+		const escapedRepoName = escapeRegExp(repoName);
+		const escapedAuthority = escapeRegExp(authority);
+
+		// Process blob permalinks (exclude already processed links)
+		// Allow any owner to support links across forks
+		const blobPattern = new RegExp(
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/[^\/]+\/${escapedRepoName}\/blob\/[0-9a-f]{40}\/(?<filePath>[^"#]+)#L(?<startLine>\\d+)(?:-L(?<endLine>\\d+))?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
+			'g'
+		);
+
+		return await stringReplaceAsync(bodyHTML, blobPattern, async (
+			fullMatch: string,
+			attributes: string,
+			filePath: string,
+			startLine: string,
+			endLine: string | undefined,
+			linkText: string
+		) => {
+			try {
+				// Extract the original URL from attributes
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
+				const originalUrl = hrefMatch ? hrefMatch[1] : '';
+
+				// Check if file exists locally
+				const exists = await fileExistsCheck(filePath);
+				if (exists) {
+					// File exists - add data attributes for local handling and "(view on GitHub)" suffix
+					const endLineValue = endLine || startLine;
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${filePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+				}
+			} catch (error) {
+				// File doesn't exist or check failed - keep original link
+			}
+			return fullMatch;
+		});
+	} catch (error) {
+		// Return original HTML if processing fails
+		return bodyHTML;
+	}
+}
+
+/**
+ * Process GitHub diff permalinks in HTML and add data attributes for local file handling.
+ * Finds diff permalinks (e.g., /pull/123/files#diff-[hash]R10), maps hashes to filenames,
+ * and adds data attributes to enable clicking to open diff views.
+ *
+ * @param bodyHTML - The HTML content to process
+ * @param repoOwner - GitHub repository owner
+ * @param repoName - GitHub repository name
+ * @param authority - Git protocol URL authority (e.g., 'github.com')
+ * @param hashMap - Map of diff hashes to file paths
+ * @param prNumber - Pull request number
+ * @returns Promise resolving to processed HTML
+ */
+export async function processDiffLinks(
+	bodyHTML: string,
+	repoOwner: string,
+	repoName: string,
+	authority: string,
+	hashMap: Record<string, string>,
+	prNumber: number
+): Promise<string> {
+	try {
+		const escapedRepoName = escapeRegExp(repoName);
+		const escapedRepoOwner = escapeRegExp(repoOwner);
+		const escapedAuthority = escapeRegExp(authority);
+
+		const diffPattern = new RegExp(
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/${escapedRepoOwner}\/${escapedRepoName}\/pull\/${prNumber}\/(?:files|changes)#diff-(?<diffHash>[a-f0-9]{64})(?:R(?<startLine>\\d+)(?:-R(?<endLine>\\d+))?)?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
+			'g'
+		);
+
+		return await stringReplaceAsync(bodyHTML, diffPattern, async (
+			fullMatch: string,
+			attributes: string,
+			diffHash: string,
+			startLine: string | undefined,
+			endLine: string | undefined,
+			linkText: string
+		) => {
+			try {
+				// Extract the original URL from attributes
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
+				const originalUrl = hrefMatch ? hrefMatch[1] : '';
+
+				// Look up filename from hash
+				const fileName = hashMap[diffHash];
+				if (fileName) {
+					// Hash found - add data attributes for diff handling and "(view on GitHub)" suffix
+					const startLineValue = startLine || '1';
+					const endLineValue = endLine || startLineValue;
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${fileName}" data-start-line="${startLineValue}" data-end-line="${endLineValue}" data-link-type="diff">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+				}
+			} catch (error) {
+				// Failed to process - keep original link
+			}
+			return fullMatch;
+		});
+	} catch (error) {
+		// Return original HTML if processing fails
+		return bodyHTML;
+	}
+}
