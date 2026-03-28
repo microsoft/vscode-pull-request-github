@@ -131,10 +131,14 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		return true;
 	}
 
-	private setCheckboxState(isChecked: boolean) {
+	public setCheckboxState(isChecked: boolean) {
 		this.checkboxState = isChecked ?
 			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark all files unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark all files in folder {0} as unviewed', this.label!) } } :
 			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark all files viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark all files in folder {0} as viewed', this.label!) } };
+	}
+
+	public updateCheckboxFromChildren(): void {
+		this.setCheckboxState(this.allChildrenViewed());
 	}
 
 	getTreeItem(): vscode.TreeItem {
