@@ -1444,9 +1444,9 @@ export class GitHubRepository extends Disposable {
 				}
 
 				ret.push(
-					...result.data.repository.mentionableUsers.nodes.map(node => {
+					...await Promise.all(result.data.repository.mentionableUsers.nodes.map(node => {
 						return parseAccount(node, this);
-					}),
+					})),
 				);
 
 				hasNextPage = result.data.repository.mentionableUsers.pageInfo.hasNextPage;
@@ -1471,7 +1471,7 @@ export class GitHubRepository extends Disposable {
 					login,
 				},
 			});
-			return parseGraphQLUser(data, this);
+			return await parseGraphQLUser(data, this);
 		} catch (e) {
 			// Ignore cases where the user doesn't exist
 			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {
@@ -1532,9 +1532,9 @@ export class GitHubRepository extends Disposable {
 				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
 
 				ret.push(
-					...(users?.nodes.map(node => {
+					...(await Promise.all(users?.nodes.map(node => {
 						return parseAccount(node, this);
-					}) || []),
+					}) || [])),
 				);
 
 				hasNextPage = users?.pageInfo.hasNextPage;
@@ -1630,9 +1630,9 @@ export class GitHubRepository extends Disposable {
 					},
 				});
 
-				result.data.organization.teams.nodes.forEach(node => {
+				for (const node of result.data.organization.teams.nodes) {
 					const team: ITeam = {
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
+						avatarUrl: await getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
 						name: node.name,
 						url: node.url,
 						slug: node.slug,
@@ -1640,7 +1640,7 @@ export class GitHubRepository extends Disposable {
 						org: remote.owner
 					};
 					orgTeams.push({ ...team, repositoryNames: node.repositories.nodes.map(repo => repo.name) });
-				});
+				}
 
 				hasNextPage = result.data.organization.teams.pageInfo.hasNextPage;
 				after = result.data.organization.teams.pageInfo.endCursor;
@@ -1685,9 +1685,9 @@ export class GitHubRepository extends Disposable {
 			}
 
 			ret.push(
-				...result.data.repository.pullRequest.participants.nodes.map(node => {
+				...await Promise.all(result.data.repository.pullRequest.participants.nodes.map(node => {
 					return parseAccount(node, this);
-				}),
+				})),
 			);
 		} catch (e) {
 			Logger.debug(`Unable to fetch participants from a PullRequest: ${e}`, this.id);
@@ -1781,7 +1781,7 @@ export class GitHubRepository extends Disposable {
 				statuses: []
 			};
 		} else {
-			const dedupedStatuses = this.deduplicateStatusChecks(statusCheckRollup.contexts.nodes.map(context => {
+			const dedupedStatuses = this.deduplicateStatusChecks(await Promise.all(statusCheckRollup.contexts.nodes.map(async context => {
 				if (isCheckRun(context)) {
 					return {
 						id: context.id,
@@ -1789,7 +1789,7 @@ export class GitHubRepository extends Disposable {
 						url: context.checkSuite?.app?.url,
 						avatarUrl:
 							context.checkSuite?.app?.logoUrl &&
-							getAvatarWithEnterpriseFallback(
+							await getAvatarWithEnterpriseFallback(
 								context.checkSuite.app.logoUrl,
 								undefined,
 								this.remote.isEnterprise,
@@ -1809,7 +1809,7 @@ export class GitHubRepository extends Disposable {
 						databaseId: undefined,
 						url: context.targetUrl ?? undefined,
 						avatarUrl: context.avatarUrl
-							? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
+							? await getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
 							: undefined,
 						state: this.mapStateAsCheckState(context.state),
 						description: context.description,
@@ -1821,7 +1821,7 @@ export class GitHubRepository extends Disposable {
 						isCheckRun: false,
 					};
 				}
-			}));
+			})));
 
 			checks = {
 				state: this.computeOverallCheckState(dedupedStatuses),
