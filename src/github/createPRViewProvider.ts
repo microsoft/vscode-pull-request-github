@@ -1161,19 +1161,14 @@ Don't forget to commit your template file to the repository so that it can be us
 				const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
 				quickPick.activeItems = activeItem ? [activeItem] : [];
 			}
-			await updateItems(githubRepository, undefined);
-		} else {
-			quickPick.items = await this.remotePicks(isBase);
 		}
-		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
-		quickPick.activeItems = activeItem ? [activeItem] : [];
-		quickPick.busy = false;
+		// Register event handlers before awaiting async operations to avoid missing early user interactions
 		const remoteAndBranch: Promise<{ remote: RemoteInfo, branch: string } | undefined> = new Promise((resolve) => {
 			quickPick.onDidAccept(async () => {
-				if (quickPick.selectedItems.length === 0) {
+				const selectedPick = quickPick.selectedItems[0] ?? quickPick.activeItems[0];
+				if (!selectedPick) {
 					return;
 				}
-				const selectedPick = quickPick.selectedItems[0];
 				if (selectedPick.label === chooseDifferentRemote) {
 					quickPick.busy = true;
 					quickPick.items = await this.remotePicks(isBase);
@@ -1194,6 +1189,14 @@ Don't forget to commit your template file to the repository so that it can be us
 			});
 		});
 		const hidePromise = new Promise<void>((resolve) => quickPick.onDidHide(() => resolve()));
+		if (githubRepository) {
+			await updateItems(githubRepository, undefined);
+		} else {
+			quickPick.items = await this.remotePicks(isBase);
+		}
+		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
+		quickPick.activeItems = activeItem ? [activeItem] : [];
+		quickPick.busy = false;
 		const result = await Promise.race([remoteAndBranch, hidePromise]);
 		if (!result || !githubRepository) {
 			quickPick.hide();
