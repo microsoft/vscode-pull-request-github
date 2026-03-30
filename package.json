@@ -3800,6 +3800,9 @@
 			},
 			{
 				"path": "./src/lm/skills/address-pr-comments/SKILL.md"
+			},
+			{
+				"path": "./src/lm/skills/create-pull-request/SKILL.md"
 			}
 		],
 		"languageModelTools": [
@@ -4038,6 +4041,67 @@
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_openPullRequest.description%",
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_create_pull_request",
+				"tags": [
+					"github",
+					"pull request"
+				],
+				"toolReferenceName": "create_pull_request",
+				"displayName": "%languageModelTools.github-pull-request_create_pull_request.displayName%",
+				"userDescription": "%languageModelTools.github-pull-request_create_pull_request.description%",
+				"modelDescription": "Create a new GitHub pull request. Requires a title and head branch. The base branch and repo default to the repository defaults. Returns the created pull request number, URL, and details.",
+				"icon": "$(git-pull-request-new)",
+				"canBeReferencedInPrompt": true,
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to create the pull request in.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository."
+								}
+							}
+						},
+						"title": {
+							"type": "string",
+							"description": "The title of the pull request."
+						},
+						"body": {
+							"type": "string",
+							"description": "The body/description of the pull request."
+						},
+						"head": {
+							"type": "string",
+							"description": "The name of the branch where your changes are implemented."
+						},
+						"headOwner": {
+							"type": "string",
+							"description": "The owner of the head branch repository. Defaults to the upstream repository owner."
+						},
+						"base": {
+							"type": "string",
+							"description": "The name of the branch you want the changes pulled into. Defaults to the repository's default branch."
+						},
+						"draft": {
+							"type": "boolean",
+							"description": "Indicates whether the pull request is a draft."
+						}
+					},
+					"required": [
+						"title",
+						"head"
+					]
+				},
 				"when": "config.githubPullRequests.experimental.chat"
 			}
 		]

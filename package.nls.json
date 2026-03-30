@@ -445,5 +445,7 @@
 	"languageModelTools.github-pull-request_pullRequestStatusChecks.displayName": "Pull Request Status Checks",
 	"languageModelTools.github-pull-request_pullRequestStatusChecks.description": "Get the status checks and CI results for a GitHub pull request.",
 	"languageModelTools.github-pull-request_openPullRequest.displayName": "Open Pull Request",
-	"languageModelTools.github-pull-request_openPullRequest.description": "Get information about the open GitHub pull request. This information includes: comments, files changed, pull request title + description, and pull request state."
+	"languageModelTools.github-pull-request_openPullRequest.description": "Get information about the open GitHub pull request. This information includes: comments, files changed, pull request title + description, and pull request state.",
+	"languageModelTools.github-pull-request_create_pull_request.displayName": "Create a GitHub pull request",
+	"languageModelTools.github-pull-request_create_pull_request.description": "Create a new GitHub pull request with a title, head branch, and optional body, base branch, and draft flag."
 }

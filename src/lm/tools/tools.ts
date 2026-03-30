@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { ActivePullRequestTool } from './activePullRequestTool';
+import { CreatePullRequestTool } from './createPullRequestTool';
 import { FetchIssueTool } from './fetchIssueTool';
 import { FetchLabelsTool } from './fetchLabelsTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
@@ -21,6 +22,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(PullRequestStatusChecksTool.toolId, new PullRequestStatusChecksTool(credentialStore, repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool(CreatePullRequestTool.toolId, new CreatePullRequestTool(credentialStore, repositoriesManager)));
 }
 
 function registerFetchingTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
