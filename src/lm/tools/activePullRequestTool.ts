@@ -86,14 +86,6 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 					})),
 				};
 			}),
-			comments: pullRequest.comments.map(comment => {
-				return {
-					author: comment.user?.login,
-					body: comment.body,
-					commentState: comment.isResolved ? 'resolved' : 'unresolved',
-					file: comment.path
-				};
-			}),
 			timelineComments: reviewAndCommentEvents.map(event => {
 				return {
 					author: event.user?.login,
