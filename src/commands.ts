@@ -1850,10 +1850,15 @@ ${contents}
 			const commentThread = isThread ? comment : comment.parent;
 			const firstComment = isThread ? comment.comments[0] : comment;
 			commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-			const commentBody = firstComment instanceof GHPRComment ? firstComment.rawComment.body
-				: (firstComment.body instanceof vscode.MarkdownString ? firstComment.body.value : firstComment.body);
-
-			const filePath = firstComment instanceof GHPRComment ? firstComment.rawComment.path : undefined;
+			let commentBody: string;
+			let filePath: string | undefined;
+			if (firstComment instanceof GHPRComment) {
+				commentBody = firstComment.rawComment.body;
+				filePath = firstComment.rawComment.path;
+			} else {
+				commentBody = firstComment.body instanceof vscode.MarkdownString ? firstComment.body.value : firstComment.body;
+				filePath = undefined;
+			}
 			const range = commentThread.range;
 			let message: string;
 			if (filePath && range) {
