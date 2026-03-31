@@ -44,7 +44,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.132.2",
+	"version": "0.134.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.110.0"
