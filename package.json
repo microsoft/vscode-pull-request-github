@@ -4039,6 +4039,33 @@
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_openPullRequest.description%",
 				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_resolveReviewThread",
+				"tags": [
+					"github",
+					"pull request",
+					"review"
+				],
+				"toolReferenceName": "resolveReviewThread",
+				"displayName": "%languageModelTools.github-pull-request_resolveReviewThread.displayName%",
+				"modelDescription": "Resolve a review thread on the active GitHub pull request. Use the threadId from the reviewThreads array returned by the activePullRequest tool. Only resolves threads where canResolve is true and isResolved is false.",
+				"icon": "$(pass)",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "%languageModelTools.github-pull-request_resolveReviewThread.description%",
+				"when": "config.githubPullRequests.experimental.chat",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"threadId": {
+							"type": "string",
+							"description": "The GraphQL node ID of the review thread to resolve. Obtain this from the id field in the reviewThreads array of the activePullRequest tool output."
+						}
+					},
+					"required": [
+						"threadId"
+					]
+				}
 			}
 		]
 	},

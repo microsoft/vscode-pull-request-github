@@ -30,10 +30,10 @@ Call the `github-pull-request_activePullRequest` tool.
 
 From the tool result, collect all feedback that needs action:
 
-- **`comments`** array: inline review thread comments where `commentState` is `"unresolved"`
+- **`reviewThreads`** array: inline review thread objects with an `id`, `isResolved` flag, `canResolve` flag, `file` path, and nested `comments`. Focus on threads where `isResolved` is `false`.
 - **`timelineComments`** array: general PR comments and reviews where `commentType` is `"CHANGES_REQUESTED"` or `"COMMENTED"`
 
-Group related comments by file (`file` field) to handle them efficiently.
+Group related threads by file (`file` field) to handle them efficiently.
 
 ### 3. Plan Changes
 
@@ -54,10 +54,17 @@ Work through the grouped comments file by file:
 ### 5. Verify
 
 After all changes are made:
-- Review that each originally unresolved comment has a corresponding code change or a note about why no code change was needed.
+- Review that each originally unresolved thread has a corresponding code change or a note about why no code change was needed.
 - Ensure no unrelated code was modified
 
-### 6. Summarize
+### 6. Resolve Threads
+
+For each thread that was addressed (either by a code change or by a deliberate decision not to change):
+- Call `github-pull-request_resolveReviewThread` with the `id` from the `reviewThreads` array.
+- Only resolve threads where `canResolve` is `true`.
+- Skip threads that are already resolved (`isResolved: true`) or where `canResolve` is `false`.
+
+### 7. Summarize
 
 Provide a concise summary of:
 - Which comments were addressed and what changes were made
