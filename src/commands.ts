@@ -1850,8 +1850,29 @@ ${contents}
 			const commentThread = isThread ? comment : comment.parent;
 			const firstComment = isThread ? comment.comments[0] : comment;
 			commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-			const message = firstComment instanceof GHPRComment ? firstComment.rawComment.body
-				: (firstComment.body instanceof vscode.MarkdownString ? firstComment.body.value : firstComment.body);
+			let commentBody: string;
+			let filePath: string | undefined;
+			if (firstComment instanceof GHPRComment) {
+				commentBody = firstComment.rawComment.body;
+				filePath = firstComment.rawComment.path;
+			} else {
+				commentBody = firstComment.body instanceof vscode.MarkdownString ? firstComment.body.value : firstComment.body;
+				filePath = undefined;
+			}
+			const range = commentThread.range;
+			let message: string;
+			if (filePath && range) {
+				const startLine = range.start.line + 1;
+				const endLine = range.end.line + 1;
+				const lineRef = startLine === endLine
+					? vscode.l10n.t('line {0}', startLine)
+					: vscode.l10n.t('lines {0}-{1}', startLine, endLine);
+				message = vscode.l10n.t('There is a code review comment for file {0} at {1}:\n{2}', filePath, lineRef, commentBody);
+			} else if (filePath) {
+				message = vscode.l10n.t('There is a code review comment for file {0}:\n{1}', filePath, commentBody);
+			} else {
+				message = commentBody;
+			}
 
 			if (isThread) {
 				// For threads, open the Chat view instead of inline chat
