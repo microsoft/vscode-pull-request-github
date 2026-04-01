@@ -118,7 +118,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		node.addPathRecc(tail, file);
 	}
 
-	public allChildrenViewed(): boolean {
+	private allChildrenViewed(): boolean {
 		for (const child of this._children) {
 			if (child instanceof DirectoryTreeNode) {
 				if (!child.allChildrenViewed()) {
@@ -137,8 +137,12 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark all files viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark all files in folder {0} as viewed', this.label!) } };
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	public updateCheckboxFromChildren(): void {
 		this.setCheckboxState(this.allChildrenViewed());
+	}
+
+	getTreeItem(): vscode.TreeItem {
+		this.updateCheckboxFromChildren();
 		return this;
 	}
 }
