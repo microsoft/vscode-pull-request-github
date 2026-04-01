@@ -255,7 +255,7 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 			await (sm as any).setIssueData(mockFolderManager);
 
 			// The event should fire at least twice: once from setIssues (per-query) and once from setIssueData (final)
-			assert.ok(changeEventCount >= 2, `onDidChangeIssueData should fire at least twice, but fired ${changeEventCount} times`);
+			assert.strictEqual(changeEventCount, 2, `onDidChangeIssueData should fire exactly twice for a single query, but fired ${changeEventCount} times`);
 		} finally {
 			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}

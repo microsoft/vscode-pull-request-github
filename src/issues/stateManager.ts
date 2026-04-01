@@ -356,7 +356,9 @@ export class StateManager {
 				issueItem.uri = folderManager.repository.rootUri;
 				return issueItem;
 			});
-		} catch (e) {
+		} catch {
+			// Errors from fetching issues are expected (e.g. network failures).
+			// Return undefined so the tree shows an empty state for this query.
 			return undefined;
 		} finally {
 			this._onDidChangeIssueData.fire();
