@@ -125,6 +125,7 @@ export class PullRequestGitHelper {
 			// Make sure we aren't already on this branch
 			if (repository.state.HEAD?.name === branch.name) {
 				Logger.appendLine(`Tried to checkout ${localBranchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
+				await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 				return;
 			}
 
