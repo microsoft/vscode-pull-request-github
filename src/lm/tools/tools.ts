@@ -12,6 +12,7 @@ import { FetchLabelsTool } from './fetchLabelsTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
 import { OpenPullRequestTool } from './openPullRequestTool';
 import { PullRequestStatusChecksTool } from './pullRequestStatusChecksTool';
+import { ResolveReviewThreadTool } from './resolveReviewThreadTool';
 import { SearchTool } from './searchTools';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -23,6 +24,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(PullRequestStatusChecksTool.toolId, new PullRequestStatusChecksTool(credentialStore, repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(CreatePullRequestTool.toolId, new CreatePullRequestTool(credentialStore, repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool(ResolveReviewThreadTool.toolId, new ResolveReviewThreadTool(repositoriesManager)));
 }
 
 function registerFetchingTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {

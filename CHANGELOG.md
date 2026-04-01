@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.134.0
+
+### Changes
+
+- Branch names in the create PR view are now cached for faster target branch loading.
+- GitHub permalink links in PR and issue overview webviews now open the corresponding local file when the file exists in the workspace.
+
+### Fixes
+
+- Selecting a target branch when creating a PR is sometimes broken. https://github.com/microsoft/vscode-pull-request-github/issues/8627
+- "Apply suggestion using AI" for code comment reviews results in a redundant disclaimer suffix. https://github.com/microsoft/vscode-pull-request-github/issues/8605
+
+**_Thank You_**
+
+* [@Daniel-Aaron-Bloom](https://github.com/Daniel-Aaron-Bloom): Link to local file for permalinks in webview [PR #8583](https://github.com/microsoft/vscode-pull-request-github/pull/8583)
+
 ## 0.132.2
 
 ### Fixes

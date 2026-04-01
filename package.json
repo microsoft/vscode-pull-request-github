@@ -44,7 +44,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.132.2",
+	"version": "0.134.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.110.0"
@@ -4103,6 +4103,33 @@
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_resolveReviewThread",
+				"tags": [
+					"github",
+					"pull request",
+					"review"
+				],
+				"toolReferenceName": "resolveReviewThread",
+				"displayName": "%languageModelTools.github-pull-request_resolveReviewThread.displayName%",
+				"modelDescription": "Resolve a review thread on the active GitHub pull request. Use the threadId from the reviewThreads array returned by the activePullRequest tool. Only resolves threads where canResolve is true and isResolved is false.",
+				"icon": "$(pass)",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "%languageModelTools.github-pull-request_resolveReviewThread.description%",
+				"when": "config.githubPullRequests.experimental.chat",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"threadId": {
+							"type": "string",
+							"description": "The GraphQL node ID of the review thread to resolve. Obtain this from the id field in the reviewThreads array of the activePullRequest tool output."
+						}
+					},
+					"required": [
+						"threadId"
+					]
+				}
 			}
 		]
 	},
@@ -4240,7 +4267,7 @@
 	"overrides": {
 		"mocha": {
 			"diff": "7.0.0",
-			"serialize-javascript": "6.0.1"
+			"serialize-javascript": "7.0.5"
 		},
 		"elliptic": "6.6.1"
 	},

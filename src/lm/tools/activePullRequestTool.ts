@@ -74,12 +74,16 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 			body: pullRequest.body,
 			author: pullRequest.author,
 			assignees: pullRequest.assignees,
-			comments: pullRequest.comments.map(comment => {
+			reviewThreads: pullRequest.reviewThreadsCache.map(thread => {
 				return {
-					author: comment.user?.login,
-					body: comment.body,
-					commentState: comment.isResolved ? 'resolved' : 'unresolved',
-					file: comment.path
+					id: thread.id,
+					isResolved: thread.isResolved,
+					canResolve: thread.viewerCanResolve,
+					file: thread.path,
+					comments: thread.comments.map(c => ({
+						author: c.user?.login,
+						body: c.body,
+					})),
 				};
 			}),
 			timelineComments: reviewAndCommentEvents.map(event => {

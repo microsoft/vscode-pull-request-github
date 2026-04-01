@@ -1136,13 +1136,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.canSelectMany = false;
 			quickPick.placeholder = vscode.l10n.t('Select a new base branch');
 			quickPick.show();
+			// Register event handlers before awaiting async operations to avoid missing early user interactions
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return (quickPick.selectedItems[0] ?? quickPick.activeItems[0])?.branch;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			await updateItems(undefined);
 
 			quickPick.busy = false;
-			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick.selectedItems[0]?.branch;
-			});
-			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			const selectedBranch = await Promise.race<string | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 			quickPick.enabled = false;
