@@ -32,8 +32,8 @@ function createMockParent(): TreeNodeParent {
 }
 
 describe('DirectoryTreeNode', function () {
-	describe('allChildrenViewed', function () {
-		it('returns true when all file children are checked', function () {
+	describe('allChildrenViewed (via updateCheckboxFromChildren)', function () {
+		it('sets Checked when all file children are checked', function () {
 			const dirNode = new DirectoryTreeNode(createMockParent(), 'src');
 
 			const file1 = new MockFileNode(dirNode);
@@ -43,10 +43,11 @@ describe('DirectoryTreeNode', function () {
 
 			(dirNode._children as any[]).push(file1, file2);
 
-			assert.strictEqual(dirNode.allChildrenViewed(), true);
+			dirNode.updateCheckboxFromChildren();
+			assert.strictEqual(dirNode.checkboxState?.state, vscode.TreeItemCheckboxState.Checked);
 		});
 
-		it('returns false when some file children are unchecked', function () {
+		it('sets Unchecked when some file children are unchecked', function () {
 			const dirNode = new DirectoryTreeNode(createMockParent(), 'src');
 
 			const file1 = new MockFileNode(dirNode);
@@ -56,10 +57,11 @@ describe('DirectoryTreeNode', function () {
 
 			(dirNode._children as any[]).push(file1, file2);
 
-			assert.strictEqual(dirNode.allChildrenViewed(), false);
+			dirNode.updateCheckboxFromChildren();
+			assert.strictEqual(dirNode.checkboxState?.state, vscode.TreeItemCheckboxState.Unchecked);
 		});
 
-		it('returns false when a file child has no checkboxState', function () {
+		it('sets Unchecked when a file child has no checkboxState', function () {
 			const dirNode = new DirectoryTreeNode(createMockParent(), 'src');
 
 			const file1 = new MockFileNode(dirNode);
@@ -69,10 +71,11 @@ describe('DirectoryTreeNode', function () {
 
 			(dirNode._children as any[]).push(file1, file2);
 
-			assert.strictEqual(dirNode.allChildrenViewed(), false);
+			dirNode.updateCheckboxFromChildren();
+			assert.strictEqual(dirNode.checkboxState?.state, vscode.TreeItemCheckboxState.Unchecked);
 		});
 
-		it('returns true when nested directories have all children checked', function () {
+		it('sets Checked when nested directories have all children checked', function () {
 			const parentDir = new DirectoryTreeNode(createMockParent(), 'src');
 			const childDir = new DirectoryTreeNode(parentDir, 'utils');
 
@@ -82,10 +85,12 @@ describe('DirectoryTreeNode', function () {
 			(childDir._children as any[]).push(file1);
 			parentDir._children.push(childDir);
 
-			assert.strictEqual(parentDir.allChildrenViewed(), true);
+			childDir.updateCheckboxFromChildren();
+			parentDir.updateCheckboxFromChildren();
+			assert.strictEqual(parentDir.checkboxState?.state, vscode.TreeItemCheckboxState.Checked);
 		});
 
-		it('returns false when nested directories have unchecked children', function () {
+		it('sets Unchecked when nested directories have unchecked children', function () {
 			const parentDir = new DirectoryTreeNode(createMockParent(), 'src');
 			const childDir = new DirectoryTreeNode(parentDir, 'utils');
 
@@ -95,12 +100,15 @@ describe('DirectoryTreeNode', function () {
 			(childDir._children as any[]).push(file1);
 			parentDir._children.push(childDir);
 
-			assert.strictEqual(parentDir.allChildrenViewed(), false);
+			childDir.updateCheckboxFromChildren();
+			parentDir.updateCheckboxFromChildren();
+			assert.strictEqual(parentDir.checkboxState?.state, vscode.TreeItemCheckboxState.Unchecked);
 		});
 
-		it('returns true when empty directory has no children', function () {
+		it('sets Checked when empty directory has no children', function () {
 			const dirNode = new DirectoryTreeNode(createMockParent(), 'empty');
-			assert.strictEqual(dirNode.allChildrenViewed(), true);
+			dirNode.updateCheckboxFromChildren();
+			assert.strictEqual(dirNode.checkboxState?.state, vscode.TreeItemCheckboxState.Checked);
 		});
 	});
 

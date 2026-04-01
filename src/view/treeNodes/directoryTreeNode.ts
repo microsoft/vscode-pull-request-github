@@ -118,7 +118,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		node.addPathRecc(tail, file);
 	}
 
-	public allChildrenViewed(): boolean {
+	private allChildrenViewed(): boolean {
 		for (const child of this._children) {
 			if (child instanceof DirectoryTreeNode) {
 				if (!child.allChildrenViewed()) {
@@ -142,7 +142,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		this.setCheckboxState(this.allChildrenViewed());
+		this.updateCheckboxFromChildren();
 		return this;
 	}
 }
