@@ -809,11 +809,12 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			}
 
 			// Set description
-			if (pullRequestTemplate && lastCommit?.body) {
+			// Match GitHub.com behavior: only use the commit body when there is a single commit.
+			if (pullRequestTemplate && lastCommit?.body && !useBranchName) {
 				description = `${lastCommit.body}\n\n${pullRequestTemplate}`;
 			} else if (pullRequestTemplate) {
 				description = pullRequestTemplate;
-			} else if (lastCommit?.body && (this._pullRequestDefaults.base !== compareBranch.name)) {
+			} else if (lastCommit?.body && !useBranchName && (this._pullRequestDefaults.base !== compareBranch.name)) {
 				description = lastCommit.body;
 			}
 
