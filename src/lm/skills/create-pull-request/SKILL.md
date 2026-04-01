@@ -75,7 +75,7 @@ github-pull-request_create_pull_request({
 
 After the tool returns successfully:
 
-- Report the PR number and URL to the user as a markdown link. The link should be a VS Code URI like `vscode-insiders://github.vscode-pull-request-github/open-pull-request-webview?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460`.
+- Report the PR number and URL to the user as a markdown link. The link should be a VS Code URI like `vscode-insiders://github.vscode-pull-request-github/open-pull-request-webview?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460` or `vscode://github.vscode-pull-request-github/open-pull-request-webview?uri=https://github.com/microsoft/vscode-css-languageservice/pull/460`.
 - Mention the base branch the PR targets.
 - If the PR was created as a draft, remind the user to mark it ready for review when appropriate.
 

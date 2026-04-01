@@ -4082,11 +4082,11 @@
 						},
 						"head": {
 							"type": "string",
-							"description": "The name of the branch where your changes are implemented."
+							"description": "The name of the branch where your changes are implemented (branch name only, without owner prefix)."
 						},
 						"headOwner": {
 							"type": "string",
-							"description": "The owner of the head branch repository. Defaults to the upstream repository owner."
+							"description": "The owner of the head branch repository. Defaults to the origin/push remote repository owner."
 						},
 						"base": {
 							"type": "string",
