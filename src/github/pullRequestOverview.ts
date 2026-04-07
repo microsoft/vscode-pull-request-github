@@ -471,6 +471,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		switch (message.command) {
 			case 'pr.checkout':
 				return this.checkoutPullRequest(message);
+			case 'pr.checkout-in-worktree':
+				return this.checkoutPullRequestInWorktree(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
 			case 'pr.change-email':
@@ -742,6 +744,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			() => {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
+			},
+		);
+	}
+
+	private checkoutPullRequestInWorktree(message: IRequestMessage<any>): void {
+		vscode.commands.executeCommand('pr.pickInWorktree', this._item).then(
+			() => {
+				this._replyMessage(message, {});
+			},
+			() => {
+				this._replyMessage(message, {});
 			},
 		);
 	}

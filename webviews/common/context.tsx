@@ -34,6 +34,8 @@ export class PRContext {
 
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
+	public checkoutInWorktree = () => this.postMessage({ command: 'pr.checkout-in-worktree' });
+
 	public openChanges = (openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { openToTheSide } });
 
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });

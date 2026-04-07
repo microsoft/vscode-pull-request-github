@@ -826,8 +826,8 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | unknown) => {
-			if (pr === undefined || !(pr instanceof PRNode)) {
+		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | PullRequestModel | unknown) => {
+			if (pr === undefined) {
 				Logger.error('Unexpectedly received undefined when picking a PR for worktree checkout.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
@@ -835,8 +835,15 @@ export function registerCommands(
 			let pullRequestModel: PullRequestModel;
 			let repository: Repository | undefined;
 
-			pullRequestModel = pr.pullRequestModel;
-			repository = pr.repository;
+			if (pr instanceof PRNode) {
+				pullRequestModel = pr.pullRequestModel;
+				repository = pr.repository;
+			} else if (pr instanceof PullRequestModel) {
+				pullRequestModel = pr;
+			} else {
+				Logger.error('Unexpectedly received unknown type when picking a PR for worktree checkout.', logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
 
 			// Validate that the PR has a valid head branch
 			if (!pullRequestModel.head) {
