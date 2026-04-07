@@ -27,6 +27,7 @@
 	"githubPullRequests.codingAgent.autoCommitAndPush.description": "Allow automatic git operations (commit, push) to be performed when starting a coding agent session.",
 	"githubPullRequests.codingAgent.promptForConfirmation.description": "Prompt for confirmation before initiating a coding agent session from the UI integration.",
 	"githubPullRequests.remotes.markdownDescription": "List of remotes, by name, to fetch pull requests from.",
+	"githubPullRequests.customEnterpriseUri.markdownDescription": "Custom GitHub Enterprise server URL for this extension only. By default, GitHub Pull Requests and Issues uses `github-enterprise.uri`. Set this only when this extension should authenticate against a different enterprise server than the generic GitHub Enterprise setting used elsewhere in VS Code.",
 	"githubPullRequests.autoRepositoryDetection.markdownDescription": "Controls which repositories are automatically detected and opened by the extension.",
 	"githubPullRequests.autoRepositoryDetection.workspace": "Only detect repositories within the current workspace folders.",
 	"githubPullRequests.autoRepositoryDetection.true": "Detect all repositories found by the Git extension, including those outside workspace folders.",
@@ -257,6 +258,8 @@
 	"command.pr.deleteLocalBranch.title": "Delete Local Branch",
 	"command.pr.signin.title": "Sign in to GitHub",
 	"command.pr.signinenterprise.title": "Sign in to GitHub Enterprise",
+	"command.pr.signinCustomEnterprise.title": "Sign in to Custom GitHub Enterprise",
+	"command.pr.clearEnterpriseToken.title": "Clear GitHub Enterprise Token",
 	"command.pr.deleteLocalBranchesNRemotes.title": "Delete local branches and remotes",
 	"command.pr.createComment.title": "Add Review Comment",
 	"command.pr.createSingleComment.title": "Add Comment",
@@ -392,6 +395,13 @@
 		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:pr.signinenterprise)'}"
+		]
+	},
+	"welcome.github.loginWithCustomEnterprise.contents": {
+		"message": "[Sign in with Custom GitHub Enterprise](command:pr.signinCustomEnterprise)",
+		"comment": [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:pr.signinCustomEnterprise)'}"
 		]
 	},
 	"welcome.pr.github.uninitialized.contents": "Loading...",

@@ -38,6 +38,8 @@ There are several settings that can be used to configure the extension.
 
 As mentioned above, `githubPullRequests.remotes` is used to specify what remotes the extension should try to fetch pull requests from.
 
+By default, GitHub Enterprise authentication uses the generic VS Code setting `github-enterprise.uri`. If this extension needs to connect to a different GitHub Enterprise host than the rest of VS Code, set `githubPullRequests.customEnterpriseUri` to that server URL. This is intended for split-host setups such as using one enterprise host for Copilot or other GitHub integrations and a different enterprise host for Pull Requests and Issues.
+
 To customize the pull request tree, you can use the `githubPullRequests.queries` setting. This setting is a list of labels and search queries which populate the categories of the tree. By default, these queries are "Waiting For My Review", "Assigned To Me", and "Created By Me". An example of adding a "Mentioned Me" category is to change the setting to the following:
 
 ```

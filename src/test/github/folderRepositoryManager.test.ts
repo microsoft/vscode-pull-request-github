@@ -20,7 +20,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
-import { GitHubServerType } from '../../common/authentication';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -66,6 +66,23 @@ describe('PullRequestManager', function () {
 			manager.activePullRequest = pr;
 			assert(changeFired.called);
 			assert.deepStrictEqual(manager.activePullRequest, pr);
+		});
+	});
+
+	describe('authentication updates', function () {
+		it('refreshes repositories when authentication sessions change after initialization', async function () {
+			const updateRepositoriesStub = sinon.stub(manager, 'updateRepositories').resolves(true);
+
+			(manager.credentialStore as any)._onDidChangeSessions.fire({
+				provider: {
+					id: AuthProvider.githubEnterprise,
+					label: 'GitHub Enterprise',
+				},
+			});
+
+			await Promise.resolve();
+
+			assert.strictEqual(updateRepositoriesStub.calledOnce, true);
 		});
 	});
 });

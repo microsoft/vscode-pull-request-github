@@ -17,6 +17,14 @@ export class GitHubManager {
 	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com').add('codeberg.org');
 	private _knownServers: Map<string, GitHubServerType> = new Map([...Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]), ...Array.from(GitHubManager._gheServers.keys()).map(key => [key, GitHubServerType.Enterprise])] as [string, GitHubServerType][]);
 
+	public clearServerCache(authority?: string): void {
+		if (!authority) {
+			return;
+		}
+
+		this._knownServers.delete(authority.toLowerCase());
+	}
+
 	public static isGithubDotCom(host: string): boolean {
 		return this._githubDotComServers.has(host);
 	}

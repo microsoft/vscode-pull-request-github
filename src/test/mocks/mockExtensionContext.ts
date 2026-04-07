@@ -11,25 +11,33 @@ import { InMemoryMemento } from './inMemoryMemento';
 
 export class MockExtensionContext implements ExtensionContext {
 	extensionPath: string;
+	private readonly _secretStorage = new Map<string, string>();
+	private readonly _secretStorageChanged = new EventEmitter<SecretStorageChangeEvent>();
 
 	workspaceState = new InMemoryMemento();
 	globalState = new InMemoryMemento();
 	secrets = new (class implements SecretStorage {
+		constructor(private readonly storage: Map<string, string>, private readonly eventEmitter: EventEmitter<SecretStorageChangeEvent>) { }
+
 		get(key: string): Thenable<string | undefined> {
-			throw new Error('Method not implemented.');
+			return Promise.resolve(this.storage.get(key));
 		}
 		store(key: string, value: string): Thenable<void> {
-			throw new Error('Method not implemented.');
+			this.storage.set(key, value);
+			this.eventEmitter.fire({ key });
+			return Promise.resolve();
 		}
 		keys(): Thenable<string[]> {
-			throw new Error('Method not implemented.');
+			return Promise.resolve([...this.storage.keys()]);
 		}
 		delete(key: string): Thenable<void> {
-			throw new Error('Method not implemented.');
+			this.storage.delete(key);
+			this.eventEmitter.fire({ key });
+			return Promise.resolve();
 		}
 
-		onDidChange!: Event<SecretStorageChangeEvent>;
-	})();
+		onDidChange: Event<SecretStorageChangeEvent>;
+	})(this._secretStorage, this._secretStorageChanged);
 	subscriptions: { dispose(): any }[] = [];
 
 	storagePath: string;
@@ -65,6 +73,7 @@ export class MockExtensionContext implements ExtensionContext {
 		this.globalStorageUri = Uri.file(this.globalStoragePath);
 		this.logPath = temp.mkdirSync('log-path');
 		this.logUri = Uri.file(this.logPath);
+		this.secrets.onDidChange = this._secretStorageChanged.event;
 	}
 
 	asAbsolutePath(relativePath: string): string {

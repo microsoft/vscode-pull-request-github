@@ -183,6 +183,11 @@
 					},
 					"markdownDescription": "%githubPullRequests.remotes.markdownDescription%"
 				},
+				"githubPullRequests.customEnterpriseUri": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "%githubPullRequests.customEnterpriseUri.markdownDescription%"
+				},
 				"githubPullRequests.autoRepositoryDetection": {
 					"markdownDescription": "%githubPullRequests.autoRepositoryDetection.markdownDescription%",
 					"default": "workspace",
@@ -1214,6 +1219,16 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.signinCustomEnterprise",
+				"title": "%command.pr.signinCustomEnterprise.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.clearEnterpriseToken",
+				"title": "%command.pr.clearEnterpriseToken.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.deleteLocalBranchesNRemotes",
 				"title": "%command.pr.deleteLocalBranchesNRemotes.title%",
 				"category": "%command.pull.request.category%"
@@ -1931,7 +1946,12 @@
 			},
 			{
 				"view": "github:login",
-				"when": "(ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)",
+				"when": "(ReposManagerStateContext == NeedsAuthentication) && config.githubPullRequests.customEnterpriseUri",
+				"contents": "%welcome.github.loginWithCustomEnterprise.contents%"
+			},
+			{
+				"view": "github:login",
+				"when": "(ReposManagerStateContext == NeedsAuthentication) && !config.githubPullRequests.customEnterpriseUri && (((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri))",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
@@ -2321,6 +2341,14 @@
 				{
 					"command": "pr.signinenterprise",
 					"when": "gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+				},
+				{
+					"command": "pr.signinCustomEnterprise",
+					"when": "config.githubPullRequests.customEnterpriseUri"
+				},
+				{
+					"command": "pr.clearEnterpriseToken",
+					"when": "config.githubPullRequests.customEnterpriseUri"
 				},
 				{
 					"command": "pr.signinAndRefreshList",

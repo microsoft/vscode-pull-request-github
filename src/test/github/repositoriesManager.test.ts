@@ -11,6 +11,8 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { AuthProvider } from '../../common/authentication';
+import { CUSTOM_ENTERPRISE_URI, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -27,6 +29,7 @@ describe('RepositoriesManager', function () {
 	let reposManager: RepositoriesManager;
 	let createPrHelper: CreatePullRequestHelper;
 	let mockThemeWatcher: MockThemeWatcher;
+	const originalGetConfiguration = vscode.workspace.getConfiguration;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -41,7 +44,48 @@ describe('RepositoriesManager', function () {
 
 	afterEach(function () {
 		context.dispose();
+		vscode.workspace.getConfiguration = originalGetConfiguration;
 		sinon.restore();
+	});
+
+	describe('custom enterprise authentication', function () {
+		it('uses the configured custom enterprise URI without reopening the setup prompt', async function () {
+			vscode.workspace.getConfiguration = ((section?: string) => {
+				if (section === PR_SETTINGS_NAMESPACE) {
+					return {
+						get: (key: string, defaultValue?: string) => key === CUSTOM_ENTERPRISE_URI ? 'https://enterprise.example.com/' : defaultValue,
+					} as unknown as vscode.WorkspaceConfiguration;
+				}
+
+				return originalGetConfiguration(section);
+			}) as typeof vscode.workspace.getConfiguration;
+
+			const loginStub = sinon.stub(credentialStore, 'login').resolves({} as any);
+
+			const result = await reposManager.authenticateWithCustomEnterprise();
+
+			assert.strictEqual(result, true);
+			assert.strictEqual(loginStub.calledOnceWithExactly(AuthProvider.githubEnterprise, true), true);
+		});
+
+		it('uses the legacy enterprise sign-in flow when requested explicitly', async function () {
+			vscode.workspace.getConfiguration = ((section?: string) => {
+				if (section === 'github-enterprise') {
+					return {
+						get: (key: string, defaultValue?: string) => key === 'uri' ? 'https://legacy.example.com/' : defaultValue,
+					} as unknown as vscode.WorkspaceConfiguration;
+				}
+
+				return originalGetConfiguration(section);
+			}) as typeof vscode.workspace.getConfiguration;
+
+			const loginStub = sinon.stub(credentialStore, 'loginToLegacyEnterprise').resolves({} as any);
+
+			const result = await reposManager.authenticateWithLegacyEnterprise();
+
+			assert.strictEqual(result, true);
+			assert.strictEqual(loginStub.calledOnceWithExactly(true), true);
+		});
 	});
 
 	describe('removeRepo', function () {

@@ -52,7 +52,7 @@ import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
+import { CUSTOM_ENTERPRISE_URI, GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
@@ -1730,11 +1730,10 @@ export function isInCodespaces(): boolean {
 }
 
 export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
+	return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(CUSTOM_ENTERPRISE_URI, host, vscode.ConfigurationTarget.Workspace);
 }
 
-export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
+function parseEnterpriseUri(config: string): vscode.Uri | undefined {
 	if (config) {
 		let uri = vscode.Uri.parse(config, true);
 		if (uri.scheme === 'http') {
@@ -1742,6 +1741,20 @@ export function getEnterpriseUri(): vscode.Uri | undefined {
 		}
 		return uri;
 	}
+}
+
+export function getPullRequestEnterpriseUri(): vscode.Uri | undefined {
+	const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+	return parseEnterpriseUri(config.get<string>(CUSTOM_ENTERPRISE_URI, ''));
+}
+
+export function getLegacyEnterpriseUri(): vscode.Uri | undefined {
+	const config = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
+	return parseEnterpriseUri(config);
+}
+
+export function getEnterpriseUri(): vscode.Uri | undefined {
+	return getPullRequestEnterpriseUri() ?? getLegacyEnterpriseUri();
 }
 
 export function hasEnterpriseUri(): boolean {

@@ -8,7 +8,7 @@ import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { PullRequestChangeEvent } from './githubRepository';
 import { IssueModel } from './issueModel';
-import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
+import { findDotComAndEnterpriseRemotes, getEnterpriseUri, getLegacyEnterpriseUri, getPullRequestEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -257,7 +257,43 @@ export class RepositoriesManager extends Disposable {
 		this.updateState(ReposManagerState.NeedsAuthentication);
 	}
 
-	async authenticate(enterprise?: boolean): Promise<boolean> {
+	async authenticateWithCustomEnterprise(forceNewSession: boolean = true): Promise<boolean> {
+		if (!getPullRequestEnterpriseUri()) {
+			const openSettings = vscode.l10n.t('Open Settings');
+			const selection = await vscode.window.showErrorMessage(
+				vscode.l10n.t('Set githubPullRequests.customEnterpriseUri before signing in with a custom GitHub Enterprise server.'),
+				openSettings,
+			);
+
+			if (selection === openSettings) {
+				await vscode.commands.executeCommand('workbench.action.openSettings', 'githubPullRequests.customEnterpriseUri');
+			}
+
+			return false;
+		}
+
+		return !!(await this._credentialStore.login(AuthProvider.githubEnterprise, forceNewSession));
+	}
+
+	async authenticateWithLegacyEnterprise(forceNewSession: boolean = true): Promise<boolean> {
+		if (!getLegacyEnterpriseUri()) {
+			const openSettings = vscode.l10n.t('Open Settings');
+			const selection = await vscode.window.showErrorMessage(
+				vscode.l10n.t('Set github-enterprise.uri before signing in to the default GitHub Enterprise server.'),
+				openSettings,
+			);
+
+			if (selection === openSettings) {
+				await vscode.commands.executeCommand('workbench.action.openSettings', 'github-enterprise.uri');
+			}
+
+			return false;
+		}
+
+		return !!(await this._credentialStore.loginToLegacyEnterprise(forceNewSession));
+	}
+
+	async authenticate(enterprise?: boolean, forceNewSession?: boolean): Promise<boolean> {
 		if (enterprise === false) {
 			return !!this._credentialStore.login(AuthProvider.github);
 		}
@@ -270,7 +306,7 @@ export class RepositoriesManager extends Disposable {
 				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`, RepositoriesManager.ID);
 			}
 			if (remoteToUse) {
-				const no = vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri');
+				const no = vscode.l10n.t('No, manually set {0}', 'githubPullRequests.customEnterpriseUri');
 				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse),
 					{ modal: true }, yes, no);
 				if (promptResult === yes) {
@@ -312,7 +348,7 @@ export class RepositoriesManager extends Disposable {
 		let githubEnterprise;
 		const hasNonDotComRemote = (enterpriseRemotes.length > 0) || (unknownRemotes.length > 0);
 		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && hasNonDotComRemote) {
-			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise);
+			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise, !!forceNewSession && !!getPullRequestEnterpriseUri());
 		}
 		let github;
 		if (!githubEnterprise && (!hasEnterpriseUri() || enterpriseRemotes.length === 0)) {

@@ -57,6 +57,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 	) {
 		super();
 
+		this._register(this.credentialStore.onDidChangeSessions(() => {
+			this._copilotApiPromise = undefined;
+			this._isAssignable = undefined;
+		}));
+
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this.prsTreeModel));
 	}
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;

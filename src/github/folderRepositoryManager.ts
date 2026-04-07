@@ -20,6 +20,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel'
 import {
 	convertRESTIssueToRawPullRequest,
 	convertRESTPullRequestToRawPullRequest,
+	getEnterpriseUri,
 	getOverrideBranch,
 	getPRFetchQuery,
 	getStateFromQuery,
@@ -46,14 +47,17 @@ import {
 	CHAT_SETTINGS_NAMESPACE,
 	CHECKOUT_DEFAULT_BRANCH,
 	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
+	CUSTOM_ENTERPRISE_URI,
 	DISABLE_AI_FEATURES,
 	GIT,
+	GITHUB_ENTERPRISE,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
 	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
 	REMOTES,
 	UPSTREAM_REMOTE,
+	URI,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
@@ -226,6 +230,7 @@ export class FolderRepositoryManager extends Disposable {
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
 	private _sessionIgnoredRemoteNames: Set<string> = new Set();
+	private _enterpriseAuthority: string | undefined;
 
 	constructor(
 		private readonly _id: number,
@@ -240,16 +245,31 @@ export class FolderRepositoryManager extends Disposable {
 		super();
 		this._githubRepositories = [];
 		this._githubManager = new GitHubManager();
+		this._enterpriseAuthority = getEnterpriseUri()?.authority.toLowerCase();
 
 		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)) {
 					await this.updateRepositories();
 				}
+
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${CUSTOM_ENTERPRISE_URI}`) || e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
+					if (this._enterpriseAuthority) {
+						this._githubManager.clearServerCache(this._enterpriseAuthority);
+					}
+
+					this._enterpriseAuthority = getEnterpriseUri()?.authority.toLowerCase();
+					if (this._enterpriseAuthority) {
+						this._githubManager.clearServerCache(this._enterpriseAuthority);
+					}
+
+					await this.updateRepositories();
+				}
 			}),
 		);
 
 		this._register(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+		this._register(_credentialStore.onDidChangeSessions(() => this.updateRepositories()));
 		this._register({ dispose: () => disposeAll(this._onDidChangePullRequestsEvents) });
 
 		this.cleanStoredRepoState();

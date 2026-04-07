@@ -14,7 +14,7 @@ import { isCopilotQuery } from '../../github/copilotPrWatcher';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { extractRepoFromQuery } from '../../github/utils';
+import { extractRepoFromQuery, getPullRequestEnterpriseUri } from '../../github/utils';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -71,10 +71,12 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				};
 				break;
 			case PRCategoryActionType.LoginEnterprise:
-				this.label = vscode.l10n.t('Sign in with GitHub Enterprise...');
+				this.label = getPullRequestEnterpriseUri()
+					? vscode.l10n.t('Sign in with Custom GitHub Enterprise...')
+					: vscode.l10n.t('Sign in with GitHub Enterprise...');
 				this.command = {
 					title: 'Sign in',
-					command: 'pr.signinAndRefreshList',
+					command: getPullRequestEnterpriseUri() ? 'pr.signinCustomEnterprise' : 'pr.signinenterprise',
 					arguments: [],
 				};
 				break;

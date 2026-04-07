@@ -7,7 +7,6 @@ import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
-import { hasEnterpriseUri } from './utils';
 import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
@@ -116,17 +115,7 @@ export interface SessionInfo {
 }
 
 export async function getCopilotApi(credentialStore: CredentialStore, telemetry: ITelemetry, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
-	if (!authProvider) {
-		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-			authProvider = AuthProvider.githubEnterprise;
-		} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
-			authProvider = AuthProvider.github;
-		} else {
-			return;
-		}
-	}
-
-	const github = credentialStore.getHub(authProvider);
+	const github = await credentialStore.getCopilotHub(authProvider);
 	if (!github || !github.octokit) {
 		return;
 	}

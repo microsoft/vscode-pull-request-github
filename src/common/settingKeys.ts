@@ -39,6 +39,7 @@ export const SELECT_REMOTE = 'selectRemote';
 export const SELECT_WORKTREE = 'selectWorktree';
 export const DELETE_BRANCH_AFTER_MERGE = 'deleteBranchAfterMerge';
 export const REMOTES = 'remotes';
+export const CUSTOM_ENTERPRISE_URI = 'customEnterpriseUri';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
 export type PullPRBranchVariants = 'never' | 'pull' | 'pullAndMergeBase' | 'pullAndUpdateBase' | true | false;
 export const UPSTREAM_REMOTE = 'upstreamRemote';

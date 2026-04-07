@@ -11,14 +11,13 @@ import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
+import { convertRESTUserToAccount, getEnterpriseUri, getLegacyEnterpriseUri, getPullRequestEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 import { AuthProvider } from '../common/authentication';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
-import { GITHUB_ENTERPRISE, URI } from '../common/settingKeys';
-import { initBasedOnSettingChange } from '../common/settingsUtils';
+import { CUSTOM_ENTERPRISE_URI, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 
@@ -29,6 +28,7 @@ const IGNORE_COMMAND = vscode.l10n.t('Don\'t Show Again');
 
 const PROMPT_FOR_SIGN_IN_SCOPE = vscode.l10n.t('prompt for sign in');
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
+const ENTERPRISE_TOKEN_SECRET_PREFIX = 'githubPullRequest.enterpriseToken';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLDEST = ['read:user', 'user:email', 'repo'];
@@ -55,6 +55,8 @@ export class CredentialStore extends Disposable {
 	private _sessionId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
 	private _enterpriseSessionId: string | undefined;
+	private _legacyGitHubEnterpriseAPI: GitHub | undefined;
+	private _legacyEnterpriseSessionId: string | undefined;
 	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
@@ -76,16 +78,23 @@ export class CredentialStore extends Disposable {
 		this.setScopesFromState();
 
 		this._register(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
+		this._register(vscode.workspace.onDidChangeConfiguration((e) => this.handleConfigurationChange(e)));
 	}
 
 	private async handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
+		if (e.provider.id === AuthProvider.githubEnterprise) {
+			this._legacyGitHubEnterpriseAPI = undefined;
+			this._legacyEnterpriseSessionId = undefined;
+		}
+
 		const currentProvider = (e.provider.id === AuthProvider.github && this._githubAPI) ? AuthProvider.github : ((e.provider.id === AuthProvider.githubEnterprise && this._githubEnterpriseAPI) ? AuthProvider.githubEnterprise : undefined);
 		if ((this._githubAPI || this._githubEnterpriseAPI) && !currentProvider) {
 			return;
 		}
 		if (currentProvider) {
 			const newSession = await this.getSession(currentProvider, { silent: true }, currentProvider === AuthProvider.github ? this._scopes : this._scopesEnterprise, true);
-			if (newSession.session?.id === this._sessionId) {
+			const currentSessionId = currentProvider === AuthProvider.github ? this._sessionId : this._enterpriseSessionId;
+			if (newSession.session?.id === currentSessionId) {
 				return;
 			}
 			if (currentProvider === AuthProvider.github) {
@@ -126,9 +135,146 @@ export class CredentialStore extends Disposable {
 		return this._scopes;
 	}
 
+	public async clearEnterpriseToken(): Promise<boolean> {
+		if (!this.usesExtensionEnterpriseAuth(AuthProvider.githubEnterprise)) {
+			return false;
+		}
+
+		return this.clearExtensionEnterpriseToken(true);
+	}
+
 	private async saveScopesInState() {
 		await this.context.globalState.update(LAST_USED_SCOPES_GITHUB_KEY, this._scopes);
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
+	}
+
+	private usesExtensionEnterpriseAuth(authProviderId: AuthProvider): boolean {
+		return isEnterprise(authProviderId) && !!getPullRequestEnterpriseUri();
+	}
+
+	private getEnterpriseTokenKey(): string | undefined {
+		const enterpriseUri = getPullRequestEnterpriseUri();
+		return enterpriseUri ? `${ENTERPRISE_TOKEN_SECRET_PREFIX}:${enterpriseUri.authority.toLowerCase()}` : undefined;
+	}
+
+	private async getStoredEnterpriseToken(): Promise<string | undefined> {
+		const tokenKey = this.getEnterpriseTokenKey();
+		return tokenKey ? this.context.secrets.get(tokenKey) : undefined;
+	}
+
+	private async storeEnterpriseToken(token: string): Promise<void> {
+		const tokenKey = this.getEnterpriseTokenKey();
+		if (!tokenKey) {
+			throw new Error('GitHub Enterprise server URL is not configured for this extension.');
+		}
+
+		await this.context.secrets.store(tokenKey, token);
+	}
+
+	private createEnterpriseSession(token: string): vscode.AuthenticationSession {
+		const authority = getPullRequestEnterpriseUri()?.authority ?? 'github-enterprise';
+		return {
+			id: `${ENTERPRISE_TOKEN_SECRET_PREFIX}:${authority}`,
+			accessToken: token,
+			account: {
+				id: authority,
+				label: authority,
+			},
+			scopes: SCOPES_WITH_ADDITIONAL,
+		};
+	}
+
+	private getSessionPromptDetail(getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): string | undefined {
+		const presentation = (typeof getAuthSessionOptions.forceNewSession === 'object')
+			? getAuthSessionOptions.forceNewSession
+			: (typeof getAuthSessionOptions.createIfNone === 'object' ? getAuthSessionOptions.createIfNone : undefined);
+
+		return presentation?.detail;
+	}
+
+	private async promptForEnterpriseToken(getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): Promise<string> {
+		const authority = getPullRequestEnterpriseUri()?.authority ?? vscode.l10n.t('GitHub Enterprise');
+		const token = await vscode.window.showInputBox({
+			title: vscode.l10n.t('GitHub Enterprise Personal Access Token'),
+			prompt: this.getSessionPromptDetail(getAuthSessionOptions) ?? vscode.l10n.t('Enter a personal access token for {0}.', authority),
+			password: true,
+			ignoreFocusOut: true,
+			validateInput: value => value.trim().length ? undefined : vscode.l10n.t('A personal access token is required.'),
+		});
+
+		if (!token?.trim()) {
+			throw new Error('Cancelled');
+		}
+
+		return token.trim();
+	}
+
+	private async getExtensionEnterpriseSession(getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
+		const storedToken = getAuthSessionOptions.forceNewSession ? undefined : await this.getStoredEnterpriseToken();
+		if (storedToken) {
+			return { session: this.createEnterpriseSession(storedToken), isNew: false, scopes: SCOPES_WITH_ADDITIONAL };
+		}
+
+		if (getAuthSessionOptions.silent || (!getAuthSessionOptions.createIfNone && !getAuthSessionOptions.forceNewSession)) {
+			return { session: undefined, isNew: false, scopes: SCOPES_WITH_ADDITIONAL };
+		}
+
+		const token = await this.promptForEnterpriseToken(getAuthSessionOptions);
+		await this.storeEnterpriseToken(token);
+		return { session: this.createEnterpriseSession(token), isNew: true, scopes: SCOPES_WITH_ADDITIONAL };
+	}
+
+	private createSessionsChangeEvent(authProviderId: AuthProvider): vscode.AuthenticationSessionsChangeEvent {
+		return {
+			provider: {
+				id: authProviderId,
+				label: isEnterprise(authProviderId) ? 'GitHub Enterprise' : 'GitHub',
+			},
+		};
+	}
+
+	private async clearExtensionEnterpriseToken(emitEvent: boolean): Promise<boolean> {
+		const tokenKey = this.getEnterpriseTokenKey();
+		if (!tokenKey) {
+			return false;
+		}
+
+		const hadToken = !!(await this.context.secrets.get(tokenKey));
+		if (!hadToken) {
+			return false;
+		}
+
+		await this.context.secrets.delete(tokenKey);
+		this._githubEnterpriseAPI = undefined;
+		this._enterpriseSessionId = undefined;
+
+		if (emitEvent) {
+			this._onDidChangeSessions.fire(this.createSessionsChangeEvent(AuthProvider.githubEnterprise));
+		}
+
+		return true;
+	}
+
+	private async handleConfigurationChange(e: vscode.ConfigurationChangeEvent): Promise<void> {
+		if (!e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${CUSTOM_ENTERPRISE_URI}`) && !e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
+			return;
+		}
+
+		this._githubEnterpriseAPI = undefined;
+		this._enterpriseSessionId = undefined;
+		this._legacyGitHubEnterpriseAPI = undefined;
+		this._legacyEnterpriseSessionId = undefined;
+
+		if (!hasEnterpriseUri()) {
+			this._onDidChangeSessions.fire(this.createSessionsChangeEvent(AuthProvider.githubEnterprise));
+			return;
+		}
+
+		await this.initialize(AuthProvider.githubEnterprise);
+		if (this.isAuthenticated(AuthProvider.githubEnterprise)) {
+			this._onDidGetSession.fire();
+		}
+		this._onDidChangeSessions.fire(this.createSessionsChangeEvent(AuthProvider.githubEnterprise));
 	}
 
 	private async tryInitializeFromEnvironmentToken(authProviderId: AuthProvider): Promise<AuthResult | undefined> {
@@ -194,7 +340,7 @@ export class CredentialStore extends Disposable {
 		} catch (e) {
 			this._scopes = oldScopes;
 			this._scopesEnterprise = oldEnterpriseScopes;
-			const userCanceld = (e.message === 'User did not consent to login.');
+			const userCanceld = (e.message === 'User did not consent to login.') || (e.message === 'Cancelled');
 			if (userCanceld) {
 				authResult.canceled = true;
 			}
@@ -218,6 +364,12 @@ export class CredentialStore extends Disposable {
 			} catch (e) {
 				if ((e.message === 'Bad credentials') && !getAuthSessionOptions.forceNewSession) {
 					Logger.debug(`Creating hub failed ${e.message}`, CredentialStore.ID);
+					if (this.usesExtensionEnterpriseAuth(authProviderId)) {
+						await this.clearExtensionEnterpriseToken(false);
+						if (!getAuthSessionOptions.createIfNone) {
+							return authResult;
+						}
+					}
 					getAuthSessionOptions.forceNewSession = true;
 					getAuthSessionOptions.silent = false;
 					return this.initialize(authProviderId, getAuthSessionOptions, scopes, requireScopes);
@@ -264,8 +416,16 @@ export class CredentialStore extends Disposable {
 		if (hasEnterpriseUri()) {
 			await initializeEnterprise();
 		} else {
-			// Listen for changes to the enterprise URI and try again if it changes.
-			initBasedOnSettingChange(GITHUB_ENTERPRISE, URI, hasEnterpriseUri, initializeEnterprise, this.context.subscriptions);
+			// Listen for changes to either the extension-scoped or legacy enterprise URI and try again if one becomes available.
+			const eventDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${CUSTOM_ENTERPRISE_URI}`) || e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
+					if (hasEnterpriseUri()) {
+						initializeEnterprise();
+						eventDisposable.dispose();
+					}
+				}
+			});
+			this.context.subscriptions.push(eventDisposable);
 		}
 		const githubOptions = { ...options };
 		if (enterprise && !enterprise.canceled) {
@@ -288,6 +448,8 @@ export class CredentialStore extends Disposable {
 	public async reset() {
 		this._githubAPI = undefined;
 		this._githubEnterpriseAPI = undefined;
+		this._legacyGitHubEnterpriseAPI = undefined;
+		this._legacyEnterpriseSessionId = undefined;
 		return this.create();
 	}
 
@@ -314,6 +476,23 @@ export class CredentialStore extends Disposable {
 			return this._githubAPI;
 		}
 		return this._githubEnterpriseAPI;
+	}
+
+	public async loginToLegacyEnterprise(forceNewSession: boolean = false): Promise<GitHub | undefined> {
+		return this.getLegacyEnterpriseHub(forceNewSession ? { forceNewSession: true } : { createIfNone: true });
+	}
+
+	public async getCopilotHub(authProvider?: AuthProvider): Promise<GitHub | undefined> {
+		if (authProvider === AuthProvider.github) {
+			return this._githubAPI;
+		}
+
+		const legacyEnterpriseHub = await this.getLegacyEnterpriseHub({ silent: true });
+		if (authProvider === AuthProvider.githubEnterprise) {
+			return legacyEnterpriseHub;
+		}
+
+		return legacyEnterpriseHub ?? this._githubAPI;
 	}
 
 	public areScopesOld(authProviderId: AuthProvider): boolean {
@@ -397,7 +576,7 @@ export class CredentialStore extends Disposable {
 		}
 	}
 
-	public async login(authProviderId: AuthProvider): Promise<GitHub | undefined> {
+	public async login(authProviderId: AuthProvider, forceNewSession: boolean = false): Promise<GitHub | undefined> {
 		/* __GDPR__
 			"auth.start" : {}
 		*/
@@ -406,7 +585,8 @@ export class CredentialStore extends Disposable {
 		const errorPrefix = vscode.l10n.t('Error signing in to GitHub{0}', getGitHubSuffix(authProviderId));
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
-		const sessionOptions: vscode.AuthenticationGetSessionOptions = { createIfNone: true };
+		const sessionOptions: vscode.AuthenticationGetSessionOptions = forceNewSession ? { forceNewSession: true } : { createIfNone: true };
+		const wasAuthenticated = this.isAuthenticated(authProviderId);
 		let isCanceled: boolean = false;
 		while (retry) {
 			try {
@@ -433,6 +613,10 @@ export class CredentialStore extends Disposable {
 		}
 
 		if (octokit) {
+			if (this.usesExtensionEnterpriseAuth(authProviderId) && (!wasAuthenticated || forceNewSession)) {
+				this._onDidGetSession.fire();
+				this._onDidChangeSessions.fire(this.createSessionsChangeEvent(authProviderId));
+			}
 			/* __GDPR__
 				"auth.success" : {}
 			*/
@@ -486,6 +670,10 @@ export class CredentialStore extends Disposable {
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
+		if (this.usesExtensionEnterpriseAuth(authProviderId)) {
+			return this.getExtensionEnterpriseSession(getAuthSessionOptions);
+		}
+
 		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await this.findExistingScopes(authProviderId);
 		if (existingSession?.session) {
 			return { session: existingSession.session, isNew: false, scopes: existingSession.scopes };
@@ -505,12 +693,47 @@ export class CredentialStore extends Disposable {
 		}
 	}
 
-	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
+	private async getLegacyEnterpriseHub(getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): Promise<GitHub | undefined> {
+		const legacyEnterpriseUri = getLegacyEnterpriseUri();
+		if (!legacyEnterpriseUri) {
+			return undefined;
+		}
+
+		if (!getPullRequestEnterpriseUri()) {
+			return this._githubEnterpriseAPI;
+		}
+
+		if (!getAuthSessionOptions.forceNewSession && this._legacyGitHubEnterpriseAPI) {
+			return this._legacyGitHubEnterpriseAPI;
+		}
+
+		let session = (!getAuthSessionOptions.forceNewSession && !getAuthSessionOptions.createIfNone)
+			? (await this.findExistingScopes(AuthProvider.githubEnterprise))?.session
+			: undefined;
+
+		if (!session) {
+			session = await vscode.authentication.getSession(AuthProvider.githubEnterprise, SCOPES_OLD, getAuthSessionOptions);
+		}
+
+		if (!session) {
+			return undefined;
+		}
+
+		if (!getAuthSessionOptions.forceNewSession && this._legacyGitHubEnterpriseAPI && this._legacyEnterpriseSessionId === session.id) {
+			return this._legacyGitHubEnterpriseAPI;
+		}
+
+		this._legacyEnterpriseSessionId = session.id;
+		this._legacyGitHubEnterpriseAPI = await this.createHub(session.accessToken, AuthProvider.githubEnterprise, legacyEnterpriseUri);
+		return this._legacyGitHubEnterpriseAPI;
+	}
+
+	private async createHub(token: string, authProviderId: AuthProvider, enterpriseServerUriOverride?: vscode.Uri): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
 		let enterpriseServerUri: vscode.Uri | undefined;
 		Logger.appendLine(`Creating hub for ${isEnterprise(authProviderId) ? 'enterprise' : '.com'}`, CredentialStore.ID);
 		if (isEnterprise(authProviderId)) {
-			enterpriseServerUri = getEnterpriseUri();
+			enterpriseServerUri = enterpriseServerUriOverride ?? getEnterpriseUri();
 		}
 
 		const isGhe = enterpriseServerUri?.authority.endsWith('ghe.com');

@@ -30,7 +30,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
+import { codespacesPrLink, getIssuesUrl, getPullRequestEnterpriseUri, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { BaseContext, OverviewContext } from './github/views';
 import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
@@ -1132,7 +1132,34 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signinenterprise', async () => {
-			await reposManager.authenticate(true);
+			const didSignIn = getPullRequestEnterpriseUri()
+				? await reposManager.authenticateWithLegacyEnterprise(true)
+				: await reposManager.authenticate(true, true);
+
+			if (didSignIn) {
+				vscode.commands.executeCommand('pr.refreshList');
+			}
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.signinCustomEnterprise', async () => {
+			if (await reposManager.authenticateWithCustomEnterprise(true)) {
+				vscode.commands.executeCommand('pr.refreshList');
+			}
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.clearEnterpriseToken', async () => {
+			const cleared = await reposManager.credentialStore.clearEnterpriseToken();
+			if (!cleared) {
+				vscode.window.showInformationMessage(vscode.l10n.t('No extension-managed GitHub Enterprise token is currently stored.'));
+				return;
+			}
+
+			await reposManager.clearCredentialCache();
+			vscode.window.showInformationMessage(vscode.l10n.t('Cleared the GitHub Enterprise token stored for this extension.'));
 		}),
 	);
 
