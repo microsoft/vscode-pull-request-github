@@ -369,6 +369,7 @@ async function getExtensionConfig(target, mode, env) {
 						path: require.resolve('path-browserify'),
 						stream: require.resolve("stream-browserify"),
 						url: false,
+						vm: false,
 						'assert': require.resolve('assert'),
 						'os': require.resolve('os-browserify/browser'),
 						"constants": require.resolve("constants-browserify"),
