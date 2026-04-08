@@ -345,7 +345,6 @@ export class StateManager {
 		singleRepoState.maxIssueNumber = await folderManager.getMaxIssue();
 		singleRepoState.lastHead = folderManager.repository.state.HEAD?.commit;
 		singleRepoState.lastBranch = folderManager.repository.state.HEAD?.name;
-		this._onDidChangeIssueData.fire();
 	}
 
 	private async setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
