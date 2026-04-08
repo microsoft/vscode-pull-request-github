@@ -76,6 +76,14 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
+export interface Worktree {
+	readonly name: string;
+	readonly path: string;
+	readonly ref: string;
+	readonly main: boolean;
+	readonly detached: boolean;
+}
+
 export const enum Status {
 	INDEX_MODIFIED,
 	INDEX_ADDED,
@@ -113,11 +121,14 @@ export interface Change {
 	readonly status: Status;
 }
 
+export type RepositoryKind = 'repository' | 'submodule' | 'worktree';
+
 export interface RepositoryState {
 	readonly HEAD: Branch | undefined;
 	readonly refs: Ref[];
 	readonly remotes: Remote[];
 	readonly submodules: Submodule[];
+	readonly worktrees: Worktree[];
 	readonly rebaseCommit: Commit | undefined;
 
 	readonly mergeChanges: Change[];
@@ -287,6 +298,15 @@ export interface Repository {
 	applyStash(index?: number): Promise<void>;
 	popStash(index?: number): Promise<void>;
 	dropStash(index?: number): Promise<void>;
+
+	createWorktree?(options?: { path?: string; commitish?: string; branch?: string }): Promise<string>;
+	deleteWorktree?(path: string, options?: { force?: boolean }): Promise<void>;
+
+	migrateChanges?(sourceRepositoryPath: string, options?: { confirmation?: boolean; deleteFromSource?: boolean; untracked?: boolean }): Promise<void>;
+
+	generateRandomBranchName?(): Promise<string | undefined>;
+
+	isBranchProtected?(branch?: Branch): boolean;
 }
 
 export interface RemoteSource {
