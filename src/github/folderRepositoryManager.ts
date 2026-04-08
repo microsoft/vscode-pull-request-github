@@ -46,6 +46,7 @@ import {
 	CHAT_SETTINGS_NAMESPACE,
 	CHECKOUT_DEFAULT_BRANCH,
 	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
+	DEFAULT_DELETION_METHOD,
 	DISABLE_AI_FEATURES,
 	GIT,
 	POST_DONE,
@@ -53,6 +54,7 @@ import {
 	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
 	REMOTES,
+	SELECT_WORKTREE,
 	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -2193,14 +2195,20 @@ export class FolderRepositoryManager extends Disposable {
 					nonExistantBranches = new Set<string>();
 
 					// Find which selected branches have worktrees (must be deleted before the branch)
+					const preferredWorktreeDeletion = !!vscode.workspace
+						.getConfiguration(PR_SETTINGS_NAMESPACE)
+						.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`);
 					const worktreeItems: (vscode.QuickPickItem & { worktreePath: string })[] = [];
 					for (const pick of branchPicks) {
 						const worktreeUri = this.getWorktreeForBranch(pick.label);
-						if (worktreeUri) {
+						if (worktreeUri && !vscode.workspace.workspaceFolders?.some(folder =>
+							folder.uri.fsPath === worktreeUri.fsPath ||
+							(process.platform === 'win32' && folder.uri.fsPath.toLowerCase() === worktreeUri.fsPath.toLowerCase())
+						)) {
 							worktreeItems.push({
 								label: pick.label,
 								description: worktreeUri.fsPath,
-								picked: true,
+								picked: preferredWorktreeDeletion,
 								worktreePath: worktreeUri.fsPath,
 							});
 						}
