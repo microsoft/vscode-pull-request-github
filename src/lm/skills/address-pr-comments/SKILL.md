@@ -18,7 +18,7 @@ Read the active pull request, identify unresolved review comments and feedback, 
 
 ### 1. Read the Active PR
 
-Call the `github-pull-request_activePullRequest` tool.
+Call the `github-pull-request_currentActivePullRequest` tool.
 
 **Refresh logic**: Check whether a refresh is needed before reading:
 - Call the tool once *without* `refresh` to get the cached state

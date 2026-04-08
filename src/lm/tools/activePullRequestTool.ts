@@ -113,7 +113,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 }
 
 export class ActivePullRequestTool extends PullRequestTool {
-	public static readonly toolId = 'github-pull-request_activePullRequest';
+	public static readonly toolId = 'github-pull-request_currentActivePullRequest';
 
 	protected _findActivePullRequest(): PullRequestModel | undefined {
 		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
