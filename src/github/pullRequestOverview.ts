@@ -64,6 +64,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private _prListeners: vscode.Disposable[] = [];
 	private _updatingPromise: Promise<unknown> | undefined;
+	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	public static override async createOrShow(
 		telemetry: ITelemetry,
@@ -785,20 +786,32 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
 	}
 
-	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
-		try {
-			if (message.args.toResolve) {
-				await this._item.resolveReviewThread(message.args.threadId);
-			}
-			else {
-				await this._item.unresolveReviewThread(message.args.threadId);
-			}
-			const timelineEvents = await this._getTimeline();
-			this._replyMessage(message, timelineEvents);
-		} catch (e) {
-			vscode.window.showErrorMessage(e);
-			this._replyMessage(message, undefined);
-		}
+	private resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
+		// Serialize resolve/unresolve operations so that concurrent calls don't race.
+		// Each call fetches the full timeline after its mutation, and without serialization
+		// a stale timeline response from an earlier call can overwrite a newer one.
+		// Normalize any prior rejection so one unexpected failure does not permanently
+		// block later resolve/unresolve requests from running.
+		this._resolveCommentThreadQueue = this._resolveCommentThreadQueue
+			.catch(error => {
+				Logger.error(`Resolve comment thread queue failed: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			})
+			.then(async () => {
+				try {
+					if (message.args.toResolve) {
+						await this._item.resolveReviewThread(message.args.threadId);
+					}
+					else {
+						await this._item.unresolveReviewThread(message.args.threadId);
+					}
+					const timelineEvents = await this._getTimeline();
+					this._replyMessage(message, timelineEvents);
+				} catch (e) {
+					Logger.error(`Failed to ${message.args.toResolve ? 'resolve' : 'unresolve'} comment thread: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+					vscode.window.showErrorMessage(vscode.l10n.t('Failed to {0} comment thread: {1}', message.args.toResolve ? 'resolve' : 'unresolve', formatError(e)));
+					this._replyMessage(message, undefined);
+				}
+			});
 	}
 
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
