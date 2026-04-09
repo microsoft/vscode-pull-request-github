@@ -168,7 +168,9 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 
 			// Await the collection promise so setIssues completes
 			const collection = stateManager.getIssueCollection(mockUri);
-			await collection.get('Test');
+			const testQueryPromise = collection.get('Test');
+			assert.ok(testQueryPromise, 'Expected issue collection to contain the \'Test\' query label');
+			await testQueryPromise;
 
 			// If we get here without assertion failures in getIssues, the test passed
 		} finally {
