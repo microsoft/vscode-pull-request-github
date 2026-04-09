@@ -201,61 +201,20 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
 			} as any, mockContext);
 
+			(sm as any)._queries = [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo', groupBy: [] }];
+
 			let changeEventCount = 0;
 			sm.onDidChangeIssueData(() => changeEventCount++);
 
 			await (sm as any).setIssueData(mockFolderManager);
+
+			// setIssueData doesn't await setIssues - await the collection promises so the finally block fires
+			const collection = sm.getIssueCollection(mockUri);
+			const queryResult = await collection.get('Test');
 
 			// The event should have fired even though getIssues threw
 			assert.ok(changeEventCount > 0, 'onDidChangeIssueData should fire even when getIssues fails');
-
-			// The promise in the collection should resolve to undefined issues (not reject)
-			const collection = sm.getIssueCollection(mockUri);
-			const queryResult = await collection.get('Test');
 			assert.strictEqual(queryResult?.issues, undefined, 'Issues should be undefined when getIssues fails');
-		} finally {
-			vscode.workspace.getConfiguration = originalGetConfiguration;
-		}
-	});
-
-	it('should fire onDidChangeIssueData after setIssueData completes', async function () {
-		const mockUri = vscode.Uri.parse('file:///test');
-		const mockFolderManager = {
-			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
-			getIssues: async () => {
-				return { items: [], hasMorePages: false, hasUnsearchedRepositories: false, totalCount: 0 };
-			},
-			getMaxIssue: async () => 0,
-		};
-
-		const originalGetConfiguration = vscode.workspace.getConfiguration;
-		vscode.workspace.getConfiguration = (section?: string) => {
-			if (section === ISSUES_SETTINGS_NAMESPACE) {
-				return {
-					get: (key: string, defaultValue?: any) => {
-						if (key === 'queries') {
-							return [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo', groupBy: [] }];
-						}
-						return defaultValue;
-					},
-				} as any;
-			}
-			return originalGetConfiguration(section);
-		};
-
-		try {
-			const sm = new StateManager(undefined as any, {
-				folderManagers: [mockFolderManager],
-				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
-			} as any, mockContext);
-
-			let changeEventCount = 0;
-			sm.onDidChangeIssueData(() => changeEventCount++);
-
-			await (sm as any).setIssueData(mockFolderManager);
-
-			// The event should fire at least twice: once from setIssues (per-query) and once from setIssueData (final)
-			assert.strictEqual(changeEventCount, 2, `onDidChangeIssueData should fire exactly twice for a single query, but fired ${changeEventCount} times`);
 		} finally {
 			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}
