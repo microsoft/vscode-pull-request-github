@@ -342,7 +342,7 @@ export class StateManager {
 				singleRepoState.issueCollection.set(query.label, items);
 			}
 		}
-		singleRepoState.maxIssueNumber = await folderManager.getMaxIssue();
+		singleRepoState.maxIssueNumber = await folderManager.getMaxIssue(folderManager.repository);
 		singleRepoState.lastHead = folderManager.repository.state.HEAD?.commit;
 		singleRepoState.lastBranch = folderManager.repository.state.HEAD?.name;
 	}

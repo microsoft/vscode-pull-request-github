@@ -1462,16 +1462,28 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	async getMaxIssue(): Promise<number> {
-		const maxIssues = await Promise.all(
-			this._githubRepositories.map(repository => {
-				return repository.getMaxIssue();
-			}),
-		);
-		let max: number = 0;
-		for (const issueNumber of maxIssues) {
-			if (issueNumber !== undefined) {
-				max = Math.max(max, issueNumber);
+	async getMaxIssue(repository: Repository): Promise<number> {
+		const remoteNames = new Set(repository.state.remotes.map(remote => remote.name));
+		const ghRepo = this._githubRepositories.find(repo => remoteNames.has(repo.remote.remoteName));
+		if (!ghRepo) {
+			return 0;
+		}
+
+		const reposToCheck: GitHubRepository[] = [ghRepo];
+		const metadata = await ghRepo.getMetadata();
+		if (metadata.fork) {
+			for (const repo of this._githubRepositories) {
+				if (repo !== ghRepo && repo.remote.repositoryName === ghRepo.remote.repositoryName) {
+					reposToCheck.push(repo);
+				}
+			}
+		}
+
+		const maxIssues = await Promise.all(reposToCheck.map(repo => repo.getMaxIssue()));
+		let max = 0;
+		for (const value of maxIssues) {
+			if (value !== undefined) {
+				max = Math.max(max, value);
 			}
 		}
 		return max;
