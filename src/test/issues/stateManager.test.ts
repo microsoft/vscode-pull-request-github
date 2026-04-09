@@ -161,8 +161,14 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
 			} as any, mockContext);
 
+			(stateManager as any)._queries = [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo ', groupBy: [] }];
+
 			// Manually trigger the setIssueData flow
 			await (stateManager as any).setIssueData(mockFolderManager);
+
+			// Await the collection promise so setIssues completes
+			const collection = stateManager.getIssueCollection(mockUri);
+			await collection.get('Test');
 
 			// If we get here without assertion failures in getIssues, the test passed
 		} finally {
@@ -250,6 +256,8 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				folderManagers: [mockFolderManager],
 				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
 			} as any, mockContext);
+
+			(sm as any)._queries = [{ label: 'Test', query: 'is:open repo:owner/repo', groupBy: [] }];
 
 			await (sm as any).setIssueData(mockFolderManager);
 
