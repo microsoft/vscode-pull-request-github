@@ -1460,19 +1460,11 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	async getMaxIssue(): Promise<number> {
-		const maxIssues = await Promise.all(
-			this._githubRepositories.map(repository => {
-				return repository.getMaxIssue();
-			}),
+	async getMaxIssue(repository: Repository): Promise<number> {
+		const ghRepo = this._githubRepositories.find(repo =>
+			repository.state.remotes.some(r => r.name === repo.remote.remoteName)
 		);
-		let max: number = 0;
-		for (const issueNumber of maxIssues) {
-			if (issueNumber !== undefined) {
-				max = Math.max(max, issueNumber);
-			}
-		}
-		return max;
+		return (await ghRepo?.getMaxIssue()) ?? 0;
 	}
 
 	async getIssueTemplates(): Promise<vscode.Uri[]> {
