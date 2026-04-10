@@ -1009,6 +1009,10 @@ export function escapeRegExp(string: string) {
 	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function escapeHtmlAttr(value: string): string {
+	return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export function truncate(value: string, maxLength: number, suffix = '...'): string {
 	if (value.length <= maxLength) {
 		return value;
@@ -1100,7 +1104,8 @@ export async function processPermalinks(
 				if (exists) {
 					// File exists - add data attributes for local handling and "(view on GitHub)" suffix
 					const endLineValue = endLine || startLine;
-					return `<a data-permalink-processed="true" ${attributes} data-local-file="${filePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+					const escapedFilePath = escapeHtmlAttr(filePath);
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${escapedFilePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
 				}
 			} catch (error) {
 				// File doesn't exist or check failed - keep original link
@@ -1163,7 +1168,8 @@ export async function processDiffLinks(
 					// Hash found - add data attributes for diff handling and "(view on GitHub)" suffix
 					const startLineValue = startLine || '1';
 					const endLineValue = endLine || startLineValue;
-					return `<a data-permalink-processed="true" ${attributes} data-local-file="${fileName}" data-start-line="${startLineValue}" data-end-line="${endLineValue}" data-link-type="diff">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+					const escapedFileName = escapeHtmlAttr(fileName);
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${escapedFileName}" data-start-line="${startLineValue}" data-end-line="${endLineValue}" data-link-type="diff">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
 				}
 			} catch (error) {
 				// Failed to process - keep original link
