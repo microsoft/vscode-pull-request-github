@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { CommentView } from './comment';
 import Diff from './diff';
 import { addIcon, checkIcon, circleFilledIcon, closeIcon, commentIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
@@ -238,6 +238,11 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 	const [revealed, setRevealed] = useState(!comment.isResolved);
 	const [resolved, setResolved] = useState(!!comment.isResolved);
 	const { openDiff, toggleResolveComment } = useContext(PullRequestContext);
+
+	useEffect(() => {
+		setResolved(!!comment.isResolved);
+		setRevealed(!comment.isResolved);
+	}, [comment.isResolved]);
 	const resolvePermission =
 		event.reviewThread &&
 		((event.reviewThread.canResolve && !event.reviewThread.isResolved) ||
