@@ -86,7 +86,7 @@ import {
 } from './utils';
 import { Repository } from '../api/api';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
-import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
+import { DiffChangeType, DiffHunk, getGitChangeType, getModifiedContentFromDiffHunk, parseDiff, parseDiffHunk } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -735,10 +735,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		endLine: number | undefined,
 		side: DiffSide,
 		suppressDraftModeUpdate?: boolean,
+		commitId?: string,
 	): Promise<IReviewThread | undefined> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
+
+		// `addPullRequestReviewThread` always anchors new threads to the PR head, even when the
+		// pending review they're attached to was created on a different commit. To anchor a thread
+		// to a non-head commit we must use the (deprecated but still-functional)
+		// `addPullRequestReviewComment` mutation, which accepts a per-comment `commitOID`.
+		if (commitId && commitId !== this.head?.sha) {
+			const existingPendingReviewId = await this.getPendingReviewId();
+			const pendingReviewId = existingPendingReviewId ?? await this.startReview(commitId);
+			return this.createReviewThreadOnCommit(body, commentPath, endLine, side, commitId, pendingReviewId, suppressDraftModeUpdate);
+		}
+
+		// Modern path for HEAD comments. Let `addPullRequestReviewThread` auto-create the review
+		// on the head if none exists — preserves the existing files-view behavior of passing
+		// `pullRequestReviewId: undefined`.
 		const pendingReviewId = await this.getPendingReviewId();
 
 		const { mutate, schema } = await this.githubRepository.ensure();
@@ -780,6 +795,102 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		this._onDidChange.fire({ timeline: true });
 		return newThread;
+	}
+
+	/**
+	 * Creates a new top-level review comment on a specific commit by going through the (deprecated but
+	 * still-functional) `addPullRequestReviewComment` mutation. Used when the desired commit differs from
+	 * the pending review's commit and we cannot use `addPullRequestReviewThread` (which has no per-thread
+	 * commit override). The comment is added to the existing pending review as a draft. After creating it,
+	 * refreshes the review threads cache so the new thread appears in the UI.
+	 *
+	 * Limitation: this mutation only accepts a single `position` (an int offset into the diff), not
+	 * line/side ranges, so multi-line comments collapse to a single line at `endLine`.
+	 */
+	private async createReviewThreadOnCommit(
+		body: string,
+		commentPath: string,
+		endLine: number | undefined,
+		side: DiffSide,
+		commitId: string,
+		pendingReviewId: string,
+		suppressDraftModeUpdate?: boolean,
+	): Promise<IReviewThread | undefined> {
+		if (endLine === undefined) {
+			throw new Error('File-level comments on a specific commit are not supported.');
+		}
+
+		const position = await this.computeDiffPositionForLine(commentPath, commitId, endLine, side);
+		if (position === undefined) {
+			throw new Error(vscode.l10n.t('Could not locate line {0} in the diff for commit {1}.', endLine, commitId.substr(0, 8)));
+		}
+
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<AddCommentResponse>({
+			mutation: schema.AddComment,
+			variables: {
+				input: {
+					pullRequestReviewId: pendingReviewId,
+					body,
+					path: commentPath,
+					commitOID: commitId,
+					position,
+				},
+			},
+		});
+
+		if (!data) {
+			throw new Error('Creating review thread failed.');
+		}
+
+		if (!suppressDraftModeUpdate) {
+			this.hasPendingReview = true;
+			await this.updateDraftModeContext();
+		}
+
+		// The mutation returns just a comment, not a thread. Refetch all review threads so the cache
+		// (and the change event) include the newly-created thread.
+		const newCommentId = data.addPullRequestReviewComment.comment.databaseId;
+		const oldThreadIds = new Set((this._reviewThreadsCache ?? []).map(t => t.id));
+		const refreshed = await this.getReviewThreads();
+		this._onDidChange.fire({ timeline: true });
+		return refreshed.find(t =>
+			!oldThreadIds.has(t.id) &&
+			t.path === commentPath &&
+			t.comments.some(c => c.id === newCommentId),
+		);
+	}
+
+	/**
+	 * Compute GitHub's diff "position" (cumulative line offset from the first hunk header) for a given
+	 * file line on a specific commit. Used by the deprecated comment-on-commit fallback path. Returns
+	 * undefined if the line cannot be located in the commit's patch for that file. Each `DiffLine`'s
+	 * `positionInHunk` is actually the cumulative offset from the first hunk header (despite the name),
+	 * which matches GitHub's "position" definition exactly.
+	 */
+	private async computeDiffPositionForLine(
+		commentPath: string,
+		commitId: string,
+		line: number,
+		side: DiffSide,
+	): Promise<number | undefined> {
+		const hunks = await this.getCommitFileDiffHunks(commitId, commentPath);
+		for (const hunk of hunks) {
+			for (const diffLine of hunk.diffLines) {
+				if (side === DiffSide.RIGHT) {
+					if ((diffLine.type === DiffChangeType.Add || diffLine.type === DiffChangeType.Context)
+						&& diffLine.newLineNumber === line) {
+						return diffLine.positionInHunk;
+					}
+				} else {
+					if ((diffLine.type === DiffChangeType.Delete || diffLine.type === DiffChangeType.Context)
+						&& diffLine.oldLineNumber === line) {
+						return diffLine.positionInHunk;
+					}
+				}
+			}
+		}
+		return undefined;
 	}
 
 	/**
@@ -1517,6 +1628,29 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			vscode.window.showErrorMessage(`Fetching commits failed: ${formatError(e)}`);
 			return [];
 		}
+	}
+
+	/**
+	 * Fetches and parses the diff hunks for a single file in a specific commit. Used by the commenting
+	 * controller to compute commenting ranges on the per-commit diff view.
+	 */
+	async getCommitFileDiffHunks(commitSha: string, filePath: string): Promise<DiffHunk[]> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const fullCommit = await octokit.call(octokit.api.repos.getCommit, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			ref: commitSha,
+		});
+		const file = fullCommit.data.files?.find(f => f.filename === filePath);
+		if (!file?.patch) {
+			return [];
+		}
+		const hunks: DiffHunk[] = [];
+		const reader = parseDiffHunk(file.patch);
+		for (let it = reader.next(); !it.done; it = reader.next()) {
+			hunks.push(it.value);
+		}
+		return hunks;
 	}
 
 	/**
