@@ -132,6 +132,14 @@ describe('utils', () => {
 			assert(result.includes('link text'));
 			assert(result.includes('data-local-file="src/file.ts"'));
 		});
+
+		it('should escape HTML special characters in file paths', async () => {
+			const html = makePermalink('src/file&name"test.ts', 10);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
+
+			assert(result.includes('data-local-file="src/file&amp;name&quot;test.ts"'));
+			assert(!result.includes('data-local-file="src/file&name"test.ts"'));
+		});
 	});
 
 	describe('processDiffLinks', () => {
@@ -232,6 +240,41 @@ describe('utils', () => {
 
 			assert(result.includes('data-local-file="src/found.ts"'));
 			assert(!result.includes('data-local-file="src/other.ts"'));
+		});
+
+		it('should escape HTML special characters in file names', async () => {
+			const hashMap: Record<string, string> = { [diffHash]: 'src/file&name"test.ts' };
+			const html = makeDiffLink(diffHash, 10);
+			const result = await utils.processDiffLinks(html, repoOwner, repoName, authority, hashMap, prNumber);
+
+			assert(result.includes('data-local-file="src/file&amp;name&quot;test.ts"'));
+			assert(!result.includes('data-local-file="src/file&name"test.ts"'));
+		});
+	});
+
+	describe('escapeHtmlAttr', () => {
+		it('should escape ampersands', () => {
+			assert.strictEqual(utils.escapeHtmlAttr('foo&bar'), 'foo&amp;bar');
+		});
+
+		it('should escape double quotes', () => {
+			assert.strictEqual(utils.escapeHtmlAttr('foo"bar'), 'foo&quot;bar');
+		});
+
+		it('should escape single quotes', () => {
+			assert.strictEqual(utils.escapeHtmlAttr('foo\'bar'), 'foo&#39;bar');
+		});
+
+		it('should escape angle brackets', () => {
+			assert.strictEqual(utils.escapeHtmlAttr('<script>'), '&lt;script&gt;');
+		});
+
+		it('should escape all special characters together', () => {
+			assert.strictEqual(utils.escapeHtmlAttr('a&b"c\'d<e>f'), 'a&amp;b&quot;c&#39;d&lt;e&gt;f');
+		});
+
+		it('should return the same string when no special characters', () => {
+			assert.strictEqual(utils.escapeHtmlAttr('normal-file.ts'), 'normal-file.ts');
 		});
 	});
 });
