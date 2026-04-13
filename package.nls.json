@@ -168,6 +168,8 @@
 	"githubIssues.queries.groupBy": "The categories to group issues by when displaying them, in the order in which they should be grouped.",
 	"githubIssues.queries.groupBy.repository": "Group issues by their repository.",
 	"githubIssues.queries.groupBy.milestone": "Group issues by their milestone.",
+	"githubIssues.queries.groupBy.issueType": "Group issues by their GitHub issue type (Bug, Feature, Task, etc.).",
+	"githubIssues.queries.groupBy.labels": "Group issues by their labels (issues can appear in multiple groups).",
 	"githubIssues.queries.default.myIssues": "My Issues",
 	"githubIssues.queries.default.createdIssues": "Created Issues",
 	"githubIssues.queries.default.recentIssues": "Recent Issues",
