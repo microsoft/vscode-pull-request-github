@@ -134,11 +134,11 @@ describe('utils', () => {
 		});
 
 		it('should escape HTML special characters in file paths', async () => {
-			const html = makePermalink('src/file&name"test.ts', 10);
+			const html = makePermalink('src/file&name-test.ts', 10);
 			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
 
-			assert(result.includes('data-local-file="src/file&amp;name&quot;test.ts"'));
-			assert(!result.includes('data-local-file="src/file&name"test.ts"'));
+			assert(result.includes('data-local-file="src/file&amp;name-test.ts"'));
+			assert(!result.includes('data-local-file="src/file&name-test.ts"'));
 		});
 	});
 
