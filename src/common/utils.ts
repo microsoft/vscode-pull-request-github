@@ -1009,8 +1009,16 @@ export function escapeRegExp(string: string) {
 	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function escapeHtmlAttr(value: string): string {
-	return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export function escapeHtmlAttr(value: string): string {
+	const escapedCharacters: Record<string, string> = {
+		'&': '&amp;',
+		'"': '&quot;',
+		'\'': '&#39;',
+		'<': '&lt;',
+		'>': '&gt;',
+	};
+
+	return value.replace(/[&"'<>]/g, (char) => escapedCharacters[char]);
 }
 
 export function truncate(value: string, maxLength: number, suffix = '...'): string {
