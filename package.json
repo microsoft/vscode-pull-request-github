@@ -10,9 +10,6 @@
 	"bugs": {
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
-	"engines": {
-		"node": ">=20"
-	},
 	"enabledApiProposals": [
 		"activeComment",
 		"chatContextProvider",
@@ -44,9 +41,10 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.134.0",
+	"version": "0.136.0",
 	"publisher": "GitHub",
 	"engines": {
+		"node": ">=20",
 		"vscode": "^1.110.0"
 	},
 	"categories": [

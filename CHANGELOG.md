@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.136.0
+
+### Changes
+
+- Add tool to create pull requests.
+- Add tool to resolve review comments.
+- Offer to delete worktrees from the clean up command.
+- Include line numbers in "Apply suggestion using AI" context for code review comments.
+
+### Fixes
+
+- Resolving comments doesn't update state on server. https://github.com/microsoft/vscode-pull-request-github/issues/8649
+- PR description filled differently than on github.com. https://github.com/microsoft/vscode-pull-request-github/issues/8630
+- Can't checkout PR locally when already on the same branch. https://github.com/microsoft/vscode-pull-request-github/issues/8624
+- Parent folder checkbox not auto-checked when all children are marked as viewed. https://github.com/microsoft/vscode-pull-request-github/issues/8584
+- Escape file names in processed links.
+
 ## 0.134.0
 
 ### Changes
