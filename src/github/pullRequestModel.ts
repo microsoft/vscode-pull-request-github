@@ -751,7 +751,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					pullRequestId: this.graphNodeId,
 					pullRequestReviewId: pendingReviewId,
 					startLine: startLine === endLine ? undefined : startLine,
-					line: (endLine === undefined) ? 0 : endLine,
+					line: endLine,
 					side,
 					subjectType: (startLine === undefined || endLine === undefined) ? SubjectType.FILE : SubjectType.LINE
 				}
