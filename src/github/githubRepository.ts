@@ -1916,9 +1916,13 @@ export class GitHubRepository extends Disposable {
 		const statusByContext = new Map<string, PullRequestCheckStatus>();
 
 		for (const status of statuses) {
-			const existing = statusByContext.get(status.context);
+			// Include event and workflowName in the key so that checks from different
+			// workflow events (e.g. "push" vs "pull_request") or different workflows
+			// are not incorrectly merged during deduplication.
+			const key = `${status.context}\0${status.event ?? ''}\0${status.workflowName ?? ''}`;
+			const existing = statusByContext.get(key);
 			if (!existing) {
-				statusByContext.set(status.context, status);
+				statusByContext.set(key, status);
 				continue;
 			}
 
@@ -1928,7 +1932,7 @@ export class GitHubRepository extends Disposable {
 
 			if (currentIsPending && !existingIsPending) {
 				// Current is pending, existing is completed - prefer current
-				statusByContext.set(status.context, status);
+				statusByContext.set(key, status);
 			} else if (!currentIsPending && existingIsPending) {
 				// Current is completed, existing is pending - keep existing
 				continue;
@@ -1936,7 +1940,7 @@ export class GitHubRepository extends Disposable {
 				// Both are same type (both pending or both completed)
 				// Prefer the one with a higher ID (more recent), as GitHub IDs are monotonically increasing
 				if (status.id > existing.id) {
-					statusByContext.set(status.context, status);
+					statusByContext.set(key, status);
 				}
 			}
 		}
