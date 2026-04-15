@@ -87,7 +87,18 @@ export class PrsTreeModel extends Disposable {
 				if (e.new) {
 					prs.push({ model: e.new, event: {} });
 				}
-				this._onDidChangeData.fire(prs);
+
+				// When a new active PR is discovered (e.g. PR created on GitHub website),
+				// check if it's already in the local PR cache. If not, clear the local cache
+				// and fire a full folder refresh so the "Local Pull Request Branches" category
+				// picks up the newly-associated branch.
+				if (e.new && !this._allCachedPRs.has(e.new)) {
+					const cache = this.getFolderCache(manager);
+					cache.delete(PRType.LocalPullRequest);
+					this._onDidChangeData.fire(manager);
+				} else {
+					this._onDidChangeData.fire(prs);
+				}
 
 				if (this._activePRDisposables.has(manager)) {
 					disposeAll(this._activePRDisposables.get(manager)!);
