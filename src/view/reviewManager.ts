@@ -68,7 +68,15 @@ export class ReviewManager extends Disposable {
 	};
 
 	private _switchingToReviewMode: boolean;
+	private _stateValidated: boolean = false;
 	private _changesSinceLastReviewProgress: ProgressHelper = new ProgressHelper();
+	/**
+	 * Cached max PR numbers per repo, keyed by `owner/repo`.
+	 * Used to skip expensive `checkGitHubForPrBranch` calls when no new PRs
+	 * have been created since the last check for the current branch.
+	 */
+	private _cachedMaxPRNumbers: Map<string, number> | undefined;
+	private _cachedBranchName: string | undefined;
 	/**
 	 * Flag set when the "Checkout" action is used and cleared on the next git
 	 * state update, once review mode has been entered. Used to disambiguate
@@ -127,6 +135,7 @@ export class ReviewManager extends Disposable {
 		if (_gitApi.state === 'initialized') {
 			this.updateState(true);
 		}
+		this.pollForStateChange();
 	}
 
 	private registerListeners(): void {
@@ -202,6 +211,16 @@ export class ReviewManager extends Disposable {
 		}));
 
 		this._register(GitHubCreatePullRequestLinkProvider.registerProvider(this, this._folderRepoManager));
+	}
+
+	private pollForStateChange() {
+		setTimeout(async () => {
+			Logger.appendLine('Polling for state change...', this.id);
+			if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
+				await this.updateState();
+			}
+			this.pollForStateChange();
+		}, 1000 * 60 * 5);
 	}
 
 	private async updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
@@ -324,13 +343,19 @@ export class ReviewManager extends Disposable {
 
 		const validatePromise = new Promise<void>(resolve => {
 			this.validateStateAndResetPromise(silent, updateLayout).then(() => {
-				vscode.commands.executeCommand('setContext', 'github:stateValidated', true).then(() => {
+				const done = () => {
 					if (timeout) {
 						clearTimeout(timeout);
 						timeout = undefined;
 					}
 					resolve();
-				});
+				};
+				if (!this._stateValidated) {
+					this._stateValidated = true;
+					commands.setContext('github:stateValidated', true).then(done);
+				} else {
+					done();
+				}
 			});
 		});
 
@@ -396,6 +421,68 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
+	/**
+	 * Returns the GitHub repos relevant to the current branch: the head repo
+	 * (matching the branch's remote) and its parent repos (for forks, the upstream).
+	 */
+	private async getRelevantGitHubRepos(): Promise<GitHubRepository[]> {
+		const remoteName = this._repository.state.HEAD?.remote ?? this._repository.state.HEAD?.upstream?.remote;
+		if (!remoteName) {
+			return [];
+		}
+		const headRepo = this._folderRepoManager.gitHubRepositories.find(
+			repo => repo.remote.remoteName === remoteName,
+		);
+		if (!headRepo) {
+			return [];
+		}
+		const metadata = await headRepo.getMetadata();
+		if (!metadata?.owner) {
+			return [headRepo];
+		}
+		const parentRepos = this._folderRepoManager.gitHubRepositories.filter(repo => {
+			if (metadata.fork) {
+				return repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name;
+			} else {
+				return repo.remote.owner === metadata.owner?.login && repo.remote.repositoryName === metadata.name;
+			}
+		});
+		// Include both head and parent repos, deduplicated
+		const result = new Set<GitHubRepository>(parentRepos);
+		result.add(headRepo);
+		return [...result];
+	}
+
+	private async getMaxPullRequestNumbers(): Promise<Map<string, number>> {
+		const result = new Map<string, number>();
+		const repos = await this.getRelevantGitHubRepos();
+		await Promise.all(repos.map(async repo => {
+			const max = await repo.getMaxPullRequest();
+			if (max !== undefined) {
+				result.set(`${repo.remote.owner}/${repo.remote.repositoryName}`, max);
+			}
+		}));
+		return result;
+	}
+
+	private async hasNewPullRequests(): Promise<boolean> {
+		if (!this._cachedMaxPRNumbers) {
+			this._cachedMaxPRNumbers = await this.getMaxPullRequestNumbers();
+			return true;
+		}
+		const current = await this.getMaxPullRequestNumbers();
+		let result = false;
+		for (const [key, value] of current) {
+			const cached = this._cachedMaxPRNumbers.get(key);
+			if (cached === undefined || value > cached) {
+				result = true;
+				break;
+			}
+		}
+		this._cachedMaxPRNumbers = current;
+		return result;
+	}
+
 	private async checkGitHubForPrBranch(branch: Branch): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
 		try {
 			let branchToCheck: Branch;
@@ -459,6 +546,9 @@ export class ReviewManager extends Disposable {
 			await this.clear(true);
 			return;
 		}
+		if (!this._cachedMaxPRNumbers) {
+			this._cachedMaxPRNumbers = await this.getMaxPullRequestNumbers();
+		}
 
 		const branch = this._repository.state.HEAD;
 		const ignoreBranches = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(IGNORE_PR_BRANCHES);
@@ -473,8 +563,13 @@ export class ReviewManager extends Disposable {
 
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
-			matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch);
+			if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests()) {
+				matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch);
+			} else {
+				Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
+			}
 		}
+		this._cachedBranchName = branch.name;
 
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(

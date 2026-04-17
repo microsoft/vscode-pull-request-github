@@ -15,7 +15,7 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { branchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
@@ -809,11 +809,12 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			}
 
 			// Set description
-			if (pullRequestTemplate && lastCommit?.body) {
+			// Match GitHub.com behavior: only use the commit body when there is a single commit.
+			if (pullRequestTemplate && lastCommit?.body && !useBranchName) {
 				description = `${lastCommit.body}\n\n${pullRequestTemplate}`;
 			} else if (pullRequestTemplate) {
 				description = pullRequestTemplate;
-			} else if (lastCommit?.body && (this._pullRequestDefaults.base !== compareBranch.name)) {
+			} else if (lastCommit?.body && !useBranchName && (this._pullRequestDefaults.base !== compareBranch.name)) {
 				description = lastCommit.body;
 			}
 
@@ -1010,7 +1011,20 @@ Don't forget to commit your template file to the repository so that it can be us
 		const params = await super.getCreateParams();
 		this.model.baseOwner = params.defaultBaseRemote!.owner;
 		this.model.baseBranch = params.defaultBaseBranch!;
+		// Pre-fetch branches so they're cached when the user opens the branch picker
+		this.prefetchBranches(params.defaultBaseRemote!);
 		return params;
+	}
+
+	private prefetchBranches(baseRemote: RemoteInfo): void {
+		const githubRepository = this._folderRepositoryManager.findRepo(
+			repo => repo.remote.owner === baseRemote.owner && repo.remote.repositoryName === baseRemote.repositoryName,
+		);
+		if (githubRepository) {
+			githubRepository.listBranches(baseRemote.owner, baseRemote.repositoryName, undefined).catch(e => {
+				Logger.debug(`Pre-fetching branches failed: ${e}`, CreatePullRequestViewProvider.ID);
+			});
+		}
 	}
 
 
@@ -1141,19 +1155,21 @@ Don't forget to commit your template file to the repository so that it can be us
 		quickPick.show();
 		quickPick.busy = true;
 		if (githubRepository) {
-			await updateItems(githubRepository, undefined);
-		} else {
-			quickPick.items = await this.remotePicks(isBase);
+			// Show cached branches immediately if available, then refresh in the background
+			const cached = cachedBranchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase);
+			if (cached) {
+				quickPick.items = cached;
+				const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
+				quickPick.activeItems = activeItem ? [activeItem] : [];
+			}
 		}
-		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
-		quickPick.activeItems = activeItem ? [activeItem] : [];
-		quickPick.busy = false;
+		// Register event handlers before awaiting async operations to avoid missing early user interactions
 		const remoteAndBranch: Promise<{ remote: RemoteInfo, branch: string } | undefined> = new Promise((resolve) => {
 			quickPick.onDidAccept(async () => {
-				if (quickPick.selectedItems.length === 0) {
+				const selectedPick = quickPick.selectedItems[0] ?? quickPick.activeItems[0];
+				if (!selectedPick) {
 					return;
 				}
-				const selectedPick = quickPick.selectedItems[0];
 				if (selectedPick.label === chooseDifferentRemote) {
 					quickPick.busy = true;
 					quickPick.items = await this.remotePicks(isBase);
@@ -1174,6 +1190,14 @@ Don't forget to commit your template file to the repository so that it can be us
 			});
 		});
 		const hidePromise = new Promise<void>((resolve) => quickPick.onDidHide(() => resolve()));
+		if (githubRepository) {
+			await updateItems(githubRepository, undefined);
+		} else {
+			quickPick.items = await this.remotePicks(isBase);
+		}
+		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
+		quickPick.activeItems = activeItem ? [activeItem] : [];
+		quickPick.busy = false;
 		const result = await Promise.race([remoteAndBranch, hidePromise]);
 		if (!result || !githubRepository) {
 			quickPick.hide();

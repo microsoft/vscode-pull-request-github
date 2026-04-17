@@ -5,13 +5,13 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { CloseResult } from '../../common/views';
+import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
-import { isInCodespaces, vscodeDevPrLink } from './utils';
+import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
 import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
@@ -249,7 +249,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
+	protected async getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Promise<Issue> {
 		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const labels = issue.item.labels.map(label => ({
@@ -266,12 +266,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			url: issue.html_url,
 			createdAt: issue.createdAt,
 			body: issue.body,
-			bodyHTML: issue.bodyHTML,
+			bodyHTML: await this.processLinksInBodyHtml(issue.bodyHTML),
 			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			stateReason: issue.stateReason,
-			events: timelineEvents,
+			events: await this.processTimelineEvents(timelineEvents),
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,
 			hasWritePermission,
@@ -321,10 +321,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this._item = issue as TItem;
 			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
+			// Process permalinks in bodyHTML before sending to webview
+			const context = await this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
+				pullrequest: context,
 			});
 
 		} catch (e) {
@@ -445,6 +448,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, this._telemetry);
+			case 'pr.open-local-file':
+				return this.openLocalFile(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
 			default:
@@ -568,16 +573,54 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		Logger.debug(message.args, IssueOverviewPanel.ID);
 	}
 
-	private editDescription(message: IRequestMessage<{ text: string }>) {
-		this._item
-			.edit({ body: message.args.text })
-			.then(result => {
-				this._replyMessage(message, { body: result.body, bodyHTML: result.bodyHTML });
-			})
-			.catch(e => {
-				this._throwError(message, e);
-				vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
-			});
+	/**
+	 * Process code reference links in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
+	 * to provide custom processing logic for different item types.
+	 * Returns undefined if bodyHTML is undefined.
+	 */
+	protected async processLinksInBodyHtml(bodyHTML: string | undefined): Promise<string | undefined> {
+		if (!bodyHTML) {
+			return bodyHTML;
+		}
+		return processPermalinks(
+			bodyHTML,
+			this._item.githubRepository,
+			this._item.githubRepository.rootUri
+		);
+	}
+
+	/**
+	 * Process code reference links in timeline events (comments, reviews, commits).
+	 * Updates bodyHTML fields for all events that contain them.
+	 */
+	protected async processTimelineEvents(events: TimelineEvent[]): Promise<TimelineEvent[]> {
+		return Promise.all(events.map(async (event) => {
+			// Create a shallow copy to avoid mutating the original
+			const processedEvent = { ...event };
+
+			if (processedEvent.event === EventType.Commented || processedEvent.event === EventType.Reviewed || processedEvent.event === EventType.Committed) {
+				processedEvent.bodyHTML = await this.processLinksInBodyHtml(processedEvent.bodyHTML);
+				// ReviewEvent also has comments array
+				if (processedEvent.event === EventType.Reviewed && processedEvent.comments) {
+					processedEvent.comments = await Promise.all(processedEvent.comments.map(async (comment: IComment) => ({
+						...comment,
+						bodyHTML: await this.processLinksInBodyHtml(comment.bodyHTML)
+					})));
+				}
+			}
+			return processedEvent;
+		}));
+	}
+
+	private async editDescription(message: IRequestMessage<{ text: string }>) {
+		try {
+			const result = await this._item.edit({ body: message.args.text });
+			const bodyHTML = await this.processLinksInBodyHtml(result.bodyHTML);
+			this._replyMessage(message, { body: result.body, bodyHTML });
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
+		}
 	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		return this._item
@@ -591,8 +634,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	protected _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.getIssueTimelineEvents();
+	protected async _getTimeline(): Promise<TimelineEvent[]> {
+		const events = await this._item.getIssueTimelineEvents();
+		return this.processTimelineEvents(events);
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
@@ -726,18 +770,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._item.editIssueComment(comment, text);
 	}
 
-	private editComment(message: IRequestMessage<{ comment: IComment; text: string }>) {
-		this.editCommentPromise(message.args.comment, message.args.text)
-			.then(result => {
-				this._replyMessage(message, {
-					body: result.body,
-					bodyHTML: result.bodyHTML,
-				});
-			})
-			.catch(e => {
-				this._throwError(message, e);
-				vscode.window.showErrorMessage(formatError(e));
-			});
+	private async editComment(message: IRequestMessage<{ comment: IComment; text: string }>) {
+		try {
+			const result = await this.editCommentPromise(message.args.comment, message.args.text);
+			const bodyHTML = await this.processLinksInBodyHtml(result.bodyHTML);
+			this._replyMessage(message, { body: result.body, bodyHTML });
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		}
 	}
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
@@ -759,6 +800,29 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						});
 				}
 			});
+	}
+
+	protected async openLocalFile(message: IRequestMessage<OpenLocalFileArgs>): Promise<void> {
+		try {
+			const { file, startLine, endLine } = message.args;
+			// Resolve relative path to absolute using repository root
+			const fileUri = vscode.Uri.joinPath(
+				this._item.githubRepository.rootUri,
+				file
+			);
+			const selection = new vscode.Range(
+				new vscode.Position(startLine - 1, 0),
+				new vscode.Position(endLine - 1, Number.MAX_SAFE_INTEGER)
+			);
+			await vscode.window.showTextDocument(fileUri, {
+				selection,
+				viewColumn: vscode.ViewColumn.One
+			});
+		} catch (e) {
+			Logger.error(`Open local file failed: ${formatError(e)}`, IssueOverviewPanel.ID);
+			// Fallback to opening external URL
+			await vscode.env.openExternal(vscode.Uri.parse(message.args.href));
+		}
 	}
 
 	protected async close(message: IRequestMessage<string>) {

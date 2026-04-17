@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
-import { Branch, Change, Commit, Ref, Remote, RepositoryState, Submodule } from '../@types/git';
+import { Branch, Change, Commit, Ref, Remote, RepositoryState, Submodule, Worktree } from '../@types/git';
 import { IGit, Repository } from '../api/api';
 import { Disposable } from '../common/lifecycle';
 import {
@@ -138,6 +138,7 @@ class LiveShareRepositoryState implements RepositoryState {
 	HEAD: Branch | undefined;
 	remotes: Remote[];
 	submodules: Submodule[] = [];
+	worktrees: Worktree[] = [];
 	rebaseCommit: Commit | undefined;
 	mergeChanges: Change[] = [];
 	indexChanges: Change[] = [];

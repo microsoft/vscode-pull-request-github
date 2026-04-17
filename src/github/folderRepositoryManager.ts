@@ -46,6 +46,7 @@ import {
 	CHAT_SETTINGS_NAMESPACE,
 	CHECKOUT_DEFAULT_BRANCH,
 	CHECKOUT_PULL_REQUEST_BASE_BRANCH,
+	DEFAULT_DELETION_METHOD,
 	DISABLE_AI_FEATURES,
 	GIT,
 	POST_DONE,
@@ -53,6 +54,7 @@ import {
 	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
 	REMOTES,
+	SELECT_WORKTREE,
 	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -1460,16 +1462,28 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	async getMaxIssue(): Promise<number> {
-		const maxIssues = await Promise.all(
-			this._githubRepositories.map(repository => {
-				return repository.getMaxIssue();
-			}),
-		);
-		let max: number = 0;
-		for (const issueNumber of maxIssues) {
-			if (issueNumber !== undefined) {
-				max = Math.max(max, issueNumber);
+	async getMaxIssue(repository: Repository): Promise<number> {
+		const remoteNames = new Set(repository.state.remotes.map(remote => remote.name));
+		const ghRepo = this._githubRepositories.find(repo => remoteNames.has(repo.remote.remoteName));
+		if (!ghRepo) {
+			return 0;
+		}
+
+		const reposToCheck: GitHubRepository[] = [ghRepo];
+		const metadata = await ghRepo.getMetadata();
+		if (metadata.fork) {
+			for (const repo of this._githubRepositories) {
+				if (repo !== ghRepo && repo.remote.repositoryName === ghRepo.remote.repositoryName) {
+					reposToCheck.push(repo);
+				}
+			}
+		}
+
+		const maxIssues = await Promise.all(reposToCheck.map(repo => repo.getMaxIssue()));
+		let max = 0;
+		for (const value of maxIssues) {
+			if (value !== undefined) {
+				max = Math.max(max, value);
 			}
 		}
 		return max;
@@ -2148,35 +2162,89 @@ export class FolderRepositoryManager extends Disposable {
 				quickPick.items = [{ label: vscode.l10n.t('No local branches to delete'), picked: false }];
 			}
 
-			let firstStep = true;
+			let step: 'branches' | 'worktrees' | 'remotes' = 'branches';
+			let nonExistantBranches = new Set<string>();
+			let branchPicks: readonly vscode.QuickPickItem[] = [];
+
+			const showWorktreeStep = (worktreeItems: (vscode.QuickPickItem & { worktreePath: string })[]) => {
+				quickPick.canSelectMany = true;
+				quickPick.value = '';
+				quickPick.placeholder = vscode.l10n.t('Do you want to delete the associated worktrees?');
+				quickPick.items = worktreeItems;
+				quickPick.selectedItems = worktreeItems.filter(item => item.picked);
+				step = 'worktrees';
+			};
+
+			const deleteBranchesAndShowRemoteStep = async () => {
+				if (branchPicks.length) {
+					await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Cleaning up') }, async (progress) => {
+						try {
+							await this.deleteBranches(branchPicks, nonExistantBranches, progress, branchPicks.length, 0, []);
+						} catch (e) {
+							quickPick.hide();
+							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0} {1}', e.message, e.stderr));
+						}
+					});
+				}
+
+				const remoteItems = await this.getRemoteDeletionItems(nonExistantBranches);
+				if (remoteItems && remoteItems.length) {
+					quickPick.canSelectMany = true;
+					quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
+					quickPick.items = remoteItems;
+					quickPick.selectedItems = remoteItems.filter(item => item.picked);
+					step = 'remotes';
+				} else {
+					quickPick.hide();
+				}
+			};
+
 			quickPick.onDidAccept(async () => {
 				quickPick.busy = true;
 
-				if (firstStep) {
-					const picks = quickPick.selectedItems;
-					const nonExistantBranches = new Set<string>();
+				if (step === 'branches') {
+					branchPicks = quickPick.selectedItems;
+					nonExistantBranches = new Set<string>();
+
+					// Find which selected branches have worktrees (must be deleted before the branch)
+					const preferredWorktreeDeletion = !!vscode.workspace
+						.getConfiguration(PR_SETTINGS_NAMESPACE)
+						.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_WORKTREE}`);
+					const worktreeItems: (vscode.QuickPickItem & { worktreePath: string })[] = [];
+					for (const pick of branchPicks) {
+						const worktreeUri = this.getWorktreeForBranch(pick.label);
+						if (worktreeUri && !vscode.workspace.workspaceFolders?.some(folder =>
+							folder.uri.fsPath === worktreeUri.fsPath ||
+							(process.platform === 'win32' && folder.uri.fsPath.toLowerCase() === worktreeUri.fsPath.toLowerCase())
+						)) {
+							worktreeItems.push({
+								label: pick.label,
+								description: worktreeUri.fsPath,
+								picked: preferredWorktreeDeletion,
+								worktreePath: worktreeUri.fsPath,
+							});
+						}
+					}
+
+					if (worktreeItems.length && this.repository.deleteWorktree) {
+						showWorktreeStep(worktreeItems);
+					} else {
+						await deleteBranchesAndShowRemoteStep();
+					}
+				} else if (step === 'worktrees') {
+					const picks = quickPick.selectedItems as readonly (vscode.QuickPickItem & { worktreePath: string })[];
 					if (picks.length) {
-						await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Cleaning up') }, async (progress) => {
-							try {
-								await this.deleteBranches(picks, nonExistantBranches, progress, picks.length, 0, []);
-							} catch (e) {
-								quickPick.hide();
-								vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0} {1}', e.message, e.stderr));
+						await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Deleting {0} worktrees...', picks.length) }, async () => {
+							for (const pick of picks) {
+								try {
+									await this.removeWorktree(pick.worktreePath);
+								} catch (e) {
+									Logger.error(`Failed to delete worktree ${pick.worktreePath}: ${e}`, this.id);
+								}
 							}
 						});
 					}
-
-					firstStep = false;
-					const remoteItems = await this.getRemoteDeletionItems(nonExistantBranches);
-
-					if (remoteItems && remoteItems.length) {
-						quickPick.canSelectMany = true;
-						quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
-						quickPick.items = remoteItems;
-						quickPick.selectedItems = remoteItems.filter(item => item.picked);
-					} else {
-						quickPick.hide();
-					}
+					await deleteBranchesAndShowRemoteStep();
 				} else {
 					// batch deleting the remotes to avoid consuming all available resources
 					const picks = quickPick.selectedItems;

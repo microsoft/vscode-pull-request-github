@@ -161,10 +161,115 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
 			} as any, mockContext);
 
+			(stateManager as any)._queries = [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo ', groupBy: [] }];
+
 			// Manually trigger the setIssueData flow
 			await (stateManager as any).setIssueData(mockFolderManager);
 
+			// Await the collection promise so setIssues completes
+			const collection = stateManager.getIssueCollection(mockUri);
+			const testQueryPromise = collection.get('Test');
+			assert.ok(testQueryPromise, 'Expected issue collection to contain the \'Test\' query label');
+			await testQueryPromise;
+
 			// If we get here without assertion failures in getIssues, the test passed
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	it('should fire onDidChangeIssueData even when getIssues throws', async function () {
+		const mockUri = vscode.Uri.parse('file:///test');
+		const mockFolderManager = {
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
+			getIssues: async () => {
+				throw new Error('Network error');
+			},
+			getMaxIssue: async () => 0,
+		};
+
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'queries') {
+							return [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo', groupBy: [] }];
+						}
+						return defaultValue;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			const sm = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
+			} as any, mockContext);
+
+			(sm as any)._queries = [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo', groupBy: [] }];
+
+			let changeEventCount = 0;
+			sm.onDidChangeIssueData(() => changeEventCount++);
+
+			await (sm as any).setIssueData(mockFolderManager);
+
+			// setIssueData doesn't await setIssues - await the collection promises so the finally block fires
+			const collection = sm.getIssueCollection(mockUri);
+			const queryResult = await collection.get('Test');
+
+			// The event should have fired even though getIssues threw
+			assert.ok(changeEventCount > 0, 'onDidChangeIssueData should fire even when getIssues fails');
+			assert.strictEqual(queryResult?.issues, undefined, 'Issues should be undefined when getIssues fails');
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	it('should not reject promises in issueCollection when getIssues throws', async function () {
+		const mockUri = vscode.Uri.parse('file:///test');
+		const mockFolderManager = {
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
+			getIssues: async () => {
+				throw new Error('API error');
+			},
+			getMaxIssue: async () => 0,
+		};
+
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'queries') {
+							return [{ label: 'Test', query: 'is:open repo:owner/repo', groupBy: [] }];
+						}
+						return defaultValue;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			const sm = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
+			} as any, mockContext);
+
+			(sm as any)._queries = [{ label: 'Test', query: 'is:open repo:owner/repo', groupBy: [] }];
+
+			await (sm as any).setIssueData(mockFolderManager);
+
+			// Verify that the promises in issueCollection resolve (not reject)
+			const collection = sm.getIssueCollection(mockUri);
+			for (const [, promise] of collection) {
+				const result = await promise;
+				assert.ok(result !== undefined, 'Promise should resolve, not reject');
+				assert.strictEqual(result.issues, undefined, 'Issues should be undefined on error');
+			}
 		} finally {
 			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}

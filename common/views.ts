@@ -180,4 +180,11 @@ export interface OpenCommitChangesArgs {
 	commitSha: string;
 }
 
+export interface OpenLocalFileArgs {
+	file: string;
+	startLine: number;
+	endLine: number;
+	href: string;
+}
+
 // #endregion

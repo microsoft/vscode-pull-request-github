@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.136.0
+
+### Changes
+
+- Add tool to create pull requests.
+- Add tool to resolve review comments.
+- Offer to delete worktrees from the clean up command.
+- Include line numbers in "Apply suggestion using AI" context for code review comments.
+
+### Fixes
+
+- Resolving comments doesn't update state on server. https://github.com/microsoft/vscode-pull-request-github/issues/8649
+- PR description filled differently than on github.com. https://github.com/microsoft/vscode-pull-request-github/issues/8630
+- Can't checkout PR locally when already on the same branch. https://github.com/microsoft/vscode-pull-request-github/issues/8624
+- Parent folder checkbox not auto-checked when all children are marked as viewed. https://github.com/microsoft/vscode-pull-request-github/issues/8584
+- Escape file names in processed links.
+
+## 0.134.0
+
+### Changes
+
+- Branch names in the create PR view are now cached for faster target branch loading.
+- GitHub permalink links in PR and issue overview webviews now open the corresponding local file when the file exists in the workspace.
+
+### Fixes
+
+- Selecting a target branch when creating a PR is sometimes broken. https://github.com/microsoft/vscode-pull-request-github/issues/8627
+- "Apply suggestion using AI" for code comment reviews results in a redundant disclaimer suffix. https://github.com/microsoft/vscode-pull-request-github/issues/8605
+
+**_Thank You_**
+
+* [@Daniel-Aaron-Bloom](https://github.com/Daniel-Aaron-Bloom): Link to local file for permalinks in webview [PR #8583](https://github.com/microsoft/vscode-pull-request-github/pull/8583)
+
+## 0.132.2
+
+### Fixes
+
+- Button missing rounded corners on one side. https://github.com/microsoft/vscode-pull-request-github/issues/8609
+
+## 0.132.1
+
+### Fixes
+
+- Can't add multiline GitHub PR Comment because Inline Chat button covers Comment button. https://github.com/microsoft/vscode-pull-request-github/issues/8504
+- Deleting a worktree after merging a PR mixes the main branch with the worktree. https://github.com/microsoft/vscode-pull-request-github/issues/8519
+- Missing issue webview icon.
+
 ## 0.132.0
 
 ### Changes

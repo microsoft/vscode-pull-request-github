@@ -482,19 +482,7 @@ function getRecentlyUsedBranches(folderRepoManager: FolderRepositoryManager, own
 	return state.branches[repoKey] || [];
 }
 
-export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean, prefix: string | undefined): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
-	let branches: (string | Ref)[];
-	if (isBase) {
-		// For the base, we only want to show branches from GitHub.
-		branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName, prefix);
-	} else {
-		// For the compare, we only want to show local branches.
-		branches = (await folderRepoManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
-	}
-
-
-	const branchNames = branches.map(branch => typeof branch === 'string' ? branch : branch.name!);
-
+function buildBranchPickItems(branchNames: string[], githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] {
 	// Get recently used branches for base branches only
 	let recentBranches: string[] = [];
 	let otherBranches: string[] = branchNames;
@@ -554,4 +542,29 @@ export async function branchPicks(githubRepository: GitHubRepository, folderRepo
 		});
 	}
 	return branchPicks;
+}
+
+export function cachedBranchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] | undefined {
+	if (!isBase) {
+		return undefined;
+	}
+	const cached = githubRepository.getCachedBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+	if (!cached) {
+		return undefined;
+	}
+	return buildBranchPickItems(cached, githubRepository, folderRepoManager, changeRepoMessage, isBase);
+}
+
+export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean, prefix: string | undefined): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
+	let branches: (string | Ref)[];
+	if (isBase) {
+		// For the base, we only want to show branches from GitHub.
+		branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName, prefix);
+	} else {
+		// For the compare, we only want to show local branches.
+		branches = (await folderRepoManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
+	}
+
+	const branchNames = branches.map(branch => typeof branch === 'string' ? branch : branch.name!);
+	return buildBranchPickItems(branchNames, githubRepository, folderRepoManager, changeRepoMessage, isBase);
 }

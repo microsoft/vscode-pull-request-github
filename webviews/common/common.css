@@ -430,6 +430,11 @@ button.split-left {
 	border-right: none;
 }
 
+button.split-left:only-child {
+	border-radius: 4px;
+	border-right: 1px solid var(--vscode-button-border, transparent);
+}
+
 .split {
 	background-color: var(--vscode-button-background);
 	border-top: 1px solid var(--vscode-button-border);
