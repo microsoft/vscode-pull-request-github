@@ -75,6 +75,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+			manageCheckboxStateManually: true
 		}));
 
 		this._register(this._view.onDidChangeVisibility(e => {
@@ -379,7 +380,21 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		if (this._children[0] instanceof WorkspaceFolderNode) {
-			(this._children as WorkspaceFolderNode[]).forEach(folderNode => this.refreshQueryResultsForFolder(folderNode));
+			const currentManagers = new Set(this._reposManager.folderManagers);
+			const before = this._children.length;
+			const validChildren = (this._children as WorkspaceFolderNode[]).filter(folderNode => {
+				if (currentManagers.has(folderNode.folderManager)) {
+					return true;
+				}
+				folderNode.dispose();
+				return false;
+			});
+			if (validChildren.length !== before) {
+				this._children = validChildren;
+				this._onDidChangeTreeData.fire();
+				return;
+			}
+			validChildren.forEach(folderNode => this.refreshQueryResultsForFolder(folderNode));
 			return;
 		}
 		this.refreshQueryResultsForFolder();

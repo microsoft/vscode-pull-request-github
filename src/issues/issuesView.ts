@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { commands, contexts } from '../common/executeCommands';
-import { ISSUE_AVATAR_DISPLAY, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ISSUE_AVATAR_DISPLAY, IssueAvatarDisplay, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
@@ -91,28 +91,36 @@ export class IssuesTreeData
 
 		const avatarDisplaySetting = vscode.workspace
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
-			.get<'author' | 'assignee'>(ISSUE_AVATAR_DISPLAY, 'author');
+			.get<IssueAvatarDisplay>(ISSUE_AVATAR_DISPLAY, 'author');
 
-		let avatarUser: IAccount | undefined;
-		if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
-			avatarUser = element.assignees[0];
-		} else if (avatarDisplaySetting === 'author') {
-			avatarUser = element.author;
-		}
-
-		if (avatarUser) {
-			// For enterprise, use placeholder icon instead of trying to fetch avatar
-			if (!DataUri.isGitHubDotComAvatar(avatarUser.avatarUrl)) {
-				treeItem.iconPath = new vscode.ThemeIcon('github');
-			} else {
-				treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
-					(element.isOpen
-						? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-						: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
-			}
+		if (avatarDisplaySetting === 'state') {
+			treeItem.iconPath = element.isOpen
+				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+		} else if (avatarDisplaySetting === 'generic') {
+			treeItem.iconPath = new vscode.ThemeIcon('issues');
 		} else {
-			// Use GitHub codicon when assignee setting is selected but no assignees exist
-			treeItem.iconPath = new vscode.ThemeIcon('github');
+			let avatarUser: IAccount | undefined;
+			if ((avatarDisplaySetting === 'assignee') && element.assignees && (element.assignees.length > 0)) {
+				avatarUser = element.assignees[0];
+			} else {
+				avatarUser = element.author;
+			}
+
+			if (avatarUser) {
+				// For enterprise, use placeholder icon instead of trying to fetch avatar
+				if (!DataUri.isGitHubDotComAvatar(avatarUser.avatarUrl)) {
+					treeItem.iconPath = new vscode.ThemeIcon('github');
+				} else {
+					treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
+						(element.isOpen
+							? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+							: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
+				}
+			} else {
+				// Use GitHub codicon when assignee setting is selected but no assignees exist
+				treeItem.iconPath = new vscode.ThemeIcon('github');
+			}
 		}
 
 		treeItem.command = {
@@ -157,7 +165,7 @@ export class IssuesTreeData
 
 	getChildren(
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem | undefined,
-	): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	): FolderRepositoryManager[] | QueryNode[] | Promise<FolderRepositoryManager[] | QueryNode[] | IssueItem[] | IssueGroupNode[]> {
 		if (element === undefined && this.manager.state !== ReposManagerState.RepositoriesLoaded) {
 			return this.getStateChildren();
 		} else {
@@ -185,12 +193,25 @@ export class IssuesTreeData
 		}
 	}
 
-	private getRootChildren(): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	private async getRootChildren(): Promise<FolderRepositoryManager[] | QueryNode[] | IssueItem[] | IssueGroupNode[]> {
 		// If there's only one folder manager go straight to the query nodes
 		if (this.manager.folderManagers.length === 1) {
 			return this.getRepoChildren(this.manager.folderManagers[0]);
 		} else if (this.manager.folderManagers.length > 1) {
-			return this.manager.folderManagers;
+			// Hide repositories that have no matching issues in any query
+			const managersWithIssues: FolderRepositoryManager[] = [];
+			for (const fm of this.manager.folderManagers) {
+				const issueCol = this.stateManager.getIssueCollection(fm.repository.rootUri);
+				const queryResultPromises = Array.from(issueCol.values());
+				const queryResults = await Promise.allSettled(queryResultPromises);
+				const hasMatchingIssues = queryResults.some(r =>
+					r.status === 'fulfilled' && r.value.issues && r.value.issues.length > 0
+				);
+				if (hasMatchingIssues) {
+					managersWithIssues.push(fm);
+				}
+			}
+			return managersWithIssues;
 		} else {
 			return [];
 		}
@@ -246,7 +267,7 @@ export class IssuesTreeData
 
 	getIssuesChildren(
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem | undefined,
-	): FolderRepositoryManager[] | QueryNode[] | Promise<IssueItem[] | IssueGroupNode[]> {
+	): FolderRepositoryManager[] | QueryNode[] | Promise<FolderRepositoryManager[] | QueryNode[] | IssueItem[] | IssueGroupNode[]> {
 		if (element === undefined) {
 			return this.getRootChildren();
 		} else if (element instanceof FolderRepositoryManager) {

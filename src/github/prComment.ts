@@ -175,7 +175,7 @@ export class TemporaryComment extends CommentBase {
 		this.mode = vscode.CommentMode.Preview;
 		this.originalAuthor = {
 			name: currentUser.specialDisplayName ?? currentUser.login,
-			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
+			iconPath: (currentUser.avatarUrl && DataUri.isGitHubDotComAvatar(currentUser.avatarUrl)) ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
 		this.state = isDraft ? vscode.CommentState.Draft : vscode.CommentState.Published;
@@ -238,12 +238,12 @@ export class GHPRComment extends CommentBase {
 		this.rawComment = comment;
 		this.originalAuthor = {
 			name: comment.user?.specialDisplayName ?? comment.user!.login,
-			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
+			iconPath: (comment.user && comment.user.avatarUrl && DataUri.isGitHubDotComAvatar(comment.user.avatarUrl)) ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
 		const url = vscode.Uri.parse(comment.url);
 		this.githubRepository = githubRepositories?.find(repo => repo.remote.host === url.authority);
 
-		const avatarUrisPromise = comment.user ? DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28) : Promise.resolve([]);
+		const avatarUrisPromise = (comment.user && DataUri.isGitHubDotComAvatar(comment.user.avatarUrl)) ? DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28) : Promise.resolve([]);
 		this.doSetBody(comment.body, !comment.user).then(async () => { // only refresh if there's no user. If there's a user, we'll refresh in the then.
 			const avatarUris = await avatarUrisPromise;
 			if (avatarUris.length > 0) {

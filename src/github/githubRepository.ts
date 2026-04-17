@@ -124,6 +124,26 @@ export enum ViewerPermission {
 	Write = 'WRITE',
 }
 
+export class RateLimitError extends Error {
+	constructor(message?: string) {
+		super(message ?? 'GitHub API rate limit exceeded');
+		this.name = 'RateLimitError';
+	}
+}
+
+export function isRateLimitError(e: unknown): boolean {
+	if (e instanceof RateLimitError) {
+		return true;
+	}
+	if (e instanceof Error) {
+		const msg = e.message.toLowerCase();
+		if (msg.includes('rate limit') || msg.includes('secondary rate') || msg.includes('abuse detection')) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export enum TeamReviewerRefreshKind {
 	None,
 	Try,
@@ -191,6 +211,8 @@ export class GitHubRepository extends Disposable {
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
+
+	private _branchesCache: Map<string, string[]> = new Map();
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -941,6 +963,9 @@ export class GitHubRepository extends Disposable {
 			return parseGraphQLViewerPermission(data);
 		} catch (e) {
 			Logger.error(`Unable to fetch viewer permission: ${e}`, this.id);
+			if (isRateLimitError(e)) {
+				throw new RateLimitError();
+			}
 			return ViewerPermission.Unknown;
 		}
 	}
@@ -1318,6 +1343,14 @@ export class GitHubRepository extends Disposable {
 		return data.repository?.ref?.target.oid;
 	}
 
+	private branchesCacheKey(owner: string, repositoryName: string): string {
+		return `${owner}/${repositoryName}`;
+	}
+
+	getCachedBranches(owner: string, repositoryName: string): string[] | undefined {
+		return this._branchesCache.get(this.branchesCacheKey(owner, repositoryName));
+	}
+
 	async listBranches(owner: string, repositoryName: string, prefix: string | undefined): Promise<string[]> {
 		const { query, remote, schema } = await this.ensure();
 		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, this.id);
@@ -1358,6 +1391,10 @@ export class GitHubRepository extends Disposable {
 		Logger.debug(`List branches for ${owner}/${repositoryName} - done`, this.id);
 		if (!branches.includes(defaultBranch)) {
 			branches.unshift(defaultBranch);
+		}
+		// Cache results for unprefixed queries
+		if (!prefix) {
+			this._branchesCache.set(this.branchesCacheKey(owner, repositoryName), branches);
 		}
 		return branches;
 	}
@@ -1879,9 +1916,13 @@ export class GitHubRepository extends Disposable {
 		const statusByContext = new Map<string, PullRequestCheckStatus>();
 
 		for (const status of statuses) {
-			const existing = statusByContext.get(status.context);
+			// Include event and workflowName in the key so that checks from different
+			// workflow events (e.g. "push" vs "pull_request") or different workflows
+			// are not incorrectly merged during deduplication.
+			const key = `${status.context}\0${status.event ?? ''}\0${status.workflowName ?? ''}`;
+			const existing = statusByContext.get(key);
 			if (!existing) {
-				statusByContext.set(status.context, status);
+				statusByContext.set(key, status);
 				continue;
 			}
 
@@ -1891,7 +1932,7 @@ export class GitHubRepository extends Disposable {
 
 			if (currentIsPending && !existingIsPending) {
 				// Current is pending, existing is completed - prefer current
-				statusByContext.set(status.context, status);
+				statusByContext.set(key, status);
 			} else if (!currentIsPending && existingIsPending) {
 				// Current is completed, existing is pending - keep existing
 				continue;
@@ -1899,7 +1940,7 @@ export class GitHubRepository extends Disposable {
 				// Both are same type (both pending or both completed)
 				// Prefer the one with a higher ID (more recent), as GitHub IDs are monotonically increasing
 				if (status.id > existing.id) {
-					statusByContext.set(status.context, status);
+					statusByContext.set(key, status);
 				}
 			}
 		}

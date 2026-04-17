@@ -53,5 +53,10 @@ describe('Overview', function () {
 
 		// Initial state should not have sticky class
 		assert(!titleElement.classList.contains('sticky'));
+
+		// Sticky header should exist but not be visible initially
+		const stickyHeader = out.container.querySelector('.sticky-header');
+		assert(stickyHeader);
+		assert(!stickyHeader.classList.contains('visible'));
 	});
 });

@@ -68,6 +68,23 @@ export class ReviewsManager extends Disposable {
 				this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._notificationsManager);
 			}
 		}));
+
+		this._register(this._reposManager.onDidChangeFolderRepositories(changed => {
+			if (!changed.added) {
+				this.removeOrphanedReviewManagers();
+			}
+		}));
+	}
+
+	private removeOrphanedReviewManagers(): void {
+		const folderManagerUris = new Set(this._reposManager.folderManagers.map(m => m.repository.rootUri.toString()));
+		for (let i = this._reviewManagers.length - 1; i >= 0; i--) {
+			const manager = this._reviewManagers[i];
+			if (!folderManagerUris.has(manager.repository.rootUri.toString())) {
+				this._reviewManagers.splice(i, 1);
+				manager.dispose();
+			}
+		}
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
@@ -103,7 +120,7 @@ export class ReviewsManager extends Disposable {
 		);
 		if (reviewManagerIndex >= 0) {
 			const manager = this._reviewManagers[reviewManagerIndex];
-			this._reviewManagers.splice(reviewManagerIndex);
+			this._reviewManagers.splice(reviewManagerIndex, 1);
 			manager.dispose();
 		}
 	}
