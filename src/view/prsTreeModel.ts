@@ -225,6 +225,11 @@ export class PrsTreeModel extends Disposable {
 		}
 	}
 
+	public invalidateLocalPRCache(folderRepoManager: FolderRepositoryManager) {
+		this._clearOneCache(folderRepoManager, PRType.LocalPullRequest);
+		this._onDidChangeData.fire(folderRepoManager);
+	}
+
 	private _clearOneCache(folderRepoManager: FolderRepositoryManager, query: string | PRType.LocalPullRequest | PRType.All) {
 		const cache = this.getFolderCache(folderRepoManager);
 		if (cache.has(query)) {

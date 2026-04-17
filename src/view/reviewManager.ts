@@ -474,6 +474,9 @@ export class ReviewManager extends Disposable {
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
 			matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch);
+			if (matchingPullRequestMetadata) {
+				this._pullRequestsTree.prsTreeModel.invalidateLocalPRCache(this._folderRepoManager);
+			}
 		}
 
 		if (!matchingPullRequestMetadata) {
