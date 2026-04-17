@@ -936,15 +936,20 @@ export function registerCommands(
 					}
 				);
 
-				// Ask user if they want to open the worktree (after progress is finished)
-				const openAction = vscode.l10n.t('Open in New Window');
+				// Ask user how they want to open the worktree (modal dialog)
+				const openInNewWindow = vscode.l10n.t('New Window');
+				const openInCurrentWindow = vscode.l10n.t('Current Window');
 				const result = await vscode.window.showInformationMessage(
-					vscode.l10n.t('Worktree created for Pull Request #{0}', pullRequestModel.number),
-					openAction
+					vscode.l10n.t('Worktree created for Pull Request #{0}. How would you like to open it?', pullRequestModel.number),
+					{ modal: true },
+					openInNewWindow,
+					openInCurrentWindow
 				);
 
-				if (result === openAction) {
+				if (result === openInNewWindow) {
 					await commands.openFolder(worktreeUri, { forceNewWindow: true });
+				} else if (result === openInCurrentWindow) {
+					await commands.openFolder(worktreeUri, { forceNewWindow: false });
 				}
 			} catch (e) {
 				const errorMessage = e instanceof Error ? e.message : String(e);
