@@ -77,6 +77,7 @@ export class ReviewManager extends Disposable {
 	 */
 	private _cachedMaxPRNumbers: Map<string, number> | undefined;
 	private _cachedBranchName: string | undefined;
+	private _pollHandle: NodeJS.Timeout | undefined;
 	/**
 	 * Flag set when the "Checkout" action is used and cleared on the next git
 	 * state update, once review mode has been entered. Used to disambiguate
@@ -136,6 +137,12 @@ export class ReviewManager extends Disposable {
 			this.updateState(true);
 		}
 		this.pollForStateChange();
+		this._register(toDisposable(() => {
+			if (this._pollHandle) {
+				clearTimeout(this._pollHandle);
+				this._pollHandle = undefined;
+			}
+		}));
 	}
 
 	private registerListeners(): void {
@@ -214,12 +221,22 @@ export class ReviewManager extends Disposable {
 	}
 
 	private pollForStateChange() {
-		setTimeout(async () => {
-			Logger.appendLine('Polling for state change...', this.id);
-			if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
-				await this.updateState();
+		this._pollHandle = setTimeout(async () => {
+			if (this.isDisposed) {
+				return;
 			}
-			this.pollForStateChange();
+			Logger.appendLine('Polling for state change...', this.id);
+			try {
+				if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
+					await this.updateState();
+				}
+			} catch (e) {
+				Logger.warn(`Polling for state change failed: ${e}`, this.id);
+			} finally {
+				if (!this.isDisposed) {
+					this.pollForStateChange();
+				}
+			}
 		}, 1000 * 60 * 5);
 	}
 
@@ -436,21 +453,26 @@ export class ReviewManager extends Disposable {
 		if (!headRepo) {
 			return [];
 		}
-		const metadata = await headRepo.getMetadata();
-		if (!metadata?.owner) {
+		try {
+			const metadata = await headRepo.getMetadata();
+			if (!metadata?.owner) {
+				return [headRepo];
+			}
+			const parentRepos = this._folderRepoManager.gitHubRepositories.filter(repo => {
+				if (metadata.fork) {
+					return repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name;
+				} else {
+					return repo.remote.owner === metadata.owner?.login && repo.remote.repositoryName === metadata.name;
+				}
+			});
+			// Include both head and parent repos, deduplicated
+			const result = new Set<GitHubRepository>(parentRepos);
+			result.add(headRepo);
+			return [...result];
+		} catch (e) {
+			Logger.warn(`Failed to get metadata for relevant repos: ${e}`, this.id);
 			return [headRepo];
 		}
-		const parentRepos = this._folderRepoManager.gitHubRepositories.filter(repo => {
-			if (metadata.fork) {
-				return repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name;
-			} else {
-				return repo.remote.owner === metadata.owner?.login && repo.remote.repositoryName === metadata.name;
-			}
-		});
-		// Include both head and parent repos, deduplicated
-		const result = new Set<GitHubRepository>(parentRepos);
-		result.add(headRepo);
-		return [...result];
 	}
 
 	private async getMaxPullRequestNumbers(): Promise<Map<string, number>> {
@@ -471,6 +493,11 @@ export class ReviewManager extends Disposable {
 			return true;
 		}
 		const current = await this.getMaxPullRequestNumbers();
+		// If we couldn't determine max PR for any repo, assume there may be new PRs
+		if (current.size === 0) {
+			this._cachedMaxPRNumbers = current;
+			return true;
+		}
 		let result = false;
 		for (const [key, value] of current) {
 			const cached = this._cachedMaxPRNumbers.get(key);
@@ -545,9 +572,6 @@ export class ReviewManager extends Disposable {
 		if (!this._repository.state.HEAD) {
 			await this.clear(true);
 			return;
-		}
-		if (!this._cachedMaxPRNumbers) {
-			this._cachedMaxPRNumbers = await this.getMaxPullRequestNumbers();
 		}
 
 		const branch = this._repository.state.HEAD;
