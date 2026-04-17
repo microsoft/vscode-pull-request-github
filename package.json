@@ -1020,6 +1020,12 @@
 				"icon": "$(folder-library)"
 			},
 			{
+				"command": "pr.pickInWorktreeFromDescription",
+				"title": "%command.pr.pickInWorktree.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(folder-library)"
+			},
+			{
 				"command": "pr.exit",
 				"title": "%command.pr.exit.title%",
 				"category": "%command.pull.request.category%"
@@ -2092,6 +2098,10 @@
 				},
 				{
 					"command": "pr.pickInWorktree",
+					"when": "false"
+				},
+				{
+					"command": "pr.pickInWorktreeFromDescription",
 					"when": "false"
 				},
 				{
@@ -3656,13 +3666,18 @@
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
-					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"command": "pr.pickInWorktreeFromDescription",
 					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu && !isWeb"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"group": "checkout@2",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
 					"command": "pr.checkoutOnCodespacesFromDescription",
-					"group": "checkout@2",
+					"group": "checkout@3",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{

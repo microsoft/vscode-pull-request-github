@@ -959,6 +959,17 @@ export function registerCommands(
 		}),
 	);
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pickInWorktreeFromDescription', async (ctx: BaseContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
+		}
+		const resolved = await resolvePr(ctx);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
+		}
+		return vscode.commands.executeCommand('pr.pickInWorktree', resolved.pr);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));

@@ -306,7 +306,7 @@ interface CheckoutButtonProps {
 }
 
 const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }) => {
-	const { exitReviewMode, checkout, checkoutInWorktree, openChanges } = useContext(PullRequestContext);
+	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
 	const onClick = async (command: string) => {
@@ -316,9 +316,6 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 			switch (command) {
 				case 'checkout':
 					await checkout();
-					break;
-				case 'checkoutInWorktree':
-					await checkoutInWorktree();
 					break;
 				case 'exitReviewMode':
 					await exitReviewMode();
@@ -359,11 +356,6 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 			label: 'Checkout',
 			value: '',
 			action: () => onClick('checkout')
-		});
-		actions.push({
-			label: 'Checkout in Worktree',
-			value: '',
-			action: () => onClick('checkoutInWorktree')
 		});
 	}
 
