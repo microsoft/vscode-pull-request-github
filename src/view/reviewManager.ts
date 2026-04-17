@@ -231,7 +231,7 @@ export class ReviewManager extends Disposable {
 					await this.updateState();
 				}
 			} catch (e) {
-				Logger.warn(`Polling for state change failed: ${e}`, this.id);
+				Logger.warn(`Polling for state change failed: ${formatError(e)}`, this.id);
 			} finally {
 				if (!this.isDisposed) {
 					this.pollForStateChange();
@@ -470,7 +470,7 @@ export class ReviewManager extends Disposable {
 			result.add(headRepo);
 			return [...result];
 		} catch (e) {
-			Logger.warn(`Failed to get metadata for relevant repos: ${e}`, this.id);
+			Logger.warn(`Failed to get metadata for relevant repos: ${formatError(e)}`, this.id);
 			return [headRepo];
 		}
 	}
@@ -493,9 +493,9 @@ export class ReviewManager extends Disposable {
 			return true;
 		}
 		const current = await this.getMaxPullRequestNumbers();
-		// If we couldn't determine max PR for any repo, assume there may be new PRs
+		// If we couldn't determine max PR for any repo, assume there may be new PRs,
+		// but keep the last known good cache so transient failures do not discard it.
 		if (current.size === 0) {
-			this._cachedMaxPRNumbers = current;
 			return true;
 		}
 		let result = false;
