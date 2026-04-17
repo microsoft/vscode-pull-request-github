@@ -963,35 +963,7 @@ export class FolderRepositoryManager extends Disposable {
 			})));
 		}
 
-		const result = models.filter(value => value !== undefined) as PullRequestModel[];
-
-		// For the current HEAD branch, if it has an upstream but no PR metadata,
-		// query GitHub to find an associated PR. This handles PRs created on the
-		// GitHub website that haven't been checked out through the extension.
-		const head = this.repository.state.HEAD;
-		if (head?.name && head.upstream && !result.find(pr => pr.localBranchName === head.name)) {
-			try {
-				const metadata = await this.getMatchingPullRequestMetadataFromGitHub(
-					head,
-					head.upstream.remote,
-					undefined,
-					head.upstream.name,
-				);
-				if (metadata) {
-					await PullRequestGitHelper.associateBranchWithPullRequest(
-						this.repository,
-						metadata.model,
-						head.name,
-					);
-					metadata.model.localBranchName = head.name;
-					result.push(metadata.model);
-				}
-			} catch (e) {
-				Logger.debug(`Error checking GitHub for PR on HEAD branch ${head.name}: ${e}`, this.id);
-			}
-		}
-
-		return result;
+		return models.filter(value => value !== undefined) as PullRequestModel[];
 	}
 
 	/**
