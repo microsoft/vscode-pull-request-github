@@ -909,12 +909,30 @@ export function registerCommands(
 							// Continue even if fetch fails - the branch might already be available locally
 						}
 
+						// Check if the branch already exists locally
+						let branchExists = false;
+						try {
+							await repositoryToUse.getBranch(branchName);
+							branchExists = true;
+						} catch {
+							// Branch doesn't exist locally, we'll create it
+							branchExists = false;
+						}
+
 						// Use the git extension's createWorktree API
-						await repositoryToUse.createWorktree!({
-							path: worktreePath,
-							commitish: trackedBranchName,
-							branch: branchName
-						});
+						// If branch already exists, don't specify the branch parameter to avoid "branch already exists" error
+						if (branchExists) {
+							await repositoryToUse.createWorktree!({
+								path: worktreePath,
+								commitish: branchName
+							});
+						} else {
+							await repositoryToUse.createWorktree!({
+								path: worktreePath,
+								commitish: trackedBranchName,
+								branch: branchName
+							});
+						}
 					}
 				);
 
