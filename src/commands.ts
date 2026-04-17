@@ -32,6 +32,7 @@ import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { BaseContext, OverviewContext } from './github/views';
+import { checkoutPRInWorktree } from './github/worktree';
 import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
@@ -845,117 +846,13 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
-			// Validate that the PR has a valid head branch
-			if (!pullRequestModel.head) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to checkout pull request: missing head branch information.'));
-			}
-
-			// Store validated head to avoid non-null assertions later
-			const prHead = pullRequestModel.head;
-
 			// Get the folder manager to access the repository
 			const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
 			if (!folderManager) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
 			}
 
-			const repositoryToUse = repository || folderManager.repository;
-
-			/* __GDPR__
-				"pr.checkoutInWorktree" : {}
-			*/
-			telemetry.sendTelemetryEvent('pr.checkoutInWorktree');
-
-			// Prepare for operations
-			const repoRootPath = repositoryToUse.rootUri.fsPath;
-			const parentDir = pathLib.dirname(repoRootPath);
-			const defaultWorktreePath = pathLib.join(parentDir, `pr-${pullRequestModel.number}`);
-			const branchName = prHead.ref;
-			const remoteName = pullRequestModel.remote.remoteName;
-
-			// Ask user for worktree location first (not in progress)
-			const worktreeUri = await vscode.window.showSaveDialog({
-				defaultUri: vscode.Uri.file(defaultWorktreePath),
-				title: vscode.l10n.t('Select Worktree Location'),
-				saveLabel: vscode.l10n.t('Create Worktree'),
-			});
-
-			if (!worktreeUri) {
-				return; // User cancelled
-			}
-
-			const worktreePath = worktreeUri.fsPath;
-			const trackedBranchName = `${remoteName}/${branchName}`;
-
-			try {
-				// Check if the createWorktree API is available
-				if (!repositoryToUse.createWorktree) {
-					throw new Error(vscode.l10n.t('Git worktree API is not available. Please update VS Code to the latest version.'));
-				}
-
-				// Start progress for fetch and worktree creation
-				await vscode.window.withProgress(
-					{
-						location: vscode.ProgressLocation.Notification,
-						title: vscode.l10n.t('Creating worktree for Pull Request #{0}...', pullRequestModel.number),
-					},
-					async () => {
-						// Fetch the PR branch first
-						try {
-							await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
-						} catch (e) {
-							const errorMessage = e instanceof Error ? e.message : String(e);
-							Logger.appendLine(`Failed to fetch branch ${branchName}: ${errorMessage}`, logId);
-							// Continue even if fetch fails - the branch might already be available locally
-						}
-
-						// Check if the branch already exists locally
-						let branchExists = false;
-						try {
-							await repositoryToUse.getBranch(branchName);
-							branchExists = true;
-						} catch {
-							// Branch doesn't exist locally, we'll create it
-							branchExists = false;
-						}
-
-						// Use the git extension's createWorktree API
-						// If branch already exists, don't specify the branch parameter to avoid "branch already exists" error
-						if (branchExists) {
-							await repositoryToUse.createWorktree!({
-								path: worktreePath,
-								commitish: branchName
-							});
-						} else {
-							await repositoryToUse.createWorktree!({
-								path: worktreePath,
-								commitish: trackedBranchName,
-								branch: branchName
-							});
-						}
-					}
-				);
-
-				// Ask user how they want to open the worktree (modal dialog)
-				const openInNewWindow = vscode.l10n.t('New Window');
-				const openInCurrentWindow = vscode.l10n.t('Current Window');
-				const result = await vscode.window.showInformationMessage(
-					vscode.l10n.t('Worktree created for Pull Request #{0}. How would you like to open it?', pullRequestModel.number),
-					{ modal: true },
-					openInNewWindow,
-					openInCurrentWindow
-				);
-
-				if (result === openInNewWindow) {
-					await commands.openFolder(worktreeUri, { forceNewWindow: true });
-				} else if (result === openInCurrentWindow) {
-					await commands.openFolder(worktreeUri, { forceNewWindow: false });
-				}
-			} catch (e) {
-				const errorMessage = e instanceof Error ? e.message : String(e);
-				Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
-				return vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
-			}
+			return checkoutPRInWorktree(telemetry, folderManager, pullRequestModel, repository);
 		}),
 	);
 
@@ -967,7 +864,7 @@ export function registerCommands(
 		if (!resolved) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
-		return vscode.commands.executeCommand('pr.pickInWorktree', resolved.pr);
+		return checkoutPRInWorktree(telemetry, resolved.folderManager, resolved.pr, undefined);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
