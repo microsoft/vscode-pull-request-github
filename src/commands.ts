@@ -1558,18 +1558,20 @@ ${contents}
 				if (treeNode instanceof FileChangeNode) {
 					await treeNode.markFileAsViewed(false);
 				} else if (treeNode) {
-					// When the argument is a uri it came from the editor menu and we should also close the file
-					// Do the close first to improve perceived performance of marking as viewed.
-					const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-					if (tab) {
-						let compareUri: vscode.Uri | undefined = undefined;
-						if (tab.input instanceof vscode.TabInputTextDiff) {
-							compareUri = tab.input.modified;
-						} else if (tab.input instanceof vscode.TabInputText) {
-							compareUri = tab.input.uri;
-						}
-						if (compareUri && treeNode.toString() === compareUri.toString()) {
-							vscode.window.tabGroups.close(tab);
+					const closeAfterMarkAsViewed = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('closeAfterMarkAsViewed', false);
+					if (closeAfterMarkAsViewed) {
+						// Do the close first to improve perceived performance of marking as viewed.
+						const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+						if (tab) {
+							let compareUri: vscode.Uri | undefined = undefined;
+							if (tab.input instanceof vscode.TabInputTextDiff) {
+								compareUri = tab.input.modified;
+							} else if (tab.input instanceof vscode.TabInputText) {
+								compareUri = tab.input.uri;
+							}
+							if (compareUri && treeNode.toString() === compareUri.toString()) {
+								vscode.window.tabGroups.close(tab);
+							}
 						}
 					}
 

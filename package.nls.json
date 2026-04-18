@@ -187,6 +187,7 @@
 	"githubPullRequests.pullRequestAvatarDisplay.author": "Show the pull request author avatar",
 	"githubPullRequests.pullRequestAvatarDisplay.state": "Show the pull request type (draft or not) and state (open/closed/merged) as a colored icon",
 	"githubPullRequests.pullRequestAvatarDisplay.generic": "Show a GitHub icon",
+	"githubPullRequests.closeAfterMarkAsViewed.description": "When enabled, the editor will close automatically after marking a file as viewed.",
 	"githubIssues.issueAvatarDisplay.state": "Show the issue state (open/closed) as a colored icon",
 	"githubIssues.issueAvatarDisplay.generic": "Show an issues icon regardless of state",
 	"githubIssues.alwaysPromptForNewIssueRepo.description": "Enabling will always prompt which repository to create an issue in instead of basing off the current open file.",

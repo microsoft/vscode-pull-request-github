@@ -862,6 +862,11 @@
 					"default": "author",
 					"description": "%githubPullRequests.pullRequestAvatarDisplay.description%"
 				},
+				"githubPullRequests.closeAfterMarkAsViewed": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.closeAfterMarkAsViewed.description%"
+				},
 				"githubIssues.alwaysPromptForNewIssueRepo": {
 					"type": "boolean",
 					"default": false,
