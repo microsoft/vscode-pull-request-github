@@ -272,6 +272,10 @@ export class GitHubRepository extends Disposable {
 
 	override dispose() {
 		super.dispose();
+		GitHubRepository._allRepoIds.delete(this._id);
+		for (const repoIds of GitHubRepository._succeededPullRequests.values()) {
+			repoIds.delete(this._id);
+		}
 		this.commentsController = undefined;
 		this.commentsHandler = undefined;
 	}
@@ -1210,7 +1214,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number, callerName: string, useCache: boolean = false): Promise<PullRequestModel | undefined> {
+	async getPullRequest(id: number, callerName: string, useCache: boolean = false, silent: boolean = false): Promise<PullRequestModel | undefined> {
 		if (useCache && this._pullRequestModelsByNumber.has(id)) {
 			Logger.debug(`Using cached pull request model for ${id}`, this.id);
 			return this._pullRequestModelsByNumber.get(id)!.model;
@@ -1234,7 +1238,7 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this), silent);
 			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
 			let repoIds = GitHubRepository._succeededPullRequests.get(id);
 			if (!repoIds) {

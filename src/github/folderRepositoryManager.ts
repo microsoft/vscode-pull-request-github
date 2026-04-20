@@ -1326,7 +1326,7 @@ export class FolderRepositoryManager extends Disposable {
 				const protocol = new Protocol(item.repository_url);
 
 				const prRepo = await this.createGitHubRepositoryFromOwnerName(protocol.owner, protocol.repositoryName);
-				const data = await prRepo.getPullRequest(item.number, 'FolderRepositoryManager.getPullRequests');
+				const data = await prRepo.getPullRequest(item.number, 'FolderRepositoryManager.getPullRequestsForCategory', false, true);
 				return { data, repo: prRepo };
 			});
 
