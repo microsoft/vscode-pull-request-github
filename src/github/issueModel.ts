@@ -503,7 +503,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 
 			for (const unseenPrs of crossRefs) {
 				// Kick off getting the new PRs so that the system knows about them (and refreshes the tree when they're found)
-				this.githubRepository.getPullRequest(unseenPrs.source.number);
+				this.githubRepository.getPullRequest(unseenPrs.source.number, 'IssueModel.getTimelineEvents');
 			}
 
 			this.timelineEvents = events;

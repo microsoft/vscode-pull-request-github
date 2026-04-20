@@ -12,7 +12,7 @@ import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { CopilotWorkingStatus, GitHubRepository, isRateLimitError, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { PullRequestResponse, PullRequestState } from './graphql';
+import { PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -24,7 +24,6 @@ import {
 	getPRFetchQuery,
 	getStateFromQuery,
 	loginComparator,
-	parseGraphQLPullRequest,
 	teamComparator,
 	variableSubstitution,
 } from './utils';
@@ -952,7 +951,7 @@ export class FolderRepositoryManager extends Disposable {
 					);
 
 					if (githubRepo) {
-						const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
+						const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber, 'FolderRepositoryManager.getLocalPullRequests');
 
 						if (pullRequest) {
 							pullRequest.localBranchName = localBranchName;
@@ -1307,7 +1306,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getPullRequestsForCategory(githubRepository: GitHubRepository, categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
-			const { octokit, query, schema } = await githubRepository.ensure();
+			const { octokit } = await githubRepository.ensure();
 
 			/* __GDPR__
 				"pr.search.category" : {
@@ -1323,18 +1322,11 @@ export class FolderRepositoryManager extends Disposable {
 				page: page || 1,
 			});
 
-			const promises: Promise<{ data: PullRequestResponse, repo: GitHubRepository } | undefined>[] = data.items.map(async (item) => {
+			const promises: Promise<{ data: PullRequestModel | undefined, repo: GitHubRepository } | undefined>[] = data.items.map(async (item) => {
 				const protocol = new Protocol(item.repository_url);
 
 				const prRepo = await this.createGitHubRepositoryFromOwnerName(protocol.owner, protocol.repositoryName);
-				const { data } = await query<PullRequestResponse>({
-					query: schema.PullRequest,
-					variables: {
-						owner: prRepo.remote.owner,
-						name: prRepo.remote.repositoryName,
-						number: item.number
-					}
-				});
+				const data = await prRepo.getPullRequest(item.number, 'FolderRepositoryManager.getPullRequests');
 				return { data, repo: prRepo };
 			});
 
@@ -1343,16 +1335,12 @@ export class FolderRepositoryManager extends Disposable {
 
 			const pullRequests = (await Promise.all(pullRequestResponses
 				.map(async response => {
-					if (!response?.data.repository) {
+					if (!response?.data) {
 						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
 						return null;
 					}
 
-					// Pull requests fetched with a query can be from any repo.
-					// We need to use the correct GitHubRepository for this PR.
-					return response.repo.createOrUpdatePullRequestModel(
-						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo), true
-					);
+					return response.data;
 				})))
 				.filter(item => item !== null) as PullRequestModel[];
 
@@ -2364,7 +2352,7 @@ export class FolderRepositoryManager extends Disposable {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		Logger.trace(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
+			const pr = await githubRepo.getPullRequest(pullRequestNumber, 'FolderRepositoryManager.resolvePullRequest', useCache);
 			Logger.trace(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}
@@ -2644,7 +2632,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async fetchById(githubRepo: GitHubRepository, id: number): Promise<PullRequestModel | undefined> {
-		const pullRequest = await githubRepo.getPullRequest(id);
+		const pullRequest = await githubRepo.getPullRequest(id, 'FolderRepositoryManager.fetchById');
 		if (pullRequest) {
 			return pullRequest;
 		} else {
