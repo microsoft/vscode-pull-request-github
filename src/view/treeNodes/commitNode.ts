@@ -111,6 +111,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			dirNode.finalize();
 			if (dirNode.label === '') {
 				// nothing on the root changed, pull children to parent
+				dirNode._children.forEach(child => { child.parent = this; });
 				result.push(...dirNode._children);
 			} else {
 				result.push(dirNode);
