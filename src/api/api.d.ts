@@ -256,7 +256,7 @@ export interface IGit {
 }
 
 export interface TitleAndDescriptionProvider {
-	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[], template?: string }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[], template?: string, baseBranch?: string, compareBranch?: string }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
 export interface ReviewerComments {

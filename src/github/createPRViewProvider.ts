@@ -1229,8 +1229,7 @@ Don't forget to commit your template file to the repository so that it can be us
 				const template = await templatePromise;
 
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues, template }, token);
-
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues, template, baseBranch: this.model.baseBranch, compareBranch: this.model.compareBranch }, token);
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
 					/* __GDPR__
