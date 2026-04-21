@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.138.0
+
+### Fixes
+
+- Extension does not show all PR checks. https://github.com/microsoft/vscode-pull-request-github/issues/8640
+- File-scoped comment fails with "Error: File has been deleted". https://github.com/microsoft/vscode-pull-request-github/issues/8641
+- PR made without the UI is not linked to the existing branch. https://github.com/microsoft/vscode-pull-request-github/issues/8643
+
 ## 0.136.0
 
 ### Changes
