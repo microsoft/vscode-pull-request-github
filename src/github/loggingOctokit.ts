@@ -143,7 +143,7 @@ export class LoggingApolloClient {
 	}
 
 	mutate<T = any, TVariables = OperationVariables>(options: MutationOptions<T, TVariables>): Promise<FetchResult<T>> {
-		const logInfo = options.context;
+		const logInfo = String(options.context);
 		const result = this._rateLogger.logAndLimit(logInfo, () => this._graphql.mutate(options));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
