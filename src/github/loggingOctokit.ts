@@ -32,10 +32,27 @@ export class RateLogger {
 	private bulkhead: BulkheadPolicy = bulkhead(140);
 	private static ID = 'RateLimit';
 	private hasLoggedLowRateLimit: boolean = false;
+	private readonly _isInsiders: boolean;
 
-	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) { }
+	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) {
+		this._isInsiders = vscode.env.appName.toLowerCase().includes('insider');
+	}
+
+	private static sanitizeOperationName(info: string): string {
+		// REST URLs like /repos/{owner}/{repo}/pulls get redacted because they look
+		// like file paths. Convert slashes to dots to avoid redaction.
+		return info.replace(/\/+/g, '.').replace(/^\.+|\.+$/g, '');
+	}
 
 	public logAndLimit<T extends Promise<any>>(info: string | undefined, apiRequest: () => T): T | undefined {
+		if (this._isInsiders && info) {
+			/* __GDPR__
+				"pr.apiCall" : {
+					"operation" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('pr.apiCall', { operation: RateLogger.sanitizeOperationName(info) });
+		}
 		if (this.bulkhead.executionSlots === 0) {
 			Logger.error('API call count has exceeded 140 concurrent calls.', RateLogger.ID);
 			// We have hit more than 140 concurrent API requests.
