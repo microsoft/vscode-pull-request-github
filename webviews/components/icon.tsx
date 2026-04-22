@@ -53,6 +53,8 @@ export const outputIcon = <Icon src={require('../../resources/icons/codicons/out
 export const skipIcon = <Icon src={require('../../resources/icons/codicons/skip.svg')} className='skip' />;
 
 // Other icons
+export const issueIcon = <Icon src={require('../../resources/icons/issue_webview.svg')} />;
+export const issueClosedIcon = <Icon src={require('../../resources/icons/codicons/pass.svg')} />;
 export const copilotErrorIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-error.svg')} />;
 export const copilotInProgressIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-in-progress.svg')} />;
 export const copilotSuccessIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-success.svg')} />;
