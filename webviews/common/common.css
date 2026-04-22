@@ -286,6 +286,14 @@ body img.avatar {
 	fill: var(--vscode-issues-open);
 }
 
+.section-icon.issue-open svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.section-icon.issue-closed svg path {
+	fill: var(--vscode-issues-closed);
+}
+
 .reviewer-icons {
 	display: flex;
 	gap: 4px;

@@ -595,9 +595,12 @@ function ConvertToDraft() {
 }
 
 function IssueItem({ issue }: { issue: IssueReference }) {
+	const isOpen = issue.state === GithubItemStateEnum.Open;
 	return (
 		<div className="avatar-with-author">
-			{issue.state === GithubItemStateEnum.Open ? issueIcon : issueClosedIcon}
+			<span className={`section-icon ${isOpen ? 'issue-open' : 'issue-closed'}`}>
+				{isOpen ? issueIcon : issueClosedIcon}
+			</span>
 			<a href={issue.url} title={issue.url}>#{issue.number} {issue.title}</a>
 		</div>
 	);
