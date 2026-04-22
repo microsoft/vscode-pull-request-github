@@ -1578,6 +1578,21 @@ export class GitHubRepository extends Disposable {
 				after = users?.pageInfo.endCursor;
 			} catch (e) {
 				Logger.debug(`Unable to fetch assignable users: ${e}`, this.id);
+				const properties: { errorCode?: string; usedSuggestedActors: string } = {
+					usedSuggestedActors: String(!!schema.GetSuggestedActors),
+				};
+				if (e.status !== undefined) {
+					properties.errorCode = String(e.status);
+				} else if (e.graphQLErrors?.[0]?.extensions?.code) {
+					properties.errorCode = String(e.graphQLErrors[0].extensions.code);
+				}
+				/* __GDPR__
+					"pr.getAssignableUsersFailed" : {
+						"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+						"usedSuggestedActors": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+					}
+				*/
+				this.telemetry.sendTelemetryErrorEvent('pr.getAssignableUsersFailed', properties);
 				if (
 					e.graphQLErrors &&
 					e.graphQLErrors.length > 0 &&
