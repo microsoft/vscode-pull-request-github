@@ -32,6 +32,7 @@ export interface IssueReference {
 	number: number;
 	title: string;
 	state: GithubItemStateEnum;
+	url: string;
 }
 
 export interface DisplayLabel extends ILabel {

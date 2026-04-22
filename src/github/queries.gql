@@ -230,6 +230,7 @@ fragment PullRequestFragment on PullRequest {
 			number
 			title
 			state
+			url
 		}
 	}
 	merged

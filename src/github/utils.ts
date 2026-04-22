@@ -1070,8 +1070,8 @@ function parseSuggestedReviewers(
 }
 
 function parseClosingIssuesReferences(
-	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: string }> | undefined
-): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum }> {
+	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: string, url: string }> | undefined
+): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum, url: string }> {
 	if (!closingIssuesReferences) {
 		return [];
 	}
@@ -1081,6 +1081,7 @@ function parseClosingIssuesReferences(
 		number: issue.number,
 		title: issue.title,
 		state: issue.state === 'OPEN' ? GithubItemStateEnum.Open : GithubItemStateEnum.Closed,
+		url: issue.url,
 	}));
 }
 

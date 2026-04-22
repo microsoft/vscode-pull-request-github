@@ -598,7 +598,7 @@ function IssueItem({ issue }: { issue: IssueReference }) {
 	return (
 		<div className="avatar-with-author">
 			{issue.state === GithubItemStateEnum.Open ? issueIcon : issueClosedIcon}
-			<span>#{issue.number} {issue.title}</span>
+			<a href={issue.url} title={issue.url}>#{issue.number} {issue.title}</a>
 		</div>
 	);
 }

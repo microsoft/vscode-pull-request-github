@@ -773,7 +773,8 @@ export interface PullRequest extends Issue {
 			id: number,
 			title: string,
 			number: number,
-			state: 'CLOSED' | 'OPEN'
+			state: 'CLOSED' | 'OPEN',
+			url: string,
 		}[];
 	};
 }
