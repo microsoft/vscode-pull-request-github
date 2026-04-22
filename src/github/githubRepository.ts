@@ -1309,6 +1309,21 @@ export class GitHubRepository extends Disposable {
 			return issue;
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
+			const properties: { errorCode?: string } = {};
+			if (e.status !== undefined) {
+				properties.errorCode = String(e.status);
+			} else if (e.graphQLErrors?.[0]?.extensions?.code) {
+				properties.errorCode = String(e.graphQLErrors[0].extensions.code);
+			}
+			/* __GDPR__
+				"pr.getIssueFailed" : {
+					"issueNumber": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.getIssueFailed', properties, {
+				issueNumber: id
+			});
 			return;
 		}
 	}
