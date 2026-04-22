@@ -458,7 +458,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
-				generateDescriptionTitle: this.getGenerateDescriptionTitle()
+				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
+				closingIssues: pullRequest.closingIssues,
 			};
 			this._postMessage({
 				command: 'pr.initialize',

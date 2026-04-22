@@ -54,6 +54,7 @@ import {
 	IGitTreeItem,
 	IRawFileChange,
 	IRawFileContent,
+	IssueReference,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
@@ -137,6 +138,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public conflicts?: string[];
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
+	public closingIssues: IssueReference[];
 	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = this._register(new vscode.EventEmitter<boolean>());
@@ -265,7 +267,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		this.suggestedReviewers = item.suggestedReviewers;
-
+		this.closingIssues = item.closingIssues ?? [];
 		if (item.isRemoteHeadDeleted != null) {
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
 		}

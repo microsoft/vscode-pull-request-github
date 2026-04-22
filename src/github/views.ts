@@ -112,6 +112,7 @@ export interface PullRequest extends Issue {
 	busy?: boolean;
 	loadingCommit?: string;
 	generateDescriptionTitle?: string;
+	closingIssues: Pick<Issue, 'title' | 'number' | 'state'>[];
 }
 
 export interface ProjectItemsReply {

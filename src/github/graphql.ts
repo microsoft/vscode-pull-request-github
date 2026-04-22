@@ -768,6 +768,14 @@ export interface PullRequest extends Issue {
 	suggestedReviewers: SuggestedReviewerResponse[];
 	additions?: number;
 	deletions?: number;
+	closingIssuesReferences?: {
+		nodes: {
+			id: number,
+			title: string,
+			number: number,
+			state: 'CLOSED' | 'OPEN'
+		}[];
+	};
 }
 
 export enum DefaultCommitTitle {
