@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { closeIcon, copilotIcon, settingsIcon } from './icon';
+import { closeIcon, copilotIcon, issueClosedIcon, issueIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IAccount, IMilestone, IProjectItem, Issue, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
-import { ChangeReviewersReply, PullRequest } from '../../src/github/views';
+import { GithubItemStateEnum, IAccount, IMilestone, IProjectItem, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
+import { ChangeReviewersReply, IssueReference, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
@@ -274,18 +274,14 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 				title="Linked Issues"
 				hasWritePermission={false}
 			>
-				{closingIssues.length > 0 ? (
-					<div className="p-2">
-						{closingIssues.map(issue => (
-							<div className="section-item reviewer">
-								<div className="avatar-with-author gap-2">
-									<IssueItem key={issue.title} issue={issue} />
-								</div>
-							</div>
-						))}
-					</div>
+				{closingIssues.length ? (
+					closingIssues.map(issue => (
+						<div key={issue.number} className="section-item">
+							<IssueItem issue={issue} />
+						</div>
+					))
 				) : (
-					<div className="p-4 text-sm text-gray-500 text-center">None yet</div>
+					<div className="section-placeholder">None yet</div>
 				)}
 			</Section>
 		</div>
@@ -598,25 +594,12 @@ function ConvertToDraft() {
 	);
 }
 
-function IssueItem({ issue }: { issue: Pick<Issue, 'title' | 'number' | 'state'> }) {
+function IssueItem({ issue }: { issue: IssueReference }) {
 	return (
-		<>
-			<IssueStateIcon state={issue.state} />
-			<span className="h2">{issue.title}</span>
-		</>
+		<div className="avatar-with-author">
+			{issue.state === GithubItemStateEnum.Open ? issueIcon : issueClosedIcon}
+			<span>#{issue.number} {issue.title}</span>
+		</div>
 	);
-}
-
-function IssueStateIcon({ state }: { state: string }) {
-	const normalizedState = state.toLowerCase().trim();
-
-	switch (normalizedState) {
-		case 'open':
-			return settingsIcon;
-		case 'closed':
-			return closeIcon;
-		default:
-			return closeIcon;
-	}
 }
 

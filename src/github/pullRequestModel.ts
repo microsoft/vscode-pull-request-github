@@ -138,7 +138,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public conflicts?: string[];
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
-	public closingIssues: IssueReference[];
+	public closingIssues: IssueReference[] = [];
 	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = this._register(new vscode.EventEmitter<boolean>());
