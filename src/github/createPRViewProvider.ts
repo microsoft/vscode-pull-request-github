@@ -129,8 +129,11 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	protected abstract getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }>;
 
-	protected async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
+	protected async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods | undefined> {
 		const repo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
+		if (!repo) {
+			return undefined;
+		}
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
@@ -212,7 +215,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
 
 		let defaultTitleAndDescription: { title: string; description: string };
-		let mergeConfiguration: RepoAccessAndMergeMethods;
+		let mergeConfiguration: RepoAccessAndMergeMethods | undefined;
 		let viewerPermission: ViewerPermission;
 		let mergeQueueMethodForBranch: MergeMethod | undefined;
 		let labels: ILabel[];
@@ -255,7 +258,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
 		const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
-		const repoMergeMethod = getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability);
+		const repoMergeMethod = mergeConfiguration ? getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability) : 'merge' as MergeMethod;
 
 		// default values are for 'create'
 		let defaultMergeMethod: MergeMethod = repoMergeMethod;
@@ -266,11 +269,11 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		if (defaultCreateOption === 'lastUsed') {
 			defaultMergeMethod = lastCreateMethod?.mergeMethod ?? repoMergeMethod;
 			isDraftDefault = !!lastCreateMethod?.isDraft;
-			autoMergeDefault = mergeConfiguration.viewerCanAutoMerge && !!lastCreateMethod?.autoMerge;
+			autoMergeDefault = !!mergeConfiguration?.viewerCanAutoMerge && !!lastCreateMethod?.autoMerge;
 		} else if (defaultCreateOption === 'createDraft') {
 			isDraftDefault = true;
 		} else if (defaultCreateOption === 'createAutoMerge') {
-			autoMergeDefault = mergeConfiguration.viewerCanAutoMerge;
+			autoMergeDefault = !!mergeConfiguration?.viewerCanAutoMerge;
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
@@ -301,8 +304,8 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			defaultMergeMethod,
 			baseHasMergeQueue: !!mergeQueueMethodForBranch,
 			remoteCount: remotes.length,
-			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
-			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
+			allowAutoMerge: mergeConfiguration?.viewerCanAutoMerge,
+			mergeMethodsAvailability: mergeConfiguration?.mergeMethodsAvailability,
 			autoMergeDefault,
 			createError: '',
 			labels: this.labels,
@@ -1073,7 +1076,7 @@ Don't forget to commit your template file to the repository so that it can be us
 				this.getTitleAndDescription(compareBranch, this.model.baseBranch),
 				this._folderRepositoryManager.mergeQueueMethodForBranch(this.model.baseBranch, this.model.baseOwner, this.model.repositoryName)]);
 			let autoMergeDefault = false;
-			if (mergeConfiguration.viewerCanAutoMerge) {
+			if (mergeConfiguration?.viewerCanAutoMerge) {
 				const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
 				const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
 				autoMergeDefault = (defaultCreateOption === 'lastUsed' && lastCreateMethod?.autoMerge) || (defaultCreateOption === 'createAutoMerge');
@@ -1083,10 +1086,10 @@ Don't forget to commit your template file to the repository so that it can be us
 				baseRemote: result.remote,
 				baseBranch: result.branch,
 				defaultBaseBranch: defaultBranch,
-				defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
-				allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
+				defaultMergeMethod: mergeConfiguration ? getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability) : 'merge' as MergeMethod,
+				allowAutoMerge: mergeConfiguration?.viewerCanAutoMerge ?? false,
 				baseHasMergeQueue: !!mergeQueueMethodForBranch,
-				mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
+				mergeMethodsAvailability: mergeConfiguration?.mergeMethodsAvailability ?? { merge: true, squash: true, rebase: true },
 				autoMergeDefault,
 				defaultTitle: titleAndDescription.title,
 				defaultDescription: titleAndDescription.description
