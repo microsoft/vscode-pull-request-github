@@ -4,12 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import * as issueUtil from '../../issues/util';
-
-const mockCopilotManager: Partial<CopilotRemoteAgentManager> = {
-	isAvailable: () => Promise.resolve(true)
-}
 
 describe('IssueTodoProvider', function () {
 	// Mock isComment

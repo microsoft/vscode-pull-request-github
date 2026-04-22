@@ -22,7 +22,6 @@ import { Schemes } from './common/uri';
 import { isDescendant } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
-import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { OverviewRestorer } from './github/overviewRestorer';
@@ -74,7 +73,6 @@ async function init(
 	showPRController: ShowPullRequest,
 	reposManager: RepositoriesManager,
 	createPrHelper: CreatePullRequestHelper,
-	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	themeWatcher: ThemeWatcher,
 	prsTreeModel: PrsTreeModel,
 ): Promise<void> {
@@ -189,7 +187,7 @@ async function init(
 	const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore, reposManager, context);
 	context.subscriptions.push(notificationsManager);
 
-	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, prsTreeModel, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager, notificationsManager);
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, prsTreeModel, tree, changesTree, telemetry, credentialStore, git, notificationsManager);
 	context.subscriptions.push(reviewsManager);
 
 	context.subscriptions.push(vscode.languages.registerCompletionItemProvider(
@@ -266,7 +264,7 @@ async function init(
 
 	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), notificationsManager);
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel, tree);
+	registerCommands(context, reposManager, reviewsManager, telemetry, notificationsManager, prsTreeModel, tree);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -468,9 +466,6 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	Logger.debug('Creating tree view.', 'Activation');
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry, context, prsTreeModel);
-	context.subscriptions.push(copilotRemoteAgentManager);
-
 	const prTree = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refreshAll(true)));
@@ -500,7 +495,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));
 	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(Schemes.CheckRunLog, new CheckRunLogContentProvider(reposManager)));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher, prsTreeModel);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, themeWatcher, prsTreeModel);
 	return apiImpl;
 }
 

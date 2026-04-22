@@ -16,7 +16,6 @@ import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
-import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -36,7 +35,6 @@ export class ReviewsManager extends Disposable {
 		private _telemetry: ITelemetry,
 		private _credentialStore: CredentialStore,
 		private _gitApi: GitApiImpl,
-		private _copilotManager: CopilotRemoteAgentManager,
 		private _notificationsManager: NotificationsManager,
 	) {
 		super();

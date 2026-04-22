@@ -19,7 +19,7 @@ import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CrossChatSessionWithPR } from './github/copilotApi';
-import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
+import { SessionIdForPr } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
@@ -136,7 +136,6 @@ export function registerCommands(
 	reposManager: RepositoriesManager,
 	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
-	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	notificationManager: NotificationsManager,
 	prsTreeModel: PrsTreeModel,
 	tree: PullRequestsTreeDataProvider
