@@ -543,7 +543,7 @@ export class ReviewManager extends Disposable {
 			Logger.appendLine('Resolving pull request', this.id);
 			let pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber, useCache);
 
-			if (!pr || !pr.isResolved() || !(await pr.githubRepository.hasBranch(pr.base.name))) {
+			if (!pr || !pr.isResolved() || !(await pr.githubRepository.hasBranch(pr.base.ref))) {
 				await this.clear(true);
 				this._prNumber = undefined;
 				Logger.appendLine('This PR is no longer valid', this.id);
