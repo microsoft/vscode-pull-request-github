@@ -571,7 +571,18 @@ export class GitHubRepository extends Disposable {
 			Logger.debug('Fetch pull request templates - done', this.id);
 			return result.data.repository.pullRequestTemplates.map(template => template.body);
 		} catch (e) {
-			// The template was not found.
+			Logger.error(`Fetching pull request templates failed: ${e}`, this.id);
+			const properties: { errorCode?: string } = {};
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
+			}
+			/* __GDPR__
+				"pr.getPullRequestTemplatesFailed" : {
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.getPullRequestTemplatesFailed', properties);
 		}
 	}
 
