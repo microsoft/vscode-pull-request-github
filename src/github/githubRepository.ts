@@ -1257,8 +1257,14 @@ export class GitHubRepository extends Disposable {
 			};
 			if (e.status !== undefined) {
 				properties.errorCode = String(e.status);
+			} else if (e.networkError?.statusCode !== undefined) {
+				properties.errorCode = String(e.networkError.statusCode);
 			} else if (e.graphQLErrors?.[0]?.extensions?.code) {
 				properties.errorCode = String(e.graphQLErrors[0].extensions.code);
+			} else if (e.code !== undefined) {
+				properties.errorCode = String(e.code);
+			} else if (e.name) {
+				properties.errorCode = e.name;
 			}
 			/* __GDPR__
 				"pr.getPullRequestFailed" : {
