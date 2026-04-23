@@ -2921,11 +2921,8 @@ export class FolderRepositoryManager extends Disposable {
 		const repo = await this.createAndAddGitHubRepository(new Remote(gitRemote?.remoteName ?? repositoryName, uri, new Protocol(uri)), this._credentialStore);
 		let reason: string;
 		try {
-			const permission = await repo.getViewerPermission();
-			if (permission !== ViewerPermission.Unknown) {
-				return repo;
-			}
-			reason = 'unknownPermission';
+			await repo.getMetadata();
+			return repo;
 		} catch (e) {
 			reason = 'error';
 			Logger.appendLine(`Repository ${owner}/${repositoryName} is not accessible: ${e}`, this.id);
