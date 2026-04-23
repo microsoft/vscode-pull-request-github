@@ -144,6 +144,21 @@ export function isRateLimitError(e: unknown): boolean {
 	return false;
 }
 
+export function getErrorCode(e: any): string | undefined {
+	if (e.status !== undefined) {
+		return String(e.status);
+	} else if (e.networkError?.statusCode !== undefined) {
+		return String(e.networkError.statusCode);
+	} else if (e.graphQLErrors?.[0]?.extensions?.code) {
+		return String(e.graphQLErrors[0].extensions.code);
+	} else if (e.code !== undefined) {
+		return String(e.code);
+	} else if (e.name) {
+		return e.name;
+	}
+	return undefined;
+}
+
 export enum TeamReviewerRefreshKind {
 	None,
 	Try,
@@ -1255,10 +1270,9 @@ export class GitHubRepository extends Disposable {
 				succeededInOtherRepo: String(succeededInOtherRepo),
 				callerName
 			};
-			if (e.status !== undefined) {
-				properties.errorCode = String(e.status);
-			} else if (e.graphQLErrors?.[0]?.extensions?.code) {
-				properties.errorCode = String(e.graphQLErrors[0].extensions.code);
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
 			}
 			/* __GDPR__
 				"pr.getPullRequestFailed" : {
@@ -1581,10 +1595,9 @@ export class GitHubRepository extends Disposable {
 				const properties: { errorCode?: string; usedSuggestedActors: string } = {
 					usedSuggestedActors: String(!!schema.GetSuggestedActors),
 				};
-				if (e.status !== undefined) {
-					properties.errorCode = String(e.status);
-				} else if (e.graphQLErrors?.[0]?.extensions?.code) {
-					properties.errorCode = String(e.graphQLErrors[0].extensions.code);
+				const errorCode = getErrorCode(e);
+				if (errorCode) {
+					properties.errorCode = errorCode;
 				}
 				/* __GDPR__
 					"pr.getAssignableUsersFailed" : {
