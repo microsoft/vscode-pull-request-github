@@ -32,6 +32,7 @@ import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { BaseContext, OverviewContext } from './github/views';
+import { checkoutPRInWorktree } from './github/worktree';
 import { IssueChatContextItem } from './lm/issueContextProvider';
 import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
@@ -824,6 +825,47 @@ export function registerCommands(
 			pickPullRequest(pr, codespacesPrLink, true)
 		),
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | PullRequestModel | unknown) => {
+			if (pr === undefined) {
+				Logger.error('Unexpectedly received undefined when picking a PR for worktree checkout.', logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel;
+			let repository: Repository | undefined;
+
+			if (pr instanceof PRNode) {
+				pullRequestModel = pr.pullRequestModel;
+				repository = pr.repository;
+			} else if (pr instanceof PullRequestModel) {
+				pullRequestModel = pr;
+			} else {
+				Logger.error('Unexpectedly received unknown type when picking a PR for worktree checkout.', logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			// Get the folder manager to access the repository
+			const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
+			if (!folderManager) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
+			}
+
+			return checkoutPRInWorktree(telemetry, folderManager, pullRequestModel, repository);
+		}),
+	);
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pickInWorktreeFromDescription', async (ctx: BaseContext | undefined) => {
+		if (!ctx) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
+		}
+		const resolved = await resolvePr(ctx);
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
+		}
+		return checkoutPRInWorktree(telemetry, resolved.folderManager, resolved.pr, undefined);
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {

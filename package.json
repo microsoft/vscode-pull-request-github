@@ -1014,6 +1014,18 @@
 				"icon": "$(cloud)"
 			},
 			{
+				"command": "pr.pickInWorktree",
+				"title": "%command.pr.pickInWorktreeFromDescription.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(folder-library)"
+			},
+			{
+				"command": "pr.pickInWorktreeFromDescription",
+				"title": "%command.pr.pickInWorktree.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(folder-library)"
+			},
+			{
 				"command": "pr.exit",
 				"title": "%command.pr.exit.title%",
 				"category": "%command.pull.request.category%"
@@ -2085,6 +2097,14 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.pickInWorktree",
+					"when": "false"
+				},
+				{
+					"command": "pr.pickInWorktreeFromDescription",
+					"when": "false"
+				},
+				{
 					"command": "pr.exit",
 					"when": "github:inReviewMode"
 				},
@@ -2883,6 +2903,11 @@
 					"group": "1_pullrequest@3"
 				},
 				{
+					"command": "pr.pickInWorktree",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && !isWeb",
+					"group": "1_pullrequest@4"
+				},
+				{
 					"command": "pr.openChanges",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/",
 					"group": "2_pullrequest@1"
@@ -3641,13 +3666,18 @@
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
-					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"command": "pr.pickInWorktreeFromDescription",
 					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu && !isWeb"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"group": "checkout@2",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{
 					"command": "pr.checkoutOnCodespacesFromDescription",
-					"group": "checkout@2",
+					"group": "checkout@3",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				},
 				{

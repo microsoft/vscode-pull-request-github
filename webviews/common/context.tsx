@@ -370,7 +370,7 @@ export class PRContext {
 		const args: OpenLocalFileArgs = { file, startLine, endLine, href };
 		this.postMessage({ command: 'pr.open-diff-from-link', args });
 	};
-	
+
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
 	public openCommitChanges = async (commitSha: string) => {
