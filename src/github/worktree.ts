@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
 import { Repository } from '../api/api';
+import { commands } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 
@@ -75,13 +76,7 @@ export async function checkoutPRInWorktree(
 			},
 			async () => {
 				// Fetch the PR branch first
-				try {
-					await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
-				} catch (e) {
-					const errorMessage = e instanceof Error ? e.message : String(e);
-					Logger.appendLine(`Failed to fetch branch ${branchName}: ${errorMessage}`, logId);
-					// Continue even if fetch fails - the branch might already be available locally
-				}
+				await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
 
 				// Check if the branch already exists locally
 				let branchExists = false;
@@ -121,9 +116,9 @@ export async function checkoutPRInWorktree(
 		);
 
 		if (result === openInNewWindow) {
-			await vscode.commands.executeCommand('vscode.openFolder', worktreeUri, { forceNewWindow: true });
+			await commands.openFolder(worktreeUri, { forceNewWindow: true });
 		} else if (result === openInCurrentWindow) {
-			await vscode.commands.executeCommand('vscode.openFolder', worktreeUri, { forceNewWindow: false });
+			await commands.openFolder(worktreeUri, { forceNewWindow: false });
 		}
 	} catch (e) {
 		const errorMessage = e instanceof Error ? e.message : String(e);
