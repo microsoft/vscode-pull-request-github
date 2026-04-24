@@ -144,18 +144,43 @@ export function isRateLimitError(e: unknown): boolean {
 	return false;
 }
 
-export function getErrorCode(e: any): string | undefined {
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+export function getErrorCode(e: unknown): string | undefined {
+	if (!isObject(e)) {
+		return undefined;
+	}
+
 	if (e.status !== undefined) {
 		return String(e.status);
-	} else if (e.networkError?.statusCode !== undefined) {
-		return String(e.networkError.statusCode);
-	} else if (e.graphQLErrors?.[0]?.extensions?.code) {
-		return String(e.graphQLErrors[0].extensions.code);
-	} else if (e.code !== undefined) {
+	}
+
+	const networkError = e.networkError;
+	if (isObject(networkError) && networkError.statusCode !== undefined) {
+		return String(networkError.statusCode);
+	}
+
+	const graphQLErrors = e.graphQLErrors;
+	if (Array.isArray(graphQLErrors)) {
+		const firstGraphQLError = graphQLErrors[0];
+		if (isObject(firstGraphQLError)) {
+			const extensions = firstGraphQLError.extensions;
+			if (isObject(extensions) && extensions.code !== undefined) {
+				return String(extensions.code);
+			}
+		}
+	}
+
+	if (e.code !== undefined) {
 		return String(e.code);
-	} else if (e.name) {
+	}
+
+	if (typeof e.name === 'string' && e.name) {
 		return e.name;
 	}
+
 	return undefined;
 }
 
@@ -546,7 +571,18 @@ export class GitHubRepository extends Disposable {
 			Logger.debug('Fetch pull request templates - done', this.id);
 			return result.data.repository.pullRequestTemplates.map(template => template.body);
 		} catch (e) {
-			// The template was not found.
+			Logger.error(`Fetching pull request templates failed: ${e}`, this.id);
+			const properties: { errorCode?: string } = {};
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
+			}
+			/* __GDPR__
+				"pr.getPullRequestTemplatesFailed" : {
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.getPullRequestTemplatesFailed', properties);
 		}
 	}
 
