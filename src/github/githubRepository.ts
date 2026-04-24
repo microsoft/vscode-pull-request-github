@@ -178,7 +178,13 @@ export function getErrorCode(e: unknown): string | undefined {
 	}
 
 	if (typeof e.name === 'string' && e.name) {
-		return e.name;
+		const message = typeof e.message === 'string' ? e.message : '';
+		if (e.name !== 'Error') {
+			return message ? `${e.name}: ${message}` : e.name;
+		}
+		if (message) {
+			return message;
+		}
 	}
 
 	return undefined;
