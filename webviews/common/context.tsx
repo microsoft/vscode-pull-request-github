@@ -34,8 +34,6 @@ export class PRContext {
 
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
-	public checkoutInWorktree = () => this.postMessage({ command: 'pr.checkout-in-worktree' });
-
 	public openChanges = (openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { openToTheSide } });
 
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
@@ -372,7 +370,7 @@ export class PRContext {
 		const args: OpenLocalFileArgs = { file, startLine, endLine, href };
 		this.postMessage({ command: 'pr.open-diff-from-link', args });
 	};
-	
+
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
 	public openCommitChanges = async (commitSha: string) => {

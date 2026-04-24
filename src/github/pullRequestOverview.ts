@@ -29,7 +29,6 @@ import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommo
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, UnresolvedIdentity } from './views';
-import { checkoutPRInWorktree } from './worktree';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -508,8 +507,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		switch (message.command) {
 			case 'pr.checkout':
 				return this.checkoutPullRequest(message);
-			case 'pr.checkout-in-worktree':
-				return this.checkoutPullRequestInWorktree(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
 			case 'pr.change-email':
@@ -826,17 +823,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			() => {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
-			},
-		);
-	}
-
-	private checkoutPullRequestInWorktree(message: IRequestMessage<any>): void {
-		checkoutPRInWorktree(this._telemetry, this._folderRepositoryManager, this._item, undefined).then(
-			() => {
-				this._replyMessage(message, {});
-			},
-			() => {
-				this._replyMessage(message, {});
 			},
 		);
 	}
