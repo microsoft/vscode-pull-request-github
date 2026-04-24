@@ -55,7 +55,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 
 		if ((options.input as PullRequestToolParams | undefined)?.refresh) {
 			await Promise.all([
-				pullRequest.githubRepository.getPullRequest(pullRequest.number),
+				pullRequest.githubRepository.getPullRequest(pullRequest.number, 'ActivePullRequestTool.invoke'),
 				pullRequest.getTimelineEvents(),
 				pullRequest.initializeReviewThreadCacheAndReviewComments(),
 			]);

@@ -344,11 +344,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		let rejectMessage: string | undefined;
 		if (this.isActive) {
 			localHead = repository.state.HEAD?.commit;
-			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.approve'))?.head?.sha;
 			rejectMessage = vscode.l10n.t('The remote head of the pull request branch has changed. Please pull the latest changes from the remote branch before approving.');
 		} else {
 			localHead = this.head?.sha;
-			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.approve'))?.head?.sha;
 			rejectMessage = vscode.l10n.t('The remote head of the pull request branch has changed. Please refresh the pull request before approving.');
 		}
 

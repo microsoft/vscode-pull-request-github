@@ -144,6 +144,46 @@ export function isRateLimitError(e: unknown): boolean {
 	return false;
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+export function getErrorCode(e: unknown): string | undefined {
+	if (!isObject(e)) {
+		return undefined;
+	}
+
+	if (e.status !== undefined) {
+		return String(e.status);
+	}
+
+	const networkError = e.networkError;
+	if (isObject(networkError) && networkError.statusCode !== undefined) {
+		return String(networkError.statusCode);
+	}
+
+	const graphQLErrors = e.graphQLErrors;
+	if (Array.isArray(graphQLErrors)) {
+		const firstGraphQLError = graphQLErrors[0];
+		if (isObject(firstGraphQLError)) {
+			const extensions = firstGraphQLError.extensions;
+			if (isObject(extensions) && extensions.code !== undefined) {
+				return String(extensions.code);
+			}
+		}
+	}
+
+	if (e.code !== undefined) {
+		return String(e.code);
+	}
+
+	if (typeof e.name === 'string' && e.name) {
+		return e.name;
+	}
+
+	return undefined;
+}
+
 export enum TeamReviewerRefreshKind {
 	None,
 	Try,
@@ -188,6 +228,8 @@ export interface PullRequestChangeEvent {
 
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
+	private static _allRepoIds: Set<number> = new Set();
+	private static _succeededPullRequests: Map<number, Set<number>> = new Map();
 	protected _initialized: boolean = false;
 	protected _hub: GitHub | undefined;
 	protected _metadata: Promise<IMetadata> | undefined;
@@ -270,6 +312,10 @@ export class GitHubRepository extends Disposable {
 
 	override dispose() {
 		super.dispose();
+		GitHubRepository._allRepoIds.delete(this._id);
+		for (const repoIds of GitHubRepository._succeededPullRequests.values()) {
+			repoIds.delete(this._id);
+		}
 		this.commentsController = undefined;
 		this.commentsHandler = undefined;
 	}
@@ -291,6 +337,7 @@ export class GitHubRepository extends Disposable {
 		silent: boolean = false
 	) {
 		super();
+		GitHubRepository._allRepoIds.add(this._id);
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
@@ -524,7 +571,18 @@ export class GitHubRepository extends Disposable {
 			Logger.debug('Fetch pull request templates - done', this.id);
 			return result.data.repository.pullRequestTemplates.map(template => template.body);
 		} catch (e) {
-			// The template was not found.
+			Logger.error(`Fetching pull request templates failed: ${e}`, this.id);
+			const properties: { errorCode?: string } = {};
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
+			}
+			/* __GDPR__
+				"pr.getPullRequestTemplatesFailed" : {
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.getPullRequestTemplatesFailed', properties);
 		}
 	}
 
@@ -1207,7 +1265,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number, useCache: boolean = false): Promise<PullRequestModel | undefined> {
+	async getPullRequest(id: number, callerName: string, useCache: boolean = false, silent: boolean = false): Promise<PullRequestModel | undefined> {
 		if (useCache && this._pullRequestModelsByNumber.has(id)) {
 			Logger.debug(`Using cached pull request model for ${id}`, this.id);
 			return this._pullRequestModelsByNumber.get(id)!.model;
@@ -1231,11 +1289,40 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this), silent);
 			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			let repoIds = GitHubRepository._succeededPullRequests.get(id);
+			if (!repoIds) {
+				repoIds = new Set();
+				GitHubRepository._succeededPullRequests.set(id, repoIds);
+			}
+			repoIds.add(this._id);
 			return pr;
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, this.id);
+			const succeededRepos = GitHubRepository._succeededPullRequests.get(id);
+			const succeededInOtherRepo = succeededRepos ? succeededRepos.size > 0 && !succeededRepos.has(this._id) : false;
+			const properties: { succeededInOtherRepo: string; callerName: string; errorCode?: string } = {
+				succeededInOtherRepo: String(succeededInOtherRepo),
+				callerName
+			};
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
+			}
+			/* __GDPR__
+				"pr.getPullRequestFailed" : {
+					"prNumber": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"gitHubRepoCount": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"succeededInOtherRepo": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"callerName": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.getPullRequestFailed', properties, {
+				prNumber: id,
+				gitHubRepoCount: GitHubRepository._allRepoIds.size
+			});
 			return;
 		}
 	}
@@ -1541,6 +1628,20 @@ export class GitHubRepository extends Disposable {
 				after = users?.pageInfo.endCursor;
 			} catch (e) {
 				Logger.debug(`Unable to fetch assignable users: ${e}`, this.id);
+				const properties: { errorCode?: string; usedSuggestedActors: string } = {
+					usedSuggestedActors: String(!!schema.GetSuggestedActors),
+				};
+				const errorCode = getErrorCode(e);
+				if (errorCode) {
+					properties.errorCode = errorCode;
+				}
+				/* __GDPR__
+					"pr.getAssignableUsersFailed" : {
+						"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+						"usedSuggestedActors": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+					}
+				*/
+				this.telemetry.sendTelemetryErrorEvent('pr.getAssignableUsersFailed', properties);
 				if (
 					e.graphQLErrors &&
 					e.graphQLErrors.length > 0 &&

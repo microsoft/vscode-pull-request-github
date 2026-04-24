@@ -238,7 +238,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 					);
 
 					if (githubRepo) {
-						const pr = await githubRepo.getPullRequest(prNumber);
+						const pr = await githubRepo.getPullRequest(prNumber, 'UserCompletionProvider.provideCompletionItems');
 						this.cachedForPrNumber = prNumber;
 						this.cachedPrTimelineEvents = await pr!.getTimelineEvents();
 					}

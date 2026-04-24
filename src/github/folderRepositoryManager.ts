@@ -12,7 +12,7 @@ import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { CopilotWorkingStatus, GitHubRepository, isRateLimitError, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { PullRequestResponse, PullRequestState } from './graphql';
+import { PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -24,7 +24,6 @@ import {
 	getPRFetchQuery,
 	getStateFromQuery,
 	loginComparator,
-	parseGraphQLPullRequest,
 	teamComparator,
 	variableSubstitution,
 } from './utils';
@@ -228,6 +227,7 @@ export class FolderRepositoryManager extends Disposable {
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
 	private _sessionIgnoredRemoteNames: Set<string> = new Set();
+	private _inaccessibleRepos: Set<string> = new Set();
 
 	constructor(
 		private readonly _id: number,
@@ -952,7 +952,7 @@ export class FolderRepositoryManager extends Disposable {
 					);
 
 					if (githubRepo) {
-						const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
+						const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber, 'FolderRepositoryManager.getLocalPullRequests');
 
 						if (pullRequest) {
 							pullRequest.localBranchName = localBranchName;
@@ -1307,7 +1307,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getPullRequestsForCategory(githubRepository: GitHubRepository, categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
-			const { octokit, query, schema } = await githubRepository.ensure();
+			const { octokit } = await githubRepository.ensure();
 
 			/* __GDPR__
 				"pr.search.category" : {
@@ -1323,18 +1323,14 @@ export class FolderRepositoryManager extends Disposable {
 				page: page || 1,
 			});
 
-			const promises: Promise<{ data: PullRequestResponse, repo: GitHubRepository } | undefined>[] = data.items.map(async (item) => {
+			const promises: Promise<{ data: PullRequestModel | undefined, repo: GitHubRepository } | undefined>[] = data.items.map(async (item) => {
 				const protocol = new Protocol(item.repository_url);
 
 				const prRepo = await this.createGitHubRepositoryFromOwnerName(protocol.owner, protocol.repositoryName);
-				const { data } = await query<PullRequestResponse>({
-					query: schema.PullRequest,
-					variables: {
-						owner: prRepo.remote.owner,
-						name: prRepo.remote.repositoryName,
-						number: item.number
-					}
-				});
+				if (!prRepo) {
+					return undefined;
+				}
+				const data = await prRepo.getPullRequest(item.number, 'FolderRepositoryManager.getPullRequestsForCategory', false, true);
 				return { data, repo: prRepo };
 			});
 
@@ -1343,16 +1339,12 @@ export class FolderRepositoryManager extends Disposable {
 
 			const pullRequests = (await Promise.all(pullRequestResponses
 				.map(async response => {
-					if (!response?.data.repository) {
+					if (!response?.data) {
 						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
 						return null;
 					}
 
-					// Pull requests fetched with a query can be from any repo.
-					// We need to use the correct GitHubRepository for this PR.
-					return response.repo.createOrUpdatePullRequestModel(
-						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo), true
-					);
+					return response.data;
 				})))
 				.filter(item => item !== null) as PullRequestModel[];
 
@@ -2364,7 +2356,7 @@ export class FolderRepositoryManager extends Disposable {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		Logger.trace(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
+			const pr = await githubRepo.getPullRequest(pullRequestNumber, 'FolderRepositoryManager.resolvePullRequest', useCache);
 			Logger.trace(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}
@@ -2391,7 +2383,7 @@ export class FolderRepositoryManager extends Disposable {
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
 		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
-		return githubRepository.resolveUser(login);
+		return githubRepository?.resolveUser(login);
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
@@ -2570,7 +2562,8 @@ export class FolderRepositoryManager extends Disposable {
 			}
 			let continueWithMerge = true;
 			if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
-				const githubRepos = await Promise.all([this.createGitHubRepositoryFromOwnerName(pullRequest.head!.owner, pullRequest.head!.repositoryCloneUrl.repositoryName), this.createGitHubRepositoryFromOwnerName(pullRequest.base.owner, pullRequest.base.repositoryCloneUrl.repositoryName)]);
+				const githubRepoResults = await Promise.all([this.createGitHubRepositoryFromOwnerName(pullRequest.head!.owner, pullRequest.head!.repositoryCloneUrl.repositoryName), this.createGitHubRepositoryFromOwnerName(pullRequest.base.owner, pullRequest.base.repositoryCloneUrl.repositoryName)]);
+				const githubRepos = githubRepoResults.filter((r): r is GitHubRepository => !!r);
 				const coordinator = new ConflictResolutionCoordinator(this.telemetry, conflictModel, githubRepos);
 				continueWithMerge = await coordinator.enterConflictResolutionAndWaitForExit();
 				coordinator.dispose();
@@ -2644,7 +2637,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async fetchById(githubRepo: GitHubRepository, id: number): Promise<PullRequestModel | undefined> {
-		const pullRequest = await githubRepo.getPullRequest(id);
+		const pullRequest = await githubRepo.getPullRequest(id, 'FolderRepositoryManager.fetchById');
 		if (pullRequest) {
 			return pullRequest;
 		} else {
@@ -2912,15 +2905,39 @@ export class FolderRepositoryManager extends Disposable {
 		});
 	}
 
-	async createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): Promise<GitHubRepository> {
+	async createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): Promise<GitHubRepository | undefined> {
 		const existing = this.findExistingGitHubRepository({ owner, repositoryName });
 		if (existing) {
 			return existing;
 		}
+		const repoKey = `${owner.toLowerCase()}/${repositoryName.toLowerCase()}`;
+		if (this._inaccessibleRepos.has(repoKey)) {
+			Logger.debug(`Skipping inaccessible repository: ${owner}/${repositoryName}`, this.id);
+			return undefined;
+		}
 		const gitRemotes = parseRepositoryRemotes(this.repository);
 		const gitRemote = gitRemotes.find(r => r.owner === owner && r.repositoryName === repositoryName);
 		const uri = gitRemote?.url ?? `https://github.com/${owner}/${repositoryName}`;
-		return this.createAndAddGitHubRepository(new Remote(gitRemote?.remoteName ?? repositoryName, uri, new Protocol(uri)), this._credentialStore);
+		const repo = await this.createAndAddGitHubRepository(new Remote(gitRemote?.remoteName ?? repositoryName, uri, new Protocol(uri)), this._credentialStore);
+		let reason: string;
+		try {
+			await repo.getMetadata();
+			return repo;
+		} catch (e) {
+			reason = 'error';
+			Logger.appendLine(`Repository ${owner}/${repositoryName} is not accessible: ${e}`, this.id);
+		}
+		Logger.appendLine(`Repository ${owner}/${repositoryName} is not accessible.`, this.id);
+		this._inaccessibleRepos.add(repoKey);
+		this.removeGitHubRepository(repo.remote);
+		/* __GDPR__
+			"repository.inaccessible" : {
+				"hasLocalRemote" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('repository.inaccessible', { hasLocalRemote: (!!gitRemote).toString(), reason });
+		return undefined;
 	}
 
 	async findUpstreamForItem(item: {
