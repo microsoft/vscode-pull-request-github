@@ -1099,7 +1099,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const templateContent = await this._folderRepositoryManager.getPullRequestTemplateBody(this._item.remote.owner);
 
 			const result = await provider.provider.provideTitleAndDescription(
-				{ commitMessages, patches, issues: [], template: templateContent },
+				{ commitMessages, patches, issues: [], template: templateContent, compareBranch: this._item.head?.ref },
 				this.generatingDescriptionCancellationToken.token
 			);
 

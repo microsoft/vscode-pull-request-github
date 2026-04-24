@@ -2106,7 +2106,7 @@ ${contents}
 
 				const tokenSource = new vscode.CancellationTokenSource();
 				const result = await provider.provider.provideTitleAndDescription(
-					{ commitMessages, patches, issues, template },
+					{ commitMessages, patches, issues, template, compareBranch: args.compareBranch },
 					tokenSource.token,
 				);
 
