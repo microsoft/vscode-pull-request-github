@@ -1015,7 +1015,7 @@
 			},
 			{
 				"command": "pr.pickInWorktree",
-				"title": "%command.pr.pickInWorktree.title%",
+				"title": "%command.pr.pickInWorktreeFromDescription.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(folder-library)"
 			},
