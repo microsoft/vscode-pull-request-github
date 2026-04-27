@@ -258,6 +258,10 @@ export class GitHubRepository extends Disposable {
 	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
+
+	private static readonly MAX_ITEM_NUMBER_TTL_MS = 10 * 60 * 1000; /* 10 minutes */
+	private _maxItemNumberCache: { value: number; fetchedAt: number } | undefined;
+	private _maxItemNumberPromise: Promise<number | undefined> | undefined;
 	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
 
 	private _branchesCache: Map<string, string[]> = new Map();
@@ -1012,6 +1016,62 @@ export class GitHubRepository extends Disposable {
 		return this._getMaxItem(false);
 	}
 
+	/**
+	 * Returns the highest known issue or pull request number for this repository.
+	 * Issues and pull requests share the same number sequence on GitHub, so the
+	 * larger of the two latest items is an upper bound for any valid number.
+	 * Result is cached for a short TTL to avoid extra round-trips.
+	 */
+	private async getCachedMaxItemNumber(forceRefresh: boolean = false): Promise<number | undefined> {
+		const now = Date.now();
+		if (!forceRefresh && this._maxItemNumberCache && (now - this._maxItemNumberCache.fetchedAt) < GitHubRepository.MAX_ITEM_NUMBER_TTL_MS) {
+			return this._maxItemNumberCache.value;
+		}
+		if (this._maxItemNumberPromise) {
+			return this._maxItemNumberPromise;
+		}
+		this._maxItemNumberPromise = (async () => {
+			const [maxIssue, maxPr] = await Promise.all([this._getMaxItem(true), this._getMaxItem(false)]);
+			const max = Math.max(maxIssue ?? 0, maxPr ?? 0);
+			if (max > 0) {
+				this._maxItemNumberCache = { value: max, fetchedAt: Date.now() };
+				return max;
+			}
+			return undefined;
+		})();
+		try {
+			return await this._maxItemNumberPromise;
+		} finally {
+			this._maxItemNumberPromise = undefined;
+		}
+	}
+
+	/**
+	 * Returns false when `number` is implausibly higher than the latest known
+	 * issue/PR number for this repository. Used to short-circuit fetches for
+	 * numbers that came from arbitrary text (e.g. `#1234567890` in source code)
+	 * before they hit the network and produce noisy error telemetry.
+	 */
+	private async isPlausibleItemNumber(number: number): Promise<boolean> {
+		if (!Number.isFinite(number) || number <= 0) {
+			return false;
+		}
+		let max = await this.getCachedMaxItemNumber();
+		if (max === undefined) {
+			// Couldn't determine the max (e.g. network error); allow through.
+			return true;
+		}
+		if (number <= max) {
+			return true;
+		}
+		// Number is above the cached max; refresh once before deciding to handle newly-created items.
+		max = await this.getCachedMaxItemNumber(true);
+		if (max === undefined) {
+			return true;
+		}
+		return number <= max;
+	}
+
 	async getViewerPermission(): Promise<ViewerPermission> {
 		try {
 			Logger.debug(`Fetch viewer permission - enter`, this.id);
@@ -1277,6 +1337,11 @@ export class GitHubRepository extends Disposable {
 			return this._pullRequestModelsByNumber.get(id)!.model;
 		}
 
+		if (!(await this.isPlausibleItemNumber(id))) {
+			Logger.debug(`Skipping pull request fetch for implausible number ${id} (caller: ${callerName})`, this.id);
+			return;
+		}
+
 		try {
 			const { query, remote, schema } = await this.ensure();
 			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
@@ -1340,6 +1405,10 @@ export class GitHubRepository extends Disposable {
 				Logger.debug(`Using cached issue model for ${id}`, this.id);
 				return cached;
 			}
+		}
+		if (!(await this.isPlausibleItemNumber(id))) {
+			Logger.debug(`Skipping issue fetch for implausible number ${id}`, this.id);
+			return undefined;
 		}
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, this.id);
