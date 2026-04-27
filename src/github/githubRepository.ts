@@ -1581,11 +1581,14 @@ export class GitHubRepository extends Disposable {
 		let after: string | null = null;
 		let hasNextPage = false;
 		const ret: IAccount[] = [];
+		// Once we fall back to the legacy assignableUsers query, the cursors are not compatible
+		// with suggestedActors, so stay on the legacy query for the rest of the pagination.
+		let useLegacyAssignableUsers = false;
 
 		do {
 			try {
-				let result: { data: AssignableUsersResponse | SuggestedActorsResponse } | undefined;
-				if (schema.GetSuggestedActors) {
+				let result: { data: AssignableUsersResponse | SuggestedActorsResponse | null } | undefined;
+				if (schema.GetSuggestedActors && !useLegacyAssignableUsers) {
 					result = await query<SuggestedActorsResponse>({
 						query: schema.GetSuggestedActors,
 						variables: {
@@ -1617,12 +1620,19 @@ export class GitHubRepository extends Disposable {
 					}, true); // we ignore SAML errors here because this query can happen at startup
 				}
 
-				if (result.data.repository === null) {
+				if (result.data?.repository === null) {
 					Logger.error('Unexpected null repository when getting assignable users', this.id);
 					return [];
 				}
 
 				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
+
+				// If we got assignableUsers back (either because we already used the legacy query, or
+				// because the legacy fallback kicked in inside query()), the cursor is incompatible with
+				// suggestedActors. Stay on the legacy query for subsequent pages.
+				if ((result.data as AssignableUsersResponse).repository?.assignableUsers) {
+					useLegacyAssignableUsers = true;
+				}
 
 				ret.push(
 					...(users?.nodes.map(node => {
