@@ -259,7 +259,8 @@ export class GitHubRepository extends Disposable {
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 
-	private static readonly MAX_ITEM_NUMBER_TTL_MS = 10 * 60 * 1000; /* 10 minutes */
+	private static readonly MAX_ITEM_NUMBER_TTL_MS = 60 * 60 * 1000; /* 1 hour */
+	private static readonly MAX_ITEM_NUMBER_BUFFER = 50;
 	private _maxItemNumberCache: { value: number; fetchedAt: number } | undefined;
 	private _maxItemNumberPromise: Promise<number | undefined> | undefined;
 	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
@@ -1052,8 +1053,8 @@ export class GitHubRepository extends Disposable {
 	 * numbers that came from arbitrary text (e.g. `#1234567890` in source code)
 	 * before they hit the network and produce noisy error telemetry.
 	 */
-	private async isPlausibleItemNumber(number: number): Promise<boolean> {
-		if (!Number.isFinite(number) || number <= 0) {
+	private async isPlausibleItemNumber(itemNumber: number): Promise<boolean> {
+		if (!Number.isFinite(itemNumber) || itemNumber <= 0) {
 			return false;
 		}
 		let max = await this.getCachedMaxItemNumber();
@@ -1061,7 +1062,7 @@ export class GitHubRepository extends Disposable {
 			// Couldn't determine the max (e.g. network error); allow through.
 			return true;
 		}
-		if (number <= max) {
+		if (itemNumber <= max + GitHubRepository.MAX_ITEM_NUMBER_BUFFER) {
 			return true;
 		}
 		// Number is above the cached max; refresh once before deciding to handle newly-created items.
@@ -1069,7 +1070,7 @@ export class GitHubRepository extends Disposable {
 		if (max === undefined) {
 			return true;
 		}
-		return number <= max;
+		return itemNumber <= max + GitHubRepository.MAX_ITEM_NUMBER_BUFFER;
 	}
 
 	async getViewerPermission(): Promise<ViewerPermission> {
