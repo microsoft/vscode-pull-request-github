@@ -28,6 +28,52 @@ interface RateLimitResult {
 	} | undefined;
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+export function getErrorCode(e: unknown): string | undefined {
+	if (!isObject(e)) {
+		return undefined;
+	}
+
+	if (e.status !== undefined) {
+		return String(e.status);
+	}
+
+	const networkError = e.networkError;
+	if (isObject(networkError) && networkError.statusCode !== undefined) {
+		return String(networkError.statusCode);
+	}
+
+	const graphQLErrors = e.graphQLErrors;
+	if (Array.isArray(graphQLErrors)) {
+		const firstGraphQLError = graphQLErrors[0];
+		if (isObject(firstGraphQLError)) {
+			const extensions = firstGraphQLError.extensions;
+			if (isObject(extensions) && extensions.code !== undefined) {
+				return String(extensions.code);
+			}
+		}
+	}
+
+	if (e.code !== undefined) {
+		return String(e.code);
+	}
+
+	if (typeof e.name === 'string' && e.name) {
+		const message = typeof e.message === 'string' ? e.message : '';
+		if (e.name !== 'Error') {
+			return message ? `${e.name}: ${message}` : e.name;
+		}
+		if (message) {
+			return message;
+		}
+	}
+
+	return undefined;
+}
+
 export class RateLogger {
 	private bulkhead: BulkheadPolicy = bulkhead(140);
 	private static ID = 'RateLimit';
@@ -111,6 +157,25 @@ export class RateLogger {
 		}
 	}
 
+	public logApiError(info: string | undefined, apiResult: Promise<unknown>): void {
+		apiResult.catch(e => {
+			const properties: { operation: string; errorCode?: string } = {
+				operation: RateLogger.sanitizeOperationName(info ?? 'unknown'),
+			};
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
+			}
+			/* __GDPR__
+				"pr.apiCallFailed" : {
+					"operation": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.apiCallFailed', properties);
+		});
+	}
+
 	public async logRestRateLimit(info: string | undefined, restResponse: Promise<RestResponse>) {
 		let result;
 		try {
@@ -139,6 +204,7 @@ export class LoggingApolloClient {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
 		this._rateLogger.logRateLimit(logInfo, result as Promise<RateLimitResult>);
+		this._rateLogger.logApiError(logInfo, result);
 		return result;
 	}
 
@@ -149,6 +215,7 @@ export class LoggingApolloClient {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
 		this._rateLogger.logRateLimit(logInfo, result as Promise<RateLimitResult>);
+		this._rateLogger.logApiError(logInfo, result);
 		return result;
 	}
 }
@@ -163,6 +230,7 @@ export class LoggingOctokit {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
 		this._rateLogger.logRestRateLimit(logInfo, result as Promise<unknown> as Promise<RestResponse>);
+		this._rateLogger.logApiError(logInfo, result);
 		return result;
 	}
 }
