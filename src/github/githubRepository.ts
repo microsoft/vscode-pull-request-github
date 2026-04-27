@@ -55,7 +55,7 @@ import {
 	User,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
-import { LoggingOctokit } from './loggingOctokit';
+import { getErrorCode, LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import * as extraSchema from './queriesExtra.gql';
@@ -142,52 +142,6 @@ export function isRateLimitError(e: unknown): boolean {
 		}
 	}
 	return false;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
-}
-
-export function getErrorCode(e: unknown): string | undefined {
-	if (!isObject(e)) {
-		return undefined;
-	}
-
-	if (e.status !== undefined) {
-		return String(e.status);
-	}
-
-	const networkError = e.networkError;
-	if (isObject(networkError) && networkError.statusCode !== undefined) {
-		return String(networkError.statusCode);
-	}
-
-	const graphQLErrors = e.graphQLErrors;
-	if (Array.isArray(graphQLErrors)) {
-		const firstGraphQLError = graphQLErrors[0];
-		if (isObject(firstGraphQLError)) {
-			const extensions = firstGraphQLError.extensions;
-			if (isObject(extensions) && extensions.code !== undefined) {
-				return String(extensions.code);
-			}
-		}
-	}
-
-	if (e.code !== undefined) {
-		return String(e.code);
-	}
-
-	if (typeof e.name === 'string' && e.name) {
-		const message = typeof e.message === 'string' ? e.message : '';
-		if (e.name !== 'Error') {
-			return message ? `${e.name}: ${message}` : e.name;
-		}
-		if (message) {
-			return message;
-		}
-	}
-
-	return undefined;
 }
 
 export enum TeamReviewerRefreshKind {
