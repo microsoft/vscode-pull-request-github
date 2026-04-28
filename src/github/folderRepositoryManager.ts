@@ -746,7 +746,7 @@ export class FolderRepositoryManager extends Disposable {
 			return globalStateMentionableUsers ?? this._fetchMentionableUsersPromise;
 		}
 
-		return this._fetchMentionableUsersPromise;
+		return globalStateMentionableUsers ?? this._fetchMentionableUsersPromise;
 	}
 
 	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
@@ -783,7 +783,7 @@ export class FolderRepositoryManager extends Disposable {
 			return globalStateAssignableUsers ?? this._fetchAssignableUsersPromise;
 		}
 
-		return this._fetchAssignableUsersPromise;
+		return globalStateAssignableUsers ?? this._fetchAssignableUsersPromise;
 	}
 
 	async getTeamReviewers(refreshKind: TeamReviewerRefreshKind): Promise<{ [key: string]: ITeam[] }> {
