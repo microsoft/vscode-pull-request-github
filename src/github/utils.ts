@@ -1036,7 +1036,8 @@ export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: 
 		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment, githubRepository)),
 		reactionCount: issue.reactions.totalCount,
 		reactions: parseGraphQLReaction(issue.reactionGroups),
-		commentCount: issue.comments.totalCount
+		commentCount: issue.comments.totalCount,
+		issueType: issue.issueType?.name
 	};
 }
 
@@ -1832,6 +1833,15 @@ export function variableSubstitution(
 				break;
 			case 'sanitizedLowercaseIssueTitle':
 				result = issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				break;
+			case 'issueType':
+				result = issueModel?.item.issueType ? issueModel.item.issueType : match;
+				break;
+			case 'sanitizedIssueType':
+				result = issueModel?.item.issueType ? sanitizeIssueTitle(issueModel.item.issueType) : match;
+				break;
+			case 'sanitizedLowercaseIssueType':
+				result = issueModel?.item.issueType ? sanitizeIssueTitle(issueModel.item.issueType).toLowerCase() : match;
 				break;
 			case 'today':
 				result = computeSinceValue(extra);

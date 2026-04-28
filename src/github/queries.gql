@@ -110,6 +110,9 @@ fragment IssueBase on Issue {
 		}
 		url
 	}
+	issueType {
+		name
+	}
 }
 
 fragment IssueFragment on Issue {
