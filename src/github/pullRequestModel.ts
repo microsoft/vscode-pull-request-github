@@ -13,7 +13,7 @@ import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository, GraphQLError, GraphQLErrorType } from './githubRepository';
+import { GitHubRepository } from './githubRepository';
 import {
 	AddCommentResponse,
 	AddReactionResponse,
@@ -66,7 +66,7 @@ import {
 	ReviewEventEnum,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
-import { compareCommits } from './loggingOctokit';
+import { compareCommits, GraphQLError, GraphQLErrorType } from './loggingOctokit';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,

@@ -55,7 +55,7 @@ import {
 	User,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
-import { getErrorCode, LoggingOctokit } from './loggingOctokit';
+import { getErrorCode, GraphQLError, LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import * as extraSchema from './queriesExtra.gql';
@@ -161,18 +161,6 @@ export interface ForkDetails {
 }
 
 export type IMetadata = OctokitCommon.ReposGetResponseData;
-
-export enum GraphQLErrorType {
-	Unprocessable = 'UNPROCESSABLE',
-}
-
-export interface GraphQLError {
-	extensions?: {
-		code: string;
-	};
-	type?: GraphQLErrorType;
-	message?: string;
-}
 
 export enum CopilotWorkingStatus {
 	NotCopilotIssue = 'NotCopilotIssue',
