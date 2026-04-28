@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.140.0
+
+### Changes
+
+- New "Checkout Pull Request in Worktree" option added to the Pull Requests view context menu and the PR description view.
+
+### Fixes
+
+- `hasBranch` called with repository name (`pr.base.name`) instead of branch name (`pr.base.ref`) in `reviewManager.ts`. https://github.com/microsoft/vscode-pull-request-github/issues/8668
+
+**_Thank You_**
+
+* [@Will-hxw](https://github.com/Will-hxw): Use `pr.base.ref` instead of `pr.base.name` in `hasBranch` call [PR #8698](https://github.com/microsoft/vscode-pull-request-github/pull/8698)
+
 ## 0.138.0
 
 ### Fixes
