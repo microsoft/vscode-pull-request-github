@@ -22,6 +22,7 @@ import {
 	IMilestone,
 	IProjectItem,
 	Issue,
+	IssueReference,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
@@ -59,6 +60,20 @@ import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCor
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
+
+/**
+ * Returns an issue/URL regex matching the appropriate GitHub host. When a
+ * GitHub Enterprise URI is provided, that host is used in addition to
+ * github.com so that issue URLs from the enterprise instance are recognized.
+ * The capture group layout matches `ISSUE_OR_URL_EXPRESSION` for use with
+ * `parseIssueExpressionOutput`.
+ */
+export function getIssueOrURLExpression(enterpriseUri?: vscode.Uri): RegExp {
+	const hostPattern = enterpriseUri
+		? `(?:github\\.com|${escapeRegExp(enterpriseUri.authority)})`
+		: 'github\\.com';
+	return new RegExp(`(https?:\\/\\/${hostPattern}\\/(([^\\s]+)\\/([^\\s]+))\\/([^\\s]+\\/)?(issues|pull)\\/([0-9]+)(#issuecomment\\-([0-9]+))?)|(([A-Za-z0-9_.\\-]+)\\/([A-Za-z0-9_.\\-]+))?(#|GH-)([1-9][0-9]*)($|\\b)`);
+}
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
@@ -1070,14 +1085,14 @@ function parseSuggestedReviewers(
 }
 
 function parseClosingIssuesReferences(
-	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: string, url: string }> | undefined
-): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum, url: string }> {
+	closingIssuesReferences: Array<{ databaseId: number, number: number, title: string, state: string, url: string }> | undefined
+): IssueReference[] {
 	if (!closingIssuesReferences) {
 		return [];
 	}
 
 	return closingIssuesReferences.map(issue => ({
-		id: issue.id,
+		id: issue.databaseId,
 		number: issue.number,
 		title: issue.title,
 		state: issue.state === 'OPEN' ? GithubItemStateEnum.Open : GithubItemStateEnum.Closed,

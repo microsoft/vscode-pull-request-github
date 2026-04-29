@@ -8,8 +8,8 @@ import { closeIcon, copilotIcon, issuescon, passIcon, settingsIcon } from './ico
 import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { GithubItemStateEnum, IAccount, IMilestone, IProjectItem, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
-import { ChangeReviewersReply, IssueReference, PullRequest } from '../../src/github/views';
+import { GithubItemStateEnum, IAccount, IMilestone, IProjectItem, isITeam, IssueReference, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
+import { ChangeReviewersReply, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
@@ -53,7 +53,7 @@ function Section({
 	);
 }
 
-export default function Sidebar({ reviewers, labels, closingIssues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot, canRequestCopilotReview }: PullRequest) {
+export default function Sidebar({ reviewers, labels, closingIssues = [], hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot, canRequestCopilotReview }: PullRequest) {
 	const {
 		addReviewers,
 		addReviewerCopilot,
@@ -276,7 +276,7 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 					hasWritePermission={false}
 				>
 					{closingIssues.map(issue => (
-						<IssueItem key={issue.number} issue={issue} />
+						<IssueItem key={issue.url} issue={issue} />
 					))}
 				</Section>
 			)}

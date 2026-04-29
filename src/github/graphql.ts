@@ -770,7 +770,7 @@ export interface PullRequest extends Issue {
 	deletions?: number;
 	closingIssuesReferences?: {
 		nodes: {
-			id: number,
+			databaseId: number,
 			title: string,
 			number: number,
 			state: 'CLOSED' | 'OPEN',

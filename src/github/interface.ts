@@ -250,7 +250,7 @@ export interface PullRequest extends Issue {
 	mergeCommitMeta?: { title: string, description: string };
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
-	closingIssues?: IssueReference[]
+	closingIssues?: IssueReference[];
 	hasComments?: boolean;
 	additions?: number;
 	deletions?: number;

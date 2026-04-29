@@ -226,7 +226,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	closingIssuesReferences(first: 50) {
 		nodes {
-			id
+			databaseId
 			number
 			title
 			state
