@@ -294,6 +294,27 @@ body img.avatar {
 	fill: var(--vscode-issues-closed);
 }
 
+.issue-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--vscode-foreground);
+	text-decoration: none;
+	overflow: hidden;
+}
+
+.issue-item:hover {
+	text-decoration: underline;
+	color: var(--vscode-foreground);
+}
+
+.issue-item-text {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 1;
+	min-width: 0;
+}
 .reviewer-icons {
 	display: flex;
 	gap: 4px;

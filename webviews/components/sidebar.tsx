@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { closeIcon, copilotIcon, issueClosedIcon, issueIcon, settingsIcon } from './icon';
+import { closeIcon, copilotIcon, issuescon, passIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
@@ -269,21 +269,17 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 				)}
 			</Section>
 
-			<Section
-				id="closingIssues"
-				title="Linked Issues"
-				hasWritePermission={false}
-			>
-				{closingIssues.length ? (
-					closingIssues.map(issue => (
-						<div key={issue.number} className="section-item">
-							<IssueItem issue={issue} />
-						</div>
-					))
-				) : (
-					<div className="section-placeholder">None yet</div>
-				)}
-			</Section>
+			{closingIssues.length > 0 && (
+				<Section
+					id="closingIssues"
+					title="Linked Issues"
+					hasWritePermission={false}
+				>
+					{closingIssues.map(issue => (
+						<IssueItem key={issue.number} issue={issue} />
+					))}
+				</Section>
+			)}
 		</div>
 	);
 }
@@ -597,12 +593,12 @@ function ConvertToDraft() {
 function IssueItem({ issue }: { issue: IssueReference }) {
 	const isOpen = issue.state === GithubItemStateEnum.Open;
 	return (
-		<div className="avatar-with-author">
+		<a className="issue-item" href={issue.url} title={`#${issue.number} ${issue.title}`}>
 			<span className={`section-icon ${isOpen ? 'issue-open' : 'issue-closed'}`}>
-				{isOpen ? issueIcon : issueClosedIcon}
+				{isOpen ? issuescon : passIcon}
 			</span>
-			<a href={issue.url} title={issue.url}>#{issue.number} {issue.title}</a>
-		</div>
+			<span className="issue-item-text">#{issue.number} {issue.title}</span>
+		</a>
 	);
 }
 

@@ -27,7 +27,7 @@ import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
-import { parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -38,6 +38,7 @@ import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
+import { toOpenIssueWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
@@ -459,7 +460,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
-				closingIssues: pullRequest.closingIssues,
+				closingIssues: await Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
+					const parsed = parseIssueExpressionOutput(issue.url.match(ISSUE_OR_URL_EXPRESSION));
+					const owner = parsed?.owner ?? pullRequest.remote.owner;
+					const repo = parsed?.name ?? pullRequest.remote.repositoryName;
+					const webviewUri = await toOpenIssueWebviewUri({ owner, repo, issueNumber: issue.number });
+					return { ...issue, url: webviewUri.toString() };
+				})),
 			};
 			this._postMessage({
 				command: 'pr.initialize',
