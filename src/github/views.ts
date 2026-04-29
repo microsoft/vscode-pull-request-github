@@ -9,6 +9,7 @@ import {
 	ILabel,
 	IMilestone,
 	IProjectItem,
+	IssueReference,
 	MergeMethod,
 	MergeMethodsAvailability,
 	MergeQueueState,
@@ -26,13 +27,6 @@ export enum ReviewType {
 	Comment = 'comment',
 	Approve = 'approve',
 	RequestChanges = 'requestChanges',
-}
-
-export interface IssueReference {
-	number: number;
-	title: string;
-	state: GithubItemStateEnum;
-	url: string;
 }
 
 export interface DisplayLabel extends ILabel {
@@ -119,7 +113,7 @@ export interface PullRequest extends Issue {
 	busy?: boolean;
 	loadingCommit?: string;
 	generateDescriptionTitle?: string;
-	closingIssues: IssueReference[];
+	closingIssues?: IssueReference[];
 }
 
 export interface ProjectItemsReply {

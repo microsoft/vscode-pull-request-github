@@ -27,7 +27,7 @@ import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
-import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getEnterpriseUri, getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -460,13 +460,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
-				closingIssues: await Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
-					const parsed = parseIssueExpressionOutput(issue.url.match(ISSUE_OR_URL_EXPRESSION));
-					const owner = parsed?.owner ?? pullRequest.remote.owner;
-					const repo = parsed?.name ?? pullRequest.remote.repositoryName;
-					const webviewUri = await toOpenIssueWebviewUri({ owner, repo, issueNumber: issue.number });
-					return { ...issue, url: webviewUri.toString() };
-				})),
+				closingIssues: await (async () => {
+					const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
+					const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
+					return Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
+						const parsed = parseIssueExpressionOutput(issue.url.match(issueOrUrlExpression));
+						const owner = parsed?.owner ?? pullRequest.remote.owner;
+						const repo = parsed?.name ?? pullRequest.remote.repositoryName;
+						const webviewUri = await toOpenIssueWebviewUri({ owner, repo, issueNumber: issue.number });
+						return { ...issue, url: webviewUri.toString() };
+					}));
+				})(),
 			};
 			this._postMessage({
 				command: 'pr.initialize',
