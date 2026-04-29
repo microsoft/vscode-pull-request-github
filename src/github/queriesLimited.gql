@@ -206,6 +206,15 @@ fragment PullRequestFragment on PullRequest {
 		}
 		url
 	}
+	closingIssuesReferences(first: 50) {
+		nodes {
+			id
+			number
+			title
+			state
+			url
+		}
+	}
 	merged
 	mergeable
 	mergeStateStatus

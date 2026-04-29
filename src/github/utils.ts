@@ -924,6 +924,7 @@ export async function parseGraphQLPullRequest(
 		commentCount: graphQLPullRequest.comments.totalCount,
 		additions: graphQLPullRequest.additions,
 		deletions: graphQLPullRequest.deletions,
+		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes),
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
@@ -1066,6 +1067,22 @@ function parseSuggestedReviewers(
 	});
 
 	return ret.sort(loginComparator);
+}
+
+function parseClosingIssuesReferences(
+	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: string, url: string }> | undefined
+): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum, url: string }> {
+	if (!closingIssuesReferences) {
+		return [];
+	}
+
+	return closingIssuesReferences.map(issue => ({
+		id: issue.id,
+		number: issue.number,
+		title: issue.title,
+		state: issue.state === 'OPEN' ? GithubItemStateEnum.Open : GithubItemStateEnum.Closed,
+		url: issue.url,
+	}));
 }
 
 /**

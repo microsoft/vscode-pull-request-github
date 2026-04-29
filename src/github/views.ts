@@ -28,6 +28,13 @@ export enum ReviewType {
 	RequestChanges = 'requestChanges',
 }
 
+export interface IssueReference {
+	number: number;
+	title: string;
+	state: GithubItemStateEnum;
+	url: string;
+}
+
 export interface DisplayLabel extends ILabel {
 	displayName: string;
 }
@@ -112,6 +119,7 @@ export interface PullRequest extends Issue {
 	busy?: boolean;
 	loadingCommit?: string;
 	generateDescriptionTitle?: string;
+	closingIssues: IssueReference[];
 }
 
 export interface ProjectItemsReply {

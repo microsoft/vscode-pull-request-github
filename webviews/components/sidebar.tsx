@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { closeIcon, copilotIcon, settingsIcon } from './icon';
+import { closeIcon, copilotIcon, issuescon, passIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IAccount, IMilestone, IProjectItem, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
-import { ChangeReviewersReply, PullRequest } from '../../src/github/views';
+import { GithubItemStateEnum, IAccount, IMilestone, IProjectItem, isITeam, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
+import { ChangeReviewersReply, IssueReference, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
@@ -53,7 +53,7 @@ function Section({
 	);
 }
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot, canRequestCopilotReview }: PullRequest) {
+export default function Sidebar({ reviewers, labels, closingIssues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot, canRequestCopilotReview }: PullRequest) {
 	const {
 		addReviewers,
 		addReviewerCopilot,
@@ -268,6 +268,18 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">No milestone</div>
 				)}
 			</Section>
+
+			{closingIssues.length > 0 && (
+				<Section
+					id="closingIssues"
+					title="Linked Issues"
+					hasWritePermission={false}
+				>
+					{closingIssues.map(issue => (
+						<IssueItem key={issue.number} issue={issue} />
+					))}
+				</Section>
+			)}
 		</div>
 	);
 }
@@ -577,3 +589,16 @@ function ConvertToDraft() {
 		</div>
 	);
 }
+
+function IssueItem({ issue }: { issue: IssueReference }) {
+	const isOpen = issue.state === GithubItemStateEnum.Open;
+	return (
+		<a className="issue-item" href={issue.url} title={`#${issue.number} ${issue.title}`}>
+			<span className={`section-icon ${isOpen ? 'issue-open' : 'issue-closed'}`}>
+				{isOpen ? issuescon : passIcon}
+			</span>
+			<span className="issue-item-text">#{issue.number} {issue.title}</span>
+		</a>
+	);
+}
+
