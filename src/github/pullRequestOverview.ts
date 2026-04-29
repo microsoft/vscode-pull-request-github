@@ -460,14 +460,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
-				closingIssues: await Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
+				closingIssues: await (async () => {
 					const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
-					const parsed = parseIssueExpressionOutput(issue.url.match(getIssueOrURLExpression(enterpriseUri)));
-					const owner = parsed?.owner ?? pullRequest.remote.owner;
-					const repo = parsed?.name ?? pullRequest.remote.repositoryName;
-					const webviewUri = await toOpenIssueWebviewUri({ owner, repo, issueNumber: issue.number });
-					return { ...issue, url: webviewUri.toString() };
-				})),
+					const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
+					return Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
+						const parsed = parseIssueExpressionOutput(issue.url.match(issueOrUrlExpression));
+						const owner = parsed?.owner ?? pullRequest.remote.owner;
+						const repo = parsed?.name ?? pullRequest.remote.repositoryName;
+						const webviewUri = await toOpenIssueWebviewUri({ owner, repo, issueNumber: issue.number });
+						return { ...issue, url: webviewUri.toString() };
+					}));
+				})(),
 			};
 			this._postMessage({
 				command: 'pr.initialize',
