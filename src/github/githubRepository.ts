@@ -909,13 +909,17 @@ export class GitHubRepository extends Disposable {
 			});
 			Logger.debug(`Fetch issues with query - done`, this.id);
 
-			const issues: Issue[] = [];
+			let issues: Issue[] = [];
 			if (data && data.search.edges) {
-				await Promise.all(data.search.edges.map(async raw => {
+				// Preserve the order returned by the server (e.g. sort:created-desc).
+				// Using `Promise.all(map(async ... push))` would reorder results by completion time.
+				const parsed = await Promise.all(data.search.edges.map(async raw => {
 					if (raw.node.id) {
-						issues.push(await parseGraphQLIssue(raw.node, this));
+						return parseGraphQLIssue(raw.node, this);
 					}
+					return undefined;
 				}));
+				issues = parsed.filter((issue): issue is Issue => issue !== undefined);
 			}
 			return {
 				items: issues,
