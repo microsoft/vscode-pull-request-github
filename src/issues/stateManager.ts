@@ -64,7 +64,7 @@ interface SingleRepoState {
 	folderManager: FolderRepositoryManager;
 }
 
-export type QueryGroup = 'repository' | 'milestone';
+export type QueryGroup = 'repository' | 'milestone' | 'issueType' | 'labels';
 
 export interface IssueQueryResult {
 	groupBy: QueryGroup[];
