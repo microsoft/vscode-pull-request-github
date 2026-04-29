@@ -44,7 +44,8 @@ export async function checkoutPRInWorktree(
 	// Prepare for operations
 	const repoRootPath = repositoryToUse.rootUri.fsPath;
 	const parentDir = path.dirname(repoRootPath);
-	const defaultWorktreePath = path.join(parentDir, `pr-${pullRequestModel.number}`);
+	const repoFolderName = path.basename(repoRootPath);
+	const defaultWorktreePath = path.join(parentDir, `${repoFolderName}.worktrees`, `pr-${pullRequestModel.number}`);
 	const branchName = prHead.ref;
 	const remoteName = pullRequestModel.remote.remoteName;
 
