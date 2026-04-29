@@ -260,11 +260,15 @@ export class CreatePRContextNew {
 		try {
 			this.updateState({ creating: false });
 			const args: CreatePullRequestNew = this.copyParams();
-			vscode.setState(defaultCreateParams);
 			await this.postMessage({
 				command: 'pr.create',
 				args,
 			});
+			// Only clear persisted state after the create succeeds. Resetting before
+			// awaiting would discard the user's title/description if the create fails
+			// (for example when the branch push fails and needs `--force`), causing
+			// the description to fall back to the template on the next webview load.
+			vscode.setState(defaultCreateParams);
 		} catch (e) {
 			this.updateState({ createError: (typeof e === 'string') ? e : (e.message ? e.message : 'An unknown error occurred.') });
 		}
