@@ -576,7 +576,8 @@ const link = (url: string, token: string) =>
 		headers: {
 			...headers,
 			authorization: token ? `Bearer ${token}` : '',
-			Accept: 'application/vnd.github.merge-info-preview'
+			Accept: 'application/vnd.github.merge-info-preview',
+			'GraphQL-Features': 'graphql_pr_comment_positioning'
 		},
 	})).concat(
 		createHttpLink({

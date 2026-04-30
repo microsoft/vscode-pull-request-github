@@ -291,7 +291,13 @@ describe('ReviewCommentController', function () {
 							startLine: undefined,
 							line: 22,
 							side: 'RIGHT',
-							subjectType: 'LINE'
+							subjectType: 'LINE',
+							linePositioning: {
+								line: 22,
+								path: fileName,
+								commitOid: activePullRequest.head?.sha
+							},
+							multilinePositioning: undefined
 						}
 					}
 				},
@@ -322,6 +328,10 @@ describe('ReviewCommentController', function () {
 											author: {}
 										}
 									]
+								},
+								positioning: {
+									__typename: 'LineComment',
+									line: 22,
 								}
 							}
 						}

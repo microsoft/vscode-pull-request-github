@@ -273,6 +273,12 @@ export interface ReviewThread {
 			}
 		}]
 	};
+	positioning?: {
+		__typename: string;
+		startLine?: number;
+		endLine?: number;
+		line?: number;
+	}
 }
 
 export interface TimelineEventsResponse {
