@@ -221,6 +221,7 @@ export interface Issue {
 	commentCount: number;
 	reactionCount: number;
 	reactions: Reaction[];
+	issueType?: string;
 }
 
 export interface IssueReference {

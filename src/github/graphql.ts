@@ -733,6 +733,9 @@ export interface Issue {
 		totalCount: number;
 	}
 	reactionGroups: ReactionGroup[];
+	issueType?: {
+		name: string;
+	} | null;
 }
 
 
