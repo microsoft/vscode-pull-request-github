@@ -110,7 +110,10 @@ export class TemporaryState extends vscode.Disposable {
 			try {
 				await vscode.workspace.fs.delete(tempState.path, { recursive: true });
 			} catch (e) {
-				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
+				// Ignore FileNotFound errors - the temp directory may not exist yet on first run.
+				if (!(e instanceof vscode.FileSystemError) || e.code !== 'FileNotFound') {
+					Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
+				}
 			}
 			try {
 				await vscode.workspace.fs.createDirectory(tempState.path);
