@@ -44,22 +44,21 @@ export async function checkoutPRInWorktree(
 	// Prepare for operations
 	const repoRootPath = repositoryToUse.rootUri.fsPath;
 	const parentDir = path.dirname(repoRootPath);
-	const defaultWorktreePath = path.join(parentDir, `pr-${pullRequestModel.number}`);
+	const worktreeName = `pr-${pullRequestModel.number}`;
+	// Match the default location convention used by VS Code's built-in `Git: Create Worktree...` command:
+	// `<parentDir>/<repoBasename>.worktrees/<worktreeName>`.
+	const defaultWorktreePath = path.join(parentDir, `${path.basename(repoRootPath)}.worktrees`, worktreeName);
 	const branchName = prHead.ref;
 	const remoteName = pullRequestModel.remote.remoteName;
 
-	// Ask user for worktree location first (not in progress)
-	const worktreeUri = await vscode.window.showSaveDialog({
-		defaultUri: vscode.Uri.file(defaultWorktreePath),
-		title: vscode.l10n.t('Select Worktree Location'),
-		saveLabel: vscode.l10n.t('Create Worktree'),
-	});
-
-	if (!worktreeUri) {
+	// Ask user for worktree location using a custom InputBox UI (matches the built-in
+	// `Git: Create Worktree...` experience instead of showing the OS save dialog).
+	const worktreePath = await promptForWorktreePath(repositoryToUse, worktreeName, defaultWorktreePath);
+	if (!worktreePath) {
 		return; // User cancelled
 	}
 
-	const worktreePath = worktreeUri.fsPath;
+	const worktreeUri = vscode.Uri.file(worktreePath);
 	const trackedBranchName = `${remoteName}/${branchName}`;
 
 	try {
@@ -124,5 +123,107 @@ export async function checkoutPRInWorktree(
 		const errorMessage = e instanceof Error ? e.message : String(e);
 		Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
 		vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
+	}
+}
+
+/**
+ * Prompts the user for a worktree path using an `InputBox` that mirrors VS Code's
+ * built-in `Git: Create Worktree...` UI: the path is pre-filled and editable, the
+ * worktree-name segment is pre-selected, and an inline folder-picker button lets
+ * the user browse to a parent directory.
+ *
+ * @param repository The repository the worktree will be created from (used to detect
+ * conflicts with existing worktrees).
+ * @param worktreeName The default leaf folder name for the new worktree (e.g. `pr-123`).
+ * @param defaultWorktreePath The default full path to suggest in the input box.
+ * @returns The chosen absolute path, or `undefined` if the user cancelled.
+ */
+async function promptForWorktreePath(
+	repository: Repository,
+	worktreeName: string,
+	defaultWorktreePath: string
+): Promise<string | undefined> {
+	const getValueSelection = (value: string): [number, number] | undefined => {
+		if (!value || !worktreeName || !value.endsWith(worktreeName)) {
+			return undefined;
+		}
+		const start = value.length - worktreeName.length;
+		return [start, value.length];
+	};
+
+	const getValidationMessage = (value: string): vscode.InputBoxValidationMessage | undefined => {
+		const normalized = path.normalize(value);
+		const conflict = repository.state.worktrees?.find(w => path.normalize(w.path) === normalized);
+		return conflict ? {
+			message: vscode.l10n.t('A worktree already exists at "{0}".', value),
+			severity: vscode.InputBoxValidationSeverity.Warning
+		} : undefined;
+	};
+
+	const browseForParent = async (): Promise<string | undefined> => {
+		const currentValue = inputBox.value;
+		const defaultUri = currentValue
+			? vscode.Uri.file(path.dirname(currentValue))
+			: vscode.Uri.file(path.dirname(defaultWorktreePath));
+
+		const uris = await vscode.window.showOpenDialog({
+			defaultUri,
+			canSelectFiles: false,
+			canSelectFolders: true,
+			canSelectMany: false,
+			openLabel: vscode.l10n.t('Select as Worktree Destination'),
+		});
+
+		if (!uris || uris.length === 0) {
+			return undefined;
+		}
+		return path.join(uris[0].fsPath, worktreeName);
+	};
+
+	const disposables: vscode.Disposable[] = [];
+	const inputBox = vscode.window.createInputBox();
+	disposables.push(inputBox);
+
+	inputBox.title = vscode.l10n.t('Create Worktree');
+	inputBox.placeholder = vscode.l10n.t('Worktree path');
+	inputBox.prompt = vscode.l10n.t('Please provide a worktree path');
+	inputBox.value = defaultWorktreePath;
+	inputBox.valueSelection = getValueSelection(inputBox.value);
+	inputBox.validationMessage = getValidationMessage(inputBox.value);
+	inputBox.ignoreFocusOut = true;
+	inputBox.buttons = [
+		{
+			iconPath: new vscode.ThemeIcon('folder'),
+			tooltip: vscode.l10n.t('Select Worktree Destination'),
+			location: vscode.QuickInputButtonLocation.Inline
+		}
+	];
+
+	try {
+		inputBox.show();
+
+		return await new Promise<string | undefined>((resolve) => {
+			disposables.push(inputBox.onDidHide(() => resolve(undefined)));
+			disposables.push(inputBox.onDidAccept(() => {
+				if (!inputBox.value) {
+					return;
+				}
+				resolve(inputBox.value);
+				inputBox.hide();
+			}));
+			disposables.push(inputBox.onDidChangeValue(value => {
+				inputBox.validationMessage = getValidationMessage(value);
+			}));
+			disposables.push(inputBox.onDidTriggerButton(async () => {
+				const chosen = await browseForParent();
+				if (chosen) {
+					inputBox.value = chosen;
+					inputBox.valueSelection = getValueSelection(inputBox.value);
+					inputBox.validationMessage = getValidationMessage(inputBox.value);
+				}
+			}));
+		});
+	} finally {
+		disposables.forEach(d => d.dispose());
 	}
 }
