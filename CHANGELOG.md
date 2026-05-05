@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.142.0
+
+### Changes
+
+- Display linked issue(s) in the Pull Request Overview.
+- Clean up GitHub API usage to reduce unnecessary calls, errors, and generally reduce load on GitHub.
+
+### Fixes
+
+- Issue sorting has different behavior for CLI created issues. https://github.com/microsoft/vscode-pull-request-github/issues/8703
+- Checked checkboxes (- [x]) are visually indistinguishable from unchecked ones. https://github.com/microsoft/vscode-pull-request-github/issues/8671
+
+**_Thank You_**
+
+* [@mohamedamara1](https://github.com/mohamedamara1): Display linked issue(s) from the PR Overview [PR #6835](https://github.com/microsoft/vscode-pull-request-github/pull/6835)
+
 ## 0.140.0
 
 ### Changes
