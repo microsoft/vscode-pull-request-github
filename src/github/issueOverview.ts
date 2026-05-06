@@ -603,18 +603,21 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const reply: UploadFilesReply = { uploads: uploads.map(u => ({ name: u.name, placeholder: u.placeholder })) };
 		await this._replyMessage(message, reply);
 
-		// Kick off uploads in parallel
+		// Run uploads with bounded concurrency to avoid spiking memory/network in the extension host.
 		const githubRepository = this._item.githubRepository;
-		for (const u of uploads) {
-			githubRepository.uploadFile(u.uri, u.name).then(markdown => {
+		const MAX_CONCURRENT_UPLOADS = 3;
+		const queue = uploads.slice();
+		const runOne = async (u: { uri: vscode.Uri; name: string; placeholder: string }) => {
+			try {
+				const markdown = await githubRepository.uploadFile(u.uri, u.name);
 				const completed: FileUploadCompletedMessage = {
 					command: 'pr.file-upload-completed',
 					placeholder: u.placeholder,
 					name: u.name,
 					markdown,
 				};
-				return this._postMessage(completed);
-			}).catch(err => {
+				await this._postMessage(completed);
+			} catch (err) {
 				Logger.error(`Failed to upload file ${u.name}: ${formatError(err)}`, IssueOverviewPanel.ID);
 				const completed: FileUploadCompletedMessage = {
 					command: 'pr.file-upload-completed',
@@ -622,9 +625,23 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					name: u.name,
 					error: formatError(err),
 				};
-				return this._postMessage(completed);
-			});
+				await this._postMessage(completed);
+			}
+		};
+		const workers: Promise<void>[] = [];
+		for (let i = 0; i < Math.min(MAX_CONCURRENT_UPLOADS, queue.length); i++) {
+			workers.push((async () => {
+				while (queue.length > 0) {
+					const next = queue.shift();
+					if (!next) {
+						break;
+					}
+					await runOne(next);
+				}
+			})());
 		}
+		// Don't await all workers - let them run in the background so this handler returns promptly.
+		Promise.all(workers).catch(err => Logger.error(`Upload worker error: ${formatError(err)}`, IssueOverviewPanel.ID));
 	}
 
 
