@@ -1054,6 +1054,43 @@ textarea {
 	padding: 2px;
 }
 
+.textarea-wrapper:has(> .comment-upload-button)>textarea {
+	padding-bottom: 32px;
+}
+
+.textarea-wrapper .comment-upload-button {
+	position: absolute;
+	left: 6px;
+	bottom: 8px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: var(--vscode-foreground);
+}
+
+.textarea-wrapper .comment-upload-button:hover:not(:disabled) {
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .comment-upload-button:focus {
+	outline-style: none;
+}
+
+.textarea-wrapper .comment-upload-button:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+}
+
+.textarea-wrapper .comment-upload-button:disabled {
+	opacity: 0.5;
+}
 .editing-form {
 	padding: 5px 0;
 	display: flex;

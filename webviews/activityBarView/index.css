@@ -42,6 +42,39 @@ textarea {
 	padding-bottom: 16px;
 }
 
+.textarea-wrapper {
+	position: relative;
+	display: flex;
+	width: 100%;
+}
+
+.textarea-wrapper textarea {
+	flex: 1;
+	padding-bottom: 32px;
+}
+
+.textarea-wrapper .comment-upload-button {
+	position: absolute;
+	left: 6px;
+	bottom: 8px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: var(--vscode-foreground);
+}
+
+.textarea-wrapper .comment-upload-button:hover:not(:disabled) {
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .comment-upload-button:disabled {
+	opacity: 0.5;
+}
 .status-section {
 	padding-bottom: 16px;
 }

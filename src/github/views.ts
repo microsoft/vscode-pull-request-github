@@ -179,6 +179,23 @@ export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
 
+export interface FileUploadPlaceholder {
+	name: string;
+	placeholder: string;
+}
+
+export interface UploadFilesReply {
+	uploads: FileUploadPlaceholder[];
+}
+
+export interface FileUploadCompletedMessage {
+	command: 'pr.file-upload-completed';
+	name: string;
+	placeholder: string;
+	markdown?: string;
+	error?: string;
+}
+
 export interface BaseContext {
 	'preventDefaultContextMenuItems': true;
 	owner: string;

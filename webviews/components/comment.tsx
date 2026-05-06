@@ -5,7 +5,7 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
+import { cloudUploadIcon, copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -216,7 +216,7 @@ type EditCommentProps = {
 };
 
 function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommentProps) {
-	const { updateDraft, pr, generateDescription, cancelGenerateDescription } = useContext(PullRequestContext);
+	const { updateDraft, pr, generateDescription, cancelGenerateDescription, uploadFiles } = useContext(PullRequestContext);
 	const draftComment = useRef<{ body: string; dirty: boolean }>({ body, dirty: false });
 	const form = useRef<HTMLFormElement>();
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -292,6 +292,31 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 		setIsGenerating(false);
 	}, [cancelGenerateDescription]);
 
+	const handleUpload = useCallback(() => {
+		const textarea = form.current?.markdown as HTMLTextAreaElement | undefined;
+		if (!textarea) {
+			return;
+		}
+		uploadFiles(
+			placeholders => {
+				const current = textarea.value;
+				const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+				textarea.value = `${current}${separator}${placeholders}\n`;
+				draftComment.current.body = textarea.value;
+				draftComment.current.dirty = true;
+			},
+			(placeholder, markdown) => {
+				if (!form.current) {
+					return;
+				}
+				const ta = form.current.markdown as HTMLTextAreaElement;
+				ta.value = ta.value.replace(placeholder, markdown);
+				draftComment.current.body = ta.value;
+				draftComment.current.dirty = true;
+			},
+		);
+	}, [uploadFiles, form, draftComment]);
+
 	return (
 		<form ref={form as React.MutableRefObject<HTMLFormElement>} onSubmit={onSubmit}>
 			<div className="textarea-wrapper">
@@ -317,6 +342,15 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 						</button>
 					)
 				) : null}
+				<button
+					type="button"
+					title="Upload files"
+					className="comment-upload-button icon-button"
+					onClick={handleUpload}
+					disabled={isGenerating}
+				>
+					{cloudUploadIcon}
+				</button>
 			</div>
 			<div className="form-actions">
 				<button className="secondary" onClick={onCancel}>
@@ -419,7 +453,7 @@ export function AddComment({
 	repo,
 	number
 }: PullRequest) {
-	const { updatePR, requestChanges, approve, close, openOnGitHub, submit } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -489,21 +523,32 @@ export function AddComment({
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
-			<textarea
-				id={COMMENT_TEXTAREA_ID}
-				name="body"
-				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
-				onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
-				onKeyDown={onKeyDown}
-				value={pendingCommentText}
-				placeholder="Leave a comment"
-				onClick={() => {
-					if (!pendingCommentText && isCopilotOnMyBehalf && !textareaRef.current?.textContent) {
-						textareaRef.current!.textContent = '@copilot ';
-						textareaRef.current!.setSelectionRange(9, 9);
-					}
-				}}
-			/>
+			<div className="textarea-wrapper">
+				<textarea
+					id={COMMENT_TEXTAREA_ID}
+					name="body"
+					ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
+					onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
+					onKeyDown={onKeyDown}
+					value={pendingCommentText}
+					placeholder="Leave a comment"
+					onClick={() => {
+						if (!pendingCommentText && isCopilotOnMyBehalf && !textareaRef.current?.textContent) {
+							textareaRef.current!.textContent = '@copilot ';
+							textareaRef.current!.setSelectionRange(9, 9);
+						}
+					}}
+				/>
+				<button
+					type="button"
+					title="Upload files"
+					className="comment-upload-button icon-button"
+					onClick={() => uploadFilesIntoPendingComment()}
+					disabled={isBusy || busy}
+				>
+					{cloudUploadIcon}
+				</button>
+			</div>
 			<div className="form-actions">
 				{(hasWritePermission || isAuthor) ? (
 					<button
@@ -599,7 +644,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
@@ -660,16 +705,27 @@ export const AddCommentSimple = (pr: PullRequest) => {
 
 	return (
 		<span className="comment-form">
-			<textarea
-				id={COMMENT_TEXTAREA_ID}
-				name="body"
-				placeholder="Leave a comment"
-				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
-				value={pr.pendingCommentText ?? ''}
-				onChange={onChangeTextarea}
-				onKeyDown={onKeyDown}
-				disabled={isBusy || pr.busy}
-			/>
+			<div className="textarea-wrapper">
+				<textarea
+					id={COMMENT_TEXTAREA_ID}
+					name="body"
+					placeholder="Leave a comment"
+					ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
+					value={pr.pendingCommentText ?? ''}
+					onChange={onChangeTextarea}
+					onKeyDown={onKeyDown}
+					disabled={isBusy || pr.busy}
+				/>
+				<button
+					type="button"
+					title="Upload files"
+					className="comment-upload-button icon-button"
+					onClick={() => uploadFilesIntoPendingComment()}
+					disabled={isBusy || pr.busy}
+				>
+					{cloudUploadIcon}
+				</button>
+			</div>
 			<div className='comment-button'>
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}

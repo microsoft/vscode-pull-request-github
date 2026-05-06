@@ -19,6 +19,7 @@ export const checkAllIcon = <Icon src={require('../../resources/icons/codicons/c
 export const chevronDownIcon = <Icon src={require('../../resources/icons/codicons/chevron-down.svg')} />;
 export const circleFilledIcon = <Icon src={require('../../resources/icons/codicons/circle-filled.svg')} className='pending' />;
 export const closeIcon = <Icon src={require('../../resources/icons/codicons/close.svg')} className='close' />;
+export const cloudUploadIcon = <Icon src={require('../../resources/icons/codicons/cloud-upload.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/codicons/comment.svg')} />;
 export const copilotIcon = <Icon src={require('../../resources/icons/codicons/copilot.svg')} />;
 export const copyIcon = <Icon src={require('../../resources/icons/codicons/copy.svg')} />;

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
@@ -12,7 +13,7 @@ import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, Repo
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity } from './views';
+import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -452,6 +453,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.openLocalFile(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
+			case 'pr.upload-files':
+				return this.uploadFiles(message);
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}
@@ -571,6 +574,108 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	private webviewDebug(message: IRequestMessage<string>): void {
 		Logger.debug(message.args, IssueOverviewPanel.ID);
+	}
+
+	private async uploadFiles(message: IRequestMessage<void>): Promise<void> {
+		const fileUris = await vscode.window.showOpenDialog({
+			canSelectMany: true,
+			canSelectFiles: true,
+			canSelectFolders: false,
+			openLabel: 'Upload',
+			title: 'Select files to upload',
+		});
+		if (!fileUris || fileUris.length === 0) {
+			const empty: UploadFilesReply = { uploads: [] };
+			return this._replyMessage(message, empty);
+		}
+
+		const used = new Map<string, number>();
+		const uploads = fileUris.map(uri => {
+			const baseName = path.basename(uri.fsPath);
+			const count = used.get(baseName) ?? 0;
+			used.set(baseName, count + 1);
+			const placeholder = count === 0
+				? `<!-- Uploading ${baseName} -->`
+				: `<!-- Uploading ${baseName} (${count + 1}) -->`;
+			return { uri, name: baseName, placeholder };
+		});
+
+		const reply: UploadFilesReply = { uploads: uploads.map(u => ({ name: u.name, placeholder: u.placeholder })) };
+		await this._replyMessage(message, reply);
+
+		// Kick off uploads in parallel
+		for (const u of uploads) {
+			this.doUploadFile(u.uri, u.name).then(markdown => {
+				const completed: FileUploadCompletedMessage = {
+					command: 'pr.file-upload-completed',
+					placeholder: u.placeholder,
+					name: u.name,
+					markdown,
+				};
+				return this._postMessage(completed);
+			}).catch(err => {
+				Logger.error(`Failed to upload file ${u.name}: ${formatError(err)}`, IssueOverviewPanel.ID);
+				const completed: FileUploadCompletedMessage = {
+					command: 'pr.file-upload-completed',
+					placeholder: u.placeholder,
+					name: u.name,
+					error: formatError(err),
+				};
+				return this._postMessage(completed);
+			});
+		}
+	}
+
+	private async doUploadFile(uri: vscode.Uri, fileName: string): Promise<string> {
+		const fileBytes = await vscode.workspace.fs.readFile(uri);
+		const contentType = guessContentType(fileName);
+
+		const githubRepository = this._item.githubRepository;
+		const { octokit } = await githubRepository.ensure();
+		const metadata = await githubRepository.getMetadata();
+		const repositoryId = metadata.id;
+
+		// Step 1: Get upload policy
+		const policyResponse = await octokit.api.request('POST /mobile/upload/policy', {
+			name: fileName,
+			size: fileBytes.byteLength,
+			content_type: contentType,
+			repository_id: repositoryId,
+			headers: { accept: 'application/json' },
+		});
+		const policy = policyResponse.data as {
+			upload_url: string;
+			form: Record<string, string>;
+			asset: { id: number; name: string; href: string };
+			asset_upload_url: string;
+		};
+
+		// Step 2: Upload the file bytes to S3
+		const formData = new FormData();
+		for (const [key, value] of Object.entries(policy.form)) {
+			formData.append(key, value);
+		}
+		const arrayBuffer = new ArrayBuffer(fileBytes.byteLength);
+		new Uint8Array(arrayBuffer).set(fileBytes);
+		formData.append('file', new Blob([arrayBuffer], { type: contentType }), policy.asset.name);
+		const s3Response = await fetch(policy.upload_url, { method: 'POST', body: formData });
+		if (s3Response.status !== 204 && s3Response.status !== 201 && s3Response.status !== 200) {
+			throw new Error(`Storage upload failed with status ${s3Response.status}`);
+		}
+
+		// Step 3: Confirm the upload with GitHub
+		await octokit.api.request(`PUT ${policy.asset_upload_url}`, {
+			headers: { accept: 'application/json' },
+		});
+
+		const url = policy.asset.href;
+		if (contentType.startsWith('image/')) {
+			return `![${fileName}](${url})`;
+		}
+		if (contentType.startsWith('video/')) {
+			return url;
+		}
+		return `[${fileName}](${url})`;
 	}
 
 	/**
@@ -882,5 +987,34 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	public getCurrentItem(): TItem | undefined {
 		return this._item;
+	}
+}
+
+function guessContentType(fileName: string): string {
+	const ext = path.extname(fileName).toLowerCase();
+	switch (ext) {
+		case '.png': return 'image/png';
+		case '.jpg':
+		case '.jpeg': return 'image/jpeg';
+		case '.gif': return 'image/gif';
+		case '.webp': return 'image/webp';
+		case '.svg': return 'image/svg+xml';
+		case '.bmp': return 'image/bmp';
+		case '.heic': return 'image/heic';
+		case '.mp4': return 'video/mp4';
+		case '.mov': return 'video/quicktime';
+		case '.webm': return 'video/webm';
+		case '.pdf': return 'application/pdf';
+		case '.zip': return 'application/zip';
+		case '.gz': return 'application/gzip';
+		case '.tar': return 'application/x-tar';
+		case '.txt': return 'text/plain';
+		case '.md': return 'text/markdown';
+		case '.json': return 'application/json';
+		case '.log': return 'text/plain';
+		case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+		case '.xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+		case '.pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+		default: return 'application/octet-stream';
 	}
 }

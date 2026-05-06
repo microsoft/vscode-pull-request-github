@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
 export class PRContext {
 	constructor(
@@ -175,6 +175,61 @@ export class PRContext {
 	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
 
 	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
+
+	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
+
+	/**
+	 * Asks the host to prompt the user for files to upload.
+	 *
+	 * @param insertPlaceholders called once with the textual placeholders to insert into the textarea
+	 * @param replacePlaceholder called as each upload finishes (or fails) to replace the placeholder with the resulting markdown (or remove it on error)
+	 */
+	public uploadFiles = async (
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) => {
+		const result: UploadFilesReply | undefined = await this.postMessage({ command: 'pr.upload-files' });
+		if (!result || !result.uploads || result.uploads.length === 0) {
+			return;
+		}
+		const placeholdersText = result.uploads.map(u => u.placeholder).join('\n');
+		insertPlaceholders(placeholdersText);
+		for (const upload of result.uploads) {
+			this._uploadCompletionHandlers.set(upload.placeholder, message => {
+				if (message.error) {
+					replacePlaceholder(message.placeholder, '');
+					this.postMessage({ command: 'alert', args: `Failed to upload ${message.name}: ${message.error}` });
+				} else {
+					replacePlaceholder(message.placeholder, message.markdown ?? '');
+				}
+			});
+		}
+	};
+
+	/**
+	 * Convenience wrapper that uploads files into the current pending comment text in the PR state.
+	 */
+	public uploadFilesIntoPendingComment = () => {
+		return this.uploadFiles(
+			placeholders => {
+				const current = this.pr?.pendingCommentText ?? '';
+				const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+				this.updatePR({ pendingCommentText: `${current}${separator}${placeholders}\n` });
+			},
+			(placeholder, markdown) => {
+				const current = this.pr?.pendingCommentText ?? '';
+				this.updatePR({ pendingCommentText: current.replace(placeholder, markdown) });
+			},
+		);
+	};
+
+	private completeFileUpload(message: FileUploadCompletedMessage) {
+		const handler = this._uploadCompletionHandlers.get(message.placeholder);
+		if (handler) {
+			this._uploadCompletionHandlers.delete(message.placeholder);
+			handler(message);
+		}
+	}
 
 	public deleteReview = async () => {
 		try {
@@ -446,6 +501,8 @@ export class PRContext {
 				return this.updatePR({ busy: true });
 			case 'pr.readied-for-review':
 				return this.readyForReviewComplete(message);
+			case 'pr.file-upload-completed':
+				return this.completeFileUpload(message);
 		}
 	};
 
