@@ -2111,4 +2111,89 @@ export class GitHubRepository extends Disposable {
 		}
 		return CheckState.Success;
 	}
+
+	/**
+	 * Upload a file to GitHub via the mobile upload policy API. Returns a markdown
+	 * snippet appropriate for embedding in an issue/PR comment.
+	 */
+	public async uploadFile(uri: vscode.Uri, fileName: string): Promise<string> {
+		const fileBytes = await vscode.workspace.fs.readFile(uri);
+		const contentType = guessContentType(fileName);
+
+		const { octokit } = await this.ensure();
+		const metadata = await this.getMetadata();
+		const repositoryId = metadata.id;
+
+		// Step 1: Get upload policy
+		const policyResponse = await octokit.api.request('POST /mobile/upload/policy', {
+			name: fileName,
+			size: fileBytes.byteLength,
+			content_type: contentType,
+			repository_id: repositoryId,
+			headers: { accept: 'application/json' },
+		});
+		const policy = policyResponse.data as {
+			upload_url: string;
+			form: Record<string, string>;
+			asset: { id: number; name: string; href: string };
+			asset_upload_url: string;
+		};
+
+		// Step 2: Upload bytes to the storage location returned by the policy
+		const formData = new FormData();
+		for (const [key, value] of Object.entries(policy.form)) {
+			formData.append(key, value);
+		}
+		const arrayBuffer = new ArrayBuffer(fileBytes.byteLength);
+		new Uint8Array(arrayBuffer).set(fileBytes);
+		formData.append('file', new Blob([arrayBuffer], { type: contentType }), policy.asset.name);
+		const s3Response = await fetch(policy.upload_url, { method: 'POST', body: formData });
+		if (s3Response.status !== 204 && s3Response.status !== 201 && s3Response.status !== 200) {
+			throw new Error(`Storage upload failed with status ${s3Response.status}`);
+		}
+
+		// Step 3: Confirm the upload with GitHub
+		await octokit.api.request(`PUT ${policy.asset_upload_url}`, {
+			headers: { accept: 'application/json' },
+		});
+
+		const url = policy.asset.href;
+		if (contentType.startsWith('image/')) {
+			return `![${fileName}](${url})`;
+		}
+		if (contentType.startsWith('video/')) {
+			return url;
+		}
+		return `[${fileName}](${url})`;
+	}
+}
+
+function guessContentType(fileName: string): string {
+	const lastDot = fileName.lastIndexOf('.');
+	const ext = lastDot >= 0 ? fileName.substring(lastDot).toLowerCase() : '';
+	switch (ext) {
+		case '.png': return 'image/png';
+		case '.jpg':
+		case '.jpeg': return 'image/jpeg';
+		case '.gif': return 'image/gif';
+		case '.webp': return 'image/webp';
+		case '.svg': return 'image/svg+xml';
+		case '.bmp': return 'image/bmp';
+		case '.heic': return 'image/heic';
+		case '.mp4': return 'video/mp4';
+		case '.mov': return 'video/quicktime';
+		case '.webm': return 'video/webm';
+		case '.pdf': return 'application/pdf';
+		case '.zip': return 'application/zip';
+		case '.gz': return 'application/gzip';
+		case '.tar': return 'application/x-tar';
+		case '.txt': return 'text/plain';
+		case '.md': return 'text/markdown';
+		case '.json': return 'application/json';
+		case '.log': return 'text/plain';
+		case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+		case '.xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+		case '.pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+		default: return 'application/octet-stream';
+	}
 }
