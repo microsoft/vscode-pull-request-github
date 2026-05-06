@@ -263,6 +263,7 @@
 	"command.pr.createComment.title": "Add Review Comment",
 	"command.pr.createSingleComment.title": "Add Comment",
 	"command.pr.makeSuggestion.title": "Make Code Suggestion",
+	"command.pr.uploadFile.title": "Upload File",
 	"command.pr.startReview.title": "Start Review",
 	"command.pr.editComment.title": "Edit Comment",
 	"command.pr.cancelEditComment.title": "Cancel",

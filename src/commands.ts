@@ -20,6 +20,7 @@ import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
+import { pickFilesForUpload, runFileUploads } from './github/fileUpload';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
@@ -1376,6 +1377,86 @@ export function registerCommands(
 ${contents}
 \`\`\``);
 			});
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.uploadFile', async (reply: CommentReply | GHPRComment | undefined) => {
+			/* __GDPR__
+			"pr.uploadFile" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.uploadFile');
+
+			let potentialThread: GHPRCommentThread | undefined;
+			if (reply === undefined) {
+				potentialThread = findActiveHandler()?.commentController.activeCommentThread as vscode.CommentThread2 as GHPRCommentThread | undefined;
+			} else {
+				potentialThread = reply instanceof GHPRComment ? reply.parent : reply?.thread;
+			}
+
+			if (!potentialThread) {
+				return;
+			}
+			const thread = potentialThread;
+
+			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
+				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
+			if (!commentEditor) {
+				Logger.error('No comment editor visible for uploading a file.', logId);
+				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to upload a file in.'));
+				return;
+			}
+			const commentEditorUri = commentEditor.document.uri.toString();
+
+			const folderManager = reposManager.getManagerForFile(thread.uri);
+			const githubRepository = folderManager?.activePullRequest?.githubRepository
+				?? folderManager?.gitHubRepositories[0];
+			if (!githubRepository) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Cannot upload files: no GitHub repository found for this comment.'));
+				return;
+			}
+
+			const uploads = await pickFilesForUpload();
+			if (!uploads) {
+				return;
+			}
+
+			// Insert placeholders at the current cursor position
+			const placeholdersText = uploads.map(u => u.placeholder).join('\n');
+			const cursor = commentEditor.selection.end;
+			const before = commentEditor.document.getText(new vscode.Range(new vscode.Position(0, 0), cursor));
+			const separator = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
+			await commentEditor.edit(editBuilder => {
+				editBuilder.insert(cursor, `${separator}${placeholdersText}\n`);
+			});
+
+			const replacePlaceholder = async (placeholder: string, replacement: string) => {
+				const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === commentEditorUri);
+				if (!editor) {
+					return;
+				}
+				const text = editor.document.getText();
+				const idx = text.indexOf(placeholder);
+				if (idx < 0) {
+					return;
+				}
+				const start = editor.document.positionAt(idx);
+				const end = editor.document.positionAt(idx + placeholder.length);
+				await editor.edit(editBuilder => {
+					editBuilder.replace(new vscode.Range(start, end), replacement);
+				});
+			};
+
+			runFileUploads(
+				githubRepository,
+				uploads,
+				logId,
+				(placeholder, _name, markdown) => replacePlaceholder(placeholder, markdown),
+				(placeholder, name, error) => {
+					vscode.window.showErrorMessage(vscode.l10n.t('Failed to upload {0}: {1}', name, error));
+					return replacePlaceholder(placeholder, '');
+				},
+			);
 		})
 	);
 

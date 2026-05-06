@@ -1246,6 +1246,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.uploadFile",
+				"title": "%command.pr.uploadFile.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(cloud-upload)"
+			},
+			{
 				"command": "pr.startReview",
 				"title": "%command.pr.startReview.title%",
 				"category": "%command.pull.request.category%",
@@ -2361,6 +2367,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.uploadFile",
+					"when": "false"
+				},
+				{
 					"command": "pr.startReview",
 					"when": "false"
 				},
@@ -3296,6 +3306,11 @@
 					"command": "pr.makeSuggestion",
 					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && !github:activeCommentHasSuggestion"
+				},
+				{
+					"command": "pr.uploadFile",
+					"group": "inline@4",
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/commentThread/additionalActions": [

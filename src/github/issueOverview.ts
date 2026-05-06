@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
+import { pickFilesForUpload, runFileUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
@@ -577,54 +577,32 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async uploadFiles(message: IRequestMessage<void>): Promise<void> {
-		const fileUris = await vscode.window.showOpenDialog({
-			canSelectMany: true,
-			canSelectFiles: true,
-			canSelectFolders: false,
-			openLabel: 'Upload',
-			title: 'Select files to upload',
-		});
-		if (!fileUris || fileUris.length === 0) {
+		const uploads = await pickFilesForUpload();
+		if (!uploads) {
 			const empty: UploadFilesReply = { uploads: [] };
 			return this._replyMessage(message, empty);
 		}
 
-		const used = new Map<string, number>();
-		const uploads = fileUris.map(uri => {
-			const baseName = path.basename(uri.fsPath);
-			const count = used.get(baseName) ?? 0;
-			used.set(baseName, count + 1);
-			const placeholder = count === 0
-				? `<!-- Uploading ${baseName} -->`
-				: `<!-- Uploading ${baseName} (${count + 1}) -->`;
-			return { uri, name: baseName, placeholder };
-		});
-
 		const reply: UploadFilesReply = { uploads: uploads.map(u => ({ name: u.name, placeholder: u.placeholder })) };
 		await this._replyMessage(message, reply);
 
-		// Kick off uploads in parallel
-		const githubRepository = this._item.githubRepository;
-		for (const u of uploads) {
-			githubRepository.uploadFile(u.uri, u.name).then(markdown => {
-				const completed: FileUploadCompletedMessage = {
-					command: 'pr.file-upload-completed',
-					placeholder: u.placeholder,
-					name: u.name,
-					markdown,
-				};
-				return this._postMessage(completed);
-			}).catch(err => {
-				Logger.error(`Failed to upload file ${u.name}: ${formatError(err)}`, IssueOverviewPanel.ID);
-				const completed: FileUploadCompletedMessage = {
-					command: 'pr.file-upload-completed',
-					placeholder: u.placeholder,
-					name: u.name,
-					error: formatError(err),
-				};
-				return this._postMessage(completed);
-			});
-		}
+		runFileUploads(
+			this._item.githubRepository,
+			uploads,
+			IssueOverviewPanel.ID,
+			(placeholder, name, markdown) => this._postMessage({
+				command: 'pr.file-upload-completed',
+				placeholder,
+				name,
+				markdown,
+			} satisfies FileUploadCompletedMessage),
+			(placeholder, name, error) => this._postMessage({
+				command: 'pr.file-upload-completed',
+				placeholder,
+				name,
+				error,
+			} satisfies FileUploadCompletedMessage),
+		);
 	}
 
 
