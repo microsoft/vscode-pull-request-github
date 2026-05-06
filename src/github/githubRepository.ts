@@ -2117,7 +2117,22 @@ export class GitHubRepository extends Disposable {
 	 * snippet appropriate for embedding in an issue/PR comment.
 	 */
 	public async uploadFile(uri: vscode.Uri, fileName: string): Promise<string> {
+		// Guard against very large files: check size before reading the bytes into memory.
+		let fileSize: number | undefined;
+		try {
+			const stat = await vscode.workspace.fs.stat(uri);
+			fileSize = stat.size;
+		} catch {
+			// Fall through; readFile will surface a more specific error if needed.
+		}
+		if (fileSize !== undefined && fileSize > MAX_UPLOAD_SIZE_BYTES) {
+			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileSize / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
+		}
+
 		const fileBytes = await vscode.workspace.fs.readFile(uri);
+		if (fileBytes.byteLength > MAX_UPLOAD_SIZE_BYTES) {
+			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileBytes.byteLength / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
+		}
 		const contentType = guessContentType(fileName);
 
 		const { octokit } = await this.ensure();
@@ -2139,14 +2154,15 @@ export class GitHubRepository extends Disposable {
 			asset_upload_url: string;
 		};
 
-		// Step 2: Upload bytes to the storage location returned by the policy
+		// Step 2: Upload bytes to the storage location returned by the policy.
+		// Pass the Uint8Array directly to Blob to avoid an extra full-size copy.
 		const formData = new FormData();
 		for (const [key, value] of Object.entries(policy.form)) {
 			formData.append(key, value);
 		}
-		const arrayBuffer = new ArrayBuffer(fileBytes.byteLength);
-		new Uint8Array(arrayBuffer).set(fileBytes);
-		formData.append('file', new Blob([arrayBuffer], { type: contentType }), policy.asset.name);
+		// The DOM Blob types require Uint8Array<ArrayBuffer>, but vscode.workspace.fs.readFile
+		// returns Uint8Array<ArrayBufferLike>. The runtime accepts it, so cast via unknown to avoid a copy.
+		formData.append('file', new Blob([fileBytes as unknown as BlobPart], { type: contentType }), policy.asset.name);
 		const s3Response = await fetch(policy.upload_url, { method: 'POST', body: formData });
 		if (s3Response.status !== 204 && s3Response.status !== 201 && s3Response.status !== 200) {
 			throw new Error(`Storage upload failed with status ${s3Response.status}`);
@@ -2158,14 +2174,25 @@ export class GitHubRepository extends Disposable {
 		});
 
 		const url = policy.asset.href;
+		const safeName = escapeMarkdownLinkText(fileName);
 		if (contentType.startsWith('image/')) {
-			return `![${fileName}](${url})`;
+			return `![${safeName}](${url})`;
 		}
 		if (contentType.startsWith('video/')) {
 			return url;
 		}
-		return `[${fileName}](${url})`;
+		return `[${safeName}](${url})`;
 	}
+}
+
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
+/**
+ * Escape characters that would break a markdown link's text segment (`[text](url)`).
+ * Filenames may legally contain `[`, `]`, `\`, etc., which can corrupt the rendered link.
+ */
+function escapeMarkdownLinkText(text: string): string {
+	return text.replace(/([\\\[\]`])/g, '\\$1');
 }
 
 function guessContentType(fileName: string): string {
