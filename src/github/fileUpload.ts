@@ -94,7 +94,14 @@ export async function pickFilesForUpload(): Promise<FileUploadPlaceholder[] | un
 }
 
 /**
- * Run uploads of files identified by URI in parallel.
+ * Maximum number of file uploads to run in parallel. Limiting concurrency
+ * avoids memory and network spikes when many files are uploaded at once.
+ */
+const MAX_CONCURRENT_UPLOADS = 3;
+
+/**
+ * Run the actual file uploads with limited concurrency, invoking the supplied
+ * callbacks as each upload finishes (or fails).
  */
 export function runFileUploads(
 	githubRepository: GitHubRepository,
@@ -126,15 +133,25 @@ export function runPendingUploads(
 	onComplete: (placeholder: string, name: string, markdown: string) => void | Promise<void>,
 	onError: (placeholder: string, name: string, error: string) => void | Promise<void>,
 ): void {
-	for (const u of uploads) {
-		(async () => {
-			const bytes = await u.getBytes();
-			return githubRepository.uploadFileBytes(bytes, u.name);
-		})().then(markdown => {
-			return onComplete(u.placeholder, u.name, markdown);
-		}).catch(err => {
-			Logger.error(`Failed to upload file ${u.name}: ${formatError(err)}`, logId);
-			return onError(u.placeholder, u.name, formatError(err));
-		});
+	let next = 0;
+
+	const runOne = async (): Promise<void> => {
+		while (next < uploads.length) {
+			const u = uploads[next++];
+			(async () => {
+				const bytes = await u.getBytes();
+				return githubRepository.uploadFileBytes(bytes, u.name);
+			})().then(markdown => {
+				return onComplete(u.placeholder, u.name, markdown);
+			}).catch(err => {
+				Logger.error(`Failed to upload file ${u.name}: ${formatError(err)}`, logId);
+				return onError(u.placeholder, u.name, formatError(err));
+			});
+		}
+	};
+
+	const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, uploads.length);
+	for (let i = 0; i < workerCount; i++) {
+		void runOne();
 	}
 }
