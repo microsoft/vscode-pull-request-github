@@ -2118,6 +2118,14 @@ export class GitHubRepository extends Disposable {
 	 */
 	public async uploadFile(uri: vscode.Uri, fileName: string): Promise<string> {
 		const fileBytes = await vscode.workspace.fs.readFile(uri);
+		return this.uploadFileBytes(fileBytes, fileName);
+	}
+
+	/**
+	 * Upload a file's raw bytes to GitHub via the mobile upload policy API.
+	 * Returns a markdown snippet appropriate for embedding in an issue/PR comment.
+	 */
+	public async uploadFileBytes(fileBytes: Uint8Array, fileName: string): Promise<string> {
 		const contentType = guessContentType(fileName);
 
 		const { octokit } = await this.ensure();

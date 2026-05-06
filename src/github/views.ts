@@ -188,6 +188,10 @@ export interface UploadFilesReply {
 	uploads: FileUploadPlaceholder[];
 }
 
+export interface UploadPastedFilesArgs {
+	files: { name: string; bytesBase64: string }[];
+}
+
 export interface FileUploadCompletedMessage {
 	command: 'pr.file-upload-completed';
 	name: string;

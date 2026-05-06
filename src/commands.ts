@@ -20,7 +20,7 @@ import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
-import { pickFilesForUpload, runFileUploads } from './github/fileUpload';
+import { guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './github/fileUpload';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
@@ -1458,6 +1458,87 @@ ${contents}
 				},
 			);
 		})
+	);
+
+	context.subscriptions.push(
+		vscode.languages.registerDocumentPasteEditProvider(
+			{ scheme: Schemes.Comment },
+			{
+				async provideDocumentPasteEdits(document, ranges, dataTransfer, _context, token) {
+					const files: { name: string; getBytes: () => Thenable<Uint8Array> }[] = [];
+					let counter = 0;
+					for (const [mime, item] of dataTransfer) {
+						const file = item.asFile();
+						if (!file) {
+							continue;
+						}
+						const name = file.name || `pasted-file-${++counter}${guessExtensionFromMime(mime)}`;
+						files.push({ name, getBytes: () => file.data() });
+					}
+					if (files.length === 0 || token.isCancellationRequested) {
+						return;
+					}
+
+					const potentialThread = findActiveHandler()?.commentController.activeCommentThread as vscode.CommentThread2 as GHPRCommentThread | undefined;
+					if (!potentialThread) {
+						return;
+					}
+					const folderManager = reposManager.getManagerForFile(potentialThread.uri);
+					const githubRepository = folderManager?.activePullRequest?.githubRepository
+						?? folderManager?.gitHubRepositories[0];
+					if (!githubRepository) {
+						return;
+					}
+
+					const placeholders = placeholdersForNames(files.map(f => f.name));
+					const placeholdersText = placeholders.map(p => p.placeholder).join('\n');
+
+					const documentUri = document.uri.toString();
+					const replacePlaceholder = async (placeholder: string, replacement: string) => {
+						const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === documentUri);
+						if (!editor) {
+							return;
+						}
+						const text = editor.document.getText();
+						const idx = text.indexOf(placeholder);
+						if (idx < 0) {
+							return;
+						}
+						const start = editor.document.positionAt(idx);
+						const end = editor.document.positionAt(idx + placeholder.length);
+						await editor.edit(editBuilder => {
+							editBuilder.replace(new vscode.Range(start, end), replacement);
+						});
+					};
+
+					runPendingUploads(
+						githubRepository,
+						files.map((f, i) => ({
+							name: placeholders[i].name,
+							placeholder: placeholders[i].placeholder,
+							getBytes: f.getBytes,
+						})),
+						logId,
+						(placeholder, _name, markdown) => replacePlaceholder(placeholder, markdown),
+						(placeholder, name, error) => {
+							vscode.window.showErrorMessage(vscode.l10n.t('Failed to upload {0}: {1}', name, error));
+							return replacePlaceholder(placeholder, '');
+						},
+					);
+
+					const edit = new vscode.DocumentPasteEdit(
+						placeholdersText,
+						vscode.l10n.t('Upload as GitHub attachment'),
+						vscode.DocumentDropOrPasteEditKind.Empty.append('github', 'attachment'),
+					);
+					return [edit];
+				},
+			},
+			{
+				providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Empty.append('github', 'attachment')],
+				pasteMimeTypes: ['files', 'image/*'],
+			},
+		),
 	);
 
 	context.subscriptions.push(

@@ -189,6 +189,40 @@ export class PRContext {
 		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
 	) => {
 		const result: UploadFilesReply | undefined = await this.postMessage({ command: 'pr.upload-files' });
+		this._registerUploadHandlers(result, insertPlaceholders, replacePlaceholder);
+	};
+
+	/**
+	 * Send a list of files (typically from a clipboard paste or drop) to the host for upload.
+	 */
+	public uploadPastedFiles = async (
+		files: readonly File[],
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) => {
+		if (files.length === 0) {
+			return;
+		}
+		const fileArgs = await Promise.all(files.map(async file => {
+			const buffer = new Uint8Array(await file.arrayBuffer());
+			let binary = '';
+			for (let i = 0; i < buffer.length; i++) {
+				binary += String.fromCharCode(buffer[i]);
+			}
+			return { name: file.name || 'pasted-file', bytesBase64: btoa(binary) };
+		}));
+		const result: UploadFilesReply | undefined = await this.postMessage({
+			command: 'pr.upload-pasted-files',
+			args: { files: fileArgs },
+		});
+		this._registerUploadHandlers(result, insertPlaceholders, replacePlaceholder);
+	};
+
+	private _registerUploadHandlers(
+		result: UploadFilesReply | undefined,
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) {
 		if (!result || !result.uploads || result.uploads.length === 0) {
 			return;
 		}
@@ -204,24 +238,39 @@ export class PRContext {
 				}
 			});
 		}
-	};
+	}
 
 	/**
 	 * Convenience wrapper that uploads files into the current pending comment text in the PR state.
 	 */
 	public uploadFilesIntoPendingComment = () => {
 		return this.uploadFiles(
-			placeholders => {
-				const current = this.pr?.pendingCommentText ?? '';
-				const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
-				this.updatePR({ pendingCommentText: `${current}${separator}${placeholders}\n` });
-			},
-			(placeholder, markdown) => {
-				const current = this.pr?.pendingCommentText ?? '';
-				this.updatePR({ pendingCommentText: current.replace(placeholder, markdown) });
-			},
+			placeholders => this._appendToPendingComment(placeholders),
+			(placeholder, markdown) => this._replaceInPendingComment(placeholder, markdown),
 		);
 	};
+
+	/**
+	 * Convenience wrapper that uploads pasted files into the current pending comment text.
+	 */
+	public uploadPastedFilesIntoPendingComment = (files: readonly File[]) => {
+		return this.uploadPastedFiles(
+			files,
+			placeholders => this._appendToPendingComment(placeholders),
+			(placeholder, markdown) => this._replaceInPendingComment(placeholder, markdown),
+		);
+	};
+
+	private _appendToPendingComment(placeholders: string) {
+		const current = this.pr?.pendingCommentText ?? '';
+		const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+		this.updatePR({ pendingCommentText: `${current}${separator}${placeholders}\n` });
+	}
+
+	private _replaceInPendingComment(placeholder: string, markdown: string) {
+		const current = this.pr?.pendingCommentText ?? '';
+		this.updatePR({ pendingCommentText: current.replace(placeholder, markdown) });
+	}
 
 	private completeFileUpload(message: FileUploadCompletedMessage) {
 		const handler = this._uploadCompletionHandlers.get(message.placeholder);
