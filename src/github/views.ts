@@ -189,7 +189,7 @@ export interface UploadFilesReply {
 }
 
 export interface UploadPastedFilesArgs {
-	files: { name: string; bytesBase64: string }[];
+	files: { name: string; type: string; bytesBase64: string }[];
 }
 
 export interface FileUploadCompletedMessage {

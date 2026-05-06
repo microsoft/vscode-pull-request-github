@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
-import { decodeBase64, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
+import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
@@ -614,7 +614,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			return this._replyMessage(message, empty);
 		}
 
-		const placeholders = placeholdersForNames(files.map(f => f.name));
+		const names = files.map(f => f.name.includes('.') ? f.name : `${f.name}${guessExtensionFromMime(f.type)}`);
+		const placeholders = placeholdersForNames(names);
 		const reply: UploadFilesReply = { uploads: placeholders };
 		await this._replyMessage(message, reply);
 

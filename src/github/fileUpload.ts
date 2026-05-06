@@ -26,7 +26,7 @@ export interface PendingFileUpload {
  * Decode a base64 string to a {@linkcode Uint8Array}.
  */
 export function decodeBase64(input: string): Uint8Array {
-	return new Uint8Array(buffer.Buffer.from(input, 'base64'));
+	return buffer.Buffer.from(input, 'base64');
 }
 
 /**

@@ -13,6 +13,21 @@ import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../sr
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
+/**
+ * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
+ * keep the conversion linear in time and avoid huge intermediate string
+ * allocations when handling large clipboard payloads.
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+	const chunkSize = 0x8000;
+	const parts: string[] = [];
+	for (let i = 0; i < bytes.length; i += chunkSize) {
+		const chunk = bytes.subarray(i, i + chunkSize);
+		parts.push(String.fromCharCode.apply(null, chunk as unknown as number[]));
+	}
+	return btoa(parts.join(''));
+}
+
 export class PRContext {
 	constructor(
 		public pr: PullRequest | undefined = getState(),
@@ -205,11 +220,8 @@ export class PRContext {
 		}
 		const fileArgs = await Promise.all(files.map(async file => {
 			const buffer = new Uint8Array(await file.arrayBuffer());
-			let binary = '';
-			for (let i = 0; i < buffer.length; i++) {
-				binary += String.fromCharCode(buffer[i]);
-			}
-			return { name: file.name || 'pasted-file', bytesBase64: btoa(binary) };
+			const bytesBase64 = bytesToBase64(buffer);
+			return { name: file.name || 'pasted-file', type: file.type ?? '', bytesBase64 };
 		}));
 		const result: UploadFilesReply | undefined = await this.postMessage({
 			command: 'pr.upload-pasted-files',
