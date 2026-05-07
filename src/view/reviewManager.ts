@@ -592,14 +592,22 @@ export class ReviewManager extends Disposable {
 		}
 
 		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
-
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
-			if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests()) {
-				matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch);
-			} else {
-				Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
+		}
+
+		// Always check GitHub for a matching open PR (subject to the new-PRs/branch-change cache),
+		// even when local metadata already exists. If GitHub returns a result, it overwrites the
+		// local metadata via associateBranchWithPullRequest. This allows branches whose local
+		// metadata points to a stale closed PR to recover automatically once an open PR exists
+		// (or via the upstream-name guard, to stop being re-associated with the wrong PR).
+		if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests() || !matchingPullRequestMetadata) {
+			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
+			if (metadataFromGithub) {
+				matchingPullRequestMetadata = metadataFromGithub;
 			}
+		} else {
+			Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
 		}
 		this._cachedBranchName = branch.name;
 
