@@ -323,7 +323,10 @@ export class CredentialStore extends Disposable {
 		const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 		const promise = (async () => {
 			try {
-				return await this.recreate(reason);
+				// Force re-auth only for the affected provider, not both. Going through
+				// recreate()/doCreate() would prompt re-auth for both GitHub.com and
+				// GitHub Enterprise when both are configured.
+				return await this.initialize(authProviderId, { forceNewSession: { detail: reason } });
 			} finally {
 				this._handlingAuthError.delete(authProviderId);
 				this._lastAuthErrorHandledAt.set(authProviderId, Date.now());
