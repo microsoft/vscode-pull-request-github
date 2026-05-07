@@ -1027,14 +1027,6 @@ export class FolderRepositoryManager extends Disposable {
 					const remoteName = branch.upstream.remote;
 					const upstreamBranchName = branch.upstream.name;
 
-					// If the upstream branch name differs from the local branch name, the branch is
-					// tracking a different remote ref (e.g. a base branch like `origin/dev`) rather
-					// than its own remote counterpart. Skip the lookup to avoid associating with an
-					// unrelated (often stale closed) PR whose head ref happens to be that base branch.
-					if (upstreamBranchName !== branchName) {
-						return false;
-					}
-
 					const githubRepo = githubRepositories.find(
 						repo => repo.remote.remoteName === remoteName,
 					);
