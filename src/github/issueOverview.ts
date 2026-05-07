@@ -469,7 +469,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const html = await this._item.githubRepository.renderMarkdown(message.args.text);
 			this._replyMessage(message, { html });
 		} catch (e) {
-			this._replyMessage(message, { html: message.args.text });
+			this._replyMessage(message, { html: null, error: true });
 		}
 	}
 

@@ -118,7 +118,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const html = await this._item.githubRepository.renderMarkdown(message.args.text);
 			this._replyMessage(message, { html });
 		} catch (e) {
-			this._replyMessage(message, { html: message.args.text });
+			this._replyMessage(message, { html: null, error: true });
 		}
 	}
 

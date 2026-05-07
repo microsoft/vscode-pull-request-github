@@ -1594,7 +1594,7 @@ Don't forget to commit your template file to the repository so that it can be us
 			const html = await repo.renderMarkdown(message.args.text);
 			this._replyMessage(message, { html });
 		} catch (e) {
-			this._replyMessage(message, { html: message.args.text });
+			this._replyMessage(message, { html: null, error: true });
 		}
 	}
 }

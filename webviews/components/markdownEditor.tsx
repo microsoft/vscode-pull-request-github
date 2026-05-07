@@ -19,7 +19,7 @@ export const MarkdownEditor = React.forwardRef(function MarkdownEditor(
 	const internalRef = useRef<HTMLTextAreaElement>(null);
 
 	const setRefs = useCallback(
-		(node: HTMLTextAreaElement) => {
+		(node: HTMLTextAreaElement | null) => {
 			(internalRef as React.MutableRefObject<HTMLTextAreaElement | null>).current =
 				node;
 			if (typeof forwardedRef === 'function') {
@@ -37,8 +37,8 @@ export const MarkdownEditor = React.forwardRef(function MarkdownEditor(
 		if (mode !== 'preview') return;
 
 		if (!renderMarkdown) {
-			const text = internalRef.current?.value || '';
-			setHtml(text ? `<pre>${text}</pre>` : '<em>Nothing to preview</em>');
+			setHtml('');
+			setIsLoading(false);
 			return;
 		}
 

@@ -2147,7 +2147,7 @@ export class GitHubRepository extends Disposable {
 			return data;
 		} catch (e) {
 			Logger.error(`Unable to render markdown: ${e}`, this.id);
-			return text;
+			throw e;
 		}
 	}
 
