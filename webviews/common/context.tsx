@@ -13,6 +13,21 @@ import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../sr
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
+/**
+ * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
+ * keep the conversion linear in time and avoid huge intermediate string
+ * allocations when handling large clipboard payloads.
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+	const chunkSize = 0x8000;
+	const parts: string[] = [];
+	for (let i = 0; i < bytes.length; i += chunkSize) {
+		const chunk = bytes.subarray(i, i + chunkSize);
+		parts.push(String.fromCharCode.apply(null, chunk as unknown as number[]));
+	}
+	return btoa(parts.join(''));
+}
+
 export class PRContext {
 	constructor(
 		public pr: PullRequest | undefined = getState(),
@@ -189,6 +204,37 @@ export class PRContext {
 		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
 	) => {
 		const result: UploadFilesReply | undefined = await this.postMessage({ command: 'pr.upload-files' });
+		this._registerUploadHandlers(result, insertPlaceholders, replacePlaceholder);
+	};
+
+	/**
+	 * Send a list of files (typically from a clipboard paste or drop) to the host for upload.
+	 */
+	public uploadPastedFiles = async (
+		files: readonly File[],
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) => {
+		if (files.length === 0) {
+			return;
+		}
+		const fileArgs = await Promise.all(files.map(async file => {
+			const buffer = new Uint8Array(await file.arrayBuffer());
+			const bytesBase64 = bytesToBase64(buffer);
+			return { name: file.name || 'pasted-file', type: file.type ?? '', bytesBase64 };
+		}));
+		const result: UploadFilesReply | undefined = await this.postMessage({
+			command: 'pr.upload-pasted-files',
+			args: { files: fileArgs },
+		});
+		this._registerUploadHandlers(result, insertPlaceholders, replacePlaceholder);
+	};
+
+	private _registerUploadHandlers(
+		result: UploadFilesReply | undefined,
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) {
 		if (!result || !result.uploads || result.uploads.length === 0) {
 			return;
 		}
@@ -204,24 +250,39 @@ export class PRContext {
 				}
 			});
 		}
-	};
+	}
 
 	/**
 	 * Convenience wrapper that uploads files into the current pending comment text in the PR state.
 	 */
 	public uploadFilesIntoPendingComment = () => {
 		return this.uploadFiles(
-			placeholders => {
-				const current = this.pr?.pendingCommentText ?? '';
-				const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
-				this.updatePR({ pendingCommentText: `${current}${separator}${placeholders}\n` });
-			},
-			(placeholder, markdown) => {
-				const current = this.pr?.pendingCommentText ?? '';
-				this.updatePR({ pendingCommentText: current.replace(placeholder, markdown) });
-			},
+			placeholders => this._appendToPendingComment(placeholders),
+			(placeholder, markdown) => this._replaceInPendingComment(placeholder, markdown),
 		);
 	};
+
+	/**
+	 * Convenience wrapper that uploads pasted files into the current pending comment text.
+	 */
+	public uploadPastedFilesIntoPendingComment = (files: readonly File[]) => {
+		return this.uploadPastedFiles(
+			files,
+			placeholders => this._appendToPendingComment(placeholders),
+			(placeholder, markdown) => this._replaceInPendingComment(placeholder, markdown),
+		);
+	};
+
+	private _appendToPendingComment(placeholders: string) {
+		const current = this.pr?.pendingCommentText ?? '';
+		const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+		this.updatePR({ pendingCommentText: `${current}${separator}${placeholders}\n` });
+	}
+
+	private _replaceInPendingComment(placeholder: string, markdown: string) {
+		const current = this.pr?.pendingCommentText ?? '';
+		this.updatePR({ pendingCommentText: current.replace(placeholder, markdown) });
+	}
 
 	private completeFileUpload(message: FileUploadCompletedMessage) {
 		const handler = this._uploadCompletionHandlers.get(message.placeholder);

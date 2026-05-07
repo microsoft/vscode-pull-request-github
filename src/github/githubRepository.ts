@@ -2133,6 +2133,14 @@ export class GitHubRepository extends Disposable {
 		if (fileBytes.byteLength > MAX_UPLOAD_SIZE_BYTES) {
 			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileBytes.byteLength / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
 		}
+		return this.uploadFileBytes(fileBytes, fileName);
+	}
+
+	/**
+	 * Upload a file's raw bytes to GitHub via the mobile upload policy API.
+	 * Returns a markdown snippet appropriate for embedding in an issue/PR comment.
+	 */
+	public async uploadFileBytes(fileBytes: Uint8Array, fileName: string): Promise<string> {
 		const contentType = guessContentType(fileName);
 
 		const { octokit } = await this.ensure();
