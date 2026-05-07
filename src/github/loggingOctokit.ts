@@ -44,6 +44,35 @@ function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Detects whether an error from a REST (Octokit) or GraphQL (Apollo) call
+ * indicates that the GitHub authentication token is no longer valid. This
+ * happens when the token has been revoked or has expired and surfaces as
+ * either a 401 status, a "Bad credentials" message (REST), or a
+ * "401 Unauthorized" network error (GraphQL).
+ */
+export function isAuthError(e: unknown): boolean {
+	if (!isObject(e)) {
+		return false;
+	}
+	if (e.status === 401) {
+		return true;
+	}
+	const networkError = e.networkError;
+	if (isObject(networkError) && networkError.statusCode === 401) {
+		return true;
+	}
+	if (typeof e.message === 'string') {
+		if (e.message.includes('Bad credentials')) {
+			return true;
+		}
+		if (e.message.includes('401 Unauthorized')) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export function getErrorCode(e: unknown): string | undefined {
 	if (!isObject(e)) {
 		return undefined;
@@ -94,7 +123,7 @@ export class RateLogger {
 	private hasLoggedLowRateLimit: boolean = false;
 	private readonly _isInsiders: boolean;
 
-	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) {
+	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean, private readonly authErrorHandler?: (e: unknown) => void) {
 		this._isInsiders = vscode.env.appName.toLowerCase().includes('insider');
 	}
 
@@ -187,6 +216,14 @@ export class RateLogger {
 				}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('pr.apiCallFailed', properties);
+
+			if (this.authErrorHandler && isAuthError(e)) {
+				try {
+					this.authErrorHandler(e);
+				} catch {
+					// Ignore errors from the auth error handler so they don't propagate.
+				}
+			}
 		});
 	}
 
