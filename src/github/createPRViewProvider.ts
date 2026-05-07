@@ -1579,9 +1579,22 @@ Don't forget to commit your template file to the repository so that it can be us
 			case 'pr.cancelPreReview':
 				return this.cancelPreReview();
 
+			case 'pr.render-markdown':
+				return this.renderMarkdown(message);
+
 			default:
 				// Log error
 				vscode.window.showErrorMessage('Unsupported webview message');
+		}
+	}
+
+	private async renderMarkdown(message: IRequestMessage<{ text: string }>) {
+		try {
+			const repo = this.model.gitHubRepository ?? this._folderRepositoryManager.gitHubRepositories[0];
+			const html = await repo.renderMarkdown(message.args.text);
+			this._replyMessage(message, { html });
+		} catch (e) {
+			this._replyMessage(message, { html: message.args.text });
 		}
 	}
 }

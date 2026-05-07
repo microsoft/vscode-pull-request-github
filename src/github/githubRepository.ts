@@ -2134,6 +2134,24 @@ export class GitHubRepository extends Disposable {
 	}
 
 	/**
+	 * Render markdown text into HTML using GitHub's native API.
+	 */
+	public async renderMarkdown(text: string): Promise<string> {
+		try {
+			const { octokit, remote } = await this.ensure();
+			const { data } = await octokit.call(octokit.api.markdown.render, {
+				text,
+				mode: 'gfm',
+				context: `${remote.owner}/${remote.repositoryName}`
+			});
+			return data;
+		} catch (e) {
+			Logger.error(`Unable to render markdown: ${e}`, this.id);
+			return text;
+		}
+	}
+
+	/**
 	 * Upload a file's raw bytes to GitHub via the mobile upload policy API.
 	 * Returns a markdown snippet appropriate for embedding in an issue/PR comment.
 	 */

@@ -223,6 +223,11 @@ export class CreatePRContextNew {
 		return this.postMessage({ command: 'pr.cancelPreReview' });
 	};
 
+	public renderMarkdown = async (text: string): Promise<string> => {
+		const result = await this.postMessage({ command: 'pr.render-markdown', args: { text } });
+		return result?.html ?? text;
+	};
+
 	public validate = (): boolean => {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {

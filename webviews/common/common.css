@@ -622,3 +622,65 @@ button.inlined-dropdown:last-child {
 		transform: rotate(360deg);
 	}
 }
+
+/* Markdown Editor */
+
+.markdown-editor {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	flex: 1;
+}
+
+.markdown-editor-tabs {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 4px;
+	padding: 0 4px;
+}
+
+.markdown-editor-tab {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 4px 8px;
+	font-size: 13px;
+	opacity: 0.7;
+}
+
+.markdown-editor-tab:hover {
+	opacity: 1;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.markdown-editor-tab.active {
+	opacity: 1;
+	border-bottom: 2px solid var(--vscode-focusBorder);
+	font-weight: 600;
+}
+
+.markdown-editor-content {
+	position: relative;
+	display: flex;
+	flex: 1;
+	width: 100%;
+}
+
+.markdown-editor-content textarea {
+	flex: 1;
+	width: 100%;
+}
+
+.markdown-editor-preview {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 8px;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	border-radius: 4px;
+	min-height: 80px;
+	max-height: 500px;
+	overflow-y: auto;
+}
