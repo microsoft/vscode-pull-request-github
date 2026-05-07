@@ -519,6 +519,15 @@ export class ReviewManager extends Disposable {
 				branchToCheck = branch;
 			}
 			const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
+			// If the upstream branch name differs from the local branch name, the branch is tracking a
+			// different remote ref (e.g. a base branch like `origin/dev`) rather than its own remote
+			// counterpart. Looking up a PR by that upstream name would associate the local branch with
+			// an unrelated PR (often a stale closed one) whose head ref happens to be that base branch.
+			// See https://github.com/microsoft/vscode-pull-request-github/issues for context.
+			if (upstreamBranchName && branchToCheck.name && upstreamBranchName !== branchToCheck.name) {
+				Logger.debug(`Skipping GitHub PR lookup for branch ${branchToCheck.name}: upstream branch name '${upstreamBranchName}' differs from local branch name.`, this.id);
+				return undefined;
+			}
 			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
 			if (metadataFromGithub) {
 				Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
