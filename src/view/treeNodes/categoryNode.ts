@@ -297,7 +297,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
-				if (this.isCopilot && (e.response.status === 422) && e.message.includes('the users do not exist')) {
+				if (this.isCopilot && (e?.response?.status === 422) && e.message?.includes('the users do not exist')) {
 					// Skip it, it's copilot and the repo doesn't have copilot
 				} else {
 					const error = formatError(e);

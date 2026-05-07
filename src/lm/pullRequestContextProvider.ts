@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { onceEvent } from '../common/utils';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -24,6 +25,8 @@ export namespace PRChatContextItem {
 }
 
 export class WorkspaceContextProvider extends Disposable implements vscode.ChatWorkspaceContextProvider {
+	private static readonly ID = 'WorkspaceContextProvider';
+
 	private readonly _onDidChangeWorkspaceChatContext = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeWorkspaceChatContext = this._onDidChangeWorkspaceChatContext.event;
 
@@ -70,7 +73,15 @@ export class WorkspaceContextProvider extends Disposable implements vscode.ChatW
 			if (folderManager.gitHubRepositories.length === 0) {
 				continue;
 			}
-			const defaults = await folderManager.getPullRequestDefaults();
+			let defaults;
+			try {
+				defaults = await folderManager.getPullRequestDefaults();
+			} catch (e) {
+				// The folder may have no upstream, a detached HEAD, or an upstream that is not a GitHub
+				// repository. Skip it instead of letting the rejection escape as an unhandled promise.
+				Logger.debug(`Skipping workspace chat context for folder ${folderManager.repository.rootUri.toString()}: ${e.message ?? e}`, WorkspaceContextProvider.ID);
+				continue;
+			}
 
 			let value = `Repository name: ${defaults.repo}
 Owner: ${defaults.owner}
