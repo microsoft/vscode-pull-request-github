@@ -28,6 +28,9 @@ function bytesToBase64(bytes: Uint8Array): string {
 	return btoa(parts.join(''));
 }
 
+// Keep in sync with MAX_UPLOAD_SIZE_BYTES on the extension host.
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
+
 export class PRContext {
 	constructor(
 		public pr: PullRequest | undefined = getState(),
@@ -216,6 +219,16 @@ export class PRContext {
 		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
 	) => {
 		if (files.length === 0) {
+			return;
+		}
+		const oversized = files.find(f => f.size > MAX_UPLOAD_SIZE_BYTES);
+		if (oversized) {
+			const limitMb = MAX_UPLOAD_SIZE_BYTES / (1024 * 1024);
+			const sizeMb = Math.round(oversized.size / (1024 * 1024));
+			void this.postMessage({
+				command: 'alert',
+				args: `File "${oversized.name || 'pasted-file'}" is too large to upload (${sizeMb} MB). The maximum allowed size is ${limitMb} MB.`,
+			});
 			return;
 		}
 		const fileArgs = await Promise.all(files.map(async file => {

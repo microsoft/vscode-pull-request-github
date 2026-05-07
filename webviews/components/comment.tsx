@@ -45,7 +45,7 @@ function onPasteUploadFiles(uploader: (files: readonly File[]) => Promise<void>)
 			return;
 		}
 		e.preventDefault();
-		uploader(files);
+		void uploader(files);
 	};
 }
 
@@ -355,7 +355,7 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 			return;
 		}
 		e.preventDefault();
-		uploadPastedFiles(
+		void uploadPastedFiles(
 			files,
 			placeholders => insertEditPlaceholders(form, draftComment, placeholders),
 			(placeholder, markdown) => replaceEditPlaceholder(form, draftComment, placeholder, markdown),

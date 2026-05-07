@@ -2130,9 +2130,6 @@ export class GitHubRepository extends Disposable {
 		}
 
 		const fileBytes = await vscode.workspace.fs.readFile(uri);
-		if (fileBytes.byteLength > MAX_UPLOAD_SIZE_BYTES) {
-			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileBytes.byteLength / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
-		}
 		return this.uploadFileBytes(fileBytes, fileName);
 	}
 
@@ -2141,6 +2138,9 @@ export class GitHubRepository extends Disposable {
 	 * Returns a markdown snippet appropriate for embedding in an issue/PR comment.
 	 */
 	public async uploadFileBytes(fileBytes: Uint8Array, fileName: string): Promise<string> {
+		if (fileBytes.byteLength > MAX_UPLOAD_SIZE_BYTES) {
+			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileBytes.byteLength / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
+		}
 		const contentType = guessContentType(fileName);
 
 		const { octokit } = await this.ensure();
