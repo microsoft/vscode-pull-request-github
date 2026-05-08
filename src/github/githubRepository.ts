@@ -760,14 +760,8 @@ export class GitHubRepository extends Disposable {
 				if (prs.length === 0) {
 					return undefined;
 				}
-				// Only return open PRs. Falling back to a closed PR can associate a branch with a
-				// stale, unrelated PR (e.g. when a branch tracks a shared base branch like `dev`),
-				// producing "PR is no longer valid" errors and persistent bad git config entries.
-				const openPr = prs.find(pr => pr.state.toLowerCase() === 'open');
-				if (!openPr) {
-					return undefined;
-				}
-				return this.createOrUpdatePullRequestModel(openPr);
+				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
+				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull request for branch failed: ${e}`, this.id);
