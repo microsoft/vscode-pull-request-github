@@ -45,18 +45,17 @@ textarea {
 .textarea-wrapper {
 	position: relative;
 	display: flex;
+	flex-direction: column;
 	width: 100%;
 }
 
 .textarea-wrapper textarea {
 	flex: 1;
-	padding-bottom: 32px;
 }
 
 .textarea-wrapper .comment-upload-button {
-	position: absolute;
-	left: 6px;
-	bottom: 8px;
+	align-self: flex-start;
+	margin-top: 4px;
 	border: none;
 	background: none;
 	padding: 4px;
