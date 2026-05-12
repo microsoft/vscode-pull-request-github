@@ -1010,13 +1010,27 @@ textarea {
 
 .textarea-wrapper {
 	position: relative;
-	display: flex;
-	flex-direction: column;
+	display: block;
 	width: 100%;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	border-radius: 4px;
+	padding-bottom: 28px;
+}
+
+.textarea-wrapper:focus-within {
+	outline: 1px solid var(--vscode-focusBorder);
 }
 
 .textarea-wrapper textarea {
-	flex: 1;
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	border: none;
+	background: transparent;
+	border-radius: 0;
+	outline: none;
 	padding-right: 40px;
 }
 
@@ -1056,8 +1070,9 @@ textarea {
 }
 
 .textarea-wrapper .comment-upload-button {
-	align-self: flex-start;
-	margin-top: 4px;
+	position: absolute;
+	left: 6px;
+	bottom: 4px;
 	border: none;
 	background: none;
 	padding: 4px;
