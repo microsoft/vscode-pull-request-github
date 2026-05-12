@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.144.0
+
+### Changes
+
+- Support uploading images to pull requests with a button and with paste.
+
+![Use paste to upload an image](./documentation/changelog/0.144.0/upload-an-image.gif)
+
+- Use a more descriptive folder name when checking out pull requests in a worktree.
+- `"githubIssues.issueBranchTitle"` now supports the `${issueType}` template variable.
+
+### Fixes
+
+- VS Code hangs with "the upstream ref origin/master for branch master is not a github repo". https://github.com/microsoft/vscode-pull-request-github/issues/8729
+- `getAssignableUsers` and `getMentionableUsers` bypass `globalState` cache when fetch promise already exists. https://github.com/microsoft/vscode-pull-request-github/issues/8669
+- Bad Credentials error. https://github.com/microsoft/vscode-pull-request-github/issues/8603
+
+**_Thank You_**
+
+* [@MaxDNG](https://github.com/MaxDNG): Re-parent pulled-up directory children to ensure proper checkbox refresh [PR #8679](https://github.com/microsoft/vscode-pull-request-github/pull/8679)
+
 ## 0.142.0
 
 ### Changes
