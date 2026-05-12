@@ -4,8 +4,8 @@
 npm run hygiene
 
 # Lint only staged TS/TSX files instead of the whole repo (much faster).
-# Use a NUL-delimited list so paths with spaces are handled safely.
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx')
-if [ -n "$STAGED" ]; then
-	printf '%s' "$STAGED" | xargs -0 npx eslint --fix --cache
+# Stream a NUL-delimited list directly to xargs -0 so paths with spaces/newlines
+# are handled safely (command substitution would strip NUL bytes).
+if git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' | grep -q .; then
+	git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' | xargs -0 npx eslint --fix --cache
 fi
