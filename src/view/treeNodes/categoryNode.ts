@@ -13,6 +13,7 @@ import { formatError } from '../../common/utils';
 import { isCopilotQuery } from '../../github/copilotPrWatcher';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
+import { isAuthError } from '../../github/loggingOctokit';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { extractRepoFromQuery } from '../../github/utils';
 import { PrsTreeModel } from '../prsTreeModel';
@@ -299,6 +300,17 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			} catch (e) {
 				if (this.isCopilot && (e?.response?.status === 422) && e.message?.includes('the users do not exist')) {
 					// Skip it, it's copilot and the repo doesn't have copilot
+				} else if (isAuthError(e)) {
+					// Auth errors (revoked/expired token) are handled centrally by
+					// CredentialStore.handleAuthError (wired up through RateLogger),
+					// which prompts the user to re-authenticate. Showing an additional
+					// "Fetching pull requests failed: Bad credentials" notification
+					// here is redundant and on some platforms (e.g. macOS) the
+					// notification can linger on screen after the user has already
+					// completed the re-authentication flow, making it look like the
+					// sign-in failed even when it succeeded. Just mark the tree as
+					// needing login so the "Sign in" entry is shown.
+					needLogin = true;
 				} else {
 					const error = formatError(e);
 					const actions: string[] = [];
