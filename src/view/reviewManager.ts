@@ -77,6 +77,14 @@ export class ReviewManager extends Disposable {
 	 */
 	private _cachedMaxPRNumbers: Map<string, number> | undefined;
 	private _cachedBranchName: string | undefined;
+	/**
+	 * Tracks branches for which we've already performed the one-shot GitHub
+	 * re-check after detecting existing local PR metadata. This allows stale
+	 * `branch.<name>.github-pr-owner-number` entries (e.g. pointing at a
+	 * closed PR) to self-heal once, without bypassing the
+	 * branch-change/new-PR cache on every subsequent `validateState` call.
+	 */
+	private readonly _staleMetadataCheckedBranches = new Set<string>();
 	private _pollHandle: NodeJS.Timeout | undefined;
 	/**
 	 * Flag set when the "Checkout" action is used and cleared on the next git
@@ -588,14 +596,18 @@ export class ReviewManager extends Disposable {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
 		}
 
-		// Always check GitHub for a matching open PR (subject to the new-PRs/branch-change cache),
-		// even when local metadata already exists. If GitHub returns a result, it overwrites the
-		// local metadata via associateBranchWithPullRequest. This allows branches whose local
-		// metadata points to a stale closed PR to recover automatically once an open PR exists.
-		if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests() || !matchingPullRequestMetadata) {
+		// One-shot self-heal: when local metadata exists for this branch, re-check GitHub once
+		// (per branch) in case the local metadata points to a stale closed PR. If GitHub returns
+		// a result, it overwrites the local metadata via associateBranchWithPullRequest. Subsequent
+		// checks for the same branch fall back to the branch-change/new-PR cache.
+		const needsStaleMetadataCheck = !!matchingPullRequestMetadata && !!branch.name && !this._staleMetadataCheckedBranches.has(branch.name);
+		if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests() || needsStaleMetadataCheck) {
 			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
 			if (metadataFromGithub) {
 				matchingPullRequestMetadata = metadataFromGithub;
+			}
+			if (needsStaleMetadataCheck && branch.name) {
+				this._staleMetadataCheckedBranches.add(branch.name);
 			}
 		} else {
 			Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
