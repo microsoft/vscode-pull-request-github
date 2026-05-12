@@ -280,6 +280,17 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				for (const thread of e.added) {
 					const { path } = thread;
 
+					// Defensive: if a comment thread for this review thread id already exists in any of the
+					// thread maps (e.g. because doInitializeCommentThreads already created it from the cache
+					// before this event was processed), update it in place instead of creating a duplicate
+					// VS Code comment thread.
+					const existingMatch = this._findMatchingThread(thread);
+					if (existingMatch.index > -1) {
+						const matchingThread = existingMatch.threadMap[thread.path][existingMatch.index];
+						updateThread(this._context, matchingThread, thread, githubRepositories);
+						continue;
+					}
+
 					const index = await arrayFindIndexAsync(this._pendingCommentThreadAdds, async t => {
 						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
