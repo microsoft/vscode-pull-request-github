@@ -369,13 +369,16 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		let index = threadMap[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
 		if ((index === -1) && thread.isOutdated) {
 			// The thread has become outdated and needs to be moved to the obsolete threads.
-			index = this._workspaceFileChangeCommentThreads[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
-			if (index > -1) {
-				const matchingThread = this._workspaceFileChangeCommentThreads[thread.path]!.splice(index, 1)[0];
+			const workspaceIndex = this._workspaceFileChangeCommentThreads[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
+			if (workspaceIndex > -1) {
+				const matchingThread = this._workspaceFileChangeCommentThreads[thread.path]!.splice(workspaceIndex, 1)[0];
 				if (!this._obsoleteFileChangeCommentThreads[thread.path]) {
 					this._obsoleteFileChangeCommentThreads[thread.path] = [];
 				}
 				this._obsoleteFileChangeCommentThreads[thread.path]!.push(matchingThread);
+				// `threadMap` already references `_obsoleteFileChangeCommentThreads`; the matching
+				// thread is now the last element of the obsolete array for this path.
+				index = this._obsoleteFileChangeCommentThreads[thread.path]!.length - 1;
 			}
 		}
 		return { threadMap, index };
