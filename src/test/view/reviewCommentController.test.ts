@@ -50,6 +50,21 @@ class TestReviewCommentController extends ReviewCommentController {
 	public workspaceFileChangeCommentThreads() {
 		return this._workspaceFileChangeCommentThreads;
 	}
+	public obsoleteFileChangeCommentThreads() {
+		return this._obsoleteFileChangeCommentThreads;
+	}
+	public reviewSchemeFileChangeCommentThreads() {
+		return this._reviewSchemeFileChangeCommentThreads;
+	}
+	public seedWorkspaceThreads(path: string, threads: GHPRCommentThread[]) {
+		this._workspaceFileChangeCommentThreads[path] = threads;
+	}
+	public seedObsoleteThreads(path: string, threads: GHPRCommentThread[]) {
+		this._obsoleteFileChangeCommentThreads[path] = threads;
+	}
+	public callFindMatchingThread(thread: import('../../common/comment').IReviewThread) {
+		return (this as any)._findMatchingThread(thread);
+	}
 }
 
 describe('ReviewCommentController', function () {
@@ -338,6 +353,63 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 1);
+		});
+	});
+
+	describe('_findMatchingThread', function () {
+		it('returns the moved thread when an existing workspace thread becomes outdated', function () {
+			const fileName = 'data/products.json';
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+			const reviewModel = new ReviewModel();
+			const reviewCommentController = new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				reviewModel,
+				gitApiImpl,
+				telemetry,
+			);
+
+			const threadA = createGHPRCommentThread('thread-A', uri);
+			const threadB = createGHPRCommentThread('thread-B', uri);
+			const existingObsolete = createGHPRCommentThread('thread-C', uri);
+
+			reviewCommentController.seedWorkspaceThreads(fileName, [threadA, threadB]);
+			reviewCommentController.seedObsoleteThreads(fileName, [existingObsolete]);
+
+			const reviewThread: import('../../common/comment').IReviewThread = {
+				id: 'thread-B',
+				isResolved: false,
+				viewerCanResolve: false,
+				viewerCanUnresolve: false,
+				path: fileName,
+				diffSide: DiffSide.RIGHT,
+				startLine: 1,
+				endLine: 1,
+				originalStartLine: 1,
+				originalEndLine: 1,
+				isOutdated: true,
+				comments: [],
+				subjectType: SubjectType.LINE,
+			};
+
+			const result = reviewCommentController.callFindMatchingThread(reviewThread);
+
+			// The matching thread should be the moved thread, not `undefined` or the wrong one.
+			assert.strictEqual(result.threadMap, reviewCommentController.obsoleteFileChangeCommentThreads());
+			assert.ok(result.index > -1, 'index should point to the moved thread');
+			assert.strictEqual(result.threadMap[fileName][result.index], threadB);
+
+			// Workspace map no longer contains the moved thread.
+			const workspace = reviewCommentController.workspaceFileChangeCommentThreads();
+			assert.strictEqual(workspace[fileName].length, 1);
+			assert.strictEqual(workspace[fileName][0], threadA);
+
+			// Obsolete map now contains the moved thread appended after the pre-existing one.
+			const obsolete = reviewCommentController.obsoleteFileChangeCommentThreads();
+			assert.strictEqual(obsolete[fileName].length, 2);
+			assert.strictEqual(obsolete[fileName][0], existingObsolete);
+			assert.strictEqual(obsolete[fileName][1], threadB);
 		});
 	});
 });

@@ -2,4 +2,10 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 npm run hygiene
-npm run lint
+
+# Lint only staged TS/TSX files instead of the whole repo (much faster).
+# Stream a NUL-delimited list directly to xargs -0 so paths with spaces/newlines
+# are handled safely (command substitution would strip NUL bytes).
+if git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' | grep -q .; then
+	git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' | xargs -0 npx eslint --fix --cache
+fi
