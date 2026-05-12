@@ -2,4 +2,10 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 npm run hygiene
-npm run lint
+
+# Lint only staged TS/TSX files instead of the whole repo (much faster).
+# Use a NUL-delimited list so paths with spaces are handled safely.
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx')
+if [ -n "$STAGED" ]; then
+	printf '%s' "$STAGED" | xargs -0 npx eslint --fix --cache
+fi
