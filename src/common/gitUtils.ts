@@ -8,6 +8,28 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 
 /**
+ * Removes `Co-authored-by:` trailer lines from a commit message body.
+ *
+ * These lines are typically added at the bottom of a commit message (for example by
+ * the Copilot CLI or `git commit --trailer`) and are not useful when the commit body
+ * is reused as the default PR description.
+ */
+export function stripCoAuthoredByTrailers(body: string): string {
+	if (!body) {
+		return body;
+	}
+	const lines = body.split('\n');
+	const filtered = lines.filter(line => !/^\s*Co-authored-by:\s/i.test(line));
+	// Remove any trailing blank lines that may have been left behind once the
+	// trailer block is gone, but preserve internal blank lines / paragraph breaks.
+	let end = filtered.length;
+	while (end > 0 && filtered[end - 1].trim() === '') {
+		end--;
+	}
+	return filtered.slice(0, end).join('\n');
+}
+
+/**
  * Unwraps lines that were wrapped for conventional commit message formatting (typically at 72 characters).
  * Similar to GitHub's behavior when converting commit messages to PR descriptions.
  *

@@ -342,4 +342,44 @@ describe('titleAndBodyFrom', function () {
 		assert.strictEqual(result?.title, 'This is a test');
 		assert.strictEqual(result?.body, '- A fslilenfilnf flen felslnf lsefl fnels  Leknef Lkdfnle  lfkenSlefn Lnkef LefnLienf LIfnels\n- B\n- C');
 	});
+
+	it('strips Co-authored-by trailer lines from body', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('strips multiple Co-authored-by trailer lines', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nCo-authored-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('strips Co-authored-by case-insensitively', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nco-authored-by: Alice <alice@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('preserves other trailers when stripping Co-authored-by', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nSigned-off-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.\n\nSigned-off-by: Alice <alice@example.com>');
+	});
+
+	it('returns empty body when only Co-authored-by trailers are present', async function () {
+		const message = Promise.resolve('title\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '');
+	});
 });

@@ -34,7 +34,7 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
-import { unwrapCommitMessageBody } from '../common/gitUtils';
+import { stripCoAuthoredByTrailers, unwrapCommitMessageBody } from '../common/gitUtils';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
@@ -3213,7 +3213,7 @@ export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Pr
 	}
 	const idxLineBreak = message.indexOf('\n');
 	const hasBody = idxLineBreak !== -1;
-	const rawBody = hasBody ? message.slice(idxLineBreak + 1).trim() : '';
+	const rawBody = hasBody ? stripCoAuthoredByTrailers(message.slice(idxLineBreak + 1)).trim() : '';
 	return {
 		title: hasBody ? message.slice(0, idxLineBreak) : message,
 
