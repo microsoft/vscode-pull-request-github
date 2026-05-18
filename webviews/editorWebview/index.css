@@ -1010,13 +1010,16 @@ textarea {
 
 .textarea-wrapper {
 	position: relative;
-	display: block;
+	display: flex;
+	flex-direction: column;
 	width: 100%;
 	box-sizing: border-box;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-input-background);
 	border-radius: 4px;
-	padding-bottom: 28px;
+	margin-bottom: 4px;
+	overflow: hidden;
+	resize: vertical;
 }
 
 .textarea-wrapper:focus-within {
@@ -1024,14 +1027,17 @@ textarea {
 }
 
 .textarea-wrapper textarea {
-	display: block;
+	flex: 1;
 	width: 100%;
 	box-sizing: border-box;
 	border: none;
 	background: transparent;
 	border-radius: 0;
 	outline: none;
+	margin: 0;
+	resize: none;
 	padding-right: 40px;
+	padding-bottom: 28px;
 }
 
 .textarea-wrapper .title-action {
