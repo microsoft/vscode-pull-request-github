@@ -11,7 +11,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel'
 import { Branch, Repository } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { parseRepositoryRemotesAsync, Remote } from '../common/remote';
 import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
@@ -343,14 +343,14 @@ export class PullRequestGitHelper {
 	static async createRemote(repository: Repository, baseRemote: Remote, cloneUrl: Protocol) {
 		Logger.appendLine(`create remote for ${cloneUrl}.`, PullRequestGitHelper.ID);
 
-		const remotes = parseRepositoryRemotes(repository);
+		const remotes = await parseRepositoryRemotesAsync(repository);
 		for (const remote of remotes) {
 			if (new Protocol(remote.url).equals(cloneUrl)) {
 				return remote.remoteName;
 			}
 		}
 
-		const remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
+		const remoteName = await PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		cloneUrl.update({
 			type: baseRemote.gitProtocol.type,
 		});
@@ -390,10 +390,10 @@ export class PullRequestGitHelper {
 		return result;
 	}
 
-	static getUniqueRemoteName(repository: Repository, name: string) {
+	static async getUniqueRemoteName(repository: Repository, name: string) {
 		let uniqueName = name;
 		let number = 1;
-		const remotes = parseRepositoryRemotes(repository);
+		const remotes = await parseRepositoryRemotesAsync(repository);
 
 		// eslint-disable-next-line no-loop-func
 		while (remotes.find(e => e.remoteName === uniqueName)) {

@@ -9,7 +9,7 @@ import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
-import { parseRepositoryRemotes } from '../common/remote';
+import { parseRepositoryRemotesAsync } from '../common/remote';
 import {
 	DEFAULT,
 	DEV_MODE,
@@ -321,7 +321,7 @@ export class StateManager {
 			return;
 		}
 		singleRepoState.issueCollection.clear();
-		const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
+		const enterpriseRemotes = (await parseRepositoryRemotesAsync(folderManager.repository)).filter(
 			remote => remote.isEnterprise
 		);
 		const user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
