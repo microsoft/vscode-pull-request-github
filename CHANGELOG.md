@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.146.0
+
+### Changes
+
+- Trim `Co-authored-by` lines from the default PR description.
+
+### Fixes
+
+- "Bad credentials" error persists even after re-authenticating via browser. https://github.com/microsoft/vscode-pull-request-github/issues/8738
+- Comment shows twice in diff editor. https://github.com/microsoft/vscode-pull-request-github/issues/8736
+- Upload button overlays cursor / text in comment editor. https://github.com/microsoft/vscode-pull-request-github/issues/8735
+- Branches tracking a shared upstream incorrectly associated with stale closed PRs. https://github.com/microsoft/vscode-pull-request-github/issues/8676
+
 ## 0.144.0
 
 ### Changes

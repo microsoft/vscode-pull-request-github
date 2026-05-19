@@ -41,11 +41,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.144.0",
+	"version": "0.146.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.110.0"
+		"vscode": "^1.121.0"
 	},
 	"categories": [
 		"Other",
