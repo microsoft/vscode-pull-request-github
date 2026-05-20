@@ -38,7 +38,7 @@ import { stripCoAuthoredByTrailers, unwrapCommitMessageBody } from '../common/gi
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotes, parseRepositoryRemotesAsync, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
@@ -2915,7 +2915,7 @@ export class FolderRepositoryManager extends Disposable {
 			Logger.debug(`Skipping inaccessible repository: ${owner}/${repositoryName}`, this.id);
 			return undefined;
 		}
-		const gitRemotes = parseRepositoryRemotes(this.repository);
+		const gitRemotes = await parseRepositoryRemotesAsync(this.repository);
 		const gitRemote = gitRemotes.find(r => r.owner === owner && r.repositoryName === repositoryName);
 		const uri = gitRemote?.url ?? `https://github.com/${owner}/${repositoryName}`;
 		const repo = await this.createAndAddGitHubRepository(new Remote(gitRemote?.remoteName ?? repositoryName, uri, new Protocol(uri)), this._credentialStore);
