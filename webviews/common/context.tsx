@@ -169,6 +169,11 @@ export class PRContext {
 	public cancelGenerateDescription = () =>
 		this.postMessage({ command: 'pr.cancel-generate-description' });
 
+	public renderMarkdown = async (text: string): Promise<string> => {
+		const result = await this.postMessage({ command: 'pr.render-markdown', args: { text } });
+		return result?.html ?? text;
+	};
+
 	public updateDraft = (id: number, body: string) => {
 		const pullRequest = getState();
 		const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
