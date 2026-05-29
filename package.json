@@ -869,6 +869,16 @@
 				}
 			}
 		},
+		"yamlValidation": [
+			{
+				"fileMatch": ".github/ISSUE_TEMPLATE/!(config).{yml,yaml}",
+				"url": "https://json.schemastore.org/github-issue-forms.json"
+			},
+			{
+				"fileMatch": ".github/ISSUE_TEMPLATE/config.{yml,yaml}",
+				"url": "https://json.schemastore.org/github-issue-config.json"
+			}
+		],
 		"viewsContainers": {
 			"activitybar": [
 				{
