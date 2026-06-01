@@ -649,7 +649,7 @@ export function fromRepoUri(uri: vscode.Uri): RepoUriParams | undefined {
 	} catch (e) { }
 }
 
-const ownerRegex = /^(?!-)(?!.*--)[a-zA-Z0-9-]+(?<!-)$/;
+const ownerRegex = /^(?!-)(?!.*--)[a-zA-Z0-9_-]+(?<!-)$/;
 const repoRegex = /^[a-zA-Z0-9_.-]+$/;
 
 function validateOpenWebviewParams(owner?: string, repo?: string, number?: string): boolean {
