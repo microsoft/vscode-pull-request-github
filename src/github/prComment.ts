@@ -215,7 +215,8 @@ export class TemporaryComment extends CommentBase {
 }
 
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
-const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
+const IMG_EXPRESSION = /<img .*?src=['"](?<src>.+?)['"].*?>/g;
+const IMG_ALT_EXPRESSION = /alt=['"](?<alt>.*?)['"]/;
 const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
 export const COMMIT_SHA_EXPRESSION = /(?<![`\/\w])([0-9a-f]{7})([0-9a-f]{33})?(?![`\/\w])/g;
 
@@ -352,8 +353,10 @@ export class GHPRComment extends CommentBase {
 	}
 
 	private replaceImg(body: string) {
-		return body.replace(IMG_EXPRESSION, (_substring, _1, _2, _3, { src }) => {
-			return `![image](${src})`;
+		return body.replace(IMG_EXPRESSION, (substring, _1, _2, _3, { src }) => {
+			const altMatch = substring.match(IMG_ALT_EXPRESSION);
+			const alt = altMatch?.groups?.alt || 'image';
+			return `![${alt}](${src})`;
 		});
 	}
 
