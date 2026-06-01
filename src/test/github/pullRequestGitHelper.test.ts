@@ -188,4 +188,27 @@ describe('PullRequestGitHelper', function () {
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
 		});
 	});
+
+	describe('getMatchingPullRequestMetadataForBranch', function () {
+		it('returns the highest-numbered PR when duplicate config entries exist for the branch', async function () {
+			// Simulate the case where a branch name has been associated with multiple
+			// PRs over time and `git config --get-all` returns duplicate entries.
+			// The helper should prefer the most recent association (highest PR
+			// number for the same owner/repo), not the lowest.
+			sinon.stub(repository, 'getConfigs').resolves([
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#5' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#42' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#17' },
+				{ key: 'branch.other.github-pr-owner-number', value: 'owner#name#999' },
+			]);
+
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+
+			assert.deepStrictEqual(metadata, {
+				owner: 'owner',
+				repositoryName: 'name',
+				prNumber: 42,
+			});
+		});
+	});
 });
