@@ -333,7 +333,11 @@ export class PullRequestGitHelper {
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const allConfigs = await repository.getConfigs();
-			const matchingConfigs = allConfigs.filter(config => config.key === configKey).sort((a, b) => b.value < a.value ? 1 : -1);
+			// Sort descending so that when the same branch name has been associated
+			// with multiple PRs over time (resulting in duplicate config entries),
+			// the most recently associated PR (highest value lexicographically,
+			// typically the highest PR number for the same owner/repo) is preferred.
+			const matchingConfigs = allConfigs.filter(config => config.key === configKey).sort((a, b) => a.value < b.value ? 1 : -1);
 			return PullRequestGitHelper.parsePullRequestMetadata(matchingConfigs[0].value);
 		} catch (_) {
 			return;
