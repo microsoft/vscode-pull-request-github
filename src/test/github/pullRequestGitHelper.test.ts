@@ -210,5 +210,35 @@ describe('PullRequestGitHelper', function () {
 				prNumber: 42,
 			});
 		});
+
+		it('ignores entries whose PR number is not a finite integer', async function () {
+			// Malformed config values (e.g. `owner#name#abc`) parse to a metadata
+			// object with `prNumber: NaN`. Such entries must be filtered out so
+			// they do not poison the numeric sort and cause invalid metadata to
+			// be returned in preference to a valid entry.
+			sinon.stub(repository, 'getConfigs').resolves([
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#abc' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#7' },
+			]);
+
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+
+			assert.deepStrictEqual(metadata, {
+				owner: 'owner',
+				repositoryName: 'name',
+				prNumber: 7,
+			});
+		});
+
+		it('returns undefined when no config entries parse to valid metadata', async function () {
+			sinon.stub(repository, 'getConfigs').resolves([
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#abc' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'not-valid' },
+			]);
+
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+
+			assert.strictEqual(metadata, undefined);
+		});
 	});
 });
