@@ -428,17 +428,7 @@ export class ReviewManager extends Disposable {
 	private async getUpstreamUrlAndName(branch: Branch): Promise<{ remoteUrl: string | undefined, upstreamBranchName: string | undefined, remoteName: string | undefined }> {
 		if (branch.upstream) {
 			Logger.debug(`Upstream for branch ${branch.name} is ${branch.upstream.remote}/${branch.upstream.name}`, this.id);
-			// When a branch is created tracking a different remote branch (e.g. via
-			// `git worktree add -b feature-foo <path> origin/develop`), git sets
-			// `branch.<name>.merge` to the upstream's branch (`develop`) even though
-			// the eventual PR head ref is the local branch name (`feature-foo`).
-			// Prefer the local branch name when it differs from the tracked upstream,
-			// since GitHub PR `headRefName` matches the pushed branch name, which
-			// defaults to the local branch name.
-			const upstreamBranchName = (branch.name && branch.upstream.name !== branch.name)
-				? branch.name
-				: branch.upstream.name;
-			return { remoteName: branch.upstream.remote, upstreamBranchName, remoteUrl: undefined };
+			return { remoteName: branch.upstream.remote, upstreamBranchName: branch.upstream.name, remoteUrl: undefined };
 		} else {
 			try {
 				const remoteUrl = await this.repository.getConfig(`branch.${branch.name}.remote`);
