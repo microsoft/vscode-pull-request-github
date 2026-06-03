@@ -35,6 +35,11 @@ export class GitHubManager {
 		}
 		GitHubManager._reportedEnterpriseVersions.add(version);
 		Logger.appendLine(`GitHub Enterprise version: ${version}`, 'GitHubServer');
+		/* __GDPR__
+			"github.enterprise.version" : {
+				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
 		this._telemetry?.sendTelemetryEvent('github.enterprise.version', { version });
 	}
 
