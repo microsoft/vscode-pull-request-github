@@ -576,6 +576,16 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after
 							...ReviewComment
 						}
 					}
+					positioning {
+						__typename
+						... on MultilineComment  {
+							startLine
+							endLine
+						}
+						... on LineComment  {
+							line
+						}
+					}
 				}
 				pageInfo {
 					hasNextPage
