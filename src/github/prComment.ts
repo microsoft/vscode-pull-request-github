@@ -356,7 +356,7 @@ export class GHPRComment extends CommentBase {
 		return body.replace(IMG_EXPRESSION, (substring, _1, _2, _3, { src }) => {
 			const altMatch = substring.match(IMG_ALT_EXPRESSION);
 			const alt = (altMatch?.groups?.alt ?? '').replace(/[\r\n]+/g, ' ').trim();
-			const safeAlt = alt.replace(/\\/g, '\\\\').replace(/\]/g, '\\]');
+			const safeAlt = alt.replace(/([\\\[\]`])/g, '\\$1');
 			return `![${safeAlt || 'image'}](${src})`;
 		});
 	}
