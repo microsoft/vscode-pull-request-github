@@ -241,7 +241,7 @@ export class FolderRepositoryManager extends Disposable {
 	) {
 		super();
 		this._githubRepositories = [];
-		this._githubManager = new GitHubManager();
+		this._githubManager = new GitHubManager(this.telemetry);
 
 		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
