@@ -215,8 +215,8 @@ export class TemporaryComment extends CommentBase {
 }
 
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
-const IMG_EXPRESSION = /<img .*?src=['"](?<src>.+?)['"].*?>/g;
-const IMG_ALT_EXPRESSION = /alt=['"](?<alt>.*?)['"]/;
+const IMG_EXPRESSION = /<img\b[^>]*?\ssrc\s*=\s*['"](?<src>[^'"]+?)['"][^>]*?>/gi;
+const IMG_ALT_EXPRESSION = /\salt\s*=\s*['"](?<alt>[^'"]*)['"]/i;
 const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
 export const COMMIT_SHA_EXPRESSION = /(?<![`\/\w])([0-9a-f]{7})([0-9a-f]{33})?(?![`\/\w])/g;
 
