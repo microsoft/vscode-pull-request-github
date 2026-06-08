@@ -786,13 +786,25 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
 				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
-			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
+			let totalNonMergeCommitsCount: number | undefined = totalCommits?.filter(commit => commit.parents.length < 2).length;
 
-			Logger.debug(`Total commits: ${totalNonMergeCommits?.length}`, CreatePullRequestViewProvider.ID);
-			if (totalNonMergeCommits === undefined) {
-				// There is no upstream branch. Use the last commit as the title and description.
+			// If we couldn't determine the number of commits from GitHub (e.g. no upstream, or the compare API
+			// call failed), fall back to the local git log so that we can still match github.com's behavior of
+			// using the branch name when there is more than one commit.
+			if (totalNonMergeCommitsCount === undefined) {
+				try {
+					const localCommits = await this.model.gitCommits();
+					totalNonMergeCommitsCount = localCommits.filter(commit => commit.parents.length < 2).length;
+				} catch (e) {
+					Logger.debug(`Error while getting local commits for PR title: ${e}`, CreatePullRequestViewProvider.ID);
+				}
+			}
+
+			Logger.debug(`Total commits: ${totalNonMergeCommitsCount}`, CreatePullRequestViewProvider.ID);
+			if (totalNonMergeCommitsCount === undefined) {
+				// We couldn't determine the number of commits at all. Use the last commit as the title and description.
 				useBranchName = false;
-			} else if (totalNonMergeCommits && totalNonMergeCommits.length > 1) {
+			} else if (totalNonMergeCommitsCount > 1) {
 				const defaultBranch = await origin.getDefaultBranch();
 				useBranchName = defaultBranch !== compareBranch.name;
 			}
