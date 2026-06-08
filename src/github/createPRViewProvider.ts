@@ -796,7 +796,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 					const localCommits = await this.model.gitCommits();
 					totalNonMergeCommitsCount = localCommits.filter(commit => commit.parents.length < 2).length;
 				} catch (e) {
-					Logger.debug(`Error while getting local commits for PR title: ${e}`, CreatePullRequestViewProvider.ID);
+					Logger.debug(`Failed to retrieve local git commits as fallback for PR title for branch ${name}: ${e}`, CreatePullRequestViewProvider.ID);
 				}
 			}
 
