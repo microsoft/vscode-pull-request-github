@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.148.0
+
+### Changes
+
+- Contribute YAML schema validation for GitHub issue template files under `.github/ISSUE_TEMPLATE/`.
+
+### Fixes
+
+- Comments panel discards `<img>` alt attribute, renders "Image: image". https://github.com/microsoft/vscode-pull-request-github/issues/8760
+- Merge button shows a separator even when there are no extra options. https://github.com/microsoft/vscode-pull-request-github/issues/8759
+- URI handler rejects PR URLs with underscores in the owner name. https://github.com/microsoft/vscode-pull-request-github/issues/8758
+- PR description is reset if the branch push fails. https://github.com/microsoft/vscode-pull-request-github/issues/8678
+
+**_Thank You_**
+
+* [@Malix-Labs](https://github.com/Malix-Labs): Contribute YAML schema validation for GitHub issue templates [PR #8761](https://github.com/microsoft/vscode-pull-request-github/pull/8761)
+
 ## 0.146.0
 
 ### Changes
