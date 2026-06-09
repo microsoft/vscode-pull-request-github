@@ -148,8 +148,10 @@ export class ReviewManager extends Disposable {
 		this._register(vscode.window.onDidChangeWindowState(state => {
 			if (state.focused && !this._pollHandle) {
 				// Polling was skipped because the window was not focused.
-				// Poll immediately now that focus has returned.
-				this.doPoll();
+				// Schedule a poll with a randomized delay (jitter) so that in
+				// multi-repo setups all ReviewManagers don't poll at the same time.
+				const jitter = 15_000 + Math.floor(Math.random() * 45_000); // 15-60s
+				this._pollHandle = setTimeout(() => this.doPoll(), jitter);
 			}
 		}));
 		this._register(toDisposable(() => {
