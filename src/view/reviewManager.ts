@@ -145,6 +145,13 @@ export class ReviewManager extends Disposable {
 			this.updateState(true);
 		}
 		this.pollForStateChange();
+		this._register(vscode.window.onDidChangeWindowState(state => {
+			if (state.focused && !this._pollHandle) {
+				// Polling was skipped because the window was not focused.
+				// Poll immediately now that focus has returned.
+				this.doPoll();
+			}
+		}));
 		this._register(toDisposable(() => {
 			if (this._pollHandle) {
 				clearTimeout(this._pollHandle);
@@ -229,23 +236,32 @@ export class ReviewManager extends Disposable {
 	}
 
 	private pollForStateChange() {
-		this._pollHandle = setTimeout(async () => {
-			if (this.isDisposed) {
-				return;
+		this._pollHandle = setTimeout(() => this.doPoll(), 1000 * 60 * 5);
+	}
+
+	private async doPoll() {
+		if (this.isDisposed) {
+			return;
+		}
+		this._pollHandle = undefined;
+		if (!vscode.window.state.focused) {
+			// Skip polling while the window is not focused. Polling will resume
+			// immediately when the window regains focus (see onDidChangeWindowState).
+			Logger.appendLine('Skipping poll: window is not focused', this.id);
+			return;
+		}
+		Logger.appendLine('Polling for state change...', this.id);
+		try {
+			if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
+				await this.updateState();
 			}
-			Logger.appendLine('Polling for state change...', this.id);
-			try {
-				if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
-					await this.updateState();
-				}
-			} catch (e) {
-				Logger.warn(`Polling for state change failed: ${formatError(e)}`, this.id);
-			} finally {
-				if (!this.isDisposed) {
-					this.pollForStateChange();
-				}
+		} catch (e) {
+			Logger.warn(`Polling for state change failed: ${formatError(e)}`, this.id);
+		} finally {
+			if (!this.isDisposed) {
+				this.pollForStateChange();
 			}
-		}, 1000 * 60 * 5);
+		}
 	}
 
 	private async updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
