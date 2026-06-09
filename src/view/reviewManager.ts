@@ -236,6 +236,9 @@ export class ReviewManager extends Disposable {
 	}
 
 	private pollForStateChange() {
+		if (this._pollHandle) {
+			clearTimeout(this._pollHandle);
+		}
 		this._pollHandle = setTimeout(() => this.doPoll(), 1000 * 60 * 5);
 	}
 
