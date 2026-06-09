@@ -61,7 +61,13 @@ export type ReviewStateValue = 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 
 
 export interface ReviewEvent {
 	id: number;
-	reviewThread?: ReviewResolveInfo
+	/**
+	 * Map of review thread GraphQL node id to its resolve info, for all
+	 * review threads belonging to this review. A single review can have
+	 * comments on multiple threads, so resolve actions must look up the
+	 * thread by the comment's `threadId`.
+	 */
+	reviewThreads?: { [threadId: string]: ReviewResolveInfo };
 	event: EventType.Reviewed;
 	comments: IComment[];
 	submittedAt: string;

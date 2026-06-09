@@ -211,11 +211,19 @@ const NewCommitsSinceReviewEventView = () => {
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;
 
-const groupCommentsByPath = (comments: IComment[]) =>
-	groupBy(comments, comment => comment.path + ':' + positionKey(comment));
+// Group review comments so that each rendered CommentThread contains exactly
+// one review thread's comments. Prefer grouping by the thread's GraphQL id
+// (set on each IComment when parsed from a review thread) so that resolve /
+// unresolve actions target the right thread. Fall back to path+position for
+// comments without a threadId (e.g. pending review comments not yet posted).
+const groupCommentsByThread = (comments: IComment[]) =>
+	groupBy(comments, comment =>
+		comment.threadId
+			? `thread:${comment.threadId}`
+			: comment.path + ':' + positionKey(comment));
 
 const ReviewEventView = (event: ReviewEvent) => {
-	const comments = groupCommentsByPath(event.comments);
+	const comments = groupCommentsByThread(event.comments);
 	const reviewIsPending = event.state === 'PENDING';
 	return (
 		<CommentView comment={event} allowEmpty={true}>
@@ -243,17 +251,21 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 		setResolved(!!comment.isResolved);
 		setRevealed(!comment.isResolved);
 	}, [comment.isResolved]);
+	// Look up this group's own review thread info. A single ReviewEvent can
+	// have comments on multiple threads, so resolve actions must target the
+	// thread that owns this group's comments - looked up by `comment.threadId`.
+	const reviewThread = comment.threadId ? event.reviewThreads?.[comment.threadId] : undefined;
 	const resolvePermission =
-		event.reviewThread &&
-		((event.reviewThread.canResolve && !event.reviewThread.isResolved) ||
-			(event.reviewThread.canUnresolve && event.reviewThread.isResolved));
+		reviewThread &&
+		((reviewThread.canResolve && !reviewThread.isResolved) ||
+			(reviewThread.canUnresolve && reviewThread.isResolved));
 
 	const toggleResolve = () => {
-		if (event.reviewThread) {
+		if (reviewThread) {
 			const newResolved = !resolved;
 			setRevealed(!newResolved);
 			setResolved(newResolved);
-			toggleResolveComment(event.reviewThread.threadId, thread, newResolved);
+			toggleResolveComment(reviewThread.threadId, thread, newResolved);
 		}
 	};
 
