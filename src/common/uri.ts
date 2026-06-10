@@ -701,6 +701,27 @@ export function fromOpenIssueWebviewUri(uri: vscode.Uri): OpenIssueWebviewUriPar
 		return;
 	}
 	try {
+		// Check if the query uses the simplified format: uri=https://github.com/owner/repo/issues/number
+		const queryParams = new URLSearchParams(uri.query);
+		const uriParam = queryParams.get('uri');
+		if (uriParam) {
+			const issueUrlRegex = /^https?:\/\/github\.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/issues\/(?<issueNumber>\d+)$/;
+			const match = issueUrlRegex.exec(uriParam);
+			if (match && match.groups) {
+				const { owner, repo, issueNumber } = match.groups;
+				const params = {
+					owner,
+					repo,
+					issueNumber: parseInt(issueNumber, 10)
+				};
+				if (!validateOpenWebviewParams(params.owner, params.repo, params.issueNumber.toString())) {
+					return;
+				}
+				return params;
+			}
+		}
+
+		// Fall back to the old JSON format for backward compatibility
 		const query = JSON.parse(uri.query.split('&')[0]);
 		if (!validateOpenWebviewParams(query.owner, query.repo, query.issueNumber)) {
 			return;
