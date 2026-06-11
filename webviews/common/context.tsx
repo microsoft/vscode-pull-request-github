@@ -194,6 +194,15 @@ export class PRContext {
 
 	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
 
+	public addAttestationCommit = async (): Promise<boolean> => {
+		try {
+			const result = await this.postMessage({ command: 'pr.add-attestation-commit' });
+			return !!result?.success;
+		} catch {
+			return false;
+		}
+	};
+
 	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
 
 	/**

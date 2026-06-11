@@ -320,6 +320,14 @@
 					"default": false,
 					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
 				},
+				"githubPullRequests.enableAttestationCommits": {
+					"type": [
+						"boolean",
+						"string"
+					],
+					"default": false,
+					"markdownDescription": "%githubPullRequests.enableAttestationCommits.description%"
+				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
 					"enum": [
@@ -1544,6 +1552,11 @@
 			{
 				"command": "review.approveOnDotCom",
 				"title": "%command.review.approveOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.addAttestationCommit",
+				"title": "%command.pr.addAttestationCommit.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{

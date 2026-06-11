@@ -18,6 +18,7 @@ import { SessionLinkInfo } from './common/timelineEvent';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
+import { addAttestationCommit } from './github/attestationCommit';
 import { CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
 import { guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './github/fileUpload';
@@ -215,6 +216,51 @@ export function registerCommands(
 				reviewManager.reviewModel.localFileChanges
 					.forEach(localFileChange => localFileChange.openDiff(folderManager, { preview: false }));
 			}
+		),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.addAttestationCommit',
+			async (target?: PullRequestModel | PRNode | RepositoryChangesNode) => {
+				let pr: PullRequestModel | undefined;
+				let folderManager: FolderRepositoryManager | undefined;
+
+				if (target instanceof PullRequestModel) {
+					pr = target;
+				} else if (target && (target as PRNode).pullRequestModel) {
+					pr = (target as PRNode).pullRequestModel;
+				} else if (target && (target as RepositoryChangesNode).pullRequestModel) {
+					pr = (target as RepositoryChangesNode).pullRequestModel;
+				}
+
+				if (pr) {
+					folderManager = reposManager.getManagerForIssueModel(pr) ?? reposManager.folderManagers.find(m => m.activePullRequest?.equals(pr!));
+				}
+
+				if (!pr || !folderManager) {
+					const activePullRequestsWithFolderManager = reposManager.folderManagers
+						.filter(m => m.activePullRequest)
+						.map(m => ({ activePr: m.activePullRequest!, folderManager: m }));
+
+					if (activePullRequestsWithFolderManager.length === 0) {
+						vscode.window.showErrorMessage(vscode.l10n.t('No active pull request to add an attestation commit to.'));
+						return;
+					}
+
+					const picked = activePullRequestsWithFolderManager.length === 1
+						? activePullRequestsWithFolderManager[0]
+						: await chooseItem(activePullRequestsWithFolderManager, item => ({ label: item.activePr.html_url }));
+
+					if (!picked) {
+						return;
+					}
+					pr = picked.activePr;
+					folderManager = picked.folderManager;
+				}
+
+				await addAttestationCommit(folderManager, pr);
+			},
 		),
 	);
 

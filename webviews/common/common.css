@@ -407,6 +407,18 @@ body img.avatar {
 	min-width: 80px;
 }
 
+.attestation-checkbox-wrapper {
+	display: flex;
+	align-items: center;
+	margin-right: 8px;
+}
+
+.attestation-checkbox-label {
+	margin-left: 4px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
 .merge-queue-title .merge-queue-pending {
 	color: var(--vscode-list-warningForeground);
 }

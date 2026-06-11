@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
+import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, MergeMethod, ReviewEventEnum, ReviewState } from './interface';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
@@ -108,6 +109,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.updateBranch(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
+			case 'pr.add-attestation-commit':
+				return this.addAttestationCommitMessage(message);
 		}
 	}
 
@@ -117,6 +120,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private reRequestReview(message: IRequestMessage<string>): void {
 		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
+	}
+
+	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
+		const success = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success });
 	}
 
 	public async refresh(): Promise<void> {
@@ -302,7 +310,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
 				hasReviewDraft,
 				currentUserReviewState: reviewState,
-				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
+				attestationCommitsEnabled: isAttestationCommitsEnabled()
 			};
 
 			this._postMessage({

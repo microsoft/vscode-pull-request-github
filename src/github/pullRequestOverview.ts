@@ -8,6 +8,7 @@ import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
+import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -460,6 +461,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
+				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues: await (async () => {
 					const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
 					const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
@@ -583,7 +585,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.changeBaseBranch(message);
 			case 'pr.open-diff-from-link':
 				return this.openDiffFromLink(message);
+			case 'pr.add-attestation-commit':
+				return this.addAttestationCommitMessage(message);
 		}
+	}
+
+	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
+		const success = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success });
 	}
 
 	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {

@@ -114,6 +114,7 @@ export interface PullRequest extends Issue {
 	loadingCommit?: string;
 	generateDescriptionTitle?: string;
 	closingIssues?: IssueReference[];
+	attestationCommitsEnabled?: boolean;
 }
 
 export interface ProjectItemsReply {
