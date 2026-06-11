@@ -66,6 +66,11 @@ export interface IComment {
 	reactions?: Reaction[];
 	isResolved?: boolean;
 	isOutdated?: boolean;
+	/**
+	 * The GraphQL node ID of the review thread this comment belongs to, if any.
+	 * Populated when the comment is parsed from a review thread.
+	 */
+	threadId?: string;
 }
 
 const COPILOT_AUTHOR = {

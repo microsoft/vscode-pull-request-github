@@ -596,12 +596,12 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository)),
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository, thread.id)),
 		subjectType: thread.subjectType ?? SubjectType.LINE
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository, threadId?: string): IComment {
 	const specialAuthor = COPILOT_ACCOUNTS[comment.author?.login ?? ''];
 	const c: IComment = {
 		id: comment.databaseId,
@@ -626,7 +626,8 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
 		reactions: parseGraphQLReaction(comment.reactionGroups),
 		isResolved,
-		isOutdated
+		isOutdated,
+		threadId
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);

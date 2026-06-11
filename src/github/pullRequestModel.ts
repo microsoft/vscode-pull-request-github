@@ -95,7 +95,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
@@ -980,13 +980,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				return;
 			}
 			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
-			prReviewThreadEvent.reviewThread = {
+			const resolveInfo: ReviewResolveInfo = {
 				threadId: thread.id,
 				canResolve: thread.viewerCanResolve,
 				canUnresolve: thread.viewerCanUnresolve,
 				isResolved: thread.isResolved
 			};
-
+			// A single review can have comments on multiple threads. Track each
+			// thread's resolve info by its id so the webview can resolve the
+			// correct thread when the user clicks resolve/unresolve on any of
+			// the comment groups within the review.
+			if (!prReviewThreadEvent.reviewThreads) {
+				prReviewThreadEvent.reviewThreads = {};
+			}
+			prReviewThreadEvent.reviewThreads[thread.id] = resolveInfo;
 		});
 
 		const pendingReview = reviewEvents.filter(r => r.state?.toLowerCase() === 'pending')[0];
