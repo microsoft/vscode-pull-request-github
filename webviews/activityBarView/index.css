@@ -70,13 +70,11 @@ textarea {
 	outline: none;
 	margin: 0;
 	resize: none;
-	padding-bottom: 28px;
 }
 
 .textarea-wrapper .comment-upload-button {
-	position: absolute;
-	left: 6px;
-	bottom: 4px;
+	align-self: flex-start;
+	margin: 2px 0 4px 4px;
 	border: none;
 	background: none;
 	padding: 4px;
