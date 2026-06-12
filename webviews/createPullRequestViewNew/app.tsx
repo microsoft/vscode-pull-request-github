@@ -14,6 +14,7 @@ import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
 import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { MarkdownEditor } from '../components/markdownEditor';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -346,7 +347,7 @@ export function main() {
 						</div>
 					</div>
 					<div className='group-description'>
-						<textarea
+						<MarkdownEditor
 							id='description'
 							name='description'
 							placeholder='Description'
@@ -354,7 +355,9 @@ export function main() {
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}></textarea>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}
+							renderMarkdown={ctx.renderMarkdown}
+						/>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>

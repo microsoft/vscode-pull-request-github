@@ -457,8 +457,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.uploadFiles(message);
 			case 'pr.upload-pasted-files':
 				return this.uploadPastedFiles(message);
+			case 'pr.render-markdown':
+				return this.renderMarkdown(message);
 			default:
 				return this.MESSAGE_UNHANDLED;
+		}
+	}
+
+	private async renderMarkdown(message: IRequestMessage<{ text: string }>) {
+		try {
+			const html = await this._item.githubRepository.renderMarkdown(message.args.text);
+			this._replyMessage(message, { html });
+		} catch (e) {
+			this._replyMessage(message, { html: null, error: true });
 		}
 	}
 

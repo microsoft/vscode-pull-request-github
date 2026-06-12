@@ -108,6 +108,17 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.updateBranch(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
+			case 'pr.render-markdown':
+				return this.renderMarkdown(message);
+		}
+	}
+
+	private async renderMarkdown(message: IRequestMessage<{ text: string }>) {
+		try {
+			const html = await this._item.githubRepository.renderMarkdown(message.args.text);
+			this._replyMessage(message, { html });
+		} catch (e) {
+			this._replyMessage(message, { html: null, error: true });
 		}
 	}
 
