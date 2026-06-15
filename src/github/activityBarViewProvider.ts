@@ -123,8 +123,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
-		const success = await addAttestationCommit(this._folderRepositoryManager, this._item);
-		this._replyMessage(message, { success });
+		const sha = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success: !!sha, sha });
 	}
 
 	public async refresh(): Promise<void> {

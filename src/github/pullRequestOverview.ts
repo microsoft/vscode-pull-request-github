@@ -591,8 +591,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
-		const success = await addAttestationCommit(this._folderRepositoryManager, this._item);
-		this._replyMessage(message, { success });
+		const sha = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success: !!sha, sha });
 	}
 
 	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {

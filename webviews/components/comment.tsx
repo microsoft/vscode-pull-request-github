@@ -530,25 +530,22 @@ export function AddComment({
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
-				await requestChanges(value, addAttestation);
+				await requestChanges(value);
 				break;
 			case ReviewType.Approve:
 				await approve(value, addAttestation);
 				break;
 			default:
-				await submit(value, addAttestation);
+				await submit(value);
 		}
 		setBusy(false);
 	}
 
-	const onKeyDown = useCallback(
-		e => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				submitAction(currentSelection);
-			}
-		},
-		[submit],
-	);
+	const onKeyDown = e => {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+			submitAction(currentSelection);
+		}
+	};
 
 	async function defaultSubmitAction(): Promise<void> {
 		await submitAction(currentSelection);
@@ -726,13 +723,13 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
-				await requestChanges(value, addAttestation);
+				await requestChanges(value);
 				break;
 			case ReviewType.Approve:
 				await approve(value, addAttestation);
 				break;
 			default:
-				await submit(value, addAttestation);
+				await submit(value);
 		}
 		setBusy(false);
 	}
@@ -745,16 +742,12 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
-	const onKeyDown = useCallback(
-		e => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-
-				e.preventDefault();
-				defaultSubmitAction();
-			}
-		},
-		[submitAction],
-	);
+	const onKeyDown = e => {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+			e.preventDefault();
+			defaultSubmitAction();
+		}
+	};
 
 	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
 		? { comment: 'Comment' }

@@ -188,14 +188,14 @@ export class PRContext {
 		}
 	}
 
-	public requestChanges = (body: string, addAttestation: boolean = false) =>
-		this.submitReviewCommand('pr.request-changes', { body, addAttestation });
+	public requestChanges = (body: string) =>
+		this.submitReviewCommand('pr.request-changes', { body });
 
 	public approve = (body: string, addAttestation: boolean = false) =>
 		this.submitReviewCommand('pr.approve', { body, addAttestation });
 
-	public submit = (body: string, addAttestation: boolean = false) =>
-		this.submitReviewCommand('pr.submit', { body, addAttestation });
+	public submit = (body: string) =>
+		this.submitReviewCommand('pr.submit', { body });
 
 	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
 

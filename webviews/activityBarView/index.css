@@ -241,13 +241,13 @@ button .icon svg {
 	flex-grow: 1;
 	min-width: 0;
 	position: relative;
-		align-items: center;
-	}
-	
-	.attestation-checkbox-overlay {
-		position: absolute;
-		right: calc(50% + 130px + 8px);
-		margin-right: 0;
+	align-items: center;
+}
+
+.attestation-checkbox-overlay {
+	position: absolute;
+	right: calc(50% + 130px + 8px);
+	margin-right: 0;
 }
 
 .dropdown-container {
