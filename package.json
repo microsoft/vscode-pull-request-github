@@ -2098,6 +2098,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addAttestationCommit",
+					"when": "config.githubPullRequests.enableAttestationCommits"
+				},
+				{
 					"command": "pr.configureRemotes",
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
