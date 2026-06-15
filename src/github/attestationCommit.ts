@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
+import { Repository } from '../api/api';
 import Logger from '../common/logger';
 import { ENABLE_ATTESTATION_COMMITS, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { formatError } from '../common/utils';
@@ -16,22 +16,45 @@ const LOG_ID = 'AttestationCommit';
 const DEFAULT_ATTESTATION_COMMIT_MESSAGE = 'Attestation commit';
 
 /**
- * Returns true when the repository has a signing key configured (via git
- * config `user.signingkey`), which is required to produce a signed commit.
+ * Returns true when the repository appears to have commit signing configured.
+ *
+ * Accepts any of the following (checked across local + global git config):
+ *  - `user.signingkey` is set, OR
+ *  - `commit.gpgsign` is `true` (git will pick a default signing identity), OR
+ *  - `gpg.format` is set to `ssh` or `x509` (the user is explicitly opting in
+ *    to a non-default signing format).
  */
 async function hasCommitSigningConfigured(repository: Repository): Promise<boolean> {
-	const readConfig = async (key: string): Promise<string | undefined> => {
-		try {
-			const value = await repository.getConfig(key);
-			return value?.trim() || undefined;
-		} catch {
-			// `getConfig` rejects when the key is not set.
-			return undefined;
-		}
+	const read = async (key: string): Promise<string | undefined> => {
+		const tryRead = async (fn: (k: string) => Promise<string>): Promise<string | undefined> => {
+			try {
+				const value = await fn(key);
+				return value?.trim() || undefined;
+			} catch {
+				// `getConfig`/`getGlobalConfig` reject when the key is not set.
+				return undefined;
+			}
+		};
+		return (await tryRead(k => repository.getConfig(k)))
+			?? (await tryRead(k => repository.getGlobalConfig(k)));
 	};
 
-	const signingKey = await readConfig('user.signingkey');
-	return !!signingKey;
+	const [signingKey, commitGpgSign, gpgFormat] = await Promise.all([
+		read('user.signingkey'),
+		read('commit.gpgsign'),
+		read('gpg.format'),
+	]);
+
+	if (signingKey) {
+		return true;
+	}
+	if (commitGpgSign?.toLowerCase() === 'true') {
+		return true;
+	}
+	if (gpgFormat && ['ssh', 'x509'].includes(gpgFormat.toLowerCase())) {
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -66,34 +89,34 @@ export function isAttestationCommitsEnabled(): boolean {
  * and pushes it to the corresponding remote. Requires that the pull request is currently
  * checked out and that the user has commit signing configured.
  *
- * Returns `true` when the attestation commit was created and pushed, `false` otherwise.
+ * Returns the SHA of the new attestation commit when successful, otherwise `undefined`.
  */
 export async function addAttestationCommit(
 	folderRepositoryManager: FolderRepositoryManager,
 	pullRequestModel: PullRequestModel,
-): Promise<boolean> {
+): Promise<string | undefined> {
 	const message = getAttestationCommitSetting();
 	if (message === false) {
 		vscode.window.showWarningMessage(vscode.l10n.t('Attestation commits are not enabled. Enable them via the `githubPullRequests.enableAttestationCommits` setting.'));
-		return false;
+		return undefined;
 	}
 
 	const activePullRequest = folderRepositoryManager.activePullRequest;
 	if (!activePullRequest || !activePullRequest.equals(pullRequestModel)) {
 		vscode.window.showErrorMessage(vscode.l10n.t('The pull request must be checked out before an attestation commit can be added.'));
-		return false;
+		return undefined;
 	}
 
 	const repository = folderRepositoryManager.repository;
 	const head = repository.state.HEAD;
 	if (!head || !head.name) {
 		vscode.window.showErrorMessage(vscode.l10n.t('Unable to add an attestation commit: no branch is currently checked out.'));
-		return false;
+		return undefined;
 	}
 
 	if (!await hasCommitSigningConfigured(repository)) {
-		vscode.window.showErrorMessage(vscode.l10n.t('Unable to add an attestation commit: commit signing is not configured. Set `user.signingkey` in your git config and ensure your signing tool (GPG, SSH, or X.509) is set up.'));
-		return false;
+		vscode.window.showErrorMessage(vscode.l10n.t('Unable to add an attestation commit: commit signing does not appear to be configured. Set `user.signingkey` (or enable `commit.gpgsign`) in your git config and ensure your signing tool (GPG, SSH, or X.509) is set up.'));
+		return undefined;
 	}
 
 	try {
@@ -110,11 +133,10 @@ export async function addAttestationCommit(
 			await repository.push();
 		}
 
-		vscode.window.showInformationMessage(vscode.l10n.t('Added attestation commit to pull request #{0}.', pullRequestModel.number));
-		return true;
+		return repository.state.HEAD?.commit;
 	} catch (e) {
 		Logger.error(`Failed to add attestation commit: ${formatError(e)}`, LOG_ID);
 		vscode.window.showErrorMessage(vscode.l10n.t('Failed to add attestation commit: {0}', formatError(e)));
-		return false;
+		return undefined;
 	}
 }

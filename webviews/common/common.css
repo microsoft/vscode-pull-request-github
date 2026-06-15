@@ -209,7 +209,7 @@ input[type='checkbox']:not(:checked):hover {
 	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-:not(.copilot-icon) > svg path,
+:not(.copilot-icon)>svg path,
 .copilot-icon svg path:first-of-type {
 	fill: var(--vscode-foreground);
 }
@@ -341,6 +341,7 @@ body img.avatar {
 	flex: 1;
 	min-width: 0;
 }
+
 .reviewer-icons {
 	display: flex;
 	gap: 4px;
@@ -417,6 +418,22 @@ body img.avatar {
 	margin-left: 4px;
 	white-space: nowrap;
 	cursor: pointer;
+}
+
+.comment-actions-right {
+	display: flex;
+	flex-grow: 1;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	min-width: 0;
+}
+
+/* When the dropdown is grouped with the attestation checkbox we don't want it
+to stretch and push the checkbox away from the button. */
+.comment-actions-right .dropdown-container.spreadable {
+	flex-grow: 0;
+	width: auto;
 }
 
 .merge-queue-title .merge-queue-pending {
@@ -535,6 +552,7 @@ button.split-right {
 	border: 1px solid var(--vscode-button-border, transparent);
 	border-left: none;
 }
+
 button.split-right:disabled {
 	cursor: default;
 }

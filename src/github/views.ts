@@ -136,6 +136,11 @@ export interface SubmitReviewReply {
 	reviewers?: ReviewState[];
 }
 
+export interface SubmitReviewArgs {
+	body: string;
+	addAttestation?: boolean;
+}
+
 export interface ReadyForReviewReply {
 	isDraft: boolean;
 	reviewEvent?: ReviewEvent;

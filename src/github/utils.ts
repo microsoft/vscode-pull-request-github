@@ -1700,6 +1700,7 @@ export function insertNewCommitsSinceReview(
 ) {
 	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
 		let lastViewerReviewIndex: number = timelineEvents.length - 1;
+		let lastViewerReviewTime: number | undefined;
 		let comittedDuringReview: boolean = false;
 		let interReviewCommits: Common.TimelineEvent[] = [];
 
@@ -1716,8 +1717,21 @@ export function insertNewCommitsSinceReview(
 				break;
 			}
 			else if (comittedDuringReview && timelineEvents[i].event === Common.EventType.Committed) {
-				interReviewCommits.unshift(timelineEvents[i]);
-				timelineEvents.splice(i, 1);
+				// Only treat a commit as "new since review" when it was actually
+				// committed AFTER the user's most recent review. Otherwise (e.g.
+				// for an attestation commit pushed just before the review) leave
+				// it in its original chronological position.
+				const committedDate = (timelineEvents[i] as Common.CommitEvent).committedDate;
+				const committedTime = committedDate ? new Date(committedDate).getTime() : undefined;
+				if (lastViewerReviewTime === undefined || committedTime === undefined || committedTime > lastViewerReviewTime) {
+					interReviewCommits.unshift(timelineEvents[i]);
+					timelineEvents.splice(i, 1);
+					if (i <= lastViewerReviewIndex) {
+						// Keep `lastViewerReviewIndex` pointing at the same review
+						// after the array shrinks.
+						lastViewerReviewIndex--;
+					}
+				}
 			}
 			else if (
 				!comittedDuringReview &&
@@ -1725,6 +1739,8 @@ export function insertNewCommitsSinceReview(
 				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
 			) {
 				lastViewerReviewIndex = i;
+				const submittedAt = (timelineEvents[i] as Common.ReviewEvent).submittedAt;
+				lastViewerReviewTime = submittedAt ? new Date(submittedAt).getTime() : undefined;
 				comittedDuringReview = true;
 			}
 		}
