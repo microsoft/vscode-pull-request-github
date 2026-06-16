@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.150.0
+
+### Fixes
+
+- New PR title doesn't match behavior on github.com. https://github.com/microsoft/vscode-pull-request-github/issues/8771
+- PRs not shown in panel when workspace folder is a manually-created git worktree. https://github.com/microsoft/vscode-pull-request-github/issues/8756
+
 ## 0.148.0
 
 ### Changes
