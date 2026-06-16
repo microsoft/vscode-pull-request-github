@@ -35,7 +35,8 @@ import {
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
 	PULL_REQUEST_LABELS,
-	PUSH_BRANCH
+	PUSH_BRANCH,
+	SHOW_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
@@ -561,10 +562,27 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	private async cancel(message: IRequestMessage<CreatePullRequestNew>) {
+		if (message.args.body && message.args.body.length > 0
+			&& vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_PULL_REQUEST_CANCEL_CONFIRMATION, true)) {
+			const discard = vscode.l10n.t('Discard');
+			const dontAskAgain = vscode.l10n.t('Don\'t Ask Again');
+			const result = await vscode.window.showWarningMessage(
+				vscode.l10n.t('Are you sure you want to cancel creating this pull request?'),
+				{ modal: true, detail: vscode.l10n.t('Your changes will be lost if you don\'t create the pull request.') },
+				discard,
+				dontAskAgain
+			);
+			if (result !== discard && result !== dontAskAgain) {
+				return this._replyMessage(message, { cancelled: false });
+			}
+			if (result === dontAskAgain) {
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(SHOW_PULL_REQUEST_CANCEL_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
+			}
+		}
 		this._onDone.fire(undefined);
 		// Re-fetch the automerge info so that it's updated for next time.
 		await this.getMergeConfiguration(message.args.owner, message.args.repo, true);
-		return this._replyMessage(message, undefined);
+		return this._replyMessage(message, { cancelled: true });
 	}
 
 	private async openDescriptionSettings(): Promise<void> {

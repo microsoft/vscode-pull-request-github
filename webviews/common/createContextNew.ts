@@ -92,10 +92,15 @@ export class CreatePRContextNew {
 		}
 	};
 
-	public cancelCreate = (): Promise<void> => {
+	public cancelCreate = async (): Promise<void> => {
 		const args = this.copyParams();
-		vscode.setState(defaultCreateParams);
-		return this.postMessage({ command: 'pr.cancelCreate', args });
+		const result = await this.postMessage({ command: 'pr.cancelCreate', args }) as { cancelled?: boolean } | undefined;
+		// Only clear persisted state if the extension confirmed the cancellation.
+		// Otherwise the user's title/description would be discarded after declining
+		// the confirmation dialog.
+		if (result?.cancelled !== false) {
+			vscode.setState(defaultCreateParams);
+		}
 	};
 
 	public updateState = (params: Partial<CreateParamsNew>, reset: boolean = false): void => {
