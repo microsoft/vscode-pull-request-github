@@ -95,10 +95,11 @@ export class CreatePRContextNew {
 	public cancelCreate = async (): Promise<void> => {
 		const args = this.copyParams();
 		const result = await this.postMessage({ command: 'pr.cancelCreate', args }) as { cancelled?: boolean } | undefined;
-		// Only clear persisted state if the extension confirmed the cancellation.
-		// Otherwise the user's title/description would be discarded after declining
-		// the confirmation dialog.
-		if (result?.cancelled !== false) {
+		// Only clear persisted state if the extension explicitly confirmed the
+		// cancellation. Otherwise (e.g. the user declined the confirmation
+		// dialog, or the message did not get a response) preserve the user's
+		// in-progress title/description.
+		if (result?.cancelled === true) {
 			vscode.setState(defaultCreateParams);
 		}
 	};
