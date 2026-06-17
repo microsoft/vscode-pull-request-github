@@ -664,7 +664,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * Process code reference links in timeline events (comments, reviews, commits).
 	 * Updates bodyHTML fields for all events that contain them.
 	 */
-	protected async processTimelineEvents(events: TimelineEvent[]): Promise<TimelineEvent[]> {
+	protected async processTimelineEvents(events: TimelineEvent[] | undefined): Promise<TimelineEvent[]> {
+		if (!events) {
+			return [];
+		}
 		return Promise.all(events.map(async (event) => {
 			// Create a shallow copy to avoid mutating the original
 			const processedEvent = { ...event };

@@ -1612,10 +1612,10 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  */
 export function parseReviewers(
 	requestedReviewers: (IAccount | ITeam)[],
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 	author: IAccount,
 ): ReviewState[] {
-	const reviewEvents = timelineEvents.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING');
+	const reviewEvents = timelineEvents?.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING') || [];
 	let reviewers: ReviewState[] = [];
 	const seen = new Map<string, boolean>();
 

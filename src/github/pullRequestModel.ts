@@ -867,7 +867,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
 	 */
-	async getTimelineEvents(): Promise<TimelineEvent[]> {
+	async getTimelineEvents(): Promise<TimelineEvent[] | undefined> {
 		const getTimelineEvents = async () => {
 			Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();

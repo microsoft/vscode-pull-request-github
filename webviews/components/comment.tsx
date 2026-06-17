@@ -620,7 +620,7 @@ export function AddComment({
 								name="add-attestation"
 								checked={addAttestation}
 								disabled={isBusy || busy}
-								onChange={() => setAddAttestation(!addAttestation)}
+								onChange={(e) => setAddAttestation(e.currentTarget.checked)}
 							/>
 							<label htmlFor="attestation-checkbox" className="attestation-checkbox-label">Add attestation</label>
 						</div>
@@ -799,7 +799,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 							name="add-attestation"
 							checked={addAttestation}
 							disabled={isBusy || pr.busy}
-							onChange={() => setAddAttestation(!addAttestation)}
+							onChange={(e) => setAddAttestation(e.currentTarget.checked)}
 						/>
 						<label htmlFor="attestation-checkbox-simple" className="attestation-checkbox-label">Add attestation</label>
 					</div>
