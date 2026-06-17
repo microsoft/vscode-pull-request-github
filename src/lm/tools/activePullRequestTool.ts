@@ -62,7 +62,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		}
 
 		const timeline = (pullRequest.timelineEvents && pullRequest.timelineEvents.length > 0) ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
-		const reviewAndCommentEvents = timeline.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented);
+		const reviewAndCommentEvents = timeline?.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented) || [];
 
 		if ((pullRequest.comments.length === 0) && (reviewAndCommentEvents.length !== 0)) {
 			// Probably missing some comments

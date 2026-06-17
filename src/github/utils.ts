@@ -1538,11 +1538,11 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 }
 
 export function getRelatedUsersFromTimelineEvents(
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 ): { login: string; name: string }[] {
 	const ret: { login: string; name: string }[] = [];
 
-	timelineEvents.forEach(event => {
+	timelineEvents?.forEach(event => {
 		if (event.event === Common.EventType.Committed) {
 			ret.push({
 				login: event.author.login,
