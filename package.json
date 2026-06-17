@@ -4291,7 +4291,7 @@
 		"@octokit/rest": "22.0.0",
 		"@octokit/types": "14.1.0",
 		"@vscode/codicons": "^0.0.36",
-		"@vscode/extension-telemetry": "0.7.5",
+		"@vscode/extension-telemetry": "1.5.2",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
