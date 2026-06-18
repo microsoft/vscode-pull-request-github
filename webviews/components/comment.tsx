@@ -6,6 +6,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
 import { cloudUploadIcon, copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
+import { MarkdownEditor } from './markdownEditor';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -262,7 +263,7 @@ type EditCommentProps = {
 };
 
 function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommentProps) {
-	const { updateDraft, pr, generateDescription, cancelGenerateDescription, uploadFiles, uploadPastedFiles } = useContext(PullRequestContext);
+	const { updateDraft, pr, generateDescription, cancelGenerateDescription, uploadFiles, uploadPastedFiles, renderMarkdown } = useContext(PullRequestContext);
 	const draftComment = useRef<{ body: string; dirty: boolean }>({ body, dirty: false });
 	const form = useRef<HTMLFormElement>();
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -365,7 +366,7 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 	return (
 		<form ref={form as React.MutableRefObject<HTMLFormElement>} onSubmit={onSubmit}>
 			<div className="textarea-wrapper">
-				<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} onPaste={handlePaste} disabled={isGenerating} />
+				<MarkdownEditor name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} onPaste={handlePaste} disabled={isGenerating} renderMarkdown={renderMarkdown} />
 				{isPRDescription ? (
 					isGenerating ? (
 						<button
@@ -498,7 +499,7 @@ export function AddComment({
 	repo,
 	number
 }: PullRequest) {
-	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment, renderMarkdown } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -569,7 +570,7 @@ export function AddComment({
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
 			<div className="textarea-wrapper">
-				<textarea
+				<MarkdownEditor
 					id={COMMENT_TEXTAREA_ID}
 					name="body"
 					ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
@@ -584,6 +585,7 @@ export function AddComment({
 							textareaRef.current!.setSelectionRange(9, 9);
 						}
 					}}
+					renderMarkdown={renderMarkdown}
 				/>
 				<button
 					type="button"
@@ -690,7 +692,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment, renderMarkdown } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
@@ -752,7 +754,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	return (
 		<span className="comment-form">
 			<div className="textarea-wrapper">
-				<textarea
+				<MarkdownEditor
 					id={COMMENT_TEXTAREA_ID}
 					name="body"
 					placeholder="Leave a comment"
@@ -762,6 +764,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 					onKeyDown={onKeyDown}
 					onPaste={onPasteUploadFiles(uploadPastedFilesIntoPendingComment)}
 					disabled={isBusy || pr.busy}
+					renderMarkdown={renderMarkdown}
 				/>
 				<button
 					type="button"
