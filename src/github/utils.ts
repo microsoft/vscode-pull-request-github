@@ -1539,11 +1539,11 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 }
 
 export function getRelatedUsersFromTimelineEvents(
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 ): { login: string; name: string }[] {
 	const ret: { login: string; name: string }[] = [];
 
-	timelineEvents.forEach(event => {
+	timelineEvents?.forEach(event => {
 		if (event.event === Common.EventType.Committed) {
 			ret.push({
 				login: event.author.login,
@@ -1613,10 +1613,10 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  */
 export function parseReviewers(
 	requestedReviewers: (IAccount | ITeam)[],
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 	author: IAccount,
 ): ReviewState[] {
-	const reviewEvents = timelineEvents.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING');
+	const reviewEvents = timelineEvents?.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING') || [];
 	let reviewers: ReviewState[] = [];
 	const seen = new Map<string, boolean>();
 
@@ -1699,37 +1699,66 @@ export function insertNewCommitsSinceReview(
 	currentUser: string,
 	head: GitHubRef | null
 ) {
-	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
-		let lastViewerReviewIndex: number = timelineEvents.length - 1;
-		let comittedDuringReview: boolean = false;
-		let interReviewCommits: Common.TimelineEvent[] = [];
+	if (!latestReviewCommitOid || !head || head.sha === latestReviewCommitOid) {
+		return;
+	}
 
-		for (let i = timelineEvents.length - 1; i > 0; i--) {
+	// Find the current user's most recent review.
+	let reviewIndex = -1;
+	let reviewTime: number | undefined;
+	for (let i = timelineEvents.length - 1; i >= 0; i--) {
+		if (
+			timelineEvents[i].event === Common.EventType.Reviewed &&
+			(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
+		) {
+			reviewIndex = i;
+			const submittedAt = (timelineEvents[i] as Common.ReviewEvent).submittedAt;
+			reviewTime = submittedAt ? new Date(submittedAt).getTime() : undefined;
+			break;
+		}
+	}
+
+	if (reviewIndex === -1) {
+		return;
+	}
+
+	// Insert the marker just before the first commit that occurred AFTER the
+	// review (so commits pushed before the review, e.g. an attestation commit,
+	// stay in their chronological place).
+	let insertIndex = -1;
+	for (let i = reviewIndex + 1; i < timelineEvents.length; i++) {
+		if (timelineEvents[i].event === Common.EventType.Committed) {
+			const committedDate = (timelineEvents[i] as Common.CommitEvent).committedDate;
+			const committedTime = committedDate ? new Date(committedDate).getTime() : undefined;
+			if (reviewTime === undefined || committedTime === undefined || committedTime > reviewTime) {
+				insertIndex = i;
+				break;
+			}
+		}
+	}
+
+	if (insertIndex === -1) {
+		// No post-review commits - place the marker right after the commit
+		// that the latest review actually covered.
+		for (let i = 0; i < timelineEvents.length; i++) {
 			if (
 				timelineEvents[i].event === Common.EventType.Committed &&
 				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommitOid
 			) {
-				interReviewCommits.unshift({
-					id: latestReviewCommitOid,
-					event: Common.EventType.NewCommitsSinceReview
-				});
-				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);
+				insertIndex = i + 1;
 				break;
-			}
-			else if (comittedDuringReview && timelineEvents[i].event === Common.EventType.Committed) {
-				interReviewCommits.unshift(timelineEvents[i]);
-				timelineEvents.splice(i, 1);
-			}
-			else if (
-				!comittedDuringReview &&
-				timelineEvents[i].event === Common.EventType.Reviewed &&
-				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
-			) {
-				lastViewerReviewIndex = i;
-				comittedDuringReview = true;
 			}
 		}
 	}
+
+	if (insertIndex === -1) {
+		return;
+	}
+
+	timelineEvents.splice(insertIndex, 0, {
+		id: latestReviewCommitOid,
+		event: Common.EventType.NewCommitsSinceReview
+	});
 }
 
 export function getPRFetchQuery(user: string, query: string): string {

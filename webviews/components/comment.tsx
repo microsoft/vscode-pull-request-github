@@ -496,10 +496,13 @@ export function AddComment({
 	hasReviewDraft,
 	owner,
 	repo,
-	number
+	number,
+	attestationCommitsEnabled,
+	isCurrentlyCheckedOut
 }: PullRequest) {
 	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
+	const [addAttestation, setAddAttestation] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
@@ -530,7 +533,7 @@ export function AddComment({
 				await requestChanges(value);
 				break;
 			case ReviewType.Approve:
-				await approve(value);
+				await approve(value, addAttestation);
 				break;
 			default:
 				await submit(value);
@@ -538,14 +541,11 @@ export function AddComment({
 		setBusy(false);
 	}
 
-	const onKeyDown = useCallback(
-		e => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				submitAction(currentSelection);
-			}
-		},
-		[submit],
-	);
+	const onKeyDown = e => {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+			submitAction(currentSelection);
+		}
+	};
 
 	async function defaultSubmitAction(): Promise<void> {
 		await submitAction(currentSelection);
@@ -565,6 +565,8 @@ export function AddComment({
 	// Note: Approve button is allowed even with empty content and no pending review
 	const shouldDisableNonApproveButtons = !pendingCommentText?.trim() && !hasReviewDraft;
 	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
+
+	const showAttestationCheckbox = !!attestationCommitsEnabled && !!isCurrentlyCheckedOut && !!availableActions.approve && availableActions.approve === COMMENT_METHODS.approve;
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" >
@@ -609,30 +611,46 @@ export function AddComment({
 				) : null}
 
 
-				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
-					defaultAction={defaultSubmitAction}
-					defaultOptionLabel={() => availableActions[currentSelection]!}
-					defaultOptionValue={() => currentSelection}
-					allOptions={() => {
-						const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
-						if (availableActions.comment) {
-							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
-						}
-						if (availableActions.approve) {
-							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
-						}
-						if (availableActions.requestChanges) {
-							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
-						}
-						return actions;
-					}}
-					optionsTitle='Submit pull request review'
-					disabled={isBusy || busy}
-					hasSingleAction={Object.keys(availableActions).length === 1}
-					spreadable={true}
-					primaryOptionValue={ReviewType.Comment}
-				/>
+				<div className="comment-actions-right">
+					{showAttestationCheckbox ? (
+						<div className="attestation-checkbox-wrapper checkbox-wrapper" title="Add a signed attestation commit to the head of the pull request branch when approving.">
+							<input
+								id="attestation-checkbox"
+								type="checkbox"
+								name="add-attestation"
+								checked={addAttestation}
+								disabled={isBusy || busy}
+								onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+							/>
+							<label htmlFor="attestation-checkbox" className="attestation-checkbox-label">Add attestation</label>
+						</div>
+					) : null}
+
+					<ContextDropdown
+						optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
+						defaultAction={defaultSubmitAction}
+						defaultOptionLabel={() => availableActions[currentSelection]!}
+						defaultOptionValue={() => currentSelection}
+						allOptions={() => {
+							const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+							if (availableActions.comment) {
+								actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
+							}
+							if (availableActions.approve) {
+								actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
+							}
+							if (availableActions.requestChanges) {
+								actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
+							}
+							return actions;
+						}}
+						optionsTitle='Submit pull request review'
+						disabled={isBusy || busy}
+						hasSingleAction={Object.keys(availableActions).length === 1}
+						spreadable={true}
+						primaryOptionValue={ReviewType.Comment}
+					/>
+				</div>
 			</div>
 		</form>
 	);
@@ -692,6 +710,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
+	const [addAttestation, setAddAttestation] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
 
@@ -707,7 +726,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				await requestChanges(value);
 				break;
 			case ReviewType.Approve:
-				await approve(value);
+				await approve(value, addAttestation);
 				break;
 			default:
 				await submit(value);
@@ -723,16 +742,12 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
-	const onKeyDown = useCallback(
-		e => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-
-				e.preventDefault();
-				defaultSubmitAction();
-			}
-		},
-		[submitAction],
-	);
+	const onKeyDown = e => {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+			e.preventDefault();
+			defaultSubmitAction();
+		}
+	};
 
 	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
 		? { comment: 'Comment' }
@@ -748,6 +763,8 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	// Note: Approve button is allowed even with empty content and no pending review
 	const shouldDisableNonApproveButtons = !pr.pendingCommentText?.trim() && !pr.hasReviewDraft;
 	const shouldDisableApproveButton = false; // Approve is always allowed (when not busy)
+
+	const showAttestationCheckbox = !!pr.attestationCommitsEnabled && !!pr.isCurrentlyCheckedOut && !!availableActions.approve && availableActions.approve === COMMENT_METHODS.approve;
 
 	return (
 		<span className="comment-form">
@@ -774,6 +791,19 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				</button>
 			</div>
 			<div className='comment-button'>
+				{showAttestationCheckbox ? (
+					<div className="attestation-checkbox-wrapper checkbox-wrapper attestation-checkbox-overlay" title="Add a signed attestation commit to the head of the pull request branch when approving.">
+						<input
+							id="attestation-checkbox-simple"
+							type="checkbox"
+							name="add-attestation"
+							checked={addAttestation}
+							disabled={isBusy || pr.busy}
+							onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+						/>
+						<label htmlFor="attestation-checkbox-simple" className="attestation-checkbox-label">Add attestation</label>
+					</div>
+				) : null}
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}
 					defaultAction={defaultSubmitAction}

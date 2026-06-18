@@ -5,13 +5,14 @@
 
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
+import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, MergeMethod, ReviewEventEnum, ReviewState } from './interface';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { MergeArguments, PullRequest, ReviewType } from './views';
+import { MergeArguments, PullRequest, ReviewType, SubmitReviewArgs } from './views';
 import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
@@ -108,6 +109,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.updateBranch(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
+			case 'pr.add-attestation-commit':
+				return this.addAttestationCommitMessage(message);
 		}
 	}
 
@@ -117,6 +120,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private reRequestReview(message: IRequestMessage<string>): void {
 		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
+	}
+
+	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
+		const sha = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success: !!sha, sha });
 	}
 
 	public async refresh(): Promise<void> {
@@ -302,7 +310,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
 				hasReviewDraft,
 				currentUserReviewState: reviewState,
-				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
+				attestationCommitsEnabled: isAttestationCommitsEnabled()
 			};
 
 			this._postMessage({
@@ -348,21 +357,43 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		);
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>, needsTimelineRefresh: boolean = false) {
 		return PullRequestReviewCommon.doReviewMessage(
 			this.getReviewContext(),
 			message,
-			false,
-			action
+			needsTimelineRefresh,
+			action,
 		);
+	}
+
+	/**
+	 * Handles a review-submission message that may include a request to first
+	 * push a signed attestation commit. If attestation fails, the review is
+	 * NOT submitted.
+	 */
+	private async doReviewMessageWithAttestation(
+		message: IRequestMessage<SubmitReviewArgs>,
+		action: (body: string) => Promise<ReviewEvent>,
+	): Promise<void> {
+		const { body, addAttestation } = message.args ?? { body: '' };
+		let attestationSha: string | undefined;
+		if (addAttestation) {
+			attestationSha = await addAttestationCommit(this._folderRepositoryManager, this._item);
+			if (!attestationSha) {
+				this._throwError(message, 'Attestation commit failed; review was not submitted.');
+				return;
+			}
+		}
+		const forwarded: IRequestMessage<string> = { req: message.req, command: message.command, args: body };
+		await this.doReviewMessage(forwarded, action, !!attestationSha);
 	}
 
 	private approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
-	private async approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
-		await this.doReviewMessage(message, (body) => this.approvePullRequest(body));
+	private async approvePullRequestMessage(message: IRequestMessage<SubmitReviewArgs>): Promise<void> {
+		await this.doReviewMessageWithAttestation(message, (body) => this.approvePullRequest(body));
 	}
 
 	private async approvePullRequestCommand(context: { body: string }): Promise<void> {
@@ -377,8 +408,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		await this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
 	}
 
-	private async requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
-		await this.doReviewMessage(message, (body) => this.requestChanges(body));
+	private async requestChangesMessage(message: IRequestMessage<SubmitReviewArgs>): Promise<void> {
+		await this.doReviewMessageWithAttestation(message, (body) => this.requestChanges(body));
 	}
 
 	private submitReview(body: string): Promise<ReviewEvent> {
@@ -389,8 +420,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
-	private submitReviewMessage(message: IRequestMessage<string>) {
-		return this.doReviewMessage(message, (body) => this.submitReview(body));
+	private submitReviewMessage(message: IRequestMessage<SubmitReviewArgs>) {
+		return this.doReviewMessageWithAttestation(message, (body) => this.submitReview(body));
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {

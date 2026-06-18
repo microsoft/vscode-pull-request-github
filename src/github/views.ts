@@ -114,6 +114,7 @@ export interface PullRequest extends Issue {
 	loadingCommit?: string;
 	generateDescriptionTitle?: string;
 	closingIssues?: IssueReference[];
+	attestationCommitsEnabled?: boolean;
 }
 
 export interface ProjectItemsReply {
@@ -133,6 +134,11 @@ export interface SubmitReviewReply {
 	events?: TimelineEvent[];
 	reviewedEvent: ReviewEvent | CommentEvent;
 	reviewers?: ReviewState[];
+}
+
+export interface SubmitReviewArgs {
+	body: string;
+	addAttestation?: boolean;
 }
 
 export interface ReadyForReviewReply {

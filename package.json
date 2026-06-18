@@ -320,6 +320,14 @@
 					"default": false,
 					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
 				},
+				"githubPullRequests.enableAttestationCommits": {
+					"type": [
+						"boolean",
+						"string"
+					],
+					"default": false,
+					"markdownDescription": "%githubPullRequests.enableAttestationCommits.description%"
+				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
 					"enum": [
@@ -1547,6 +1555,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.addAttestationCommit",
+				"title": "%command.pr.addAttestationCommit.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.requestChangesOnDotCom",
 				"title": "%command.review.requestChangesOnDotCom.title%",
 				"category": "%command.pull.request.category%"
@@ -2083,6 +2096,10 @@
 				{
 					"command": "github.api.preloadPullRequest",
 					"when": "false"
+				},
+				{
+					"command": "pr.addAttestationCommit",
+					"when": "config.githubPullRequests.enableAttestationCommits"
 				},
 				{
 					"command": "pr.configureRemotes",

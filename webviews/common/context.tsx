@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -179,20 +179,23 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	private async submitReviewCommand(command: string, body: string) {
+	private async submitReviewCommand(command: string, args: SubmitReviewArgs) {
 		try {
-			const result: SubmitReviewReply = await this.postMessage({ command, args: body });
+			const result: SubmitReviewReply = await this.postMessage({ command, args });
 			return this.appendReview(result);
 		} catch (error) {
 			return this.updatePR({ busy: false });
 		}
 	}
 
-	public requestChanges = (body: string) => this.submitReviewCommand('pr.request-changes', body);
+	public requestChanges = (body: string) =>
+		this.submitReviewCommand('pr.request-changes', { body });
 
-	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
+	public approve = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.approve', { body, addAttestation });
 
-	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
+	public submit = (body: string) =>
+		this.submitReviewCommand('pr.submit', { body });
 
 	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
 

@@ -26,7 +26,7 @@ export interface ReviewContext {
 	postMessage(message: any): Promise<void>;
 	replyMessage(message: IRequestMessage<any>, response: any): void;
 	throwError(message: IRequestMessage<any> | undefined, error: string): void;
-	getTimeline(): Promise<TimelineEvent[]>;
+	getTimeline(): Promise<TimelineEvent[] | undefined>;
 }
 
 /**
