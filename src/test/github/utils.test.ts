@@ -144,7 +144,7 @@ describe('utils', () => {
 			assert.strictEqual((events[3] as CommitEvent).sha, HEAD_SHA);
 		});
 
-		it('does NOT move a commit pushed just BEFORE the user\'s review (e.g. an attestation commit)', () => {
+		it('does NOT insert a marker when the only diverging commit was pushed BEFORE the user\'s review (e.g. an attestation commit)', () => {
 			const reviewTime = new Date('2024-01-01T12:00:00Z');
 			const attestationCommitTime = new Date('2024-01-01T11:59:00Z'); // 1 minute before the review
 			const events: TimelineEvent[] = [
@@ -155,15 +155,14 @@ describe('utils', () => {
 
 			insertNewCommitsSinceReview(events, LATEST_REVIEW_SHA, CURRENT_USER, makeHead(HEAD_SHA));
 
-			// Expected: pre-review commit stays in place (not under NewCommitsSinceReview),
-			// and the marker is still inserted after the review for any later commits (none here).
-			assert.strictEqual(events.length, 4);
+			// Expected: no marker is inserted because there are no commits after the review.
+			// The pre-review attestation commit stays in its chronological place.
+			assert.strictEqual(events.length, 3);
 			assert.strictEqual(events[0].event, EventType.Committed);
 			assert.strictEqual((events[0] as CommitEvent).sha, LATEST_REVIEW_SHA);
-			assert.strictEqual(events[1].event, EventType.NewCommitsSinceReview);
-			assert.strictEqual(events[2].event, EventType.Committed);
-			assert.strictEqual((events[2] as CommitEvent).sha, HEAD_SHA);
-			assert.strictEqual(events[3].event, EventType.Reviewed);
+			assert.strictEqual(events[1].event, EventType.Committed);
+			assert.strictEqual((events[1] as CommitEvent).sha, HEAD_SHA);
+			assert.strictEqual(events[2].event, EventType.Reviewed);
 		});
 
 		it('moves only post-review commits when both pre- and post-review commits exist', () => {
