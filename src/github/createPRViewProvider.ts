@@ -19,7 +19,7 @@ import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOpt
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
+import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch } from '../api/api';
 import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
@@ -561,14 +561,14 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			this.setProjects(createdPR, message.args.projects)]);
 	}
 
-	private async cancel(message: IRequestMessage<CreatePullRequestNew>) {
-		if (message.args.body && message.args.body.length > 0
+	private async cancel(message: IRequestMessage<CancelCreatePullRequestNew>) {
+		if (message.args.hasUnsavedChanges
 			&& vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_PULL_REQUEST_CANCEL_CONFIRMATION, true)) {
 			const discard = vscode.l10n.t('Discard');
 			const dontAskAgain = vscode.l10n.t('Don\'t Ask Again');
 			const result = await vscode.window.showWarningMessage(
 				vscode.l10n.t('Are you sure you want to cancel creating this pull request?'),
-				{ modal: true, detail: vscode.l10n.t('Your pull request title and description will be lost.') },
+				{ modal: true, detail: vscode.l10n.t('Your unsaved changes to this pull request will be lost.') },
 				discard,
 				dontAskAgain
 			);
