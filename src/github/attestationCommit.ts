@@ -20,7 +20,7 @@ const DEFAULT_ATTESTATION_COMMIT_MESSAGE = 'Attestation commit';
  *
  * Accepts any of the following (checked across local + global git config):
  *  - `user.signingkey` is set, OR
- *  - `commit.gpgsign` is `true` (git will pick a default signing identity), OR
+ *  - `commit.gpgsign` is a truthy git boolean (`true`/`1`/`yes`/`on`), OR
  *  - `gpg.format` is set to `ssh` or `x509` (the user is explicitly opting in
  *    to a non-default signing format).
  */
@@ -48,7 +48,8 @@ async function hasCommitSigningConfigured(repository: Repository): Promise<boole
 	if (signingKey) {
 		return true;
 	}
-	if (commitGpgSign?.toLowerCase() === 'true') {
+	// `commit.gpgsign` is a git boolean: true/1/yes/on (case-insensitive) are all truthy.
+	if (commitGpgSign && ['true', '1', 'yes', 'on'].includes(commitGpgSign.toLowerCase())) {
 		return true;
 	}
 	if (gpgFormat && ['ssh', 'x509'].includes(gpgFormat.toLowerCase())) {

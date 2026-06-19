@@ -1738,20 +1738,10 @@ export function insertNewCommitsSinceReview(
 	}
 
 	if (insertIndex === -1) {
-		// No post-review commits - place the marker right after the commit
-		// that the latest review actually covered.
-		for (let i = 0; i < timelineEvents.length; i++) {
-			if (
-				timelineEvents[i].event === Common.EventType.Committed &&
-				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommitOid
-			) {
-				insertIndex = i + 1;
-				break;
-			}
-		}
-	}
-
-	if (insertIndex === -1) {
+		// No commits occurred after the user's most recent review - skip the
+		// marker entirely. Placing it before the review event (e.g. next to a
+		// pre-review attestation commit) would contradict its "New changes
+		// since your last Review" label.
 		return;
 	}
 
