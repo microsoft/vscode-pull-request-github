@@ -6,9 +6,9 @@
 import * as vscode from 'vscode';
 import {
 	IGNORE_COMPLETION_TRIGGER,
+	ISSUE_COMPLETION_FORMAT_EDITOR,
 	ISSUE_COMPLETION_FORMAT_SCM,
 	ISSUES_SETTINGS_NAMESPACE,
-	ISSUE_COMPLETION_FORMAT_EDITOR,
 } from '../common/settingKeys';
 import { fromNewIssueUri, Schemes } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
@@ -209,11 +209,16 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if (document.languageId === 'markdown') {
 			item.insertText = `[${getIssueNumberLabel(issue, repo)}](${issue.html_url})`;
 		} else {
-			const configuration = vscode.workspace
-				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
-				.get(ISSUE_COMPLETION_FORMAT_SCM);
-			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
-				item.insertText = variableSubstitution(configuration, issue, repo);
+			const isScmInput = document.uri.path.match(/git\/scm\d\/input/);
+			if (isScmInput) {
+				const configuration = vscode.workspace
+					.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+					.get(ISSUE_COMPLETION_FORMAT_SCM);
+				if (typeof configuration === 'string') {
+					item.insertText = variableSubstitution(configuration, issue, repo);
+				} else {
+					item.insertText = `${getIssueNumberLabel(issue, repo)}`;
+				}
 			} else {
 				const editorConfiguration = vscode.workspace
 					.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
