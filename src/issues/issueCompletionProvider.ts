@@ -8,6 +8,7 @@ import {
 	IGNORE_COMPLETION_TRIGGER,
 	ISSUE_COMPLETION_FORMAT_SCM,
 	ISSUES_SETTINGS_NAMESPACE,
+	ISSUE_COMPLETION_FORMAT_EDITOR,
 } from '../common/settingKeys';
 import { fromNewIssueUri, Schemes } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
@@ -214,7 +215,14 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
 				item.insertText = variableSubstitution(configuration, issue, repo);
 			} else {
-				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
+				const editorConfiguration = vscode.workspace
+					.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+					.get(ISSUE_COMPLETION_FORMAT_EDITOR);
+				if (typeof editorConfiguration === 'string') {
+					item.insertText = variableSubstitution(editorConfiguration, issue, repo);
+				} else {
+					item.insertText = `${getIssueNumberLabel(issue, repo)}`;
+				}
 			}
 		}
 		item.documentation = issue.body;
