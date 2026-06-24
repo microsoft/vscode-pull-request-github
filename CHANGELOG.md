@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.152.0
+
+### Fixes
+
+- Upload file renders on top of text in the input. https://github.com/microsoft/vscode-pull-request-github/issues/8776
+
 ## 0.150.0
 
 ### Fixes
