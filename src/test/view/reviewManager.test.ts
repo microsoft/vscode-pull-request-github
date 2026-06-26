@@ -10,6 +10,7 @@ import { GitApiImpl } from '../../api/api1';
 import { ITelemetry } from '../../common/telemetry';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
@@ -119,11 +120,15 @@ describe('ReviewManager polling', function () {
 	});
 
 	it('resets polling interval to minimum when a change is detected', async function () {
+		// doPoll detects a change by comparing ReviewManager's internal _prNumber /
+		// _lastCommitSha before and after updateState, so the stub must mutate one of
+		// those to emulate an observable change.
+		const internal = reviewManager as unknown as { _prNumber?: number };
 		let pollCount = 0;
 		sinon.stub(reviewManager, 'updateState').callsFake(async () => {
 			pollCount++;
 			if (pollCount === 2) {
-				manager.activePullRequest = { number: 42 } as unknown as typeof manager.activePullRequest;
+				internal._prNumber = (internal._prNumber ?? 0) + 1;
 			}
 		});
 
@@ -135,11 +140,10 @@ describe('ReviewManager polling', function () {
 		clock.tick(POLL_MIN_INTERVAL_MS * POLL_BACKOFF_MULTIPLIER);
 		await flushMicrotasks();
 		assert.strictEqual(latestScheduledDelay(), POLL_MIN_INTERVAL_MS);
-
-		manager.activePullRequest = undefined;
 	});
 
-	it('applies normal backoff on focus-triggered one-off refresh when no change is detected', async function () {
+	it('applies normal backoff on focus-triggered refresh when no change is detected', async function () {
+		const MAX_FOCUS_JITTER_MS = 60_000;
 		sinon.stub(reviewManager, 'updateState').resolves();
 
 		clock.tick(POLL_MIN_INTERVAL_MS);
@@ -152,7 +156,12 @@ describe('ReviewManager polling', function () {
 		await flushMicrotasks();
 		assert.strictEqual(setTimeoutSpy.callCount, callsBeforeSkip, 'no timer should be scheduled while unfocused after skip');
 
+		isWindowFocused = true;
 		onDidChangeWindowStateCallback!({ focused: true } as vscode.WindowState);
+		await flushMicrotasks();
+
+		// Focus schedules a jittered poll; advance past the max jitter to run it.
+		clock.tick(MAX_FOCUS_JITTER_MS);
 		await flushMicrotasks();
 
 		assert.strictEqual(latestScheduledDelay(), POLL_MIN_INTERVAL_MS * POLL_BACKOFF_MULTIPLIER * POLL_BACKOFF_MULTIPLIER);
@@ -176,7 +185,8 @@ describe('ReviewManager polling', function () {
 	});
 
 	it('polling refreshes state when active PR exists and new PR activity is detected', async function () {
-		manager.activePullRequest = { number: 123 } as unknown as typeof manager.activePullRequest;
+		// Stub the getter rather than assigning through the setter, which has side effects.
+		sinon.stub(manager, 'activePullRequest').get(() => ({ number: 123 } as unknown as PullRequestModel));
 		const updateStateStub = sinon.stub(reviewManager, 'updateState').resolves();
 		sinon.stub(reviewManager as unknown as { hasNewPullRequests: () => Promise<boolean> }, 'hasNewPullRequests').resolves(true);
 

@@ -151,9 +151,13 @@ export class ReviewManager extends Disposable {
 		this.pollForStateChange();
 		this._register(vscode.window.onDidChangeWindowState(state => {
 			if (state.focused && !this._pollHandle) {
-				// Polling was skipped because the window was not focused.
-				// On focus, do a one-off refresh and apply normal backoff rules.
-				this.doPoll();
+				// Polling was skipped because the window was not focused. Schedule a
+				// poll with a randomized delay (jitter) so that in multi-repo setups
+				// all ReviewManagers don't poll at the same time. Reuse _pollHandle so
+				// subsequent focus events don't trigger overlapping polls; doPoll
+				// applies the normal backoff rules.
+				const jitter = 15_000 + Math.floor(Math.random() * 45_000); // 15-60s
+				this._pollHandle = setTimeout(() => this.doPoll(), jitter);
 			}
 		}));
 		this._register(toDisposable(() => {
