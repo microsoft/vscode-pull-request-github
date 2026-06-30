@@ -176,6 +176,7 @@
 	"githubIssues.issueAvatarDisplay.description": "Controls which avatar to display in the issue list.",
 	"githubIssues.issueAvatarDisplay.author": "Show the avatar of the issue creator.",
 	"githubIssues.issueAvatarDisplay.assignee": "Show the avatar of the first assignee (show GitHub icon if no assignees).",
+	"githubIssues.showIssueNumberInTree.description": "Shows the issue number in the tree view.",
 	"githubPullRequests.focusedMode.description": "The layout to use when a pull request is checked out. Set to false to prevent layout changes.",
 	"githubPullRequests.focusedMode.firstDiff": "Show the first diff in the pull request. If there are no changes, show the overview.",
 	"githubPullRequests.focusedMode.overview": "Show the overview of the pull request.",
