@@ -50,6 +50,9 @@ import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
 export class ReviewManager extends Disposable {
 	public static ID = 'Review';
+	private static readonly MIN_POLL_INTERVAL_MS = 1000 * 60 * 5;
+	private static readonly MAX_POLL_INTERVAL_MS = 1000 * 60 * 30;
+	private static readonly POLL_BACKOFF_MULTIPLIER = 2;
 	private readonly _localToDispose: vscode.Disposable[] = [];
 
 	private readonly _reviewModel: ReviewModel = new ReviewModel();
@@ -86,6 +89,7 @@ export class ReviewManager extends Disposable {
 	 */
 	private readonly _staleMetadataCheckedBranches = new Set<string>();
 	private _pollHandle: NodeJS.Timeout | undefined;
+	private _pollIntervalMs = ReviewManager.MIN_POLL_INTERVAL_MS;
 	/**
 	 * Flag set when the "Checkout" action is used and cleared on the next git
 	 * state update, once review mode has been entered. Used to disambiguate
@@ -147,9 +151,11 @@ export class ReviewManager extends Disposable {
 		this.pollForStateChange();
 		this._register(vscode.window.onDidChangeWindowState(state => {
 			if (state.focused && !this._pollHandle) {
-				// Polling was skipped because the window was not focused.
-				// Schedule a poll with a randomized delay (jitter) so that in
-				// multi-repo setups all ReviewManagers don't poll at the same time.
+				// Polling was skipped because the window was not focused. Schedule a
+				// poll with a randomized delay (jitter) so that in multi-repo setups
+				// all ReviewManagers don't poll at the same time. Reuse _pollHandle so
+				// subsequent focus events don't trigger overlapping polls; doPoll
+				// applies the normal backoff rules.
 				const jitter = 15_000 + Math.floor(Math.random() * 45_000); // 15-60s
 				this._pollHandle = setTimeout(() => this.doPoll(), jitter);
 			}
@@ -241,7 +247,7 @@ export class ReviewManager extends Disposable {
 		if (this._pollHandle) {
 			clearTimeout(this._pollHandle);
 		}
-		this._pollHandle = setTimeout(() => this.doPoll(), 1000 * 60 * 5);
+		this._pollHandle = setTimeout(() => this.doPoll(), this._pollIntervalMs);
 	}
 
 	private async doPoll() {
@@ -256,9 +262,33 @@ export class ReviewManager extends Disposable {
 			return;
 		}
 		Logger.appendLine('Polling for state change...', this.id);
+		let hasDetectedChange = false;
 		try {
-			if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
-				await this.updateState();
+			if (!this._validateStatusInProgress) {
+				const shouldRefreshForActivePr = !!this._folderRepoManager.activePullRequest && await this.hasNewPullRequests();
+				if (shouldRefreshForActivePr) {
+					Logger.appendLine('Polling detected potential new PR activity while a PR is active. Refreshing state.', this.id);
+				}
+
+				if (!this._folderRepoManager.activePullRequest || shouldRefreshForActivePr) {
+					const previousPrNumber = this._prNumber;
+					const previousLastCommitSha = this._lastCommitSha;
+					await this.updateState();
+					hasDetectedChange =
+						previousPrNumber !== this._prNumber ||
+						previousLastCommitSha !== this._lastCommitSha;
+				}
+			}
+
+			if (hasDetectedChange) {
+				this._pollIntervalMs = ReviewManager.MIN_POLL_INTERVAL_MS;
+				Logger.appendLine(`Polling detected change. Next poll in ${Math.round(this._pollIntervalMs / 1000)}s.`, this.id);
+			} else {
+				this._pollIntervalMs = Math.min(
+					ReviewManager.MAX_POLL_INTERVAL_MS,
+					this._pollIntervalMs * ReviewManager.POLL_BACKOFF_MULTIPLIER,
+				);
+				Logger.appendLine(`Polling found no change. Backing off to ${Math.round(this._pollIntervalMs / 1000)}s.`, this.id);
 			}
 		} catch (e) {
 			Logger.warn(`Polling for state change failed: ${formatError(e)}`, this.id);
@@ -671,6 +701,9 @@ export class ReviewManager extends Disposable {
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (!this.justSwitchedToReviewMode && (previousPrNumber === pr.number) && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
+			// No meaningful state change; keep the previous commit SHA so polling
+			// doesn't treat this as a change on the next cycle.
+			this._lastCommitSha = oldLastCommitSha;
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
