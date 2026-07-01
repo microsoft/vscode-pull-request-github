@@ -61,6 +61,7 @@ export const WORKING_BASE_BRANCH = 'workingBaseBranch';
 export const WORKING_ISSUE_FORMAT_SCM = 'workingIssueFormatScm';
 export const IGNORE_COMPLETION_TRIGGER = 'ignoreCompletionTrigger';
 export const ISSUE_COMPLETION_FORMAT_SCM = 'issueCompletionFormatScm';
+export const ISSUE_COMPLETION_FORMAT_EDITOR = 'issueCompletionFormatEditor';
 export const CREATE_ISSUE_TRIGGERS = 'createIssueTriggers';
 export const DEFAULT = 'default';
 export const IGNORE_MILESTONES = 'ignoreMilestones';
