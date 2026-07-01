@@ -242,10 +242,12 @@ button .icon svg {
 	align-items: center;
 }
 
-.attestation-checkbox-overlay {
-	position: absolute;
-	right: calc(50% + 130px + 8px);
-	margin-right: 0;
+.attestation-checkbox-row {
+	margin-top: 6px;
+	margin-right: auto;
+	margin-left: auto;
+	margin-bottom: 12px;
+	width: fit-content;
 }
 
 .dropdown-container {
