@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { HostHelper } from './configuration';
 import { GitHubServerType } from '../common/authentication';
