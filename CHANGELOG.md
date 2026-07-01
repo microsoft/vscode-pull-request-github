@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.154.0
+
+### Changes
+
+- Back off polling for pull request updates when no changes are found, reducing unnecessary requests.
+
 ## 0.152.0
 
 ### Fixes
