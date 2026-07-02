@@ -991,9 +991,6 @@ query MaxPullRequest($owner: String!, $name: String!) {
 			}
 		}
 	}
-	rateLimit {
-		...RateLimit
-	}
 }
 
 query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!) {
