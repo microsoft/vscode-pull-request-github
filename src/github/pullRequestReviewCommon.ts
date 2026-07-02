@@ -65,6 +65,7 @@ export namespace PullRequestReviewCommon {
 		reviewType: ReviewType,
 		needsTimelineRefresh: boolean,
 		action: (body: string) => Promise<ReviewEvent>,
+		additionalEvents?: TimelineEvent[],
 	): Promise<ReviewEvent | undefined> {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
@@ -79,6 +80,7 @@ export namespace PullRequestReviewCommon {
 				command: 'pr.append-review',
 				reviewedEvent: review,
 				events: allEvents,
+				additionalEvents,
 				reviewers: ctx.existingReviewers
 			};
 			await ctx.postMessage(reviewMessage);
@@ -95,6 +97,7 @@ export namespace PullRequestReviewCommon {
 		message: IRequestMessage<string>,
 		needsTimelineRefresh: boolean,
 		action: (body: string) => Promise<ReviewEvent>,
+		additionalEvents?: TimelineEvent[],
 	): Promise<ReviewEvent | undefined> {
 		try {
 			const review = await action(message.args);
@@ -103,6 +106,7 @@ export namespace PullRequestReviewCommon {
 			const reply: SubmitReviewReply = {
 				reviewedEvent: review,
 				events: allEvents,
+				additionalEvents,
 				reviewers: ctx.existingReviewers,
 			};
 			ctx.replyMessage(message, reply);

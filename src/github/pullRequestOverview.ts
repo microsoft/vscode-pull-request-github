@@ -591,8 +591,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
-		const sha = await addAttestationCommit(this._folderRepositoryManager, this._item);
-		this._replyMessage(message, { success: !!sha, sha });
+		const result = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success: !!result, sha: result?.sha });
 	}
 
 	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
@@ -933,12 +933,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>, additionalEvents?: TimelineEvent[]) {
 		const result = await PullRequestReviewCommon.doReviewMessage(
 			this.getReviewContext(),
 			message,
-			true,
+			// When we already have the just-pushed attestation commit locally, skip the
+			// extra full-timeline fetch and let the webview splice it in itself.
+			!additionalEvents,
 			action,
+			additionalEvents,
 		);
 		if (result) {
 			this.tryScheduleCopilotRefresh(result.body, result.state);
@@ -952,27 +955,33 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 */
 	private async doReviewMessageWithAttestation(
 		message: IRequestMessage<SubmitReviewArgs>,
-		action: (body: string) => Promise<ReviewEvent>,
+		action: (body: string, expectedRemoteHead: string | undefined) => Promise<ReviewEvent>,
 	): Promise<void> {
 		const { body, addAttestation } = message.args ?? { body: '' };
+		let attestationEvent: TimelineEvent | undefined;
 		let attestationSha: string | undefined;
 		if (addAttestation) {
-			attestationSha = await addAttestationCommit(this._folderRepositoryManager, this._item);
-			if (!attestationSha) {
+			const result = await addAttestationCommit(this._folderRepositoryManager, this._item);
+			if (!result) {
 				this._throwError(message, 'Attestation commit failed; review was not submitted.');
 				return;
 			}
+			attestationEvent = result.event;
+			attestationSha = result.sha;
 		}
 		const forwarded: IRequestMessage<string> = { req: message.req, command: message.command, args: body };
-		await this.doReviewMessage(forwarded, action);
+		// Pass the attestation sha as the expected remote head so the approve
+		// check waits for GitHub's PR API to catch up to *our* commit (a
+		// concurrent third-party push would still be rejected).
+		await this.doReviewMessage(forwarded, (b) => action(b, attestationSha), attestationEvent ? [attestationEvent] : undefined);
 	}
 
-	private approvePullRequest(body: string): Promise<ReviewEvent> {
-		return this._item.approve(this._folderRepositoryManager.repository, body);
+	private approvePullRequest(body: string, expectedRemoteHead?: string): Promise<ReviewEvent> {
+		return this._item.approve(this._folderRepositoryManager.repository, body, expectedRemoteHead);
 	}
 
 	private approvePullRequestMessage(message: IRequestMessage<SubmitReviewArgs>): Promise<void> {
-		return this.doReviewMessageWithAttestation(message, (body) => this.approvePullRequest(body));
+		return this.doReviewMessageWithAttestation(message, (body, expectedRemoteHead) => this.approvePullRequest(body, expectedRemoteHead));
 	}
 
 	private approvePullRequestCommand(context: { body: string }): Promise<void> {
