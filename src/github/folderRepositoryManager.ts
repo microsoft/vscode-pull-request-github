@@ -2306,17 +2306,26 @@ export class FolderRepositoryManager extends Disposable {
 			}
 
 			if (!pullRequest.mergeBase) {
-				const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-					repo: remote.repositoryName,
-					owner: remote.owner,
-					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
-					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
-				});
+				try {
+					const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+						repo: remote.repositoryName,
+						owner: remote.owner,
+						base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+						head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
+					});
 
-				pullRequest.mergeBase = data.merge_base_commit.sha;
+					pullRequest.mergeBase = data.merge_base_commit.sha;
+				} catch (e) {
+					// Computing the merge base via the compare-commits API can fail (for example,
+					// returning 404 for cross-fork pull requests with divergent histories or when
+					// a fork has been deleted). This is non-fatal enrichment data, so log and fall
+					// back to the base sha rather than surfacing an error popup to the user.
+					Logger.warn(`Fetching Pull Request merge base failed: ${formatError(e)}`, this.id);
+					pullRequest.mergeBase = pullRequest.base.sha;
+				}
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Fetching Pull Request merge base failed: {0}', formatError(e)));
+			Logger.error(`Fulfill pull request missing info failed: ${formatError(e)}`, this.id);
 		}
 		Logger.debug(`Fulfill pull request missing info - done`, this.id);
 	}
