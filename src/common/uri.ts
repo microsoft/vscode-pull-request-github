@@ -7,7 +7,6 @@
 
 import { Buffer } from 'buffer';
 import * as pathUtils from 'path';
-import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { RemoteInfo } from '../../common/types';
 import { Repository } from '../api/api';

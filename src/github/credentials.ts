@@ -7,7 +7,6 @@ import { Octokit } from '@octokit/rest';
 import { ApolloClient, InMemoryCache } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
-import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';

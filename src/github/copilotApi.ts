@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';

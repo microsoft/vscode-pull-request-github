@@ -4,6 +4,10 @@
 		"jsx": "react",
 		"jsxFactory": "vscpp",
 		"jsxFragmentFactory": "vscppf",
+		"lib": [
+			"es2019",
+			"dom"
+		],
 		"strictNullChecks": true,
 		"tsBuildInfoFile": "tsconfig.tsbuildinfo",
 		"types": [
