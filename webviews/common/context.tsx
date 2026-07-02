@@ -188,14 +188,14 @@ export class PRContext {
 		}
 	}
 
-	public requestChanges = (body: string) =>
-		this.submitReviewCommand('pr.request-changes', { body });
+	public requestChanges = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.request-changes', { body, addAttestation });
 
 	public approve = (body: string, addAttestation: boolean = false) =>
 		this.submitReviewCommand('pr.approve', { body, addAttestation });
 
-	public submit = (body: string) =>
-		this.submitReviewCommand('pr.submit', { body });
+	public submit = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.submit', { body, addAttestation });
 
 	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
 
@@ -375,7 +375,7 @@ export class PRContext {
 		if (!state) {
 			throw new Error('Unexpectedly no pull request when trying to append review');
 		}
-		const { events, reviewers, reviewedEvent } = reply;
+		const { events, additionalEvents, reviewers, reviewedEvent } = reply;
 		state.busy = false;
 		if (!events) {
 			this.updatePR(state);
@@ -384,7 +384,11 @@ export class PRContext {
 		if (reviewers) {
 			state.reviewers = reviewers;
 		}
-		state.events = events.length === 0 ? [...state.events, reviewedEvent] : events;
+		// If the caller sent a fresh full timeline (`events.length > 0`), replace state
+		// with it. Otherwise append `additionalEvents` (if any) followed by the review.
+		state.events = events.length === 0
+			? [...state.events, ...(additionalEvents ?? []), reviewedEvent]
+			: events;
 		if (reviewedEvent.event === EventType.Reviewed) {
 			state.currentUserReviewState = reviewedEvent.state;
 		}

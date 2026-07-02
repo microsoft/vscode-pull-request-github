@@ -338,8 +338,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
+	 * @param expectedRemoteHead When the caller just pushed a commit
+	 * themselves (e.g. an attestation commit), pass the sha they expect
+	 * GitHub's PR API to now report as the head. The head check will poll
+	 * briefly for the API to reflect this specific sha before proceeding -
+	 * a third-party push during the same interval will still be caught and
+	 * rejected because GitHub would report *that* sha instead.
 	 */
-	async approve(repository: Repository, message?: string): Promise<ReviewEvent> {
+	async approve(repository: Repository, message?: string, expectedRemoteHead?: string): Promise<ReviewEvent> {
 		// Check that the remote head of the PR branch matches the local head of the PR branch
 		let remoteHead: string | undefined;
 		let localHead: string | undefined;
@@ -352,6 +358,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			localHead = this.head?.sha;
 			remoteHead = (await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.approve'))?.head?.sha;
 			rejectMessage = vscode.l10n.t('The remote head of the pull request branch has changed. Please refresh the pull request before approving.');
+		}
+
+		// If the caller just pushed a commit, GitHub's PR API can briefly lag
+		// behind. Poll for it to catch up to *that specific sha* - never
+		// bypass the check. A concurrent third-party push would leave
+		// `remoteHead` at some other sha and we'd still reject below.
+		if (expectedRemoteHead && remoteHead !== expectedRemoteHead) {
+			const maxAttempts = 5;
+			const delayMs = 750;
+			for (let attempt = 0; attempt < maxAttempts && remoteHead !== expectedRemoteHead; attempt++) {
+				await new Promise(resolve => setTimeout(resolve, delayMs));
+				remoteHead = (await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.approve'))?.head?.sha;
+			}
 		}
 
 		if (!remoteHead || remoteHead !== localHead) {

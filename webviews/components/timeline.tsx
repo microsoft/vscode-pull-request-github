@@ -314,6 +314,9 @@ function AddReviewSummaryComment() {
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
 	const [commentText, setCommentText] = useState('');
+	const [addAttestation, setAddAttestation] = useState(false);
+
+	const showAttestationCheckbox = !isAuthor && !!pr?.attestationCommitsEnabled && !!pr?.isCurrentlyCheckedOut;
 
 	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
@@ -321,13 +324,13 @@ function AddReviewSummaryComment() {
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
-				await requestChanges(value);
+				await requestChanges(value, addAttestation);
 				break;
 			case ReviewType.Approve:
-				await approve(value);
+				await approve(value, addAttestation);
 				break;
 			default:
-				await submit(value);
+				await submit(value, addAttestation);
 		}
 		setBusy(false);
 	}
@@ -372,6 +375,19 @@ function AddReviewSummaryComment() {
 				>
 					Cancel Review
 				</button>
+				{showAttestationCheckbox ? (
+					<div className="attestation-checkbox-wrapper checkbox-wrapper" title="Add a signed attestation commit to the head of the pull request branch when submitting this review.">
+						<input
+							id="attestation-checkbox-summary"
+							type="checkbox"
+							name="add-attestation"
+							checked={addAttestation}
+							disabled={isBusy || pr?.busy}
+							onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+						/>
+						<label htmlFor="attestation-checkbox-summary" className="attestation-checkbox-label">Add attestation</label>
+					</div>
+				) : null}
 				{isAuthor ? null : (
 					<button
 						id="request-changes"
