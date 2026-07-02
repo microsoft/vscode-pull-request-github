@@ -824,6 +824,11 @@
 					"default": "author",
 					"description": "%githubIssues.issueAvatarDisplay.description%"
 				},
+				"githubIssues.showIssueNumberInTree": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubIssues.showIssueNumberInTree.description%"
+				},
 				"githubPullRequests.focusedMode": {
 					"properties": {
 						"oneOf": [
