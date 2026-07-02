@@ -153,6 +153,11 @@
 					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"description": "%githubPullRequests.createDraft%"
 				},
+				"githubPullRequests.showPullRequestCancelConfirmation": {
+					"type": "boolean",
+					"default": true,
+					"description": "%githubPullRequests.showPullRequestCancelConfirmation%"
+				},
 				"githubPullRequests.logLevel": {
 					"type": "string",
 					"enum": [
