@@ -262,9 +262,10 @@ export class PrsTreeModel extends Disposable {
 			}
 
 			if (!check || check.state === CheckState.Unknown) {
-				continue;
-			}
-			if (check.state !== CheckState.Success) {
+				if (newStatus === UnsatisfiedChecks.None) {
+					newStatus |= UnsatisfiedChecks.Unknown;
+				}
+			} else if (check.state !== CheckState.Success) {
 				for (const status of check.statuses) {
 					if (status.state === CheckState.Failure) {
 						newStatus |= UnsatisfiedChecks.CIFailed;
