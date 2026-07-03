@@ -346,6 +346,8 @@ export function getStatusDecoration(status: UnsatisfiedChecks): vscode.FileDecor
 			badge: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground')),
 			tooltip: 'Review required'
 		};
+	} else if (status & UnsatisfiedChecks.Unknown) {
+		return;
 	} else if (status === UnsatisfiedChecks.None) {
 		return {
 			propagate: false,

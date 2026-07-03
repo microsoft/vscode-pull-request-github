@@ -1984,7 +1984,8 @@ export enum UnsatisfiedChecks {
 	ReviewRequired = 1 << 0,
 	ChangesRequested = 1 << 1,
 	CIFailed = 1 << 2,
-	CIPending = 1 << 3
+	CIPending = 1 << 3,
+	Unknown = 1 << 4
 }
 
 export async function extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string | undefined): Promise<RemoteInfo | undefined> {
