@@ -273,7 +273,7 @@ export class ReviewManager extends Disposable {
 				if (!this._folderRepoManager.activePullRequest || shouldRefreshForActivePr) {
 					const previousPrNumber = this._prNumber;
 					const previousLastCommitSha = this._lastCommitSha;
-					await this.updateState();
+					await this.updateState(true, false);
 					hasDetectedChange =
 						previousPrNumber !== this._prNumber ||
 						previousLastCommitSha !== this._lastCommitSha;
