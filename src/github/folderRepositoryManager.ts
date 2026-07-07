@@ -2099,6 +2099,20 @@ export class FolderRepositoryManager extends Disposable {
 		const deleteConfig = async (branch: string) => {
 			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, branch, undefined);
 			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
+			// Git normally removes the entire [branch "<name>"] section when a branch is deleted, but if the
+			// branch no longer exists the leftover section keeps the branch showing up in this list. Remove any
+			// remaining branch.<name>.* config entries so already-deleted branches don't reappear.
+			if (this.repository.unsetConfig) {
+				const prefix = `branch.${branch}.`;
+				const remaining = (await this.repository.getConfigs()).filter(config => config.key.startsWith(prefix));
+				for (const config of remaining) {
+					try {
+						await this.repository.unsetConfig(config.key);
+					} catch (e) {
+						Logger.error(`Failed to remove leftover git config ${config.key}: ${e}`, this.id);
+					}
+				}
+			}
 		};
 
 		// delete configs first since that can't be parallelized

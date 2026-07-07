@@ -115,6 +115,12 @@ export class MockRepository implements Repository {
 		return oldValue;
 	}
 
+	async unsetConfig(key: string): Promise<string> {
+		const oldValue = this._config.get(key) || '';
+		this._config.delete(key);
+		return oldValue;
+	}
+
 	getObjectDetails(treeish: string, treePath: string): Promise<{ mode: string; object: string; size: number }> {
 		return Promise.reject(new Error(`Unexpected getObjectDetails(${treeish}, ${treePath})`));
 	}
@@ -181,7 +187,9 @@ export class MockRepository implements Repository {
 	async deleteBranch(name: string, force?: boolean | undefined): Promise<void> {
 		const index = this._branches.findIndex(b => b.name === name);
 		if (index === -1) {
-			throw new Error(`Attempt to delete nonexistent branch ${name}`);
+			const error: Error & { stderr?: string } = new Error(`Attempt to delete nonexistent branch ${name}`);
+			error.stderr = `error: branch '${name}' not found.`;
+			throw error;
 		}
 		this._branches.splice(index, 1);
 	}
