@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.156.0
+
+### Fixes
+
+- Attestation commit shows poorly on web. https://github.com/microsoft/vscode-pull-request-github/issues/8816
+- PR shows green checkmark for ready to commit even though branch protection policy is not met yet (review pending). https://github.com/microsoft/vscode-pull-request-github/issues/8813
+- Link to an issue doesn't work. https://github.com/microsoft/vscode-pull-request-github/issues/8774
+
+**_Thank You_**
+
+* [@kamil-gwozdz (kamil-gwozdz)](https://github.com/kamil-gwozdz): Remove the `rateLimit` selection from the MaxPullRequest GraphQL query. [PR #8812](https://github.com/microsoft/vscode-pull-request-github/pull/8812)
+
 ## 0.154.0
 
 ### Changes
