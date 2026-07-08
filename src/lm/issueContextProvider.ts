@@ -29,7 +29,7 @@ export class IssueContextProvider implements vscode.ChatAttachContextProvider<Is
 	) { }
 
 	async provideChatTabContext(_options: { tab: vscode.Tab; }, _token: vscode.CancellationToken): Promise<IssueChatContextItem | undefined> {
-		const item = IssueOverviewPanel.getActivePanel()?.getCurrentItem();;
+		const item = IssueOverviewPanel.getActivePanel()?.getCurrentItem();
 		if (item) {
 			return this._issueToUnresolvedContext(item);
 		}
