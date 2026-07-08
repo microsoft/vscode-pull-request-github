@@ -40,7 +40,7 @@ declare module 'vscode' {
 		/**
 		 * @deprecated
 		 */
-		export function registerChatExplicitContextProvider(id: string, provider: ChatExplicitContextProvider): Disposable;
+		export function registerChatExplicitContextProvider(id: string, provider: any): Disposable;
 
 
 		/**
@@ -58,7 +58,7 @@ declare module 'vscode' {
 		/**
 		 * @deprecated
 		 */
-		export function registerChatResourceContextProvider(selector: DocumentSelector, id: string, provider: ChatResourceContextProvider): Disposable;
+		export function registerChatResourceContextProvider(selector: DocumentSelector, id: string, provider: any): Disposable;
 
 	}
 
