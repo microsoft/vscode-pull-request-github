@@ -11,6 +11,7 @@ import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
+	CheckSuiteForRollup,
 	CreatePullRequestResponse,
 	FileContentResponse,
 	ForkDetailsResponse,
@@ -1962,6 +1963,22 @@ export class GitHubRepository extends Disposable {
 			};
 		}
 
+		// Workflows triggered from forks (e.g. by first-time contributors) can sit in an
+		// "awaiting approval" state where GitHub has created the workflow run but no check
+		// runs yet. These don't appear in the statusCheckRollup, which would otherwise leave
+		// the PR with no reported checks (surfaced as "Unknown"). Surface them as pending so
+		// the status reflects that something is waiting.
+		const checkSuites = result.data.repository.pullRequest.commits.nodes[0].commit.checkSuites?.nodes;
+		const awaitingApprovalStatuses = this.computeAwaitingApprovalStatuses(
+			checkSuites,
+			checks.statuses,
+			result.data.repository.pullRequest.url,
+		);
+		if (awaitingApprovalStatuses.length) {
+			checks.statuses = checks.statuses.concat(awaitingApprovalStatuses);
+			checks.state = this.computeOverallCheckState(checks.statuses);
+		}
+
 		let reviewRequirement: PullRequestReviewRequirement | null = null;
 		const rule = result.data.repository.pullRequest.baseRef?.refUpdateRule;
 		if (rule) {
@@ -2110,6 +2127,60 @@ export class GitHubRepository extends Disposable {
 			return CheckState.Pending;
 		}
 		return CheckState.Success;
+	}
+
+	/**
+	 * Build synthetic pending statuses for workflow runs that are awaiting approval
+	 * (typically for pull requests from forks). Such runs exist as check suites but have
+	 * not produced any check runs yet, so they are absent from the statusCheckRollup.
+	 * Only suites that aren't already represented by an existing status are included, to
+	 * avoid duplicating checks that GitHub has already reported.
+	 */
+	private computeAwaitingApprovalStatuses(
+		checkSuites: CheckSuiteForRollup[] | undefined,
+		existingStatuses: PullRequestCheckStatus[],
+		prUrl: string,
+	): PullRequestCheckStatus[] {
+		if (!checkSuites?.length) {
+			return [];
+		}
+
+		const existingWorkflowNames = new Set(
+			existingStatuses.map(status => status.workflowName).filter((name): name is string => !!name),
+		);
+
+		const awaitingApproval: PullRequestCheckStatus[] = [];
+		for (const suite of checkSuites) {
+			// A suite that is waiting or has only been requested and hasn't concluded is
+			// awaiting approval before it can run.
+			if (suite.conclusion !== null || (suite.status !== 'WAITING' && suite.status !== 'REQUESTED')) {
+				continue;
+			}
+
+			const workflowName = suite.workflowRun?.workflow.name;
+			if (workflowName && existingWorkflowNames.has(workflowName)) {
+				continue;
+			}
+
+			awaitingApproval.push({
+				id: `awaiting-approval:${workflowName ?? awaitingApproval.length}`,
+				databaseId: undefined,
+				url: suite.app?.url,
+				avatarUrl:
+					suite.app?.logoUrl &&
+					getAvatarWithEnterpriseFallback(suite.app.logoUrl, undefined, this.remote.isEnterprise),
+				state: CheckState.Pending,
+				description: vscode.l10n.t('Waiting for approval'),
+				context: workflowName ?? vscode.l10n.t('Workflow awaiting approval'),
+				workflowName,
+				event: suite.workflowRun?.event,
+				targetUrl: prUrl,
+				isRequired: false,
+				isCheckRun: true,
+			});
+		}
+
+		return awaitingApproval;
 	}
 
 	/**
