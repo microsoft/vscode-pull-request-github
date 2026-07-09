@@ -1108,6 +1108,22 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 								}
 							}
 						}
+						checkSuites(first: 100) {
+							nodes {
+								status
+								conclusion
+								workflowRun {
+									event
+									workflow {
+										name
+									}
+								}
+								app {
+									logoUrl
+									url
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1176,6 +1192,18 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 										name
 										resourcePath
 										isRequired(pullRequestNumber: $number)
+									}
+								}
+							}
+						}
+						checkSuites(first: 100) {
+							nodes {
+								status
+								conclusion
+								workflowRun {
+									event
+									workflow {
+										name
 									}
 								}
 							}
