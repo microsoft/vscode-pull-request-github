@@ -1313,6 +1313,19 @@ export async function parseCombinedTimelineEvents(
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
+					verification: commitEv.commit.signature ? {
+						verified: commitEv.commit.signature.isValid,
+						state: commitEv.commit.signature.state,
+						wasSignedByGitHub: commitEv.commit.signature.wasSignedByGitHub,
+						signer: commitEv.commit.signature.signer ? {
+							login: commitEv.commit.signature.signer.login,
+							name: commitEv.commit.signature.signer.name ?? undefined,
+							avatarUrl: commitEv.commit.signature.signer.avatarUrl,
+						} : undefined,
+						keyId: commitEv.commit.signature.keyId ?? undefined,
+						keyFingerprint: commitEv.commit.signature.keyFingerprint ?? undefined,
+						email: commitEv.commit.signature.email ?? undefined,
+					} : undefined,
 					status: commitEv.commit.statusCheckRollup?.state
 				} as Common.CommitEvent); // TODO remove cast
 				break;

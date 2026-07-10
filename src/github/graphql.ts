@@ -202,6 +202,19 @@ export interface Commit {
 		oid: string;
 		message: string;
 		committedDate: Date;
+		signature?: {
+			isValid: boolean;
+			state: string;
+			wasSignedByGitHub?: boolean;
+			signer?: {
+				login: string;
+				name?: string | null;
+				avatarUrl?: string;
+			} | null;
+			keyId?: string | null;
+			keyFingerprint?: string | null;
+			email?: string | null;
+		} | null;
 		statusCheckRollup?: {
 			state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 		};

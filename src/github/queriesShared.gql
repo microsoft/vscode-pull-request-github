@@ -123,6 +123,25 @@ fragment Commit on PullRequestCommit {
 		oid
 		message
 		committedDate
+		signature {
+			isValid
+			state
+			wasSignedByGitHub
+			signer {
+				login
+				name
+				avatarUrl
+			}
+			... on GpgSignature {
+				keyId
+			}
+			... on SshSignature {
+				keyFingerprint
+			}
+			... on SmimeSignature {
+				email
+			}
+		}
 		statusCheckRollup {
 			state
 		}

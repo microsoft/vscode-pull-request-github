@@ -89,7 +89,22 @@ export interface CommitEvent {
 	message: string;
 	bodyHTML?: string;
 	committedDate: Date;
+	verification?: CommitVerification;
 	status?: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+}
+
+export interface CommitVerification {
+	verified: boolean;
+	state: string;
+	wasSignedByGitHub?: boolean;
+	signer?: {
+		login: string;
+		name?: string;
+		avatarUrl?: string;
+	};
+	keyId?: string;
+	keyFingerprint?: string;
+	email?: string;
 }
 
 export interface NewCommitsSinceReviewEvent {
