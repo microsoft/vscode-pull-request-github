@@ -2099,9 +2099,6 @@ export class FolderRepositoryManager extends Disposable {
 		const deleteConfig = async (branch: string) => {
 			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, branch, undefined);
 			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
-			// Git normally removes the entire [branch "<name>"] section when a branch is deleted, but if the
-			// branch no longer exists the leftover section keeps the branch showing up in this list. Remove any
-			// remaining branch.<name>.* config entries so already-deleted branches don't reappear.
 			if (this.repository.unsetConfig) {
 				const prefix = `branch.${branch}.`;
 				const remaining = (await this.repository.getConfigs()).filter(config => config.key.startsWith(prefix));
@@ -2114,11 +2111,6 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 		};
-
-		// delete configs first since that can't be parallelized
-		for (const pick of picks) {
-			await deleteConfig(pick.label);
-		}
 
 		// batch deleting the branches to avoid consuming all available resources
 		await batchPromiseAll(picks, 5, async (pick) => {
@@ -2140,9 +2132,48 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 		});
+
+		// Git removes the whole config section when deleting a branch, including keys with multiple values.
+		// Recreate deleted branches when a provider leaves config behind so Git can perform that cleanup again.
+		const configsAfterDeletion = await this.repository.getConfigs();
+		const branchesNeedingConfigCleanup = picks.filter(pick => {
+			const prefix = `branch.${pick.label}.`;
+			return configsAfterDeletion.some(config => config.key.startsWith(prefix));
+		});
+		const branchesNeedingRetry = new Set(needsRetry?.map(pick => pick.label));
+		for (const pick of branchesNeedingConfigCleanup) {
+			if (!branchesNeedingRetry.has(pick.label)) {
+				try {
+					await this.repository.createBranch(pick.label, false, 'HEAD');
+					await this.repository.deleteBranch(pick.label, true);
+				} catch (e) {
+					Logger.error(`Failed to remove leftover git config section for ${pick.label}: ${e}`, this.id);
+				}
+			}
+		}
+
+		// Config operations can't be parallelized. Clean up any keys left by providers that don't remove sections.
+		for (const pick of picks) {
+			if (!branchesNeedingRetry.has(pick.label)) {
+				await deleteConfig(pick.label);
+			}
+		}
 		if (needsRetry && needsRetry.length) {
 			await this.deleteBranches(needsRetry, nonExistantBranches, progress, totalBranches, deletedBranches);
 		}
+	}
+
+	private async deleteRemotes(picks: readonly vscode.QuickPickItem[]): Promise<{ label: string; error: unknown }[]> {
+		const failures: { label: string; error: unknown }[] = [];
+		for (const pick of picks) {
+			try {
+				await this.repository.removeRemote(pick.label);
+			} catch (error) {
+				Logger.error(`Failed to delete remote ${pick.label}: ${formatError(error)}`, this.id);
+				failures.push({ label: pick.label, error });
+			}
+		}
+		return failures;
 	}
 
 	async deleteLocalBranchesNRemotes() {
@@ -2252,13 +2283,14 @@ export class FolderRepositoryManager extends Disposable {
 					}
 					await deleteBranchesAndShowRemoteStep();
 				} else {
-					// batch deleting the remotes to avoid consuming all available resources
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
 						await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Deleting {0} remotes...', picks.length) }, async () => {
-							await batchPromiseAll(picks, 5, async pick => {
-								await this.repository.removeRemote(pick.label);
-							});
+							const failures = await this.deleteRemotes(picks);
+							if (failures.length) {
+								const message = failures.map(({ label, error }) => `${label}: ${formatError(error)}`).join('\n');
+								await vscode.window.showErrorMessage(vscode.l10n.t('Deleting remotes failed:\n{0}', message));
+							}
 						});
 					}
 					quickPick.hide();

@@ -75,9 +75,15 @@ describe('PullRequestManager', function () {
 
 		it('removes leftover branch config after deleting a branch', async function () {
 			await repository.createBranch('feature', false, 'commit-hash');
+			await repository.setConfig('branch.feature.github-pr-base-branch', 'owner#repo#main');
+			await repository.setConfig('branch.feature.vscode-merge-base', 'origin/main');
 			await repository.setConfig('branch.feature.remote', 'origin');
 			await repository.setConfig('branch.feature.merge', 'refs/heads/feature');
 			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			repository.preserveConfigOnNextBranchDelete = true;
 
 			const nonExistant = new Set<string>();
 			await (manager as any).deleteBranches([{ label: 'feature' }], nonExistant, noopProgress, 1, 0, []);
@@ -92,6 +98,9 @@ describe('PullRequestManager', function () {
 			await repository.setConfig('branch.gone.remote', 'origin');
 			await repository.setConfig('branch.gone.merge', 'refs/heads/gone');
 			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
 
 			const nonExistant = new Set<string>();
 			await (manager as any).deleteBranches([{ label: 'gone' }], nonExistant, noopProgress, 1, 0, []);
@@ -99,6 +108,26 @@ describe('PullRequestManager', function () {
 			const configs = await repository.getConfigs();
 			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.gone.')).length, 0);
 			assert.strictEqual(nonExistant.has('gone'), true);
+		});
+	});
+
+	describe('deleteRemotes', function () {
+		it('continues deleting remotes after one fails', async function () {
+			await repository.addRemote('locked', 'https://github.com/owner/locked');
+			await repository.addRemote('deletable', 'https://github.com/owner/deletable');
+			const removeRemote = repository.removeRemote.bind(repository);
+			sinon.stub(repository, 'removeRemote').callsFake(async name => {
+				if (name === 'locked') {
+					throw new Error('Repository is locked');
+				}
+				await removeRemote(name);
+			});
+
+			const failures = await (manager as any).deleteRemotes([{ label: 'locked' }, { label: 'deletable' }]);
+
+			assert.strictEqual(failures.length, 1);
+			assert.strictEqual(failures[0].label, 'locked');
+			assert.deepStrictEqual(repository.state.remotes.map(remote => remote.name), ['locked']);
 		});
 	});
 });
