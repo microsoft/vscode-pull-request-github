@@ -182,6 +182,7 @@
 	"githubPullRequests.focusedMode.multiDiff": "Show all diffs in the pull request. If there are no changes, show the overview.",
 	"githubPullRequests.focusedMode.false": "Do not change the layout.",
 	"githubPullRequests.showPullRequestNumberInTree.description": "Shows the pull request number in the tree view.",
+	"githubPullRequests.showCommitShaInTree.description": "Shows the abbreviated commit SHA in the tree view",
 	"githubPullRequests.labelCreated.description": "Group of labels that you want to add to the pull request automatically. Labels that don't exist in the repository won't be added.",
 	"githubPullRequests.labelCreated.label.description": "Each string element is the value of label that you want to add.",
 	"githubPullRequests.pullRequestAvatarDisplay.description": "Which icon to use in the pull request tree view",
