@@ -925,7 +925,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this.getReviewContext(),
 			context,
 			reviewType,
-			!additionalEvents,
+			!additionalEvents?.length,
 			action,
 			additionalEvents,
 		);
@@ -940,7 +940,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			message,
 			// When we already have the just-pushed attestation commit locally, skip the
 			// extra full-timeline fetch and let the webview splice it in itself.
-			!additionalEvents,
+			!additionalEvents?.length,
 			action,
 			additionalEvents,
 		);
