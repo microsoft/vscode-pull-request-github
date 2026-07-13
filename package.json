@@ -45,7 +45,7 @@
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.129.0"
+		"vscode": "^1.130.0"
 	},
 	"categories": [
 		"Other",
