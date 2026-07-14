@@ -78,8 +78,10 @@ export class IssueContextProvider implements vscode.ChatAttachContextProvider<Is
 	}
 
 	private _issueToUnresolvedContext(issue: IssueModel): IssueChatContextItem {
+		// eslint-disable-next-line rulesdir/no-cast-to-any
 		return {
 			icon: new vscode.ThemeIcon('issues'),
+			iconPath: new vscode.ThemeIcon('issues'),
 			label: `#${issue.number} ${issue.title}`,
 			modelDescription: 'The GitHub issue the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${issue.number} ${issue.title}`),
@@ -88,7 +90,7 @@ export class IssueContextProvider implements vscode.ChatAttachContextProvider<Is
 				command: 'issue.openDescription',
 				title: vscode.l10n.t('Open Issue')
 			}
-		};
+		} as any;
 	}
 
 	private async _resolvedIssueValue(issue: IssueModel): Promise<string> {

@@ -91,12 +91,14 @@ Default branch: ${defaults.base}`;
 				value = `${value}
 Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
 			}
+			// eslint-disable-next-line rulesdir/no-cast-to-any
 			contexts.push({
 				icon: new vscode.ThemeIcon('github-alt'),
+				iconPath: new vscode.ThemeIcon('github-alt'),
 				label: `${defaults.owner}/${defaults.repo}`,
 				modelDescription,
 				value
-			});
+			} as any);
 		}
 		return contexts;
 	}
@@ -143,8 +145,10 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 	}
 
 	private _prToUnresolvedContext(pr: PullRequestModel): PRChatContextItem {
+		// eslint-disable-next-line rulesdir/no-cast-to-any
 		return {
 			icon: new vscode.ThemeIcon('git-pull-request'),
+			iconPath: new vscode.ThemeIcon('git-pull-request'),
 			label: `#${pr.number} ${pr.title}`,
 			modelDescription: 'The GitHub pull request the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${pr.number} ${pr.title}`),
@@ -153,7 +157,7 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 				command: 'pr.openDescription',
 				title: vscode.l10n.t('Open Pull Request')
 			}
-		};
+		} as any;
 	}
 
 	private async _resolvedPrValue(pr: PullRequestModel): Promise<string> {
