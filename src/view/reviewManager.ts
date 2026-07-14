@@ -797,17 +797,18 @@ export class ReviewManager extends Disposable {
 
 	private layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean) {
 		const isFocusMode = this._context.workspaceState.get<boolean>(FOCUS_REVIEW_MODE);
+		const shouldShow = isFocusMode ? this._showPullRequest.takeShouldShow() : false;
 
 		Logger.appendLine(`Using focus mode = ${isFocusMode}.`, this.id);
 		Logger.appendLine(`State validation silent = ${silent}.`, this.id);
-		Logger.appendLine(`PR show should show = ${this._showPullRequest.shouldShow}.`, this.id);
+		Logger.appendLine(`PR show should show = ${shouldShow}.`, this.id);
 
-		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
+		if ((!silent || shouldShow) && isFocusMode) {
 			this._doFocusShow(pr, updateLayout);
-		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
+		} else if (isFocusMode) {
 			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
 				Logger.appendLine(`PR show value changed = ${shouldShow}.`, this.id);
-				if (shouldShow) {
+				if (shouldShow && this._showPullRequest.takeShouldShow()) {
 					this._doFocusShow(pr, updateLayout);
 				}
 				showPRChangedDisposable.dispose();
@@ -1612,8 +1613,10 @@ export class ShowPullRequest {
 	private _onChangedShowValue: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
 	public readonly onChangedShowValue: vscode.Event<boolean> = this._onChangedShowValue.event;
 	constructor() { }
-	get shouldShow(): boolean {
-		return this._shouldShow;
+	takeShouldShow(): boolean {
+		const shouldShow = this._shouldShow;
+		this._shouldShow = false;
+		return shouldShow;
 	}
 	set shouldShow(shouldShow: boolean) {
 		const oldShowValue = this._shouldShow;
