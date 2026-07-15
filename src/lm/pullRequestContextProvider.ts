@@ -92,7 +92,7 @@ Default branch: ${defaults.base}`;
 Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
 			}
 			contexts.push({
-				icon: new vscode.ThemeIcon('github-alt'),
+				iconPath: new vscode.ThemeIcon('github-alt'),
 				label: `${defaults.owner}/${defaults.repo}`,
 				modelDescription,
 				value
@@ -144,7 +144,7 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 
 	private _prToUnresolvedContext(pr: PullRequestModel): PRChatContextItem {
 		return {
-			icon: new vscode.ThemeIcon('git-pull-request'),
+			iconPath: new vscode.ThemeIcon('git-pull-request'),
 			label: `#${pr.number} ${pr.title}`,
 			modelDescription: 'The GitHub pull request the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${pr.number} ${pr.title}`),
