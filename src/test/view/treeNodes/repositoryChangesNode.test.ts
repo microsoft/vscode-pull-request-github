@@ -13,8 +13,8 @@ function disposable(): vscode.Disposable {
 }
 
 describe('RepositoryChangesNode', function () {
-	// Verifies that VS Code can resolve the visible Files node through its rendered parent chain.
-	it('parents the Files node to the repository changes node', async function () {
+	// Verifies that VS Code can resolve the visible category nodes through their rendered parent chain.
+	it('parents the category nodes to the repository changes node', async function () {
 		const parent: BaseTreeNode = {
 			reveal: async () => { },
 			refresh: () => { },
@@ -55,8 +55,9 @@ describe('RepositoryChangesNode', function () {
 		);
 
 		try {
-			const [filesNode] = await node.getChildren();
+			const [filesNode, commitsNode] = await node.getChildren();
 			assert.strictEqual(filesNode.getParent(), node);
+			assert.strictEqual(commitsNode.getParent(), node);
 		} finally {
 			node.dispose();
 		}

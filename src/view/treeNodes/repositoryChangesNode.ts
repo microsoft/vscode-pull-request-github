@@ -111,7 +111,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Creating file and commit nodes for PR #${this.pullRequestModel.number}`, PR_TREE);
 			this._filesCategoryNode = new FilesCategoryNode(this, this._reviewModel, this.pullRequestModel);
 			this._commitsCategoryNode = new CommitsNode(
-				this.parent,
+				this,
 				this._pullRequestManager,
 				this.pullRequestModel,
 			);
