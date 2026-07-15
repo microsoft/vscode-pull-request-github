@@ -53,12 +53,15 @@ describe('RepositoryChangesNode', function () {
 			reviewModel as any,
 			{ progress: Promise.resolve() } as any,
 		);
+		let children: TreeNode[] = [];
 
 		try {
-			const [filesNode, commitsNode] = await node.getChildren();
+			children = await node.getChildren();
+			const [filesNode, commitsNode] = children;
 			assert.strictEqual(filesNode.getParent(), node);
 			assert.strictEqual(commitsNode.getParent(), node);
 		} finally {
+			children.forEach(child => child.dispose());
 			node.dispose();
 		}
 	});
