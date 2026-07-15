@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import { fromOpenOrCheckoutPullRequestWebviewUri } from '../../common/uri';
+import { fromOpenIssueWebviewUri, fromOpenOrCheckoutPullRequestWebviewUri } from '../../common/uri';
 
 describe('uri', () => {
 	describe('fromOpenOrCheckoutPullRequestWebviewUri', () => {
@@ -126,6 +126,70 @@ describe('uri', () => {
 			assert.strictEqual(result?.owner, 'testowner');
 			assert.strictEqual(result?.repo, 'testrepo');
 			assert.strictEqual(result?.pullRequestNumber, 123);
+		});
+	});
+
+	describe('fromOpenIssueWebviewUri', () => {
+		it('should parse the new simplified format with uri parameter', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-issue-webview?uri=https://github.com/microsoft/vscode-tools/issues/964');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result?.owner, 'microsoft');
+			assert.strictEqual(result?.repo, 'vscode-tools');
+			assert.strictEqual(result?.issueNumber, 964);
+		});
+
+		it('should parse the new simplified format with http (not https)', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-issue-webview?uri=http://github.com/owner/repo/issues/123');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result?.owner, 'owner');
+			assert.strictEqual(result?.repo, 'repo');
+			assert.strictEqual(result?.issueNumber, 123);
+		});
+
+		it('should parse the old JSON format for backward compatibility', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-issue-webview?%7B%22owner%22%3A%22microsoft%22%2C%22repo%22%3A%22vscode-tools%22%2C%22issueNumber%22%3A964%7D');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result?.owner, 'microsoft');
+			assert.strictEqual(result?.repo, 'vscode-tools');
+			assert.strictEqual(result?.issueNumber, 964);
+		});
+
+		it('should return undefined for invalid authority', () => {
+			const uri = vscode.Uri.parse('vscode://invalid-authority/open-issue-webview?uri=https://github.com/owner/repo/issues/1');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result, undefined);
+		});
+
+		it('should return undefined for invalid path', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/invalid-path?uri=https://github.com/owner/repo/issues/1');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result, undefined);
+		});
+
+		it('should return undefined for non-github host', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-issue-webview?uri=https://example.com/owner/repo/issues/1');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result, undefined);
+		});
+
+		it('should return undefined for non-numeric issue number', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-issue-webview?uri=https://github.com/owner/repo/issues/abc');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result, undefined);
+		});
+
+		it('should reject URLs with extra path segments after issue number', () => {
+			const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-issue-webview?uri=https://github.com/owner/repo/issues/123/something');
+			const result = fromOpenIssueWebviewUri(uri);
+
+			assert.strictEqual(result, undefined);
 		});
 	});
 });

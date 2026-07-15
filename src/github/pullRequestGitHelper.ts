@@ -11,7 +11,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel'
 import { Branch, Repository } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { parseRepositoryRemotesAsync, Remote } from '../common/remote';
 import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
@@ -333,8 +333,19 @@ export class PullRequestGitHelper {
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const allConfigs = await repository.getConfigs();
-			const matchingConfigs = allConfigs.filter(config => config.key === configKey).sort((a, b) => b.value < a.value ? 1 : -1);
-			return PullRequestGitHelper.parsePullRequestMetadata(matchingConfigs[0].value);
+			// When the same branch name has been associated with multiple PRs over
+			// time (resulting in duplicate config entries), prefer the most recent
+			// association: parse the trailing PR number and sort numerically so the
+			// highest PR number wins. Entries that fail to parse, or whose PR
+			// number is not a finite integer (e.g. malformed config values like
+			// `owner#repo#abc`), are filtered out so they cannot poison the sort.
+			// Returns `undefined` when no entries parse to valid metadata.
+			const matchingConfigs = allConfigs
+				.filter(config => config.key === configKey)
+				.map(config => ({ config, metadata: PullRequestGitHelper.parsePullRequestMetadata(config.value) }))
+				.filter((entry): entry is { config: { key: string; value: string }, metadata: PullRequestMetadata } => !!entry.metadata && Number.isFinite(entry.metadata.prNumber))
+				.sort((a, b) => b.metadata.prNumber - a.metadata.prNumber);
+			return matchingConfigs[0]?.metadata;
 		} catch (_) {
 			return;
 		}
@@ -343,14 +354,14 @@ export class PullRequestGitHelper {
 	static async createRemote(repository: Repository, baseRemote: Remote, cloneUrl: Protocol) {
 		Logger.appendLine(`create remote for ${cloneUrl}.`, PullRequestGitHelper.ID);
 
-		const remotes = parseRepositoryRemotes(repository);
+		const remotes = await parseRepositoryRemotesAsync(repository);
 		for (const remote of remotes) {
 			if (new Protocol(remote.url).equals(cloneUrl)) {
 				return remote.remoteName;
 			}
 		}
 
-		const remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
+		const remoteName = await PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		cloneUrl.update({
 			type: baseRemote.gitProtocol.type,
 		});
@@ -390,10 +401,10 @@ export class PullRequestGitHelper {
 		return result;
 	}
 
-	static getUniqueRemoteName(repository: Repository, name: string) {
+	static async getUniqueRemoteName(repository: Repository, name: string) {
 		let uniqueName = name;
 		let number = 1;
-		const remotes = parseRepositoryRemotes(repository);
+		const remotes = await parseRepositoryRemotesAsync(repository);
 
 		// eslint-disable-next-line no-loop-func
 		while (remotes.find(e => e.remoteName === uniqueName)) {

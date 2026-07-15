@@ -7,12 +7,13 @@
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
+import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity } from './views';
+import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -452,13 +453,18 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.openLocalFile(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
+			case 'pr.upload-files':
+				return this.uploadFiles(message);
+			case 'pr.upload-pasted-files':
+				return this.uploadPastedFiles(message);
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}
 	}
 
-	protected async submitReviewMessage(message: IRequestMessage<string>) {
-		const comment = await this._item.createIssueComment(message.args);
+	protected async submitReviewMessage(message: IRequestMessage<SubmitReviewArgs>) {
+		const body = message.args?.body ?? '';
+		const comment = await this._item.createIssueComment(body);
 		const commentedEvent: CommentEvent = {
 			...comment,
 			event: EventType.Commented
@@ -573,6 +579,71 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		Logger.debug(message.args, IssueOverviewPanel.ID);
 	}
 
+	private async uploadFiles(message: IRequestMessage<void>): Promise<void> {
+		const uploads = await pickFilesForUpload();
+		if (!uploads) {
+			const empty: UploadFilesReply = { uploads: [] };
+			return this._replyMessage(message, empty);
+		}
+
+		const reply: UploadFilesReply = { uploads: uploads.map(u => ({ name: u.name, placeholder: u.placeholder })) };
+		await this._replyMessage(message, reply);
+
+		runFileUploads(
+			this._item.githubRepository,
+			uploads,
+			IssueOverviewPanel.ID,
+			(placeholder, name, markdown) => this._postMessage({
+				command: 'pr.file-upload-completed',
+				placeholder,
+				name,
+				markdown,
+			} satisfies FileUploadCompletedMessage),
+			(placeholder, name, error) => this._postMessage({
+				command: 'pr.file-upload-completed',
+				placeholder,
+				name,
+				error,
+			} satisfies FileUploadCompletedMessage),
+		);
+	}
+
+	private async uploadPastedFiles(message: IRequestMessage<UploadPastedFilesArgs>): Promise<void> {
+		const files = message.args?.files ?? [];
+		if (files.length === 0) {
+			const empty: UploadFilesReply = { uploads: [] };
+			return this._replyMessage(message, empty);
+		}
+
+		const names = files.map(f => f.name.includes('.') ? f.name : `${f.name}${guessExtensionFromMime(f.type)}`);
+		const placeholders = placeholdersForNames(names);
+		const reply: UploadFilesReply = { uploads: placeholders };
+		await this._replyMessage(message, reply);
+
+		runPendingUploads(
+			this._item.githubRepository,
+			files.map((f, i) => ({
+				name: placeholders[i].name,
+				placeholder: placeholders[i].placeholder,
+				getBytes: () => Promise.resolve(decodeBase64(f.bytesBase64)),
+			})),
+			IssueOverviewPanel.ID,
+			(placeholder, name, markdown) => this._postMessage({
+				command: 'pr.file-upload-completed',
+				placeholder,
+				name,
+				markdown,
+			} satisfies FileUploadCompletedMessage),
+			(placeholder, name, error) => this._postMessage({
+				command: 'pr.file-upload-completed',
+				placeholder,
+				name,
+				error,
+			} satisfies FileUploadCompletedMessage),
+		);
+	}
+
+
 	/**
 	 * Process code reference links in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
 	 * to provide custom processing logic for different item types.
@@ -593,7 +664,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * Process code reference links in timeline events (comments, reviews, commits).
 	 * Updates bodyHTML fields for all events that contain them.
 	 */
-	protected async processTimelineEvents(events: TimelineEvent[]): Promise<TimelineEvent[]> {
+	protected async processTimelineEvents(events: TimelineEvent[] | undefined): Promise<TimelineEvent[]> {
+		if (!events) {
+			return [];
+		}
 		return Promise.all(events.map(async (event) => {
 			// Create a shallow copy to avoid mutating the original
 			const processedEvent = { ...event };

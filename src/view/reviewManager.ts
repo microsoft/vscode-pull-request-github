@@ -50,6 +50,9 @@ import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
 export class ReviewManager extends Disposable {
 	public static ID = 'Review';
+	private static readonly MIN_POLL_INTERVAL_MS = 1000 * 60 * 5;
+	private static readonly MAX_POLL_INTERVAL_MS = 1000 * 60 * 30;
+	private static readonly POLL_BACKOFF_MULTIPLIER = 2;
 	private readonly _localToDispose: vscode.Disposable[] = [];
 
 	private readonly _reviewModel: ReviewModel = new ReviewModel();
@@ -77,7 +80,16 @@ export class ReviewManager extends Disposable {
 	 */
 	private _cachedMaxPRNumbers: Map<string, number> | undefined;
 	private _cachedBranchName: string | undefined;
+	/**
+	 * Tracks branches for which we've already performed the one-shot GitHub
+	 * re-check after detecting existing local PR metadata. This allows stale
+	 * `branch.<name>.github-pr-owner-number` entries (e.g. pointing at a
+	 * closed PR) to self-heal once, without bypassing the
+	 * branch-change/new-PR cache on every subsequent `validateState` call.
+	 */
+	private readonly _staleMetadataCheckedBranches = new Set<string>();
 	private _pollHandle: NodeJS.Timeout | undefined;
+	private _pollIntervalMs = ReviewManager.MIN_POLL_INTERVAL_MS;
 	/**
 	 * Flag set when the "Checkout" action is used and cleared on the next git
 	 * state update, once review mode has been entered. Used to disambiguate
@@ -137,6 +149,17 @@ export class ReviewManager extends Disposable {
 			this.updateState(true);
 		}
 		this.pollForStateChange();
+		this._register(vscode.window.onDidChangeWindowState(state => {
+			if (state.focused && !this._pollHandle) {
+				// Polling was skipped because the window was not focused. Schedule a
+				// poll with a randomized delay (jitter) so that in multi-repo setups
+				// all ReviewManagers don't poll at the same time. Reuse _pollHandle so
+				// subsequent focus events don't trigger overlapping polls; doPoll
+				// applies the normal backoff rules.
+				const jitter = 15_000 + Math.floor(Math.random() * 45_000); // 15-60s
+				this._pollHandle = setTimeout(() => this.doPoll(), jitter);
+			}
+		}));
 		this._register(toDisposable(() => {
 			if (this._pollHandle) {
 				clearTimeout(this._pollHandle);
@@ -221,23 +244,59 @@ export class ReviewManager extends Disposable {
 	}
 
 	private pollForStateChange() {
-		this._pollHandle = setTimeout(async () => {
-			if (this.isDisposed) {
-				return;
-			}
-			Logger.appendLine('Polling for state change...', this.id);
-			try {
-				if (!this._validateStatusInProgress && !this._folderRepoManager.activePullRequest) {
-					await this.updateState();
+		if (this._pollHandle) {
+			clearTimeout(this._pollHandle);
+		}
+		this._pollHandle = setTimeout(() => this.doPoll(), this._pollIntervalMs);
+	}
+
+	private async doPoll() {
+		if (this.isDisposed) {
+			return;
+		}
+		this._pollHandle = undefined;
+		if (!vscode.window.state.focused) {
+			// Skip polling while the window is not focused. Polling will resume
+			// immediately when the window regains focus (see onDidChangeWindowState).
+			Logger.appendLine('Skipping poll: window is not focused', this.id);
+			return;
+		}
+		Logger.appendLine('Polling for state change...', this.id);
+		let hasDetectedChange = false;
+		try {
+			if (!this._validateStatusInProgress) {
+				const shouldRefreshForActivePr = !!this._folderRepoManager.activePullRequest && await this.hasNewPullRequests();
+				if (shouldRefreshForActivePr) {
+					Logger.appendLine('Polling detected potential new PR activity while a PR is active. Refreshing state.', this.id);
 				}
-			} catch (e) {
-				Logger.warn(`Polling for state change failed: ${formatError(e)}`, this.id);
-			} finally {
-				if (!this.isDisposed) {
-					this.pollForStateChange();
+
+				if (!this._folderRepoManager.activePullRequest || shouldRefreshForActivePr) {
+					const previousPrNumber = this._prNumber;
+					const previousLastCommitSha = this._lastCommitSha;
+					await this.updateState(true, false);
+					hasDetectedChange =
+						previousPrNumber !== this._prNumber ||
+						previousLastCommitSha !== this._lastCommitSha;
 				}
 			}
-		}, 1000 * 60 * 5);
+
+			if (hasDetectedChange) {
+				this._pollIntervalMs = ReviewManager.MIN_POLL_INTERVAL_MS;
+				Logger.appendLine(`Polling detected change. Next poll in ${Math.round(this._pollIntervalMs / 1000)}s.`, this.id);
+			} else {
+				this._pollIntervalMs = Math.min(
+					ReviewManager.MAX_POLL_INTERVAL_MS,
+					this._pollIntervalMs * ReviewManager.POLL_BACKOFF_MULTIPLIER,
+				);
+				Logger.appendLine(`Polling found no change. Backing off to ${Math.round(this._pollIntervalMs / 1000)}s.`, this.id);
+			}
+		} catch (e) {
+			Logger.warn(`Polling for state change failed: ${formatError(e)}`, this.id);
+		} finally {
+			if (!this.isDisposed) {
+				this.pollForStateChange();
+			}
+		}
 	}
 
 	private async updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
@@ -584,14 +643,25 @@ export class ReviewManager extends Disposable {
 		}
 
 		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
-
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
-			if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests()) {
-				matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch);
-			} else {
-				Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
+		}
+
+		// One-shot self-heal: when local metadata exists for this branch, re-check GitHub once
+		// (per branch) in case the local metadata points to a stale closed PR. If GitHub returns
+		// a result, it overwrites the local metadata via associateBranchWithPullRequest. Subsequent
+		// checks for the same branch fall back to the branch-change/new-PR cache.
+		const needsStaleMetadataCheck = !!matchingPullRequestMetadata && !!branch.name && !this._staleMetadataCheckedBranches.has(branch.name);
+		if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests() || needsStaleMetadataCheck) {
+			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
+			if (metadataFromGithub) {
+				matchingPullRequestMetadata = metadataFromGithub;
 			}
+			if (needsStaleMetadataCheck && branch.name) {
+				this._staleMetadataCheckedBranches.add(branch.name);
+			}
+		} else {
+			Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
 		}
 		this._cachedBranchName = branch.name;
 
@@ -631,6 +701,9 @@ export class ReviewManager extends Disposable {
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (!this.justSwitchedToReviewMode && (previousPrNumber === pr.number) && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
+			// No meaningful state change; keep the previous commit SHA so polling
+			// doesn't treat this as a change on the next cycle.
+			this._lastCommitSha = oldLastCommitSha;
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
@@ -724,17 +797,18 @@ export class ReviewManager extends Disposable {
 
 	private layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean) {
 		const isFocusMode = this._context.workspaceState.get<boolean>(FOCUS_REVIEW_MODE);
+		const shouldShow = isFocusMode ? this._showPullRequest.takeShouldShow() : false;
 
 		Logger.appendLine(`Using focus mode = ${isFocusMode}.`, this.id);
 		Logger.appendLine(`State validation silent = ${silent}.`, this.id);
-		Logger.appendLine(`PR show should show = ${this._showPullRequest.shouldShow}.`, this.id);
+		Logger.appendLine(`PR show should show = ${shouldShow}.`, this.id);
 
-		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
+		if ((!silent || shouldShow) && isFocusMode) {
 			this._doFocusShow(pr, updateLayout);
-		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
+		} else if (isFocusMode) {
 			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
 				Logger.appendLine(`PR show value changed = ${shouldShow}.`, this.id);
-				if (shouldShow) {
+				if (shouldShow && this._showPullRequest.takeShouldShow()) {
 					this._doFocusShow(pr, updateLayout);
 				}
 				showPRChangedDisposable.dispose();
@@ -1539,8 +1613,10 @@ export class ShowPullRequest {
 	private _onChangedShowValue: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
 	public readonly onChangedShowValue: vscode.Event<boolean> = this._onChangedShowValue.event;
 	constructor() { }
-	get shouldShow(): boolean {
-		return this._shouldShow;
+	takeShouldShow(): boolean {
+		const shouldShow = this._shouldShow;
+		this._shouldShow = false;
+		return shouldShow;
 	}
 	set shouldShow(shouldShow: boolean) {
 		const oldShowValue = this._shouldShow;

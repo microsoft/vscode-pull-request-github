@@ -25,6 +25,7 @@ module.exports.unicodeFilter = [
 	'**',
 	// except specific files
 	'!documentation/**/*',
+	'!src/@types/vscode.proposed*.d.ts',
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',

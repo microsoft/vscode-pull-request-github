@@ -596,12 +596,12 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository)),
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository, thread.id)),
 		subjectType: thread.subjectType ?? SubjectType.LINE
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository, threadId?: string): IComment {
 	const specialAuthor = COPILOT_ACCOUNTS[comment.author?.login ?? ''];
 	const c: IComment = {
 		id: comment.databaseId,
@@ -626,7 +626,8 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
 		reactions: parseGraphQLReaction(comment.reactionGroups),
 		isResolved,
-		isOutdated
+		isOutdated,
+		threadId
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
@@ -1052,7 +1053,8 @@ export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: 
 		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment, githubRepository)),
 		reactionCount: issue.reactions.totalCount,
 		reactions: parseGraphQLReaction(issue.reactionGroups),
-		commentCount: issue.comments.totalCount
+		commentCount: issue.comments.totalCount,
+		issueType: issue.issueType?.name
 	};
 }
 
@@ -1311,6 +1313,19 @@ export async function parseCombinedTimelineEvents(
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
+					verification: commitEv.commit.signature ? {
+						verified: commitEv.commit.signature.isValid,
+						state: commitEv.commit.signature.state,
+						wasSignedByGitHub: commitEv.commit.signature.wasSignedByGitHub,
+						signer: commitEv.commit.signature.signer ? {
+							login: commitEv.commit.signature.signer.login,
+							name: commitEv.commit.signature.signer.name ?? undefined,
+							avatarUrl: commitEv.commit.signature.signer.avatarUrl,
+						} : undefined,
+						keyId: commitEv.commit.signature.keyId ?? undefined,
+						keyFingerprint: commitEv.commit.signature.keyFingerprint ?? undefined,
+						email: commitEv.commit.signature.email ?? undefined,
+					} : undefined,
 					status: commitEv.commit.statusCheckRollup?.state
 				} as Common.CommitEvent); // TODO remove cast
 				break;
@@ -1537,11 +1552,11 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 }
 
 export function getRelatedUsersFromTimelineEvents(
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 ): { login: string; name: string }[] {
 	const ret: { login: string; name: string }[] = [];
 
-	timelineEvents.forEach(event => {
+	timelineEvents?.forEach(event => {
 		if (event.event === Common.EventType.Committed) {
 			ret.push({
 				login: event.author.login,
@@ -1611,10 +1626,10 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  */
 export function parseReviewers(
 	requestedReviewers: (IAccount | ITeam)[],
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 	author: IAccount,
 ): ReviewState[] {
-	const reviewEvents = timelineEvents.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING');
+	const reviewEvents = timelineEvents?.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING') || [];
 	let reviewers: ReviewState[] = [];
 	const seen = new Map<string, boolean>();
 
@@ -1697,37 +1712,56 @@ export function insertNewCommitsSinceReview(
 	currentUser: string,
 	head: GitHubRef | null
 ) {
-	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
-		let lastViewerReviewIndex: number = timelineEvents.length - 1;
-		let comittedDuringReview: boolean = false;
-		let interReviewCommits: Common.TimelineEvent[] = [];
+	if (!latestReviewCommitOid || !head || head.sha === latestReviewCommitOid) {
+		return;
+	}
 
-		for (let i = timelineEvents.length - 1; i > 0; i--) {
-			if (
-				timelineEvents[i].event === Common.EventType.Committed &&
-				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommitOid
-			) {
-				interReviewCommits.unshift({
-					id: latestReviewCommitOid,
-					event: Common.EventType.NewCommitsSinceReview
-				});
-				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);
+	// Find the current user's most recent review.
+	let reviewIndex = -1;
+	let reviewTime: number | undefined;
+	for (let i = timelineEvents.length - 1; i >= 0; i--) {
+		if (
+			timelineEvents[i].event === Common.EventType.Reviewed &&
+			(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
+		) {
+			reviewIndex = i;
+			const submittedAt = (timelineEvents[i] as Common.ReviewEvent).submittedAt;
+			reviewTime = submittedAt ? new Date(submittedAt).getTime() : undefined;
+			break;
+		}
+	}
+
+	if (reviewIndex === -1) {
+		return;
+	}
+
+	// Insert the marker just before the first commit that occurred AFTER the
+	// review (so commits pushed before the review, e.g. an attestation commit,
+	// stay in their chronological place).
+	let insertIndex = -1;
+	for (let i = reviewIndex + 1; i < timelineEvents.length; i++) {
+		if (timelineEvents[i].event === Common.EventType.Committed) {
+			const committedDate = (timelineEvents[i] as Common.CommitEvent).committedDate;
+			const committedTime = committedDate ? new Date(committedDate).getTime() : undefined;
+			if (reviewTime === undefined || committedTime === undefined || committedTime > reviewTime) {
+				insertIndex = i;
 				break;
-			}
-			else if (comittedDuringReview && timelineEvents[i].event === Common.EventType.Committed) {
-				interReviewCommits.unshift(timelineEvents[i]);
-				timelineEvents.splice(i, 1);
-			}
-			else if (
-				!comittedDuringReview &&
-				timelineEvents[i].event === Common.EventType.Reviewed &&
-				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
-			) {
-				lastViewerReviewIndex = i;
-				comittedDuringReview = true;
 			}
 		}
 	}
+
+	if (insertIndex === -1) {
+		// No commits occurred after the user's most recent review - skip the
+		// marker entirely. Placing it before the review event (e.g. next to a
+		// pre-review attestation commit) would contradict its "New changes
+		// since your last Review" label.
+		return;
+	}
+
+	timelineEvents.splice(insertIndex, 0, {
+		id: latestReviewCommitOid,
+		event: Common.EventType.NewCommitsSinceReview
+	});
 }
 
 export function getPRFetchQuery(user: string, query: string): string {
@@ -1865,6 +1899,15 @@ export function variableSubstitution(
 			case 'sanitizedLowercaseIssueTitle':
 				result = issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
 				break;
+			case 'issueType':
+				result = issueModel?.item.issueType ? issueModel.item.issueType : match;
+				break;
+			case 'sanitizedIssueType':
+				result = issueModel?.item.issueType ? sanitizeIssueTitle(issueModel.item.issueType) : match;
+				break;
+			case 'sanitizedLowercaseIssueType':
+				result = issueModel?.item.issueType ? sanitizeIssueTitle(issueModel.item.issueType).toLowerCase() : match;
+				break;
 			case 'today':
 				result = computeSinceValue(extra);
 				break;
@@ -1954,7 +1997,8 @@ export enum UnsatisfiedChecks {
 	ReviewRequired = 1 << 0,
 	ChangesRequested = 1 << 1,
 	CIFailed = 1 << 2,
-	CIPending = 1 << 3
+	CIPending = 1 << 3,
+	Unknown = 1 << 4
 }
 
 export async function extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string | undefined): Promise<RemoteInfo | undefined> {

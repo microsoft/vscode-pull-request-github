@@ -24,6 +24,10 @@ import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
+import { IRequestMessage } from '../../common/webview';
+import { PullRequestMergeability } from '../../github/interface';
+import { PullRequest } from '../../github/views';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -66,6 +70,53 @@ describe('PullRequestManager', function () {
 			manager.activePullRequest = pr;
 			assert(changeFired.called);
 			assert.deepStrictEqual(manager.activePullRequest, pr);
+		});
+	});
+
+	describe('tryMergeBaseIntoHead', function () {
+		it('updates a conflict-free pull request that is not checked out using GraphQL', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'isHeadUpToDateWithBase').resolves(false);
+			const updateBranchWithGraphQL = sinon.stub(pr, 'updateBranchWithGraphQL').resolves(true);
+			const updateBranch = sinon.stub(pr, 'updateBranch').resolves(true);
+
+			const result = await manager.tryMergeBaseIntoHead(pr, true);
+
+			assert.strictEqual(result, true);
+			assert.strictEqual(updateBranchWithGraphQL.calledOnce, true);
+			assert.strictEqual(updateBranch.notCalled, true);
+		});
+	});
+
+	describe('updateBranch', function () {
+		it('reports that the branch is up to date after a successful update', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'tryMergeBaseIntoHead').resolves(true);
+			sinon.stub(pr, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
+			let reply: Partial<PullRequest> | undefined;
+			const context: ReviewContext = {
+				item: pr,
+				folderRepositoryManager: manager,
+				existingReviewers: [],
+				postMessage: sinon.stub().resolves(),
+				replyMessage: (_message, response) => reply = response,
+				throwError: sinon.stub(),
+				getTimeline: sinon.stub().resolves([]),
+			};
+			const message: IRequestMessage<string> = { req: '1', command: 'pr.update-branch', args: '' };
+
+			await PullRequestReviewCommon.updateBranch(context, message, sinon.stub().resolves());
+
+			assert.strictEqual(reply?.canUpdateBranch, false);
+			assert.strictEqual(reply?.mergeable, PullRequestMergeability.Mergeable);
 		});
 	});
 });
@@ -341,5 +392,45 @@ describe('titleAndBodyFrom', function () {
 		const result = await titleAndBodyFrom(message);
 		assert.strictEqual(result?.title, 'This is a test');
 		assert.strictEqual(result?.body, '- A fslilenfilnf flen felslnf lsefl fnels  Leknef Lkdfnle  lfkenSlefn Lnkef LefnLienf LIfnels\n- B\n- C');
+	});
+
+	it('strips Co-authored-by trailer lines from body', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('strips multiple Co-authored-by trailer lines', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nCo-authored-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('strips Co-authored-by case-insensitively', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nco-authored-by: Alice <alice@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('preserves other trailers when stripping Co-authored-by', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nSigned-off-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.\n\nSigned-off-by: Alice <alice@example.com>');
+	});
+
+	it('returns empty body when only Co-authored-by trailers are present', async function () {
+		const message = Promise.resolve('title\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '');
 	});
 });

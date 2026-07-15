@@ -34,11 +34,11 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
-import { unwrapCommitMessageBody } from '../common/gitUtils';
+import { stripCoAuthoredByTrailers, unwrapCommitMessageBody } from '../common/gitUtils';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotes, parseRepositoryRemotesAsync, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
@@ -241,7 +241,7 @@ export class FolderRepositoryManager extends Disposable {
 	) {
 		super();
 		this._githubRepositories = [];
-		this._githubManager = new GitHubManager();
+		this._githubManager = new GitHubManager(this.telemetry);
 
 		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
@@ -746,7 +746,7 @@ export class FolderRepositoryManager extends Disposable {
 			return globalStateMentionableUsers ?? this._fetchMentionableUsersPromise;
 		}
 
-		return this._fetchMentionableUsersPromise;
+		return globalStateMentionableUsers ?? this._fetchMentionableUsersPromise;
 	}
 
 	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
@@ -783,7 +783,7 @@ export class FolderRepositoryManager extends Disposable {
 			return globalStateAssignableUsers ?? this._fetchAssignableUsersPromise;
 		}
 
-		return this._fetchAssignableUsersPromise;
+		return globalStateAssignableUsers ?? this._fetchAssignableUsersPromise;
 	}
 
 	async getTeamReviewers(refreshKind: TeamReviewerRefreshKind): Promise<{ [key: string]: ITeam[] }> {
@@ -2554,6 +2554,20 @@ export class FolderRepositoryManager extends Disposable {
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
 
+		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict && !pullRequest.githubRepository.remote.isEnterprise) {
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
+				async () => {
+					const success = await pullRequest.updateBranchWithGraphQL();
+					if (success && pullRequest.isActive) {
+						await this.repository.pull();
+					}
+					return success;
+				}
+			);
+			return result;
+		}
+
 		if (!pullRequest.isActive || isBrowser) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
@@ -2575,21 +2589,6 @@ export class FolderRepositoryManager extends Disposable {
 				return false;
 			}
 		}
-
-		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict && !pullRequest.githubRepository.remote.isEnterprise) {
-			const result = await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
-				async () => {
-					const success = await pullRequest.updateBranchWithGraphQL();
-					if (success && pullRequest.isActive) {
-						await this.repository.pull();
-					}
-					return success;
-				}
-			);
-			return result;
-		}
-
 
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
@@ -2915,7 +2914,7 @@ export class FolderRepositoryManager extends Disposable {
 			Logger.debug(`Skipping inaccessible repository: ${owner}/${repositoryName}`, this.id);
 			return undefined;
 		}
-		const gitRemotes = parseRepositoryRemotes(this.repository);
+		const gitRemotes = await parseRepositoryRemotesAsync(this.repository);
 		const gitRemote = gitRemotes.find(r => r.owner === owner && r.repositoryName === repositoryName);
 		const uri = gitRemote?.url ?? `https://github.com/${owner}/${repositoryName}`;
 		const repo = await this.createAndAddGitHubRepository(new Remote(gitRemote?.remoteName ?? repositoryName, uri, new Protocol(uri)), this._credentialStore);
@@ -3213,7 +3212,7 @@ export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Pr
 	}
 	const idxLineBreak = message.indexOf('\n');
 	const hasBody = idxLineBreak !== -1;
-	const rawBody = hasBody ? message.slice(idxLineBreak + 1).trim() : '';
+	const rawBody = hasBody ? stripCoAuthoredByTrailers(message.slice(idxLineBreak + 1)).trim() : '';
 	return {
 		title: hasBody ? message.slice(0, idxLineBreak) : message,
 

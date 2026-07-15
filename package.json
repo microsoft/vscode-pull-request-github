@@ -41,11 +41,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.140.0",
+	"version": "0.158.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.110.0"
+		"vscode": "^1.130.0"
 	},
 	"categories": [
 		"Other",
@@ -319,6 +319,14 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
+				},
+				"githubPullRequests.enableAttestationCommits": {
+					"type": [
+						"boolean",
+						"string"
+					],
+					"default": false,
+					"markdownDescription": "%githubPullRequests.enableAttestationCommits.description%"
 				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
@@ -869,6 +877,16 @@
 				}
 			}
 		},
+		"yamlValidation": [
+			{
+				"fileMatch": ".github/ISSUE_TEMPLATE/!(config).{yml,yaml}",
+				"url": "https://json.schemastore.org/github-issue-forms.json"
+			},
+			{
+				"fileMatch": ".github/ISSUE_TEMPLATE/config.{yml,yaml}",
+				"url": "https://json.schemastore.org/github-issue-config.json"
+			}
+		],
 		"viewsContainers": {
 			"activitybar": [
 				{
@@ -1246,6 +1264,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.uploadFile",
+				"title": "%command.pr.uploadFile.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(cloud-upload)"
+			},
+			{
 				"command": "pr.startReview",
 				"title": "%command.pr.startReview.title%",
 				"category": "%command.pull.request.category%",
@@ -1528,6 +1552,11 @@
 			{
 				"command": "review.approveOnDotCom",
 				"title": "%command.review.approveOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.addAttestationCommit",
+				"title": "%command.pr.addAttestationCommit.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2069,6 +2098,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addAttestationCommit",
+					"when": "config.githubPullRequests.enableAttestationCommits"
+				},
+				{
 					"command": "pr.configureRemotes",
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
@@ -2358,6 +2391,10 @@
 				},
 				{
 					"command": "pr.makeSuggestion",
+					"when": "false"
+				},
+				{
+					"command": "pr.uploadFile",
 					"when": "false"
 				},
 				{
@@ -3296,6 +3333,11 @@
 					"command": "pr.makeSuggestion",
 					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && !github:activeCommentHasSuggestion"
+				},
+				{
+					"command": "pr.uploadFile",
+					"group": "inline@4",
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/commentThread/additionalActions": [
@@ -4216,7 +4258,7 @@
 		"constants-browserify": "^1.0.0",
 		"crypto-browserify": "3.12.0",
 		"css-loader": "7.1.2",
-		"esbuild-loader": "4.4.2",
+		"esbuild-loader": "4.5.0",
 		"eslint": "^9.36.0",
 		"eslint-import-resolver-typescript": "^4.4.4",
 		"eslint-plugin-import": "2.31.0",
@@ -4266,7 +4308,7 @@
 		"@octokit/rest": "22.0.0",
 		"@octokit/types": "14.1.0",
 		"@vscode/codicons": "^0.0.36",
-		"@vscode/extension-telemetry": "0.7.5",
+		"@vscode/extension-telemetry": "1.5.2",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
@@ -4276,10 +4318,10 @@
 		"debounce": "^1.2.1",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",
-		"js-yaml": "^4.1.1",
+		"js-yaml": "^4.2.0",
 		"jsonc-parser": "^3.3.1",
 		"lru-cache": "6.0.0",
-		"markdown-it": "^14.1.1",
+		"markdown-it": "^14.2.0",
 		"marked": "^4.0.10",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",

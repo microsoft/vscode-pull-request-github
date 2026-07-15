@@ -280,6 +280,17 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				for (const thread of e.added) {
 					const { path } = thread;
 
+					// Defensive: if a comment thread for this review thread id already exists in any of the
+					// thread maps (e.g. because doInitializeCommentThreads already created it from the cache
+					// before this event was processed), update it in place instead of creating a duplicate
+					// VS Code comment thread.
+					const existingMatch = this._findMatchingThread(thread);
+					if (existingMatch.index > -1) {
+						const matchingThread = existingMatch.threadMap[thread.path][existingMatch.index];
+						updateThread(this._context, matchingThread, thread, githubRepositories);
+						continue;
+					}
+
 					const index = await arrayFindIndexAsync(this._pendingCommentThreadAdds, async t => {
 						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
@@ -358,13 +369,16 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		let index = threadMap[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
 		if ((index === -1) && thread.isOutdated) {
 			// The thread has become outdated and needs to be moved to the obsolete threads.
-			index = this._workspaceFileChangeCommentThreads[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
-			if (index > -1) {
-				const matchingThread = this._workspaceFileChangeCommentThreads[thread.path]!.splice(index, 1)[0];
+			const workspaceIndex = this._workspaceFileChangeCommentThreads[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
+			if (workspaceIndex > -1) {
+				const matchingThread = this._workspaceFileChangeCommentThreads[thread.path]!.splice(workspaceIndex, 1)[0];
 				if (!this._obsoleteFileChangeCommentThreads[thread.path]) {
 					this._obsoleteFileChangeCommentThreads[thread.path] = [];
 				}
 				this._obsoleteFileChangeCommentThreads[thread.path]!.push(matchingThread);
+				// `threadMap` already references `_obsoleteFileChangeCommentThreads`; the matching
+				// thread is now the last element of the obsolete array for this path.
+				index = this._obsoleteFileChangeCommentThreads[thread.path]!.length - 1;
 			}
 		}
 		return { threadMap, index };

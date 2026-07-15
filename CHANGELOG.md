@@ -1,5 +1,114 @@
 # Changelog
 
+## 0.158.0
+
+### Changes
+
+- Display verified badges for commits in the pull request timeline.
+- Adopt the updated chat context API.
+
+### Fixes
+
+- Correctly account for required approving reviews when determining whether a pull request is ready to merge.
+
+## 0.156.0
+
+### Fixes
+
+- Attestation commit shows poorly on web. https://github.com/microsoft/vscode-pull-request-github/issues/8816
+- PR shows green checkmark for ready to commit even though branch protection policy is not met yet (review pending). https://github.com/microsoft/vscode-pull-request-github/issues/8813
+- Link to an issue doesn't work. https://github.com/microsoft/vscode-pull-request-github/issues/8774
+
+**_Thank You_**
+
+* [@kamil-gwozdz (kamil-gwozdz)](https://github.com/kamil-gwozdz): Remove the `rateLimit` selection from the MaxPullRequest GraphQL query. [PR #8812](https://github.com/microsoft/vscode-pull-request-github/pull/8812)
+
+## 0.154.0
+
+### Changes
+
+- Back off polling for pull request updates when no changes are found, reducing unnecessary requests.
+
+## 0.152.0
+
+### Fixes
+
+- Upload file renders on top of text in the input. https://github.com/microsoft/vscode-pull-request-github/issues/8776
+
+## 0.150.0
+
+### Fixes
+
+- New PR title doesn't match behavior on github.com. https://github.com/microsoft/vscode-pull-request-github/issues/8771
+- PRs not shown in panel when workspace folder is a manually-created git worktree. https://github.com/microsoft/vscode-pull-request-github/issues/8756
+
+## 0.148.0
+
+### Changes
+
+- Contribute YAML schema validation for GitHub issue template files under `.github/ISSUE_TEMPLATE/`.
+
+### Fixes
+
+- Comments panel discards `<img>` alt attribute, renders "Image: image". https://github.com/microsoft/vscode-pull-request-github/issues/8760
+- Merge button shows a separator even when there are no extra options. https://github.com/microsoft/vscode-pull-request-github/issues/8759
+- URI handler rejects PR URLs with underscores in the owner name. https://github.com/microsoft/vscode-pull-request-github/issues/8758
+- PR description is reset if the branch push fails. https://github.com/microsoft/vscode-pull-request-github/issues/8678
+
+**_Thank You_**
+
+* [@Malix-Labs](https://github.com/Malix-Labs): Contribute YAML schema validation for GitHub issue templates [PR #8761](https://github.com/microsoft/vscode-pull-request-github/pull/8761)
+
+## 0.146.0
+
+### Changes
+
+- Trim `Co-authored-by` lines from the default PR description.
+
+### Fixes
+
+- "Bad credentials" error persists even after re-authenticating via browser. https://github.com/microsoft/vscode-pull-request-github/issues/8738
+- Comment shows twice in diff editor. https://github.com/microsoft/vscode-pull-request-github/issues/8736
+- Upload button overlays cursor / text in comment editor. https://github.com/microsoft/vscode-pull-request-github/issues/8735
+- Branches tracking a shared upstream incorrectly associated with stale closed PRs. https://github.com/microsoft/vscode-pull-request-github/issues/8676
+
+## 0.144.0
+
+### Changes
+
+- Support uploading images to pull requests with a button and with paste.
+
+![Use paste to upload an image](./documentation/changelog/0.144.0/upload-an-image.gif)
+
+- Use a more descriptive folder name when checking out pull requests in a worktree.
+- `"githubIssues.issueBranchTitle"` now supports the `${issueType}` template variable.
+
+### Fixes
+
+- VS Code hangs with "the upstream ref origin/master for branch master is not a github repo". https://github.com/microsoft/vscode-pull-request-github/issues/8729
+- `getAssignableUsers` and `getMentionableUsers` bypass `globalState` cache when fetch promise already exists. https://github.com/microsoft/vscode-pull-request-github/issues/8669
+- Bad Credentials error. https://github.com/microsoft/vscode-pull-request-github/issues/8603
+
+**_Thank You_**
+
+* [@MaxDNG](https://github.com/MaxDNG): Re-parent pulled-up directory children to ensure proper checkbox refresh [PR #8679](https://github.com/microsoft/vscode-pull-request-github/pull/8679)
+
+## 0.142.0
+
+### Changes
+
+- Display linked issue(s) in the Pull Request Overview.
+- Clean up GitHub API usage to reduce unnecessary calls, errors, and generally reduce load on GitHub.
+
+### Fixes
+
+- Issue sorting has different behavior for CLI created issues. https://github.com/microsoft/vscode-pull-request-github/issues/8703
+- Checked checkboxes (- [x]) are visually indistinguishable from unchecked ones. https://github.com/microsoft/vscode-pull-request-github/issues/8671
+
+**_Thank You_**
+
+* [@mohamedamara1](https://github.com/mohamedamara1): Display linked issue(s) from the PR Overview [PR #6835](https://github.com/microsoft/vscode-pull-request-github/pull/6835)
+
 ## 0.140.0
 
 ### Changes

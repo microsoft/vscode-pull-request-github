@@ -114,6 +114,7 @@ export interface PullRequest extends Issue {
 	loadingCommit?: string;
 	generateDescriptionTitle?: string;
 	closingIssues?: IssueReference[];
+	attestationCommitsEnabled?: boolean;
 }
 
 export interface ProjectItemsReply {
@@ -131,8 +132,20 @@ export interface ChangeReviewersReply {
 
 export interface SubmitReviewReply {
 	events?: TimelineEvent[];
+	/**
+	 * Extra timeline events (e.g. a locally-constructed attestation commit) that the
+	 * webview should append to its existing timeline immediately before the
+	 * `reviewedEvent`. Lets callers avoid an extra `getTimelineEvents` round-trip when
+	 * they already know what changed.
+	 */
+	additionalEvents?: TimelineEvent[];
 	reviewedEvent: ReviewEvent | CommentEvent;
 	reviewers?: ReviewState[];
+}
+
+export interface SubmitReviewArgs {
+	body: string;
+	addAttestation?: boolean;
 }
 
 export interface ReadyForReviewReply {
@@ -179,6 +192,27 @@ export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
 
+export interface FileUploadPlaceholder {
+	name: string;
+	placeholder: string;
+}
+
+export interface UploadFilesReply {
+	uploads: FileUploadPlaceholder[];
+}
+
+export interface UploadPastedFilesArgs {
+	files: { name: string; type: string; bytesBase64: string }[];
+}
+
+export interface FileUploadCompletedMessage {
+	command: 'pr.file-upload-completed';
+	name: string;
+	placeholder: string;
+	markdown?: string;
+	error?: string;
+}
+
 export interface BaseContext {
 	'preventDefaultContextMenuItems': true;
 	owner: string;
@@ -213,6 +247,7 @@ export interface ReviewCommentContext {
 	repo: string;
 	number: number;
 	body: string;
+	addAttestation?: boolean;
 	'github:reviewCommentApprove'?: boolean;
 	'github:reviewCommentApproveOnDotCom'?: boolean;
 	'github:reviewCommentComment'?: boolean;

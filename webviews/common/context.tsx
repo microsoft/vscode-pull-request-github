@@ -11,7 +11,25 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
+
+/**
+ * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
+ * keep the conversion linear in time and avoid huge intermediate string
+ * allocations when handling large clipboard payloads.
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+	const chunkSize = 0x8000;
+	const parts: string[] = [];
+	for (let i = 0; i < bytes.length; i += chunkSize) {
+		const chunk = bytes.subarray(i, i + chunkSize);
+		parts.push(String.fromCharCode.apply(null, chunk as unknown as number[]));
+	}
+	return btoa(parts.join(''));
+}
+
+// Keep in sync with MAX_UPLOAD_SIZE_BYTES on the extension host.
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 
 export class PRContext {
 	constructor(
@@ -161,20 +179,134 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	private async submitReviewCommand(command: string, body: string) {
+	private async submitReviewCommand(command: string, args: SubmitReviewArgs) {
 		try {
-			const result: SubmitReviewReply = await this.postMessage({ command, args: body });
+			const result: SubmitReviewReply = await this.postMessage({ command, args });
 			return this.appendReview(result);
 		} catch (error) {
 			return this.updatePR({ busy: false });
 		}
 	}
 
-	public requestChanges = (body: string) => this.submitReviewCommand('pr.request-changes', body);
+	public requestChanges = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.request-changes', { body, addAttestation });
 
-	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
+	public approve = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.approve', { body, addAttestation });
 
-	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
+	public submit = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.submit', { body, addAttestation });
+
+	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
+
+	/**
+	 * Asks the host to prompt the user for files to upload.
+	 *
+	 * @param insertPlaceholders called once with the textual placeholders to insert into the textarea
+	 * @param replacePlaceholder called as each upload finishes (or fails) to replace the placeholder with the resulting markdown (or remove it on error)
+	 */
+	public uploadFiles = async (
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) => {
+		const result: UploadFilesReply | undefined = await this.postMessage({ command: 'pr.upload-files' });
+		this._registerUploadHandlers(result, insertPlaceholders, replacePlaceholder);
+	};
+
+	/**
+	 * Send a list of files (typically from a clipboard paste or drop) to the host for upload.
+	 */
+	public uploadPastedFiles = async (
+		files: readonly File[],
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) => {
+		if (files.length === 0) {
+			return;
+		}
+		const oversized = files.find(f => f.size > MAX_UPLOAD_SIZE_BYTES);
+		if (oversized) {
+			const limitMb = MAX_UPLOAD_SIZE_BYTES / (1024 * 1024);
+			const sizeMb = Math.round(oversized.size / (1024 * 1024));
+			void this.postMessage({
+				command: 'alert',
+				args: `File "${oversized.name || 'pasted-file'}" is too large to upload (${sizeMb} MB). The maximum allowed size is ${limitMb} MB.`,
+			});
+			return;
+		}
+		const fileArgs = await Promise.all(files.map(async file => {
+			const buffer = new Uint8Array(await file.arrayBuffer());
+			const bytesBase64 = bytesToBase64(buffer);
+			return { name: file.name || 'pasted-file', type: file.type ?? '', bytesBase64 };
+		}));
+		const result: UploadFilesReply | undefined = await this.postMessage({
+			command: 'pr.upload-pasted-files',
+			args: { files: fileArgs },
+		});
+		this._registerUploadHandlers(result, insertPlaceholders, replacePlaceholder);
+	};
+
+	private _registerUploadHandlers(
+		result: UploadFilesReply | undefined,
+		insertPlaceholders: (placeholders: string) => void,
+		replacePlaceholder: (placeholder: string, markdownOrEmpty: string) => void,
+	) {
+		if (!result || !result.uploads || result.uploads.length === 0) {
+			return;
+		}
+		const placeholdersText = result.uploads.map(u => u.placeholder).join('\n');
+		insertPlaceholders(placeholdersText);
+		for (const upload of result.uploads) {
+			this._uploadCompletionHandlers.set(upload.placeholder, message => {
+				if (message.error) {
+					replacePlaceholder(message.placeholder, '');
+					this.postMessage({ command: 'alert', args: `Failed to upload ${message.name}: ${message.error}` });
+				} else {
+					replacePlaceholder(message.placeholder, message.markdown ?? '');
+				}
+			});
+		}
+	}
+
+	/**
+	 * Convenience wrapper that uploads files into the current pending comment text in the PR state.
+	 */
+	public uploadFilesIntoPendingComment = () => {
+		return this.uploadFiles(
+			placeholders => this._appendToPendingComment(placeholders),
+			(placeholder, markdown) => this._replaceInPendingComment(placeholder, markdown),
+		);
+	};
+
+	/**
+	 * Convenience wrapper that uploads pasted files into the current pending comment text.
+	 */
+	public uploadPastedFilesIntoPendingComment = (files: readonly File[]) => {
+		return this.uploadPastedFiles(
+			files,
+			placeholders => this._appendToPendingComment(placeholders),
+			(placeholder, markdown) => this._replaceInPendingComment(placeholder, markdown),
+		);
+	};
+
+	private _appendToPendingComment(placeholders: string) {
+		const current = this.pr?.pendingCommentText ?? '';
+		const separator = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+		this.updatePR({ pendingCommentText: `${current}${separator}${placeholders}\n` });
+	}
+
+	private _replaceInPendingComment(placeholder: string, markdown: string) {
+		const current = this.pr?.pendingCommentText ?? '';
+		this.updatePR({ pendingCommentText: current.replace(placeholder, markdown) });
+	}
+
+	private completeFileUpload(message: FileUploadCompletedMessage) {
+		const handler = this._uploadCompletionHandlers.get(message.placeholder);
+		if (handler) {
+			this._uploadCompletionHandlers.delete(message.placeholder);
+			handler(message);
+		}
+	}
 
 	public deleteReview = async () => {
 		try {
@@ -243,7 +375,7 @@ export class PRContext {
 		if (!state) {
 			throw new Error('Unexpectedly no pull request when trying to append review');
 		}
-		const { events, reviewers, reviewedEvent } = reply;
+		const { events, additionalEvents, reviewers, reviewedEvent } = reply;
 		state.busy = false;
 		if (!events) {
 			this.updatePR(state);
@@ -252,7 +384,11 @@ export class PRContext {
 		if (reviewers) {
 			state.reviewers = reviewers;
 		}
-		state.events = events.length === 0 ? [...state.events, reviewedEvent] : events;
+		// If the caller sent a fresh full timeline (`events.length > 0`), replace state
+		// with it. Otherwise append `additionalEvents` (if any) followed by the review.
+		state.events = events.length === 0
+			? [...state.events, ...(additionalEvents ?? []), reviewedEvent]
+			: events;
 		if (reviewedEvent.event === EventType.Reviewed) {
 			state.currentUserReviewState = reviewedEvent.state;
 		}
@@ -316,6 +452,7 @@ export class PRContext {
 		const result: Partial<PullRequest> = await this.postMessage({ command: 'pr.update-branch' });
 		state.events = result.events ?? state.events;
 		state.mergeable = result.mergeable ?? state.mergeable;
+		state.canUpdateBranch = result.canUpdateBranch ?? state.canUpdateBranch;
 		this.updatePR(state);
 	};
 
@@ -446,6 +583,8 @@ export class PRContext {
 				return this.updatePR({ busy: true });
 			case 'pr.readied-for-review':
 				return this.readyForReviewComplete(message);
+			case 'pr.file-upload-completed':
+				return this.completeFileUpload(message);
 		}
 	};
 

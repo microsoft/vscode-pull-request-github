@@ -119,6 +119,9 @@ fragment IssueBase on Issue {
 			}
 		}
 	}
+	issueType {
+		name
+	}
 }
 
 fragment IssueFragment on Issue {

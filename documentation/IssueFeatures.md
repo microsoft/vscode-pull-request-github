@@ -111,3 +111,6 @@ Some of the settings (ex. `githubIssues.workingIssueFormatScm` and `githubIssues
 - `${owner}`: The owner of the current repository.
 - `${sanitizedIssueTitle}`: The title of the current issue with characters that git forbids removed.
 - `${sanitizedLowercaseIssueTitle}`: The lowercase title of the current issue with characters that git forbids removed.
+- `${issueType}`: The name of the issue type (e.g. `Feature`, `Hotfix`), if the issue has an issue type set. If the issue does not have an issue type, the variable is left as-is.
+- `${sanitizedIssueType}`: The issue type name with characters that git forbids removed.
+- `${sanitizedLowercaseIssueType}`: The lowercase issue type name with characters that git forbids removed.

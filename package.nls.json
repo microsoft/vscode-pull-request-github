@@ -46,6 +46,7 @@
 	"githubPullRequests.defaultDeletionMethod.selectRemote.description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request.",
 	"githubPullRequests.defaultDeletionMethod.selectWorktree.description": "When true, the option to remove the associated worktree will be selected by default when deleting a branch from a pull request.",
 	"githubPullRequests.deleteBranchAfterMerge.description": "Automatically delete the branch after merging a pull request. This setting only applies when the pull request is merged through this extension. When using merge queues, this will only delete the local branch.",
+	"githubPullRequests.enableAttestationCommits.description": "Enables adding an attestation commit (an empty, signed commit) to the head of a pull request branch as a way to attest to a pull request even when its individual commits are unsigned. Requires commit signing to be configured for git. Set to `true` to enable with the default commit message, set to a string to use that string as the commit message, or set to `false` to disable.",
 	"githubPullRequests.terminalLinksHandler.description": "Default handler for terminal links.",
 	"githubPullRequests.terminalLinksHandler.github": "Create the pull request on GitHub.",
 	"githubPullRequests.terminalLinksHandler.vscode": "Create the pull request in VS Code.",
@@ -125,7 +126,7 @@
 	"githubIssues.ignoreUserCompletionTrigger.description": "Languages that the '@' character should not be used to trigger user completion suggestions.",
 	"githubIssues.ignoreUserCompletionTrigger.items": "Language that user completions should not trigger on '@'.",
 	"githubIssues.issueBranchTitle.markdownDescription": {
-		"message": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replaced with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseIssueTitle}` ",
+		"message": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replaced with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueType}` will be replaced with the issue type name (e.g. `Feature`, `Hotfix`). For branch-safe variants, use `${sanitizedIssueType}` or `${sanitizedLowercaseIssueType}` \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed. For lowercase, use `${sanitizedLowercaseIssueTitle}` ",
 		"comment": [
 			"{Locked='${...}'}",
 			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
@@ -246,6 +247,7 @@
 	"command.review.comment.title": "Comment",
 	"command.review.requestChanges.title": "Request Changes",
 	"command.review.approveOnDotCom.title": "Approve on github.com",
+	"command.pr.addAttestationCommit.title": "Add Attestation Commit",
 	"command.review.requestChangesOnDotCom.title": "Request changes on github.com",
 	"command.review.createSuggestionsFromChanges.title": "Create Pull Request Suggestions",
 	"command.review.createSuggestionFromChange.title": "Convert to Pull Request Suggestion",
@@ -263,6 +265,7 @@
 	"command.pr.createComment.title": "Add Review Comment",
 	"command.pr.createSingleComment.title": "Add Comment",
 	"command.pr.makeSuggestion.title": "Make Code Suggestion",
+	"command.pr.uploadFile.title": "Upload File",
 	"command.pr.startReview.title": "Start Review",
 	"command.pr.editComment.title": "Edit Comment",
 	"command.pr.cancelEditComment.title": "Cancel",

@@ -42,6 +42,57 @@ textarea {
 	padding-bottom: 16px;
 }
 
+.textarea-wrapper {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	border-radius: 4px;
+	margin-bottom: 4px;
+	overflow: hidden;
+	resize: vertical;
+}
+
+.textarea-wrapper:focus-within {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.textarea-wrapper textarea {
+	flex: 1;
+	width: 100%;
+	box-sizing: border-box;
+	border: none;
+	background: transparent;
+	border-radius: 0;
+	outline: none;
+	margin: 0;
+	resize: none;
+}
+
+.textarea-wrapper .comment-upload-button {
+	align-self: flex-start;
+	margin: 2px 0 4px 4px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: var(--vscode-foreground);
+}
+
+.textarea-wrapper .comment-upload-button:hover:not(:disabled) {
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .comment-upload-button:disabled {
+	opacity: 0.5;
+}
 .status-section {
 	padding-bottom: 16px;
 }
@@ -187,6 +238,16 @@ button .icon svg {
 	display: flex;
 	flex-grow: 1;
 	min-width: 0;
+	position: relative;
+	align-items: center;
+}
+
+.attestation-checkbox-row {
+	margin-top: 6px;
+	margin-right: auto;
+	margin-left: auto;
+	margin-bottom: 12px;
+	width: fit-content;
 }
 
 .dropdown-container {

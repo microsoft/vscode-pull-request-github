@@ -206,4 +206,57 @@ describe('DirectoryTreeNode', function () {
 			assert.strictEqual(rootDir.checkboxState?.state, vscode.TreeItemCheckboxState.Unchecked);
 		});
 	});
+
+	describe('parent pointer after phantom-root pull-up', function () {
+		// When a tree has multiple top-level directories, a temporary DirectoryTreeNode
+		// with label='' (phantom root) is used to build the tree, then its children are
+		// pulled up to the actual container. If children are not re-parented, getParent()
+		// still returns the phantom DirectoryTreeNode and processCheckboxUpdates fires
+		// refresh() on an invisible node, so checkbox state never updates visually.
+
+		it('getParent() returns undefined after child is re-parented to the container', function () {
+			const container = createMockParent();
+			const phantomRoot = new DirectoryTreeNode(container, '');
+			const subDir = new DirectoryTreeNode(phantomRoot, 'src');
+
+			// Before re-parenting: parent is the phantom root DirectoryTreeNode
+			assert.ok(subDir.getParent() instanceof DirectoryTreeNode, 'sanity: should point to phantom root before re-parenting');
+
+			// Simulate the pull-up re-parenting fix applied in filesCategoryNode / pullRequestNode / commitNode
+			subDir.parent = container;
+
+			// After re-parenting: container is not a TreeNode, so getParent() returns undefined.
+			// This means the ancestor walk in processCheckboxUpdates stops here and refresh()
+			// is called on the visible subDir node, not the invisible phantom root.
+			assert.strictEqual(subDir.getParent(), undefined, 'after re-parenting, getParent() should not return the phantom root');
+		});
+
+		it('ancestor walk stops at the topmost visible directory after re-parenting', function () {
+			const container = createMockParent();
+			const phantomRoot = new DirectoryTreeNode(container, '');
+			const topDir = new DirectoryTreeNode(phantomRoot, 'cloud');
+			const subDir = new DirectoryTreeNode(topDir, 'helm');
+			const file = new MockFileNode(subDir);
+			file.checkboxState = { state: vscode.TreeItemCheckboxState.Checked };
+
+			(subDir._children as any[]).push(file);
+			topDir._children.push(subDir);
+
+			// Re-parent: simulate fix
+			topDir.parent = container;
+
+			// Walk ancestors from file, mimicking processCheckboxUpdates
+			const ancestors: TreeNode[] = [];
+			let current = file.getParent();
+			while (current instanceof DirectoryTreeNode) {
+				ancestors.push(current);
+				current = current.getParent();
+			}
+
+			// Should find subDir and topDir, but NOT the phantom root
+			assert.strictEqual(ancestors.length, 2);
+			assert.strictEqual(ancestors[0], subDir);
+			assert.strictEqual(ancestors[1], topDir);
+		});
+	});
 });

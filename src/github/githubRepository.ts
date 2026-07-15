@@ -11,6 +11,7 @@ import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
+	CheckSuiteForRollup,
 	CreatePullRequestResponse,
 	FileContentResponse,
 	ForkDetailsResponse,
@@ -1962,6 +1963,22 @@ export class GitHubRepository extends Disposable {
 			};
 		}
 
+		// Workflows triggered from forks (e.g. by first-time contributors) can sit in an
+		// "awaiting approval" state where GitHub has created the workflow run but no check
+		// runs yet. These don't appear in the statusCheckRollup, which would otherwise leave
+		// the PR with no reported checks (surfaced as "Unknown"). Surface them as pending so
+		// the status reflects that something is waiting.
+		const checkSuites = result.data.repository.pullRequest.commits.nodes[0].commit.checkSuites?.nodes;
+		const awaitingApprovalStatuses = this.computeAwaitingApprovalStatuses(
+			checkSuites,
+			checks.statuses,
+			result.data.repository.pullRequest.url,
+		);
+		if (awaitingApprovalStatuses.length) {
+			checks.statuses = checks.statuses.concat(awaitingApprovalStatuses);
+			checks.state = this.computeOverallCheckState(checks.statuses);
+		}
+
 		let reviewRequirement: PullRequestReviewRequirement | null = null;
 		const rule = result.data.repository.pullRequest.baseRef?.refUpdateRule;
 		if (rule) {
@@ -2110,5 +2127,179 @@ export class GitHubRepository extends Disposable {
 			return CheckState.Pending;
 		}
 		return CheckState.Success;
+	}
+
+	/**
+	 * Build synthetic pending statuses for workflow runs that are awaiting approval
+	 * (typically for pull requests from forks). Such runs exist as check suites but have
+	 * not produced any check runs yet, so they are absent from the statusCheckRollup.
+	 * Only suites that aren't already represented by an existing status are included, to
+	 * avoid duplicating checks that GitHub has already reported.
+	 */
+	private computeAwaitingApprovalStatuses(
+		checkSuites: CheckSuiteForRollup[] | undefined,
+		existingStatuses: PullRequestCheckStatus[],
+		prUrl: string,
+	): PullRequestCheckStatus[] {
+		if (!checkSuites?.length) {
+			return [];
+		}
+
+		const existingWorkflowNames = new Set(
+			existingStatuses.map(status => status.workflowName).filter((name): name is string => !!name),
+		);
+
+		const awaitingApproval: PullRequestCheckStatus[] = [];
+		for (const suite of checkSuites) {
+			// A suite that is waiting or has only been requested and hasn't concluded is
+			// awaiting approval before it can run.
+			if (suite.conclusion !== null || (suite.status !== 'WAITING' && suite.status !== 'REQUESTED')) {
+				continue;
+			}
+
+			const workflowName = suite.workflowRun?.workflow.name;
+			if (workflowName && existingWorkflowNames.has(workflowName)) {
+				continue;
+			}
+
+			awaitingApproval.push({
+				id: `awaiting-approval:${workflowName ?? awaitingApproval.length}`,
+				databaseId: undefined,
+				url: suite.app?.url,
+				avatarUrl:
+					suite.app?.logoUrl &&
+					getAvatarWithEnterpriseFallback(suite.app.logoUrl, undefined, this.remote.isEnterprise),
+				state: CheckState.Pending,
+				description: vscode.l10n.t('Waiting for approval'),
+				context: workflowName ?? vscode.l10n.t('Workflow awaiting approval'),
+				workflowName,
+				event: suite.workflowRun?.event,
+				targetUrl: prUrl,
+				isRequired: false,
+				isCheckRun: true,
+			});
+		}
+
+		return awaitingApproval;
+	}
+
+	/**
+	 * Upload a file to GitHub via the mobile upload policy API. Returns a markdown
+	 * snippet appropriate for embedding in an issue/PR comment.
+	 */
+	public async uploadFile(uri: vscode.Uri, fileName: string): Promise<string> {
+		// Guard against very large files: check size before reading the bytes into memory.
+		let fileSize: number | undefined;
+		try {
+			const stat = await vscode.workspace.fs.stat(uri);
+			fileSize = stat.size;
+		} catch {
+			// Fall through; readFile will surface a more specific error if needed.
+		}
+		if (fileSize !== undefined && fileSize > MAX_UPLOAD_SIZE_BYTES) {
+			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileSize / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
+		}
+
+		const fileBytes = await vscode.workspace.fs.readFile(uri);
+		return this.uploadFileBytes(fileBytes, fileName);
+	}
+
+	/**
+	 * Upload a file's raw bytes to GitHub via the mobile upload policy API.
+	 * Returns a markdown snippet appropriate for embedding in an issue/PR comment.
+	 */
+	public async uploadFileBytes(fileBytes: Uint8Array, fileName: string): Promise<string> {
+		if (fileBytes.byteLength > MAX_UPLOAD_SIZE_BYTES) {
+			throw new Error(`File "${fileName}" is too large to upload (${Math.round(fileBytes.byteLength / (1024 * 1024))} MB). The maximum allowed size is ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB.`);
+		}
+		const contentType = guessContentType(fileName);
+
+		const { octokit } = await this.ensure();
+		const metadata = await this.getMetadata();
+		const repositoryId = metadata.id;
+
+		// Step 1: Get upload policy
+		const policyResponse = await octokit.api.request('POST /mobile/upload/policy', {
+			name: fileName,
+			size: fileBytes.byteLength,
+			content_type: contentType,
+			repository_id: repositoryId,
+			headers: { accept: 'application/json' },
+		});
+		const policy = policyResponse.data as {
+			upload_url: string;
+			form: Record<string, string>;
+			asset: { id: number; name: string; href: string };
+			asset_upload_url: string;
+		};
+
+		// Step 2: Upload bytes to the storage location returned by the policy.
+		// Pass the Uint8Array directly to Blob to avoid an extra full-size copy.
+		const formData = new FormData();
+		for (const [key, value] of Object.entries(policy.form)) {
+			formData.append(key, value);
+		}
+		// The DOM Blob types require Uint8Array<ArrayBuffer>, but vscode.workspace.fs.readFile
+		// returns Uint8Array<ArrayBufferLike>. The runtime accepts it, so cast via unknown to avoid a copy.
+		formData.append('file', new Blob([fileBytes as unknown as BlobPart], { type: contentType }), policy.asset.name);
+		const s3Response = await fetch(policy.upload_url, { method: 'POST', body: formData });
+		if (s3Response.status !== 204 && s3Response.status !== 201 && s3Response.status !== 200) {
+			throw new Error(`Storage upload failed with status ${s3Response.status}`);
+		}
+
+		// Step 3: Confirm the upload with GitHub
+		await octokit.api.request(`PUT ${policy.asset_upload_url}`, {
+			headers: { accept: 'application/json' },
+		});
+
+		const url = policy.asset.href;
+		const safeName = escapeMarkdownLinkText(fileName);
+		if (contentType.startsWith('image/')) {
+			return `![${safeName}](${url})`;
+		}
+		if (contentType.startsWith('video/')) {
+			return url;
+		}
+		return `[${safeName}](${url})`;
+	}
+}
+
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
+/**
+ * Escape characters that would break a markdown link's text segment (`[text](url)`).
+ * Filenames may legally contain `[`, `]`, `\`, etc., which can corrupt the rendered link.
+ */
+function escapeMarkdownLinkText(text: string): string {
+	return text.replace(/([\\\[\]`])/g, '\\$1');
+}
+
+function guessContentType(fileName: string): string {
+	const lastDot = fileName.lastIndexOf('.');
+	const ext = lastDot >= 0 ? fileName.substring(lastDot).toLowerCase() : '';
+	switch (ext) {
+		case '.png': return 'image/png';
+		case '.jpg':
+		case '.jpeg': return 'image/jpeg';
+		case '.gif': return 'image/gif';
+		case '.webp': return 'image/webp';
+		case '.svg': return 'image/svg+xml';
+		case '.bmp': return 'image/bmp';
+		case '.heic': return 'image/heic';
+		case '.mp4': return 'video/mp4';
+		case '.mov': return 'video/quicktime';
+		case '.webm': return 'video/webm';
+		case '.pdf': return 'application/pdf';
+		case '.zip': return 'application/zip';
+		case '.gz': return 'application/gzip';
+		case '.tar': return 'application/x-tar';
+		case '.txt': return 'text/plain';
+		case '.md': return 'text/markdown';
+		case '.json': return 'application/json';
+		case '.log': return 'text/plain';
+		case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+		case '.xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+		case '.pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+		default: return 'application/octet-stream';
 	}
 }

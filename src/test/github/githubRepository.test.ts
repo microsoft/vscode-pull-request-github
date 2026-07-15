@@ -131,4 +131,93 @@ describe('GitHubRepository', function () {
 			assert.strictEqual(result.length, 2);
 		});
 	});
+
+	describe('computeAwaitingApprovalStatuses', function () {
+		function callComputeAwaitingApprovalStatuses(
+			repo: GitHubRepository,
+			checkSuites: any[] | undefined,
+			existingStatuses: PullRequestCheckStatus[],
+			prUrl: string,
+		): PullRequestCheckStatus[] {
+			return (repo as any).computeAwaitingApprovalStatuses(checkSuites, existingStatuses, prUrl);
+		}
+
+		function createSuite(overrides: Partial<{ status: string; conclusion: string | null; workflowName: string; event: string }>) {
+			const { status = 'WAITING', conclusion = null, workflowName, event } = overrides;
+			return {
+				status,
+				conclusion,
+				workflowRun: workflowName ? { event: event ?? 'pull_request', workflow: { name: workflowName } } : null,
+				app: null,
+			};
+		}
+
+		let repo: GitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			repo = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
+		});
+
+		it('returns nothing when there are no check suites', function () {
+			assert.strictEqual(callComputeAwaitingApprovalStatuses(repo, undefined, [], 'url').length, 0);
+			assert.strictEqual(callComputeAwaitingApprovalStatuses(repo, [], [], 'url').length, 0);
+		});
+
+		it('surfaces a pending status for a waiting workflow', function () {
+			const suites = [createSuite({ status: 'WAITING', workflowName: 'CI' })];
+			const result = callComputeAwaitingApprovalStatuses(repo, suites, [], 'https://github.com/some/repo/pull/1');
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0].state, CheckState.Pending);
+			assert.strictEqual(result[0].context, 'CI');
+			assert.strictEqual(result[0].workflowName, 'CI');
+			assert.strictEqual(result[0].targetUrl, 'https://github.com/some/repo/pull/1');
+		});
+
+		it('surfaces a pending status for a requested workflow', function () {
+			const suites = [createSuite({ status: 'REQUESTED', workflowName: 'CI' })];
+			const result = callComputeAwaitingApprovalStatuses(repo, suites, [], 'url');
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0].state, CheckState.Pending);
+		});
+
+		it('ignores suites that have already concluded', function () {
+			const suites = [createSuite({ status: 'COMPLETED', conclusion: 'SUCCESS', workflowName: 'CI' })];
+			assert.strictEqual(callComputeAwaitingApprovalStatuses(repo, suites, [], 'url').length, 0);
+		});
+
+		it('ignores suites that are in progress', function () {
+			const suites = [createSuite({ status: 'IN_PROGRESS', workflowName: 'CI' })];
+			assert.strictEqual(callComputeAwaitingApprovalStatuses(repo, suites, [], 'url').length, 0);
+		});
+
+		it('does not duplicate a workflow already represented by an existing status', function () {
+			const suites = [createSuite({ status: 'WAITING', workflowName: 'CI' })];
+			const existing = [{
+				id: '1',
+				databaseId: undefined,
+				url: undefined,
+				avatarUrl: undefined,
+				state: CheckState.Success,
+				description: null,
+				targetUrl: null,
+				context: 'CI / build',
+				workflowName: 'CI',
+				event: 'pull_request',
+				isRequired: false,
+				isCheckRun: true,
+			} as PullRequestCheckStatus];
+			assert.strictEqual(callComputeAwaitingApprovalStatuses(repo, suites, existing, 'url').length, 0);
+		});
+
+		it('falls back to a generic context when the workflow name is unknown', function () {
+			const suites = [createSuite({ status: 'WAITING' })];
+			const result = callComputeAwaitingApprovalStatuses(repo, suites, [], 'url');
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0].workflowName, undefined);
+			assert.ok(result[0].context.length > 0);
+		});
+	});
 });
