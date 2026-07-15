@@ -627,7 +627,7 @@ export function AddComment({
 					) : null}
 
 					<ContextDropdown
-						optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
+						optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons, addAttestation)}
 						defaultAction={defaultSubmitAction}
 						defaultOptionLabel={() => availableActions[currentSelection]!}
 						defaultOptionValue={() => currentSelection}
@@ -670,7 +670,7 @@ const COMMENT_METHODS = {
 	requestChanges: 'Request Changes',
 };
 
-const makeCommentMenuContext = (owner: string, repo: string, number: number, availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
+const makeCommentMenuContext = (owner: string, repo: string, number: number, availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean, addAttestation: boolean) => {
 	const createMenuContexts: ReviewCommentContext = {
 		'preventDefaultContextMenuItems': true,
 		'github:reviewCommentMenu': true,
@@ -678,6 +678,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 		repo,
 		number,
 		body: pendingCommentText ?? '',
+		addAttestation,
 	};
 	if (availableActions.approve) {
 		if (availableActions.approve === COMMENT_METHODS.approve) {
@@ -805,7 +806,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			) : null}
 			<div className='comment-button'>
 				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}
+					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons, addAttestation)}
 					defaultAction={defaultSubmitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
