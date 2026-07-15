@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.158.0
+
+### Changes
+
+- Display verified badges for commits in the pull request timeline.
+- Adopt the updated chat context API.
+
+### Fixes
+
+- Correctly account for required approving reviews when determining whether a pull request is ready to merge.
+
 ## 0.156.0
 
 ### Fixes
