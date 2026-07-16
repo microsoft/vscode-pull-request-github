@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.158.0
+
+### Changes
+
+- Display verified badges for commits in the pull request timeline.
+- Adopt the updated chat context API.
+
+### Fixes
+
+- Correctly account for required approving reviews when determining whether a pull request is ready to merge.
+
+## 0.156.0
+
+### Fixes
+
+- Attestation commit shows poorly on web. https://github.com/microsoft/vscode-pull-request-github/issues/8816
+- PR shows green checkmark for ready to commit even though branch protection policy is not met yet (review pending). https://github.com/microsoft/vscode-pull-request-github/issues/8813
+- Link to an issue doesn't work. https://github.com/microsoft/vscode-pull-request-github/issues/8774
+
+**_Thank You_**
+
+* [@kamil-gwozdz (kamil-gwozdz)](https://github.com/kamil-gwozdz): Remove the `rateLimit` selection from the MaxPullRequest GraphQL query. [PR #8812](https://github.com/microsoft/vscode-pull-request-github/pull/8812)
+
+## 0.154.0
+
+### Changes
+
+- Back off polling for pull request updates when no changes are found, reducing unnecessary requests.
+
+## 0.152.0
+
+### Fixes
+
+- Upload file renders on top of text in the input. https://github.com/microsoft/vscode-pull-request-github/issues/8776
+
+## 0.150.0
+
+### Fixes
+
+- New PR title doesn't match behavior on github.com. https://github.com/microsoft/vscode-pull-request-github/issues/8771
+- PRs not shown in panel when workspace folder is a manually-created git worktree. https://github.com/microsoft/vscode-pull-request-github/issues/8756
+
+## 0.148.0
+
+### Changes
+
+- Contribute YAML schema validation for GitHub issue template files under `.github/ISSUE_TEMPLATE/`.
+
+### Fixes
+
+- Comments panel discards `<img>` alt attribute, renders "Image: image". https://github.com/microsoft/vscode-pull-request-github/issues/8760
+- Merge button shows a separator even when there are no extra options. https://github.com/microsoft/vscode-pull-request-github/issues/8759
+- URI handler rejects PR URLs with underscores in the owner name. https://github.com/microsoft/vscode-pull-request-github/issues/8758
+- PR description is reset if the branch push fails. https://github.com/microsoft/vscode-pull-request-github/issues/8678
+
+**_Thank You_**
+
+* [@Malix-Labs](https://github.com/Malix-Labs): Contribute YAML schema validation for GitHub issue templates [PR #8761](https://github.com/microsoft/vscode-pull-request-github/pull/8761)
+
 ## 0.146.0
 
 ### Changes

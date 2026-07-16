@@ -26,7 +26,7 @@ export interface ReviewContext {
 	postMessage(message: any): Promise<void>;
 	replyMessage(message: IRequestMessage<any>, response: any): void;
 	throwError(message: IRequestMessage<any> | undefined, error: string): void;
-	getTimeline(): Promise<TimelineEvent[]>;
+	getTimeline(): Promise<TimelineEvent[] | undefined>;
 }
 
 /**
@@ -65,6 +65,7 @@ export namespace PullRequestReviewCommon {
 		reviewType: ReviewType,
 		needsTimelineRefresh: boolean,
 		action: (body: string) => Promise<ReviewEvent>,
+		additionalEvents?: TimelineEvent[],
 	): Promise<ReviewEvent | undefined> {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
@@ -79,6 +80,7 @@ export namespace PullRequestReviewCommon {
 				command: 'pr.append-review',
 				reviewedEvent: review,
 				events: allEvents,
+				additionalEvents,
 				reviewers: ctx.existingReviewers
 			};
 			await ctx.postMessage(reviewMessage);
@@ -95,6 +97,7 @@ export namespace PullRequestReviewCommon {
 		message: IRequestMessage<string>,
 		needsTimelineRefresh: boolean,
 		action: (body: string) => Promise<ReviewEvent>,
+		additionalEvents?: TimelineEvent[],
 	): Promise<ReviewEvent | undefined> {
 		try {
 			const review = await action(message.args);
@@ -103,6 +106,7 @@ export namespace PullRequestReviewCommon {
 			const reply: SubmitReviewReply = {
 				reviewedEvent: review,
 				events: allEvents,
+				additionalEvents,
 				reviewers: ctx.existingReviewers,
 			};
 			ctx.replyMessage(message, reply);
@@ -175,9 +179,6 @@ export namespace PullRequestReviewCommon {
 			return ctx.replyMessage(message, {});
 		}
 		const mergeSucceeded = await ctx.folderRepositoryManager.tryMergeBaseIntoHead(ctx.item, true);
-		if (!mergeSucceeded) {
-			ctx.replyMessage(message, {});
-		}
 		// The mergability of the PR doesn't update immediately. Poll.
 		let mergability = PullRequestMergeability.Unknown;
 		let attemptsRemaining = 5;
@@ -190,6 +191,7 @@ export namespace PullRequestReviewCommon {
 		const result: Partial<PullRequest> = {
 			events: await ctx.getTimeline(),
 			mergeable: mergability,
+			canUpdateBranch: !mergeSucceeded,
 		};
 		await refreshAfterUpdate();
 

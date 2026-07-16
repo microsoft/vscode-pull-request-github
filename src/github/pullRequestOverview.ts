@@ -8,6 +8,7 @@ import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
+import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -28,7 +29,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { getEnterpriseUri, getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, UnresolvedIdentity } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -409,7 +410,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
-			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
+			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents, pullRequest.author);
 
 			const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
@@ -418,7 +419,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
 			const isCopilotAlreadyReviewer = this._existingReviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
-			const baseContext = await this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, users);
+			const baseContext = await this.getInitializeContext(currentUser, pullRequest, timelineEvents ?? [], repositoryAccess, viewerCanEdit, users);
 
 			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
@@ -460,6 +461,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
+				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues: await (async () => {
 					const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
 					const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
@@ -583,7 +585,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.changeBaseBranch(message);
 			case 'pr.open-diff-from-link':
 				return this.openDiffFromLink(message);
+			case 'pr.add-attestation-commit':
+				return this.addAttestationCommitMessage(message);
 		}
+	}
+
+	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
+		const result = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success: !!result, sha: result?.sha });
 	}
 
 	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
@@ -911,41 +920,84 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>, additionalEvents?: TimelineEvent[]) {
 		const result = await PullRequestReviewCommon.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
-			true,
+			!additionalEvents?.length,
 			action,
+			additionalEvents,
 		);
 		if (result) {
 			this.tryScheduleCopilotRefresh(result.body, result.state);
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>, additionalEvents?: TimelineEvent[]) {
 		const result = await PullRequestReviewCommon.doReviewMessage(
 			this.getReviewContext(),
 			message,
-			true,
+			// When we already have the just-pushed attestation commit locally, skip the
+			// extra full-timeline fetch and let the webview splice it in itself.
+			!additionalEvents?.length,
 			action,
+			additionalEvents,
 		);
 		if (result) {
 			this.tryScheduleCopilotRefresh(result.body, result.state);
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<ReviewEvent> {
-		return this._item.approve(this._folderRepositoryManager.repository, body);
+	/**
+	 * Handles a review-submission message that may include a request to first
+	 * push a signed attestation commit. If attestation fails, the review is
+	 * NOT submitted.
+	 */
+	private async doReviewMessageWithAttestation(
+		message: IRequestMessage<SubmitReviewArgs>,
+		action: (body: string, expectedRemoteHead: string | undefined) => Promise<ReviewEvent>,
+	): Promise<void> {
+		const { body, addAttestation } = message.args ?? { body: '' };
+		let attestationEvent: TimelineEvent | undefined;
+		let attestationSha: string | undefined;
+		if (addAttestation) {
+			const result = await addAttestationCommit(this._folderRepositoryManager, this._item);
+			if (!result) {
+				this._throwError(message, 'Attestation commit failed; review was not submitted.');
+				return;
+			}
+			attestationEvent = result.event;
+			attestationSha = result.sha;
+		}
+		const forwarded: IRequestMessage<string> = { req: message.req, command: message.command, args: body };
+		// Pass the attestation sha as the expected remote head so the approve
+		// check waits for GitHub's PR API to catch up to *our* commit (a
+		// concurrent third-party push would still be rejected).
+		await this.doReviewMessage(forwarded, (b) => action(b, attestationSha), attestationEvent ? [attestationEvent] : undefined);
 	}
 
-	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
-		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
+	private approvePullRequest(body: string, expectedRemoteHead?: string): Promise<ReviewEvent> {
+		return this._item.approve(this._folderRepositoryManager.repository, body, expectedRemoteHead);
 	}
 
-	private approvePullRequestCommand(context: { body: string }): Promise<void> {
-		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	private approvePullRequestMessage(message: IRequestMessage<SubmitReviewArgs>): Promise<void> {
+		return this.doReviewMessageWithAttestation(message, (body, expectedRemoteHead) => this.approvePullRequest(body, expectedRemoteHead));
+	}
+
+	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
+		const result = context.addAttestation
+			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			: undefined;
+		if (context.addAttestation && !result) {
+			return;
+		}
+		await this.doReviewCommand(
+			context,
+			ReviewType.Approve,
+			(body) => this.approvePullRequest(body, result?.sha),
+			result ? [result.event] : undefined,
+		);
 	}
 
 	private requestChanges(body: string): Promise<ReviewEvent> {
@@ -956,8 +1008,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
 	}
 
-	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
-		return this.doReviewMessage(message, (body) => this.requestChanges(body));
+	private requestChangesMessage(message: IRequestMessage<SubmitReviewArgs>): Promise<void> {
+		return this.doReviewMessageWithAttestation(message, (body) => this.requestChanges(body));
 	}
 
 	private submitReview(body: string): Promise<ReviewEvent> {
@@ -968,8 +1020,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
-	protected override submitReviewMessage(message: IRequestMessage<string>) {
-		return this.doReviewMessage(message, (body) => this.submitReview(body));
+	protected override submitReviewMessage(message: IRequestMessage<SubmitReviewArgs>) {
+		return this.doReviewMessageWithAttestation(message, (body) => this.submitReview(body));
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {

@@ -167,7 +167,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	}
 
 	private cachedPrUsers: UserCompletion[] = [];
-	private cachedPrTimelineEvents: TimelineEvent[] = [];
+	private cachedPrTimelineEvents: TimelineEvent[] | undefined;
 	private cachedForPrNumber: number | undefined;
 	private async getCommentSpecificSuggestions(
 		alreadyIncludedUsers: Map<string, IAccount>,

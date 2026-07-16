@@ -92,7 +92,7 @@ Default branch: ${defaults.base}`;
 Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
 			}
 			contexts.push({
-				icon: new vscode.ThemeIcon('github-alt'),
+				iconPath: new vscode.ThemeIcon('github-alt'),
 				label: `${defaults.owner}/${defaults.repo}`,
 				modelDescription,
 				value
@@ -102,7 +102,7 @@ Active pull request (may not be the same as open pull request): ${folderManager.
 	}
 }
 
-export class PullRequestContextProvider extends Disposable implements vscode.ChatExplicitContextProvider<PRChatContextItem>, vscode.ChatResourceContextProvider<PRChatContextItem> {
+export class PullRequestContextProvider extends Disposable implements vscode.ChatAttachContextProvider<PRChatContextItem>, vscode.ChatTabContextProvider<PRChatContextItem> {
 	constructor(private readonly _prsTreeModel: PrsTreeModel,
 		private readonly _reposManager: RepositoriesManager,
 		private readonly _context: vscode.ExtensionContext
@@ -110,25 +110,25 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 		super();
 	}
 
-	async provideExplicitChatContext(_token: vscode.CancellationToken): Promise<PRChatContextItem[]> {
+	async provideAttachChatContext(_token: vscode.CancellationToken): Promise<PRChatContextItem[]> {
 		const prs = await this._prsTreeModel.getAllPullRequests(this._reposManager.folderManagers[0], false);
 		return prs.items.map(pr => {
 			return this._prToUnresolvedContext(pr);
 		});
 	}
 
-	async provideResourceChatContext(_options: { resource: vscode.Uri; }, _token: vscode.CancellationToken): Promise<PRChatContextItem | undefined> {
+	async provideChatTabContext(_options: { tab: vscode.Tab; }, _token: vscode.CancellationToken): Promise<PRChatContextItem | undefined> {
 		const item = PullRequestOverviewPanel.getActivePanel()?.getCurrentItem();
 		if (item) {
 			return this._prToUnresolvedContext(item);
 		}
 	}
 
-	async resolveExplicitChatContext(context: PRChatContextItem, token: vscode.CancellationToken): Promise<vscode.ChatContextItem> {
+	async resolveAttachChatContext(context: PRChatContextItem, token: vscode.CancellationToken): Promise<vscode.ChatContextItem> {
 		return this._resolveChatContext(context, token);
 	}
 
-	async resolveResourceChatContext(context: PRChatContextItem, token: vscode.CancellationToken): Promise<vscode.ChatContextItem> {
+	async resolveChatTabContext(context: PRChatContextItem, token: vscode.CancellationToken): Promise<vscode.ChatContextItem> {
 		return this._resolveChatContext(context, token);
 	}
 
@@ -144,7 +144,7 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 
 	private _prToUnresolvedContext(pr: PullRequestModel): PRChatContextItem {
 		return {
-			icon: new vscode.ThemeIcon('git-pull-request'),
+			iconPath: new vscode.ThemeIcon('git-pull-request'),
 			label: `#${pr.number} ${pr.title}`,
 			modelDescription: 'The GitHub pull request the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${pr.number} ${pr.title}`),

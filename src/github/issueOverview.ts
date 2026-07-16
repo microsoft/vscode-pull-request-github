@@ -13,7 +13,7 @@ import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, Repo
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, ProjectItemsReply, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
+import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -462,8 +462,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	protected async submitReviewMessage(message: IRequestMessage<string>) {
-		const comment = await this._item.createIssueComment(message.args);
+	protected async submitReviewMessage(message: IRequestMessage<SubmitReviewArgs>) {
+		const body = message.args?.body ?? '';
+		const comment = await this._item.createIssueComment(body);
 		const commentedEvent: CommentEvent = {
 			...comment,
 			event: EventType.Commented
@@ -663,7 +664,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * Process code reference links in timeline events (comments, reviews, commits).
 	 * Updates bodyHTML fields for all events that contain them.
 	 */
-	protected async processTimelineEvents(events: TimelineEvent[]): Promise<TimelineEvent[]> {
+	protected async processTimelineEvents(events: TimelineEvent[] | undefined): Promise<TimelineEvent[]> {
+		if (!events) {
+			return [];
+		}
 		return Promise.all(events.map(async (event) => {
 			// Create a shallow copy to avoid mutating the original
 			const processedEvent = { ...event };

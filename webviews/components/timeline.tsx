@@ -5,6 +5,7 @@
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { CommentView } from './comment';
+import { CommitVerificationBadge } from './commitVerification';
 import Diff from './diff';
 import { addIcon, checkIcon, circleFilledIcon, closeIcon, commentIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
@@ -162,6 +163,7 @@ const CommitEventView = (event: CommitEvent) => {
 				<div className='status-section'>
 					<CommitStateIcon status={event.status} />
 				</div>
+				<CommitVerificationBadge verification={event.verification} committedDate={event.committedDate} />
 				<a
 					className="sha"
 					onClick={(e) => handleCommitClick(e, 'sha')}
@@ -211,11 +213,19 @@ const NewCommitsSinceReviewEventView = () => {
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;
 
-const groupCommentsByPath = (comments: IComment[]) =>
-	groupBy(comments, comment => comment.path + ':' + positionKey(comment));
+// Group review comments so that each rendered CommentThread contains exactly
+// one review thread's comments. Prefer grouping by the thread's GraphQL id
+// (set on each IComment when parsed from a review thread) so that resolve /
+// unresolve actions target the right thread. Fall back to path+position for
+// comments without a threadId (e.g. pending review comments not yet posted).
+const groupCommentsByThread = (comments: IComment[]) =>
+	groupBy(comments, comment =>
+		comment.threadId
+			? `thread:${comment.threadId}`
+			: comment.path + ':' + positionKey(comment));
 
 const ReviewEventView = (event: ReviewEvent) => {
-	const comments = groupCommentsByPath(event.comments);
+	const comments = groupCommentsByThread(event.comments);
 	const reviewIsPending = event.state === 'PENDING';
 	return (
 		<CommentView comment={event} allowEmpty={true}>
@@ -243,17 +253,21 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 		setResolved(!!comment.isResolved);
 		setRevealed(!comment.isResolved);
 	}, [comment.isResolved]);
+	// Look up this group's own review thread info. A single ReviewEvent can
+	// have comments on multiple threads, so resolve actions must target the
+	// thread that owns this group's comments - looked up by `comment.threadId`.
+	const reviewThread = comment.threadId ? event.reviewThreads?.[comment.threadId] : undefined;
 	const resolvePermission =
-		event.reviewThread &&
-		((event.reviewThread.canResolve && !event.reviewThread.isResolved) ||
-			(event.reviewThread.canUnresolve && event.reviewThread.isResolved));
+		reviewThread &&
+		((reviewThread.canResolve && !reviewThread.isResolved) ||
+			(reviewThread.canUnresolve && reviewThread.isResolved));
 
 	const toggleResolve = () => {
-		if (event.reviewThread) {
+		if (reviewThread) {
 			const newResolved = !resolved;
 			setRevealed(!newResolved);
 			setResolved(newResolved);
-			toggleResolveComment(event.reviewThread.threadId, thread, newResolved);
+			toggleResolveComment(reviewThread.threadId, thread, newResolved);
 		}
 	};
 
@@ -302,6 +316,9 @@ function AddReviewSummaryComment() {
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
 	const [commentText, setCommentText] = useState('');
+	const [addAttestation, setAddAttestation] = useState(false);
+
+	const showAttestationCheckbox = !isAuthor && !!pr?.attestationCommitsEnabled && !!pr?.isCurrentlyCheckedOut;
 
 	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
@@ -309,13 +326,13 @@ function AddReviewSummaryComment() {
 		setBusy(true);
 		switch (action) {
 			case ReviewType.RequestChanges:
-				await requestChanges(value);
+				await requestChanges(value, addAttestation);
 				break;
 			case ReviewType.Approve:
-				await approve(value);
+				await approve(value, addAttestation);
 				break;
 			default:
-				await submit(value);
+				await submit(value, addAttestation);
 		}
 		setBusy(false);
 	}
@@ -360,6 +377,19 @@ function AddReviewSummaryComment() {
 				>
 					Cancel Review
 				</button>
+				{showAttestationCheckbox ? (
+					<div className="attestation-checkbox-wrapper checkbox-wrapper" title="Add a signed attestation commit to the head of the pull request branch when submitting this review.">
+						<input
+							id="attestation-checkbox-summary"
+							type="checkbox"
+							name="add-attestation"
+							checked={addAttestation}
+							disabled={isBusy || pr?.busy}
+							onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+						/>
+						<label htmlFor="attestation-checkbox-summary" className="attestation-checkbox-label">Add attestation</label>
+					</div>
+				) : null}
 				{isAuthor ? null : (
 					<button
 						id="request-changes"

@@ -188,4 +188,57 @@ describe('PullRequestGitHelper', function () {
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
 		});
 	});
+
+	describe('getMatchingPullRequestMetadataForBranch', function () {
+		it('returns the highest-numbered PR when duplicate config entries exist for the branch', async function () {
+			// Simulate the case where a branch name has been associated with multiple
+			// PRs over time and `git config --get-all` returns duplicate entries.
+			// The helper should prefer the most recent association (highest PR
+			// number for the same owner/repo), not the lowest.
+			sinon.stub(repository, 'getConfigs').resolves([
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#5' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#42' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#17' },
+				{ key: 'branch.other.github-pr-owner-number', value: 'owner#name#999' },
+			]);
+
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+
+			assert.deepStrictEqual(metadata, {
+				owner: 'owner',
+				repositoryName: 'name',
+				prNumber: 42,
+			});
+		});
+
+		it('ignores entries whose PR number is not a finite integer', async function () {
+			// Malformed config values (e.g. `owner#name#abc`) parse to a metadata
+			// object with `prNumber: NaN`. Such entries must be filtered out so
+			// they do not poison the numeric sort and cause invalid metadata to
+			// be returned in preference to a valid entry.
+			sinon.stub(repository, 'getConfigs').resolves([
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#abc' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#7' },
+			]);
+
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+
+			assert.deepStrictEqual(metadata, {
+				owner: 'owner',
+				repositoryName: 'name',
+				prNumber: 7,
+			});
+		});
+
+		it('returns undefined when no config entries parse to valid metadata', async function () {
+			sinon.stub(repository, 'getConfigs').resolves([
+				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#abc' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'not-valid' },
+			]);
+
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+
+			assert.strictEqual(metadata, undefined);
+		});
+	});
 });

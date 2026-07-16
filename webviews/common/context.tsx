@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -179,20 +179,23 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	private async submitReviewCommand(command: string, body: string) {
+	private async submitReviewCommand(command: string, args: SubmitReviewArgs) {
 		try {
-			const result: SubmitReviewReply = await this.postMessage({ command, args: body });
+			const result: SubmitReviewReply = await this.postMessage({ command, args });
 			return this.appendReview(result);
 		} catch (error) {
 			return this.updatePR({ busy: false });
 		}
 	}
 
-	public requestChanges = (body: string) => this.submitReviewCommand('pr.request-changes', body);
+	public requestChanges = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.request-changes', { body, addAttestation });
 
-	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
+	public approve = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.approve', { body, addAttestation });
 
-	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
+	public submit = (body: string, addAttestation: boolean = false) =>
+		this.submitReviewCommand('pr.submit', { body, addAttestation });
 
 	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
 
@@ -372,7 +375,7 @@ export class PRContext {
 		if (!state) {
 			throw new Error('Unexpectedly no pull request when trying to append review');
 		}
-		const { events, reviewers, reviewedEvent } = reply;
+		const { events, additionalEvents, reviewers, reviewedEvent } = reply;
 		state.busy = false;
 		if (!events) {
 			this.updatePR(state);
@@ -381,7 +384,11 @@ export class PRContext {
 		if (reviewers) {
 			state.reviewers = reviewers;
 		}
-		state.events = events.length === 0 ? [...state.events, reviewedEvent] : events;
+		// If the caller sent a fresh full timeline (`events.length > 0`), replace state
+		// with it. Otherwise append `additionalEvents` (if any) followed by the review.
+		state.events = events.length === 0
+			? [...state.events, ...(additionalEvents ?? []), reviewedEvent]
+			: events;
 		if (reviewedEvent.event === EventType.Reviewed) {
 			state.currentUserReviewState = reviewedEvent.state;
 		}
@@ -445,6 +452,7 @@ export class PRContext {
 		const result: Partial<PullRequest> = await this.postMessage({ command: 'pr.update-branch' });
 		state.events = result.events ?? state.events;
 		state.mergeable = result.mergeable ?? state.mergeable;
+		state.canUpdateBranch = result.canUpdateBranch ?? state.canUpdateBranch;
 		this.updatePR(state);
 	};
 

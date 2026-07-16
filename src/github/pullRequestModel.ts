@@ -95,7 +95,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
@@ -338,8 +338,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
+	 * @param expectedRemoteHead When the caller just pushed a commit
+	 * themselves (e.g. an attestation commit), pass the sha they expect
+	 * GitHub's PR API to now report as the head. The head check will poll
+	 * briefly for the API to reflect this specific sha before proceeding -
+	 * a third-party push during the same interval will still be caught and
+	 * rejected because GitHub would report *that* sha instead.
 	 */
-	async approve(repository: Repository, message?: string): Promise<ReviewEvent> {
+	async approve(repository: Repository, message?: string, expectedRemoteHead?: string): Promise<ReviewEvent> {
 		// Check that the remote head of the PR branch matches the local head of the PR branch
 		let remoteHead: string | undefined;
 		let localHead: string | undefined;
@@ -352,6 +358,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			localHead = this.head?.sha;
 			remoteHead = (await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.approve'))?.head?.sha;
 			rejectMessage = vscode.l10n.t('The remote head of the pull request branch has changed. Please refresh the pull request before approving.');
+		}
+
+		// If the caller just pushed a commit, GitHub's PR API can briefly lag
+		// behind. Poll for it to catch up to *that specific sha* - never
+		// bypass the check. A concurrent third-party push would leave
+		// `remoteHead` at some other sha and we'd still reject below.
+		if (expectedRemoteHead && remoteHead !== expectedRemoteHead) {
+			const maxAttempts = 5;
+			const delayMs = 750;
+			for (let attempt = 0; attempt < maxAttempts && remoteHead !== expectedRemoteHead; attempt++) {
+				await new Promise(resolve => setTimeout(resolve, delayMs));
+				remoteHead = (await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.approve'))?.head?.sha;
+			}
 		}
 
 		if (!remoteHead || remoteHead !== localHead) {
@@ -867,7 +886,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
 	 */
-	async getTimelineEvents(): Promise<TimelineEvent[]> {
+	async getTimelineEvents(): Promise<TimelineEvent[] | undefined> {
 		const getTimelineEvents = async () => {
 			Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
@@ -980,13 +999,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				return;
 			}
 			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
-			prReviewThreadEvent.reviewThread = {
+			const resolveInfo: ReviewResolveInfo = {
 				threadId: thread.id,
 				canResolve: thread.viewerCanResolve,
 				canUnresolve: thread.viewerCanUnresolve,
 				isResolved: thread.isResolved
 			};
-
+			// A single review can have comments on multiple threads. Track each
+			// thread's resolve info by its id so the webview can resolve the
+			// correct thread when the user clicks resolve/unresolve on any of
+			// the comment groups within the review.
+			if (!prReviewThreadEvent.reviewThreads) {
+				prReviewThreadEvent.reviewThreads = {};
+			}
+			prReviewThreadEvent.reviewThreads[thread.id] = resolveInfo;
 		});
 
 		const pendingReview = reviewEvents.filter(r => r.state?.toLowerCase() === 'pending')[0];

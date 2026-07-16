@@ -189,6 +189,10 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	protected abstract detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined>;
 
+	// Called once the detected base branch is known, before getTitleAndDescription runs.
+	// Subclasses can override to update model state that getTitleAndDescription depends on.
+	protected onBaseBranchDetected(_baseOwner: string, _baseBranch: string): void { }
+
 	protected getTitleAndDescriptionProvider(name?: string) {
 		return this._folderRepositoryManager.getTitleAndDescriptionProvider(name);
 	}
@@ -213,6 +217,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		};
 
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
+
+		// Notify subclasses so they can update model state before getTitleAndDescription runs.
+		this.onBaseBranchDetected(defaultBaseRemote.owner, defaultBaseBranch);
 
 		let defaultTitleAndDescription: { title: string; description: string };
 		let mergeConfiguration: RepoAccessAndMergeMethods | undefined;
@@ -786,13 +793,25 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
 				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
 			]);
-			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
+			let totalNonMergeCommitsCount: number | undefined = totalCommits?.filter(commit => commit.parents.length < 2).length;
 
-			Logger.debug(`Total commits: ${totalNonMergeCommits?.length}`, CreatePullRequestViewProvider.ID);
-			if (totalNonMergeCommits === undefined) {
-				// There is no upstream branch. Use the last commit as the title and description.
+			// If we couldn't determine the number of commits from GitHub (e.g. no upstream, or the compare API
+			// call failed), fall back to the local git log so that we can still match github.com's behavior of
+			// using the branch name when there is more than one commit.
+			if (totalNonMergeCommitsCount === undefined) {
+				try {
+					const localCommits = await this.model.gitCommits();
+					totalNonMergeCommitsCount = localCommits.filter(commit => commit.parents.length < 2).length;
+				} catch (e) {
+					Logger.debug(`Failed to retrieve local git commits as fallback for PR title for branch ${name}: ${e}`, CreatePullRequestViewProvider.ID);
+				}
+			}
+
+			Logger.debug(`Total commits: ${totalNonMergeCommitsCount}`, CreatePullRequestViewProvider.ID);
+			if (totalNonMergeCommitsCount === undefined) {
+				// We couldn't determine the number of commits at all. Use the last commit as the title and description.
 				useBranchName = false;
-			} else if (totalNonMergeCommits && totalNonMergeCommits.length > 1) {
+			} else if (totalNonMergeCommitsCount > 1) {
 				const defaultBranch = await origin.getDefaultBranch();
 				useBranchName = defaultBranch !== compareBranch.name;
 			}
@@ -1010,10 +1029,13 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
+	protected override onBaseBranchDetected(baseOwner: string, baseBranch: string): void {
+		this.model.baseOwner = baseOwner;
+		this.model.baseBranch = baseBranch;
+	}
+
 	protected override async getCreateParams(): Promise<CreateParamsNew> {
 		const params = await super.getCreateParams();
-		this.model.baseOwner = params.defaultBaseRemote!.owner;
-		this.model.baseBranch = params.defaultBaseBranch!;
 		// Pre-fetch branches so they're cached when the user opens the branch picker
 		this.prefetchBranches(params.defaultBaseRemote!);
 		return params;

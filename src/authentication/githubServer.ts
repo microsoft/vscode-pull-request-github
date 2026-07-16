@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { HostHelper } from './configuration';
 import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { getEnterpriseUri } from '../github/utils';
 
@@ -15,7 +16,10 @@ export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
 	private static readonly _gheServers = new Set<string>().add('ghe.com');
 	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com').add('codeberg.org');
+	private static readonly _reportedEnterpriseVersions = new Set<string>();
 	private _knownServers: Map<string, GitHubServerType> = new Map([...Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]), ...Array.from(GitHubManager._gheServers.keys()).map(key => [key, GitHubServerType.Enterprise])] as [string, GitHubServerType][]);
+
+	constructor(private readonly _telemetry?: ITelemetry) { }
 
 	public static isGithubDotCom(host: string): boolean {
 		return this._githubDotComServers.has(host);
@@ -23,6 +27,20 @@ export class GitHubManager {
 
 	public static isNeverGitHub(host: string): boolean {
 		return this._neverGitHubServers.has(host);
+	}
+
+	private reportEnterpriseVersion(version: string): void {
+		if (GitHubManager._reportedEnterpriseVersions.has(version)) {
+			return;
+		}
+		GitHubManager._reportedEnterpriseVersions.add(version);
+		Logger.appendLine(`GitHub Enterprise version: ${version}`, 'GitHubServer');
+		/* __GDPR__
+			"github.enterprise.version" : {
+				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry?.sendTelemetryEvent('github.enterprise.version', { version });
 	}
 
 	public async isGitHub(host: vscode.Uri): Promise<GitHubServerType> {
@@ -63,6 +81,9 @@ export class GitHubManager {
 			Logger.debug(`All headers: ${otherGitHubHeaders.join(', ')}`, 'GitHubServer');
 			const gitHubHeader = response.headers.get('x-github-request-id');
 			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
+			if (gitHubEnterpriseHeader) {
+				this.reportEnterpriseVersion(gitHubEnterpriseHeader);
+			}
 			if (!gitHubHeader && !gitHubEnterpriseHeader) {
 				const [uriFallBack] = await GitHubManager.getOptions(host, 'HEAD', '/status');
 				const response = await fetch(uriFallBack.toString());
