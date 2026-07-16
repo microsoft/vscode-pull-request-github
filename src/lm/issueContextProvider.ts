@@ -22,24 +22,24 @@ export namespace IssueChatContextItem {
 	}
 }
 
-export class IssueContextProvider implements vscode.ChatExplicitContextProvider<IssueChatContextItem>, vscode.ChatResourceContextProvider<IssueChatContextItem> {
+export class IssueContextProvider implements vscode.ChatAttachContextProvider<IssueChatContextItem>, vscode.ChatTabContextProvider<IssueChatContextItem> {
 	constructor(private readonly _stateManager: StateManager,
 		private readonly _reposManager: RepositoriesManager,
 		private readonly _context: vscode.ExtensionContext
 	) { }
 
-	async provideResourceChatContext(_options: { resource: vscode.Uri; }, _token: vscode.CancellationToken): Promise<IssueChatContextItem | undefined> {
-		const item = IssueOverviewPanel.getActivePanel()?.getCurrentItem();;
+	async provideChatTabContext(_options: { tab: vscode.Tab; }, _token: vscode.CancellationToken): Promise<IssueChatContextItem | undefined> {
+		const item = IssueOverviewPanel.getActivePanel()?.getCurrentItem();
 		if (item) {
 			return this._issueToUnresolvedContext(item);
 		}
 	}
 
-	resolveExplicitChatContext(context: IssueChatContextItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatContextItem> {
+	resolveAttachChatContext(context: IssueChatContextItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatContextItem> {
 		return this._resolveChatContext(context, token);
 	}
 
-	resolveResourceChatContext(context: IssueChatContextItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatContextItem> {
+	resolveChatTabContext(context: IssueChatContextItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatContextItem> {
 		return this._resolveChatContext(context, token);
 	}
 
@@ -50,7 +50,7 @@ export class IssueContextProvider implements vscode.ChatExplicitContextProvider<
 		return context;
 	}
 
-	async provideExplicitChatContext(_token: vscode.CancellationToken): Promise<IssueChatContextItem[]> {
+	async provideAttachChatContext(_token: vscode.CancellationToken): Promise<IssueChatContextItem[]> {
 		const contextItems: IssueChatContextItem[] = [];
 		const seenIssues: Set<string> = new Set();
 		for (const folderManager of this._reposManager.folderManagers) {
@@ -79,7 +79,7 @@ export class IssueContextProvider implements vscode.ChatExplicitContextProvider<
 
 	private _issueToUnresolvedContext(issue: IssueModel): IssueChatContextItem {
 		return {
-			icon: new vscode.ThemeIcon('issues'),
+			iconPath: new vscode.ThemeIcon('issues'),
 			label: `#${issue.number} ${issue.title}`,
 			modelDescription: 'The GitHub issue the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${issue.number} ${issue.title}`),

@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// version: 3
-
 declare module 'vscode' {
 	/**
 	 * Represents the status of a chat session.
@@ -342,7 +340,7 @@ declare module 'vscode' {
 		 * also applying to this item.
 		 *
 		 * On first access of state for {@link resource}, the host adopts the entry
-		 * stored under `legacyResource` forward - copying it onto {@link resource} and
+		 * stored under `legacyResource` forward — copying it onto {@link resource} and
 		 * removing the legacy entry. The migration is transparent: no events fire and
 		 * the effective user-visible state is unchanged.
 		 *
@@ -351,7 +349,7 @@ declare module 'vscode' {
 		 * items.
 		 *
 		 * The legacy URI's scheme must match {@link resource}'s scheme; otherwise the
-		 * field is ignored. Multi-hop migrations are not supported - providers should
+		 * field is ignored. Multi-hop migrations are not supported — providers should
 		 * collapse intermediate hops on their side and emit the original URI.
 		 */
 		readonly legacyResource?: Uri;
@@ -710,10 +708,18 @@ declare module 'vscode' {
 		readonly inputCost?: number;
 		readonly outputCost?: number;
 		readonly cacheCost?: number;
+		readonly cacheWriteCost?: number;
 		readonly longContextInputCost?: number;
 		readonly longContextOutputCost?: number;
 		readonly longContextCacheCost?: number;
+		readonly longContextCacheWriteCost?: number;
 		readonly priceCategory?: string;
+		readonly promo?: {
+			readonly id: string;
+			readonly discountPercent: number;
+			readonly endsAt: string;
+			readonly message: string;
+		};
 		readonly maxInputTokens?: number;
 		readonly maxOutputTokens?: number;
 		readonly capabilities?: {

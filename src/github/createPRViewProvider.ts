@@ -190,6 +190,10 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	protected abstract detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined>;
 
+	// Called once the detected base branch is known, before getTitleAndDescription runs.
+	// Subclasses can override to update model state that getTitleAndDescription depends on.
+	protected onBaseBranchDetected(_baseOwner: string, _baseBranch: string): void { }
+
 	protected getTitleAndDescriptionProvider(name?: string) {
 		return this._folderRepositoryManager.getTitleAndDescriptionProvider(name);
 	}
@@ -214,6 +218,9 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		};
 
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
+
+		// Notify subclasses so they can update model state before getTitleAndDescription runs.
+		this.onBaseBranchDetected(defaultBaseRemote.owner, defaultBaseBranch);
 
 		let defaultTitleAndDescription: { title: string; description: string };
 		let mergeConfiguration: RepoAccessAndMergeMethods | undefined;
@@ -1040,10 +1047,13 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
+	protected override onBaseBranchDetected(baseOwner: string, baseBranch: string): void {
+		this.model.baseOwner = baseOwner;
+		this.model.baseBranch = baseBranch;
+	}
+
 	protected override async getCreateParams(): Promise<CreateParamsNew> {
 		const params = await super.getCreateParams();
-		this.model.baseOwner = params.defaultBaseRemote!.owner;
-		this.model.baseBranch = params.defaultBaseBranch!;
 		// Pre-fetch branches so they're cached when the user opens the branch picker
 		this.prefetchBranches(params.defaultBaseRemote!);
 		return params;
