@@ -586,10 +586,12 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
 			}
 		}
+		// Reply before firing _onDone so the webview receives the message before
+		// the panel is disposed (disposing clears _webview, making _replyMessage a no-op).
+		this._replyMessage(message, { cancelled: true });
 		this._onDone.fire(undefined);
 		// Re-fetch the automerge info so that it's updated for next time.
 		await this.getMergeConfiguration(message.args.owner, message.args.repo, true);
-		return this._replyMessage(message, { cancelled: true });
 	}
 
 	private async openDescriptionSettings(): Promise<void> {

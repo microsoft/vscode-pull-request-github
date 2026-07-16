@@ -109,8 +109,8 @@ export class CreatePRContextNew {
 
 	private hasUnsavedChanges(): boolean {
 		const params = this.createParams;
-		const titleEdited = !!params.pendingTitle && params.pendingTitle !== params.defaultTitle;
-		const descriptionEdited = !!params.pendingDescription && params.pendingDescription !== params.defaultDescription;
+		const titleEdited = params.pendingTitle !== undefined && params.pendingTitle !== params.defaultTitle;
+		const descriptionEdited = params.pendingDescription !== undefined && params.pendingDescription !== params.defaultDescription;
 		const hasLabels = (params.labels?.length ?? 0) > 0;
 		const hasAssignees = (params.assignees?.length ?? 0) > 0;
 		const hasReviewers = (params.reviewers?.length ?? 0) > 0;
