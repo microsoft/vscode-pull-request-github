@@ -627,7 +627,7 @@ export function AddComment({
 					) : null}
 
 					<ContextDropdown
-						optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons)}
+						optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons, addAttestation)}
 						defaultAction={defaultSubmitAction}
 						defaultOptionLabel={() => availableActions[currentSelection]!}
 						defaultOptionValue={() => currentSelection}
@@ -670,7 +670,7 @@ const COMMENT_METHODS = {
 	requestChanges: 'Request Changes',
 };
 
-const makeCommentMenuContext = (owner: string, repo: string, number: number, availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean) => {
+const makeCommentMenuContext = (owner: string, repo: string, number: number, availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean, addAttestation: boolean) => {
 	const createMenuContexts: ReviewCommentContext = {
 		'preventDefaultContextMenuItems': true,
 		'github:reviewCommentMenu': true,
@@ -678,6 +678,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 		repo,
 		number,
 		body: pendingCommentText ?? '',
+		addAttestation,
 	};
 	if (availableActions.approve) {
 		if (availableActions.approve === COMMENT_METHODS.approve) {
@@ -790,22 +791,22 @@ export const AddCommentSimple = (pr: PullRequest) => {
 					{cloudUploadIcon}
 				</button>
 			</div>
+			{showAttestationCheckbox ? (
+				<div className="attestation-checkbox-wrapper checkbox-wrapper attestation-checkbox-row" title="Add a signed attestation commit to the head of the pull request branch when approving.">
+					<input
+						id="attestation-checkbox-simple"
+						type="checkbox"
+						name="add-attestation"
+						checked={addAttestation}
+						disabled={isBusy || pr.busy}
+						onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+					/>
+					<label htmlFor="attestation-checkbox-simple" className="attestation-checkbox-label">Add attestation</label>
+				</div>
+			) : null}
 			<div className='comment-button'>
-				{showAttestationCheckbox ? (
-					<div className="attestation-checkbox-wrapper checkbox-wrapper attestation-checkbox-overlay" title="Add a signed attestation commit to the head of the pull request branch when approving.">
-						<input
-							id="attestation-checkbox-simple"
-							type="checkbox"
-							name="add-attestation"
-							checked={addAttestation}
-							disabled={isBusy || pr.busy}
-							onChange={(e) => setAddAttestation(e.currentTarget.checked)}
-						/>
-						<label htmlFor="attestation-checkbox-simple" className="attestation-checkbox-label">Add attestation</label>
-					</div>
-				) : null}
 				<ContextDropdown
-					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons)}
+					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons, addAttestation)}
 					defaultAction={defaultSubmitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}

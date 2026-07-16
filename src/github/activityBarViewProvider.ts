@@ -18,7 +18,7 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
-import { ReviewEvent } from '../common/timelineEvent';
+import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
@@ -43,7 +43,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (context: { mergeMethod: MergeMethod }) => {
 			return this.readyForReviewAndMergeCommand(context);
 		}));
-		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
+		this._register(vscode.commands.registerCommand('review.approve', (e: SubmitReviewArgs) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
 		this._register(vscode.commands.registerCommand('review.approveOnDotCom', () => {
@@ -123,8 +123,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async addAttestationCommitMessage(message: IRequestMessage<void>): Promise<void> {
-		const sha = await addAttestationCommit(this._folderRepositoryManager, this._item);
-		this._replyMessage(message, { success: !!sha, sha });
+		const result = await addAttestationCommit(this._folderRepositoryManager, this._item);
+		this._replyMessage(message, { success: !!result, sha: result?.sha });
 	}
 
 	public async refresh(): Promise<void> {
@@ -347,22 +347,24 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>, additionalEvents?: TimelineEvent[]) {
 		return PullRequestReviewCommon.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
 			false,
-			action
+			action,
+			additionalEvents,
 		);
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>, needsTimelineRefresh: boolean = false) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>, needsTimelineRefresh: boolean = false, additionalEvents?: TimelineEvent[]) {
 		return PullRequestReviewCommon.doReviewMessage(
 			this.getReviewContext(),
 			message,
 			needsTimelineRefresh,
 			action,
+			additionalEvents,
 		);
 	}
 
@@ -373,31 +375,50 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	 */
 	private async doReviewMessageWithAttestation(
 		message: IRequestMessage<SubmitReviewArgs>,
-		action: (body: string) => Promise<ReviewEvent>,
+		action: (body: string, expectedRemoteHead: string | undefined) => Promise<ReviewEvent>,
 	): Promise<void> {
 		const { body, addAttestation } = message.args ?? { body: '' };
+		let attestationEvent: TimelineEvent | undefined;
 		let attestationSha: string | undefined;
 		if (addAttestation) {
-			attestationSha = await addAttestationCommit(this._folderRepositoryManager, this._item);
-			if (!attestationSha) {
+			const result = await addAttestationCommit(this._folderRepositoryManager, this._item);
+			if (!result) {
 				this._throwError(message, 'Attestation commit failed; review was not submitted.');
 				return;
 			}
+			attestationEvent = result.event;
+			attestationSha = result.sha;
 		}
 		const forwarded: IRequestMessage<string> = { req: message.req, command: message.command, args: body };
-		await this.doReviewMessage(forwarded, action, !!attestationSha);
+		// Skip the timeline refetch when we have the attestation commit locally;
+		// splice it into the webview state via `additionalEvents` instead.
+		// Pass the attestation sha as the expected remote head so the approve
+		// check waits for GitHub's PR API to catch up to *our* commit (a
+		// concurrent third-party push would still be rejected).
+		await this.doReviewMessage(forwarded, (b) => action(b, attestationSha), false, attestationEvent ? [attestationEvent] : undefined);
 	}
 
-	private approvePullRequest(body: string): Promise<ReviewEvent> {
-		return this._item.approve(this._folderRepositoryManager.repository, body);
+	private approvePullRequest(body: string, expectedRemoteHead?: string): Promise<ReviewEvent> {
+		return this._item.approve(this._folderRepositoryManager.repository, body, expectedRemoteHead);
 	}
 
 	private async approvePullRequestMessage(message: IRequestMessage<SubmitReviewArgs>): Promise<void> {
-		await this.doReviewMessageWithAttestation(message, (body) => this.approvePullRequest(body));
+		await this.doReviewMessageWithAttestation(message, (body, expectedRemoteHead) => this.approvePullRequest(body, expectedRemoteHead));
 	}
 
-	private async approvePullRequestCommand(context: { body: string }): Promise<void> {
-		await this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
+		const result = context.addAttestation
+			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			: undefined;
+		if (context.addAttestation && !result) {
+			return;
+		}
+		await this.doReviewCommand(
+			context,
+			ReviewType.Approve,
+			(body) => this.approvePullRequest(body, result?.sha),
+			result ? [result.event] : undefined,
+		);
 	}
 
 	private requestChanges(body: string): Promise<ReviewEvent> {

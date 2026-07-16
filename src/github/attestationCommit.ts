@@ -9,6 +9,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { Repository } from '../api/api';
 import Logger from '../common/logger';
 import { ENABLE_ATTESTATION_COMMITS, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CommitEvent, EventType } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 
 const LOG_ID = 'AttestationCommit';
@@ -90,12 +91,14 @@ export function isAttestationCommitsEnabled(): boolean {
  * and pushes it to the corresponding remote. Requires that the pull request is currently
  * checked out and that the user has commit signing configured.
  *
- * Returns the SHA of the new attestation commit when successful, otherwise `undefined`.
+ * Returns the SHA of the new attestation commit plus a synthetic `CommitEvent` that
+ * callers can splice into the timeline (avoiding an extra `getTimelineEvents` round-trip
+ * to GitHub) when successful, otherwise `undefined`.
  */
 export async function addAttestationCommit(
 	folderRepositoryManager: FolderRepositoryManager,
 	pullRequestModel: PullRequestModel,
-): Promise<string | undefined> {
+): Promise<{ sha: string; event: CommitEvent } | undefined> {
 	const message = getAttestationCommitSetting();
 	if (message === false) {
 		vscode.window.showWarningMessage(vscode.l10n.t('Attestation commits are not enabled. Enable them via the `githubPullRequests.enableAttestationCommits` setting.'));
@@ -120,24 +123,88 @@ export async function addAttestationCommit(
 		return undefined;
 	}
 
+	const originalSha = head.commit;
 	try {
 		Logger.appendLine(`Creating attestation commit on branch ${head.name} for PR #${pullRequestModel.number}`, LOG_ID);
 		await repository.commit(message, {
 			empty: true,
 			signCommit: true,
+			noVerify: true,
 		});
 
-		const upstream = head.upstream;
-		if (upstream) {
-			await repository.push(upstream.remote, head.name);
-		} else {
-			await repository.push();
+		try {
+			const upstream = head.upstream;
+			if (upstream) {
+				// When the local branch name differs from its upstream (e.g. a
+				// checked-out PR branch `pr/<owner>/<n>` tracking `their/branch`
+				// on the fork), pass an explicit `<local>:<remote>` refspec so
+				// git pushes to the tracked branch instead of trying to create
+				// a new remote branch named after the local ref.
+				const refspec = head.name && head.name !== upstream.name
+					? `${head.name}:${upstream.name}`
+					: head.name;
+				await repository.push(upstream.remote, refspec);
+			} else {
+				await repository.push();
+			}
+		} catch (pushError) {
+			// Push failed (e.g. no write access to a fork). Rewind the local
+			// commit so the branch doesn't diverge from the remote.
+			await rewindLocalCommit(repository, originalSha);
+			const errText = formatError(pushError);
+			const isPermissionDenied = /permission denied|forbidden|403|401/i.test(errText);
+			const detail = isPermissionDenied
+				? vscode.l10n.t('You do not have push access to the pull request branch (`{0}:{1}`). The local attestation commit was rewound.', pullRequestModel.head?.repositoryCloneUrl.owner ?? '', pullRequestModel.head?.ref ?? '')
+				: vscode.l10n.t('Failed to push the attestation commit: {0}. The local commit was rewound.', errText);
+			Logger.error(`Attestation commit push failed: ${errText}`, LOG_ID);
+			vscode.window.showErrorMessage(detail);
+			return undefined;
 		}
 
-		return repository.state.HEAD?.commit;
+		const sha = repository.state.HEAD?.commit;
+		if (!sha) {
+			return undefined;
+		}
+
+		const currentUser = await folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository);
+		// Derive the commit URL from the PR's html_url (e.g. `.../pull/123` -> `.../commit/<sha>`).
+		const commitHtmlUrl = pullRequestModel.html_url.replace(/\/pull\/\d+.*$/, `/commit/${sha}`);
+		const event: CommitEvent = {
+			id: sha,
+			sha,
+			event: EventType.Committed,
+			author: currentUser,
+			htmlUrl: commitHtmlUrl,
+			message,
+			committedDate: new Date(),
+		};
+		return { sha, event };
 	} catch (e) {
 		Logger.error(`Failed to add attestation commit: ${formatError(e)}`, LOG_ID);
 		vscode.window.showErrorMessage(vscode.l10n.t('Failed to add attestation commit: {0}', formatError(e)));
 		return undefined;
+	}
+}
+
+/**
+ * Best-effort rewind of the just-created (empty) attestation commit when we
+ * fail to push it. Uses the VS Code git extension's internal `_repository.reset`
+ * when available so the branch pointer moves back to `originalSha` without
+ * leaving a divergent local state.
+ */
+async function rewindLocalCommit(repository: Repository, originalSha: string | undefined): Promise<void> {
+	if (!originalSha) {
+		return;
+	}
+	try {
+		const internal = (repository as unknown as { _repository?: { reset?: (treeish: string, hard?: boolean) => Promise<void> } })._repository;
+		if (internal?.reset) {
+			await internal.reset(originalSha, true);
+			await repository.status();
+		} else {
+			Logger.warn(`Cannot rewind attestation commit: internal reset API not available. Run 'git reset --hard ${originalSha}' to clean up.`, LOG_ID);
+		}
+	} catch (e) {
+		Logger.error(`Failed to rewind attestation commit: ${formatError(e)}. Run 'git reset --hard ${originalSha}' to clean up.`, LOG_ID);
 	}
 }

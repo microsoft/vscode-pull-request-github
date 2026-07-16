@@ -132,6 +132,13 @@ export interface ChangeReviewersReply {
 
 export interface SubmitReviewReply {
 	events?: TimelineEvent[];
+	/**
+	 * Extra timeline events (e.g. a locally-constructed attestation commit) that the
+	 * webview should append to its existing timeline immediately before the
+	 * `reviewedEvent`. Lets callers avoid an extra `getTimelineEvents` round-trip when
+	 * they already know what changed.
+	 */
+	additionalEvents?: TimelineEvent[];
 	reviewedEvent: ReviewEvent | CommentEvent;
 	reviewers?: ReviewState[];
 }
@@ -240,6 +247,7 @@ export interface ReviewCommentContext {
 	repo: string;
 	number: number;
 	body: string;
+	addAttestation?: boolean;
 	'github:reviewCommentApprove'?: boolean;
 	'github:reviewCommentApproveOnDotCom'?: boolean;
 	'github:reviewCommentComment'?: boolean;
