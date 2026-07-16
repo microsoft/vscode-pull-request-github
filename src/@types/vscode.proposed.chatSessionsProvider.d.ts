@@ -708,10 +708,18 @@ declare module 'vscode' {
 		readonly inputCost?: number;
 		readonly outputCost?: number;
 		readonly cacheCost?: number;
+		readonly cacheWriteCost?: number;
 		readonly longContextInputCost?: number;
 		readonly longContextOutputCost?: number;
 		readonly longContextCacheCost?: number;
+		readonly longContextCacheWriteCost?: number;
 		readonly priceCategory?: string;
+		readonly promo?: {
+			readonly id: string;
+			readonly discountPercent: number;
+			readonly endsAt: string;
+			readonly message: string;
+		};
 		readonly maxInputTokens?: number;
 		readonly maxOutputTokens?: number;
 		readonly capabilities?: {

@@ -41,11 +41,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.150.0",
+	"version": "0.158.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.121.0"
+		"vscode": "^1.130.0"
 	},
 	"categories": [
 		"Other",
@@ -319,6 +319,14 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubPullRequests.deleteBranchAfterMerge.description%"
+				},
+				"githubPullRequests.enableAttestationCommits": {
+					"type": [
+						"boolean",
+						"string"
+					],
+					"default": false,
+					"markdownDescription": "%githubPullRequests.enableAttestationCommits.description%"
 				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
@@ -1552,6 +1560,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.addAttestationCommit",
+				"title": "%command.pr.addAttestationCommit.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.requestChangesOnDotCom",
 				"title": "%command.review.requestChangesOnDotCom.title%",
 				"category": "%command.pull.request.category%"
@@ -2088,6 +2101,10 @@
 				{
 					"command": "github.api.preloadPullRequest",
 					"when": "false"
+				},
+				{
+					"command": "pr.addAttestationCommit",
+					"when": "config.githubPullRequests.enableAttestationCommits"
 				},
 				{
 					"command": "pr.configureRemotes",

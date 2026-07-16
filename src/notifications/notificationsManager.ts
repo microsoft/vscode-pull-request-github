@@ -124,11 +124,15 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		if (notification.subject.type === NotificationSubjectType.Issue && model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed'));
+				: (model.stateReason && model.stateReason !== 'COMPLETED'
+					? new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('pullRequests.draft'))
+					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
 		}
 		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
 			item.iconPath = model.isOpen
-				? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.open'))
+				? (model.isDraft
+					? new vscode.ThemeIcon('git-pull-request-draft', new vscode.ThemeColor('pullRequests.draft'))
+					: new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.open')))
 				: (model.isMerged
 					? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.merged'))
 					: new vscode.ThemeIcon('git-pull-request-closed', new vscode.ThemeColor('pullRequests.closed')));

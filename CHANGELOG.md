@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.158.0
+
+### Changes
+
+- Display verified badges for commits in the pull request timeline.
+- Adopt the updated chat context API.
+
+### Fixes
+
+- Correctly account for required approving reviews when determining whether a pull request is ready to merge.
+
+## 0.156.0
+
+### Fixes
+
+- Attestation commit shows poorly on web. https://github.com/microsoft/vscode-pull-request-github/issues/8816
+- PR shows green checkmark for ready to commit even though branch protection policy is not met yet (review pending). https://github.com/microsoft/vscode-pull-request-github/issues/8813
+- Link to an issue doesn't work. https://github.com/microsoft/vscode-pull-request-github/issues/8774
+
+**_Thank You_**
+
+* [@kamil-gwozdz (kamil-gwozdz)](https://github.com/kamil-gwozdz): Remove the `rateLimit` selection from the MaxPullRequest GraphQL query. [PR #8812](https://github.com/microsoft/vscode-pull-request-github/pull/8812)
+
+## 0.154.0
+
+### Changes
+
+- Back off polling for pull request updates when no changes are found, reducing unnecessary requests.
+
+## 0.152.0
+
+### Fixes
+
+- Upload file renders on top of text in the input. https://github.com/microsoft/vscode-pull-request-github/issues/8776
+
 ## 0.150.0
 
 ### Fixes

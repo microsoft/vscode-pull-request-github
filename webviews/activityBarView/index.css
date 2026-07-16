@@ -70,13 +70,11 @@ textarea {
 	outline: none;
 	margin: 0;
 	resize: none;
-	padding-bottom: 28px;
 }
 
 .textarea-wrapper .comment-upload-button {
-	position: absolute;
-	left: 6px;
-	bottom: 4px;
+	align-self: flex-start;
+	margin: 2px 0 4px 4px;
 	border: none;
 	background: none;
 	padding: 4px;
@@ -240,6 +238,16 @@ button .icon svg {
 	display: flex;
 	flex-grow: 1;
 	min-width: 0;
+	position: relative;
+	align-items: center;
+}
+
+.attestation-checkbox-row {
+	margin-top: 6px;
+	margin-right: auto;
+	margin-left: auto;
+	margin-bottom: 12px;
+	width: fit-content;
 }
 
 .dropdown-container {
