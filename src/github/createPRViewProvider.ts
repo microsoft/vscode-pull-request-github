@@ -36,7 +36,7 @@ import {
 	PULL_REQUEST_DESCRIPTION,
 	PULL_REQUEST_LABELS,
 	PUSH_BRANCH,
-	SHOW_PULL_REQUEST_CANCEL_CONFIRMATION
+	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
@@ -570,7 +570,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	private async cancel(message: IRequestMessage<CancelCreatePullRequestNew>) {
 		if (message.args.hasUnsavedChanges
-			&& vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_PULL_REQUEST_CANCEL_CONFIRMATION, true)) {
+			&& vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION, true)) {
 			const discard = vscode.l10n.t('Discard');
 			const dontAskAgain = vscode.l10n.t('Don\'t Ask Again');
 			const result = await vscode.window.showWarningMessage(
@@ -583,7 +583,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 				return this._replyMessage(message, { cancelled: false });
 			}
 			if (result === dontAskAgain) {
-				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(SHOW_PULL_REQUEST_CANCEL_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
 			}
 		}
 		this._onDone.fire(undefined);

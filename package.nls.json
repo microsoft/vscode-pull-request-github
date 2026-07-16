@@ -13,7 +13,7 @@
 	"githubPullRequests.defaultCreateOption.createDraft": "The pull request will be created as a draft.",
 	"githubPullRequests.defaultCreateOption.createAutoMerge": "The pull request will be created with auto-merge enabled. The merge method selected will be the default for the repo or the value of `githubPullRequests.defaultMergeMethod` if set.",
 	"githubPullRequests.createDraft": "Whether the \"Draft\" checkbox will be checked by default when creating a pull request.",
-	"githubPullRequests.showPullRequestCancelConfirmation": "Show a confirmation dialog when canceling pull request creation if there are unsaved changes (a manually edited title or description, or any selected labels, assignees, reviewers, projects, or milestone).",
+	"githubPullRequests.showCreatePullRequestCancelConfirmation": "Show a confirmation dialog when canceling pull request creation if there are unsaved changes (a manually edited title or description, or any selected labels, assignees, reviewers, projects, or milestone).",
 	"githubPullRequests.logLevel.description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named GitHub Pull Request.",
 	"githubPullRequests.logLevel.markdownDeprecationMessage": {
 		"message": "Log level is now controlled by the [Developer: Set Log Level...](command:workbench.action.setLogLevel) command. You can set the log level for the current session and also the default log level from there.",
