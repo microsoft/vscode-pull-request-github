@@ -17,6 +17,7 @@ import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeData
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
+import { FOCUS_REVIEW_MODE } from '../../constants';
 import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -39,6 +40,7 @@ describe('ReviewManager polling', function () {
 	let gitApi: GitApiImpl;
 	let manager: FolderRepositoryManager;
 	let reviewManager: ReviewManager;
+	let showPullRequest: ShowPullRequest;
 	let onDidChangeWindowStateCallback: ((state: vscode.WindowState) => unknown) | undefined;
 	let isWindowFocused: boolean;
 	let setTimeoutSpy: sinon.SinonSpy;
@@ -75,6 +77,7 @@ describe('ReviewManager polling', function () {
 		reposManager.insertFolderManager(manager);
 
 		const changesTreeProvider = new PullRequestChangesTreeDataProvider(gitApi, reposManager);
+		showPullRequest = new ShowPullRequest();
 		reviewManager = new ReviewManager(
 			0,
 			context,
@@ -83,7 +86,7 @@ describe('ReviewManager polling', function () {
 			telemetry,
 			changesTreeProvider,
 			prsTreeProvider,
-			new ShowPullRequest(),
+			showPullRequest,
 			activePrViewCoordinator,
 			createPrHelper,
 			gitApi,
@@ -210,5 +213,25 @@ describe('ReviewManager polling', function () {
 		clock.tick(POLL_MIN_INTERVAL_MS * 4);
 		await flushMicrotasks();
 		assert.strictEqual(latestScheduledDelay(), POLL_MIN_INTERVAL_MS * 6);
+	});
+
+	it('shows a deferred pull request reveal only once', async function () {
+		await context.workspaceState.update(FOCUS_REVIEW_MODE, true);
+		const pullRequest = {} as PullRequestModel;
+		const reviewManagerLayout = reviewManager as unknown as {
+			layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean): void;
+			_doFocusShow(pr: PullRequestModel, updateLayout: boolean): void;
+		};
+		const focusShow = sinon.stub(reviewManagerLayout, '_doFocusShow');
+
+		reviewManagerLayout.layout(pullRequest, true, true);
+		showPullRequest.shouldShow = true;
+
+		assert.strictEqual(focusShow.callCount, 1);
+		assert.deepStrictEqual(focusShow.firstCall.args, [pullRequest, true]);
+
+		reviewManagerLayout.layout(pullRequest, true, true);
+
+		assert.strictEqual(focusShow.callCount, 1);
 	});
 });

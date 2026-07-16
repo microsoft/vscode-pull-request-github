@@ -179,9 +179,6 @@ export namespace PullRequestReviewCommon {
 			return ctx.replyMessage(message, {});
 		}
 		const mergeSucceeded = await ctx.folderRepositoryManager.tryMergeBaseIntoHead(ctx.item, true);
-		if (!mergeSucceeded) {
-			ctx.replyMessage(message, {});
-		}
 		// The mergability of the PR doesn't update immediately. Poll.
 		let mergability = PullRequestMergeability.Unknown;
 		let attemptsRemaining = 5;
@@ -194,6 +191,7 @@ export namespace PullRequestReviewCommon {
 		const result: Partial<PullRequest> = {
 			events: await ctx.getTimeline(),
 			mergeable: mergability,
+			canUpdateBranch: !mergeSucceeded,
 		};
 		await refreshAfterUpdate();
 
