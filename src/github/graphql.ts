@@ -202,6 +202,19 @@ export interface Commit {
 		oid: string;
 		message: string;
 		committedDate: Date;
+		signature?: {
+			isValid: boolean;
+			state: string;
+			wasSignedByGitHub?: boolean;
+			signer?: {
+				login: string;
+				name?: string | null;
+				avatarUrl?: string;
+			} | null;
+			keyId?: string | null;
+			keyFingerprint?: string | null;
+			email?: string | null;
+		} | null;
 		statusCheckRollup?: {
 			state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 		};
@@ -1039,6 +1052,30 @@ export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
 	return x.__typename === 'CheckRun';
 }
 
+export interface CheckSuiteForRollup {
+	status: 'COMPLETED' | 'IN_PROGRESS' | 'PENDING' | 'QUEUED' | 'REQUESTED' | 'WAITING' | null;
+	conclusion:
+	| 'ACTION_REQUIRED'
+	| 'CANCELLED'
+	| 'FAILURE'
+	| 'NEUTRAL'
+	| 'SKIPPED'
+	| 'STALE'
+	| 'SUCCESS'
+	| 'TIMED_OUT'
+	| null;
+	workflowRun?: {
+		event: string;
+		workflow: {
+			name: string;
+		};
+	} | null;
+	app?: {
+		logoUrl: string;
+		url: string;
+	} | null;
+}
+
 export interface ChecksReviewNode {
 	authorAssociation: 'MEMBER' | 'OWNER' | 'MANNEQUIN' | 'COLLABORATOR' | 'CONTRIBUTOR' | 'FIRST_TIME_CONTRIBUTOR' | 'FIRST_TIMER' | 'NONE';
 	authorCanPushToRepository: boolean
@@ -1075,6 +1112,9 @@ export interface GetChecksResponse {
 								nodes: (StatusContext | CheckRun)[];
 							};
 						};
+						checkSuites?: {
+							nodes: CheckSuiteForRollup[];
+						} | null;
 					};
 				}[] | undefined;
 			};

@@ -5,6 +5,7 @@
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { CommentView } from './comment';
+import { CommitVerificationBadge } from './commitVerification';
 import Diff from './diff';
 import { addIcon, checkIcon, circleFilledIcon, closeIcon, commentIcon, errorIcon, gitCommitIcon, gitMergeIcon, loadingIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
@@ -162,6 +163,7 @@ const CommitEventView = (event: CommitEvent) => {
 				<div className='status-section'>
 					<CommitStateIcon status={event.status} />
 				</div>
+				<CommitVerificationBadge verification={event.verification} committedDate={event.committedDate} />
 				<a
 					className="sha"
 					onClick={(e) => handleCommitClick(e, 'sha')}

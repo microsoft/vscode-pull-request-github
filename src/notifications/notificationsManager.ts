@@ -9,7 +9,7 @@ import { NotificationsProvider } from './notificationsProvider';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ISSUES_SETTINGS_NAMESPACE, NOTIFICATION_SETTING, NotificationVariants, PR_SETTINGS_NAMESPACE, SHOW_ISSUE_NUMBER_IN_TREE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../common/settingKeys';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
@@ -73,6 +73,10 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 					this._startPolling();
 				}
 			}
+			if (e.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${SHOW_ISSUE_NUMBER_IN_TREE}`)
+				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
+				this._onDidChangeTreeData.fire();
+			}
 		}));
 		this._register(PullRequestOverviewPanel.onVisible(e => {
 			this.markPrNotificationsAsRead(e);
@@ -116,7 +120,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	}
 
 	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
-		const label = element.notification.subject.title;
+		const label = this._notificationLabel(element);
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 		const notification = element.notification;
 		const model = element.model;
@@ -154,6 +158,27 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			};
 		}
 		return item;
+	}
+
+	private _notificationLabel(element: NotificationTreeItem): string {
+		let setting: string | undefined;
+		let namespace: string | undefined;
+		if (element.notification.subject.type === NotificationSubjectType.Issue) {
+			setting = SHOW_ISSUE_NUMBER_IN_TREE;
+			namespace = ISSUES_SETTINGS_NAMESPACE;
+		} else if (element.notification.subject.type === NotificationSubjectType.PullRequest) {
+			setting = SHOW_PULL_REQUEST_NUMBER_IN_TREE;
+			namespace = PR_SETTINGS_NAMESPACE;
+		}
+
+		if (setting !== undefined && namespace !== undefined) {
+			const showNumber = vscode.workspace.getConfiguration(namespace).get<boolean>(setting, false);
+			if (showNumber) {
+				return `#${element.model.number}: ${element.notification.subject.title}`;
+			}
+		}
+
+		return element.notification.subject.title;
 	}
 
 	private _resolveLoadMoreNotificationsTreeItem(): vscode.TreeItem {

@@ -157,6 +157,12 @@
 			"Do not translate what's inside of the ${...}. It is an internal syntax for the extension."
 		]
 	},
+	"githubIssues.issueCompletionFormatEditor.markdownDescription": {
+		"message": "Sets the format of issue completions in the editor. \n- `${user}` will be replaced with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository \n- `${issueTitle}` will be replaced with the issue title",
+		"comment": [
+			"Do not translate what's inside of the ${...}. It is an internal syntax for the extension."
+		]
+	},
 	"githubIssues.workingIssueFormatScm.markdownDescription": {
 		"message": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes ${issueNumberLabel}`",
 		"comment": [
@@ -176,6 +182,7 @@
 	"githubIssues.issueAvatarDisplay.description": "Controls which avatar to display in the issue list.",
 	"githubIssues.issueAvatarDisplay.author": "Show the avatar of the issue creator.",
 	"githubIssues.issueAvatarDisplay.assignee": "Show the avatar of the first assignee (show GitHub icon if no assignees).",
+	"githubIssues.showIssueNumberInTree.description": "Shows the issue number in the tree view.",
 	"githubPullRequests.focusedMode.description": "The layout to use when a pull request is checked out. Set to false to prevent layout changes.",
 	"githubPullRequests.focusedMode.firstDiff": "Show the first diff in the pull request. If there are no changes, show the overview.",
 	"githubPullRequests.focusedMode.overview": "Show the overview of the pull request.",

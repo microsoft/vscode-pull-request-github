@@ -41,11 +41,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.156.0",
+	"version": "0.158.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.121.0"
+		"vscode": "^1.130.0"
 	},
 	"categories": [
 		"Other",
@@ -746,6 +746,11 @@
 					"default": "${issueTitle}\nFixes ${issueNumberLabel}",
 					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
+				"githubIssues.issueCompletionFormatEditor": {
+					"type": "string",
+					"default": "${issueNumberLabel}",
+					"markdownDescription": "%githubIssues.issueCompletionFormatEditor.markdownDescription%"
+				},
 				"githubIssues.workingIssueFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} \nFixes ${issueNumberLabel}",
@@ -823,6 +828,11 @@
 					],
 					"default": "author",
 					"description": "%githubIssues.issueAvatarDisplay.description%"
+				},
+				"githubIssues.showIssueNumberInTree": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubIssues.showIssueNumberInTree.description%"
 				},
 				"githubPullRequests.focusedMode": {
 					"properties": {
