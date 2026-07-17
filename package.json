@@ -746,6 +746,11 @@
 					"default": "${issueTitle}\nFixes ${issueNumberLabel}",
 					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
+				"githubIssues.issueCompletionFormatEditor": {
+					"type": "string",
+					"default": "${issueNumberLabel}",
+					"markdownDescription": "%githubIssues.issueCompletionFormatEditor.markdownDescription%"
+				},
 				"githubIssues.workingIssueFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} \nFixes ${issueNumberLabel}",
