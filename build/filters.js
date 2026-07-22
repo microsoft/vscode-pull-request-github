@@ -39,6 +39,7 @@ module.exports.indentationFilter = [
 
 	// except specific files
 	'!CHANGELOG.md',
+	'!.github/**/*',
 	'!documentation/**/*',
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
