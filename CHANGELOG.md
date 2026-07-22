@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.160.0
+
+### Changes
+
+- Added a `"githubIssues.issueCompletionFormatEditor"` setting to control the format of issue completions in the editor, mirroring the existing `"githubIssues.issueCompletionFormatScm"` setting. It defaults to `${issueNumberLabel}`, which inserts only the issue number (e.g. `#421`) so that GitHub's auto-close references keep working.
+
+### Fixes
+
+- "Delete local branches" is showing branches that have already been deleted. https://github.com/microsoft/vscode-pull-request-github/issues/8815
+
 ## 0.158.0
 
 ### Changes
