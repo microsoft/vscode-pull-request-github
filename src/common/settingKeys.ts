@@ -10,6 +10,7 @@ export const BRANCH_LIST_TIMEOUT = 'branchListTimeout';
 export const USE_REVIEW_MODE = 'useReviewMode';
 export const FILE_LIST_LAYOUT = 'fileListLayout';
 export const HIDE_VIEWED_FILES = 'hideViewedFiles';
+export const SHOW_ONLY_OWNED_FILES = 'showOnlyOwnedFiles';
 export const FILE_AUTO_REVEAL = 'fileAutoReveal';
 export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
