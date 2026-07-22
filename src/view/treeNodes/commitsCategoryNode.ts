@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { CommitNode } from './commitNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import Logger, { PR_TREE } from '../../common/logger';
+import { PR_SETTINGS_NAMESPACE, SHOW_COMMIT_SHA_IN_TREE } from '../../common/settingKeys';
 import { createCommitsNodeUri } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -39,6 +40,12 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		this.childrenDisposables.push(this._pr.onDidChange(e => {
 			if (e.comments) {
 				Logger.appendLine(`Comments have changed, refreshing Commits node`, PR_TREE);
+				this.refresh(this);
+			}
+		}));
+		this.childrenDisposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_COMMIT_SHA_IN_TREE}`)) {
+				Logger.appendLine(`Commit Sha display setting has changed, refreshing Commits node`, PR_TREE);
 				this.refresh(this);
 			}
 		}));

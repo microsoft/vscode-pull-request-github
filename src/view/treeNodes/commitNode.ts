@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_COMMIT_SHA_IN_TREE } from '../../common/settingKeys';
 import { DataUri, reviewPath, toReviewUri } from '../../common/uri';
 import { dateFromNow } from '../../common/utils';
 import { OctokitCommon } from '../../github/common';
@@ -35,7 +35,17 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		this.contextValue = 'commit';
-		this.description = commit.commit.author?.date ? dateFromNow(commit.commit.author.date) : undefined;
+		this.description = this._getDescription();
+	}
+
+	private _getDescription(): string | undefined {
+		const date = this.commit.commit.author?.date ? dateFromNow(this.commit.commit.author.date) : undefined;
+		if (!vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_COMMIT_SHA_IN_TREE, false)) {
+			return date;
+		}
+		const shortSha = this.commit.sha.substring(0, 7);
+		return date ? `${shortSha} · ${date}` : shortSha;
+
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
