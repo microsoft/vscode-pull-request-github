@@ -84,8 +84,9 @@ export class MockRepository implements Repository {
 		workingTreeChanges: [],
 		onDidChange: this._onDidChangeState.event,
 	};
-	private _config: Map<string, string> = new Map();
+	private _config: { key: string; value: string }[] = [];
 	private _branches: Branch[] = [];
+	preserveConfigOnNextBranchDelete = false;
 	private _expectedFetches: { remoteName?: string; ref?: string; depth?: number }[] = [];
 	private _expectedPulls: { unshallow?: boolean }[] = [];
 	private _expectedPushes: { remoteName?: string; branchName?: string; setUpstream?: boolean }[] = [];
@@ -102,16 +103,32 @@ export class MockRepository implements Repository {
 	};
 
 	async getConfigs(): Promise<{ key: string; value: string }[]> {
-		return Array.from(this._config, ([k, v]) => ({ key: k, value: v }));
+		return [...this._config];
 	}
 
 	async getConfig(key: string): Promise<string> {
-		return this._config.get(key) || '';
+		for (let i = this._config.length - 1; i >= 0; i--) {
+			if (this._config[i].key === key) {
+				return this._config[i].value;
+			}
+		}
+		return '';
 	}
 
 	async setConfig(key: string, value: string): Promise<string> {
-		const oldValue = this._config.get(key) || '';
-		this._config.set(key, value);
+		const oldValue = await this.getConfig(key);
+		this._config.push({ key, value });
+		return oldValue;
+	}
+
+	async unsetConfig(key: string): Promise<string> {
+		const matchingIndexes = this._config
+			.map((config, index) => config.key === key ? index : -1)
+			.filter(index => index !== -1);
+		if (matchingIndexes.length !== 1) {
+			return '';
+		}
+		const [{ value: oldValue }] = this._config.splice(matchingIndexes[0], 1);
 		return oldValue;
 	}
 
@@ -181,9 +198,17 @@ export class MockRepository implements Repository {
 	async deleteBranch(name: string, force?: boolean | undefined): Promise<void> {
 		const index = this._branches.findIndex(b => b.name === name);
 		if (index === -1) {
-			throw new Error(`Attempt to delete nonexistent branch ${name}`);
+			const error: Error & { stderr?: string } = new Error(`Attempt to delete nonexistent branch ${name}`);
+			error.stderr = `error: branch '${name}' not found.`;
+			throw error;
 		}
 		this._branches.splice(index, 1);
+		if (this.preserveConfigOnNextBranchDelete) {
+			this.preserveConfigOnNextBranchDelete = false;
+		} else {
+			const prefix = `branch.${name}.`;
+			this._config = this._config.filter(config => !config.key.startsWith(prefix));
+		}
 	}
 
 	async getBranch(name: string): Promise<Branch> {
