@@ -1764,8 +1764,49 @@ export function insertNewCommitsSinceReview(
 	});
 }
 
+const AUTHOR_QUALIFIER_PATTERN = /(^|\s|\()(-?)author:("[^"]+"|\S+)/g;
+
+/**
+ * GitHub's advanced search treats a space between qualifiers as an `AND` operator.
+ * Because a pull request only has a single author, repeating positive `author:`
+ * qualifiers (e.g. `author:a author:b`) would `AND` them together and never match.
+ * The legacy search API used to `OR` these together, so combine repeated positive
+ * `author:` qualifiers into a single `(author:a OR author:b)` group to preserve that
+ * behavior. Negated qualifiers (e.g. `-author:a`) keep their `AND` semantics.
+ */
+function combineAuthorQualifiers(query: string): string {
+	const positiveAuthors: string[] = [];
+	let match: RegExpExecArray | null;
+	AUTHOR_QUALIFIER_PATTERN.lastIndex = 0;
+	while ((match = AUTHOR_QUALIFIER_PATTERN.exec(query)) !== null) {
+		if (!match[2]) {
+			positiveAuthors.push(`author:${match[3]}`);
+		}
+	}
+	if (positiveAuthors.length < 2) {
+		return query;
+	}
+
+	const group = `(${positiveAuthors.join(' OR ')})`;
+	let inserted = false;
+	AUTHOR_QUALIFIER_PATTERN.lastIndex = 0;
+	return query
+		.replace(AUTHOR_QUALIFIER_PATTERN, (full, prefix, negation) => {
+			if (negation) {
+				return full;
+			}
+			if (!inserted) {
+				inserted = true;
+				return `${prefix}${group}`;
+			}
+			return prefix === ' ' ? '' : prefix;
+		})
+		.replace(/\s{2,}/g, ' ')
+		.trim();
+}
+
 export function getPRFetchQuery(user: string, query: string): string {
-	const filter = query.replace(/\$\{user\}/g, user);
+	const filter = combineAuthorQualifiers(query.replace(/\$\{user\}/g, user));
 	return `is:pull-request ${filter} type:pr`;
 }
 
