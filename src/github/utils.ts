@@ -1799,6 +1799,10 @@ function combineAuthorQualifiers(query: string): string {
 				inserted = true;
 				return `${prefix}${group}`;
 			}
+			// Drop this duplicate author qualifier. When the prefix is a plain
+			// separating space we remove it entirely; otherwise (e.g. a leading
+			// `(`) we keep the prefix so surrounding syntax stays intact. Any
+			// resulting double spaces are collapsed below.
 			return prefix === ' ' ? '' : prefix;
 		})
 		.replace(/\s{2,}/g, ' ')
