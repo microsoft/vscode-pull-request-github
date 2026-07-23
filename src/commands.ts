@@ -1804,7 +1804,7 @@ ${contents}
 				if (treeNodeOrOptions instanceof FileChangeNode || treeNodeOrOptions instanceof vscode.Uri) {
 					treeNode = treeNodeOrOptions;
 				} else {
-					options = treeNodeOrOptions;
+					options = treeNodeOrOptions ?? options;
 					// Use the active editor to enable keybindings
 					treeNode = vscode.window.activeTextEditor?.document.uri;
 				}
