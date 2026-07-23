@@ -4,14 +4,14 @@ import { parseDiffHunk } from '../common/diffHunk';
 
 describe('Extension Tests', function () {
 	describe('markFileAsViewed', () => {
-		async function assertCommandKeepsTabOpen(...args: unknown[]) {
+		async function assertCommandKeepsTabOpen(getArgs: (uri: vscode.Uri) => unknown[]) {
 			const document = await vscode.workspace.openTextDocument({ content: 'test' });
 			await vscode.window.showTextDocument(document);
 			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
 			assert.ok(tab);
 
 			try {
-				await vscode.commands.executeCommand('pr.markFileAsViewed', ...args);
+				await vscode.commands.executeCommand('pr.markFileAsViewed', ...getArgs(document.uri));
 				assert.strictEqual(vscode.window.tabGroups.activeTabGroup.activeTab, tab);
 			} finally {
 				await vscode.window.tabGroups.close(tab);
@@ -19,11 +19,15 @@ describe('Extension Tests', function () {
 		}
 
 		it('should keep the active editor open with keybinding options', async () => {
-			await assertCommandKeepsTabOpen({ dontCloseFile: true });
+			await assertCommandKeepsTabOpen(() => [{ dontCloseFile: true }]);
 		});
 
 		it('should keep the active editor open with options as the second argument', async () => {
-			await assertCommandKeepsTabOpen(undefined, { dontCloseFile: true });
+			await assertCommandKeepsTabOpen(() => [undefined, { dontCloseFile: true }]);
+		});
+
+		it('should keep the active editor open with a URI and options', async () => {
+			await assertCommandKeepsTabOpen(uri => [uri, { dontCloseFile: true }]);
 		});
 	});
 
