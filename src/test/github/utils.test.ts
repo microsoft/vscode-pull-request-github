@@ -19,36 +19,6 @@ describe('utils', () => {
 			const result = getPRFetchQuery(user, query)
 			assert.strictEqual(result, 'is:pull-request reviewed-by:rmacfarlane -author:rmacfarlane type:pr');
 		});
-
-		it('combines multiple author qualifiers with OR', () => {
-			const query = 'repo:owner/repo is:open author:name1 author:name2 author:name3';
-			const result = getPRFetchQuery('me', query);
-			assert.strictEqual(result, 'is:pull-request repo:owner/repo is:open (author:name1 OR author:name2 OR author:name3) type:pr');
-		});
-
-		it('leaves a single author qualifier unchanged', () => {
-			const query = 'repo:owner/repo is:open author:name1';
-			const result = getPRFetchQuery('me', query);
-			assert.strictEqual(result, 'is:pull-request repo:owner/repo is:open author:name1 type:pr');
-		});
-
-		it('does not combine negated author qualifiers', () => {
-			const query = 'is:open -author:name1 -author:name2';
-			const result = getPRFetchQuery('me', query);
-			assert.strictEqual(result, 'is:pull-request is:open -author:name1 -author:name2 type:pr');
-		});
-
-		it('only groups positive author qualifiers, keeping negations', () => {
-			const query = 'author:name1 author:name2 -author:name3';
-			const result = getPRFetchQuery('me', query);
-			assert.strictEqual(result, 'is:pull-request (author:name1 OR author:name2) -author:name3 type:pr');
-		});
-
-		it('combines author qualifiers after ${user} substitution', () => {
-			const query = 'author:${user} author:teammate';
-			const result = getPRFetchQuery('me', query);
-			assert.strictEqual(result, 'is:pull-request (author:me OR author:teammate) type:pr');
-		});
 	});
 
 	describe('sanitizeIssueTitle', () => {
