@@ -1,7 +1,22 @@
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
 import { parseDiffHunk } from '../common/diffHunk';
 
 describe('Extension Tests', function () {
+	describe('markFileAsViewed', () => {
+		it('should keep the active editor open when dontCloseFile is true', async () => {
+			const document = await vscode.workspace.openTextDocument({ content: 'test' });
+			await vscode.window.showTextDocument(document);
+			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+			assert.ok(tab);
+
+			await vscode.commands.executeCommand('pr.markFileAsViewed', { dontCloseFile: true });
+
+			assert.strictEqual(vscode.window.tabGroups.activeTabGroup.activeTab, tab);
+			await vscode.window.tabGroups.close(tab);
+		});
+	});
+
 	describe('parseDiffHunk', () => {
 		it('should handle empty string', () => {
 			const diffHunk = parseDiffHunk('');
