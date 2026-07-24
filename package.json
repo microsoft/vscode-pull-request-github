@@ -41,7 +41,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.158.0",
+	"version": "0.160.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -751,6 +751,11 @@
 					"default": "${issueTitle}\nFixes ${issueNumberLabel}",
 					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
+				"githubIssues.issueCompletionFormatEditor": {
+					"type": "string",
+					"default": "${issueNumberLabel}",
+					"markdownDescription": "%githubIssues.issueCompletionFormatEditor.markdownDescription%"
+				},
 				"githubIssues.workingIssueFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} \nFixes ${issueNumberLabel}",
@@ -828,6 +833,11 @@
 					],
 					"default": "author",
 					"description": "%githubIssues.issueAvatarDisplay.description%"
+				},
+				"githubIssues.showIssueNumberInTree": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubIssues.showIssueNumberInTree.description%"
 				},
 				"githubPullRequests.focusedMode": {
 					"properties": {
@@ -4323,7 +4333,7 @@
 		"debounce": "^1.2.1",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",
-		"js-yaml": "^4.2.0",
+		"js-yaml": "^4.3.0",
 		"jsonc-parser": "^3.3.1",
 		"lru-cache": "6.0.0",
 		"markdown-it": "^14.2.0",
