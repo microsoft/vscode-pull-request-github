@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 import { RemoteInfo } from '../../common/types';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
+import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
 import { PreReviewState } from '../../src/github/views';
 
@@ -92,11 +92,32 @@ export class CreatePRContextNew {
 		}
 	};
 
-	public cancelCreate = (): Promise<void> => {
-		const args = this.copyParams();
-		vscode.setState(defaultCreateParams);
-		return this.postMessage({ command: 'pr.cancelCreate', args });
+	public cancelCreate = async (): Promise<void> => {
+		const args: CancelCreatePullRequestNew = {
+			...this.copyParams(),
+			hasUnsavedChanges: this.hasUnsavedChanges()
+		};
+		const result = await this.postMessage({ command: 'pr.cancelCreate', args }) as { cancelled?: boolean } | undefined;
+		// Only clear persisted state if the extension explicitly confirmed the
+		// cancellation. Otherwise (e.g. the user declined the confirmation
+		// dialog, or the message did not get a response) preserve the user's
+		// in-progress title/description.
+		if (result?.cancelled === true) {
+			vscode.setState(defaultCreateParams);
+		}
 	};
+
+	private hasUnsavedChanges(): boolean {
+		const params = this.createParams;
+		const titleEdited = params.pendingTitle !== undefined && params.pendingTitle !== params.defaultTitle;
+		const descriptionEdited = params.pendingDescription !== undefined && params.pendingDescription !== params.defaultDescription;
+		const hasLabels = (params.labels?.length ?? 0) > 0;
+		const hasAssignees = (params.assignees?.length ?? 0) > 0;
+		const hasReviewers = (params.reviewers?.length ?? 0) > 0;
+		const hasProjects = (params.projects?.length ?? 0) > 0;
+		const hasMilestone = !!params.milestone;
+		return titleEdited || descriptionEdited || hasLabels || hasAssignees || hasReviewers || hasProjects || hasMilestone;
+	}
 
 	public updateState = (params: Partial<CreateParamsNew>, reset: boolean = false): void => {
 		this.createParams = reset ? { ...defaultCreateParams, ...params } : { ...this.createParams, ...params };

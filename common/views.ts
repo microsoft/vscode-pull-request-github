@@ -83,6 +83,10 @@ export interface CreatePullRequestNew {
 	milestone?: IMilestone;
 }
 
+export interface CancelCreatePullRequestNew extends CreatePullRequestNew {
+	hasUnsavedChanges: boolean;
+}
+
 // #region new create view
 
 export interface CreateParamsNew {

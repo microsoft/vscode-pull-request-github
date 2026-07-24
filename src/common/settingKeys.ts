@@ -29,6 +29,7 @@ export const QUERIES = 'queries';
 export const PULL_REQUEST_LABELS = 'labelCreated';
 export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';
+export const SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION = 'showCreatePullRequestCancelConfirmation';
 export const QUICK_DIFF = 'quickDiff';
 export const SET_AUTO_MERGE = 'setAutoMerge';
 export const SHOW_PULL_REQUEST_NUMBER_IN_TREE = 'showPullRequestNumberInTree';
