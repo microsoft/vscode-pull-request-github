@@ -1798,9 +1798,13 @@ ${contents}
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNodeOrOptions: FileChangeNode | vscode.Uri | { dontCloseFile: boolean } | undefined, options?: { dontCloseFile: boolean }) => {
 			try {
-				if (treeNode === undefined) {
+				let treeNode: FileChangeNode | vscode.Uri | undefined;
+				if (treeNodeOrOptions instanceof FileChangeNode || treeNodeOrOptions instanceof vscode.Uri) {
+					treeNode = treeNodeOrOptions;
+				} else {
+					options = treeNodeOrOptions ?? options;
 					// Use the active editor to enable keybindings
 					treeNode = vscode.window.activeTextEditor?.document.uri;
 				}
@@ -1810,16 +1814,18 @@ ${contents}
 				} else if (treeNode) {
 					// When the argument is a uri it came from the editor menu and we should also close the file
 					// Do the close first to improve perceived performance of marking as viewed.
-					const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-					if (tab) {
-						let compareUri: vscode.Uri | undefined = undefined;
-						if (tab.input instanceof vscode.TabInputTextDiff) {
-							compareUri = tab.input.modified;
-						} else if (tab.input instanceof vscode.TabInputText) {
-							compareUri = tab.input.uri;
-						}
-						if (compareUri && treeNode.toString() === compareUri.toString()) {
-							vscode.window.tabGroups.close(tab);
+					if (!options?.dontCloseFile) {
+						const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+						if (tab) {
+							let compareUri: vscode.Uri | undefined = undefined;
+							if (tab.input instanceof vscode.TabInputTextDiff) {
+								compareUri = tab.input.modified;
+							} else if (tab.input instanceof vscode.TabInputText) {
+								compareUri = tab.input.uri;
+							}
+							if (compareUri && treeNode.toString() === compareUri.toString()) {
+								vscode.window.tabGroups.close(tab);
+							}
 						}
 					}
 
