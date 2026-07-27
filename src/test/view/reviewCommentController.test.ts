@@ -203,6 +203,8 @@ describe('ReviewCommentController', function () {
 		manager.activePullRequest = otherPullRequest;
 		const secondController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl, telemetry);
 
+		assert.strictEqual(firstController.commentController.id, `${ReviewCommentController.PREFIX}-${remote.owner}-${remote.repositoryName}-${activePullRequest.number}`);
+		assert.strictEqual(secondController.commentController.id, `${ReviewCommentController.PREFIX}-${otherRemote.owner}-${otherRemote.repositoryName}-${otherPullRequest.number}`);
 		assert.notStrictEqual(firstController.commentController.id, secondController.commentController.id);
 		firstController.dispose();
 		secondController.dispose();
