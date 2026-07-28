@@ -4,7 +4,7 @@
 
 ### Changes
 
-- Confirm before discarding pull request creation with unsaved changes. This can be disabled with the `"githubPullRequests.showPullRequestCancelConfirmation"` setting.
+- Confirm before discarding pull request creation with unsaved changes. This can be disabled with the `"githubPullRequests.showCreatePullRequestCancelConfirmation"` setting.
 
 **_Thank You_**
 
