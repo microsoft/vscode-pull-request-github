@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.162.0
+
+### Changes
+
+- Confirm before discarding pull request creation with unsaved changes. This can be disabled with the `"githubPullRequests.showPullRequestCancelConfirmation"` setting.
+
+**_Thank You_**
+
+* [@Eiji-Kudo (Eiji)](https://github.com/Eiji-Kudo): Fix the Files node parent in the pull request changes tree. [PR #8846](https://github.com/microsoft/vscode-pull-request-github/pull/8846)
+
 ## 0.160.0
 
 ### Changes
