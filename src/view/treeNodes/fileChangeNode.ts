@@ -93,7 +93,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return this.changeModel.sha;
 	}
 
-	get tooltip(): string {
+	get tooltip(): string | vscode.MarkdownString | undefined {
 		return this.resourceUri.fsPath;
 	}
 
@@ -339,6 +339,59 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		this._useViewChangesCommand = true;
 	}
 
+	private _changedSinceCommit: string | undefined;
+	private _changedSinceTooltip: vscode.MarkdownString | undefined;
+
+	/**
+	 * Marks this file as one that has been modified between the commit being viewed and the head of
+	 * the pull request. Comments always land on the head, so they can't be placed from this view.
+	 */
+	public markChangedSinceCommit(commit: string) {
+		this._changedSinceCommit = commit;
+		this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('problemsWarningIcon.foreground'));
+	}
+
+	override get tooltip(): string | vscode.MarkdownString | undefined {
+		if (!this._changedSinceCommit) {
+			return super.tooltip;
+		}
+
+		// Returning undefined until the tooltip has been built makes VS Code call `resolveTreeItem`,
+		// so the git lookup only happens for the file that is actually hovered.
+		return this._changedSinceTooltip;
+	}
+
+	private async buildChangedSinceTooltip(commit: string): Promise<vscode.MarkdownString> {
+		const tooltip = new vscode.MarkdownString(undefined, true);
+		tooltip.isTrusted = true;
+		tooltip.appendMarkdown(vscode.l10n.t('$(warning) `{0}` has changed since commit {1}. Comments are always added to the latest version of a pull request, so they cannot be added from this view.', this.fileName, commit.substring(0, 8)));
+
+		const headSha = this.pullRequest.head?.sha;
+		if (headSha) {
+			try {
+				const log = await this.pullRequestManager.repository.log({
+					path: vscode.Uri.joinPath(this.pullRequestManager.repository.rootUri, this.fileName).fsPath,
+					range: `${commit}..${headSha}`,
+					maxEntries: 1,
+				});
+				if (log.length) {
+					const message = log[0].message.split('\n')[0];
+					tooltip.appendMarkdown('\n\n' + vscode.l10n.t('Last changed in {0}: {1}', log[0].hash.substring(0, 8), message));
+				}
+			} catch (e) {
+				// The commit may not be available locally. The explanation above is still useful.
+			}
+		}
+
+		const args = encodeURIComponent(JSON.stringify({
+			rootPath: this.pullRequestManager.repository.rootUri.path,
+			fileName: this.fileName,
+		}));
+		tooltip.appendMarkdown(`\n\n[${vscode.l10n.t('Open the latest version of this file')}](command:pr.openCurrentFileChange?${args})`);
+
+		return tooltip;
+	}
+
 	private async alternateCommand(): Promise<vscode.Command> {
 		if (this.status === GitChangeType.DELETE || this.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
@@ -403,6 +456,10 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 	}
 
 	async resolve(): Promise<void> {
+		if (this._changedSinceCommit && !this._changedSinceTooltip) {
+			this._changedSinceTooltip = await this.buildChangedSinceTooltip(this._changedSinceCommit);
+		}
+
 		if (this._useViewChangesCommand) {
 			this.command = await this.alternateCommand();
 		} else {

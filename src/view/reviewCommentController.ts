@@ -15,6 +15,7 @@ import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
+import { parsePatch } from '../common/diffHunk';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { commands, contexts } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange } from '../common/file';
@@ -292,13 +293,20 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					}
 
 					const index = await arrayFindIndexAsync(this._pendingCommentThreadAdds, async t => {
-						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
+						const prCommitDocument = this.prCommitDocument(t.uri);
+						const fileName = prCommitDocument?.fileName ?? this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
 							return false;
 						}
 
-						const diff = await this.getContentDiff(t.uri, fileName);
-						const line = t.range ? mapNewPositionToOld(diff, t.range.end.line) : 0;
+						let line = 0;
+						if (t.range) {
+							if (prCommitDocument) {
+								line = t.range.end.line;
+							} else {
+								line = mapNewPositionToOld(await this.getContentDiff(t.uri, fileName), t.range.end.line);
+							}
+						}
 						const sameLine = line + 1 === thread.endLine;
 						return sameLine;
 					});
@@ -513,6 +521,11 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				Logger.debug('Found matched file for commenting ranges.', ReviewCommentController.ID);
 				return { ranges: getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base, ReviewCommentController.ID), enableFileComments: true };
 			}
+
+			const prCommitDocument = this.prCommitDocument(document.uri);
+			if (prCommitDocument) {
+				return this.provideCommitCommentingRanges(prCommitDocument.commit, prCommitDocument.fileName);
+			}
 		}
 
 		const bestRepoForFile = getRepositoryForFile(this._gitApi, document.uri);
@@ -570,6 +583,78 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	}
 
 	// #endregion
+
+	/**
+	 * Commenting ranges for a file shown as of one of the pull request's commits. The ranges are
+	 * taken from the diff of the pull request base against that commit, so the line numbers are the
+	 * ones of the document being shown, and every offered line is part of the pull request's diff.
+	 */
+	private async provideCommitCommentingRanges(commit: string, fileName: string): Promise<{ enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
+		const activePullRequest = this._folderRepoManager.activePullRequest;
+		if (!activePullRequest) {
+			return;
+		}
+
+		if (!(await this.isUnchangedSinceCommit(commit, fileName))) {
+			Logger.debug(`No commenting ranges: ${fileName} has changed since commit ${commit.substring(0, 8)}.`, ReviewCommentController.ID);
+			return { ranges: [], enableFileComments: false };
+		}
+
+		try {
+			const patch = await this._repository.diffBetween(activePullRequest.base.sha, commit, fileName);
+			const ranges = getCommentingRanges(parsePatch(patch), false, ReviewCommentController.ID);
+			Logger.debug(`Providing ${ranges.length} commenting ranges for ${fileName} at commit ${commit.substring(0, 8)}.`, ReviewCommentController.ID);
+			return { ranges, enableFileComments: true };
+		} catch (e) {
+			Logger.error(`Failed to get commenting ranges for ${fileName} at commit ${commit.substring(0, 8)}: ${formatError(e)}`, ReviewCommentController.ID);
+			return;
+		}
+	}
+
+	/**
+	 * Detects a `review` document that shows a file as of one of the pull request's commits, as
+	 * opened from the Commits node of the tree. Returns `undefined` for every other document,
+	 * including the diff of the head commit, which is already handled by the regular code paths.
+	 */
+	private prCommitDocument(uri: vscode.Uri): { commit: string; fileName: string } | undefined {
+		if (uri.scheme !== Schemes.Review || !uri.query) {
+			return;
+		}
+
+		let query: ReviewUriParams;
+		try {
+			query = fromReviewUri(uri.query);
+		} catch (e) {
+			return;
+		}
+
+		const headSha = this._folderRepoManager.activePullRequest?.head?.sha;
+		if (!query.commit || !query.path || query.base || !headSha || query.commit === headSha) {
+			return;
+		}
+
+		return { commit: query.commit, fileName: query.path };
+	}
+
+	/**
+	 * Comments are always created against the head of the pull request, so a comment made while
+	 * looking at an older commit is only unambiguous when the file hasn't been touched since. When
+	 * that holds, the line numbers of the document match the head and need no translation.
+	 */
+	private async isUnchangedSinceCommit(commit: string, fileName: string): Promise<boolean> {
+		const headSha = this._folderRepoManager.activePullRequest?.head?.sha;
+		if (!headSha) {
+			return false;
+		}
+
+		try {
+			const diff = await this._repository.diffBetween(commit, headSha, fileName);
+			return diff.length === 0;
+		} catch (e) {
+			Logger.warn(`Unable to tell whether ${fileName} changed between ${commit} and ${headSha}: ${formatError(e)}`, ReviewCommentController.ID);
+			return false;
+		}
+	}
 
 	private async getContentDiff(uri: vscode.Uri, fileName: string, retry: boolean = true): Promise<string> {
 		const matchedEditor = vscode.window.visibleTextEditors.find(
@@ -686,7 +771,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		try {
 			temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 			if (!hasExistingComments) {
-				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
+				const prCommitDocument = this.prCommitDocument(thread.uri);
+				const fileName = prCommitDocument?.fileName ?? this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 
@@ -695,7 +781,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				let startLine: number | undefined = undefined;
 				let endLine: number | undefined = undefined;
 				if (thread.range) {
-					if (side === DiffSide.RIGHT) {
+					if (prCommitDocument) {
+						// Commenting is only offered on a commit's document when the file is unchanged
+						// between that commit and the head, so the lines already match the head diff.
+						startLine = thread.range.start.line;
+						endLine = thread.range.end.line;
+					} else if (side === DiffSide.RIGHT) {
 						const diff = await this.getContentDiff(thread.uri, fileName);
 						startLine = mapNewPositionToOld(diff, thread.range.start.line);
 						endLine = mapNewPositionToOld(diff, thread.range.end.line);
@@ -797,7 +888,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 		try {
 			if (!hasExistingComments) {
-				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
+				const prCommitDocument = this.prCommitDocument(thread.uri);
+				const fileName = prCommitDocument?.fileName ?? this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				this._pendingCommentThreadAdds.push(thread);
 				const side = this.getCommentSide(thread);
 
@@ -806,7 +898,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				let startLine: number | undefined = undefined;
 				let endLine: number | undefined = undefined;
 				if (thread.range) {
-					if (side === DiffSide.RIGHT) {
+					if (prCommitDocument) {
+						// Commenting is only offered on a commit's document when the file is unchanged
+						// between that commit and the head, so the lines already match the head diff.
+						startLine = thread.range.start.line;
+						endLine = thread.range.end.line;
+					} else if (side === DiffSide.RIGHT) {
 						const diff = await this.getContentDiff(thread.uri, fileName);
 						startLine = mapNewPositionToOld(diff, thread.range.start.line);
 						endLine = mapNewPositionToOld(diff, thread.range.end.line);

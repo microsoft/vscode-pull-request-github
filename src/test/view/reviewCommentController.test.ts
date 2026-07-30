@@ -356,6 +356,89 @@ describe('ReviewCommentController', function () {
 		});
 	});
 
+	describe('provideCommentingRanges', function () {
+		const fileName = 'data/products.json';
+		const commitSha = '1111111111111111111111111111111111111111';
+		const patch = ['@@ -1,3 +1,4 @@', ' line one', ' line two', '+added line', ' line three'].join('\n');
+
+		function createController(): TestReviewCommentController {
+			return new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				new ReviewModel(),
+				gitApiImpl,
+				telemetry,
+			);
+		}
+
+		/**
+		 * A document as opened from the Commits tree: a `review` uri holding the sha of that commit.
+		 */
+		function createCommitDocument(commit: string): vscode.TextDocument {
+			const uri = toReviewUri(
+				vscode.Uri.parse(`commit~11111111/${fileName}`),
+				fileName,
+				undefined,
+				commit,
+				true,
+				{ base: false },
+				repository.rootUri,
+			);
+			return { uri, lineCount: 4 } as vscode.TextDocument;
+		}
+
+		function stubDiffBetween(changedSinceCommit: string) {
+			const diffBetween = sinon.stub(repository, 'diffBetween');
+			// Whether the file changed between the commit being viewed and the head of the PR.
+			diffBetween.withArgs(commitSha, activePullRequest.head!.sha, fileName).returns(Promise.resolve(changedSinceCommit));
+			// The diff the commenting ranges are taken from.
+			diffBetween.withArgs(activePullRequest.base.sha, commitSha, fileName).returns(Promise.resolve(patch));
+			return diffBetween;
+		}
+
+		it('provides ranges for a file that has not changed since the commit', async function () {
+			stubDiffBetween('');
+
+			const result = await createController().provideCommentingRanges(
+				createCommitDocument(commitSha),
+				new vscode.CancellationTokenSource().token,
+			) as { enableFileComments: boolean; ranges?: vscode.Range[] };
+
+			assert.ok(result, 'ranges should be provided for a file that can be commented on');
+			assert.strictEqual(result.enableFileComments, true);
+			assert.strictEqual(result.ranges?.length, 1);
+			assert.strictEqual(result.ranges![0].start.line, 0);
+			assert.strictEqual(result.ranges![0].end.line, 3);
+		});
+
+		it('does not allow commenting on a file that changed after the commit', async function () {
+			// Comments always go to the head of the pull request, so the line numbers of this
+			// document can no longer be trusted to point at the same code.
+			stubDiffBetween(patch);
+
+			const result = await createController().provideCommentingRanges(
+				createCommitDocument(commitSha),
+				new vscode.CancellationTokenSource().token,
+			) as { enableFileComments: boolean; ranges?: vscode.Range[] };
+
+			assert.ok(result);
+			assert.strictEqual(result.enableFileComments, false);
+			assert.deepStrictEqual(result.ranges, []);
+		});
+
+		it('leaves a document of the head commit to the regular code path', async function () {
+			const diffBetween = stubDiffBetween('');
+
+			await createController().provideCommentingRanges(
+				createCommitDocument(activePullRequest.head!.sha),
+				new vscode.CancellationTokenSource().token,
+			);
+
+			assert.ok(diffBetween.notCalled, 'the head commit is handled by matching against the local file changes');
+		});
+	});
+
 	describe('_findMatchingThread', function () {
 		it('returns the moved thread when an existing workspace thread becomes outdated', function () {
 			const fileName = 'data/products.json';

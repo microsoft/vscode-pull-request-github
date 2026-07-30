@@ -51,6 +51,33 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
+	/**
+	 * Files that have been modified between this commit and the head of the pull request. Comments
+	 * can't be added to those from this view, since comments always go to the head. One git call for
+	 * the whole commit, rather than one per file.
+	 */
+	private async getFilesChangedSinceCommit(): Promise<Set<string>> {
+		const changedFiles = new Set<string>();
+		const headSha = this.pullRequest.head?.sha;
+		if (!headSha || headSha === this.commit.sha) {
+			return changedFiles;
+		}
+
+		try {
+			const changes = await this.pullRequestManager.repository.diffBetween(this.commit.sha, headSha);
+			for (const change of changes) {
+				changedFiles.add(this.pullRequestManager.gitRelativeRootPath(change.uri.path));
+				if (change.originalUri) {
+					changedFiles.add(this.pullRequestManager.gitRelativeRootPath(change.originalUri.path));
+				}
+			}
+		} catch (e) {
+			// Without this the file simply doesn't get marked, which is the pre-existing behavior.
+		}
+
+		return changedFiles;
+	}
+
 	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
@@ -58,6 +85,8 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		if (fileChanges.length === 0) {
 			return [new LabelOnlyNode(this, 'No changed files')];
 		}
+
+		const changedSinceCommit = await this.getFilesChangedSinceCommit();
 
 		const fileChangeNodes = fileChanges.map(change => {
 			const fileName = change.filename!;
@@ -98,6 +127,10 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			);
 
 			fileChangeNode.useViewChangesCommand();
+
+			if (changedSinceCommit.has(fileName)) {
+				fileChangeNode.markChangedSinceCommit(this.commit.sha);
+			}
 
 			return fileChangeNode;
 		});

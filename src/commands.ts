@@ -396,6 +396,34 @@ export function registerCommands(
 		),
 	);
 
+	// Used from the tooltip of a file that has changed since the commit being viewed, to get to the
+	// version of that file that can actually be commented on.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.openCurrentFileChange',
+			async (args: { rootPath: string; fileName: string } | undefined) => {
+				if (!args?.fileName) {
+					return;
+				}
+
+				const reviewManager = reviewsManager.reviewManagers.find(
+					manager => manager.repository.rootUri.path === args.rootPath,
+				);
+				const fileChange = reviewManager?.reviewModel.localFileChanges.find(
+					change => change.fileName === args.fileName,
+				);
+				if (!fileChange) {
+					return vscode.window.showInformationMessage(
+						vscode.l10n.t('{0} is not part of the changes of the checked out pull request.', args.fileName),
+					);
+				}
+
+				await fileChange.resolve();
+				return vscode.commands.executeCommand(fileChange.command.command, ...(fileChange.command.arguments ?? []));
+			},
+		),
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequestModel);
