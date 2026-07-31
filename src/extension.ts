@@ -10,6 +10,7 @@ import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
+import { AuthProvider } from './common/authentication';
 import { commands, contexts } from './common/executeCommands';
 import { isSubmodule } from './common/gitUtils';
 import Logger from './common/logger';
@@ -80,15 +81,6 @@ async function init(
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
-
-	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
-		if (e.provider.id === 'github') {
-			await reposManager.clearCredentialCache();
-			if (reviewsManager) {
-				reviewsManager.reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
-			}
-		}
-	}));
 
 	context.subscriptions.push(
 		git.onDidPublish(async e => {
@@ -275,6 +267,17 @@ async function init(
 	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, issueStateManager);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
+
+	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
+		if (e.provider.id !== AuthProvider.github && e.provider.id !== AuthProvider.githubEnterprise) {
+			return;
+		}
+		await reposManager.refreshRepositories();
+		await Promise.all(reviewsManager.reviewManagers.map(reviewManager => reviewManager.updateState(true)));
+		tree.refreshAll(true);
+		await issueStateManager.refreshForAuthChange();
+		notificationsManager.refresh();
+	}));
 
 	const workspaceContextProvider = new WorkspaceContextProvider(reposManager, git);
 	context.subscriptions.push(workspaceContextProvider);
