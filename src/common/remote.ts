@@ -177,7 +177,19 @@ export async function parseRepositoryRemotesAsync(repository: Repository): Promi
 
 export class GitHubRemote extends Remote {
 	static remoteAsGitHub(remote: Remote, githubServerType: GitHubServerType): GitHubRemote {
-		return new GitHubRemote(remote.remoteName, remote.url, remote.gitProtocol, githubServerType);
+		const githubRemote = new GitHubRemote(remote.remoteName, remote.url, remote.gitProtocol, githubServerType);
+		Logger.debug(`Remote "${remote.remoteName}" at ${remote.host} was classified as ${GitHubServerType[githubServerType]} and uses ${githubRemote.authProviderId} authentication.`, 'Remote');
+		return githubRemote;
+	}
+
+	public override get authProviderId(): AuthProvider {
+		if (this.githubServerType === GitHubServerType.Enterprise) {
+			return AuthProvider.githubEnterprise;
+		}
+		if (this.githubServerType === GitHubServerType.GitHubDotCom) {
+			return AuthProvider.github;
+		}
+		return super.authProviderId;
 	}
 
 	constructor(
