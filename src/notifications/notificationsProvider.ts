@@ -45,6 +45,8 @@ export class NotificationsProvider extends Disposable {
 				this._authProvider = AuthProvider.githubEnterprise;
 			} else if (_credentialStore.isAuthenticated(AuthProvider.github)) {
 				this._authProvider = AuthProvider.github;
+			} else {
+				this._authProvider = undefined;
 			}
 		};
 		setAuthProvider();

@@ -38,6 +38,45 @@ const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', '
 const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopes';
 const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprise';
 
+type AuthenticationSessionGetter = (
+	authProviderId: string,
+	scopes: readonly string[],
+	options: vscode.AuthenticationGetSessionOptions,
+) => Thenable<vscode.AuthenticationSession | undefined>;
+
+interface ExistingSession {
+	session: vscode.AuthenticationSession;
+	scopes: string[];
+}
+
+export async function findExistingSession(
+	authProviderId: AuthProvider,
+	getSession: AuthenticationSessionGetter = (providerId, scopes, options) => vscode.authentication.getSession(providerId, scopes, options),
+): Promise<ExistingSession | undefined> {
+	// Establish the preferred account with the normal scopes before looking for broader sessions.
+	// Otherwise, a single broader session from another account can override the workspace preference.
+	const scopePreferences = [
+		{ scopes: SCOPES_OLD, broaderScopes: [SCOPES_WITH_ADDITIONAL] },
+		{ scopes: SCOPES_OLDEST, broaderScopes: [SCOPES_WITH_ADDITIONAL, SCOPES_OLD] },
+		{ scopes: SCOPES_WITH_ADDITIONAL, broaderScopes: [] },
+	];
+
+	for (const preference of scopePreferences) {
+		const session = await getSession(authProviderId, preference.scopes, { silent: true });
+		if (!session) {
+			continue;
+		}
+
+		for (const broaderScopes of preference.broaderScopes) {
+			const broaderSession = await getSession(authProviderId, broaderScopes, { silent: true, account: session.account });
+			if (broaderSession) {
+				return { session: broaderSession, scopes: broaderScopes };
+			}
+		}
+		return { session, scopes: preference.scopes };
+	}
+}
+
 export interface GitHub {
 	octokit: LoggingOctokit;
 	graphql: LoggingApolloClient;
@@ -89,11 +128,14 @@ export class CredentialStore extends Disposable {
 		if ((this._githubAPI || this._githubEnterpriseAPI) && !currentProvider) {
 			return;
 		}
+		let sessionChanged = false;
 		if (currentProvider) {
-			const newSession = await this.getSession(currentProvider, { silent: true }, currentProvider === AuthProvider.github ? this._scopes : this._scopesEnterprise, true);
-			if (newSession.session?.id === this._sessionId) {
+			const newSession = await this.getSession(currentProvider, { silent: true }, currentProvider === AuthProvider.github ? this._scopes : this._scopesEnterprise, false);
+			const currentSessionId = currentProvider === AuthProvider.github ? this._sessionId : this._enterpriseSessionId;
+			if (newSession.session?.id === currentSessionId) {
 				return;
 			}
+			sessionChanged = true;
 			if (currentProvider === AuthProvider.github) {
 				this._githubAPI = undefined;
 				this._sessionId = undefined;
@@ -114,6 +156,9 @@ export class CredentialStore extends Disposable {
 		await Promise.all(promises);
 		if (this.isAnyAuthenticated()) {
 			this._onDidGetSession.fire();
+			if (sessionChanged && !this._isSamling) {
+				this._onDidChangeSessions.fire(e);
+			}
 		} else if (!this._isSamling) {
 			this._onDidChangeSessions.fire(e);
 		}
@@ -537,23 +582,13 @@ export class CredentialStore extends Disposable {
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
-		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await this.findExistingScopes(authProviderId);
+		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await findExistingSession(authProviderId);
 		if (existingSession?.session) {
 			return { session: existingSession.session, isNew: false, scopes: existingSession.scopes };
 		}
 
 		const session = await vscode.authentication.getSession(authProviderId, requireScopes ? scopes : SCOPES_OLD, getAuthSessionOptions);
 		return { session, isNew: !!session, scopes: requireScopes ? scopes : SCOPES_OLD };
-	}
-
-	private async findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {
-		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
-		for (const scopes of scopesInPreferenceOrder) {
-			const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
-			if (session) {
-				return { session, scopes };
-			}
-		}
 	}
 
 	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {

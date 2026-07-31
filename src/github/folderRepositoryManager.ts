@@ -443,11 +443,11 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private _updatingRepositories: Promise<boolean> | undefined;
-	async updateRepositories(silent: boolean = false): Promise<boolean> {
+	async updateRepositories(silent: boolean = false, clearUserCache: boolean = false): Promise<boolean> {
 		if (this._updatingRepositories) {
 			await this._updatingRepositories;
 		}
-		this._updatingRepositories = this.doUpdateRepositories(silent);
+		this._updatingRepositories = this.doUpdateRepositories(silent, clearUserCache);
 		return this._updatingRepositories;
 	}
 
@@ -487,7 +487,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
+	private async doUpdateRepositories(silent: boolean, clearUserCache: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
 
@@ -577,11 +577,12 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 
+			const shouldClearUserCache = clearUserCache || repositoriesAdded.length > 0;
 			if (this.activePullRequest) {
-				this.getMentionableUsers(repositoriesAdded.length > 0);
+				this.getMentionableUsers(shouldClearUserCache);
 			}
 
-			this.getAssignableUsers(repositoriesAdded.length > 0);
+			this.getAssignableUsers(shouldClearUserCache);
 			if (isAuthenticated && activeRemotes.length) {
 				this.state = ReposManagerState.RepositoriesLoaded;
 				// On first activation, associate local branches with PRs
@@ -732,6 +733,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._mentionableUsers;
+			delete this._fetchMentionableUsersPromise;
 		}
 
 		if (this._mentionableUsers) {
@@ -739,7 +741,7 @@ export class FolderRepositoryManager extends Disposable {
 			return this._mentionableUsers;
 		}
 
-		const globalStateMentionableUsers = await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
+		const globalStateMentionableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -752,6 +754,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._assignableUsers;
+			delete this._fetchAssignableUsersPromise;
 		}
 
 		if (this._assignableUsers) {
@@ -759,7 +762,7 @@ export class FolderRepositoryManager extends Disposable {
 			return this._assignableUsers;
 		}
 
-		const globalStateAssignableUsers = await this.getCachedFromGlobalState<IAccount>('assignableUsers');
+		const globalStateAssignableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('assignableUsers');
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
