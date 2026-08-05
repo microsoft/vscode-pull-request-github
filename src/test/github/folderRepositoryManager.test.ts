@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -20,7 +20,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
-import { GitHubServerType } from '../../common/authentication';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -51,6 +51,20 @@ describe('PullRequestManager', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('updateRepositories', function () {
+		it('requires authentication for an unknown remote with an existing GitHub.com session', async function () {
+			const url = 'ssh://git@ghe.example.com/org/repo.git';
+			const remote = new Remote('origin', url, new Protocol(url));
+			sinon.stub(manager, 'computeAllGitHubRemotes').resolves([]);
+			sinon.stub(manager, 'computeAllUnknownRemotes').resolves([remote]);
+			sinon.stub(manager.credentialStore, 'isAuthenticated').callsFake(provider => provider === AuthProvider.github);
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(manager.state, ReposManagerState.NeedsAuthentication);
+		});
 	});
 
 	describe('activePullRequest', function () {
