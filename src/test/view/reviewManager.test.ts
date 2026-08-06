@@ -249,16 +249,54 @@ describe('ReviewManager polling', function () {
 			validateState(silent: boolean, updateLayout: boolean): Promise<void>;
 			hasNewPullRequests(): Promise<boolean>;
 			checkGitHubForPrBranch(branch: Branch): Promise<unknown>;
+			resolvePullRequest(metadata: PullRequestMetadata, useCache: boolean): Promise<undefined>;
+			clear(quitReviewMode: boolean): Promise<void>;
+		};
+		internal._cachedBranchName = 'feature';
+		sinon.stub(internal, 'hasNewPullRequests').resolves(false);
+		const pullRequestModel = {} as PullRequestModel;
+		const checkGitHubForPrBranch = sinon.stub(internal, 'checkGitHubForPrBranch').resolves({
+			owner: 'owner',
+			repositoryName: 'repo',
+			prNumber: 7231,
+			model: pullRequestModel,
+		});
+		const resolvePullRequest = sinon.stub(internal, 'resolvePullRequest').resolves(undefined);
+		const clear = sinon.stub(internal, 'clear').resolves();
+
+		await internal.validateState(true, false);
+
+		assert.strictEqual(checkGitHubForPrBranch.calledOnce, true);
+		assert.deepStrictEqual(resolvePullRequest.firstCall.args[0], {
+			owner: 'owner',
+			repositoryName: 'repo',
+			prNumber: 7231,
+			model: pullRequestModel,
+		});
+		assert.strictEqual(clear.called, false);
+	});
+
+	it('keeps the active pull request when its metadata recheck fails', async function () {
+		await repository.createBranch('feature', true, 'head-sha');
+		sinon.stub(manager, 'updateRepositories').resolves(true);
+		sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves(undefined);
+		sinon.stub(manager, 'activePullRequest').get(() => ({ number: 7231 } as PullRequestModel));
+		const internal = reviewManager as unknown as {
+			_cachedBranchName?: string;
+			validateState(silent: boolean, updateLayout: boolean): Promise<void>;
+			hasNewPullRequests(): Promise<boolean>;
+			checkGitHubForPrBranch(branch: Branch): Promise<unknown>;
 			clear(quitReviewMode: boolean): Promise<void>;
 		};
 		internal._cachedBranchName = 'feature';
 		sinon.stub(internal, 'hasNewPullRequests').resolves(false);
 		const checkGitHubForPrBranch = sinon.stub(internal, 'checkGitHubForPrBranch').resolves(undefined);
-		sinon.stub(internal, 'clear').resolves();
+		const clear = sinon.stub(internal, 'clear').resolves();
 
 		await internal.validateState(true, false);
 
 		assert.strictEqual(checkGitHubForPrBranch.calledOnce, true);
+		assert.strictEqual(clear.called, false);
 	});
 
 	it('caps backoff at the maximum interval', async function () {

@@ -665,7 +665,8 @@ export class ReviewManager extends Disposable {
 		// a result, it overwrites the local metadata via associateBranchWithPullRequest. Subsequent
 		// checks for the same branch fall back to the branch-change/new-PR cache.
 		const needsStaleMetadataCheck = !switchedToPullRequest && !!matchingPullRequestMetadata && !!branch.name && !this._staleMetadataCheckedBranches.has(branch.name);
-		const needsMissingMetadataCheck = !matchingPullRequestMetadata && !!this._folderRepoManager.activePullRequest;
+		const activePullRequest = this._folderRepoManager.activePullRequest;
+		const needsMissingMetadataCheck = !matchingPullRequestMetadata && !!activePullRequest && this._cachedBranchName === branch.name;
 		if (!switchedToPullRequest && (this._cachedBranchName !== branch.name || needsMissingMetadataCheck || needsStaleMetadataCheck || await this.hasNewPullRequests())) {
 			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
 			if (metadataFromGithub) {
@@ -680,6 +681,11 @@ export class ReviewManager extends Disposable {
 		this._cachedBranchName = branch.name;
 
 		if (!matchingPullRequestMetadata) {
+			if (needsMissingMetadataCheck && activePullRequest) {
+				Logger.appendLine(`Keeping active pull request #${activePullRequest.number} after its branch metadata could not be refreshed`, this.id);
+				this._lastCommitSha = oldLastCommitSha;
+				return;
+			}
 			Logger.appendLine(
 				`No matching pull request metadata found on GitHub for current branch ${branch.name}`, this.id
 			);
