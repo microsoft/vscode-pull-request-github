@@ -757,10 +757,8 @@ export class GitHubRepository extends Disposable {
 			Logger.debug(`Fetch pull requests for branch - done`, this.id);
 
 			if (data?.repository) {
-				const nodes = [...new Map(
-					[...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
-						.map(pullRequest => [pullRequest.number, pullRequest] as const),
-				).values()];
+				const nodes = [...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
+					.filter((pullRequest, index, pullRequests) => pullRequests.findIndex(candidate => candidate.number === pullRequest.number) === index);
 				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head?.repo.owner === headOwner);
 				if (prs.length === 0) {
 					return undefined;
