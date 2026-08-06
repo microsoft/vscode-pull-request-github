@@ -101,6 +101,7 @@ export class ReviewManager extends Disposable {
 	 * Used to enter review mode for this PR regardless of its state (open/closed/merged).
 	 */
 	private _switchedToPullRequest?: PullRequestModel;
+	private _switchedToPullRequestBranch?: string;
 	/**
 	 * Track whether this repository is currently selected in the UI.
 	 * Used to show/hide the status bar item based on repository selection.
@@ -642,7 +643,19 @@ export class ReviewManager extends Disposable {
 			return;
 		}
 
-		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		let switchedToPullRequest: PullRequestModel | undefined;
+		if (this._switchedToPullRequest && this._switchedToPullRequestBranch && this._switchedToPullRequestBranch === branch.name) {
+			switchedToPullRequest = this._switchedToPullRequest;
+		} else {
+			this._switchedToPullRequest = undefined;
+			this._switchedToPullRequestBranch = undefined;
+		}
+
+		let matchingPullRequestMetadata = switchedToPullRequest ? {
+			owner: switchedToPullRequest.remote.owner,
+			repositoryName: switchedToPullRequest.remote.repositoryName,
+			prNumber: switchedToPullRequest.number,
+		} : await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
 		}
@@ -651,8 +664,9 @@ export class ReviewManager extends Disposable {
 		// (per branch) in case the local metadata points to a stale closed PR. If GitHub returns
 		// a result, it overwrites the local metadata via associateBranchWithPullRequest. Subsequent
 		// checks for the same branch fall back to the branch-change/new-PR cache.
-		const needsStaleMetadataCheck = !!matchingPullRequestMetadata && !!branch.name && !this._staleMetadataCheckedBranches.has(branch.name);
-		if (this._cachedBranchName !== branch.name || await this.hasNewPullRequests() || needsStaleMetadataCheck) {
+		const needsStaleMetadataCheck = !switchedToPullRequest && !!matchingPullRequestMetadata && !!branch.name && !this._staleMetadataCheckedBranches.has(branch.name);
+		const needsMissingMetadataCheck = !matchingPullRequestMetadata && !!this._folderRepoManager.activePullRequest;
+		if (!switchedToPullRequest && (this._cachedBranchName !== branch.name || needsMissingMetadataCheck || needsStaleMetadataCheck || await this.hasNewPullRequests())) {
 			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
 			if (metadataFromGithub) {
 				matchingPullRequestMetadata = metadataFromGithub;
@@ -689,7 +703,7 @@ export class ReviewManager extends Disposable {
 		Logger.appendLine(`Resolved PR #${matchingPullRequestMetadata.prNumber}, state is ${pr.state}`, this.id);
 
 		// Check if the PR is open, if not, check if there's another PR from the same branch on GitHub
-		if (pr.state !== GithubItemStateEnum.Open) {
+		if (!switchedToPullRequest && pr.state !== GithubItemStateEnum.Open) {
 			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
 			if (metadataFromGithub && metadataFromGithub?.prNumber !== pr.number) {
 				const prFromGitHub = await this.resolvePullRequest(metadataFromGithub, false);
@@ -1347,6 +1361,7 @@ export class ReviewManager extends Disposable {
 		this.showStatusBarIfSelected();
 		this.switchingToReviewMode = true;
 		this._switchedToPullRequest = pr;
+		this._switchedToPullRequestBranch = undefined;
 
 		try {
 			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
@@ -1410,6 +1425,7 @@ export class ReviewManager extends Disposable {
 	}
 
 	private setStatusForPr(pr: PullRequestModel) {
+		this._switchedToPullRequestBranch = this._repository.state.HEAD?.name;
 		this.switchingToReviewMode = false;
 		this.justSwitchedToReviewMode = true;
 		this.statusBarItem.text = vscode.l10n.t('Pull Request #{0}', pr.number);
@@ -1501,6 +1517,7 @@ export class ReviewManager extends Disposable {
 			this._prNumber = undefined;
 			this._folderRepoManager.activePullRequest = undefined;
 			this._switchedToPullRequest = undefined;
+			this._switchedToPullRequestBranch = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
