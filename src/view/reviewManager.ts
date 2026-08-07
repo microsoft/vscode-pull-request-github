@@ -660,28 +660,43 @@ export class ReviewManager extends Disposable {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
 		}
 
-		// One-shot self-heal: when local metadata exists for this branch, re-check GitHub once
-		// (per branch) in case the local metadata points to a stale closed PR. If GitHub returns
-		// a result, it overwrites the local metadata via associateBranchWithPullRequest. Subsequent
-		// checks for the same branch fall back to the branch-change/new-PR cache.
-		const needsStaleMetadataCheck = !switchedToPullRequest && !!matchingPullRequestMetadata && !!branch.name && !this._staleMetadataCheckedBranches.has(branch.name);
 		const activePullRequest = this._folderRepoManager.activePullRequest;
-		const needsMissingMetadataCheck = !matchingPullRequestMetadata && !!activePullRequest && this._cachedBranchName === branch.name;
-		if (!switchedToPullRequest && (this._cachedBranchName !== branch.name || needsMissingMetadataCheck || needsStaleMetadataCheck || await this.hasNewPullRequests())) {
+		const branchChanged = this._cachedBranchName !== branch.name;
+		// Verify local metadata once per branch so stale associations can self-heal.
+		const shouldVerifyLocalMetadata = !switchedToPullRequest
+			&& !!matchingPullRequestMetadata
+			&& !!branch.name
+			&& !this._staleMetadataCheckedBranches.has(branch.name);
+		// If an active PR loses its local metadata, retry GitHub before clearing the view.
+		const shouldRecoverMissingMetadata = !matchingPullRequestMetadata
+			&& !!activePullRequest
+			&& !branchChanged;
+
+		let shouldCheckGitHub = false;
+		if (!switchedToPullRequest) {
+			shouldCheckGitHub = branchChanged || shouldRecoverMissingMetadata || shouldVerifyLocalMetadata;
+			if (!shouldCheckGitHub) {
+				shouldCheckGitHub = await this.hasNewPullRequests();
+			}
+		}
+
+		if (shouldCheckGitHub) {
 			const metadataFromGithub = await this.checkGitHubForPrBranch(branch);
 			if (metadataFromGithub) {
 				matchingPullRequestMetadata = metadataFromGithub;
 			}
-			if (needsStaleMetadataCheck && branch.name) {
+			if (shouldVerifyLocalMetadata && branch.name) {
 				this._staleMetadataCheckedBranches.add(branch.name);
 			}
+		} else if (switchedToPullRequest) {
+			Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: using explicitly selected pull request #${switchedToPullRequest.number}`, this.id);
 		} else {
 			Logger.appendLine(`Skipping GitHub check for branch ${branch.name}: no new PRs since last check`, this.id);
 		}
 		this._cachedBranchName = branch.name;
 
 		if (!matchingPullRequestMetadata) {
-			if (needsMissingMetadataCheck && activePullRequest) {
+			if (shouldRecoverMissingMetadata && activePullRequest) {
 				Logger.appendLine(`Keeping active pull request #${activePullRequest.number} after its branch metadata could not be refreshed`, this.id);
 				this._lastCommitSha = oldLastCommitSha;
 				return;
