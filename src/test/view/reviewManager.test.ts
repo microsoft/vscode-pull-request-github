@@ -239,6 +239,39 @@ describe('ReviewManager polling', function () {
 		assert.strictEqual(checkGitHubForPrBranch.called, false);
 	});
 
+	it('keeps an explicit pull request selected when validation overlaps its checkout', async function () {
+		await repository.createBranch('feature', true, 'head-sha');
+		let resolveUpdateRepositories!: (updated: boolean) => void;
+		sinon.stub(manager, 'updateRepositories').returns(new Promise<boolean>(resolve => {
+			resolveUpdateRepositories = resolve;
+		}));
+		const localMetadata = sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch');
+		const requestedPullRequest = {
+			number: 7231,
+			remote: {
+				owner: 'owner',
+				repositoryName: 'repo',
+			},
+		} as PullRequestModel;
+		const internal = reviewManager as unknown as {
+			_switchedToPullRequest?: PullRequestModel;
+			_switchedToPullRequestBranch?: string;
+			validateState(silent: boolean, updateLayout: boolean): Promise<void>;
+		};
+
+		const validation = internal.validateState(true, false);
+		await flushMicrotasks();
+		reviewManager.switchingToReviewMode = true;
+		internal._switchedToPullRequest = requestedPullRequest;
+		internal._switchedToPullRequestBranch = undefined;
+		resolveUpdateRepositories(true);
+		await validation;
+
+		assert.strictEqual(internal._switchedToPullRequest, requestedPullRequest);
+		assert.strictEqual(internal._switchedToPullRequestBranch, undefined);
+		assert.strictEqual(localMetadata.called, false);
+	});
+
 	it('rechecks GitHub when active pull request metadata was not persisted', async function () {
 		await repository.createBranch('feature', true, 'head-sha');
 		sinon.stub(manager, 'updateRepositories').resolves(true);

@@ -643,6 +643,11 @@ export class ReviewManager extends Disposable {
 			return;
 		}
 
+		// An explicit PR checkout is still in progress, so its destination branch is not known yet.
+		if (this._switchedToPullRequest && !this._switchedToPullRequestBranch && this.switchingToReviewMode) {
+			this._lastCommitSha = oldLastCommitSha;
+			return;
+		}
 		let switchedToPullRequest: PullRequestModel | undefined;
 		if (this._switchedToPullRequest && this._switchedToPullRequestBranch && this._switchedToPullRequestBranch === branch.name) {
 			switchedToPullRequest = this._switchedToPullRequest;
