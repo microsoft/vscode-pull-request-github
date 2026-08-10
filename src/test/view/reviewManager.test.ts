@@ -6,10 +6,12 @@
 import { default as assert } from 'assert';
 import { SinonFakeTimers, SinonSandbox, createSandbox } from 'sinon';
 import * as vscode from 'vscode';
+import type { Branch } from '../../api/api';
 import { GitApiImpl } from '../../api/api1';
 import { ITelemetry } from '../../common/telemetry';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { PullRequestMetadata } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
@@ -197,6 +199,104 @@ describe('ReviewManager polling', function () {
 		await flushMicrotasks();
 
 		assert.strictEqual(updateStateStub.called, true, 'poll should refresh state when active PR may be stale');
+	});
+
+	it('uses the explicitly checked out pull request for the checked out branch', async function () {
+		await repository.createBranch('feature', true, 'head-sha');
+		sinon.stub(manager, 'updateRepositories').resolves(true);
+		const localMetadata = sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves({
+			owner: 'owner',
+			repositoryName: 'repo',
+			prNumber: 7492,
+		});
+		const requestedPullRequest = {
+			number: 7231,
+			remote: {
+				owner: 'owner',
+				repositoryName: 'repo',
+			},
+		} as PullRequestModel;
+		const internal = reviewManager as unknown as {
+			_switchedToPullRequest?: PullRequestModel;
+			_switchedToPullRequestBranch?: string;
+			validateState(silent: boolean, updateLayout: boolean): Promise<void>;
+			resolvePullRequest(metadata: PullRequestMetadata, useCache: boolean): Promise<undefined>;
+			checkGitHubForPrBranch(branch: Branch): Promise<unknown>;
+		};
+		internal._switchedToPullRequest = requestedPullRequest;
+		internal._switchedToPullRequestBranch = 'feature';
+		const resolvePullRequest = sinon.stub(internal, 'resolvePullRequest').resolves(undefined);
+		const checkGitHubForPrBranch = sinon.stub(internal, 'checkGitHubForPrBranch').resolves(undefined);
+
+		await internal.validateState(true, false);
+
+		assert.strictEqual(localMetadata.called, false);
+		assert.deepStrictEqual(resolvePullRequest.firstCall.args[0], {
+			owner: 'owner',
+			repositoryName: 'repo',
+			prNumber: 7231,
+		});
+		assert.strictEqual(checkGitHubForPrBranch.called, false);
+	});
+
+	it('rechecks GitHub when active pull request metadata was not persisted', async function () {
+		await repository.createBranch('feature', true, 'head-sha');
+		sinon.stub(manager, 'updateRepositories').resolves(true);
+		sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves(undefined);
+		sinon.stub(manager, 'activePullRequest').get(() => ({ number: 7231 } as PullRequestModel));
+		const internal = reviewManager as unknown as {
+			_cachedBranchName?: string;
+			validateState(silent: boolean, updateLayout: boolean): Promise<void>;
+			hasNewPullRequests(): Promise<boolean>;
+			checkGitHubForPrBranch(branch: Branch): Promise<unknown>;
+			resolvePullRequest(metadata: PullRequestMetadata, useCache: boolean): Promise<undefined>;
+			clear(quitReviewMode: boolean): Promise<void>;
+		};
+		internal._cachedBranchName = 'feature';
+		sinon.stub(internal, 'hasNewPullRequests').resolves(false);
+		const pullRequestModel = {} as PullRequestModel;
+		const checkGitHubForPrBranch = sinon.stub(internal, 'checkGitHubForPrBranch').resolves({
+			owner: 'owner',
+			repositoryName: 'repo',
+			prNumber: 7231,
+			model: pullRequestModel,
+		});
+		const resolvePullRequest = sinon.stub(internal, 'resolvePullRequest').resolves(undefined);
+		const clear = sinon.stub(internal, 'clear').resolves();
+
+		await internal.validateState(true, false);
+
+		assert.strictEqual(checkGitHubForPrBranch.calledOnce, true);
+		assert.deepStrictEqual(resolvePullRequest.firstCall.args[0], {
+			owner: 'owner',
+			repositoryName: 'repo',
+			prNumber: 7231,
+			model: pullRequestModel,
+		});
+		assert.strictEqual(clear.called, false);
+	});
+
+	it('keeps the active pull request when its metadata recheck fails', async function () {
+		await repository.createBranch('feature', true, 'head-sha');
+		sinon.stub(manager, 'updateRepositories').resolves(true);
+		sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves(undefined);
+		sinon.stub(manager, 'activePullRequest').get(() => ({ number: 7231 } as PullRequestModel));
+		const internal = reviewManager as unknown as {
+			_cachedBranchName?: string;
+			validateState(silent: boolean, updateLayout: boolean): Promise<void>;
+			hasNewPullRequests(): Promise<boolean>;
+			checkGitHubForPrBranch(branch: Branch): Promise<unknown>;
+			clear(quitReviewMode: boolean): Promise<void>;
+		};
+		internal._cachedBranchName = 'feature';
+		sinon.stub(internal, 'hasNewPullRequests').resolves(false);
+		const checkGitHubForPrBranch = sinon.stub(internal, 'checkGitHubForPrBranch').resolves(undefined);
+		const clear = sinon.stub(internal, 'clear').resolves();
+
+		await internal.validateState(true, false);
+
+		assert.strictEqual(checkGitHubForPrBranch.calledOnce, true);
+		assert.strictEqual(clear.called, false);
 	});
 
 	it('caps backoff at the maximum interval', async function () {

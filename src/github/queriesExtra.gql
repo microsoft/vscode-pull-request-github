@@ -330,6 +330,11 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
+		openPullRequests: pullRequests(first: 3, headRefName: $headRefName, states: [OPEN], orderBy: { field: CREATED_AT, direction: DESC }) {
+			nodes {
+				...PullRequestFragment
+			}
+		}
 		pullRequests(first: 3, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
 			nodes {
 				...PullRequestFragment

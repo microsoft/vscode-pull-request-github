@@ -16,6 +16,7 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
 import { CheckState, PullRequestCheckStatus } from '../../github/interface';
+import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -129,6 +130,43 @@ describe('GitHubRepository', function () {
 			];
 			const result = callDeduplicateStatusChecks(repo, statuses);
 			assert.strictEqual(result.length, 2);
+		});
+	});
+
+	describe('getPullRequestForBranch', function () {
+		it('prefers an open pull request over newer merged pull requests', async function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const repo = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry, true);
+			const openPullRequest = new GraphQLPullRequestBuilder()
+				.repository(repository => repository.pullRequest(pullRequest => pullRequest
+					.number(7231)
+					.state('OPEN')))
+				.build().repository!.pullRequest!;
+			const mergedPullRequest = new GraphQLPullRequestBuilder()
+				.repository(repository => repository.pullRequest(pullRequest => pullRequest
+					.number(7492)
+					.state('MERGED')
+					.merged(true)))
+				.build().repository!.pullRequest!;
+			sinon.stub(repo, 'ensure').resolves(repo);
+			sinon.stub(repo, 'query').resolves({
+				data: {
+					repository: {
+						openPullRequests: {
+							nodes: [openPullRequest],
+						},
+						pullRequests: {
+							nodes: [mergedPullRequest],
+						},
+					},
+				},
+			} as never);
+
+			const pullRequest = await repo.getPullRequestForBranch('feature', 'me');
+
+			assert.strictEqual(pullRequest?.number, 7231);
 		});
 	});
 

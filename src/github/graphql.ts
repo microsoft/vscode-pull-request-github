@@ -906,6 +906,9 @@ export interface IssuesResponse {
 
 export interface PullRequestsResponse {
 	repository: {
+		openPullRequests: {
+			nodes: PullRequest[]
+		}
 		pullRequests: {
 			nodes: PullRequest[]
 		}
