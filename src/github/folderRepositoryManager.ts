@@ -495,7 +495,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
-		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
+		let isAuthenticated = this.checkForAuthMatch(activeRemotes);
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
 			const allUnknownRemotes = await this.computeAllUnknownRemotes();
 			const areAllNeverGitHub = allUnknownRemotes.every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
@@ -503,6 +503,10 @@ export class FolderRepositoryManager extends Disposable {
 				Logger.appendLine('No GitHub remotes found and all remotes are marked as never GitHub.', this.id);
 				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
+			}
+			if (allUnknownRemotes.length > 0) {
+				isAuthenticated = false;
+				await vscode.commands.executeCommand('setContext', 'github:authenticated', false);
 			}
 		}
 		const repositories: GitHubRepository[] = [];
