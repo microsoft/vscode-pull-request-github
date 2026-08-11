@@ -42,6 +42,8 @@ export type BranchInfo = {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
+	private static readonly configUpdates = new WeakMap<Repository, Map<string, Promise<void>>>();
+
 	static async checkoutFromFork(
 		repository: Repository,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
@@ -308,14 +310,35 @@ export class PullRequestGitHelper {
 	}
 
 	private static async setConfig(repository: Repository, key: string, value: string): Promise<void> {
-		const existingConfigs = (await repository.getConfigs()).filter(config => config.key === key);
-		if (existingConfigs.some(config => config.value === value)) {
-			return;
+		let repositoryUpdates = PullRequestGitHelper.configUpdates.get(repository);
+		if (!repositoryUpdates) {
+			repositoryUpdates = new Map();
+			PullRequestGitHelper.configUpdates.set(repository, repositoryUpdates);
 		}
-		if (existingConfigs.length === 1 && repository.unsetConfig) {
-			await repository.unsetConfig(key);
+
+		const previousUpdate = repositoryUpdates.get(key);
+		const update = (previousUpdate ? previousUpdate.catch(() => undefined) : Promise.resolve()).then(async () => {
+			const existingConfigs = (await repository.getConfigs()).filter(config => config.key === key);
+			if (existingConfigs.some(config => config.value === value)) {
+				return;
+			}
+			if (existingConfigs.length === 1 && repository.unsetConfig) {
+				await repository.unsetConfig(key);
+			}
+			await repository.setConfig(key, value);
+		});
+		repositoryUpdates.set(key, update);
+
+		try {
+			await update;
+		} finally {
+			if (repositoryUpdates.get(key) === update) {
+				repositoryUpdates.delete(key);
+				if (!repositoryUpdates.size) {
+					PullRequestGitHelper.configUpdates.delete(repository);
+				}
+			}
 		}
-		await repository.setConfig(key, value);
 	}
 
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {

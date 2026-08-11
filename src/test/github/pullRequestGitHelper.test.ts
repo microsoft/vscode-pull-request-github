@@ -211,6 +211,18 @@ describe('PullRequestGitHelper', function () {
 			]);
 		});
 
+		it('does not append metadata during concurrent associations', async function () {
+			await Promise.all([
+				PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature'),
+				PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature'),
+			]);
+
+			const key = 'branch.feature.github-pr-owner-number';
+			assert.deepStrictEqual((await repository.getConfigs()).filter(config => config.key === key), [
+				{ key, value: 'owner#name#100' },
+			]);
+		});
+
 		it('does not append to existing duplicate metadata', async function () {
 			const key = 'branch.feature.github-pr-owner-number';
 			await repository.setConfig(key, 'owner#name#100');
