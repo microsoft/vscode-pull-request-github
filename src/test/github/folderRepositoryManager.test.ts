@@ -53,6 +53,40 @@ describe('PullRequestManager', function () {
 		sinon.restore();
 	});
 
+	describe('updateRepositories', function () {
+		it('skips a repository after a 404 without affecting healthy repositories', async function () {
+			const inaccessibleUrl = 'https://github.com/owner/missing';
+			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
+			const inaccessibleRepository = new GitHubRepository(1, inaccessibleRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const inaccessibleMetadata = sinon.stub(inaccessibleRepository as any, 'getMetadataForRepo').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			const healthyUrl = 'https://github.com/owner/healthy';
+			const healthyRemote = new GitHubRemote('upstream', healthyUrl, new Protocol(healthyUrl), GitHubServerType.GitHubDotCom);
+			const healthyRepository = new GitHubRepository(2, healthyRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const healthyMetadata = sinon.stub(healthyRepository as any, 'getMetadataForRepo').resolves({ clone_url: healthyUrl } as never);
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			sinon.stub(manager as any, 'getActiveRemotes').resolves([inaccessibleRemote, healthyRemote] as never);
+			sinon.stub(manager as any, 'createAndAddGitHubRepository').callsFake(async (remote: Remote) => remote.remoteName === 'origin' ? inaccessibleRepository : healthyRepository);
+			sinon.stub(manager as any, 'checkIfMissingUpstream').resolves(false as never);
+			sinon.stub(manager as any, 'associateLocalBranchesWithPRsOnFirstActivation').resolves();
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+			await manager.updateRepositories();
+
+			assert.deepStrictEqual(manager.gitHubRepositories, [healthyRepository]);
+			assert.strictEqual(inaccessibleMetadata.calledOnce, true);
+			assert.strictEqual(healthyMetadata.calledOnce, true);
+			assert.strictEqual((manager as any)._sessionIgnoredRemoteNames.has('origin'), true);
+			assert.strictEqual((manager as any)._inaccessibleRepos.has('owner/missing'), true);
+			assert.strictEqual((inaccessibleRepository as any)._isDisposed, true);
+			await assert.rejects(
+				manager.createGitHubRepository(inaccessibleRemote, manager.credentialStore),
+				/Repository owner\/missing is not accessible\./,
+			);
+		});
+	});
+
 	describe('activePullRequest', function () {
 		it('gets and sets the active pull request', function () {
 			assert.strictEqual(manager.activePullRequest, undefined);

@@ -17,6 +17,7 @@ import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
 import { CheckState, PullRequestCheckStatus } from '../../github/interface';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
+import Logger from '../../common/logger';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -52,6 +53,45 @@ describe('GitHubRepository', function () {
 			const rootUri = Uri.file('C:\\users\\test\\repo');
 			const dotcomRepository = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
 			// assert(! dotcomRepository.isGitHubDotCom);
+		});
+	});
+
+	describe('resolveRemote', function () {
+		beforeEach(function () {
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+		});
+
+		it('logs and caches an inaccessible repository after a 404', async function () {
+			const url = 'https://github.com/some/missing-repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('/workspaces/missing-repo');
+			const repo = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry, true);
+			const metadata = sinon.stub(repo as any, 'getMetadataForRepo').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			const warn = sinon.stub(Logger, 'warn');
+
+			assert.strictEqual(await repo.resolveRemote(), false);
+			assert.strictEqual(await repo.resolveRemote(), false);
+
+			assert.strictEqual(repo.isInaccessible, true);
+			assert.strictEqual(metadata.calledOnce, true);
+			assert.strictEqual(warn.calledOnce, true);
+			assert.strictEqual(
+				warn.firstCall.args[0],
+				`Repository some/missing-repo from remote origin in workspace folder ${rootUri.fsPath} returned HTTP 404 and will be skipped for this session.`,
+			);
+		});
+
+		it('does not cache a SAML 404 as inaccessible', async function () {
+			const url = 'https://github.com/some/saml-repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/saml-repo'), credentialStore, telemetry, true);
+			sinon.stub(repo as any, 'getMetadataForRepo').rejects(Object.assign(
+				new Error('Resource protected by organization SAML enforcement.'),
+				{ status: 404 },
+			));
+
+			assert.strictEqual(await repo.resolveRemote(), false);
+			assert.strictEqual(repo.isInaccessible, false);
 		});
 	});
 
