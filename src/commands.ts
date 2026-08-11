@@ -24,7 +24,6 @@ import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemot
 import { guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './github/fileUpload';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
-import type { PullRequestNumberData } from './github/graphql';
 import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
@@ -130,12 +129,16 @@ export async function closeAllPrAndReviewEditors() {
 	}
 }
 
-export function getPullRequestQuickPickItem(pr: PullRequestNumberData): vscode.QuickPickItem & { prNumber: number } {
-	return {
-		label: `#${pr.number}`,
-		description: `${pr.title} by @${pr.author.login}`,
-		prNumber: pr.number,
-	};
+type PullRequestQuickPickItem = vscode.QuickPickItem & { prNumber: number };
+
+export function findExactPullRequestNumberMatch(value: string, items: readonly PullRequestQuickPickItem[]): PullRequestQuickPickItem | undefined {
+	const numberMatch = /^#?(\d+)$/.exec(value);
+	if (!numberMatch) {
+		return undefined;
+	}
+
+	const prNumber = Number(numberMatch[1]);
+	return items.find(item => item.prNumber === prNumber);
 }
 
 function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
@@ -1977,6 +1980,7 @@ ${contents}
 
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
+			let valueChangeDisposable: vscode.Disposable | undefined;
 
 			try {
 				const selectedPromise = new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
@@ -2003,9 +2007,21 @@ ${contents}
 				}
 				// Sort PRs by number in descending order (most recent first)
 				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems = sortedPRs.map(getPullRequestQuickPickItem);
+				const prItems: PullRequestQuickPickItem[] = sortedPRs.map(pr => ({
+					label: `#${pr.number} ${pr.title}`,
+					description: `by @${pr.author.login}`,
+					prNumber: pr.number
+				}));
 
 				quickPick.items = prItems;
+				const prioritizeExactNumberMatch = (value: string) => {
+					const exactNumberMatch = findExactPullRequestNumberMatch(value, prItems);
+					if (exactNumberMatch) {
+						quickPick.activeItems = [exactNumberMatch];
+					}
+				};
+				valueChangeDisposable = quickPick.onDidChangeValue(prioritizeExactNumberMatch);
+				prioritizeExactNumberMatch(quickPick.value);
 				const selected = await selectedPromise;
 				quickPick.busy = true;
 
@@ -2049,6 +2065,7 @@ ${contents}
 				// Clean up event listeners and QuickPick
 				acceptDisposable?.dispose();
 				hideDisposable?.dispose();
+				valueChangeDisposable?.dispose();
 				quickPick.hide();
 				quickPick.dispose();
 			}

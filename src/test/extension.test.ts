@@ -5,22 +5,26 @@
 
 import { default as assert } from 'assert';
 import { parseDiffHunk } from '../common/diffHunk';
-import { getPullRequestQuickPickItem } from '../commands';
+import { findExactPullRequestNumberMatch } from '../commands';
 
 describe('Extension Tests', function () {
-	describe('getPullRequestQuickPickItem', () => {
-		it('separates pull request numbers from titles to prioritize exact number matches', () => {
-			const item = getPullRequestQuickPickItem({
-				number: 10063,
-				title: 'upgrade library to v5',
-				author: { login: 'octocat' },
-			});
+	describe('findExactPullRequestNumberMatch', () => {
+		it('prioritizes an exact number over a title match without changing the label', () => {
+			const items = [
+				{
+					label: '#10064 Follow up on #10063',
+					description: 'by @octocat',
+					prNumber: 10064,
+				},
+				{
+					label: '#10063 Upgrade library to v5',
+					description: 'by @hubot',
+					prNumber: 10063,
+				},
+			];
 
-			assert.deepStrictEqual(item, {
-				label: '#10063',
-				description: 'upgrade library to v5 by @octocat',
-				prNumber: 10063,
-			});
+			assert.strictEqual(findExactPullRequestNumberMatch('10063', items), items[1]);
+			assert.strictEqual(items[1].label, '#10063 Upgrade library to v5');
 		});
 	});
 
