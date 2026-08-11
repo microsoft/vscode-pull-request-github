@@ -30,6 +30,7 @@ import { IssueOverviewPanel } from './github/issueOverview';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
+import { getPullRequestQuickPickItem } from './github/pullRequestQuickPick';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
@@ -1994,11 +1995,7 @@ ${contents}
 				}
 				// Sort PRs by number in descending order (most recent first)
 				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
-					label: `#${pr.number} ${pr.title}`,
-					description: `by @${pr.author.login}`,
-					prNumber: pr.number
-				}));
+				const prItems = sortedPRs.map(getPullRequestQuickPickItem);
 
 				quickPick.items = prItems;
 				const selected = await selectedPromise;
