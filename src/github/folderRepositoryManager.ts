@@ -506,7 +506,6 @@ export class FolderRepositoryManager extends Disposable {
 			}
 			if (allUnknownRemotes.length > 0) {
 				isAuthenticated = false;
-				await vscode.commands.executeCommand('setContext', 'github:authenticated', false);
 			}
 		}
 		const repositories: GitHubRepository[] = [];
