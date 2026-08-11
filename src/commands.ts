@@ -24,13 +24,13 @@ import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemot
 import { guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './github/fileUpload';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
+import type { PullRequestNumberData } from './github/graphql';
 import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { getPullRequestQuickPickItem } from './github/pullRequestQuickPick';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
@@ -128,6 +128,14 @@ export async function closeAllPrAndReviewEditors() {
 			await tabs.close(tab);
 		}
 	}
+}
+
+export function getPullRequestQuickPickItem(pr: PullRequestNumberData): vscode.QuickPickItem & { prNumber: number } {
+	return {
+		label: `#${pr.number}`,
+		description: `${pr.title} by @${pr.author.login}`,
+		prNumber: pr.number,
+	};
 }
 
 function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
