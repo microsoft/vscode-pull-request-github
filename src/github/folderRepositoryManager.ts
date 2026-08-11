@@ -510,7 +510,10 @@ export class FolderRepositoryManager extends Disposable {
 		const oldRepositories: GitHubRepository[] = [];
 		this._githubRepositories.forEach(repo => oldRepositories.push(repo));
 
-		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
+		const authenticatedRemotes = activeRemotes.filter(remote =>
+			this._credentialStore.isAuthenticated(remote.authProviderId)
+			&& !this._inaccessibleRepos.has(`${remote.owner.toLowerCase()}/${remote.repositoryName.toLowerCase()}`)
+		);
 		for (const remote of authenticatedRemotes) {
 			const repository = await this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());

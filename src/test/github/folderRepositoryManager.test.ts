@@ -65,7 +65,7 @@ describe('PullRequestManager', function () {
 			const healthyMetadata = sinon.stub(healthyRepository as any, 'getMetadataForRepo').resolves({ clone_url: healthyUrl } as never);
 			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
 			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
-			sinon.stub(manager, 'computeAllGitHubRemotes').resolves([inaccessibleRemote, healthyRemote]);
+			sinon.stub(manager as any, 'getActiveRemotes').resolves([inaccessibleRemote, healthyRemote] as never);
 			sinon.stub(manager as any, 'createAndAddGitHubRepository').callsFake(async (remote: Remote) => remote.remoteName === 'origin' ? inaccessibleRepository : healthyRepository);
 			sinon.stub(manager as any, 'checkIfMissingUpstream').resolves(false as never);
 			sinon.stub(manager as any, 'associateLocalBranchesWithPRsOnFirstActivation').resolves();
