@@ -74,7 +74,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		super(folderRepoManager, telemetry);
 		this._context = this._folderRepoManager.context;
 		this._commentController = this._register(vscode.comments.createCommentController(
-			`${ReviewCommentController.PREFIX}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest!.number}`,
+			`${ReviewCommentController.PREFIX}-${folderRepoManager.activePullRequest!.remote.owner}-${folderRepoManager.activePullRequest!.remote.repositoryName}-${folderRepoManager.activePullRequest!.number}`,
 			vscode.l10n.t('Pull Request ({0})', folderRepoManager.activePullRequest!.title),
 		));
 		this._commentController.commentingRangeProvider = this as vscode.CommentingRangeProvider;

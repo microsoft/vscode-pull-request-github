@@ -188,6 +188,28 @@ describe('ReviewCommentController', function () {
 		};
 	}
 
+	it('uses unique comment controller IDs for pull requests in different repositories', function () {
+		const reviewModel = new ReviewModel();
+		const firstController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl, telemetry);
+		const otherRemote = new GitHubRemote('test', 'https://github.com/github/other.git', new Protocol('https://github.com/github/other.git'), GitHubServerType.GitHubDotCom);
+		const otherGitHubRepo = new MockGitHubRepository(otherRemote, credentialStore, telemetry, sinon);
+		const otherPullRequest = new PullRequestModel(
+			credentialStore,
+			telemetry,
+			otherGitHubRepo,
+			otherRemote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), otherGitHubRepo),
+		);
+		manager.activePullRequest = otherPullRequest;
+		const secondController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl, telemetry);
+
+		assert.strictEqual(firstController.commentController.id, `${ReviewCommentController.PREFIX}-${remote.owner}-${remote.repositoryName}-${activePullRequest.number}`);
+		assert.strictEqual(secondController.commentController.id, `${ReviewCommentController.PREFIX}-${otherRemote.owner}-${otherRemote.repositoryName}-${otherPullRequest.number}`);
+		assert.notStrictEqual(firstController.commentController.id, secondController.commentController.id);
+		firstController.dispose();
+		secondController.dispose();
+	});
+
 	describe('initializes workspace thread data', async function () {
 		const fileName = 'data/products.json';
 		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
