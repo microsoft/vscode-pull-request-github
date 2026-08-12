@@ -2016,9 +2016,7 @@ ${contents}
 				quickPick.items = prItems;
 				const prioritizeExactNumberMatch = (value: string) => {
 					const exactNumberMatch = findExactPullRequestNumberMatch(value, prItems);
-					if (exactNumberMatch) {
-						quickPick.activeItems = [exactNumberMatch];
-					}
+					quickPick.activeItems = exactNumberMatch ? [exactNumberMatch] : [];
 				};
 				valueChangeDisposable = quickPick.onDidChangeValue(prioritizeExactNumberMatch);
 				prioritizeExactNumberMatch(quickPick.value);

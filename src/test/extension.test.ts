@@ -24,6 +24,9 @@ describe('Extension Tests', function () {
 			];
 
 			assert.strictEqual(findExactPullRequestNumberMatch('10063', items), items[1]);
+			assert.strictEqual(findExactPullRequestNumberMatch('#10063', items), items[1]);
+			assert.strictEqual(findExactPullRequestNumberMatch('1006', items), undefined);
+			assert.strictEqual(findExactPullRequestNumberMatch('10063 title', items), undefined);
 			assert.strictEqual(items[1].label, '#10063 Upgrade library to v5');
 		});
 	});
