@@ -129,6 +129,18 @@ export async function closeAllPrAndReviewEditors() {
 	}
 }
 
+type PullRequestQuickPickItem = vscode.QuickPickItem & { prNumber: number };
+
+export function findExactPullRequestNumberMatch(value: string, items: readonly PullRequestQuickPickItem[]): PullRequestQuickPickItem | undefined {
+	const numberMatch = /^#?(\d+)$/.exec(value);
+	if (!numberMatch) {
+		return undefined;
+	}
+
+	const prNumber = Number(numberMatch[1]);
+	return items.find(item => item.prNumber === prNumber);
+}
+
 function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
 	const asCrossChatSessionWithPR = value as Partial<CrossChatSessionWithPR>;
 	return !!asCrossChatSessionWithPR.pullRequestDetails;
@@ -1968,6 +1980,7 @@ ${contents}
 
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
+			let valueChangeDisposable: vscode.Disposable | undefined;
 
 			try {
 				const selectedPromise = new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
@@ -1994,13 +2007,19 @@ ${contents}
 				}
 				// Sort PRs by number in descending order (most recent first)
 				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
+				const prItems: PullRequestQuickPickItem[] = sortedPRs.map(pr => ({
 					label: `#${pr.number} ${pr.title}`,
 					description: `by @${pr.author.login}`,
 					prNumber: pr.number
 				}));
 
 				quickPick.items = prItems;
+				const prioritizeExactNumberMatch = (value: string) => {
+					const exactNumberMatch = findExactPullRequestNumberMatch(value, prItems);
+					quickPick.activeItems = exactNumberMatch ? [exactNumberMatch] : [];
+				};
+				valueChangeDisposable = quickPick.onDidChangeValue(prioritizeExactNumberMatch);
+				prioritizeExactNumberMatch(quickPick.value);
 				const selected = await selectedPromise;
 				quickPick.busy = true;
 
@@ -2044,6 +2063,7 @@ ${contents}
 				// Clean up event listeners and QuickPick
 				acceptDisposable?.dispose();
 				hideDisposable?.dispose();
+				valueChangeDisposable?.dispose();
 				quickPick.hide();
 				quickPick.dispose();
 			}
