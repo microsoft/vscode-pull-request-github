@@ -443,11 +443,11 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private _updatingRepositories: Promise<boolean> | undefined;
-	async updateRepositories(silent: boolean = false): Promise<boolean> {
+	async updateRepositories(silent: boolean = false, clearUserCache: boolean = false): Promise<boolean> {
 		if (this._updatingRepositories) {
 			await this._updatingRepositories;
 		}
-		this._updatingRepositories = this.doUpdateRepositories(silent);
+		this._updatingRepositories = this.doUpdateRepositories(silent, clearUserCache);
 		return this._updatingRepositories;
 	}
 
@@ -487,7 +487,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
+	private async doUpdateRepositories(silent: boolean, clearUserCache: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
 
@@ -510,7 +510,10 @@ export class FolderRepositoryManager extends Disposable {
 		const oldRepositories: GitHubRepository[] = [];
 		this._githubRepositories.forEach(repo => oldRepositories.push(repo));
 
-		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
+		const authenticatedRemotes = activeRemotes.filter(remote =>
+			this._credentialStore.isAuthenticated(remote.authProviderId)
+			&& !this._inaccessibleRepos.has(`${remote.owner.toLowerCase()}/${remote.repositoryName.toLowerCase()}`)
+		);
 		for (const remote of authenticatedRemotes) {
 			const repository = await this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
@@ -529,11 +532,26 @@ export class FolderRepositoryManager extends Disposable {
 		};
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
+			const inaccessibleRepositories: GitHubRepository[] = [];
 			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
 				if (!remoteResults[i]) {
-					missingSaml.push(repositories[i]);
+					if (repositories[i].isInaccessible) {
+						inaccessibleRepositories.push(repositories[i]);
+					} else {
+						missingSaml.push(repositories[i]);
+					}
 				}
+			}
+			for (const inaccessible of inaccessibleRepositories) {
+				this._sessionIgnoredRemoteNames.add(inaccessible.remote.remoteName);
+				this._inaccessibleRepos.add(`${inaccessible.remote.owner.toLowerCase()}/${inaccessible.remote.repositoryName.toLowerCase()}`);
+				this.removeGitHubRepository(inaccessible.remote);
+				const index = repositories.indexOf(inaccessible);
+				if (index > -1) {
+					repositories.splice(index, 1);
+				}
+				inaccessible.dispose();
 			}
 			if (missingSaml.length > 0) {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
@@ -577,11 +595,12 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 
+			const shouldClearUserCache = clearUserCache || repositoriesAdded.length > 0;
 			if (this.activePullRequest) {
-				this.getMentionableUsers(repositoriesAdded.length > 0);
+				this.getMentionableUsers(shouldClearUserCache);
 			}
 
-			this.getAssignableUsers(repositoriesAdded.length > 0);
+			this.getAssignableUsers(shouldClearUserCache);
 			if (isAuthenticated && activeRemotes.length) {
 				this.state = ReposManagerState.RepositoriesLoaded;
 				// On first activation, associate local branches with PRs
@@ -732,6 +751,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._mentionableUsers;
+			delete this._fetchMentionableUsersPromise;
 		}
 
 		if (this._mentionableUsers) {
@@ -739,7 +759,7 @@ export class FolderRepositoryManager extends Disposable {
 			return this._mentionableUsers;
 		}
 
-		const globalStateMentionableUsers = await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
+		const globalStateMentionableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -752,6 +772,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._assignableUsers;
+			delete this._fetchAssignableUsersPromise;
 		}
 
 		if (this._assignableUsers) {
@@ -759,7 +780,7 @@ export class FolderRepositoryManager extends Disposable {
 			return this._assignableUsers;
 		}
 
-		const globalStateAssignableUsers = await this.getCachedFromGlobalState<IAccount>('assignableUsers');
+		const globalStateAssignableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('assignableUsers');
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
@@ -2099,12 +2120,18 @@ export class FolderRepositoryManager extends Disposable {
 		const deleteConfig = async (branch: string) => {
 			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, branch, undefined);
 			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
+			if (this.repository.unsetConfig) {
+				const prefix = `branch.${branch}.`;
+				const remaining = (await this.repository.getConfigs()).filter(config => config.key.startsWith(prefix));
+				for (const config of remaining) {
+					try {
+						await this.repository.unsetConfig(config.key);
+					} catch (e) {
+						Logger.error(`Failed to remove leftover git config ${config.key}: ${e}`, this.id);
+					}
+				}
+			}
 		};
-
-		// delete configs first since that can't be parallelized
-		for (const pick of picks) {
-			await deleteConfig(pick.label);
-		}
 
 		// batch deleting the branches to avoid consuming all available resources
 		await batchPromiseAll(picks, 5, async (pick) => {
@@ -2126,9 +2153,48 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 		});
+
+		// Git removes the whole config section when deleting a branch, including keys with multiple values.
+		// Recreate deleted branches when a provider leaves config behind so Git can perform that cleanup again.
+		const configsAfterDeletion = await this.repository.getConfigs();
+		const branchesNeedingConfigCleanup = picks.filter(pick => {
+			const prefix = `branch.${pick.label}.`;
+			return configsAfterDeletion.some(config => config.key.startsWith(prefix));
+		});
+		const branchesNeedingRetry = new Set(needsRetry?.map(pick => pick.label));
+		for (const pick of branchesNeedingConfigCleanup) {
+			if (!branchesNeedingRetry.has(pick.label)) {
+				try {
+					await this.repository.createBranch(pick.label, false, 'HEAD');
+					await this.repository.deleteBranch(pick.label, true);
+				} catch (e) {
+					Logger.error(`Failed to remove leftover git config section for ${pick.label}: ${e}`, this.id);
+				}
+			}
+		}
+
+		// Config operations can't be parallelized. Clean up any keys left by providers that don't remove sections.
+		for (const pick of picks) {
+			if (!branchesNeedingRetry.has(pick.label)) {
+				await deleteConfig(pick.label);
+			}
+		}
 		if (needsRetry && needsRetry.length) {
 			await this.deleteBranches(needsRetry, nonExistantBranches, progress, totalBranches, deletedBranches);
 		}
+	}
+
+	private async deleteRemotes(picks: readonly vscode.QuickPickItem[]): Promise<{ label: string; error: unknown }[]> {
+		const failures: { label: string; error: unknown }[] = [];
+		for (const pick of picks) {
+			try {
+				await this.repository.removeRemote(pick.label);
+			} catch (error) {
+				Logger.error(`Failed to delete remote ${pick.label}: ${formatError(error)}`, this.id);
+				failures.push({ label: pick.label, error });
+			}
+		}
+		return failures;
 	}
 
 	async deleteLocalBranchesNRemotes() {
@@ -2238,13 +2304,14 @@ export class FolderRepositoryManager extends Disposable {
 					}
 					await deleteBranchesAndShowRemoteStep();
 				} else {
-					// batch deleting the remotes to avoid consuming all available resources
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
 						await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Deleting {0} remotes...', picks.length) }, async () => {
-							await batchPromiseAll(picks, 5, async pick => {
-								await this.repository.removeRemote(pick.label);
-							});
+							const failures = await this.deleteRemotes(picks);
+							if (failures.length) {
+								const message = failures.map(({ label, error }) => `${label}: ${formatError(error)}`).join('\n');
+								await vscode.window.showErrorMessage(vscode.l10n.t('Deleting remotes failed:\n{0}', message));
+							}
 						});
 					}
 					quickPick.hide();
@@ -2306,17 +2373,26 @@ export class FolderRepositoryManager extends Disposable {
 			}
 
 			if (!pullRequest.mergeBase) {
-				const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-					repo: remote.repositoryName,
-					owner: remote.owner,
-					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
-					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
-				});
+				try {
+					const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+						repo: remote.repositoryName,
+						owner: remote.owner,
+						base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+						head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
+					});
 
-				pullRequest.mergeBase = data.merge_base_commit.sha;
+					pullRequest.mergeBase = data.merge_base_commit.sha;
+				} catch (e) {
+					// Computing the merge base via the compare-commits API can fail (for example,
+					// returning 404 for cross-fork pull requests with divergent histories or when
+					// a fork has been deleted). This is non-fatal enrichment data, so log and fall
+					// back to the base sha rather than surfacing an error popup to the user.
+					Logger.warn(`Fetching Pull Request merge base failed: ${formatError(e)}`, this.id);
+					pullRequest.mergeBase = pullRequest.base.sha;
+				}
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Fetching Pull Request merge base failed: {0}', formatError(e)));
+			Logger.error(`Fulfill pull request missing info failed: ${formatError(e)}`, this.id);
 		}
 		Logger.debug(`Fulfill pull request missing info - done`, this.id);
 	}
@@ -2554,6 +2630,20 @@ export class FolderRepositoryManager extends Disposable {
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
 
+		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict && !pullRequest.githubRepository.remote.isEnterprise) {
+			const result = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
+				async () => {
+					const success = await pullRequest.updateBranchWithGraphQL();
+					if (success && pullRequest.isActive) {
+						await this.repository.pull();
+					}
+					return success;
+				}
+			);
+			return result;
+		}
+
 		if (!pullRequest.isActive || isBrowser) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
@@ -2575,21 +2665,6 @@ export class FolderRepositoryManager extends Disposable {
 				return false;
 			}
 		}
-
-		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict && !pullRequest.githubRepository.remote.isEnterprise) {
-			const result = await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating branch...') },
-				async () => {
-					const success = await pullRequest.updateBranchWithGraphQL();
-					if (success && pullRequest.isActive) {
-						await this.repository.pull();
-					}
-					return success;
-				}
-			);
-			return result;
-		}
-
 
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
@@ -2898,6 +2973,10 @@ export class FolderRepositoryManager extends Disposable {
 
 	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);
 	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean, ignoreRemoteName: boolean = false): Promise<GitHubRepository> {
+		const repoKey = `${remote.owner.toLowerCase()}/${remote.repositoryName.toLowerCase()}`;
+		if (this._inaccessibleRepos.has(repoKey)) {
+			throw new Error(`Repository ${remote.owner}/${remote.repositoryName} is not accessible.`);
+		}
 		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
 		return this._createGitHubRepositoryBulkhead.execute(async () => {
 			return this.findExistingGitHubRepository({ owner: remote.owner, repositoryName: remote.repositoryName, remoteName: ignoreRemoteName ? undefined : remote.remoteName }) ??

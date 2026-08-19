@@ -4,8 +4,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { parseRepositoryRemotesAsync } from '../../common/remote';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync } from '../../common/remote';
 import { MockRepository } from '../mocks/mockRepository';
+
+describe('GitHubRemote', () => {
+	it('uses GitHub Enterprise authentication for an enterprise server', () => {
+		const remote = parseRemote('origin', 'https://tenant.ghe.com/owner/repo.git');
+		assert.ok(remote);
+
+		const githubRemote = GitHubRemote.remoteAsGitHub(remote, GitHubServerType.Enterprise);
+
+		assert.strictEqual(githubRemote.authProviderId, AuthProvider.githubEnterprise);
+	});
+
+	it('uses GitHub authentication for GitHub.com', () => {
+		const remote = parseRemote('origin', 'https://github.com/owner/repo.git');
+		assert.ok(remote);
+
+		const githubRemote = GitHubRemote.remoteAsGitHub(remote, GitHubServerType.GitHubDotCom);
+
+		assert.strictEqual(githubRemote.authProviderId, AuthProvider.github);
+	});
+});
 
 describe('parseRepositoryRemotesAsync', () => {
 	it('resolves a remote URL using a global "url.<base>.insteadOf" alias', async () => {

@@ -452,6 +452,7 @@ export class PRContext {
 		const result: Partial<PullRequest> = await this.postMessage({ command: 'pr.update-branch' });
 		state.events = result.events ?? state.events;
 		state.mergeable = result.mergeable ?? state.mergeable;
+		state.canUpdateBranch = result.canUpdateBranch ?? state.canUpdateBranch;
 		this.updatePR(state);
 	};
 

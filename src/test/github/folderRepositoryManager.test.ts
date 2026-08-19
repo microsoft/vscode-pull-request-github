@@ -24,12 +24,17 @@ import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
+import { IRequestMessage } from '../../common/webview';
+import { PullRequestMergeability } from '../../github/interface';
+import { PullRequest } from '../../github/views';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: FolderRepositoryManager;
 	let telemetry: MockTelemetry;
 	let mockThemeWatcher: MockThemeWatcher;
+	let repository: MockRepository;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -37,7 +42,7 @@ describe('PullRequestManager', function () {
 
 		telemetry = new MockTelemetry();
 		mockThemeWatcher = new MockThemeWatcher();
-		const repository = new MockRepository();
+		repository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
@@ -46,6 +51,40 @@ describe('PullRequestManager', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('updateRepositories', function () {
+		it('skips a repository after a 404 without affecting healthy repositories', async function () {
+			const inaccessibleUrl = 'https://github.com/owner/missing';
+			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
+			const inaccessibleRepository = new GitHubRepository(1, inaccessibleRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const inaccessibleMetadata = sinon.stub(inaccessibleRepository as any, 'getMetadataForRepo').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			const healthyUrl = 'https://github.com/owner/healthy';
+			const healthyRemote = new GitHubRemote('upstream', healthyUrl, new Protocol(healthyUrl), GitHubServerType.GitHubDotCom);
+			const healthyRepository = new GitHubRepository(2, healthyRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const healthyMetadata = sinon.stub(healthyRepository as any, 'getMetadataForRepo').resolves({ clone_url: healthyUrl } as never);
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			sinon.stub(manager as any, 'getActiveRemotes').resolves([inaccessibleRemote, healthyRemote] as never);
+			sinon.stub(manager as any, 'createAndAddGitHubRepository').callsFake(async (remote: Remote) => remote.remoteName === 'origin' ? inaccessibleRepository : healthyRepository);
+			sinon.stub(manager as any, 'checkIfMissingUpstream').resolves(false as never);
+			sinon.stub(manager as any, 'associateLocalBranchesWithPRsOnFirstActivation').resolves();
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+			await manager.updateRepositories();
+
+			assert.deepStrictEqual(manager.gitHubRepositories, [healthyRepository]);
+			assert.strictEqual(inaccessibleMetadata.calledOnce, true);
+			assert.strictEqual(healthyMetadata.calledOnce, true);
+			assert.strictEqual((manager as any)._sessionIgnoredRemoteNames.has('origin'), true);
+			assert.strictEqual((manager as any)._inaccessibleRepos.has('owner/missing'), true);
+			assert.strictEqual((inaccessibleRepository as any)._isDisposed, true);
+			await assert.rejects(
+				manager.createGitHubRepository(inaccessibleRemote, manager.credentialStore),
+				/Repository owner\/missing is not accessible\./,
+			);
+		});
 	});
 
 	describe('activePullRequest', function () {
@@ -66,6 +105,114 @@ describe('PullRequestManager', function () {
 			manager.activePullRequest = pr;
 			assert(changeFired.called);
 			assert.deepStrictEqual(manager.activePullRequest, pr);
+		});
+	});
+
+	describe('tryMergeBaseIntoHead', function () {
+		it('updates a conflict-free pull request that is not checked out using GraphQL', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'isHeadUpToDateWithBase').resolves(false);
+			const updateBranchWithGraphQL = sinon.stub(pr, 'updateBranchWithGraphQL').resolves(true);
+			const updateBranch = sinon.stub(pr, 'updateBranch').resolves(true);
+
+			const result = await manager.tryMergeBaseIntoHead(pr, true);
+
+			assert.strictEqual(result, true);
+			assert.strictEqual(updateBranchWithGraphQL.calledOnce, true);
+			assert.strictEqual(updateBranch.notCalled, true);
+		});
+	});
+
+	describe('updateBranch', function () {
+		it('reports that the branch is up to date after a successful update', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'tryMergeBaseIntoHead').resolves(true);
+			sinon.stub(pr, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
+			let reply: Partial<PullRequest> | undefined;
+			const context: ReviewContext = {
+				item: pr,
+				folderRepositoryManager: manager,
+				existingReviewers: [],
+				postMessage: sinon.stub().resolves(),
+				replyMessage: (_message, response) => reply = response,
+				throwError: sinon.stub(),
+				getTimeline: sinon.stub().resolves([]),
+			};
+			const message: IRequestMessage<string> = { req: '1', command: 'pr.update-branch', args: '' };
+
+			await PullRequestReviewCommon.updateBranch(context, message, sinon.stub().resolves());
+
+			assert.strictEqual(reply?.canUpdateBranch, false);
+			assert.strictEqual(reply?.mergeable, PullRequestMergeability.Mergeable);
+		});
+	});
+
+	describe('deleteBranches', function () {
+		const noopProgress = { report: () => { } };
+
+		it('removes leftover branch config after deleting a branch', async function () {
+			await repository.createBranch('feature', false, 'commit-hash');
+			await repository.setConfig('branch.feature.github-pr-base-branch', 'owner#repo#main');
+			await repository.setConfig('branch.feature.vscode-merge-base', 'origin/main');
+			await repository.setConfig('branch.feature.remote', 'origin');
+			await repository.setConfig('branch.feature.merge', 'refs/heads/feature');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			repository.preserveConfigOnNextBranchDelete = true;
+
+			const nonExistant = new Set<string>();
+			await (manager as any).deleteBranches([{ label: 'feature' }], nonExistant, noopProgress, 1, 0, []);
+
+			const configs = await repository.getConfigs();
+			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.feature.')).length, 0);
+			assert.strictEqual(nonExistant.has('feature'), false);
+		});
+
+		it('removes leftover branch config for a branch that no longer exists', async function () {
+			// The branch ref is already gone, but stale [branch "gone"] config remains.
+			await repository.setConfig('branch.gone.remote', 'origin');
+			await repository.setConfig('branch.gone.merge', 'refs/heads/gone');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+
+			const nonExistant = new Set<string>();
+			await (manager as any).deleteBranches([{ label: 'gone' }], nonExistant, noopProgress, 1, 0, []);
+
+			const configs = await repository.getConfigs();
+			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.gone.')).length, 0);
+			assert.strictEqual(nonExistant.has('gone'), true);
+		});
+	});
+
+	describe('deleteRemotes', function () {
+		it('continues deleting remotes after one fails', async function () {
+			await repository.addRemote('locked', 'https://github.com/owner/locked');
+			await repository.addRemote('deletable', 'https://github.com/owner/deletable');
+			const removeRemote = repository.removeRemote.bind(repository);
+			sinon.stub(repository, 'removeRemote').callsFake(async name => {
+				if (name === 'locked') {
+					throw new Error('Repository is locked');
+				}
+				await removeRemote(name);
+			});
+
+			const failures = await (manager as any).deleteRemotes([{ label: 'locked' }, { label: 'deletable' }]);
+
+			assert.strictEqual(failures.length, 1);
+			assert.strictEqual(failures[0].label, 'locked');
+			assert.deepStrictEqual(repository.state.remotes.map(remote => remote.name), ['locked']);
 		});
 	});
 });

@@ -79,7 +79,7 @@ export class IssueContextProvider implements vscode.ChatAttachContextProvider<Is
 
 	private _issueToUnresolvedContext(issue: IssueModel): IssueChatContextItem {
 		return {
-			icon: new vscode.ThemeIcon('issues'),
+			iconPath: new vscode.ThemeIcon('issues'),
 			label: `#${issue.number} ${issue.title}`,
 			modelDescription: 'The GitHub issue the user is viewing.',
 			tooltip: new vscode.MarkdownString(`#${issue.number} ${issue.title}`),

@@ -49,7 +49,7 @@ export interface SuggestionInformation {
 
 export class ReviewCommentController extends CommentControllerBase implements CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
-	private static readonly PREFIX = 'github-review';
+	static readonly PREFIX = 'github-review';
 	private _commentHandlerId: string;
 
 	// Note: marked as protected so that tests can verify caches have been updated correctly without breaking type safety

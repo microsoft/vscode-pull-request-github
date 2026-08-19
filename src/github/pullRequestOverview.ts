@@ -920,13 +920,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>, additionalEvents?: TimelineEvent[]) {
 		const result = await PullRequestReviewCommon.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
-			true,
+			!additionalEvents?.length,
 			action,
+			additionalEvents,
 		);
 		if (result) {
 			this.tryScheduleCopilotRefresh(result.body, result.state);
@@ -939,7 +940,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			message,
 			// When we already have the just-pushed attestation commit locally, skip the
 			// extra full-timeline fetch and let the webview splice it in itself.
-			!additionalEvents,
+			!additionalEvents?.length,
 			action,
 			additionalEvents,
 		);
@@ -984,8 +985,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewMessageWithAttestation(message, (body, expectedRemoteHead) => this.approvePullRequest(body, expectedRemoteHead));
 	}
 
-	private approvePullRequestCommand(context: { body: string }): Promise<void> {
-		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
+		const result = context.addAttestation
+			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			: undefined;
+		if (context.addAttestation && !result) {
+			return;
+		}
+		await this.doReviewCommand(
+			context,
+			ReviewType.Approve,
+			(body) => this.approvePullRequest(body, result?.sha),
+			result ? [result.event] : undefined,
+		);
 	}
 
 	private requestChanges(body: string): Promise<ReviewEvent> {

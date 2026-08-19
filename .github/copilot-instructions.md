@@ -20,8 +20,8 @@
 - **Commands**: When adding a new command, consider whether it should be available in the command palette, context menus, or both. Add the appropriate menu entries in `package.json` to ensure the command is properly included, or excluded (command palette), from menus.
 
 ## Pull Request Guidelines
-- Never touch the yarn.lock file.
-- Run `yarn run lint` and also `npm run hygiene` and fix any errors or warnings before committing.
+- Never touch the package-lock.json file.
+- Run `npm run lint` and also `npm run hygiene` and fix any errors or warnings before committing.
 
 ## Testing
 - Use `describe` and `it` blocks from Mocha for structuring tests.

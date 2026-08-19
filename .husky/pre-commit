@@ -1,11 +1,37 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-npm run hygiene
+# Hygiene reads staged contents while ESLint checks the working tree, so they can run concurrently.
+node ./build/hygiene.js &
+hygiene_pid=$!
+lint_pid=''
 
 # Lint only staged TS/TSX files instead of the whole repo (much faster).
 # Stream a NUL-delimited list directly to xargs -0 so paths with spaces/newlines
 # are handled safely (command substitution would strip NUL bytes).
 if git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' | grep -q .; then
-	git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' | xargs -0 npx eslint --fix --cache
+	git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' | xargs -0 node ./node_modules/eslint/bin/eslint.js --fix --cache &
+	lint_pid=$!
 fi
+
+hygiene_status=0
+if wait "$hygiene_pid"; then
+	:
+else
+	hygiene_status=$?
+fi
+
+lint_status=0
+if [ -n "$lint_pid" ]; then
+	if wait "$lint_pid"; then
+		:
+	else
+		lint_status=$?
+	fi
+fi
+
+if [ "$hygiene_status" -ne 0 ]; then
+	exit "$hygiene_status"
+fi
+
+exit "$lint_status"

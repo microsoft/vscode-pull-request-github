@@ -189,6 +189,64 @@ describe('PullRequestGitHelper', function () {
 		});
 	});
 
+	describe('associateBranchWithPullRequest', function () {
+		const pullRequest = (number: number) => ({
+			number,
+			base: {
+				repositoryCloneUrl: {
+					owner: 'owner',
+					repositoryName: 'name',
+				},
+			},
+		}) as PullRequestModel;
+
+		it('replaces pull request metadata instead of appending values', async function () {
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(101), 'feature');
+
+			const key = 'branch.feature.github-pr-owner-number';
+			assert.deepStrictEqual((await repository.getConfigs()).filter(config => config.key === key), [
+				{ key, value: 'owner#name#101' },
+			]);
+		});
+
+		it('does not append metadata during concurrent associations', async function () {
+			await Promise.all([
+				PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature'),
+				PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature'),
+			]);
+
+			const key = 'branch.feature.github-pr-owner-number';
+			assert.deepStrictEqual((await repository.getConfigs()).filter(config => config.key === key), [
+				{ key, value: 'owner#name#100' },
+			]);
+		});
+
+		it('does not append to existing duplicate metadata', async function () {
+			const key = 'branch.feature.github-pr-owner-number';
+			await repository.setConfig(key, 'owner#name#100');
+			await repository.setConfig(key, 'owner#name#100');
+
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest(100), 'feature');
+
+			assert.strictEqual((await repository.getConfigs()).filter(config => config.key === key).length, 2);
+		});
+	});
+
+	describe('associateBaseBranchWithBranch', function () {
+		it('replaces base branch metadata instead of appending values', async function () {
+			await PullRequestGitHelper.associateBaseBranchWithBranch(repository, 'feature', { owner: 'owner', repo: 'name', branch: 'main' });
+			await PullRequestGitHelper.associateBaseBranchWithBranch(repository, 'feature', { owner: 'owner', repo: 'name', branch: 'main' });
+			await PullRequestGitHelper.associateBaseBranchWithBranch(repository, 'feature', { owner: 'owner', repo: 'name', branch: 'next' });
+
+			const key = 'branch.feature.github-pr-base-branch';
+			assert.deepStrictEqual((await repository.getConfigs()).filter(config => config.key === key), [
+				{ key, value: 'owner#name#next' },
+			]);
+		});
+	});
+
 	describe('getMatchingPullRequestMetadataForBranch', function () {
 		it('returns the highest-numbered PR when duplicate config entries exist for the branch', async function () {
 			// Simulate the case where a branch name has been associated with multiple

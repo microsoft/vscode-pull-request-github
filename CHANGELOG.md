@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.162.0
+
+### Changes
+
+- Confirm before discarding pull request creation with unsaved changes. This can be disabled with the `"githubPullRequests.showCreatePullRequestCancelConfirmation"` setting.
+
+**_Thank You_**
+
+* [@Eiji-Kudo (Eiji)](https://github.com/Eiji-Kudo): Fix the Files node parent in the pull request changes tree. [PR #8846](https://github.com/microsoft/vscode-pull-request-github/pull/8846)
+
+## 0.160.0
+
+### Changes
+
+- Added a `"githubIssues.issueCompletionFormatEditor"` setting to control the format of issue completions in the editor, mirroring the existing `"githubIssues.issueCompletionFormatScm"` setting. It defaults to `${issueNumberLabel}`, which inserts only the issue number (e.g. `#421`) so that GitHub's auto-close references keep working.
+
+### Fixes
+
+- "Delete local branches" is showing branches that have already been deleted. https://github.com/microsoft/vscode-pull-request-github/issues/8815
+
+## 0.158.0
+
+### Changes
+
+- Display verified badges for commits in the pull request timeline.
+- Adopt the updated chat context API.
+
+### Fixes
+
+- Correctly account for required approving reviews when determining whether a pull request is ready to merge.
+
 ## 0.156.0
 
 ### Fixes

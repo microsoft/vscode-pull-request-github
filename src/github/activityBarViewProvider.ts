@@ -43,7 +43,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (context: { mergeMethod: MergeMethod }) => {
 			return this.readyForReviewAndMergeCommand(context);
 		}));
-		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
+		this._register(vscode.commands.registerCommand('review.approve', (e: SubmitReviewArgs) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
 		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
 		this._register(vscode.commands.registerCommand('review.approveOnDotCom', () => {
@@ -347,13 +347,14 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>, additionalEvents?: TimelineEvent[]) {
 		return PullRequestReviewCommon.doReviewCommand(
 			this.getReviewContext(),
 			context,
 			reviewType,
 			false,
-			action
+			action,
+			additionalEvents,
 		);
 	}
 
@@ -405,8 +406,19 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		await this.doReviewMessageWithAttestation(message, (body, expectedRemoteHead) => this.approvePullRequest(body, expectedRemoteHead));
 	}
 
-	private async approvePullRequestCommand(context: { body: string }): Promise<void> {
-		await this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
+		const result = context.addAttestation
+			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			: undefined;
+		if (context.addAttestation && !result) {
+			return;
+		}
+		await this.doReviewCommand(
+			context,
+			ReviewType.Approve,
+			(body) => this.approvePullRequest(body, result?.sha),
+			result ? [result.event] : undefined,
+		);
 	}
 
 	private requestChanges(body: string): Promise<ReviewEvent> {

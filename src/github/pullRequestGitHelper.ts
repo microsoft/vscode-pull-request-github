@@ -42,6 +42,8 @@ export type BranchInfo = {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
+	private static readonly configUpdates = new WeakMap<Repository, Map<string, Promise<void>>>();
+
 	static async checkoutFromFork(
 		repository: Repository,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
@@ -307,6 +309,38 @@ export class PullRequestGitHelper {
 		return `${owner}#${repository}#${baseBranch}`;
 	}
 
+	private static async setConfig(repository: Repository, key: string, value: string): Promise<void> {
+		let repositoryUpdates = PullRequestGitHelper.configUpdates.get(repository);
+		if (!repositoryUpdates) {
+			repositoryUpdates = new Map();
+			PullRequestGitHelper.configUpdates.set(repository, repositoryUpdates);
+		}
+
+		const previousUpdate = repositoryUpdates.get(key);
+		const update = (previousUpdate ? previousUpdate.catch(() => undefined) : Promise.resolve()).then(async () => {
+			const existingConfigs = (await repository.getConfigs()).filter(config => config.key === key);
+			if (existingConfigs.some(config => config.value === value)) {
+				return;
+			}
+			if (existingConfigs.length === 1 && repository.unsetConfig) {
+				await repository.unsetConfig(key);
+			}
+			await repository.setConfig(key, value);
+		});
+		repositoryUpdates.set(key, update);
+
+		try {
+			await update;
+		} finally {
+			if (repositoryUpdates.get(key) === update) {
+				repositoryUpdates.delete(key);
+				if (!repositoryUpdates.size) {
+					PullRequestGitHelper.configUpdates.delete(repository);
+				}
+			}
+		}
+	}
+
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
 		if (value) {
 			const matches = /(.*)#(.*)#(.*)/g.exec(value);
@@ -434,7 +468,7 @@ export class PullRequestGitHelper {
 			}
 			const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 			if (pullRequest) {
-				await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+				await PullRequestGitHelper.setConfig(repository, prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 			} else if (repository.unsetConfig) {
 				await repository.unsetConfig(prConfigKey);
 			}
@@ -458,7 +492,7 @@ export class PullRequestGitHelper {
 			const prConfigKey = `branch.${branch}.${BaseBranchMetadataKey}`;
 			if (base) {
 				Logger.appendLine(`associate ${branch} with base branch ${base.owner}/${base.repo}#${base.branch}`, PullRequestGitHelper.ID);
-				await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(base.owner, base.repo, base.branch));
+				await PullRequestGitHelper.setConfig(repository, prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(base.owner, base.repo, base.branch));
 			} else if (repository.unsetConfig) {
 				await repository.unsetConfig(prConfigKey);
 				const vscodeBaseBranchConfigKey = `branch.${branch}.${VscodeBaseBranchMetadataKey}`;

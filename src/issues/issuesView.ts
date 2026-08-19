@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { commands, contexts } from '../common/executeCommands';
-import { ISSUE_AVATAR_DISPLAY, IssueAvatarDisplay, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ISSUE_AVATAR_DISPLAY, IssueAvatarDisplay, ISSUES_SETTINGS_NAMESPACE, SHOW_ISSUE_NUMBER_IN_TREE } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
@@ -65,7 +65,8 @@ export class IssuesTreeData
 		// Listen for changes to the avatar display setting
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(change => {
-				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)) {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_AVATAR_DISPLAY}`)
+					|| change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${SHOW_ISSUE_NUMBER_IN_TREE}`)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),
@@ -87,7 +88,11 @@ export class IssuesTreeData
 	}
 
 	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
-		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
+		const showIssueNumber = vscode.workspace
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+			.get<boolean>(SHOW_ISSUE_NUMBER_IN_TREE, false);
+		const numberPrefix = showIssueNumber ? `#${element.number}: ` : '';
+		const treeItem = new vscode.TreeItem(`${numberPrefix}${element.title}`, vscode.TreeItemCollapsibleState.None);
 
 		const avatarDisplaySetting = vscode.workspace
 			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
@@ -133,7 +138,7 @@ export class IssuesTreeData
 			// Escape any $(...) syntax to avoid rendering issue titles as icons.
 			const escapedTitle = element.title.replace(/\$\([a-zA-Z0-9~-]+\)/g, '\\$&');
 			const label: vscode.TreeItemLabel2 = {
-				label: new vscode.MarkdownString(`$(check) ${escapedTitle}`, true)
+				label: new vscode.MarkdownString(`$(check) ${numberPrefix}${escapedTitle}`, true)
 			};
 			treeItem.label = label as vscode.TreeItemLabel;
 			treeItem.contextValue = 'currentissue';

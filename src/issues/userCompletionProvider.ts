@@ -5,20 +5,21 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { ASSIGNEES } from './issueFile';
+import { StateManager } from './stateManager';
+import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 import Logger from '../common/logger';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
 import { fromNewIssueUri, fromPRUri, Schemes } from '../common/uri';
-import { compareIgnoreCase, isDescendant } from '../common/utils';
-import { EXTENSION_ID } from '../constants';
-import { ASSIGNEES } from './issueFile';
-import { StateManager } from './stateManager';
-import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
+import { isDescendant } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IAccount, User } from '../github/interface';
 import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRelatedUsersFromTimelineEvents } from '../github/utils';
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
+import { ReviewCommentController } from '../view/reviewCommentController';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private static readonly ID: string = 'UserCompletionProvider';
@@ -174,8 +175,13 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		document: vscode.TextDocument,
 		position: vscode.Position) {
 		try {
-			const query = JSON.parse(document.uri.query);
-			if ((document.uri.scheme !== Schemes.Comment) || compareIgnoreCase(query.extensionId, EXTENSION_ID) !== 0) {
+			if (
+				document.uri.scheme !== Schemes.Comment ||
+				(
+					!document.uri.authority.startsWith(`${PullRequestCommentController.PREFIX}-`) &&
+					!document.uri.authority.startsWith(`${ReviewCommentController.PREFIX}-`)
+				)
+			) {
 				return;
 			}
 

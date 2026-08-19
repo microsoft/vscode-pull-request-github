@@ -247,6 +247,7 @@ export interface ReviewCommentContext {
 	repo: string;
 	number: number;
 	body: string;
+	addAttestation?: boolean;
 	'github:reviewCommentApprove'?: boolean;
 	'github:reviewCommentApproveOnDotCom'?: boolean;
 	'github:reviewCommentComment'?: boolean;
