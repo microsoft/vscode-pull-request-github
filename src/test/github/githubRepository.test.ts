@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { NetworkStatus } from 'apollo-boost';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -18,6 +19,7 @@ import { GitHubServerType } from '../../common/authentication';
 import { CheckState, PullRequestCheckStatus } from '../../github/interface';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import Logger from '../../common/logger';
+import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -36,6 +38,37 @@ describe('GitHubRepository', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('query', function () {
+		for (const replacement of [undefined, { owner: 'other', name: 'repo', number: 2, first: 20 }]) {
+			it(`uses ${replacement ? 'replacement' : 'original'} variables for a legacy fallback`, async function () {
+				const url = 'https://github.com/some/repo';
+				const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+				const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry, true);
+				const graphql = sinon.createStubInstance(LoggingApolloClient);
+				sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+				sinon.stub(repo, 'hub').get(() => ({ graphql, octokit: sinon.createStubInstance(LoggingOctokit) }));
+				const variables = { owner: 'some', name: 'repo', number: 1, first: 20, after: 'cursor' };
+				const response = { data: {}, loading: false, stale: false, networkStatus: NetworkStatus.ready };
+				graphql.query.onFirstCall().rejects(new Error('Bad Gateway'));
+				graphql.query.onSecondCall().resolves(response);
+
+				try {
+					const result = await repo.query({ query: repo.schema.PullRequestComments, variables }, false, {
+						query: repo.schema.LegacyPullRequestComments,
+						variables: replacement,
+					});
+
+					assert.strictEqual(result, response);
+					assert.strictEqual(graphql.query.callCount, 2);
+					assert.strictEqual(graphql.query.secondCall.args[0].query, repo.schema.LegacyPullRequestComments);
+					assert.deepStrictEqual(graphql.query.secondCall.args[0].variables, replacement ?? variables);
+				} finally {
+					repo.dispose();
+				}
+			});
+		}
 	});
 
 	describe('isGitHubDotCom', function () {

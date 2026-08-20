@@ -351,7 +351,7 @@ export class GitHubRepository extends Disposable {
 			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
-				query.variables = legacyFallback.variables;
+				query.variables = legacyFallback.variables ?? query.variables;
 				return this.query(query, ignoreSamlErrors);
 			}
 
