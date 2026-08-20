@@ -45,7 +45,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		}));
 		this.childrenDisposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_COMMIT_SHA_IN_TREE}`)) {
-				Logger.appendLine(`Commit Sha display setting has changed, refreshing Commits node`, PR_TREE);
+				Logger.appendLine(`Commit SHA display setting has changed, refreshing Commits node`, PR_TREE);
 				this.refresh(this);
 			}
 		}));
