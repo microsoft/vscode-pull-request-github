@@ -42,7 +42,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		if (!vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_COMMIT_SHA_IN_TREE, false)) {
 			return date;
 		}
-		const shortSha = this.commit.sha.substring(0, 7);
+		const shortSha = this.sha.substring(0, 7);
 		return date ? `${shortSha} · ${date}` : shortSha;
 
 	}
