@@ -19,6 +19,7 @@ import { NetworkStatus } from 'apollo-client';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
 import { mergeQuerySchemaWithShared } from '../../github/common';
+import Logger from '../../common/logger';
 const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const telemetry = new MockTelemetry();
@@ -96,6 +97,73 @@ describe('PullRequestModel', function () {
 	});
 
 	describe('reviewThreadCache', function () {
+		function page(id: string, endCursor: string | null) {
+			return {
+				data: {
+					repository: {
+						pullRequest: {
+							reviewThreads: {
+								nodes: [{ ...reviewThreadResponse, id }],
+								pageInfo: { hasNextPage: endCursor !== null, endCursor },
+							},
+						},
+					},
+				},
+				loading: false,
+				stale: false,
+				networkStatus: NetworkStatus.ready,
+			};
+		}
+
+		it('retries gateway failures with smaller pages without losing the cursor', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			const gatewayError = Object.assign(new Error('Bad Gateway'), { networkError: { statusCode: 502 } });
+			const query = sinon.stub(repo, 'query');
+			query.onCall(0).resolves(page('1', 'first'));
+			query.onCall(1).rejects(gatewayError);
+			query.onCall(2).rejects(gatewayError);
+			query.onCall(3).resolves(page('2', 'second'));
+			query.onCall(4).resolves(page('3', null));
+
+			const threads = await model.getReviewThreads();
+
+			assert.deepStrictEqual(threads.map(thread => thread.id), ['1', '2', '3']);
+			assert.deepStrictEqual(query.getCalls().map(call => call.args[0].variables), [
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 20, after: null },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 20, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 5, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 1, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 1, after: 'second' },
+			]);
+		});
+
+		for (const [statusCode, pageSizes] of [[502, [20, 5, 1]], [403, [20]]] as const) {
+			it(`stops retrying review comments after HTTP ${statusCode}`, async function () {
+				const pr = new PullRequestBuilder().build();
+				const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+				const query = sinon.stub(repo, 'query').rejects(Object.assign(new Error('Request failed'), {
+					networkError: { statusCode },
+				}));
+
+				assert.deepStrictEqual(await model.getReviewThreads(), []);
+				assert.deepStrictEqual(query.getCalls().map(call => call.args[0].variables?.first), [...pageSizes]);
+			});
+		}
+
+		it('reports missing review data without retrying', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			const query = sinon.stub(repo, 'query').resolves({
+				data: null, loading: false, stale: false, networkStatus: NetworkStatus.error,
+			});
+			const error = sinon.stub(Logger, 'error');
+
+			assert.deepStrictEqual(await model.getReviewThreads(), []);
+			assert.strictEqual(query.callCount, 1);
+			assert.strictEqual(error.lastCall.args[0], 'Failed to get pull request review comments: Error: Review comments response did not include a repository.');
+		});
+
 		it('should update the cache when then cache is initialized', async function () {
 			const pr = new PullRequestBuilder().build();
 			const model = new PullRequestModel(
