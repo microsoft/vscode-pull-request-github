@@ -1497,16 +1497,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const reviewThreads: ReviewThread[] = [];
 		try {
 			do {
+				const variables = {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+					after,
+				};
 				const { data } = await query<PullRequestCommentsResponse>({
 					query: schema.PullRequestComments,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: this.number,
-						after
-					},
-				}, false, { query: schema.LegacyPullRequestComments });
+					variables,
+				}, false, { query: schema.LegacyPullRequestComments, variables });
 
+				if (!data?.repository) {
+					throw new Error('Review comments response did not include a repository.');
+				}
 				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes);
 
 				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
