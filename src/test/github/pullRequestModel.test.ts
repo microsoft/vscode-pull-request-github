@@ -125,8 +125,11 @@ describe('PullRequestModel', function () {
 			sinon.stub(repository, 'ensure').resolves(repository);
 			graphql.query.onCall(0).rejects(new Error('Unsupported query'));
 			graphql.query.onCall(1).resolves(page('1', 'first'));
-			graphql.query.onCall(2).rejects(new Error('Unsupported query'));
-			graphql.query.onCall(3).resolves(page('2', null));
+			const gatewayError = Object.assign(new Error('Bad Gateway'), { networkError: { statusCode: 502 } });
+			graphql.query.onCall(2).rejects(gatewayError);
+			graphql.query.onCall(3).rejects(gatewayError);
+			graphql.query.onCall(4).rejects(new Error('Unsupported query'));
+			graphql.query.onCall(5).resolves(page('2', null));
 
 			try {
 				const pr = new PullRequestBuilder().build();
@@ -134,18 +137,54 @@ describe('PullRequestModel', function () {
 				const threads = await model.getReviewThreads();
 
 				assert.deepStrictEqual(threads.map(thread => thread.id), ['1', '2']);
-				assert.strictEqual(graphql.query.callCount, 4);
-				for (const [call, after] of [[graphql.query.secondCall, null], [graphql.query.lastCall, 'first']] as const) {
+				assert.strictEqual(graphql.query.callCount, 6);
+				for (const [call, after, first] of [[graphql.query.secondCall, null, 20], [graphql.query.lastCall, 'first', 5]] as const) {
 					const [fallback] = call.args;
 					assert.strictEqual(fallback.query, repository.schema.LegacyPullRequestComments);
 					assert.deepStrictEqual(fallback.variables, {
-						owner: remote.owner, name: remote.repositoryName, number: pr.number, after,
+						owner: remote.owner, name: remote.repositoryName, number: pr.number, first, after,
 					});
 				}
 			} finally {
 				repository.dispose();
 			}
 		});
+
+		it('retries gateway failures with smaller pages without losing the cursor', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			const gatewayError = Object.assign(new Error('Bad Gateway'), { networkError: { statusCode: 502 } });
+			const query = sinon.stub(repo, 'query');
+			query.onCall(0).resolves(page('1', 'first'));
+			query.onCall(1).rejects(gatewayError);
+			query.onCall(2).rejects(gatewayError);
+			query.onCall(3).resolves(page('2', 'second'));
+			query.onCall(4).resolves(page('3', null));
+
+			const threads = await model.getReviewThreads();
+
+			assert.deepStrictEqual(threads.map(thread => thread.id), ['1', '2', '3']);
+			assert.deepStrictEqual(query.getCalls().map(call => call.args[0].variables), [
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 20, after: null },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 20, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 5, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 1, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 1, after: 'second' },
+			]);
+		});
+
+		for (const [statusCode, pageSizes] of [[502, [20, 5, 1]], [403, [20]]] as const) {
+			it(`stops retrying review comments after HTTP ${statusCode}`, async function () {
+				const pr = new PullRequestBuilder().build();
+				const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+				const query = sinon.stub(repo, 'query').rejects(Object.assign(new Error('Request failed'), {
+					networkError: { statusCode },
+				}));
+
+				assert.deepStrictEqual(await model.getReviewThreads(), []);
+				assert.deepStrictEqual(query.getCalls().map(call => call.args[0].variables?.first), [...pageSizes]);
+			});
+		}
 
 		it('reports missing review data without retrying', async function () {
 			const pr = new PullRequestBuilder().build();
