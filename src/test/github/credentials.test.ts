@@ -3,10 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { strictEqual, deepStrictEqual } from 'assert';
+import { strictEqual, deepStrictEqual, rejects } from 'assert';
+import { Octokit } from '@octokit/rest';
+import { createSandbox, SinonSandbox } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
-import { findExistingSession } from '../../github/credentials';
+import { CredentialStore, findExistingSession, GitHub } from '../../github/credentials';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 const oldestScopes = ['read:user', 'user:email', 'repo'];
 const defaultScopes = [...oldestScopes, 'workflow'];
@@ -29,6 +34,16 @@ function createSession(id: string, accountId: string, scopes: string[]): vscode.
 }
 
 describe('CredentialStore', function () {
+	let sinon: SinonSandbox;
+
+	beforeEach(function () {
+		sinon = createSandbox();
+	});
+
+	afterEach(function () {
+		sinon.restore();
+	});
+
 	describe('findExistingSession', function () {
 		it('keeps broader scope lookup on the preferred account', async function () {
 			const firstAccountAdditional = createSession('first-additional', 'first', additionalScopes);
@@ -97,6 +112,45 @@ describe('CredentialStore', function () {
 
 			strictEqual(additionalResult?.session, additionalSession);
 			deepStrictEqual(additionalResult?.scopes, additionalScopes);
+		});
+	});
+
+	it('retries the current user request after a failure', async function () {
+		const telemetry = new MockTelemetry();
+		const credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+		const github: GitHub = {
+			octokit: new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false)),
+			graphql: {} as LoggingApolloClient,
+		};
+		sinon.stub(credentialStore, 'getHub').returns(github);
+		const getAuthenticatedUser = sinon.stub(github.octokit, 'call');
+		const error = new Error('Connect Timeout Error');
+		getAuthenticatedUser.onFirstCall().rejects(error);
+		getAuthenticatedUser.onSecondCall().resolves({
+			data: {
+				login: 'octocat',
+				node_id: 'MDQ6VXNlcjE=',
+				html_url: 'https://github.com/octocat',
+				avatar_url: 'https://github.com/images/error/octocat_happy.gif',
+				type: 'User',
+				plan: { name: 'emu_user' },
+			}
+		});
+
+		await rejects(credentialStore.getCurrentUser(AuthProvider.github), candidate => candidate === error);
+		const [currentUser, isEmu] = await Promise.all([
+			credentialStore.getCurrentUser(AuthProvider.github),
+			credentialStore.getIsEmu(AuthProvider.github),
+		]);
+
+		deepStrictEqual({
+			requests: getAuthenticatedUser.callCount,
+			login: currentUser.login,
+			isEmu,
+		}, {
+			requests: 2,
+			login: 'octocat',
+			isEmu: true,
 		});
 	});
 });
