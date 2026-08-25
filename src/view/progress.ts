@@ -25,4 +25,13 @@ export class ProgressHelper {
 	endProgress() {
 		this._endProgress.fire();
 	}
+
+	async run(task: () => Promise<void>): Promise<void> {
+		this.startProgress();
+		try {
+			await task();
+		} finally {
+			this.endProgress();
+		}
+	}
 }
