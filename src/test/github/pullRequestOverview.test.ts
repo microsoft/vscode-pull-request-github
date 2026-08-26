@@ -99,6 +99,27 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
+		it('identifies the operation that failed while updating', async function () {
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
+			sinon.stub(pullRequestManager, 'getCurrentUser').rejects(new Error('Connect Timeout Error'));
+			const showErrorMessage = sinon.stub(vscode.window, 'showErrorMessage');
+
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
+
+			assert.strictEqual(showErrorMessage.callCount, 1);
+			assert.strictEqual(showErrorMessage.firstCall.args[0], 'Error updating pull request: Fetching current user failed: Connect Timeout Error');
+		});
+
 		it('reveals an existing panel for the same PR', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
