@@ -125,7 +125,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		}
 		const origin = await this.pullRequestManager.folderManagers[0]?.getOrigin();
 		if (origin) {
-			const currentUser = origin.hub.currentUser ? await origin.hub.currentUser : undefined;
+			const currentUser = await origin.getAuthenticatedUser();
 			if (currentUser) {
 				return currentUser.login;
 			}

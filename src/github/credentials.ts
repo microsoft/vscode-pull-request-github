@@ -551,19 +551,25 @@ export class CredentialStore extends Disposable {
 	}
 
 	public async isCurrentUser(authProviderId: AuthProvider, username: string): Promise<boolean> {
-		const api = authProviderId === AuthProvider.github ? this._githubAPI : this._githubEnterpriseAPI;
-		return (await api?.currentUser)?.login === username;
+		return (await this.getCurrentUser(authProviderId))?.login === username;
 	}
 
 	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {
 		const github = this.getHub(authProviderId);
+		this.ensureCurrentUser(github);
 		return !!(await github?.isEmu);
 	}
 
 	public getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
 		const github = this.getHub(authProviderId);
-		const octokit = github?.octokit;
-		return (octokit && github?.currentUser)!;
+		this.ensureCurrentUser(github);
+		return github?.currentUser!;
+	}
+
+	private ensureCurrentUser(github: GitHub | undefined): void {
+		if (github && (!github.currentUser || !github.isEmu)) {
+			this.setCurrentUser(github);
+		}
 	}
 
 	private setCurrentUser(github: GitHub): void {
@@ -577,8 +583,27 @@ export class CredentialStore extends Disposable {
 				reject(e);
 			});
 		});
-		github.currentUser = getUser.then(result => convertRESTUserToAccount(result.data));
-		github.isEmu = getUser.then(result => result.data.plan?.name === 'emu_user');
+		let currentUser: Promise<IAccount>;
+		let isEmu: Promise<boolean>;
+		const clearFailedRequest = () => {
+			if (github.currentUser === currentUser && github.isEmu === isEmu) {
+				github.currentUser = undefined;
+				github.isEmu = undefined;
+			}
+		};
+		currentUser = getUser.then(result => convertRESTUserToAccount(result.data), e => {
+			clearFailedRequest();
+			throw e;
+		});
+		isEmu = getUser.then(result => result.data.plan?.name === 'emu_user', e => {
+			clearFailedRequest();
+			throw e;
+		});
+		github.currentUser = currentUser;
+		github.isEmu = isEmu;
+
+		void currentUser.catch(() => undefined);
+		void isEmu.catch(() => undefined);
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {

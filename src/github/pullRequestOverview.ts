@@ -44,6 +44,12 @@ import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
 
+function withErrorContext<T>(operation: string, promise: Promise<T>): Promise<T> {
+	return promise.catch(e => {
+		throw new Error(`${operation} failed: ${formatError(e)}`);
+	});
+}
+
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
 	public static override readonly viewType = PULL_REQUEST_OVERVIEW_VIEW_TYPE;
@@ -344,27 +350,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		try {
 			const updatingPromise = Promise.all([
-				this._folderRepositoryManager.resolvePullRequest(
+				withErrorContext('Resolving pull request', this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
 					pullRequestModel.remote.repositoryName,
 					pullRequestModel.number,
-				),
-				pullRequestModel.getTimelineEvents(),
-				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-				pullRequestModel.getStatusChecks(),
-				pullRequestModel.getReviewRequests(),
-				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-				this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
-				this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
-				pullRequestModel.canEdit(),
-				this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
-				this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
-				this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
-				pullRequestModel.getMergeability(),
-				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
-				pullRequestModel.getCoAuthors(),
-				pullRequestModel.validateDraftMode(),
-				this._folderRepositoryManager.getAssignableUsers()
+				)),
+				withErrorContext('Fetching timeline events', pullRequestModel.getTimelineEvents()),
+				withErrorContext('Fetching the repository default branch', this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)),
+				withErrorContext('Fetching status checks', pullRequestModel.getStatusChecks()),
+				withErrorContext('Fetching review requests', pullRequestModel.getReviewRequests()),
+				withErrorContext('Fetching repository access and merge methods', this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)),
+				withErrorContext('Fetching the pull request branch', this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel)),
+				withErrorContext('Fetching current user', this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository)),
+				withErrorContext('Checking edit permission', pullRequestModel.canEdit()),
+				withErrorContext('Fetching organization teams', this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository)),
+				withErrorContext('Fetching the merge queue method', this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)),
+				withErrorContext('Checking whether the branch is up to date', this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel)),
+				withErrorContext('Fetching mergeability', pullRequestModel.getMergeability()),
+				withErrorContext('Fetching the preferred email', this._folderRepositoryManager.getPreferredEmail(pullRequestModel)),
+				withErrorContext('Fetching co-authors', pullRequestModel.getCoAuthors()),
+				withErrorContext('Validating draft mode', pullRequestModel.validateDraftMode()),
+				withErrorContext('Fetching assignable users', this._folderRepositoryManager.getAssignableUsers())
 			]);
 			const clearingPromise = updatingPromise.finally(() => {
 				if (this._updatingPromise === clearingPromise) {
@@ -482,7 +488,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Error updating pull request: ${formatError(e)}`);
 		}
 	}
 
