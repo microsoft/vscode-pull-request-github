@@ -110,8 +110,13 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(localBranchName);
+			const canFastForward = branch.behind !== undefined
+				&& branch.behind > 0
+				&& branch.ahead === 0
+				&& branch.upstream?.remote === remoteName
+				&& branch.upstream?.name === originalBranchName;
 			// Check if local branch is pointing to the same commit as the remote
-			if (branch.commit !== trackedBranch.commit) {
+			if (branch.commit !== trackedBranch.commit && !canFastForward) {
 				Logger.appendLine(`Local branch ${localBranchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Creating new branch to avoid overwriting user's work.`, PullRequestGitHelper.ID);
 				// Instead of deleting the user's branch, create a unique branch name to avoid conflicts
 				const uniqueBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
@@ -140,7 +145,7 @@ export class PullRequestGitHelper {
 				await repository.setBranchUpstream(localBranchName, trackedBranchName);
 			}
 
-			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			if (canFastForward) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				progress.report({ message: vscode.l10n.t('Pulling {0}', localBranchName) });
 				await repository.pull();
