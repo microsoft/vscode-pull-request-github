@@ -1,7 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import { parseDiffHunk } from '../common/diffHunk';
+import { findExactPullRequestNumberMatch } from '../commands';
 
 describe('Extension Tests', function () {
+	describe('findExactPullRequestNumberMatch', () => {
+		it('prioritizes an exact number over a title match without changing the label', () => {
+			const items = [
+				{
+					label: '#10064 Follow up on #10063',
+					description: 'by @octocat',
+					prNumber: 10064,
+				},
+				{
+					label: '#10063 Upgrade library to v5',
+					description: 'by @hubot',
+					prNumber: 10063,
+				},
+			];
+
+			assert.strictEqual(findExactPullRequestNumberMatch('10063', items), items[1]);
+			assert.strictEqual(findExactPullRequestNumberMatch('#10063', items), items[1]);
+			assert.strictEqual(findExactPullRequestNumberMatch('1006', items), undefined);
+			assert.strictEqual(findExactPullRequestNumberMatch('10063 title', items), undefined);
+			assert.strictEqual(items[1].label, '#10063 Upgrade library to v5');
+		});
+	});
+
 	describe('parseDiffHunk', () => {
 		it('should handle empty string', () => {
 			const diffHunk = parseDiffHunk('');
