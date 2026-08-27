@@ -321,6 +321,7 @@ export class PRContext {
 				// Update the PR state to reflect the deleted review
 				state.busy = false;
 				state.pendingCommentText = '';
+				state.pendingReviewSummaryText = '';
 				state.pendingCommentDrafts = {};
 				// Remove the deleted review from events
 				state.events = eventsWithoutPendingReview;
@@ -393,6 +394,7 @@ export class PRContext {
 			state.currentUserReviewState = reviewedEvent.state;
 		}
 		state.pendingCommentText = '';
+		state.pendingReviewSummaryText = '';
 		state.pendingReviewType = undefined;
 		this.updatePR(state);
 	}

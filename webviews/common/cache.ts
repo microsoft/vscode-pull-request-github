@@ -15,6 +15,7 @@ export function setState(pullRequest: PullRequest | undefined): void {
 
 	if (oldPullRequest && oldPullRequest.number && oldPullRequest.number === pullRequest?.number) {
 		pullRequest.pendingCommentText = oldPullRequest.pendingCommentText;
+		pullRequest.pendingReviewSummaryText = oldPullRequest.pendingReviewSummaryText;
 	}
 
 	if (pullRequest) {
