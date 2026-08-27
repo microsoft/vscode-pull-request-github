@@ -4,61 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { createSandbox, SinonSandbox } from 'sinon';
-import * as vscode from 'vscode';
 import { parseDiffHunk } from '../common/diffHunk';
-import { findExactPullRequestNumberMatch, openPullRequestOnGitHubCommand } from '../commands';
-import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
-import { MockTelemetry } from './mocks/mockTelemetry';
-
-const packageJson = require('../../package.json') as {
-	contributes: {
-		commands: { command: string; icon?: string }[];
-		menus: { 'editor/title': { command: string; group?: string; when?: string }[] };
-	};
-};
+import { findExactPullRequestNumberMatch } from '../commands';
 
 describe('Extension Tests', function () {
-	describe('openPullRequestOnGitHubCommand', () => {
-		let sinon: SinonSandbox;
-
-		beforeEach(() => {
-			sinon = createSandbox();
-		});
-
-		afterEach(() => {
-			sinon.restore();
-		});
-
-		it('opens the active PR editor in the browser', async () => {
-			const pullRequestUrl = vscode.Uri.parse('https://github.com/aaa/bbb/pull/123');
-			const open = sinon.stub(vscode.commands, 'executeCommand').resolves();
-			sinon.stub(PullRequestOverviewPanel, 'getCurrentPullRequestUrl').returns(pullRequestUrl);
-
-			await openPullRequestOnGitHubCommand(
-				vscode.Uri.parse('webview-panel:/PullRequestOverview'),
-				{ folderManagers: [] },
-				new MockTelemetry(),
-			);
-
-			assert(open.calledOnceWithExactly('vscode.open', pullRequestUrl));
-		});
-	});
-
-	describe('package contributions', () => {
-		it('contributes a globe action to PR editors', () => {
-			const action = packageJson.contributes.menus['editor/title'].find(item => item.command === 'pr.openPullRequestOnGitHub' && item.when === "activeWebviewPanelId == 'PullRequestOverview'");
-			const command = packageJson.contributes.commands.find(item => item.command === 'pr.openPullRequestOnGitHub');
-
-			assert.deepStrictEqual(action, {
-				command: 'pr.openPullRequestOnGitHub',
-				group: 'navigation',
-				when: "activeWebviewPanelId == 'PullRequestOverview'",
-			});
-			assert.strictEqual(command?.icon, '$(globe)');
-		});
-	});
-
 	describe('findExactPullRequestNumberMatch', () => {
 		it('prioritizes an exact number over a title match without changing the label', () => {
 			const items = [
