@@ -7,11 +7,11 @@ import { default as assert } from 'assert';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render } from 'react-testing-library';
 
+import { PullRequestBuilder } from './builder/pullRequest';
 import { EventType, ReviewEvent } from '../../../src/common/timelineEvent';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { MessageHandler, vscode } from '../../common/message';
 import { Timeline } from '../../components/timeline';
-import { PullRequestBuilder } from './builder/pullRequest';
 
 const ReviewSummaryView = ({ context }: { context: PRContext }) => {
 	const [pr, setPR] = React.useState(context.pr);
