@@ -99,6 +99,28 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
+		it('builds the active PR URL before the PR has loaded', async function () {
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
+
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+			sinon.stub(PullRequestOverviewPanel, 'getActivePanel').returns(panel);
+			(pullRequestManager as any)._githubRepositories = [repo];
+			(panel as any)._item = undefined;
+
+			assert.strictEqual(PullRequestOverviewPanel.getCurrentPullRequestUrl()?.toString(), 'https://github.com/aaa/bbb/pull/1000');
+		});
+
 		it('reveals an existing panel for the same PR', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 

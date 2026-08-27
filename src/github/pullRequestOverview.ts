@@ -130,6 +130,31 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.getActivePanel()?._item;
 	}
 
+	public static getCurrentPullRequestUrl(): vscode.Uri | undefined {
+		const panel = this.getActivePanel();
+		if (!panel) {
+			return;
+		}
+		if (panel._item) {
+			return vscode.Uri.parse(panel._item.html_url);
+		}
+
+		const identity = panel._identity;
+		if (!identity) {
+			return;
+		}
+
+		const repositories = panel._folderRepositoryManager.gitHubRepositories;
+		const remote = (repositories.find(repository =>
+			repository.remote.owner.toLocaleLowerCase() === identity.owner.toLocaleLowerCase()
+			&& repository.remote.repositoryName.toLocaleLowerCase() === identity.repo.toLocaleLowerCase()
+		) ?? repositories[0])?.remote;
+		if (remote) {
+			return vscode.Uri.joinPath(vscode.Uri.parse(remote.normalizedHost), identity.owner, identity.repo, 'pull', identity.number.toString());
+		}
+		return;
+	}
+
 	/**
 	 * Return the panel whose webview is currently active (focused),
 	 * or `undefined` when no PR panel is active.
