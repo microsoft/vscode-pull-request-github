@@ -80,8 +80,8 @@ export async function findExistingSession(
 export interface GitHub {
 	octokit: LoggingOctokit;
 	graphql: LoggingApolloClient;
-	currentUser?: Promise<IAccount>;
-	isEmu?: Promise<boolean>;
+	currentUser?: IAccount;
+	isEmu?: boolean;
 }
 
 interface AuthResult {
@@ -102,6 +102,7 @@ export class CredentialStore extends Disposable {
 	private _isSamling: boolean = false;
 	private _handlingAuthError: Map<AuthProvider, Promise<AuthResult>> = new Map();
 	private _lastAuthErrorHandledAt: Map<AuthProvider, number> = new Map();
+	private _currentUserRequests: WeakMap<GitHub, Promise<void>> = new WeakMap();
 	// Cooldown long enough to absorb retries from in-flight requests that were
 	// issued with the now-invalid token, but short enough that a token that
 	// is invalidated again soon after re-auth will still trigger another prompt.
@@ -556,55 +557,48 @@ export class CredentialStore extends Disposable {
 
 	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {
 		const github = this.getHub(authProviderId);
-		this.ensureCurrentUser(github);
-		return !!(await github?.isEmu);
+		await this.ensureCurrentUser(github);
+		return !!github?.isEmu;
 	}
 
-	public getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
+	public async getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
 		const github = this.getHub(authProviderId);
-		this.ensureCurrentUser(github);
+		await this.ensureCurrentUser(github);
 		return github?.currentUser!;
 	}
 
-	private ensureCurrentUser(github: GitHub | undefined): void {
-		if (github && (!github.currentUser || !github.isEmu)) {
-			this.setCurrentUser(github);
+	private ensureCurrentUser(github: GitHub | undefined): Promise<void> {
+		if (!github || (github.currentUser && github.isEmu !== undefined)) {
+			return Promise.resolve();
 		}
-	}
 
-	private setCurrentUser(github: GitHub): void {
-		const getUser: ReturnType<typeof github.octokit.api.users.getAuthenticated> = new Promise((resolve, reject) => {
-			Logger.debug('Getting current user', CredentialStore.ID);
-			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
-				Logger.debug(`Got current user ${result.data.login}`, CredentialStore.ID);
-				resolve(result);
-			}).catch(e => {
-				Logger.error(`Failed to get current user: ${e}, ${e.message}`, CredentialStore.ID);
-				reject(e);
-			});
-		});
-		let currentUser: Promise<IAccount>;
-		let isEmu: Promise<boolean>;
-		const clearFailedRequest = () => {
-			if (github.currentUser === currentUser && github.isEmu === isEmu) {
-				github.currentUser = undefined;
-				github.isEmu = undefined;
+		const existingRequest = this._currentUserRequests.get(github);
+		if (existingRequest) {
+			return existingRequest;
+		}
+
+		const request = this.setCurrentUser(github);
+		this._currentUserRequests.set(github, request);
+		const clearRequest = () => {
+			if (this._currentUserRequests.get(github) === request) {
+				this._currentUserRequests.delete(github);
 			}
 		};
-		currentUser = getUser.then(result => convertRESTUserToAccount(result.data), e => {
-			clearFailedRequest();
-			throw e;
-		});
-		isEmu = getUser.then(result => result.data.plan?.name === 'emu_user', e => {
-			clearFailedRequest();
-			throw e;
-		});
-		github.currentUser = currentUser;
-		github.isEmu = isEmu;
+		void request.then(clearRequest, clearRequest);
+		return request;
+	}
 
-		// Both promises share the same request, but callers may only observe one of them.
-		void currentUser.catch(() => undefined);
-		void isEmu.catch(() => undefined);
+	private async setCurrentUser(github: GitHub): Promise<void> {
+		Logger.debug('Getting current user', CredentialStore.ID);
+		try {
+			const result = await github.octokit.call(github.octokit.api.users.getAuthenticated, {});
+			Logger.debug(`Got current user ${result.data.login}`, CredentialStore.ID);
+			github.currentUser = convertRESTUserToAccount(result.data);
+			github.isEmu = result.data.plan?.name === 'emu_user';
+		} catch (e) {
+			Logger.error(`Failed to get current user: ${e}, ${e.message}`, CredentialStore.ID);
+			throw e;
+		}
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
@@ -680,7 +674,7 @@ export class CredentialStore extends Disposable {
 			octokit: new LoggingOctokit(octokit, rateLogger),
 			graphql: new LoggingApolloClient(graphql, rateLogger),
 		};
-		this.setCurrentUser(github);
+		void this.ensureCurrentUser(github).catch(() => undefined);
 		return github;
 	}
 }

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { strictEqual, deepStrictEqual, rejects } from 'assert';
+import { strictEqual, deepStrictEqual } from 'assert';
 import { Octokit } from '@octokit/rest';
 import { createSandbox, SinonSandbox } from 'sinon';
 import * as vscode from 'vscode';
@@ -137,20 +137,32 @@ describe('CredentialStore', function () {
 			}
 		});
 
-		await rejects(credentialStore.getCurrentUser(AuthProvider.github), candidate => candidate === error);
+		deepStrictEqual(await Promise.allSettled([
+			credentialStore.getCurrentUser(AuthProvider.github),
+			credentialStore.getIsEmu(AuthProvider.github),
+		]), [
+			{ status: 'rejected', reason: error },
+			{ status: 'rejected', reason: error },
+		]);
+		strictEqual(getAuthenticatedUser.callCount, 1);
+		strictEqual(github.currentUser, undefined);
+		strictEqual(github.isEmu, undefined);
 		const [currentUser, isEmu] = await Promise.all([
 			credentialStore.getCurrentUser(AuthProvider.github),
 			credentialStore.getIsEmu(AuthProvider.github),
 		]);
+		const cachedCurrentUser = await credentialStore.getCurrentUser(AuthProvider.github);
 
 		deepStrictEqual({
 			requests: getAuthenticatedUser.callCount,
 			login: currentUser.login,
 			isEmu,
+			cachedLogin: cachedCurrentUser.login,
 		}, {
 			requests: 2,
 			login: 'octocat',
 			isEmu: true,
+			cachedLogin: 'octocat',
 		});
 	});
 });
