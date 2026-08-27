@@ -103,13 +103,20 @@ export async function openDescription(
 }
 
 export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
+	let url: string;
 	if (e instanceof PRNode || e instanceof RepositoryChangesNode) {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
+		url = e.pullRequestModel.html_url;
 	} else if (isNotificationTreeItem(e)) {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
+		url = e.model.html_url;
 	} else {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
+		url = e.html_url;
 	}
+
+	openPullRequestUrlOnGitHub(vscode.Uri.parse(url), telemetry);
+}
+
+function openPullRequestUrlOnGitHub(url: vscode.Uri, telemetry: ITelemetry): void {
+	vscode.commands.executeCommand('vscode.open', url);
 
 	/** __GDPR__
 		"pr.openInGitHub" : {}
@@ -141,6 +148,36 @@ export function findExactPullRequestNumberMatch(value: string, items: readonly P
 	return items.find(item => item.prNumber === prNumber);
 }
 
+export async function openPullRequestOnGitHubCommand(
+	e: PRNode | RepositoryChangesNode | PullRequestModel | vscode.Uri | undefined,
+	reposManager: Pick<RepositoriesManager, 'folderManagers'>,
+	telemetry: ITelemetry,
+): Promise<void> {
+	if (!e || e instanceof vscode.Uri) {
+		const currentPullRequestUrl = PullRequestOverviewPanel.getCurrentPullRequestUrl();
+		if (currentPullRequestUrl) {
+			openPullRequestUrlOnGitHub(currentPullRequestUrl, telemetry);
+			return;
+		}
+
+		const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+			.map(folderManager => folderManager.activePullRequest!)
+			.filter(activePR => !!activePR);
+
+		if (activePullRequests.length >= 1) {
+			const result = await chooseItem<PullRequestModel>(
+				activePullRequests,
+				itemValue => ({ label: itemValue.html_url }),
+			);
+			if (result) {
+				openPullRequestOnGitHub(result, telemetry);
+			}
+		}
+	} else {
+		openPullRequestOnGitHub(e, telemetry);
+	}
+}
+
 function isCrossChatSessionWithPR(value: any): value is CrossChatSessionWithPR {
 	const asCrossChatSessionWithPR = value as Partial<CrossChatSessionWithPR>;
 	return !!asCrossChatSessionWithPR.pullRequestDetails;
@@ -163,25 +200,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
-			async (e: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
-				if (!e) {
-					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
-						.map(folderManager => folderManager.activePullRequest!)
-						.filter(activePR => !!activePR);
-
-					if (activePullRequests.length >= 1) {
-						const result = await chooseItem<PullRequestModel>(
-							activePullRequests,
-							itemValue => ({ label: itemValue.html_url }),
-						);
-						if (result) {
-							openPullRequestOnGitHub(result, telemetry);
-						}
-					}
-				} else {
-					openPullRequestOnGitHub(e, telemetry);
-				}
-			},
+			(e: PRNode | RepositoryChangesNode | PullRequestModel | vscode.Uri | undefined) => openPullRequestOnGitHubCommand(e, reposManager, telemetry),
 		),
 	);
 	context.subscriptions.push(
