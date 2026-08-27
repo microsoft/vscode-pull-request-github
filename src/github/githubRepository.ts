@@ -424,7 +424,7 @@ export class GitHubRepository extends Disposable {
 			repo
 		});
 		Logger.debug(`Fetch metadata for repo ${owner}/${repo} - done`, this.id);
-		const metadata = { ...result.data, currentUser: await this._hub?.currentUser };
+		const metadata = { ...result.data, currentUser: await this.getAuthenticatedUser() };
 		return metadata;
 	}
 
