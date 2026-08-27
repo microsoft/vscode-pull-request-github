@@ -23,7 +23,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState } from '../../github/interface';
+import { CheckState, GithubItemStateEnum } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -209,6 +209,45 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(createWebviewPanel.callCount, 2);
 			assert.strictEqual(panel0!.getCurrentTitle(), '#1000 New feature');
 			assert.strictEqual(panel1!.getCurrentTitle(), '#2000 New feature');
+		});
+	});
+
+	describe('mergePullRequest', function () {
+		it('prompts to delete the local branch when GitHub deletes branches after merge', async function () {
+			repo.buildMetadata(repository => repository.delete_branch_on_merge!(true));
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
+
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+			sinon.stub(prModel, 'merge').resolves({ merged: true, message: '', timeline: [] });
+			sinon.stub(pullRequestManager, 'getBranchNameForPullRequest').resolves({
+				branch: 'new-feature',
+				createdForPullRequest: false,
+			});
+			sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
+			const showQuickPick = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
+			const replyMessage = sinon.stub(panel as any, '_replyMessage');
+
+			await (panel as any).mergePullRequest({
+				command: 'pr.merge',
+				args: { title: '', description: '', method: 'squash' },
+			});
+
+			assert.strictEqual(showQuickPick.calledOnce, true);
+			const actions = showQuickPick.firstCall.args[0] as readonly (vscode.QuickPickItem & { type: string })[];
+			assert.strictEqual(actions.some(action => action.type === 'local'), true);
+			assert.strictEqual(replyMessage.firstCall.args[1].state, GithubItemStateEnum.Merged);
+			sinon.assert.callOrder(replyMessage, showQuickPick);
 		});
 	});
 });

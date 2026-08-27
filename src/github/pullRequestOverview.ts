@@ -882,13 +882,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
-			} else {
-				// Check if auto-delete branch setting is enabled
-				const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
-				if (deleteBranchAfterMerge) {
-					// Automatically delete the branch after successful merge
-					await PullRequestReviewCommon.autoDeleteBranchesAfterMerge(this._folderRepositoryManager, this._item);
-				}
 			}
 
 			const mergeResult: MergeResult = {
@@ -897,6 +890,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				events: result.timeline
 			};
 			this._replyMessage(message, mergeResult);
+			if (result.merged) {
+				const branchDeletionMessage = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
+				if (branchDeletionMessage) {
+					this.refreshPanel();
+					this._postMessage(branchDeletionMessage);
+				}
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 			this._throwError(message, '');
