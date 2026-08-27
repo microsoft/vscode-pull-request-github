@@ -492,9 +492,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
 			});
 			if (result.merged) {
-				const branchDeletionResult = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
-				if (branchDeletionResult && !branchDeletionResult.isReply) {
-					this._postMessage(branchDeletionResult.message);
+				const branchDeletionMessage = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
+				if (branchDeletionMessage) {
+					this._postMessage(branchDeletionMessage);
 				}
 			}
 

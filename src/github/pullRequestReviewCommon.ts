@@ -407,14 +407,14 @@ export namespace PullRequestReviewCommon {
 		}
 	}
 
-	export async function handleBranchDeletionAfterMerge(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any } | undefined> {
+	export async function handleBranchDeletionAfterMerge(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ command: string, branchTypes: string[] } | undefined> {
 		try {
 			const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
 			if (deleteBranchAfterMerge) {
 				await autoDeleteBranchesAfterMerge(folderRepositoryManager, item);
 			} else if ((await item.githubRepository.getMetadata()).delete_branch_on_merge) {
 				const result = await deleteBranch(folderRepositoryManager, item);
-				return result;
+				return result.isReply ? undefined : result.message;
 			}
 		} catch (e) {
 			Logger.error(`Branch cleanup after merge failed: ${formatError(e)}`, 'PullRequestReviewCommon');

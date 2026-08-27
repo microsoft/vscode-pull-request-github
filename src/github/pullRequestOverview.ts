@@ -866,10 +866,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			};
 			this._replyMessage(message, mergeResult);
 			if (result.merged) {
-				const branchDeletionResult = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
-				if (branchDeletionResult && !branchDeletionResult.isReply) {
+				const branchDeletionMessage = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
+				if (branchDeletionMessage) {
 					this.refreshPanel();
-					this._postMessage(branchDeletionResult.message);
+					this._postMessage(branchDeletionMessage);
 				}
 			}
 		} catch (e) {
