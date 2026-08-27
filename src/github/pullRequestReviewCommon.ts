@@ -412,7 +412,7 @@ export namespace PullRequestReviewCommon {
 			const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
 			if (deleteBranchAfterMerge) {
 				await autoDeleteBranchesAfterMerge(folderRepositoryManager, item);
-			} else {
+			} else if ((await item.githubRepository.getMetadata()).delete_branch_on_merge) {
 				const result = await deleteBranch(folderRepositoryManager, item);
 				return result.isReply ? undefined : result.message;
 			}

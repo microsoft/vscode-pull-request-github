@@ -191,7 +191,8 @@ describe('PullRequestOverview', function () {
 	});
 
 	describe('mergePullRequest', function () {
-		it('prompts to delete the local branch after merge', async function () {
+		it('prompts to delete the local branch when GitHub deletes branches after merge', async function () {
+			repo.buildMetadata(repository => repository.delete_branch_on_merge!(true));
 			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
