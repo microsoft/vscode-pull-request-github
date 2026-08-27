@@ -10,7 +10,8 @@ import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewe
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
-import { DEFAULT_DELETION_METHOD, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
+import Logger from '../common/logger';
+import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -403,6 +404,20 @@ export namespace PullRequestReviewCommon {
 					cancelled: true
 				}
 			};
+		}
+	}
+
+	export async function handleBranchDeletionAfterMerge(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any } | undefined> {
+		try {
+			const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
+			if (deleteBranchAfterMerge) {
+				await autoDeleteBranchesAfterMerge(folderRepositoryManager, item);
+			} else if ((await item.githubRepository.getMetadata()).delete_branch_on_merge) {
+				const result = await deleteBranch(folderRepositoryManager, item);
+				return result;
+			}
+		} catch (e) {
+			Logger.error(`Branch cleanup after merge failed: ${formatError(e)}`, 'PullRequestReviewCommon');
 		}
 	}
 

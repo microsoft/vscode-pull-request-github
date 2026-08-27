@@ -17,7 +17,7 @@ import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -486,18 +486,17 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Merging pull request failed: {0}', result?.message ?? ''));
-			} else {
-				// Check if auto-delete branch setting is enabled
-				const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
-				if (deleteBranchAfterMerge) {
-					// Automatically delete the branch after successful merge
-					await PullRequestReviewCommon.autoDeleteBranchesAfterMerge(this._folderRepositoryManager, this._item);
-				}
 			}
 
 			this._replyMessage(message, {
 				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
 			});
+			if (result.merged) {
+				const branchDeletionResult = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
+				if (branchDeletionResult && !branchDeletionResult.isReply) {
+					this._postMessage(branchDeletionResult.message);
+				}
+			}
 
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
