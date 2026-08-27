@@ -87,6 +87,7 @@ export interface PullRequest extends Issue {
 	doneCheckoutBranch: string;
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
+	pendingReviewSummaryText?: string;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
 	canUpdateBranch: boolean;
