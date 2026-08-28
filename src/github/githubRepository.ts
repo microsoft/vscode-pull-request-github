@@ -182,6 +182,7 @@ export class GitHubRepository extends Disposable {
 	protected _initialized: boolean = false;
 	protected _hub: GitHub | undefined;
 	protected _metadata: Promise<IMetadata> | undefined;
+	private _isInaccessible: boolean = false;
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentControllerRegistry;
 	private _pullRequestModelsByNumber: LRUCache<number, { model: PullRequestModel, disposables: vscode.Disposable[] }> = new LRUCache({
@@ -207,6 +208,7 @@ export class GitHubRepository extends Disposable {
 	private _maxItemNumberCache: { value: number; fetchedAt: number } | undefined;
 	private _maxItemNumberPromise: Promise<number | undefined> | undefined;
 	get areQueriesLimited(): boolean { return this._areQueriesLimited; }
+	get isInaccessible(): boolean { return this._isInaccessible; }
 
 	private _branchesCache: Map<string, string[]> = new Map();
 
@@ -422,7 +424,7 @@ export class GitHubRepository extends Disposable {
 			repo
 		});
 		Logger.debug(`Fetch metadata for repo ${owner}/${repo} - done`, this.id);
-		const metadata = { ...result.data, currentUser: await this._hub?.currentUser };
+		const metadata = { ...result.data, currentUser: await this.getAuthenticatedUser() };
 		return metadata;
 	}
 
@@ -435,9 +437,22 @@ export class GitHubRepository extends Disposable {
 
 		Logger.debug(`Fetch metadata - enter`, this.id);
 		const { remote } = await this.ensure();
-		this._metadata = this.getMetadataForRepo(remote.owner, remote.repositoryName);
+		const metadata = this.getMetadataForRepo(remote.owner, remote.repositoryName).catch(e => {
+			if (this._metadata === metadata) {
+				if ((getErrorCode(e) === '404') && !isSamlError(e)) {
+					if (!this._isInaccessible) {
+						this._isInaccessible = true;
+						Logger.warn(`Repository ${remote.owner}/${remote.repositoryName} from remote ${remote.remoteName} in workspace folder ${this.rootUri.fsPath} returned HTTP 404 and will be skipped for this session.`, this.id);
+					}
+				} else {
+					this._metadata = undefined;
+				}
+			}
+			throw e;
+		});
+		this._metadata = metadata;
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, this.id);
-		return this._metadata;
+		return metadata;
 	}
 
 	/**
@@ -449,6 +464,9 @@ export class GitHubRepository extends Disposable {
 			const { clone_url } = await this.getMetadata();
 			this.remote = GitHubRemote.remoteAsGitHub(parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol)!, this.remote.githubServerType);
 		} catch (e) {
+			if (this._isInaccessible) {
+				return false;
+			}
 			Logger.warn(`Unable to resolve remote: ${e}`);
 			if (isSamlError(e)) {
 				return false;
@@ -503,7 +521,9 @@ export class GitHubRepository extends Disposable {
 			const data = await this.getMetadata();
 			return data.default_branch;
 		} catch (e) {
-			Logger.warn(`Fetching default branch failed: ${e}`, this.id);
+			if (!this._isInaccessible) {
+				Logger.warn(`Fetching default branch for ${this.remote.owner}/${this.remote.repositoryName} in workspace folder ${this.rootUri.fsPath} failed: ${e}`, this.id);
+			}
 		}
 
 		return 'master';
@@ -756,8 +776,10 @@ export class GitHubRepository extends Disposable {
 			});
 			Logger.debug(`Fetch pull requests for branch - done`, this.id);
 
-			if (data?.repository && data.repository.pullRequests.nodes.length > 0) {
-				const prs = (await Promise.all(data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head?.repo.owner === headOwner);
+			if (data?.repository) {
+				const nodes = [...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
+					.filter((pullRequest, index, pullRequests) => pullRequests.findIndex(candidate => candidate.number === pullRequest.number) === index);
+				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head?.repo.owner === headOwner);
 				if (prs.length === 0) {
 					return undefined;
 				}

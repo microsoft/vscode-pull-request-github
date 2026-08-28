@@ -209,6 +209,21 @@ export class StateManager {
 		}
 	}
 
+	async refreshForAuthChange() {
+		this.resolvedIssues.clear();
+		for (const state of this._singleRepoStates.values()) {
+			if (state) {
+				state.issueCollection.clear();
+				state.userMap = undefined;
+			}
+		}
+		if (this.manager.credentialStore.isAnyAuthenticated()) {
+			await this.refresh();
+		} else {
+			this._onDidChangeIssueData.fire();
+		}
+	}
+
 	private async doInitialize() {
 		this.cleanIssueState();
 		this._queries = vscode.workspace

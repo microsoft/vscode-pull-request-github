@@ -443,11 +443,11 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private _updatingRepositories: Promise<boolean> | undefined;
-	async updateRepositories(silent: boolean = false): Promise<boolean> {
+	async updateRepositories(silent: boolean = false, clearUserCache: boolean = false): Promise<boolean> {
 		if (this._updatingRepositories) {
 			await this._updatingRepositories;
 		}
-		this._updatingRepositories = this.doUpdateRepositories(silent);
+		this._updatingRepositories = this.doUpdateRepositories(silent, clearUserCache);
 		return this._updatingRepositories;
 	}
 
@@ -487,7 +487,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
+	private async doUpdateRepositories(silent: boolean, clearUserCache: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
 
@@ -510,7 +510,10 @@ export class FolderRepositoryManager extends Disposable {
 		const oldRepositories: GitHubRepository[] = [];
 		this._githubRepositories.forEach(repo => oldRepositories.push(repo));
 
-		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
+		const authenticatedRemotes = activeRemotes.filter(remote =>
+			this._credentialStore.isAuthenticated(remote.authProviderId)
+			&& !this._inaccessibleRepos.has(`${remote.owner.toLowerCase()}/${remote.repositoryName.toLowerCase()}`)
+		);
 		for (const remote of authenticatedRemotes) {
 			const repository = await this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
@@ -529,11 +532,26 @@ export class FolderRepositoryManager extends Disposable {
 		};
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
+			const inaccessibleRepositories: GitHubRepository[] = [];
 			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
 				if (!remoteResults[i]) {
-					missingSaml.push(repositories[i]);
+					if (repositories[i].isInaccessible) {
+						inaccessibleRepositories.push(repositories[i]);
+					} else {
+						missingSaml.push(repositories[i]);
+					}
 				}
+			}
+			for (const inaccessible of inaccessibleRepositories) {
+				this._sessionIgnoredRemoteNames.add(inaccessible.remote.remoteName);
+				this._inaccessibleRepos.add(`${inaccessible.remote.owner.toLowerCase()}/${inaccessible.remote.repositoryName.toLowerCase()}`);
+				this.removeGitHubRepository(inaccessible.remote);
+				const index = repositories.indexOf(inaccessible);
+				if (index > -1) {
+					repositories.splice(index, 1);
+				}
+				inaccessible.dispose();
 			}
 			if (missingSaml.length > 0) {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
@@ -577,11 +595,12 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 
+			const shouldClearUserCache = clearUserCache || repositoriesAdded.length > 0;
 			if (this.activePullRequest) {
-				this.getMentionableUsers(repositoriesAdded.length > 0);
+				this.getMentionableUsers(shouldClearUserCache);
 			}
 
-			this.getAssignableUsers(repositoriesAdded.length > 0);
+			this.getAssignableUsers(shouldClearUserCache);
 			if (isAuthenticated && activeRemotes.length) {
 				this.state = ReposManagerState.RepositoriesLoaded;
 				// On first activation, associate local branches with PRs
@@ -732,6 +751,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._mentionableUsers;
+			delete this._fetchMentionableUsersPromise;
 		}
 
 		if (this._mentionableUsers) {
@@ -739,7 +759,7 @@ export class FolderRepositoryManager extends Disposable {
 			return this._mentionableUsers;
 		}
 
-		const globalStateMentionableUsers = await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
+		const globalStateMentionableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -752,6 +772,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._assignableUsers;
+			delete this._fetchAssignableUsersPromise;
 		}
 
 		if (this._assignableUsers) {
@@ -759,7 +780,7 @@ export class FolderRepositoryManager extends Disposable {
 			return this._assignableUsers;
 		}
 
-		const globalStateAssignableUsers = await this.getCachedFromGlobalState<IAccount>('assignableUsers');
+		const globalStateAssignableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('assignableUsers');
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
@@ -1643,7 +1664,8 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const upstreamRef = branch ? branch.upstream : this.upstreamRef;
-		if (upstreamRef) {
+		// A remote of "." means the branch tracks another local branch.
+		if (upstreamRef && upstreamRef.remote !== '.') {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
 
@@ -2952,6 +2974,10 @@ export class FolderRepositoryManager extends Disposable {
 
 	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);
 	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean, ignoreRemoteName: boolean = false): Promise<GitHubRepository> {
+		const repoKey = `${remote.owner.toLowerCase()}/${remote.repositoryName.toLowerCase()}`;
+		if (this._inaccessibleRepos.has(repoKey)) {
+			throw new Error(`Repository ${remote.owner}/${remote.repositoryName} is not accessible.`);
+		}
 		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
 		return this._createGitHubRepositoryBulkhead.execute(async () => {
 			return this.findExistingGitHubRepository({ owner: remote.owner, repositoryName: remote.repositoryName, remoteName: ignoreRemoteName ? undefined : remote.remoteName }) ??

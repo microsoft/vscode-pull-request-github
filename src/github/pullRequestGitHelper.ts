@@ -42,6 +42,8 @@ export type BranchInfo = {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
+	private static readonly configUpdates = new WeakMap<Repository, Map<string, Promise<void>>>();
+
 	static async checkoutFromFork(
 		repository: Repository,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
@@ -108,8 +110,25 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(localBranchName);
+			const refsHeadsPrefix = 'refs/heads/';
+			const isCheckedOutInAnotherWorktree = repository.state.worktrees?.some(worktree => {
+				if (worktree.main || worktree.detached) {
+					return false;
+				}
+
+				const worktreeBranch = worktree.ref.startsWith(refsHeadsPrefix)
+					? worktree.ref.substring(refsHeadsPrefix.length)
+					: worktree.ref;
+				return worktreeBranch === localBranchName;
+			}) ?? false;
+			const canFastForward = !isCheckedOutInAnotherWorktree
+				&& branch.behind !== undefined
+				&& branch.behind > 0
+				&& branch.ahead === 0
+				&& branch.upstream?.remote === remoteName
+				&& branch.upstream?.name === originalBranchName;
 			// Check if local branch is pointing to the same commit as the remote
-			if (branch.commit !== trackedBranch.commit) {
+			if (branch.commit !== trackedBranch.commit && !canFastForward) {
 				Logger.appendLine(`Local branch ${localBranchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Creating new branch to avoid overwriting user's work.`, PullRequestGitHelper.ID);
 				// Instead of deleting the user's branch, create a unique branch name to avoid conflicts
 				const uniqueBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
@@ -125,20 +144,18 @@ export class PullRequestGitHelper {
 			// Make sure we aren't already on this branch
 			if (repository.state.HEAD?.name === branch.name) {
 				Logger.appendLine(`Tried to checkout ${localBranchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
-				await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
-				return;
+			} else {
+				Logger.debug(`Checkout ${localBranchName}`, PullRequestGitHelper.ID);
+				progress.report({ message: vscode.l10n.t('Checking out {0}', localBranchName) });
+				await repository.checkout(localBranchName);
+
+				if (!branch.upstream) {
+					// this branch is not associated with upstream yet
+					await repository.setBranchUpstream(localBranchName, trackedBranchName);
+				}
 			}
 
-			Logger.debug(`Checkout ${localBranchName}`, PullRequestGitHelper.ID);
-			progress.report({ message: vscode.l10n.t('Checking out {0}', localBranchName) });
-			await repository.checkout(localBranchName);
-
-			if (!branch.upstream) {
-				// this branch is not associated with upstream yet
-				await repository.setBranchUpstream(localBranchName, trackedBranchName);
-			}
-
-			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			if (canFastForward) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				progress.report({ message: vscode.l10n.t('Pulling {0}', localBranchName) });
 				await repository.pull();
@@ -307,6 +324,38 @@ export class PullRequestGitHelper {
 		return `${owner}#${repository}#${baseBranch}`;
 	}
 
+	private static async setConfig(repository: Repository, key: string, value: string): Promise<void> {
+		let repositoryUpdates = PullRequestGitHelper.configUpdates.get(repository);
+		if (!repositoryUpdates) {
+			repositoryUpdates = new Map();
+			PullRequestGitHelper.configUpdates.set(repository, repositoryUpdates);
+		}
+
+		const previousUpdate = repositoryUpdates.get(key);
+		const update = (previousUpdate ? previousUpdate.catch(() => undefined) : Promise.resolve()).then(async () => {
+			const existingConfigs = (await repository.getConfigs()).filter(config => config.key === key);
+			if (existingConfigs.some(config => config.value === value)) {
+				return;
+			}
+			if (existingConfigs.length === 1 && repository.unsetConfig) {
+				await repository.unsetConfig(key);
+			}
+			await repository.setConfig(key, value);
+		});
+		repositoryUpdates.set(key, update);
+
+		try {
+			await update;
+		} finally {
+			if (repositoryUpdates.get(key) === update) {
+				repositoryUpdates.delete(key);
+				if (!repositoryUpdates.size) {
+					PullRequestGitHelper.configUpdates.delete(repository);
+				}
+			}
+		}
+	}
+
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
 		if (value) {
 			const matches = /(.*)#(.*)#(.*)/g.exec(value);
@@ -434,7 +483,7 @@ export class PullRequestGitHelper {
 			}
 			const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 			if (pullRequest) {
-				await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+				await PullRequestGitHelper.setConfig(repository, prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 			} else if (repository.unsetConfig) {
 				await repository.unsetConfig(prConfigKey);
 			}
@@ -458,7 +507,7 @@ export class PullRequestGitHelper {
 			const prConfigKey = `branch.${branch}.${BaseBranchMetadataKey}`;
 			if (base) {
 				Logger.appendLine(`associate ${branch} with base branch ${base.owner}/${base.repo}#${base.branch}`, PullRequestGitHelper.ID);
-				await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(base.owner, base.repo, base.branch));
+				await PullRequestGitHelper.setConfig(repository, prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(base.owner, base.repo, base.branch));
 			} else if (repository.unsetConfig) {
 				await repository.unsetConfig(prConfigKey);
 				const vscodeBaseBranchConfigKey = `branch.${branch}.${VscodeBaseBranchMetadataKey}`;

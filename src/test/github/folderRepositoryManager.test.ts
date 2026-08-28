@@ -16,7 +16,7 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { GitApiImpl } from '../../api/api1';
+import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
@@ -51,6 +51,69 @@ describe('PullRequestManager', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('updateRepositories', function () {
+		it('skips a repository after a 404 without affecting healthy repositories', async function () {
+			const inaccessibleUrl = 'https://github.com/owner/missing';
+			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
+			const inaccessibleRepository = new GitHubRepository(1, inaccessibleRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const inaccessibleMetadata = sinon.stub(inaccessibleRepository as any, 'getMetadataForRepo').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			const healthyUrl = 'https://github.com/owner/healthy';
+			const healthyRemote = new GitHubRemote('upstream', healthyUrl, new Protocol(healthyUrl), GitHubServerType.GitHubDotCom);
+			const healthyRepository = new GitHubRepository(2, healthyRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const healthyMetadata = sinon.stub(healthyRepository as any, 'getMetadataForRepo').resolves({ clone_url: healthyUrl } as never);
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			sinon.stub(manager as any, 'getActiveRemotes').resolves([inaccessibleRemote, healthyRemote] as never);
+			sinon.stub(manager as any, 'createAndAddGitHubRepository').callsFake(async (remote: Remote) => remote.remoteName === 'origin' ? inaccessibleRepository : healthyRepository);
+			sinon.stub(manager as any, 'checkIfMissingUpstream').resolves(false as never);
+			sinon.stub(manager as any, 'associateLocalBranchesWithPRsOnFirstActivation').resolves();
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+			await manager.updateRepositories();
+
+			assert.deepStrictEqual(manager.gitHubRepositories, [healthyRepository]);
+			assert.strictEqual(inaccessibleMetadata.calledOnce, true);
+			assert.strictEqual(healthyMetadata.calledOnce, true);
+			assert.strictEqual((manager as any)._sessionIgnoredRemoteNames.has('origin'), true);
+			assert.strictEqual((manager as any)._inaccessibleRepos.has('owner/missing'), true);
+			assert.strictEqual((inaccessibleRepository as any)._isDisposed, true);
+			await assert.rejects(
+				manager.createGitHubRepository(inaccessibleRemote, manager.credentialStore),
+				/Repository owner\/missing is not accessible\./,
+			);
+		});
+	});
+
+	describe('getPullRequestDefaults', function () {
+		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			(manager as any)._githubRepositories = [githubRepository];
+			sinon.stub(githubRepository, 'getMetadata').resolves({
+				owner: { login: 'owner' },
+				name: 'repo',
+				default_branch: 'main',
+			} as any);
+
+			const defaults = await manager.getPullRequestDefaults({
+				type: RefType.Head,
+				name: 'feature-b',
+				upstream: {
+					remote: '.',
+					name: 'feature-a',
+				},
+			});
+
+			assert.deepStrictEqual(defaults, {
+				owner: 'owner',
+				repo: 'repo',
+				base: 'main',
+			});
+		});
 	});
 
 	describe('activePullRequest', function () {
