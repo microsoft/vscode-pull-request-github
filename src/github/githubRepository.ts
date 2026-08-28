@@ -437,15 +437,22 @@ export class GitHubRepository extends Disposable {
 
 		Logger.debug(`Fetch metadata - enter`, this.id);
 		const { remote } = await this.ensure();
-		this._metadata = this.getMetadataForRepo(remote.owner, remote.repositoryName).catch(e => {
-			if ((getErrorCode(e) === '404') && !isSamlError(e) && !this._isInaccessible) {
-				this._isInaccessible = true;
-				Logger.warn(`Repository ${remote.owner}/${remote.repositoryName} from remote ${remote.remoteName} in workspace folder ${this.rootUri.fsPath} returned HTTP 404 and will be skipped for this session.`, this.id);
+		const metadata = this.getMetadataForRepo(remote.owner, remote.repositoryName).catch(e => {
+			if (this._metadata === metadata) {
+				if ((getErrorCode(e) === '404') && !isSamlError(e)) {
+					if (!this._isInaccessible) {
+						this._isInaccessible = true;
+						Logger.warn(`Repository ${remote.owner}/${remote.repositoryName} from remote ${remote.remoteName} in workspace folder ${this.rootUri.fsPath} returned HTTP 404 and will be skipped for this session.`, this.id);
+					}
+				} else {
+					this._metadata = undefined;
+				}
 			}
 			throw e;
 		});
+		this._metadata = metadata;
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, this.id);
-		return this._metadata;
+		return metadata;
 	}
 
 	/**
