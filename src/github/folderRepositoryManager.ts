@@ -1664,7 +1664,8 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const upstreamRef = branch ? branch.upstream : this.upstreamRef;
-		if (upstreamRef) {
+		// A remote of "." means the branch tracks another local branch.
+		if (upstreamRef && upstreamRef.remote !== '.') {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
 
