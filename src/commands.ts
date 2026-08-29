@@ -103,13 +103,20 @@ export async function openDescription(
 }
 
 export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
+	let url: string;
 	if (e instanceof PRNode || e instanceof RepositoryChangesNode) {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
+		url = e.pullRequestModel.html_url;
 	} else if (isNotificationTreeItem(e)) {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
+		url = e.model.html_url;
 	} else {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
+		url = e.html_url;
 	}
+
+	openPullRequestUrlOnGitHub(vscode.Uri.parse(url), telemetry);
+}
+
+function openPullRequestUrlOnGitHub(url: vscode.Uri, telemetry: ITelemetry): void {
+	vscode.commands.executeCommand('vscode.open', url);
 
 	/** __GDPR__
 		"pr.openInGitHub" : {}
@@ -126,6 +133,48 @@ export async function closeAllPrAndReviewEditors() {
 		if (scheme && (scheme === Schemes.Pr) || (scheme === Schemes.Review)) {
 			await tabs.close(tab);
 		}
+	}
+}
+
+type PullRequestQuickPickItem = vscode.QuickPickItem & { prNumber: number };
+
+export function findExactPullRequestNumberMatch(value: string, items: readonly PullRequestQuickPickItem[]): PullRequestQuickPickItem | undefined {
+	const numberMatch = /^#?(\d+)$/.exec(value);
+	if (!numberMatch) {
+		return undefined;
+	}
+
+	const prNumber = Number(numberMatch[1]);
+	return items.find(item => item.prNumber === prNumber);
+}
+
+export async function openPullRequestOnGitHubCommand(
+	e: PRNode | RepositoryChangesNode | PullRequestModel | vscode.Uri | undefined,
+	reposManager: Pick<RepositoriesManager, 'folderManagers'>,
+	telemetry: ITelemetry,
+): Promise<void> {
+	if (!e || e instanceof vscode.Uri) {
+		const currentPullRequestUrl = PullRequestOverviewPanel.getCurrentPullRequestUrl();
+		if (currentPullRequestUrl) {
+			openPullRequestUrlOnGitHub(currentPullRequestUrl, telemetry);
+			return;
+		}
+
+		const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+			.map(folderManager => folderManager.activePullRequest!)
+			.filter(activePR => !!activePR);
+
+		if (activePullRequests.length >= 1) {
+			const result = await chooseItem<PullRequestModel>(
+				activePullRequests,
+				itemValue => ({ label: itemValue.html_url }),
+			);
+			if (result) {
+				openPullRequestOnGitHub(result, telemetry);
+			}
+		}
+	} else {
+		openPullRequestOnGitHub(e, telemetry);
 	}
 }
 
@@ -151,25 +200,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
-			async (e: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
-				if (!e) {
-					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
-						.map(folderManager => folderManager.activePullRequest!)
-						.filter(activePR => !!activePR);
-
-					if (activePullRequests.length >= 1) {
-						const result = await chooseItem<PullRequestModel>(
-							activePullRequests,
-							itemValue => ({ label: itemValue.html_url }),
-						);
-						if (result) {
-							openPullRequestOnGitHub(result, telemetry);
-						}
-					}
-				} else {
-					openPullRequestOnGitHub(e, telemetry);
-				}
-			},
+			(e: PRNode | RepositoryChangesNode | PullRequestModel | vscode.Uri | undefined) => openPullRequestOnGitHubCommand(e, reposManager, telemetry),
 		),
 	);
 	context.subscriptions.push(
@@ -1968,6 +1999,7 @@ ${contents}
 
 			let acceptDisposable: vscode.Disposable | undefined;
 			let hideDisposable: vscode.Disposable | undefined;
+			let valueChangeDisposable: vscode.Disposable | undefined;
 
 			try {
 				const selectedPromise = new Promise<{ selectedItem: (vscode.QuickPickItem & { prNumber?: number }) | undefined, selectedString: string | undefined }>((resolve) => {
@@ -1994,13 +2026,19 @@ ${contents}
 				}
 				// Sort PRs by number in descending order (most recent first)
 				const sortedPRs = prs.sort((a, b) => b.number - a.number);
-				const prItems: (vscode.QuickPickItem & { prNumber: number })[] = sortedPRs.map(pr => ({
+				const prItems: PullRequestQuickPickItem[] = sortedPRs.map(pr => ({
 					label: `#${pr.number} ${pr.title}`,
 					description: `by @${pr.author.login}`,
 					prNumber: pr.number
 				}));
 
 				quickPick.items = prItems;
+				const prioritizeExactNumberMatch = (value: string) => {
+					const exactNumberMatch = findExactPullRequestNumberMatch(value, prItems);
+					quickPick.activeItems = exactNumberMatch ? [exactNumberMatch] : [];
+				};
+				valueChangeDisposable = quickPick.onDidChangeValue(prioritizeExactNumberMatch);
+				prioritizeExactNumberMatch(quickPick.value);
 				const selected = await selectedPromise;
 				quickPick.busy = true;
 
@@ -2044,6 +2082,7 @@ ${contents}
 				// Clean up event listeners and QuickPick
 				acceptDisposable?.dispose();
 				hideDisposable?.dispose();
+				valueChangeDisposable?.dispose();
 				quickPick.hide();
 				quickPick.dispose();
 			}

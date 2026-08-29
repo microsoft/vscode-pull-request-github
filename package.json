@@ -3242,6 +3242,11 @@
 			],
 			"editor/title": [
 				{
+					"command": "pr.openPullRequestOnGitHub",
+					"group": "navigation",
+					"when": "activeWebviewPanelId == 'PullRequestOverview'"
+				},
+				{
 					"command": "review.openFile",
 					"group": "navigation",
 					"when": "resourceScheme =~ /^review$/ && isInDiffEditor"

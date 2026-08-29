@@ -90,6 +90,133 @@ describe('PullRequestGitHelper', function () {
 			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
 		});
 
+		it('checks out and pulls an existing branch that is only behind the PR head', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('my-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			await repository.createBranch('my-branch', false, 'local-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			await repository.setBranchUpstream('my-branch', 'refs/remotes/origin/my-branch');
+			Object.assign(await repository.getBranch('my-branch'), { ahead: 0, behind: 1 });
+			await repository.createBranch('other-branch', true, 'other-commit-hash');
+
+			repository.expectFetch('origin', 'my-branch');
+			repository.expectPull();
+			const pull = sinon.spy(repository, 'pull');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined });
+
+			assert.strictEqual(repository.state.HEAD?.name, 'my-branch', 'Should check out the existing branch');
+			assert.strictEqual(pull.calledOnce, true, 'Should fast-forward the existing branch');
+			await assert.rejects(repository.getBranch('pr/me/100'), 'Should not create a unique branch');
+			assert.strictEqual(await repository.getConfig('branch.my-branch.github-pr-owner-number'), 'owner#name#100');
+		});
+
+		it('pulls an already checked out branch that is only behind the PR head', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('my-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			await repository.createBranch('my-branch', true, 'local-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			await repository.setBranchUpstream('my-branch', 'refs/remotes/origin/my-branch');
+			Object.assign(await repository.getBranch('my-branch'), { ahead: 0, behind: 1 });
+
+			repository.expectFetch('origin', 'my-branch');
+			repository.expectPull();
+			const checkout = sinon.spy(repository, 'checkout');
+			const pull = sinon.spy(repository, 'pull');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined });
+
+			assert.strictEqual(checkout.called, false, 'Should not check out the current branch again');
+			assert.strictEqual(pull.calledOnce, true, 'Should fast-forward the current branch');
+			await assert.rejects(repository.getBranch('pr/me/100'), 'Should not create a unique branch');
+			assert.strictEqual(await repository.getConfig('branch.my-branch.github-pr-owner-number'), 'owner#name#100');
+		});
+
+		it('creates a unique branch when the behind PR branch is checked out in another worktree', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('my-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			await repository.createBranch('my-branch', false, 'local-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			await repository.setBranchUpstream('my-branch', 'refs/remotes/origin/my-branch');
+			Object.assign(await repository.getBranch('my-branch'), { ahead: 0, behind: 1 });
+			repository.setWorktrees([{
+				name: 'my-branch-worktree',
+				path: 'C:\\repo-worktrees\\my-branch',
+				ref: 'refs/heads/my-branch',
+				main: false,
+				detached: false,
+			}]);
+
+			repository.expectFetch('origin', 'my-branch');
+			const pull = sinon.spy(repository, 'pull');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined });
+
+			const originalBranch = await repository.getBranch('my-branch');
+			assert.strictEqual(originalBranch.commit, 'local-commit-hash', 'Original branch should be preserved');
+			const uniqueBranch = await repository.getBranch('pr/me/100');
+			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
+			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
+			assert.strictEqual(pull.called, false, 'Should not pull a branch checked out in another worktree');
+		});
+
 		it('creates a unique branch even when currently checked out on conflicting local branch', async function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);

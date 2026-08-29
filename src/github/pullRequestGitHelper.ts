@@ -110,8 +110,25 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(localBranchName);
+			const refsHeadsPrefix = 'refs/heads/';
+			const isCheckedOutInAnotherWorktree = repository.state.worktrees?.some(worktree => {
+				if (worktree.main || worktree.detached) {
+					return false;
+				}
+
+				const worktreeBranch = worktree.ref.startsWith(refsHeadsPrefix)
+					? worktree.ref.substring(refsHeadsPrefix.length)
+					: worktree.ref;
+				return worktreeBranch === localBranchName;
+			}) ?? false;
+			const canFastForward = !isCheckedOutInAnotherWorktree
+				&& branch.behind !== undefined
+				&& branch.behind > 0
+				&& branch.ahead === 0
+				&& branch.upstream?.remote === remoteName
+				&& branch.upstream?.name === originalBranchName;
 			// Check if local branch is pointing to the same commit as the remote
-			if (branch.commit !== trackedBranch.commit) {
+			if (branch.commit !== trackedBranch.commit && !canFastForward) {
 				Logger.appendLine(`Local branch ${localBranchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Creating new branch to avoid overwriting user's work.`, PullRequestGitHelper.ID);
 				// Instead of deleting the user's branch, create a unique branch name to avoid conflicts
 				const uniqueBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
@@ -127,20 +144,18 @@ export class PullRequestGitHelper {
 			// Make sure we aren't already on this branch
 			if (repository.state.HEAD?.name === branch.name) {
 				Logger.appendLine(`Tried to checkout ${localBranchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
-				await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
-				return;
+			} else {
+				Logger.debug(`Checkout ${localBranchName}`, PullRequestGitHelper.ID);
+				progress.report({ message: vscode.l10n.t('Checking out {0}', localBranchName) });
+				await repository.checkout(localBranchName);
+
+				if (!branch.upstream) {
+					// this branch is not associated with upstream yet
+					await repository.setBranchUpstream(localBranchName, trackedBranchName);
+				}
 			}
 
-			Logger.debug(`Checkout ${localBranchName}`, PullRequestGitHelper.ID);
-			progress.report({ message: vscode.l10n.t('Checking out {0}', localBranchName) });
-			await repository.checkout(localBranchName);
-
-			if (!branch.upstream) {
-				// this branch is not associated with upstream yet
-				await repository.setBranchUpstream(localBranchName, trackedBranchName);
-			}
-
-			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			if (canFastForward) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				progress.report({ message: vscode.l10n.t('Pulling {0}', localBranchName) });
 				await repository.pull();

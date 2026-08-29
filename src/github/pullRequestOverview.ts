@@ -130,6 +130,31 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.getActivePanel()?._item;
 	}
 
+	public static getCurrentPullRequestUrl(): vscode.Uri | undefined {
+		const panel = this.getActivePanel();
+		if (!panel) {
+			return;
+		}
+		if (panel._item) {
+			return vscode.Uri.parse(panel._item.html_url);
+		}
+
+		const identity = panel._identity;
+		if (!identity) {
+			return;
+		}
+
+		const repositories = panel._folderRepositoryManager.gitHubRepositories;
+		const remote = (repositories.find(repository =>
+			repository.remote.owner.toLocaleLowerCase() === identity.owner.toLocaleLowerCase()
+			&& repository.remote.repositoryName.toLocaleLowerCase() === identity.repo.toLocaleLowerCase()
+		) ?? repositories[0])?.remote;
+		if (remote) {
+			return vscode.Uri.joinPath(vscode.Uri.parse(remote.normalizedHost), identity.owner, identity.repo, 'pull', identity.number.toString());
+		}
+		return;
+	}
+
 	/**
 	 * Return the panel whose webview is currently active (focused),
 	 * or `undefined` when no PR panel is active.
@@ -857,13 +882,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging pull request failed: ${result.message}`);
-			} else {
-				// Check if auto-delete branch setting is enabled
-				const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
-				if (deleteBranchAfterMerge) {
-					// Automatically delete the branch after successful merge
-					await PullRequestReviewCommon.autoDeleteBranchesAfterMerge(this._folderRepositoryManager, this._item);
-				}
 			}
 
 			const mergeResult: MergeResult = {
@@ -872,6 +890,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				events: result.timeline
 			};
 			this._replyMessage(message, mergeResult);
+			if (result.merged) {
+				const branchDeletionMessage = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(this._folderRepositoryManager, this._item);
+				if (branchDeletionMessage) {
+					this.refreshPanel();
+					this._postMessage(branchDeletionMessage);
+				}
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 			this._throwError(message, '');

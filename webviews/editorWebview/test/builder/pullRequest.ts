@@ -37,6 +37,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	canEdit: { default: true },
 	hasWritePermission: { default: true },
 	pendingCommentText: { default: undefined },
+	pendingReviewSummaryText: { default: undefined },
 	pendingCommentDrafts: { default: undefined },
 	status: { linked: CombinedStatusBuilder },
 	reviewRequirement: { default: null },

@@ -311,11 +311,11 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 }
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit, deleteReview, pr } = useContext(PullRequestContext);
+	const { requestChanges, approve, submit, deleteReview, updatePR, pr } = useContext(PullRequestContext);
 	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
-	const [commentText, setCommentText] = useState('');
+	const commentText = pr.pendingReviewSummaryText ?? '';
 	const [addAttestation, setAddAttestation] = useState(false);
 
 	const showAttestationCheckbox = !isAuthor && !!pr?.attestationCommitsEnabled && !!pr?.isCurrentlyCheckedOut;
@@ -351,7 +351,7 @@ function AddReviewSummaryComment() {
 	};
 
 	const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-		setCommentText(event.target.value);
+		updatePR({ pendingReviewSummaryText: event.target.value });
 	};
 
 	// Disable buttons when summary comment is empty AND there are no review comments

@@ -16,7 +16,7 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { GitApiImpl } from '../../api/api1';
+import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
@@ -84,6 +84,35 @@ describe('PullRequestManager', function () {
 				manager.createGitHubRepository(inaccessibleRemote, manager.credentialStore),
 				/Repository owner\/missing is not accessible\./,
 			);
+		});
+	});
+
+	describe('getPullRequestDefaults', function () {
+		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			(manager as any)._githubRepositories = [githubRepository];
+			sinon.stub(githubRepository, 'getMetadata').resolves({
+				owner: { login: 'owner' },
+				name: 'repo',
+				default_branch: 'main',
+			} as any);
+
+			const defaults = await manager.getPullRequestDefaults({
+				type: RefType.Head,
+				name: 'feature-b',
+				upstream: {
+					remote: '.',
+					name: 'feature-a',
+				},
+			});
+
+			assert.deepStrictEqual(defaults, {
+				owner: 'owner',
+				repo: 'repo',
+				base: 'main',
+			});
 		});
 	});
 

@@ -56,6 +56,25 @@ describe('GitHubRepository', function () {
 		});
 	});
 
+	describe('getMetadata', function () {
+		it('retries after a transient failure and caches the successful result', async function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry);
+			sinon.stub(repo, 'ensure').resolves(repo);
+			const fetchMetadata = sinon.stub(repo as any, 'getMetadataForRepo');
+			const error = new Error('Connect Timeout Error');
+			const metadata = { name: 'repo', owner: { login: 'some' } };
+			fetchMetadata.onFirstCall().rejects(error);
+			fetchMetadata.onSecondCall().resolves(metadata);
+
+			await assert.rejects(repo.getMetadata(), candidate => candidate === error);
+			assert.strictEqual(await repo.getMetadata(), metadata);
+			assert.strictEqual(await repo.getMetadata(), metadata);
+			assert.strictEqual(fetchMetadata.callCount, 2);
+		});
+	});
+
 	describe('resolveRemote', function () {
 		beforeEach(function () {
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
