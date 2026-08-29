@@ -870,11 +870,6 @@
 					"default": false,
 					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
 				},
-				"githubPullRequests.showCommitShaInTree": {
-					"type": "boolean",
-					"default": false,
-					"description": "%githubPullRequests.showCommitShaInTree.description%"
-				},
 				"githubPullRequests.pullRequestAvatarDisplay": {
 					"type": "string",
 					"enum": [

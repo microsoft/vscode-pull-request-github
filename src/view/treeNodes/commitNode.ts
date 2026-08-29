@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_COMMIT_SHA_IN_TREE } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { DataUri, reviewPath, toReviewUri } from '../../common/uri';
 import { dateFromNow } from '../../common/utils';
 import { OctokitCommon } from '../../github/common';
@@ -39,9 +39,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 	private _getDescription(): string | undefined {
 		const date = this.commit.commit.author?.date ? dateFromNow(this.commit.commit.author.date) : undefined;
-		if (!vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_COMMIT_SHA_IN_TREE, false)) {
-			return date;
-		}
 		const shortSha = this.sha.substring(0, 7);
 		return date ? `${shortSha} · ${date}` : shortSha;
 
