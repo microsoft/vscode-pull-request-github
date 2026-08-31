@@ -1,0 +1,60 @@
+name: Weekly Pull Request Status
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      author:
+        description: GitHub username whose pull requests to report
+        required: false
+        default: alexr00
+        type: string
+
+permissions:
+  pull-requests: read
+
+jobs:
+  report:
+    name: Report recent open pull requests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate status report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHOR: ${{ inputs.author || 'alexr00' }}
+        run: |
+          set -euo pipefail
+
+          since="$(date --utc --date='7 days ago' +%F)"
+          query="repo:${GITHUB_REPOSITORY} author:${AUTHOR} is:pr is:open created:>=${since}"
+          report_file="$(mktemp)"
+
+          gh api --paginate --method GET /search/issues \
+            -f "q=${query}" \
+            -f per_page=100 \
+            --jq '.items[] | [
+              .number,
+              (.title | gsub("[\r\n|]"; " ")),
+              .html_url,
+              .created_at[0:10],
+              .updated_at[0:10],
+              (if .draft then "Draft" else "Ready" end)
+            ] | @tsv' > "${report_file}"
+
+          {
+            echo "## Open pull requests created by @${AUTHOR}"
+            echo
+            echo "Created on or after: ${since}"
+            echo
+
+            if [[ -s "${report_file}" ]]; then
+              echo '| PR | Title | Created | Updated | Status |'
+              echo '| --- | --- | --- | --- | --- |'
+              while IFS=$'\t' read -r number title url created updated status; do
+                echo "| [#${number}](${url}) | ${title} | ${created} | ${updated} | ${status} |"
+              done < "${report_file}"
+            else
+              echo 'No open pull requests were created during this period.'
+            fi
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
