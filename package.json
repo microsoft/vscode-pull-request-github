@@ -12,6 +12,7 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"agentsWindowActivation",
 		"chatContextProvider",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
@@ -74,7 +75,10 @@
 		"untrustedWorkspaces": {
 			"supported": true
 		},
-		"virtualWorkspaces": true
+		"virtualWorkspaces": true,
+		"agentsWindow": {
+			"supported": true
+		}
 	},
 	"contributes": {
 		"chatContext": [
