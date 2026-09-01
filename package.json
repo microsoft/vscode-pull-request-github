@@ -12,6 +12,7 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"agentSessionsWorkspace",
 		"agentsWindowActivation",
 		"chatContextProvider",
 		"chatParticipantAdditions",
@@ -32,6 +33,7 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
+		"externalUriOpener",
 		"languageModelToolResultAudience",
 		"markdownAlertSyntax",
 		"quickDiffProvider",
