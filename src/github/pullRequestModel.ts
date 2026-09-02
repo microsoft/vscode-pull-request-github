@@ -89,6 +89,7 @@ import { Repository } from '../api/api';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
+import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -318,7 +319,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const openString = vscode.l10n.t('Open on GitHub');
 		vscode.window.showWarningMessage(message, openString).then(action => {
 			if (action && action === openString) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
+				openWithDefaultExternalOpener(vscode.Uri.parse(this.html_url));
 			}
 		});
 

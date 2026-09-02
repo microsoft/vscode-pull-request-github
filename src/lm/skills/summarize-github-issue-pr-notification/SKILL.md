@@ -17,9 +17,6 @@ To use this skill, provide a JSON representation of a GitHub issue. The skill wi
 
 - Do not output code. When you try to summarize PR changes, summarize in a textual format.
 - Output references to other issues and PRs as Markdown links.
-- If a comment references for example issue or PR #123, then output either of the following in the summary depending on if it is an issue or a PR:
-    - [#123](https://github.com/${owner}/${repo}/issues/123)
-    - [#123](https://github.com/${owner}/${repo}/pull/123)
 - Comments should be summarized with the author first. Ex:
     - @username: This is a comment that summarizes the main point of the comment.
 - If the content contains images in Markdown format (e.g., ![alt text](image-url)), always preserve them in the output exactly as they appear. Images are important visual content and should not be removed or summarized.

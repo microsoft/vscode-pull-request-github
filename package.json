@@ -60,6 +60,8 @@
 	],
 	"activationEvents": [
 		"onStartupFinished",
+		"onOpenExternalUri:http",
+		"onOpenExternalUri:https",
 		"onFileSystem:newIssue",
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
