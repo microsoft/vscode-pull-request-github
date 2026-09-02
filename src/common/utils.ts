@@ -1144,13 +1144,21 @@ export async function processDiffLinks(
 	repoOwner: string,
 	repoName: string,
 	authority: string,
-	hashMap: Record<string, string>,
+	hashMap: Record<string, string> | (() => Promise<Record<string, string>>),
 	prNumber: number
 ): Promise<string> {
 	try {
 		const escapedRepoName = escapeRegExp(repoName);
 		const escapedRepoOwner = escapeRegExp(repoOwner);
 		const escapedAuthority = escapeRegExp(authority);
+		let hashMapPromise: Promise<Record<string, string>> | undefined;
+		const getHashMap = () => {
+			if (typeof hashMap !== 'function') {
+				return Promise.resolve(hashMap);
+			}
+			hashMapPromise ??= hashMap();
+			return hashMapPromise;
+		};
 
 		const diffPattern = new RegExp(
 			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/${escapedRepoOwner}\/${escapedRepoName}\/pull\/${prNumber}\/(?:files|changes)#diff-(?<diffHash>[a-f0-9]{64})(?:R(?<startLine>\\d+)(?:-R(?<endLine>\\d+))?)?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
@@ -1171,7 +1179,7 @@ export async function processDiffLinks(
 				const originalUrl = hrefMatch ? hrefMatch[1] : '';
 
 				// Look up filename from hash
-				const fileName = hashMap[diffHash];
+				const fileName = (await getHashMap())[diffHash];
 				if (fileName) {
 					// Hash found - add data attributes for diff handling and "(view on GitHub)" suffix
 					const startLineValue = startLine || '1';

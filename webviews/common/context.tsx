@@ -551,6 +551,8 @@ export class PRContext {
 				return;
 			case 'pr.initialize':
 				return this.setPR(message.pullrequest);
+			case 'pr.update':
+				return this.updatePR(message.pullrequest);
 			case 'update-state':
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':

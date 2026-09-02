@@ -207,6 +207,18 @@ describe('utils', () => {
 			assert.strictEqual(result, html);
 		});
 
+		it('should not resolve a lazy hash map for non-diff links', async () => {
+			let callCount = 0;
+			const html = '<a href="https://example.com">example</a>';
+			const result = await utils.processDiffLinks(html, repoOwner, repoName, authority, async () => {
+				callCount++;
+				return { [diffHash]: 'src/file.ts' };
+			}, prNumber);
+
+			assert.strictEqual(result, html);
+			assert.strictEqual(callCount, 0);
+		});
+
 		it('should not modify links to a different repo', async () => {
 			const hashMap: Record<string, string> = { [diffHash]: 'src/file.ts' };
 			const html = `<a href="https://github.com/other/repo/pull/${prNumber}/files#diff-${diffHash}R10">link</a>`;
@@ -240,6 +252,18 @@ describe('utils', () => {
 
 			assert(result.includes('data-local-file="src/found.ts"'));
 			assert(!result.includes('data-local-file="src/other.ts"'));
+		});
+
+		it('should resolve a lazy hash map once for multiple links', async () => {
+			let callCount = 0;
+			const html = makeDiffLink(diffHash, 1) + makeDiffLink(diffHash, 2);
+			const result = await utils.processDiffLinks(html, repoOwner, repoName, authority, async () => {
+				callCount++;
+				return { [diffHash]: 'src/found.ts' };
+			}, prNumber);
+
+			assert.strictEqual(result.match(/data-local-file="src\/found\.ts"/g)?.length, 2);
+			assert.strictEqual(callCount, 1);
 		});
 
 		it('should escape HTML special characters in file names', async () => {

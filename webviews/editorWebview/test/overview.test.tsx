@@ -59,4 +59,21 @@ describe('Overview', function () {
 		assert(stickyHeader);
 		assert(!stickyHeader.classList.contains('visible'));
 	});
+
+	it('applies deferred pull request updates', function () {
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(pr);
+
+		context.handleMessage({
+			command: 'pr.update',
+			pullrequest: {
+				events: [],
+				currentUserReviewState: 'APPROVED',
+			},
+		});
+
+		assert.deepStrictEqual(context.pr?.events, []);
+		assert.strictEqual(context.pr?.currentUserReviewState, 'APPROVED');
+		assert.strictEqual(context.pr?.title, pr.title);
+	});
 });

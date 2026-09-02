@@ -389,7 +389,7 @@ export async function processPermalinks(
 export async function processDiffLinks(
 	bodyHTML: string,
 	githubRepository: GitHubRepository,
-	hashMap: Record<string, string>,
+	hashMap: Record<string, string> | (() => Promise<Record<string, string>>),
 	prNumber: number
 ): Promise<string> {
 	try {

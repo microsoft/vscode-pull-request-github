@@ -27,6 +27,7 @@ import { CheckState, GithubItemStateEnum } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { TimelineEvent } from '../../common/timelineEvent';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -159,6 +160,77 @@ describe('PullRequestOverview', function () {
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number));
 			assert.strictEqual(createWebviewPanel.callCount, 1);
+		});
+
+		it('coalesces an update requested during initialization', async function () {
+			const firstItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).title('Initial title').build(), repo);
+			const firstModel = new PullRequestModel(credentialStore, telemetry, repo, remote, firstItem);
+			const updatedItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).title('Updated title').build(), repo);
+			const updatedModel = new PullRequestModel(credentialStore, telemetry, repo, remote, updatedItem);
+			const identity = { owner: firstModel.remote.owner, repo: firstModel.remote.repositoryName, number: firstModel.number };
+			let releaseInitialization: (defaultBranch: string) => void;
+			const blockedInitialization = new Promise<string>(resolve => releaseInitialization = resolve);
+			sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch')
+				.onFirstCall().returns(blockedInitialization)
+				.onSecondCall().resolves('main');
+			for (const model of [firstModel, updatedModel]) {
+				sinon.stub(model, 'getReviewRequests').resolves([]);
+				sinon.stub(model, 'getTimelineEvents').resolves([]);
+				sinon.stub(model, 'validateDraftMode').resolves(false);
+				sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			}
+
+			const initialOpen = PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, firstModel);
+			await new Promise(resolve => setImmediate(resolve));
+			const updatedOpen = PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, updatedModel);
+			releaseInitialization!('main');
+			await Promise.all([initialOpen, updatedOpen]);
+
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number);
+			assert.strictEqual(panel?.getCurrentTitle(), '#1000 Updated title');
+			assert.strictEqual(panel?.getCurrentItem(), updatedModel);
+		});
+
+		it('does not post a stale timeline after a newer update', async function () {
+			const firstItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).title('Initial title').build(), repo);
+			const firstModel = new PullRequestModel(credentialStore, telemetry, repo, remote, firstItem);
+			const updatedItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).title('Updated title').build(), repo);
+			const updatedModel = new PullRequestModel(credentialStore, telemetry, repo, remote, updatedItem);
+			const identity = { owner: firstModel.remote.owner, repo: firstModel.remote.repositoryName, number: firstModel.number };
+			const staleEvents: TimelineEvent[] = [];
+			let resolveTimeline: (events: TimelineEvent[]) => void;
+			const timelinePromise = new Promise<TimelineEvent[]>(resolve => resolveTimeline = resolve);
+			sinon.stub(firstModel, 'getReviewRequests').resolves([]);
+			sinon.stub(firstModel, 'getTimelineEvents').returns(timelinePromise);
+			sinon.stub(firstModel, 'validateDraftMode').resolves(false);
+			sinon.stub(firstModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			sinon.stub(updatedModel, 'getReviewRequests').resolves([]);
+			sinon.stub(updatedModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(updatedModel, 'validateDraftMode').resolves(false);
+			sinon.stub(updatedModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, firstModel);
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+			let releaseTimelineProcessing: () => void;
+			const timelineProcessingBlocked = new Promise<void>(resolve => releaseTimelineProcessing = resolve);
+			sinon.stub(panel as any, 'processTimelineEvents').callsFake(async (events: TimelineEvent[]) => {
+				if (events === staleEvents) {
+					await timelineProcessingBlocked;
+				}
+				return events;
+			});
+			const postMessage = sinon.spy(panel as any, '_postMessage');
+
+			resolveTimeline!(staleEvents);
+			await new Promise(resolve => setImmediate(resolve));
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, updatedModel);
+			releaseTimelineProcessing!();
+			await new Promise(resolve => setImmediate(resolve));
+
+			const postedStaleTimeline = postMessage.getCalls().some(call =>
+				call.args[0]?.command === 'pr.update' && call.args[0].pullrequest?.events === staleEvents
+			);
+			assert.strictEqual(postedStaleTimeline, false);
 		});
 
 		it('creates separate panels for different PRs', async function () {
