@@ -257,6 +257,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			...label,
 			displayName: emojify(label.name)
 		}));
+		const [bodyHTML, events] = await Promise.all([
+			this.processLinksInBodyHtml(issue.bodyHTML),
+			this.processTimelineEvents(timelineEvents),
+		]);
 
 		const context: Issue = {
 			owner: issue.remote.owner,
@@ -267,12 +271,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			url: issue.html_url,
 			createdAt: issue.createdAt,
 			body: issue.body,
-			bodyHTML: await this.processLinksInBodyHtml(issue.bodyHTML),
+			bodyHTML,
 			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			stateReason: issue.stateReason,
-			events: await this.processTimelineEvents(timelineEvents),
+			events,
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,
 			hasWritePermission,
