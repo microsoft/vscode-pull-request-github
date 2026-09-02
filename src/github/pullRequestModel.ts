@@ -67,7 +67,7 @@ import {
 	ReviewEventEnum,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
-import { compareCommits, GraphQLError, GraphQLErrorType } from './loggingOctokit';
+import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -1494,29 +1494,45 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const { remote, query, schema } = await this.githubRepository.ensure();
 		let after: string | null = null;
-		let hasNextPage = false;
+		let pageSize = 20;
 		const reviewThreads: ReviewThread[] = [];
 		try {
-			do {
+			while (reviewThreads.length < 1000) {
 				const variables = {
 					owner: remote.owner,
 					name: remote.repositoryName,
 					number: this.number,
+					first: pageSize,
 					after,
 				};
-				const { data } = await query<PullRequestCommentsResponse>({
-					query: schema.PullRequestComments,
-					variables,
-				}, false, { query: schema.LegacyPullRequestComments, variables });
+				let data: PullRequestCommentsResponse | null;
+				try {
+					({ data } = await query<PullRequestCommentsResponse>({
+						query: schema.PullRequestComments,
+						variables,
+					}, false, { query: schema.LegacyPullRequestComments, variables }));
+				} catch (e) {
+					if (getErrorCode(e) !== '502' || pageSize === 1) {
+						throw e;
+					}
+					// Large review-thread queries can fail with HTTP 502.
+					// Retry the same cursor with 5, then 1 thread, and keep that size.
+					pageSize = Math.max(1, Math.floor(pageSize / 4));
+					Logger.warn(`Retrying review comments for PR #${this.number} with ${pageSize} threads per page after HTTP 502.`, PullRequestModel.ID);
+					continue;
+				}
 
 				if (!data?.repository) {
 					throw new Error('Review comments response did not include a repository.');
 				}
-				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes);
+				const page = data.repository.pullRequest.reviewThreads;
+				reviewThreads.push(...page.nodes);
 
-				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
-				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
-			} while (hasNextPage && reviewThreads.length < 1000);
+				if (!page.pageInfo.hasNextPage) {
+					break;
+				}
+				after = page.pageInfo.endCursor;
+			}
 			Logger.debug(`Fetching review comments for PR #${this.number} - exit`, PullRequestModel.ID);
 
 			return reviewThreads;
