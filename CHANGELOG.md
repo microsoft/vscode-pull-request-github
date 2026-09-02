@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.164.0
+
+### Fixes
+
+- "Checkout Pull Request" creates a `pr/<author>/<number>` branch when the local branch is only behind the remote. https://github.com/microsoft/vscode-pull-request-github/issues/8900
+- Blame hover and PR-defaults polling fail with "is not a GitHub repo" when a branch upstream is a local sibling branch. https://github.com/microsoft/vscode-pull-request-github/issues/8888
+- "Checkout Pull Request by Number" should match the exact PR number. https://github.com/microsoft/vscode-pull-request-github/issues/8881
+- Unable to add comments on diff files in workspaces with more than one PR in review. https://github.com/microsoft/vscode-pull-request-github/issues/8861
+- Code review summary content lost. https://github.com/microsoft/vscode-pull-request-github/issues/3931
+- Dead or inaccessible repositories in multi-folder workspaces cause endless 404 retries and exhaust the internal API call limit. https://github.com/microsoft/vscode-pull-request-github/issues/8883
+- `.git/config` accumulates duplicate `github-pr-owner-number` and `github-pr-base-branch` entries instead of replacing them. https://github.com/microsoft/vscode-pull-request-github/issues/8871
+- GHE.com data residency repository queries use the GitHub.com provider, causing the PR panel to show no pull requests. https://github.com/microsoft/vscode-pull-request-github/issues/8868
+- GitHub Pull Requests icon keeps disappearing from the VS Code activity bar. https://github.com/microsoft/vscode-pull-request-github/issues/8830
+
 ## 0.162.0
 
 ### Changes

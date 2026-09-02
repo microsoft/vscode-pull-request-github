@@ -19,6 +19,9 @@ import { NetworkStatus } from 'apollo-client';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
 import { mergeQuerySchemaWithShared } from '../../github/common';
+import { GitHubRepository } from '../../github/githubRepository';
+import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
+import Logger from '../../common/logger';
 const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const telemetry = new MockTelemetry();
@@ -96,6 +99,67 @@ describe('PullRequestModel', function () {
 	});
 
 	describe('reviewThreadCache', function () {
+		function page(id: string, endCursor: string | null) {
+			return {
+				data: {
+					repository: {
+						pullRequest: {
+							reviewThreads: {
+								nodes: [{ ...reviewThreadResponse, id }],
+								pageInfo: { hasNextPage: endCursor !== null, endCursor },
+							},
+						},
+					},
+				},
+				loading: false,
+				stale: false,
+				networkStatus: NetworkStatus.ready,
+			};
+		}
+
+		it('passes review comment variables to every legacy page', async function () {
+			const repository = new GitHubRepository(1, remote, repo.rootUri, credentials, telemetry, true);
+			const graphql = sinon.createStubInstance(LoggingApolloClient);
+			sinon.stub(credentials, 'isAuthenticated').returns(true);
+			sinon.stub(repository, 'hub').get(() => ({ graphql, octokit: sinon.createStubInstance(LoggingOctokit) }));
+			sinon.stub(repository, 'ensure').resolves(repository);
+			graphql.query.onCall(0).rejects(new Error('Unsupported query'));
+			graphql.query.onCall(1).resolves(page('1', 'first'));
+			graphql.query.onCall(2).rejects(new Error('Unsupported query'));
+			graphql.query.onCall(3).resolves(page('2', null));
+
+			try {
+				const pr = new PullRequestBuilder().build();
+				const model = new PullRequestModel(credentials, telemetry, repository, remote, convertRESTPullRequestToRawPullRequest(pr, repository));
+				const threads = await model.getReviewThreads();
+
+				assert.deepStrictEqual(threads.map(thread => thread.id), ['1', '2']);
+				assert.strictEqual(graphql.query.callCount, 4);
+				for (const [call, after] of [[graphql.query.secondCall, null], [graphql.query.lastCall, 'first']] as const) {
+					const [fallback] = call.args;
+					assert.strictEqual(fallback.query, repository.schema.LegacyPullRequestComments);
+					assert.deepStrictEqual(fallback.variables, {
+						owner: remote.owner, name: remote.repositoryName, number: pr.number, after,
+					});
+				}
+			} finally {
+				repository.dispose();
+			}
+		});
+
+		it('reports missing review data without retrying', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			const query = sinon.stub(repo, 'query').resolves({
+				data: null, loading: false, stale: false, networkStatus: NetworkStatus.error,
+			});
+			const error = sinon.stub(Logger, 'error');
+
+			assert.deepStrictEqual(await model.getReviewThreads(), []);
+			assert.strictEqual(query.callCount, 1);
+			assert.strictEqual(error.lastCall.args[0], 'Failed to get pull request review comments: Error: Review comments response did not include a repository.');
+		});
+
 		it('should update the cache when then cache is initialized', async function () {
 			const pr = new PullRequestBuilder().build();
 			const model = new PullRequestModel(

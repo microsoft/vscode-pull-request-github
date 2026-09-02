@@ -10,6 +10,7 @@ import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { commands } from './common/executeCommands';
+import { openWithDefaultExternalOpener } from './common/externalUri';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
@@ -116,7 +117,7 @@ export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode 
 }
 
 function openPullRequestUrlOnGitHub(url: vscode.Uri, telemetry: ITelemetry): void {
-	vscode.commands.executeCommand('vscode.open', url);
+	openWithDefaultExternalOpener(url);
 
 	/** __GDPR__
 		"pr.openInGitHub" : {}

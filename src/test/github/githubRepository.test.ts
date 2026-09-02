@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { NetworkStatus } from 'apollo-boost';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -18,6 +19,7 @@ import { GitHubServerType } from '../../common/authentication';
 import { CheckState, PullRequestCheckStatus } from '../../github/interface';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import Logger from '../../common/logger';
+import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -36,6 +38,36 @@ describe('GitHubRepository', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('query', function () {
+		it('replaces variables for a legacy query with different arguments', async function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry, true);
+			const graphql = sinon.createStubInstance(LoggingApolloClient);
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(repo, 'hub').get(() => ({ graphql, octokit: sinon.createStubInstance(LoggingOctokit) }));
+			const variables = { owner: 'some', name: 'repo', first: 100, after: 'cursor' };
+			const response = { data: {}, loading: false, stale: false, networkStatus: NetworkStatus.ready };
+			graphql.query.onFirstCall().rejects(new Error('Unsupported query'));
+			graphql.query.onSecondCall().resolves(response);
+
+			try {
+				const result = await repo.query({
+					query: repo.schema.GetSuggestedActors,
+					variables: { ...variables, capabilities: ['CAN_BE_ASSIGNED'] },
+				}, false, { query: repo.schema.GetAssignableUsers, variables });
+
+				assert.strictEqual(result, response);
+				assert.strictEqual(graphql.query.callCount, 2);
+				const [fallback] = graphql.query.secondCall.args;
+				assert.strictEqual(fallback.query, repo.schema.GetAssignableUsers);
+				assert.deepStrictEqual(fallback.variables, variables);
+			} finally {
+				repo.dispose();
+			}
+		});
 	});
 
 	describe('isGitHubDotCom', function () {

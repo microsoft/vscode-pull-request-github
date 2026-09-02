@@ -35,7 +35,13 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		this.contextValue = 'commit';
-		this.description = commit.commit.author?.date ? dateFromNow(commit.commit.author.date) : undefined;
+	}
+
+	private _getDescription(): string | undefined {
+		const date = this.commit.commit.author?.date ? dateFromNow(this.commit.commit.author.date) : undefined;
+		const shortSha = this.sha.substring(0, 7);
+		return date ? `${shortSha} · ${date}` : shortSha;
+
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
@@ -48,6 +54,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [author], 16, 16))[0];
 			}
 		}
+		this.description = this._getDescription();
 		return this;
 	}
 
