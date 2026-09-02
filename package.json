@@ -12,6 +12,8 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"agentSessionsWorkspace",
+		"agentsWindowActivation",
 		"chatContextProvider",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
@@ -31,6 +33,7 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
+		"externalUriOpener",
 		"languageModelToolResultAudience",
 		"markdownAlertSyntax",
 		"quickDiffProvider",
@@ -45,7 +48,7 @@
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.130.0"
+		"vscode": "^1.137.0"
 	},
 	"categories": [
 		"Other",
@@ -74,7 +77,10 @@
 		"untrustedWorkspaces": {
 			"supported": true
 		},
-		"virtualWorkspaces": true
+		"virtualWorkspaces": true,
+		"agentsWindow": {
+			"supported": true
+		}
 	},
 	"contributes": {
 		"chatContext": [
@@ -921,27 +927,27 @@
 				{
 					"id": "github:login",
 					"name": "%view.github.login.name%",
-					"when": "ReposManagerStateContext == NeedsAuthentication",
+					"when": "(ReposManagerStateContext == NeedsAuthentication) && !isSessionsWindow",
 					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
+					"when": "(ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts) && !isSessionsWindow",
 					"icon": "$(github-inverted)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
 					"id": "issues:github",
 					"name": "%view.issues.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
+					"when": "(ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts) && !isSessionsWindow",
 					"icon": "$(issues)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
 					"id": "notifications:github",
 					"name": "%view.notifications.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && (remoteName != codespaces || !isWeb)",
+					"when": "(ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && (remoteName != codespaces || !isWeb)) && !isSessionsWindow",
 					"icon": "$(bell)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%",
 					"visibility": "collapsed"
@@ -949,7 +955,7 @@
 				{
 					"id": "github:conflictResolution",
 					"name": "%view.github.conflictResolution.name%",
-					"when": "github:resolvingConflicts",
+					"when": "(github:resolvingConflicts) && !isSessionsWindow",
 					"icon": "$(git-merge)"
 				}
 			],
@@ -958,7 +964,7 @@
 					"id": "github:createPullRequestWebview",
 					"type": "webview",
 					"name": "%view.github.create.pull.request.name%",
-					"when": "github:createPullRequest || github:revertPullRequest",
+					"when": "(github:createPullRequest || github:revertPullRequest) && !isSessionsWindow",
 					"icon": "$(git-pull-request-create)",
 					"visibility": "visible",
 					"initialSize": 2
@@ -966,7 +972,7 @@
 				{
 					"id": "github:compareChangesFiles",
 					"name": "%view.github.compare.changes.name%",
-					"when": "github:createPullRequest",
+					"when": "(github:createPullRequest) && !isSessionsWindow",
 					"icon": "$(git-compare)",
 					"visibility": "visible",
 					"initialSize": 1
@@ -974,7 +980,7 @@
 				{
 					"id": "github:compareChangesCommits",
 					"name": "%view.github.compare.changesCommits.name%",
-					"when": "github:createPullRequest",
+					"when": "(github:createPullRequest) && !isSessionsWindow",
 					"icon": "$(git-compare)",
 					"visibility": "visible",
 					"initialSize": 1
@@ -982,7 +988,7 @@
 				{
 					"id": "prStatus:github",
 					"name": "%view.pr.status.github.name%",
-					"when": "github:inReviewMode && !github:createPullRequest && !github:revertPullRequest",
+					"when": "(github:inReviewMode && !github:createPullRequest && !github:revertPullRequest) && !isSessionsWindow",
 					"icon": "$(diff-multiple)",
 					"visibility": "visible",
 					"initialSize": 3
@@ -991,14 +997,14 @@
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "%view.github.active.pull.request.name%",
-					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && !github:revertPullRequest && github:activePRCount <= 1",
+					"when": "(github:inReviewMode && github:focusedReview && !github:createPullRequest && !github:revertPullRequest && github:activePRCount <= 1) && !isSessionsWindow",
 					"icon": "$(code-review)",
 					"initialSize": 2
 				},
 				{
 					"id": "github:activePullRequest:welcome",
 					"name": "%view.github.active.pull.request.welcome.name%",
-					"when": "!github:stateValidated && github:focusedReview",
+					"when": "(!github:stateValidated && github:focusedReview) && !isSessionsWindow",
 					"icon": "$(git-pull-request)"
 				}
 			]
@@ -1965,107 +1971,107 @@
 		"viewsWelcome": [
 			{
 				"view": "github:login",
-				"when": "ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes",
+				"when": "(ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes) && !isSessionsWindow",
 				"contents": "%welcome.github.login.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "gitNotInstalled && config.git.enabled != false",
+				"when": "(gitNotInstalled && config.git.enabled != false) && !isSessionsWindow",
 				"contents": "%welcome.github.noGit.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "gitNotInstalled && config.git.enabled == false",
+				"when": "(gitNotInstalled && config.git.enabled == false) && !isSessionsWindow",
 				"contents": "%welcome.github.noGitDisabled.contents%"
 			},
 			{
 				"view": "github:login",
-				"when": "ReposManagerStateContext == NeedsAuthentication && !github:hasGitHubRemotes && gitOpenRepositoryCount",
+				"when": "(ReposManagerStateContext == NeedsAuthentication && !github:hasGitHubRemotes && gitOpenRepositoryCount) && !isSessionsWindow",
 				"contents": "%welcome.github.loginNoEnterprise.contents%"
 			},
 			{
 				"view": "github:login",
-				"when": "(ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)",
+				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)) && !isSessionsWindow",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
+				"when": "(git.state != initialized && !github:initialized && workspaceFolderCount > 0) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.uninitialized.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
+				"when": "(workspaceFolderCount > 0 && github:loadingPrsTree) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.uninitialized.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "workspaceFolderCount == 0",
+				"when": "(workspaceFolderCount == 0) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.noFolder.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0",
+				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.noRepo.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1",
+				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1",
+				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
+				"when": "(git.state != initialized && !github:initialized && workspaceFolderCount > 0) && !isSessionsWindow",
 				"contents": "%welcome.issues.github.uninitialized.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
+				"when": "(workspaceFolderCount > 0 && github:loadingPrsTree) && !isSessionsWindow",
 				"contents": "%welcome.issues.github.uninitialized.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "workspaceFolderCount == 0",
+				"when": "(workspaceFolderCount == 0) && !isSessionsWindow",
 				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0",
+				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0) && !isSessionsWindow",
 				"contents": "%welcome.issues.github.noRepo.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1",
+				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1",
+				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1) && !isSessionsWindow",
 				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
 				"view": "github:activePullRequest:welcome",
-				"when": "!github:stateValidated",
+				"when": "(!github:stateValidated) && !isSessionsWindow",
 				"contents": "%welcome.github.activePullRequest.contents%"
 			},
 			{
 				"view": "notifications:github",
-				"when": "!github:notificationCount && workspaceFolderCount > 0",
+				"when": "(!github:notificationCount && workspaceFolderCount > 0) && !isSessionsWindow",
 				"contents": "%welcome.github.notificationsLoading.contents%"
 			},
 			{
 				"view": "notifications:github",
-				"when": "workspaceFolderCount == 0",
+				"when": "(workspaceFolderCount == 0) && !isSessionsWindow",
 				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "notifications:github",
-				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == -1",
+				"when": "(ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == -1) && !isSessionsWindow",
 				"contents": "%welcome.github.notifications.contents%"
 			}
 		],
@@ -2073,56 +2079,80 @@
 			{
 				"key": "ctrl+shift+space",
 				"command": "issue.suggestRefresh",
-				"when": "suggestWidgetVisible"
+				"when": "(suggestWidgetVisible) && !isSessionsWindow"
 			},
 			{
 				"key": "ctrl+s",
 				"mac": "cmd+s",
 				"command": "issue.createIssueFromFile",
-				"when": "resourceScheme == newIssue && config.files.autoSave != off"
+				"when": "(resourceScheme == newIssue && config.files.autoSave != off) && !isSessionsWindow"
 			},
 			{
 				"key": "ctrl+enter",
 				"mac": "cmd+enter",
 				"command": "issue.createIssueFromFile",
-				"when": "resourceScheme == newIssue"
+				"when": "(resourceScheme == newIssue) && !isSessionsWindow"
 			},
 			{
 				"key": "ctrl+k m",
 				"mac": "cmd+k m",
 				"command": "pr.makeSuggestion",
-				"when": "commentEditorFocused"
+				"when": "(commentEditorFocused) && !isSessionsWindow"
 			},
 			{
 				"key": "ctrl+r",
 				"mac": "cmd+r",
 				"command": "pr.refreshDescription",
-				"when": "activeWebviewPanelId == 'PullRequestOverview'"
+				"when": "(activeWebviewPanelId == 'PullRequestOverview') && !isSessionsWindow"
 			},
 			{
 				"key": "shift+alt+r",
 				"mac": "shift+alt+cmd+r",
 				"command": "pr.revealFileInOS",
-				"when": "focusedView =~ /(pr|prStatus):github/ && listFocus"
+				"when": "(focusedView =~ /(pr|prStatus):github/ && listFocus) && !isSessionsWindow"
 			}
 		],
 		"menus": {
 			"commandPalette": [
+				{
+					"command": "pr.deleteLocalBranchesNRemotes",
+					"when": "!isSessionsWindow"
+				},
+				{
+					"command": "pr.diffOutdatedCommentWithHead",
+					"when": "!isSessionsWindow"
+				},
+				{
+					"command": "pr.checkoutOnCodespacesFromDescription",
+					"when": "!isSessionsWindow"
+				},
+				{
+					"command": "issue.openIssueOnGitHub",
+					"when": "!isSessionsWindow"
+				},
+				{
+					"command": "issue.createIssueFromSelection",
+					"when": "!isSessionsWindow"
+				},
+				{
+					"command": "issue.createIssueFromClipboard",
+					"when": "!isSessionsWindow"
+				},
 				{
 					"command": "github.api.preloadPullRequest",
 					"when": "false"
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "config.githubPullRequests.enableAttestationCommits"
+					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "(gitHubOpenRepositoryCount != 0) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configurePRViewlet",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "(gitHubOpenRepositoryCount != 0) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.pick",
@@ -2154,7 +2184,7 @@
 				},
 				{
 					"command": "pr.exit",
-					"when": "github:inReviewMode"
+					"when": "(github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.dismissNotification",
@@ -2166,7 +2196,7 @@
 				},
 				{
 					"command": "pr.resetViewedFiles",
-					"when": "github:inReviewMode"
+					"when": "(github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "review.openFile",
@@ -2178,7 +2208,7 @@
 				},
 				{
 					"command": "pr.create",
-					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:authenticated) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.pushAndCreate",
@@ -2186,7 +2216,7 @@
 				},
 				{
 					"command": "pr.merge",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.readyForReview",
@@ -2206,15 +2236,15 @@
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openAllDiffs",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.refreshDescription",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openFileOnGitHub",
@@ -2254,11 +2284,11 @@
 				},
 				{
 					"command": "pr.openDescription",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.focusDescriptionInput",
-					"when": "github:pullRequestDescriptionVisible"
+					"when": "(github:pullRequestDescriptionVisible) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.showDiffSinceLastReview",
@@ -2270,7 +2300,7 @@
 				},
 				{
 					"command": "pr.closeRelatedEditors",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "(gitHubOpenRepositoryCount != 0) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.toggleEditorCommentingOn",
@@ -2354,11 +2384,11 @@
 				},
 				{
 					"command": "review.createSuggestionFromChange",
-					"when": "activeEditor == workbench.editors.textDiffEditor && (resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles)"
+					"when": "(activeEditor == workbench.editors.textDiffEditor && (resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.refreshList",
-					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.setFileListLayoutAsTree",
@@ -2378,7 +2408,7 @@
 				},
 				{
 					"command": "pr.signin",
-					"when": "gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.signinNoEnterprise",
@@ -2386,7 +2416,7 @@
 				},
 				{
 					"command": "pr.signinenterprise",
-					"when": "gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.signinAndRefreshList",
@@ -2462,7 +2492,7 @@
 				},
 				{
 					"command": "pr.checkoutByNumber",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.collapseAllComments",
@@ -2470,7 +2500,7 @@
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
+					"when": "(github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.copyPrLink",
@@ -2478,19 +2508,19 @@
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
-					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles"
+					"when": "(activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
-					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+					"when": "(activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.goToPreviousDiffInPr",
-					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles"
+					"when": "(activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.goToPreviousDiffInPr",
-					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+					"when": "(activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.copyCommentLink",
@@ -2558,7 +2588,7 @@
 				},
 				{
 					"command": "pr.refreshComments",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "(gitHubOpenRepositoryCount != 0) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.resolveConflict",
@@ -2566,7 +2596,7 @@
 				},
 				{
 					"command": "pr.acceptMerge",
-					"when": "isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/"
+					"when": "(isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.openDescription",
@@ -2574,19 +2604,19 @@
 				},
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.openGithubPermalink",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.openIssue",
@@ -2650,7 +2680,7 @@
 				},
 				{
 					"command": "issue.createIssue",
-					"when": "github:hasGitHubRemotes && github:authenticated"
+					"when": "(github:hasGitHubRemotes && github:authenticated) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.createIssueFromFile",
@@ -2714,11 +2744,11 @@
 				},
 				{
 					"command": "pr.openPullsWebsite",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issues.openIssuesWebsite",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
@@ -2774,7 +2804,7 @@
 				},
 				{
 					"command": "review.copyPrLink",
-					"when": "github:inReviewMode"
+					"when": "(github:inReviewMode) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.generateTitleAndDescription",
@@ -2784,540 +2814,540 @@
 			"view/title": [
 				{
 					"command": "pr.create",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github) && !isSessionsWindow",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.refreshList",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github) && !isSessionsWindow",
 					"group": "navigation@2"
 				},
 				{
 					"command": "pr.openPullsWebsite",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github) && !isSessionsWindow",
 					"group": "overflow@1"
 				},
 				{
 					"command": "pr.checkoutByNumber",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github) && !isSessionsWindow",
 					"group": "overflow@2"
 				},
 				{
 					"command": "pr.configurePRViewlet",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github) && !isSessionsWindow",
 					"group": "overflow@3"
 				},
 				{
 					"command": "pr.refreshChanges",
-					"when": "view == prStatus:github",
+					"when": "(view == prStatus:github) && !isSessionsWindow",
 					"group": "navigation@2"
 				},
 				{
 					"command": "pr.setFileListLayoutAsTree",
-					"when": "view == prStatus:github && fileListLayout:flat",
+					"when": "(view == prStatus:github && fileListLayout:flat) && !isSessionsWindow",
 					"group": "navigation1"
 				},
 				{
 					"command": "pr.setFileListLayoutAsFlat",
-					"when": "view == prStatus:github && !fileListLayout:flat",
+					"when": "(view == prStatus:github && !fileListLayout:flat) && !isSessionsWindow",
 					"group": "navigation1"
 				},
 				{
 					"command": "pr.toggleHideViewedFiles",
-					"when": "view == prStatus:github",
+					"when": "(view == prStatus:github) && !isSessionsWindow",
 					"group": "navigation1"
 				},
 				{
 					"command": "pr.toggleEditorCommentingOn",
-					"when": "view == prStatus:github && !commentingEnabled",
+					"when": "(view == prStatus:github && !commentingEnabled) && !isSessionsWindow",
 					"group": "navigation@0"
 				},
 				{
 					"command": "pr.toggleEditorCommentingOff",
-					"when": "view == prStatus:github && commentingEnabled",
+					"when": "(view == prStatus:github && commentingEnabled) && !isSessionsWindow",
 					"group": "navigation@0"
 				},
 				{
 					"command": "issue.createIssue",
-					"when": "view == issues:github && github:hasGitHubRemotes",
+					"when": "(view == issues:github && github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "navigation@1"
 				},
 				{
 					"command": "issue.refresh",
-					"when": "view == issues:github",
+					"when": "(view == issues:github) && !isSessionsWindow",
 					"group": "navigation@2"
 				},
 				{
 					"command": "issues.openIssuesWebsite",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github) && !isSessionsWindow",
 					"group": "overflow@1"
 				},
 				{
 					"command": "issues.configureIssuesViewlet",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github) && !isSessionsWindow",
 					"group": "overflow@2"
 				},
 				{
 					"command": "pr.refreshActivePullRequest",
-					"when": "view == github:activePullRequest && github:hasGitHubRemotes",
+					"when": "(view == github:activePullRequest && github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.openDescription",
-					"when": "view == github:activePullRequest && github:hasGitHubRemotes",
+					"when": "(view == github:activePullRequest && github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "navigation@2"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
-					"when": "view == github:activePullRequest && github:hasGitHubRemotes",
+					"when": "(view == github:activePullRequest && github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "navigation@3"
 				},
 				{
 					"command": "pr.addAssigneesToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "(view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions) && !isSessionsWindow",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.addReviewersToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "(view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions) && !isSessionsWindow",
 					"group": "navigation@2"
 				},
 				{
 					"command": "pr.addLabelsToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "(view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions) && !isSessionsWindow",
 					"group": "navigation@3"
 				},
 				{
 					"command": "pr.addMilestoneToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "(view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions) && !isSessionsWindow",
 					"group": "navigation@4"
 				},
 				{
 					"command": "pr.addProjectsToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "(view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions) && !isSessionsWindow",
 					"group": "navigation@5"
 				},
 				{
 					"command": "pr.refreshComments",
-					"when": "view == workbench.panel.comments",
+					"when": "(view == workbench.panel.comments) && !isSessionsWindow",
 					"group": "navigation"
 				},
 				{
 					"command": "notifications.sortByTimestamp",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github) && !isSessionsWindow",
 					"group": "sortNotifications@1"
 				},
 				{
 					"command": "notifications.sortByPriority",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github) && !isSessionsWindow",
 					"group": "sortNotifications@2"
 				},
 				{
 					"command": "notifications.configureNotificationsViewlet",
-					"when": "view == notifications:github",
+					"when": "(view == notifications:github) && !isSessionsWindow",
 					"group": "sortNotifications@3"
 				},
 				{
 					"command": "notifications.markPullRequestsAsRead",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests == markAsRead",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests == markAsRead) && !isSessionsWindow",
 					"group": "navigation@0"
 				},
 				{
 					"command": "notifications.markPullRequestsAsDone",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests == markAsDone",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests == markAsDone) && !isSessionsWindow",
 					"group": "navigation@0"
 				},
 				{
 					"command": "notifications.refresh",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"when": "(gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github) && !isSessionsWindow",
 					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [
 				{
 					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/",
+					"when": "(view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/) && !isSessionsWindow",
 					"group": "1_pullrequest@1"
 				},
 				{
 					"command": "pr.exit",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active/",
+					"when": "(view == pr:github && viewItem =~ /pullrequest(:local)?:active/) && !isSessionsWindow",
 					"group": "1_pullrequest@1"
 				},
 				{
 					"command": "pr.pickOnVscodeDev",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"when": "(view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)) && !isSessionsWindow",
 					"group": "1_pullrequest@2"
 				},
 				{
 					"command": "pr.pickOnCodespaces",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"when": "(view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)) && !isSessionsWindow",
 					"group": "1_pullrequest@3"
 				},
 				{
 					"command": "pr.pickInWorktree",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && !isWeb",
+					"when": "(view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && !isWeb) && !isSessionsWindow",
 					"group": "1_pullrequest@4"
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/) && !isSessionsWindow",
 					"group": "2_pullrequest@1"
 				},
 				{
 					"command": "pr.openDescriptionToTheSide",
 					"group": "2_pullrequest@2",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/"
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
-					"when": "view == pr:github && viewItem =~ /pullrequest/",
+					"when": "(view == pr:github && viewItem =~ /pullrequest/) && !isSessionsWindow",
 					"group": "2_pullrequest@3"
 				},
 				{
 					"command": "pr.refreshPullRequest",
-					"when": "view == pr:github && viewItem =~ /pullrequest/",
+					"when": "(view == pr:github && viewItem =~ /pullrequest/) && !isSessionsWindow",
 					"group": "3_pullrequest@1"
 				},
 				{
 					"command": "pr.deleteLocalBranch",
-					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
+					"when": "(view == pr:github && viewItem =~ /pullrequest:local:nonactive/) && !isSessionsWindow",
 					"group": "4_pullrequest@4"
 				},
 				{
 					"command": "pr.dismissNotification",
-					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
+					"when": "(view == pr:github && viewItem =~ /pullrequest(.*):notification/) && !isSessionsWindow",
 					"group": "4_pullrequest@5"
 				},
 				{
 					"command": "pr.markAllCopilotNotificationsAsRead",
-					"when": "view == pr:github && viewItem =~ /copilot-query/",
+					"when": "(view == pr:github && viewItem =~ /copilot-query/) && !isSessionsWindow",
 					"group": "0_category@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures",
+					"when": "(view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow",
 					"group": "5_pullrequest@2"
 				},
 				{
 					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/",
+					"when": "(view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/) && !isSessionsWindow",
 					"group": "inline@1"
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/) && !isSessionsWindow",
 					"group": "inline@0"
 				},
 				{
 					"command": "pr.showDiffSinceLastReview",
 					"group": "inline@1",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingAllChanges/"
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingAllChanges/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.showDiffAll",
 					"group": "inline@1",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "issues_0@0",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures"
+					"when": "(view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.openOnGitHub",
 					"group": "issues_0@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "(view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.markAsRead",
 					"group": "inline@3",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "(view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.markAsRead",
 					"group": "issues_0@2",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "(view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.markAsDone",
 					"group": "inline@4",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "(view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.markAsDone",
 					"group": "issues_0@3",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "(view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
 					"group": "inline@3",
-					"when": "view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2"
+					"when": "(view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.copyCommitHash",
-					"when": "view == prStatus:github && viewItem =~ /commit/"
+					"when": "(view == prStatus:github && viewItem =~ /commit/) && !isSessionsWindow"
 				},
 				{
 					"command": "review.openFile",
 					"group": "inline@0",
-					"when": "openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "(openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openDiffView",
 					"group": "inline@0",
-					"when": "!openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "(!openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openFileOnGitHub",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/) && !isSessionsWindow",
 					"group": "0_open@0"
 				},
 				{
 					"command": "pr.revealFileInOS",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/) && !isSessionsWindow",
 					"group": "0_open@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/) && !isSessionsWindow",
 					"group": "0_open@2"
 				},
 				{
 					"command": "pr.openModifiedFile",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/) && !isSessionsWindow",
 					"group": "0_open@3"
 				},
 				{
 					"command": "review.diffWithPrHead",
 					"group": "1_diff@0",
-					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "(openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/) && !isSessionsWindow"
 				},
 				{
 					"command": "review.diffLocalWithPrHead",
 					"group": "1_diff@1",
-					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "(openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.editQuery",
-					"when": "view == pr:github && viewItem == query",
+					"when": "(view == pr:github && viewItem == query) && !isSessionsWindow",
 					"group": "inline"
 				},
 				{
 					"command": "pr.editQuery",
-					"when": "view == pr:github && viewItem == query"
+					"when": "(view == pr:github && viewItem == query) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.openIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/) && !isSessionsWindow",
 					"group": "issues_0@1"
 				},
 				{
 					"command": "issue.goToLinkedCode",
-					"when": "view == issues:github && viewItem =~ /^link(current|continue)?issue/",
+					"when": "(view == issues:github && viewItem =~ /^link(current|continue)?issue/) && !isSessionsWindow",
 					"group": "issues_0@0"
 				},
 				{
 					"command": "issue.startWorking",
-					"when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
+					"when": "(view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on) && !isSessionsWindow",
 					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorkingBranchDescriptiveTitle",
-					"when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
+					"when": "(view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on) && !isSessionsWindow",
 					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorking",
-					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
+					"when": "(view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on) && !isSessionsWindow",
 					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorkingBranchDescriptiveTitle",
-					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
+					"when": "(view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on) && !isSessionsWindow",
 					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorking",
 					"alt": "issue.startWorkingBranchPrompt",
-					"when": "view == issues:github && viewItem =~ /^(link)?issue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?issue/) && !isSessionsWindow",
 					"group": "issues_0@2"
 				},
 				{
 					"command": "issue.continueWorking",
-					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?continueissue/) && !isSessionsWindow",
 					"group": "issues_0@2"
 				},
 				{
 					"command": "pr.create",
-					"when": "view == issues:github && viewItem =~ /^(link)?currentissue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?currentissue/) && !isSessionsWindow",
 					"group": "issues_0@2"
 				},
 				{
 					"command": "issue.stopWorking",
-					"when": "view == issues:github && viewItem =~ /^(link)?currentissue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?currentissue/) && !isSessionsWindow",
 					"group": "issues_0@3"
 				},
 				{
 					"command": "issue.stopWorking",
-					"when": "view == issues:github && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on",
+					"when": "(view == issues:github && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on) && !isSessionsWindow",
 					"group": "inline@1"
 				},
 				{
 					"command": "issue.stopWorkingBranchDescriptiveTitle",
-					"when": "view == issues:github && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on",
+					"when": "(view == issues:github && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on) && !isSessionsWindow",
 					"group": "inline@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures",
+					"when": "(view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow",
 					"group": "issues_1@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures",
+					"when": "(view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow",
 					"group": "issues_1@1"
 				},
 				{
 					"command": "issue.assignToCodingAgent",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled && !config.chat.disableAIFeatures",
+					"when": "(view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled && !config.chat.disableAIFeatures) && !isSessionsWindow",
 					"group": "issues_1@2"
 				},
 				{
 					"command": "issue.copyIssueNumber",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/) && !isSessionsWindow",
 					"group": "issues_2@1"
 				},
 				{
 					"command": "issue.copyIssueUrl",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "(view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/) && !isSessionsWindow",
 					"group": "issues_2@2"
 				},
 				{
 					"command": "issue.editQuery",
-					"when": "view == issues:github && viewItem == query",
+					"when": "(view == issues:github && viewItem == query) && !isSessionsWindow",
 					"group": "inline"
 				},
 				{
 					"command": "issue.editQuery",
-					"when": "view == issues:github && viewItem == query"
+					"when": "(view == issues:github && viewItem == query) && !isSessionsWindow"
 				}
 			],
 			"commentsView/commentThread/context": [
 				{
 					"command": "pr.diffOutdatedCommentWithHead",
 					"group": "inline@0",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.unresolveReviewThreadFromView",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.diffOutdatedCommentWithHead",
 					"group": "context@0",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "context@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.unresolveReviewThreadFromView",
 					"group": "context@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
 					"group": "context@2",
-					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
+					"when": "(commentController =~ /^github-review/ && !config.chat.disableAIFeatures) && !isSessionsWindow"
 				}
 			],
 			"editor/title": [
 				{
 					"command": "pr.openPullRequestOnGitHub",
 					"group": "navigation",
-					"when": "activeWebviewPanelId == 'PullRequestOverview'"
+					"when": "(activeWebviewPanelId == 'PullRequestOverview') && !isSessionsWindow"
 				},
 				{
 					"command": "review.openFile",
 					"group": "navigation",
-					"when": "resourceScheme =~ /^review$/ && isInDiffEditor"
+					"when": "(resourceScheme =~ /^review$/ && isInDiffEditor) && !isSessionsWindow"
 				},
 				{
 					"command": "review.openLocalFile",
 					"group": "navigation",
-					"when": "resourceScheme =~ /^review$/ && !isInDiffEditor"
+					"when": "(resourceScheme =~ /^review$/ && !isInDiffEditor) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.createIssueFromFile",
 					"group": "navigation",
-					"when": "resourceFilename == NewIssue.md"
+					"when": "(resourceFilename == NewIssue.md) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.markFileAsViewed",
 					"group": "navigation",
-					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles"
+					"when": "(resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.unmarkFileAsViewed",
 					"group": "navigation",
-					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
+					"when": "(resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openDiffViewFromEditor",
 					"group": "navigation",
-					"when": "!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles"
+					"when": "(!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openDiffViewFromEditor",
 					"group": "navigation",
-					"when": "!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
+					"when": "(!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.addFileComment",
 					"group": "navigation",
-					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
+					"when": "((resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)) && !isSessionsWindow"
 				}
 			],
 			"editor/content": [
 				{
 					"command": "pr.acceptMerge",
-					"when": "isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/"
+					"when": "(isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/) && !isSessionsWindow"
 				}
 			],
 			"scm/title": [
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
+					"when": "(scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode) && !isSessionsWindow",
 					"group": "navigation"
 				}
 			],
 			"scm/resourceGroup/context": [
 				{
 					"command": "review.createSuggestionsFromChanges",
-					"when": "scmProviderRootUri in github:reposInReviewMode && scmProvider =~ /^git|^remoteHub:github/ && scmResourceGroup == workingTree",
+					"when": "(scmProviderRootUri in github:reposInReviewMode && scmProvider =~ /^git|^remoteHub:github/ && scmResourceGroup == workingTree) && !isSessionsWindow",
 					"group": "inline@-2"
 				}
 			],
 			"scm/resourceState/context": [
 				{
 					"command": "review.createSuggestionsFromChanges",
-					"when": "scmProviderRootUri in github:reposInReviewMode && scmProvider =~ /^git|^remoteHub:github/ && scmResourceGroup == workingTree",
+					"when": "(scmProviderRootUri in github:reposInReviewMode && scmProvider =~ /^git|^remoteHub:github/ && scmResourceGroup == workingTree) && !isSessionsWindow",
 					"group": "1_modification@5"
 				}
 			],
 			"scm/repository": [
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
+					"when": "(scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode) && !isSessionsWindow",
 					"group": "inline"
 				}
 			],
@@ -3325,355 +3355,355 @@
 				{
 					"command": "pr.createComment",
 					"group": "inline@1",
-					"when": "(commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)"
+					"when": "((commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@1",
-					"when": "config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
+					"when": "(config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.startReview",
 					"group": "inline@1",
-					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
+					"when": "(config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.startReview",
 					"group": "inline@2",
-					"when": "config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
+					"when": "(config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@2",
-					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || commentController =~ /^github-review/ && !reviewInDraftMode)"
+					"when": "(config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || commentController =~ /^github-review/ && !reviewInDraftMode)) && !isSessionsWindow"
 				}
 			],
 			"comments/comment/editorActions": [
 				{
 					"command": "pr.makeSuggestion",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-(browse|review)/ && !github:activeCommentHasSuggestion"
+					"when": "(commentController =~ /^github-(browse|review)/ && !github:activeCommentHasSuggestion) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.uploadFile",
 					"group": "inline@4",
-					"when": "commentController =~ /^github-(browse|review)/"
+					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
 				}
 			],
 			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openReview",
 					"group": "inline@2",
-					"when": "(commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)"
+					"when": "((commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)) && !isSessionsWindow"
 				}
 			],
 			"comments/commentThread/title/context": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
 				}
 			],
 			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.applySuggestion",
-					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+					"when": "(commentController =~ /^github-review/ && comment =~ /hasSuggestion/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
-					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
+					"when": "(commentController =~ /^github-review/ && !config.chat.disableAIFeatures) && !isSessionsWindow"
 				}
 			],
 			"comments/comment/title": [
 				{
 					"command": "pr.applySuggestion",
 					"group": "inline@0",
-					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+					"when": "(commentController =~ /^github-review/ && comment =~ /hasSuggestion/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
 					"group": "overflow@0",
-					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
+					"when": "(commentController =~ /^github-review/ && !config.chat.disableAIFeatures) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.editComment",
 					"group": "overflow@1",
-					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
+					"when": "(commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.deleteComment",
 					"group": "overflow@2",
-					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
+					"when": "(commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.copyCommentLink",
 					"group": "overflow@3",
-					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
+					"when": "(commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/) && !isSessionsWindow"
 				}
 			],
 			"comments/commentThread/title": [
 				{
 					"command": "pr.refreshComments",
 					"group": "0_refresh@0",
-					"when": "commentController =~ /^github-(browse|review)/"
+					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.collapseAllComments",
 					"group": "1_collapse@0",
-					"when": "commentController =~ /^github-(browse|review)/"
+					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
 				}
 			],
 			"comments/comment/context": [
 				{
 					"command": "pr.saveComment",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/"
+					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.cancelEditComment",
 					"group": "inline@2",
-					"when": "commentController =~ /^github-(browse|review)/"
+					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
 				}
 			],
 			"editor/context/copy": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "3_githubPullRequests@0"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "3_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "3_githubPullRequests@2"
 				}
 			],
 			"editor/context/share": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@0"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@2"
 				},
 				{
 					"command": "issue.copyGithubDevLink",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "(github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
 					"group": "0_vscode@0"
 				}
 			],
 			"editor/context": [
 				{
 					"command": "review.createSuggestionFromChange",
-					"when": "activeEditor == workbench.editors.textDiffEditor && (resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles)",
+					"when": "(activeEditor == workbench.editors.textDiffEditor && (resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles)) && !isSessionsWindow",
 					"group": "2_git@6"
 				}
 			],
 			"file/share": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@0"
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "github:hasGitHubRemotes && github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev",
+					"when": "(github:hasGitHubRemotes && github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev) && !isSessionsWindow",
 					"group": "1_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@2"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@3"
 				},
 				{
 					"command": "issue.copyGithubDevLinkFile",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "(github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
 					"group": "0_vscode@0"
 				}
 			],
 			"editor/lineNumber/context": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
+					"when": "(github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on) && !isSessionsWindow",
 					"group": "1_cutcopypaste@3"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
+					"when": "(github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on) && !isSessionsWindow",
 					"group": "1_cutcopypaste@4"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
+					"when": "(github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on) && !isSessionsWindow",
 					"group": "1_cutcopypaste@5"
 				},
 				{
 					"command": "issue.copyGithubDevLink",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "(github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
 					"group": "1_cutcopypaste@0"
 				}
 			],
 			"editor/title/context": [
 				{
 					"command": "pr.closeRelatedEditors",
-					"when": "resourceScheme == 'pr' || resourceScheme == 'review' || resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles",
+					"when": "(resourceScheme == 'pr' || resourceScheme == 'review' || resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles) && !isSessionsWindow",
 					"group": "1_close@60"
 				}
 			],
 			"editor/title/context/share": [
 				{
 					"command": "issue.copyGithubPermalinkWithoutRange",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@10"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@11"
 				},
 				{
 					"command": "issue.copyGithubHeadLinkWithoutRange",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "1_githubPullRequests@12"
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "(github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
 					"group": "0_vscode@0"
 				}
 			],
 			"explorer/context/share": [
 				{
 					"command": "issue.copyGithubPermalinkWithoutRange",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "5_githubPulLRequests@10"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "5_githubPulLRequests@11"
 				},
 				{
 					"command": "issue.copyGithubHeadLinkWithoutRange",
-					"when": "github:hasGitHubRemotes",
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow",
 					"group": "5_githubPulLRequests@12"
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "(github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
 					"group": "0_vscode@0"
 				}
 			],
 			"menuBar/edit/copy": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes"
+					"when": "(github:hasGitHubRemotes) && !isSessionsWindow"
 				}
 			],
 			"remoteHub/pullRequest": [
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^remoteHub:github/",
+					"when": "(scmProvider =~ /^remoteHub:github/) && !isSessionsWindow",
 					"group": "1_modification@0"
 				}
 			],
 			"webview/context": [
 				{
 					"command": "pr.createPrMenuCreate",
-					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu",
+					"when": "(webviewId == 'github:createPullRequestWebview' && github:createPrMenu) && !isSessionsWindow",
 					"group": "0_create@0"
 				},
 				{
 					"command": "pr.createPrMenuDraft",
-					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuDraft",
+					"when": "(webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuDraft) && !isSessionsWindow",
 					"group": "0_create@1"
 				},
 				{
 					"command": "pr.createPrMenuMergeWhenReady",
-					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMergeWhenReady",
+					"when": "(webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMergeWhenReady) && !isSessionsWindow",
 					"group": "1_create@0"
 				},
 				{
 					"command": "pr.createPrMenuMerge",
-					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMerge",
+					"when": "(webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMerge) && !isSessionsWindow",
 					"group": "1_create@0"
 				},
 				{
 					"command": "pr.createPrMenuSquash",
-					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuSquash",
+					"when": "(webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuSquash) && !isSessionsWindow",
 					"group": "1_create@1"
 				},
 				{
 					"command": "pr.createPrMenuRebase",
-					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuRebase",
+					"when": "(webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuRebase) && !isSessionsWindow",
 					"group": "1_create@2"
 				},
 				{
 					"command": "review.comment",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment",
+					"when": "(webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment) && !isSessionsWindow",
 					"group": "1_review@1"
 				},
 				{
 					"command": "review.approve",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove",
+					"when": "(webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove) && !isSessionsWindow",
 					"group": "1_review@2"
 				},
 				{
 					"command": "review.requestChanges",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges",
+					"when": "(webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges) && !isSessionsWindow",
 					"group": "1_review@3"
 				},
 				{
 					"command": "review.approveOnDotCom",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom"
+					"when": "(webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom) && !isSessionsWindow"
 				},
 				{
 					"command": "review.requestChangesOnDotCom",
-					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+					"when": "(webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom) && !isSessionsWindow"
 				},
 				{
 					"command": "review.commentDescription",
@@ -3700,7 +3730,7 @@
 				},
 				{
 					"command": "pr.copyPrLink",
-					"when": "(webviewId == PullRequestOverview || webviewId == IssueOverview) && github:copyMenu"
+					"when": "(webviewId == PullRequestOverview || (webviewId == IssueOverview && !isSessionsWindow)) && github:copyMenu"
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
@@ -3716,31 +3746,31 @@
 				},
 				{
 					"command": "pr.readyForReview",
-					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu"
+					"when": "((webviewId == 'github:activePullRequest') && github:readyForReviewMenu) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.readyForReviewAndMerge",
-					"when": "(webviewId == 'github:activePullRequest') && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+					"when": "((webviewId == 'github:activePullRequest') && github:readyForReviewMenu && github:readyForReviewMenuWithMerge) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openChanges",
 					"group": "checkout@0",
-					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+					"when": "(webviewId == PullRequestOverview && github:checkoutMenu) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.pickInWorktreeFromDescription",
 					"group": "checkout@1",
-					"when": "webviewId == PullRequestOverview && github:checkoutMenu && !isWeb"
+					"when": "(webviewId == PullRequestOverview && github:checkoutMenu && !isWeb) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@2",
-					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+					"when": "(webviewId == PullRequestOverview && github:checkoutMenu) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.checkoutOnCodespacesFromDescription",
 					"group": "checkout@3",
-					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+					"when": "(webviewId == PullRequestOverview && github:checkoutMenu) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.openSessionLogFromDescription",
