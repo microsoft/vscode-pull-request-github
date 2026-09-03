@@ -21,13 +21,13 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 
 	constructor(private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry,
-		private readonly _extensionUri: vscode.Uri,
+		private readonly _context: vscode.ExtensionContext,
 		private readonly _credentialStore: CredentialStore
 	) {
 		super();
 		this._register(vscode.window.registerWebviewPanelSerializer(IssueOverviewPanel.viewType, this));
 		this._register(vscode.window.registerWebviewPanelSerializer(PullRequestOverviewPanel.viewType, this));
-		this._register(registerGitHubIssueOrPullRequestExternalUriOpener(_extensionUri, _repositoriesManager, _telemetry));
+		this._register(registerGitHubIssueOrPullRequestExternalUriOpener(_context, _repositoriesManager, _credentialStore, _telemetry));
 	}
 
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: PullRequest): Promise<void> {
@@ -67,14 +67,14 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 				webviewPanel.dispose();
 				return;
 			}
-			return IssueOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, identity, issueModel, undefined, true, webviewPanel);
+			return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity, issueModel, undefined, true, webviewPanel);
 		} else {
 			const pullRequestModel = await repo.getPullRequest(state.number, 'OverviewRestorer.deserializeWebviewPanel', true);
 			if (!pullRequestModel) {
 				webviewPanel.dispose();
 				return;
 			}
-			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._extensionUri, folderManager, identity, pullRequestModel, undefined, true, webviewPanel);
+			return PullRequestOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity, pullRequestModel, undefined, true, webviewPanel);
 		}
 	}
 

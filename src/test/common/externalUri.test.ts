@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import { parseGitHubIssueOrPullRequestUri } from '../../common/externalUri';
+import { getGitHubIssueOrPullRequestUriOpenerPriority, parseGitHubIssueOrPullRequestUri } from '../../common/externalUri';
 
 describe('externalUri', () => {
 	describe('parseGitHubIssueOrPullRequestUri', () => {
@@ -68,5 +68,23 @@ describe('externalUri', () => {
 				assert.strictEqual(parseGitHubIssueOrPullRequestUri(vscode.Uri.parse(url)), undefined);
 			});
 		}
+	});
+
+	describe('getGitHubIssueOrPullRequestUriOpenerPriority', () => {
+		const pullRequestUri = vscode.Uri.parse('https://github.com/microsoft/vscode/pull/123');
+
+		it('is preferred for supported URLs', () => {
+			assert.strictEqual(
+				getGitHubIssueOrPullRequestUriOpenerPriority(pullRequestUri),
+				vscode.ExternalUriOpenerPriority.Preferred,
+			);
+		});
+
+		it('is disabled for unsupported URLs', () => {
+			assert.strictEqual(
+				getGitHubIssueOrPullRequestUriOpenerPriority(vscode.Uri.parse('https://github.com/microsoft/vscode')),
+				vscode.ExternalUriOpenerPriority.None,
+			);
+		});
 	});
 });
