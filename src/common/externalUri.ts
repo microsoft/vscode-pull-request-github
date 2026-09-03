@@ -46,6 +46,14 @@ export function parseGitHubIssueOrPullRequestUri(uri: vscode.Uri): GitHubIssueOr
 	};
 }
 
+export function getGitHubIssueOrPullRequestUriOpenerPriority(
+	uri: vscode.Uri,
+): vscode.ExternalUriOpenerPriority {
+	return parseGitHubIssueOrPullRequestUri(uri)
+		? vscode.ExternalUriOpenerPriority.Preferred
+		: vscode.ExternalUriOpenerPriority.None;
+}
+
 export function openWithDefaultExternalOpener(uri: vscode.Uri): Thenable<boolean> {
 	return vscode.env.openExternal(uri, { allowContributedOpeners: 'default' });
 }
