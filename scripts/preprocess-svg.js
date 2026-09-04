@@ -1,9 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 const util = require('util');
 const fs = require('fs');
 const path = require('path');
 const minimist = require('minimist');
 const svgLoader = require('svg-inline-loader');
-const globCb = require('glob');
+const { glob } = require('glob');
 const mkdirpCb = require('mkdirp');
 
 function printUsage(consoleFn, exitCode) {
@@ -14,9 +19,9 @@ with the way that Webpack will transpile them at build time.
 
 Options:
 
-  --help, -h			Display this message.
-  --in, -i [dirname] 	Discover and convert SVG files beneath [dirname].
-  --out, -o [dirname]	Emit JavaScript source to files beneath [dirname].
+	--help, -h			Display this message.
+	--in, -i [dirname] 	Discover and convert SVG files beneath [dirname].
+	--out, -o [dirname]	Emit JavaScript source to files beneath [dirname].
 `);
 	process.exit(exitCode);
 }
@@ -52,7 +57,6 @@ async function processFile(inFilename, outFilename) {
 	await writeFile(outFilename, moduleSource, { encoding: 'utf8' });
 }
 
-const glob = util.promisify(globCb);
 const mkdirp = util.promisify(mkdirpCb);
 
 async function processDirectory(inDirectory, outDirectory) {
