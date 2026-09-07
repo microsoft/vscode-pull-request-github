@@ -293,7 +293,7 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, reposManager, telemetry, git);
+	const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, reposManager, telemetry);
 	context.subscriptions.push(folderRepositoryManagerResolver);
 	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context, credentialStore, folderRepositoryManagerResolver));
 

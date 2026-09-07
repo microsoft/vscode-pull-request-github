@@ -6,7 +6,6 @@
 import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 import * as vscode from 'vscode';
-import { GitApiImpl } from '../../api/api1';
 import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
 import { CredentialStore } from '../../github/credentials';
 import { registerGitHubIssueOrPullRequestExternalUriOpener } from '../../github/externalUriOpener';
@@ -32,8 +31,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		const telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
-		const git = new GitApiImpl(repositoriesManager);
-		const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry, git);
+		const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
 		let opener: vscode.ExternalUriOpener | undefined;
 		sandbox.stub(vscode.window, 'registerExternalUriOpener').callsFake((_id, value) => {
 			opener = value;
@@ -60,7 +58,6 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		assert.strictEqual(resolveIssue.callCount, 1);
 		registration.dispose();
 		folderRepositoryManagerResolver.dispose();
-		git.dispose();
 		repositoriesManager.dispose();
 		credentialStore.dispose();
 	});

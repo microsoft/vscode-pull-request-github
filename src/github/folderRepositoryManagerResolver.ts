@@ -21,7 +21,6 @@ export class FolderRepositoryManagerResolver extends Disposable {
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry,
-		private readonly _git: GitApiImpl,
 	) {
 		super();
 	}
@@ -37,6 +36,7 @@ export class FolderRepositoryManagerResolver extends Disposable {
 		}
 
 		const repository = this._register(new RemoteOnlyRepository());
+		const git = this._register(new GitApiImpl(this._repositoriesManager));
 		const createPullRequestHelper = this._register(new CreatePullRequestHelper());
 		const onDidChangeTheme = this._register(new vscode.EventEmitter<ThemeData | undefined>());
 		const themeWatcher: IThemeWatcher = {
@@ -48,7 +48,7 @@ export class FolderRepositoryManagerResolver extends Disposable {
 			this._context,
 			repository,
 			this._telemetry,
-			this._git,
+			git,
 			this._repositoriesManager.credentialStore,
 			createPullRequestHelper,
 			themeWatcher,

@@ -33,7 +33,7 @@ describe('UriHandler', function () {
 		credentialStore = new CredentialStore(telemetry, context);
 		repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
 		git = new GitApiImpl(repositoriesManager);
-		folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry, git);
+		folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
 	});
 
 	afterEach(function () {
