@@ -84,7 +84,7 @@ interface TitleProps {
 }
 
 function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }: TitleProps): JSX.Element {
-	const { setTitle, copyPrLink } = useContext(PullRequestContext);
+	const { setTitle, copyPrLink, openOnGitHub } = useContext(PullRequestContext);
 
 	const titleForm = (
 		<form
@@ -116,7 +116,8 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		'preventDefaultContextMenuItems': true,
 		owner,
 		repo,
-		number
+		number,
+		url,
 	};
 	context['github:copyMenu'] = true;
 
@@ -125,7 +126,15 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 			<h2>
 				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
 				{' '}
-				<a href={url} title={url} data-vscode-context={JSON.stringify(context)}>
+				<a
+					href={url}
+					title={url}
+					data-vscode-context={JSON.stringify(context)}
+					onClick={event => {
+						event.preventDefault();
+						void openOnGitHub();
+					}}
+				>
 					#{number}
 				</a>
 			</h2>
