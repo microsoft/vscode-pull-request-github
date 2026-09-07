@@ -52,7 +52,7 @@ describe('SearchTool', function () {
 			title: 'Known matching issue',
 			titleHTML: 'Known matching issue',
 			body: '',
-			url: 'https://github.com/microsoft/vscode/issues/332663',
+			url: 'https://github.com/repository-owner/repository-name/issues/332663',
 			number: 332663,
 			labels: [],
 			state: 'OPEN',
@@ -79,16 +79,17 @@ describe('SearchTool', function () {
 			repositoriesManager as unknown as RepositoriesManager,
 		).invoke({
 			input: {
-				repo: { owner: 'microsoft', name: 'vscode' },
+				repo: { owner: 'repository-owner', name: 'repository-name' },
 				query: 'is:issue is:open assignee:jruales',
 			},
 			toolInvocationToken: undefined,
 		}, tokenSource.token);
 		tokenSource.dispose();
 
+		assert.strictEqual(repositoriesManager.getManagerForRepository.calledOnceWith('repository-owner', 'repository-name'), true);
 		assert.strictEqual(githubRepository.getIssues.calledOnceWith(
 			undefined,
-			'(is:issue is:open assignee:jruales) AND repo:microsoft/vscode',
+			'(is:issue is:open assignee:jruales) AND repo:repository-owner/repository-name',
 		), true);
 		assert.strictEqual(folderManager.getIssues.notCalled, true);
 		const searchResult = JSON.parse((result!.content[0] as vscode.LanguageModelTextPart).value) as SearchToolResult;

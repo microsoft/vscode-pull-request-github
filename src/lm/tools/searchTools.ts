@@ -86,7 +86,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
+		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name, exact: true });
 
 		const parameterQuery = this.toRepositoryQuery(options.input.query, owner, name);
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
