@@ -66,7 +66,11 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 
 		const repository = await this.getRepositoryForFile(vscode.Uri.file(rootPath));
 		if (!repository) {
-			vscode.window.showErrorMessage(`We couldn't find an open repository for ${commit} locally.`);
+			if (vscode.workspace.getWorkspaceFolder(vscode.Uri.file(rootPath))) {
+				vscode.window.showErrorMessage(`We couldn't find an open repository for ${commit} locally.`);
+			} else {
+				Logger.debug(`Skipping content for commit ${commit} because ${rootPath} is no longer in the workspace.`, GitContentFileSystemProvider.ID);
+			}
 			return new TextEncoder().encode('');
 		}
 
