@@ -219,7 +219,8 @@ export interface BaseContext {
 	owner: string;
 	repo: string;
 	number: number;
-	[key: string]: boolean | string | number;
+	url?: string;
+	[key: string]: boolean | string | number | undefined;
 }
 
 export interface OverviewContext extends BaseContext {

@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as React from 'react';
-import { cleanup, render } from 'react-testing-library';
+import { cleanup, fireEvent, render } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PRContext, default as PullRequestContext } from '../../common/context';
@@ -36,6 +36,27 @@ describe('Overview', function () {
 
 		assert(out.container.querySelector('.title'));
 		assert(out.container.querySelector('.overview-title'));
+	});
+
+	it('opens PR number links on GitHub', function () {
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(pr);
+		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const numberLinks = out.container.querySelectorAll('.overview-title a, .sticky-header-number');
+		assert.strictEqual(numberLinks.length, 2);
+		numberLinks.forEach(link => {
+			const contextData = JSON.parse(link.getAttribute('data-vscode-context')!);
+			assert.strictEqual(contextData.url, pr.url);
+			fireEvent.click(link);
+		});
+		assert.strictEqual(openOnGitHub.callCount, 2);
 	});
 
 	it('applies sticky class when scrolled', function () {
