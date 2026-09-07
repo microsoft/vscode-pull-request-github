@@ -75,14 +75,21 @@ describe('externalUri', () => {
 
 		it('is preferred for supported URLs', () => {
 			assert.strictEqual(
-				getGitHubIssueOrPullRequestUriOpenerPriority(pullRequestUri),
+				getGitHubIssueOrPullRequestUriOpenerPriority(pullRequestUri, true),
 				vscode.ExternalUriOpenerPriority.Preferred,
+			);
+		});
+
+		it('is disabled when the external URI handler is disabled', () => {
+			assert.strictEqual(
+				getGitHubIssueOrPullRequestUriOpenerPriority(pullRequestUri, false),
+				vscode.ExternalUriOpenerPriority.None,
 			);
 		});
 
 		it('is disabled for unsupported URLs', () => {
 			assert.strictEqual(
-				getGitHubIssueOrPullRequestUriOpenerPriority(vscode.Uri.parse('https://github.com/microsoft/vscode')),
+				getGitHubIssueOrPullRequestUriOpenerPriority(vscode.Uri.parse('https://github.com/microsoft/vscode'), true),
 				vscode.ExternalUriOpenerPriority.None,
 			);
 		});
