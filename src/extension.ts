@@ -26,6 +26,7 @@ import { createExperimentationService, ExperimentationTelemetry } from './experi
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
@@ -292,7 +293,9 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context, credentialStore));
+	const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, reposManager, telemetry);
+	context.subscriptions.push(folderRepositoryManagerResolver);
+	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context, credentialStore, folderRepositoryManagerResolver));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
@@ -302,7 +305,7 @@ async function init(
 	await resumePendingCheckout(reviewsManager, context, reposManager);
 
 	initChat(context, credentialStore, reposManager);
-	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git)));
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git, folderRepositoryManagerResolver)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();

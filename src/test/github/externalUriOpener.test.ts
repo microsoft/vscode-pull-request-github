@@ -10,6 +10,7 @@ import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
 import { CredentialStore } from '../../github/credentials';
 import { registerGitHubIssueOrPullRequestExternalUriOpener } from '../../github/externalUriOpener';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -30,6 +31,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		const telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
 		let opener: vscode.ExternalUriOpener | undefined;
 		sandbox.stub(vscode.window, 'registerExternalUriOpener').callsFake((_id, value) => {
 			opener = value;
@@ -43,8 +45,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 
 		const registration = registerGitHubIssueOrPullRequestExternalUriOpener(
 			context,
-			repositoriesManager,
-			credentialStore,
+			folderRepositoryManagerResolver,
 			telemetry,
 		);
 		const uri = vscode.Uri.parse('https://github.com/microsoft/vscode/issues/1');
@@ -56,6 +57,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		assert.strictEqual(repositoriesManager.folderManagers.length, 0);
 		assert.strictEqual(resolveIssue.callCount, 1);
 		registration.dispose();
+		folderRepositoryManagerResolver.dispose();
 		repositoriesManager.dispose();
 		credentialStore.dispose();
 	});
