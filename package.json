@@ -356,6 +356,16 @@
 					"default": "ask",
 					"description": "%githubPullRequests.terminalLinksHandler.description%"
 				},
+				"githubPullRequests.openPullLinks": {
+					"type": "boolean",
+					"default": true,
+					"scope": "application",
+					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
+					"tags": [
+						"experimental",
+						"onExP"
+					]
+				},
 				"githubPullRequests.createOnPublishBranch": {
 					"type": "string",
 					"enum": [
