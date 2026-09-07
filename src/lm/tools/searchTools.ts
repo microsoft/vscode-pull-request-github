@@ -67,7 +67,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		const repositoryQualifier = `repo:${owner}/${name}`;
 		let replacedRepositoryQualifier = false;
 		const scopedQuery = query.replace(
-			/(?<prefix>^|[\s(])repo:(?<repository>[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
+			/(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
 			(_match, prefix: string) => {
 				replacedRepositoryQualifier = true;
 				return `${prefix}${repositoryQualifier}`;

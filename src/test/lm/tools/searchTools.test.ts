@@ -31,7 +31,7 @@ describe('SearchTool', function () {
 		const invocation = await tool.prepareInvocation({
 			input: {
 				repo: { owner: 'microsoft', name: 'vscode' },
-				query: 'is:open repo:other/repository',
+				query: 'is:open repo:"other/repository"',
 			},
 		});
 
