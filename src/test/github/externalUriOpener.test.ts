@@ -6,10 +6,12 @@
 import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 import * as vscode from 'vscode';
+import { GitApiImpl } from '../../api/api1';
 import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
 import { CredentialStore } from '../../github/credentials';
 import { registerGitHubIssueOrPullRequestExternalUriOpener } from '../../github/externalUriOpener';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManagerProvider } from '../../github/folderRepositoryManagerProvider';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -30,6 +32,8 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		const telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		const git = new GitApiImpl(repositoriesManager);
+		const folderRepositoryManagerProvider = new FolderRepositoryManagerProvider(context, repositoriesManager, telemetry, git);
 		let opener: vscode.ExternalUriOpener | undefined;
 		sandbox.stub(vscode.window, 'registerExternalUriOpener').callsFake((_id, value) => {
 			opener = value;
@@ -43,8 +47,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 
 		const registration = registerGitHubIssueOrPullRequestExternalUriOpener(
 			context,
-			repositoriesManager,
-			credentialStore,
+			folderRepositoryManagerProvider,
 			telemetry,
 		);
 		const uri = vscode.Uri.parse('https://github.com/microsoft/vscode/issues/1');
@@ -56,6 +59,8 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		assert.strictEqual(repositoriesManager.folderManagers.length, 0);
 		assert.strictEqual(resolveIssue.callCount, 1);
 		registration.dispose();
+		folderRepositoryManagerProvider.dispose();
+		git.dispose();
 		repositoriesManager.dispose();
 		credentialStore.dispose();
 	});

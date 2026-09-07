@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { CredentialStore } from './credentials';
 import { registerGitHubIssueOrPullRequestExternalUriOpener } from './externalUriOpener';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { FolderRepositoryManagerProvider } from './folderRepositoryManagerProvider';
 import { GitHubRepository } from './githubRepository';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
@@ -22,12 +23,13 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 	constructor(private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry,
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _credentialStore: CredentialStore
+		private readonly _credentialStore: CredentialStore,
+		folderRepositoryManagerProvider: FolderRepositoryManagerProvider,
 	) {
 		super();
 		this._register(vscode.window.registerWebviewPanelSerializer(IssueOverviewPanel.viewType, this));
 		this._register(vscode.window.registerWebviewPanelSerializer(PullRequestOverviewPanel.viewType, this));
-		this._register(registerGitHubIssueOrPullRequestExternalUriOpener(_context, _repositoriesManager, _credentialStore, _telemetry));
+		this._register(registerGitHubIssueOrPullRequestExternalUriOpener(_context, folderRepositoryManagerProvider, _telemetry));
 	}
 
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: PullRequest): Promise<void> {

@@ -4,28 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
-import { Disposable } from '../common/lifecycle';
-import { IThemeWatcher } from '../themeWatcher';
-import { CredentialStore } from './credentials';
-import { FolderRepositoryManager } from './folderRepositoryManager';
+import { FolderRepositoryManagerProvider } from './folderRepositoryManagerProvider';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
-import { RepositoriesManager } from './repositoriesManager';
-import { GitApiImpl } from '../api/api1';
 import { getGitHubIssueOrPullRequestUriOpenerPriority, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
+import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
-import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
-import { ThemeData } from '../view/theme';
 
 class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vscode.ExternalUriOpener {
-	private _remoteFolderRepositoryManager: FolderRepositoryManager | undefined;
-
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _repositoriesManager: RepositoriesManager,
-		private readonly _credentialStore: CredentialStore,
+		private readonly _folderRepositoryManagerProvider: FolderRepositoryManagerProvider,
 		private readonly _telemetry: ITelemetry,
 	) {
 		super();
@@ -45,7 +35,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 			return;
 		}
 
-		const folderRepositoryManager = this.getFolderRepositoryManager(identity.owner, identity.repo);
+		const folderRepositoryManager = this._folderRepositoryManagerProvider.getManagerForRepository(identity.owner, identity.repo);
 		if (identity.kind === 'pullRequest') {
 			const pullRequest = await folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true);
 			if (token.isCancellationRequested) {
@@ -81,43 +71,12 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 		}
 	}
 
-	private getFolderRepositoryManager(owner: string, repo: string): FolderRepositoryManager {
-		const existingManager = this._repositoriesManager.getManagerForRepository(owner, repo)
-			?? this._repositoriesManager.folderManagers[0];
-		if (existingManager) {
-			return existingManager;
-		}
-		if (this._remoteFolderRepositoryManager) {
-			return this._remoteFolderRepositoryManager;
-		}
-
-		const repository = this._register(new RemoteOnlyRepository());
-		const git = this._register(new GitApiImpl(this._repositoriesManager));
-		const createPullRequestHelper = this._register(new CreatePullRequestHelper());
-		const onDidChangeTheme = this._register(new vscode.EventEmitter<ThemeData | undefined>());
-		const themeWatcher: IThemeWatcher = {
-			onDidChangeTheme: onDidChangeTheme.event,
-			themeData: undefined,
-		};
-		this._remoteFolderRepositoryManager = this._register(new FolderRepositoryManager(
-			-1,
-			this._context,
-			repository,
-			this._telemetry,
-			git,
-			this._credentialStore,
-			createPullRequestHelper,
-			themeWatcher,
-		));
-		return this._remoteFolderRepositoryManager;
-	}
 }
 
 export function registerGitHubIssueOrPullRequestExternalUriOpener(
 	context: vscode.ExtensionContext,
-	repositoriesManager: RepositoriesManager,
-	credentialStore: CredentialStore,
+	folderRepositoryManagerProvider: FolderRepositoryManagerProvider,
 	telemetry: ITelemetry,
 ): vscode.Disposable {
-	return new GitHubIssueOrPullRequestExternalUriOpener(context, repositoriesManager, credentialStore, telemetry);
+	return new GitHubIssueOrPullRequestExternalUriOpener(context, folderRepositoryManagerProvider, telemetry);
 }
