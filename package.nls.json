@@ -52,6 +52,7 @@
 	"githubPullRequests.terminalLinksHandler.github": "Create the pull request on GitHub.",
 	"githubPullRequests.terminalLinksHandler.vscode": "Create the pull request in VS Code.",
 	"githubPullRequests.terminalLinksHandler.ask": "Ask which method to use.",
+	"githubPullRequests.openPullLinks.description": "Controls whether GitHub issue and pull request links open in VS Code.",
 	"githubPullRequests.createOnPublishBranch.description": "Create a pull request when a branch is published.",
 	"githubPullRequests.createOnPublishBranch.never": "Never create a pull request when a branch is published.",
 	"githubPullRequests.createOnPublishBranch.ask": "Ask if you want to create a pull request when a branch is published.",

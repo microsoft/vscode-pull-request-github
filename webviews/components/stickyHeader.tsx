@@ -32,7 +32,7 @@ export function useStickyHeader(titleRef: React.RefObject<HTMLDivElement | null>
 
 export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolean }): JSX.Element {
 	const { text, color, icon } = getStatus(pr.state, !!pr.isDraft, pr.isIssue, pr.stateReason);
-	const { copyPrLink } = React.useContext(PullRequestContext);
+	const { copyPrLink, openOnGitHub } = React.useContext(PullRequestContext);
 
 	const stickyRef = React.useCallback((node: HTMLDivElement | null) => {
 		if (node) {
@@ -64,6 +64,10 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 						number: pr.number,
 						'github:copyMenu': true,
 					})}
+					onClick={event => {
+						event.preventDefault();
+						void openOnGitHub();
+					}}
 				>
 					#{pr.number}
 				</a>

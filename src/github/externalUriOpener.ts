@@ -7,12 +7,14 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManagerResolver } from './folderRepositoryManagerResolver';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
-import { getGitHubIssueOrPullRequestUriOpenerPriority, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
+import { getGitHubIssueOrPullRequestUriOpenerPriority, openWithDefaultExternalOpener, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
 import { Disposable } from '../common/lifecycle';
+import { OPEN_PULL_LINKS, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 
 class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vscode.ExternalUriOpener {
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
@@ -26,10 +28,15 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 	}
 
 	canOpenExternalUri(uri: vscode.Uri): vscode.ExternalUriOpenerPriority {
-		return getGitHubIssueOrPullRequestUriOpenerPriority(uri);
+		return getGitHubIssueOrPullRequestUriOpenerPriority(uri, this.isOpenPullLinksEnabled());
 	}
 
 	async openExternalUri(_resolvedUri: vscode.Uri, openContext: vscode.OpenExternalUriContext, token: vscode.CancellationToken): Promise<void> {
+		if (!this.isOpenPullLinksEnabled()) {
+			await openWithDefaultExternalOpener(openContext.sourceUri);
+			return;
+		}
+
 		const identity = parseGitHubIssueOrPullRequestUri(openContext.sourceUri);
 		if (!identity || token.isCancellationRequested) {
 			return;
@@ -69,6 +76,10 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 				issue,
 			);
 		}
+	}
+
+	private isOpenPullLinksEnabled(): boolean {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(OPEN_PULL_LINKS, true);
 	}
 
 }

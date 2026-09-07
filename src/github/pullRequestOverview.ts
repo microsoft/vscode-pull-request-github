@@ -44,6 +44,7 @@ import { toOpenIssueWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
+import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -928,11 +929,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
+			const fileSystemProvider = getGitHubCommitFileSystemProvider();
+			if (!fileSystemProvider) {
+				throw new Error('GitHub commit file system provider is not initialized.');
+			}
+			fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
 			await PullRequestModel.openCommitChanges(this._extensionUri, this._item.githubRepository, commitSha);
-			this._replyMessage(message, {});
+			await this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
+			await this._throwError(message, formatError(error));
 		}
 	}
 

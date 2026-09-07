@@ -33,7 +33,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { chooseItem } from './github/quickPicks';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
+import { codespacesPrLink, getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink, vscodeDevPrLinkFromUrl } from './github/utils';
 import { BaseContext, OverviewContext } from './github/views';
 import { checkoutPRInWorktree } from './github/worktree';
 import { IssueChatContextItem } from './lm/issueContextProvider';
@@ -1915,6 +1915,9 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: BaseContext | undefined) => {
+			if (params?.url) {
+				return vscode.env.clipboard.writeText(vscodeDevPrLinkFromUrl(params.url));
+			}
 			let pr: PullRequestModel | undefined;
 			if (params) {
 				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
@@ -1935,6 +1938,9 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyPrLink', async (params: BaseContext | undefined) => {
+			if (params?.url) {
+				return vscode.env.clipboard.writeText(params.url);
+			}
 			let item: PullRequestModel | IssueModel | undefined;
 			if (params) {
 				const folderManager = reposManager.getManagerForRepository(params.owner, params.repo);
