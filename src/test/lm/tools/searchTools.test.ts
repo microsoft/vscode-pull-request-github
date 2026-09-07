@@ -31,12 +31,12 @@ describe('SearchTool', function () {
 		const invocation = await tool.prepareInvocation({
 			input: {
 				repo: { owner: 'microsoft', name: 'vscode' },
-				query: 'is:open repo:"other/repository"',
+				query: '(repo:"other/repository" OR label:bug)',
 			},
 		});
 
 		const message = invocation.invocationMessage as vscode.MarkdownString;
-		assert.strictEqual(message.value.includes('repo:microsoft/vscode'), true);
+		assert.strictEqual(message.value.match(/repo:microsoft\/vscode/g)?.length, 2);
 		assert.strictEqual(message.value.includes('repo:other/repository'), false);
 	});
 
@@ -88,7 +88,7 @@ describe('SearchTool', function () {
 
 		assert.strictEqual(githubRepository.getIssues.calledOnceWith(
 			undefined,
-			'is:issue is:open assignee:jruales repo:microsoft/vscode',
+			'(is:issue is:open assignee:jruales) AND repo:microsoft/vscode',
 		), true);
 		assert.strictEqual(folderManager.getIssues.notCalled, true);
 		const searchResult = JSON.parse((result!.content[0] as vscode.LanguageModelTextPart).value) as SearchToolResult;

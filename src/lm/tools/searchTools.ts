@@ -65,15 +65,13 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		}
 
 		const repositoryQualifier = `repo:${owner}/${name}`;
-		let replacedRepositoryQualifier = false;
 		const scopedQuery = query.replace(
 			/(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
 			(_match, prefix: string) => {
-				replacedRepositoryQualifier = true;
 				return `${prefix}${repositoryQualifier}`;
 			},
 		);
-		return replacedRepositoryQualifier ? scopedQuery : `${query} ${repositoryQualifier}`;
+		return `(${scopedQuery}) AND ${repositoryQualifier}`;
 	}
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
