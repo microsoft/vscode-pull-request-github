@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
 import { CredentialStore } from '../github/credentials';
-import { FolderRepositoryManagerProvider } from '../github/folderRepositoryManagerProvider';
+import { FolderRepositoryManagerResolver } from '../github/folderRepositoryManagerResolver';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { UriHandler } from '../uriHandler';
@@ -20,7 +20,7 @@ import { MockTelemetry } from './mocks/mockTelemetry';
 describe('UriHandler', function () {
 	let context: MockExtensionContext;
 	let credentialStore: CredentialStore;
-	let folderRepositoryManagerProvider: FolderRepositoryManagerProvider;
+	let folderRepositoryManagerResolver: FolderRepositoryManagerResolver;
 	let git: GitApiImpl;
 	let repositoriesManager: RepositoriesManager;
 	let sandbox: SinonSandbox;
@@ -33,11 +33,11 @@ describe('UriHandler', function () {
 		credentialStore = new CredentialStore(telemetry, context);
 		repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
 		git = new GitApiImpl(repositoriesManager);
-		folderRepositoryManagerProvider = new FolderRepositoryManagerProvider(context, repositoriesManager, telemetry, git);
+		folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry, git);
 	});
 
 	afterEach(function () {
-		folderRepositoryManagerProvider.dispose();
+		folderRepositoryManagerResolver.dispose();
 		git.dispose();
 		repositoriesManager.dispose();
 		credentialStore.dispose();
@@ -53,7 +53,7 @@ describe('UriHandler', function () {
 			telemetry,
 			context,
 			git,
-			folderRepositoryManagerProvider,
+			folderRepositoryManagerResolver,
 		);
 		const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-pull-request-webview?uri=https://github.com/microsoft/vscode/pull/1');
 

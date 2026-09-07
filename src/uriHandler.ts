@@ -10,7 +10,7 @@ import Logger from './common/logger';
 import { ITelemetry } from './common/telemetry';
 import { fromOpenIssueWebviewUri, fromOpenOrCheckoutPullRequestWebviewUri, UriHandlerPaths } from './common/uri';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { FolderRepositoryManagerProvider } from './github/folderRepositoryManagerProvider';
+import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
@@ -108,7 +108,7 @@ export class UriHandler implements vscode.UriHandler {
 		private readonly _telemetry: ITelemetry,
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _git: GitApiImpl,
-		private readonly _folderRepositoryManagerProvider: FolderRepositoryManagerProvider,
+		private readonly _folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 	) { }
 
 	async handleUri(uri: vscode.Uri): Promise<void> {
@@ -131,7 +131,7 @@ export class UriHandler implements vscode.UriHandler {
 		if (!params) {
 			return;
 		}
-		const folderManager = this._folderRepositoryManagerProvider.getManagerForRepository(params.owner, params.repo);
+		const folderManager = this._folderRepositoryManagerResolver.getManagerForRepository(params.owner, params.repo);
 		const identity = { owner: params.owner, repo: params.repo, number: params.issueNumber };
 		return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity);
 	}
@@ -143,7 +143,7 @@ export class UriHandler implements vscode.UriHandler {
 			Logger.error('Failed to parse pull request URI.', UriHandler.ID);
 			return;
 		}
-		const folderManager = this._folderRepositoryManagerProvider.getManagerForRepository(params.owner, params.repo);
+		const folderManager = this._folderRepositoryManagerResolver.getManagerForRepository(params.owner, params.repo);
 		return { folderManager, identity: { owner: params.owner, repo: params.repo, number: params.pullRequestNumber } };
 	}
 

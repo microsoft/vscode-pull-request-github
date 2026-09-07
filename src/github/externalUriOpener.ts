@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { FolderRepositoryManagerProvider } from './folderRepositoryManagerProvider';
+import { FolderRepositoryManagerResolver } from './folderRepositoryManagerResolver';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { getGitHubIssueOrPullRequestUriOpenerPriority, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
@@ -15,7 +15,7 @@ import { EXTENSION_ID } from '../constants';
 class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vscode.ExternalUriOpener {
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _folderRepositoryManagerProvider: FolderRepositoryManagerProvider,
+		private readonly _folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 		private readonly _telemetry: ITelemetry,
 	) {
 		super();
@@ -35,7 +35,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 			return;
 		}
 
-		const folderRepositoryManager = this._folderRepositoryManagerProvider.getManagerForRepository(identity.owner, identity.repo);
+		const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 		if (identity.kind === 'pullRequest') {
 			const pullRequest = await folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true);
 			if (token.isCancellationRequested) {
@@ -75,8 +75,8 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 
 export function registerGitHubIssueOrPullRequestExternalUriOpener(
 	context: vscode.ExtensionContext,
-	folderRepositoryManagerProvider: FolderRepositoryManagerProvider,
+	folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 	telemetry: ITelemetry,
 ): vscode.Disposable {
-	return new GitHubIssueOrPullRequestExternalUriOpener(context, folderRepositoryManagerProvider, telemetry);
+	return new GitHubIssueOrPullRequestExternalUriOpener(context, folderRepositoryManagerResolver, telemetry);
 }

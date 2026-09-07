@@ -14,7 +14,7 @@ import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
 import { ThemeData } from '../view/theme';
 
-export class FolderRepositoryManagerProvider extends Disposable {
+export class FolderRepositoryManagerResolver extends Disposable {
 	private _remoteFolderRepositoryManager: FolderRepositoryManager | undefined;
 
 	constructor(
