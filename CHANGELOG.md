@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.166.0
+
+### Changes
+
+- Speed up opening pull request webviews.
+- Always show abbreviated commit SHAs in the pull request commits tree.
+- Open canonical GitHub pull request and issue URLs in the Pull Requests extension. Can be disabled with `githubPullRequests.openPullLinks`.
+
+### Fixes
+
+- Pressing a pull request link in the Agents window doesn't open the browser. https://github.com/microsoft/vscode-pull-request-github/issues/8934
+- Renamed file with no content changes is shown as a 100% new file in the pull request diff. https://github.com/microsoft/vscode-pull-request-github/issues/8893
+- No prompt to delete the local branch and switch back when GitHub automatically deletes a merged pull request's remote branch. https://github.com/microsoft/vscode-pull-request-github/issues/8892
+- Fix review comment loading when falling back to legacy GraphQL queries.
+- Retry loading review comments with smaller page sizes when GitHub returns an HTTP 502 response.
+
+**_Thank You_**
+
+* [@jameswilmiller (James Miller)](https://github.com/jameswilmiller): Always show abbreviated commit SHAs in the pull request commits tree. [PR #8840](https://github.com/microsoft/vscode-pull-request-github/pull/8840)
+* [@tamird (Tamir Duberstein)](https://github.com/tamird): Fix review comment loading when falling back to legacy GraphQL queries. [PR #8889](https://github.com/microsoft/vscode-pull-request-github/pull/8889)
+* [@tamird (Tamir Duberstein)](https://github.com/tamird): Retry loading review comments with smaller page sizes when GitHub returns an HTTP 502 response. [PR #8890](https://github.com/microsoft/vscode-pull-request-github/pull/8890)
+
 ## 0.164.0
 
 ### Fixes
