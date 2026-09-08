@@ -53,8 +53,20 @@ export async function findExistingSession(
 	authProviderId: AuthProvider,
 	getSession: AuthenticationSessionGetter = (providerId, scopes, options) => vscode.authentication.getSession(providerId, scopes, options),
 ): Promise<ExistingSession | undefined> {
-	// Establish the preferred account with the normal scopes before looking for broader sessions.
-	// Otherwise, a single broader session from another account can override the workspace preference.
+	// Establish the preferred account across all scopes before looking for its best session.
+	// A scope-specific lookup can otherwise fall back to the only account with those scopes.
+	const preferredSession = await getSession(authProviderId, [], { silent: true });
+	if (preferredSession) {
+		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
+		for (const scopes of scopesInPreferenceOrder) {
+			const session = await getSession(authProviderId, scopes, { silent: true, account: preferredSession.account });
+			if (session) {
+				return { session, scopes };
+			}
+		}
+		return { session: preferredSession, scopes: [...preferredSession.scopes] };
+	}
+
 	const scopePreferences = [
 		{ scopes: SCOPES_OLD, broaderScopes: [SCOPES_WITH_ADDITIONAL] },
 		{ scopes: SCOPES_OLDEST, broaderScopes: [SCOPES_WITH_ADDITIONAL, SCOPES_OLD] },

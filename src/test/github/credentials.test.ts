@@ -52,13 +52,16 @@ describe('CredentialStore', function () {
 
 			const result = await findExistingSession(AuthProvider.github, async (_providerId, scopes, options) => {
 				requests.push({ scopes, accountId: options.account?.id });
-				if (options.account?.id === 'second') {
-					return undefined;
+				if (!scopes.length) {
+					return secondAccountDefault;
+				}
+				if (options.account?.id === 'second' && scopesEqual(scopes, defaultScopes)) {
+					return secondAccountDefault;
 				}
 				if (scopesEqual(scopes, defaultScopes)) {
 					return secondAccountDefault;
 				}
-				if (scopesEqual(scopes, additionalScopes)) {
+				if (!options.account && scopesEqual(scopes, additionalScopes)) {
 					return firstAccountAdditional;
 				}
 				return undefined;
@@ -67,7 +70,35 @@ describe('CredentialStore', function () {
 			strictEqual(result?.session, secondAccountDefault);
 			deepStrictEqual(result?.scopes, defaultScopes);
 			deepStrictEqual(requests, [
-				{ scopes: defaultScopes, accountId: undefined },
+				{ scopes: [], accountId: undefined },
+				{ scopes: additionalScopes, accountId: 'second' },
+				{ scopes: defaultScopes, accountId: 'second' },
+			]);
+		});
+
+		it('uses the preferred account when accounts have different scope sets', async function () {
+			const firstAccountDefault = createSession('first-default', 'first', defaultScopes);
+			const secondAccountAdditional = createSession('second-additional', 'second', additionalScopes);
+			const requests: { scopes: readonly string[], accountId?: string }[] = [];
+
+			const result = await findExistingSession(AuthProvider.github, async (_providerId, scopes, options) => {
+				requests.push({ scopes, accountId: options.account?.id });
+				if (!scopes.length) {
+					return secondAccountAdditional;
+				}
+				if (!options.account && scopesEqual(scopes, defaultScopes)) {
+					return firstAccountDefault;
+				}
+				if (options.account?.id === 'second' && scopesEqual(scopes, additionalScopes)) {
+					return secondAccountAdditional;
+				}
+				return undefined;
+			});
+
+			strictEqual(result?.session, secondAccountAdditional);
+			deepStrictEqual(result?.scopes, additionalScopes);
+			deepStrictEqual(requests, [
+				{ scopes: [], accountId: undefined },
 				{ scopes: additionalScopes, accountId: 'second' },
 			]);
 		});
@@ -77,6 +108,9 @@ describe('CredentialStore', function () {
 			const preferredAdditional = createSession('preferred-additional', 'preferred', additionalScopes);
 
 			const result = await findExistingSession(AuthProvider.github, async (_providerId, scopes, options) => {
+				if (!scopes.length) {
+					return preferredDefault;
+				}
 				if (options.account?.id === 'preferred' && scopesEqual(scopes, additionalScopes)) {
 					return preferredAdditional;
 				}
@@ -104,7 +138,7 @@ describe('CredentialStore', function () {
 
 			const additionalSession = createSession('additional', 'additional', additionalScopes);
 			const additionalResult = await findExistingSession(AuthProvider.github, async (_providerId, scopes, options) => {
-				if (!options.account && scopesEqual(scopes, additionalScopes)) {
+				if (!scopes.length || (options.account?.id === 'additional' && scopesEqual(scopes, additionalScopes))) {
 					return additionalSession;
 				}
 				return undefined;
