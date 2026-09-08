@@ -185,6 +185,7 @@ textarea:focus,
 	display: block;
 }
 
+.comment-body,
 .comment-body code,
 .comment-body a,
 span.lineContent {
