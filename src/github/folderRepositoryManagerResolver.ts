@@ -26,8 +26,7 @@ export class FolderRepositoryManagerResolver extends Disposable {
 	}
 
 	getManagerForRepository(owner: string, repo: string): FolderRepositoryManager {
-		const existingManager = this._repositoriesManager.getManagerForRepository(owner, repo)
-			?? this._repositoriesManager.folderManagers[0];
+		const existingManager = this._repositoriesManager.getManagerForRepository(owner, repo);
 		if (existingManager) {
 			return existingManager;
 		}

@@ -259,7 +259,10 @@ async function init(
 
 	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), notificationsManager);
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel, tree);
+	const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, reposManager, telemetry);
+	context.subscriptions.push(folderRepositoryManagerResolver);
+
+	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel, tree, folderRepositoryManagerResolver);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -293,9 +296,7 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, reposManager, telemetry);
-	context.subscriptions.push(folderRepositoryManagerResolver);
-	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context, credentialStore, folderRepositoryManagerResolver));
+	context.subscriptions.push(new OverviewRestorer(telemetry, context, credentialStore, folderRepositoryManagerResolver));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
