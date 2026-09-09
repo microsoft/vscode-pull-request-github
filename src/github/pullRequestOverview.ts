@@ -7,7 +7,7 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
-import { openPullRequestOnGitHub } from '../commands';
+import { openItemOnGitHub } from '../commands';
 import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
@@ -216,13 +216,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			vscode.commands.registerCommand('review.approveOnDotComDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
-					return openPullRequestOnGitHub(panel._item, telemetry);
+					return openItemOnGitHub(panel._item, telemetry);
 				}
 			}),
 			vscode.commands.registerCommand('review.requestChangesOnDotComDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
-					return openPullRequestOnGitHub(panel._item, telemetry);
+					return openItemOnGitHub(panel._item, telemetry);
 				}
 			}),
 		);
