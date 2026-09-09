@@ -6,7 +6,7 @@
 
 - Speed up opening pull request webviews.
 - Always show abbreviated commit SHAs in the pull request commits tree.
-- Open canonical GitHub pull request and issue URLs in the Pull Requests extension. Can be disabled with `githubPullRequests.openPullLinks`.
+- Open canonical GitHub pull request and issue URLs in the Pull Requests extension. Can be toggled with `githubPullRequests.openPullLinks`.
 
 ### Fixes
 
