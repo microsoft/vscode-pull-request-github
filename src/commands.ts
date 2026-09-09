@@ -23,6 +23,7 @@ import { CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
 import { guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './github/fileUpload';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
@@ -187,7 +188,8 @@ export function registerCommands(
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 	notificationManager: NotificationsManager,
 	prsTreeModel: PrsTreeModel,
-	tree: PullRequestsTreeDataProvider
+	tree: PullRequestsTreeDataProvider,
+	folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 ) {
 	const logId = 'RegisterCommands';
 
@@ -568,10 +570,7 @@ export function registerCommands(
 			return undefined;
 		}
 
-		const folderManager = reposManager.getManagerForRepository(context.owner, context.repo) ?? reposManager.folderManagers[0];
-		if (!folderManager) {
-			return undefined;
-		}
+		const folderManager = folderRepositoryManagerResolver.getManagerForRepository(context.owner, context.repo);
 
 		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true);
 		if (!pr) {
@@ -1118,7 +1117,10 @@ export function registerCommands(
 			return;
 		}
 
-		const folderManager = reposManager.getManagerForIssueModel(issueModel) ?? reposManager.folderManagers[0];
+		const folderManager = folderRepositoryManagerResolver.getManagerForRepository(
+			issueModel.remote.owner,
+			issueModel.remote.repositoryName,
+		);
 
 		let descriptionNode: PRNode | RepositoryChangesNode | undefined;
 		if (argument instanceof PRNode) {

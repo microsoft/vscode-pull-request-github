@@ -93,6 +93,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
+		if (existingPanel && panel && panel._panel !== existingPanel) {
+			panel.dispose();
+			panel = undefined;
+		}
 
 		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
 
