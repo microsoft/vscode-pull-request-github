@@ -10,7 +10,6 @@ import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { commands } from './common/executeCommands';
-import { openWithDefaultExternalOpener } from './common/externalUri';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
@@ -28,6 +27,7 @@ import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
+import { openIssueOrPullRequestOnGitHub } from './github/openOnGitHub';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
@@ -103,26 +103,21 @@ export async function openDescription(
 	}
 }
 
-export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
-	let url: string;
+export function openItemOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry): Thenable<boolean> {
+	let item: IssueModel;
 	if (e instanceof PRNode || e instanceof RepositoryChangesNode) {
-		url = e.pullRequestModel.html_url;
+		item = e.pullRequestModel;
 	} else if (isNotificationTreeItem(e)) {
-		url = e.model.html_url;
+		item = e.model;
 	} else {
-		url = e.html_url;
+		item = e;
 	}
 
-	openPullRequestUrlOnGitHub(vscode.Uri.parse(url), telemetry);
-}
-
-function openPullRequestUrlOnGitHub(url: vscode.Uri, telemetry: ITelemetry): void {
-	openWithDefaultExternalOpener(url);
-
-	/** __GDPR__
-		"pr.openInGitHub" : {}
-	*/
-	telemetry.sendTelemetryEvent('pr.openInGitHub');
+	return openIssueOrPullRequestOnGitHub(
+		vscode.Uri.parse(item.html_url),
+		item instanceof PullRequestModel ? 'pullRequest' : 'issue',
+		telemetry,
+	);
 }
 
 export async function closeAllPrAndReviewEditors() {
@@ -157,7 +152,7 @@ export async function openPullRequestOnGitHubCommand(
 	if (!e || e instanceof vscode.Uri) {
 		const currentPullRequestUrl = PullRequestOverviewPanel.getCurrentPullRequestUrl();
 		if (currentPullRequestUrl) {
-			openPullRequestUrlOnGitHub(currentPullRequestUrl, telemetry);
+			openIssueOrPullRequestOnGitHub(currentPullRequestUrl, 'pullRequest', telemetry);
 			return;
 		}
 
@@ -171,11 +166,11 @@ export async function openPullRequestOnGitHubCommand(
 				itemValue => ({ label: itemValue.html_url }),
 			);
 			if (result) {
-				openPullRequestOnGitHub(result, telemetry);
+				openItemOnGitHub(result, telemetry);
 			}
 		}
 	} else {
-		openPullRequestOnGitHub(e, telemetry);
+		openItemOnGitHub(e, telemetry);
 	}
 }
 
@@ -209,7 +204,7 @@ export function registerCommands(
 			'notification.openOnGitHub',
 			async (e: NotificationTreeItem | undefined) => {
 				if (e) {
-					openPullRequestOnGitHub(e, telemetry);
+					openItemOnGitHub(e, telemetry);
 				}
 			},
 		),
@@ -1043,7 +1038,7 @@ export function registerCommands(
 
 			const showMergeOnGitHub = isCrossRepository && isInCodespaces();
 			if (showMergeOnGitHub) {
-				return openPullRequestOnGitHub(pullRequest, telemetry);
+				return openItemOnGitHub(pullRequest, telemetry);
 			}
 
 			const yes = vscode.l10n.t('Yes');
