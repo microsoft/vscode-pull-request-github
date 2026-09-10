@@ -478,11 +478,43 @@ describe('Package quarantine check', () => {
 		});
 	}
 
-	it('rejects a shrinkwrap in the base rather than trusting an unused package lock', () => {
-		const git = sandbox.stub(childProcess, 'execFileSync').returns('npm-shrinkwrap.json\n');
+	for (const fileName of ['npm-shrinkwrap.json', 'NPM-SHRINKWRAP.JSON', 'NpM-ShrinkWrap.JsOn']) {
+		it(`rejects ${fileName} in the base rather than trusting an unused package lock`, () => {
+			const git = sandbox.stub(childProcess, 'execFileSync').returns(`README.md\0${fileName}\0package-lock.json\0`);
 
-		assert.throws(() => quarantine.readBaseLockfile('workspace', 'HEAD^1'), /npm-shrinkwrap.json at HEAD\^1 takes precedence/);
+			assert.throws(() => quarantine.readBaseLockfile('workspace', 'HEAD^1'), /npm-shrinkwrap.json at HEAD\^1 takes precedence/);
+			assert.strictEqual(git.callCount, 1);
+			assert.deepStrictEqual(git.firstCall.args, [
+				'git',
+				['ls-tree', '--name-only', '-z', 'HEAD^1'],
+				{ cwd: 'workspace', encoding: 'utf8' },
+			]);
+		});
+	}
+
+	it('rejects an uppercase base shrinkwrap even when it was removed from the current tree', async () => {
+		const lockfile = { lockfileVersion: 3, packages: {} };
+		sandbox.stub(directoryReader, 'readdirSync').returns(['package.json', 'package-lock.json']);
+		const readFile = sandbox.stub(fs, 'readFileSync');
+		readFile.onFirstCall().returns(JSON.stringify(lockfile));
+		readFile.onSecondCall().returns('{}');
+		const git = sandbox.stub(childProcess, 'execFileSync').returns('NPM-SHRINKWRAP.JSON\0package-lock.json\0');
+		const fetch = sandbox.stub(globalThis, 'fetch');
+
+		await assert.rejects(quarantine.main([]), /npm-shrinkwrap.json at HEAD\^1 takes precedence/);
 		assert.strictEqual(git.callCount, 1);
+		assert.strictEqual(fetch.callCount, 0);
+	});
+
+	it('reads the base lockfile without confusing embedded newlines for root entries', () => {
+		const lockfile = { lockfileVersion: 3, packages: {} };
+		const git = sandbox.stub(childProcess, 'execFileSync');
+		git.onFirstCall().returns('README.md\0notes\nNPM-SHRINKWRAP.JSON\0package-lock.json\0');
+		git.onSecondCall().returns(JSON.stringify(lockfile));
+
+		assert.deepStrictEqual(quarantine.readBaseLockfile('workspace', 'HEAD^1'), lockfile);
+		assert.strictEqual(git.callCount, 2);
+		assert.deepStrictEqual(git.secondCall.args[1], ['show', 'HEAD^1:package-lock.json']);
 	});
 
 	it('reads the package lock when there is no overriding shrinkwrap', () => {

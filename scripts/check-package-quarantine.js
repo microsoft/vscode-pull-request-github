@@ -363,13 +363,17 @@ function findQuarantineViolations(packageVersions, publicationDates, now, quaran
 	return violations.sort((left, right) => left.eligibleAt.getTime() - right.eligibleAt.getTime());
 }
 
+function hasShrinkwrap(fileNames) {
+	return fileNames.some(name => name.toLowerCase() === 'npm-shrinkwrap.json');
+}
+
 function readBaseLockfile(workspaceRoot, baseRef) {
-	const shrinkwrap = childProcess.execFileSync(
+	const rootEntries = childProcess.execFileSync(
 		'git',
-		['ls-tree', '--name-only', baseRef, '--', 'npm-shrinkwrap.json'],
+		['ls-tree', '--name-only', '-z', baseRef],
 		{ cwd: workspaceRoot, encoding: 'utf8' }
 	);
-	if (shrinkwrap.trim()) {
+	if (hasShrinkwrap(rootEntries.split('\0'))) {
 		throw new Error(`Cannot verify the base: npm-shrinkwrap.json at ${baseRef} takes precedence over package-lock.json and is not supported.`);
 	}
 
@@ -392,7 +396,7 @@ function readBaseLockfile(workspaceRoot, baseRef) {
 }
 
 function readCurrentLockfile(workspaceRoot) {
-	if (fs.readdirSync(workspaceRoot).some(name => name.toLowerCase() === 'npm-shrinkwrap.json')) {
+	if (hasShrinkwrap(fs.readdirSync(workspaceRoot))) {
 		throw new Error('npm-shrinkwrap.json takes precedence over package-lock.json and is not supported by the quarantine check.');
 	}
 
