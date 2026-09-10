@@ -86,6 +86,24 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 		}
 	});
 
+	it('clears account-specific issue caches immediately', function () {
+		let issueDataChanged = 0;
+		stateManager.onDidChangeIssueData(() => issueDataChanged++);
+		stateManager.resolvedIssues.set('owner/repo', {} as never);
+		const state = {
+			issueCollection: new Map([['query', Promise.resolve({ issues: [], groupBy: [] })]]),
+			userMap: Promise.resolve(new Map()),
+		};
+		(stateManager as any)._singleRepoStates.set('/test', state);
+
+		stateManager.clearForAuthChange();
+
+		assert.strictEqual(stateManager.resolvedIssues.size, 0);
+		assert.strictEqual(state.issueCollection.size, 0);
+		assert.strictEqual(state.userMap, undefined);
+		assert.strictEqual(issueDataChanged, 1);
+	});
+
 	it('should checkout default branch when useBranchForIssues is not off', async function () {
 		// Mock workspace configuration to return 'on'
 		const originalGetConfiguration = vscode.workspace.getConfiguration;

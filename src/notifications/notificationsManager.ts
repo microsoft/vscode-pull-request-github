@@ -306,16 +306,25 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		return Array.from(this._notifications.values());
 	}
 
-	public refresh(): void {
-		if (this._notifications.size !== 0) {
-			const updates = Array.from(this._notifications.values());
-			this._onDidChangeNotifications.fire(updates);
-		}
-
+	private clearNotifications(): NotificationTreeItem[] {
+		const updates = Array.from(this._notifications.values());
 		this._pageCount = 1;
 		this._dateTime = new Date();
 		this._notifications.clear();
+		this._updateContext();
+		return updates;
+	}
 
+	public clear(): void {
+		const updates = this.clearNotifications();
+		this._fetchNotifications = false;
+		this._onDidChangeNotifications.fire(updates);
+		this._onDidChangeTreeData.fire();
+	}
+
+	public refresh(): void {
+		const updates = this.clearNotifications();
+		this._onDidChangeNotifications.fire(updates);
 		this._refresh(true);
 	}
 

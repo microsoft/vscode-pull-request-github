@@ -196,10 +196,12 @@ export class PrsTreeModel extends Disposable {
 		return this._queriedPullRequests.get(identifier);
 	}
 
-	public forceClearCache() {
+	public forceClearCache(silent: boolean = false) {
 		this._cachedPRs.clear();
 		this._allCachedPRs.clear();
-		this._onDidChangeData.fire();
+		if (!silent) {
+			this._onDidChangeData.fire();
+		}
 	}
 
 	public hasPullRequest(pr: PullRequestModel): boolean {

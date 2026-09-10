@@ -136,6 +136,25 @@ describe('GitHub Pull Requests view', function () {
 		);
 	});
 
+	it('clears the tree immediately', async function () {
+		const repository = new MockRepository();
+		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'aaa', repo: 'bbb', base: 'main' });
+		reposManager.insertFolderManager(folderManager);
+		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+		await folderManager.updateRepositories();
+		provider.initialize([], mockNotificationsManager as NotificationsManager);
+		await provider.getChildren();
+		const onDidChangeTreeData = sinon.spy();
+		provider.onDidChangeTreeData(onDidChangeTreeData);
+
+		provider.clear();
+
+		assert.deepStrictEqual(await provider.cachedChildren(), []);
+		assert(onDidChangeTreeData.calledOnce);
+	});
+
 	it('refreshes tree when GitHub repositories are discovered in existing folder manager', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');

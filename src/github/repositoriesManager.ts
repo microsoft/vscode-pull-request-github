@@ -252,6 +252,12 @@ export class RepositoriesManager extends Disposable {
 		return this._credentialStore;
 	}
 
+	clearForAuthChange(): void {
+		for (const folderManager of this._folderManagers) {
+			folderManager.clearForAuthChange();
+		}
+	}
+
 	async refreshRepositories(): Promise<void> {
 		await Promise.all(this._folderManagers.map(folderManager => folderManager.updateRepositories(false, true)));
 		this.updateState();

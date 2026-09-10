@@ -100,6 +100,16 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
+		it('clears all open pull request panels', function () {
+			const dispose = sinon.spy();
+			(PullRequestOverviewPanel as any)._panels.set(panelKey('aaa', 'bbb', 1000), { dispose });
+
+			PullRequestOverviewPanel.clearAll();
+
+			assert.strictEqual(dispose.calledOnce, true);
+			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
+		});
+
 		it('builds the active PR URL before the PR has loaded', async function () {
 			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {

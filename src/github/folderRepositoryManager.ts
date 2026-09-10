@@ -181,6 +181,8 @@ enum PagedDataType {
 
 const CACHED_TEMPLATE_BODY = 'templateBody';
 
+type UserCacheKind = 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects';
+
 export class FolderRepositoryManager extends Disposable {
 	static ID = 'FolderRepositoryManager';
 
@@ -228,6 +230,7 @@ export class FolderRepositoryManager extends Disposable {
 
 	private _sessionIgnoredRemoteNames: Set<string> = new Set();
 	private _inaccessibleRepos: Set<string> = new Set();
+	private _invalidatedUserCaches: Set<UserCacheKind> = new Set();
 
 	constructor(
 		private readonly _id: number,
@@ -480,6 +483,21 @@ export class FolderRepositoryManager extends Disposable {
 		return this._state;
 	}
 
+	clearForAuthChange(): void {
+		this._sessionIgnoredRemoteNames.clear();
+		this._inaccessibleRepos.clear();
+		this._repositoryPageInformation.clear();
+		this._gitBlameCache = {};
+		this._mentionableUsers = undefined;
+		this._fetchMentionableUsersPromise = undefined;
+		this._assignableUsers = undefined;
+		this._fetchAssignableUsersPromise = undefined;
+		this._teamReviewers = undefined;
+		this._fetchTeamReviewersPromise = undefined;
+		this._updatingRepositories = undefined;
+		this._invalidatedUserCaches = new Set<UserCacheKind>(['assignableUsers', 'teamReviewers', 'mentionableUsers', 'orgProjects']);
+	}
+
 	private set state(state: ReposManagerState) {
 		if (state !== this._state) {
 			this._state = state;
@@ -677,7 +695,10 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
+	private async getCachedFromGlobalState<T>(userKind: UserCacheKind): Promise<{ [key: string]: T[] } | undefined> {
+		if (this._invalidatedUserCaches.has(userKind)) {
+			return undefined;
+		}
 		Logger.appendLine(`Trying to use globalState for ${userKind}.`, this.id);
 
 		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
@@ -721,7 +742,7 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
+	private async saveInGlobalState<T>(userKind: UserCacheKind, cache: { [key: string]: T[] }): Promise<void> {
 		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
 		await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;

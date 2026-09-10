@@ -8,7 +8,7 @@ import { Octokit } from '@octokit/rest';
 import { createSandbox, SinonSandbox } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
-import { CredentialStore, findExistingSession, GitHub } from '../../github/credentials';
+import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from '../../github/credentials';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -146,6 +146,21 @@ describe('CredentialStore', function () {
 
 			strictEqual(additionalResult?.session, additionalSession);
 			deepStrictEqual(additionalResult?.scopes, additionalScopes);
+		});
+	});
+
+	describe('hasAccountChanged', function () {
+		it('does not treat a new session for the same account as an account change', function () {
+			const session = createSession('new-session', 'account', additionalScopes);
+
+			strictEqual(hasAccountChanged('account', session), false);
+		});
+
+		it('detects account changes and sign out', function () {
+			const session = createSession('new-session', 'new-account', defaultScopes);
+
+			strictEqual(hasAccountChanged('old-account', session), true);
+			strictEqual(hasAccountChanged('old-account', undefined), true);
 		});
 	});
 

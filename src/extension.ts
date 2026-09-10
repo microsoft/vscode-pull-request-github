@@ -27,7 +27,9 @@ import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
+import { IssueOverviewPanel } from './github/issueOverview';
 import { OverviewRestorer } from './github/overviewRestorer';
+import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
@@ -273,10 +275,21 @@ async function init(
 		if (e.provider.id !== AuthProvider.github && e.provider.id !== AuthProvider.githubEnterprise) {
 			return;
 		}
+		if (e.accountChanged) {
+			IssueOverviewPanel.clearAll();
+			PullRequestOverviewPanel.clearAll();
+			activePrViewCoordinator.clearForAuthChange();
+			createPrHelper.clearForAuthChange();
+			const reviewsCleanup = reviewsManager.clearForAuthChange();
+			issueStateManager.clearForAuthChange();
+			notificationsManager.clear();
+			reposManager.clearForAuthChange();
+			await reviewsCleanup;
+		}
 		await reposManager.refreshRepositories();
 		await Promise.all(reviewsManager.reviewManagers.map(reviewManager => reviewManager.updateState(true)));
-		tree.refreshAll(true);
-		await issueStateManager.refreshForAuthChange();
+		reviewsManager.refreshPullRequestsTree(!e.accountChanged);
+		await issueStateManager.refreshAfterAuthChange();
 		notificationsManager.refresh();
 	}));
 

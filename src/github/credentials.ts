@@ -49,6 +49,10 @@ interface ExistingSession {
 	scopes: string[];
 }
 
+export function hasAccountChanged(currentAccountId: string | undefined, newSession: vscode.AuthenticationSession | undefined): boolean {
+	return currentAccountId !== newSession?.account.id;
+}
+
 export async function findExistingSession(
 	authProviderId: AuthProvider,
 	getSession: AuthenticationSessionGetter = (providerId, scopes, options) => vscode.authentication.getSession(providerId, scopes, options),
@@ -100,12 +104,18 @@ interface AuthResult {
 	canceled: boolean;
 }
 
+export interface CredentialStoreSessionsChangeEvent extends vscode.AuthenticationSessionsChangeEvent {
+	accountChanged: boolean;
+}
+
 export class CredentialStore extends Disposable {
 	private static readonly ID = 'Authentication';
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
+	private _accountId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
 	private _enterpriseSessionId: string | undefined;
+	private _enterpriseAccountId: string | undefined;
 	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
@@ -120,7 +130,7 @@ export class CredentialStore extends Disposable {
 	// is invalidated again soon after re-auth will still trigger another prompt.
 	private static readonly AUTH_ERROR_COOLDOWN_MS = 60_000;
 
-	private _onDidChangeSessions: vscode.EventEmitter<vscode.AuthenticationSessionsChangeEvent> = new vscode.EventEmitter();
+	private _onDidChangeSessions: vscode.EventEmitter<CredentialStoreSessionsChangeEvent> = new vscode.EventEmitter();
 	public readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	private _onDidGetSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
@@ -142,6 +152,7 @@ export class CredentialStore extends Disposable {
 			return;
 		}
 		let sessionChanged = false;
+		let accountChanged = false;
 		if (currentProvider) {
 			const newSession = await this.getSession(currentProvider, { silent: true }, currentProvider === AuthProvider.github ? this._scopes : this._scopesEnterprise, false);
 			const currentSessionId = currentProvider === AuthProvider.github ? this._sessionId : this._enterpriseSessionId;
@@ -150,11 +161,15 @@ export class CredentialStore extends Disposable {
 			}
 			sessionChanged = true;
 			if (currentProvider === AuthProvider.github) {
+				accountChanged = hasAccountChanged(this._accountId, newSession.session);
 				this._githubAPI = undefined;
 				this._sessionId = undefined;
+				this._accountId = undefined;
 			} else {
+				accountChanged = hasAccountChanged(this._enterpriseAccountId, newSession.session);
 				this._githubEnterpriseAPI = undefined;
 				this._enterpriseSessionId = undefined;
+				this._enterpriseAccountId = undefined;
 			}
 		}
 		const promises: Promise<any>[] = [];
@@ -170,10 +185,10 @@ export class CredentialStore extends Disposable {
 		if (this.isAnyAuthenticated()) {
 			this._onDidGetSession.fire();
 			if (sessionChanged && !this._isSamling) {
-				this._onDidChangeSessions.fire(e);
+				this._onDidChangeSessions.fire({ ...e, accountChanged });
 			}
 		} else if (!this._isSamling) {
-			this._onDidChangeSessions.fire(e);
+			this._onDidChangeSessions.fire({ ...e, accountChanged });
 		}
 	}
 
@@ -208,6 +223,7 @@ export class CredentialStore extends Disposable {
 			const github = await this.createHub(token, authProviderId);
 			this._githubAPI = github;
 			this._sessionId = 'environment-token';
+			this._accountId = undefined;
 			if (!this._isInitialized) {
 				this._isInitialized = true;
 				this._onDidInitialize.fire();
@@ -273,8 +289,10 @@ export class CredentialStore extends Disposable {
 		if (session) {
 			if (!isEnterprise(authProviderId)) {
 				this._sessionId = session.id;
+				this._accountId = session.account.id;
 			} else {
 				this._enterpriseSessionId = session.id;
+				this._enterpriseAccountId = session.account.id;
 			}
 			let github: GitHub | undefined;
 			try {

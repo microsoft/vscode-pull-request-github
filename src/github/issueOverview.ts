@@ -114,6 +114,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._panels.get(panelKey(owner, repo, number));
 	}
 
+	public static clearAll(): void {
+		const panels = Array.from(this._panels.values());
+		this._panels.clear();
+		panels.forEach(panel => panel.dispose());
+	}
+
 	/**
 	 * Build a short panel title: `#<number> <truncated title>`.
 	 * The item title is truncated to approximately `maxLength` characters on a

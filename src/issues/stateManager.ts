@@ -209,7 +209,7 @@ export class StateManager {
 		}
 	}
 
-	async refreshForAuthChange() {
+	clearForAuthChange(): void {
 		this.resolvedIssues.clear();
 		for (const state of this._singleRepoStates.values()) {
 			if (state) {
@@ -217,6 +217,10 @@ export class StateManager {
 				state.userMap = undefined;
 			}
 		}
+		this._onDidChangeIssueData.fire();
+	}
+
+	async refreshAfterAuthChange() {
 		if (this.manager.credentialStore.isAnyAuthenticated()) {
 			await this.refresh();
 		} else {

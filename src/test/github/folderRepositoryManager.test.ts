@@ -85,6 +85,37 @@ describe('PullRequestManager', function () {
 				/Repository owner\/missing is not accessible\./,
 			);
 		});
+
+		it('clears account-specific repository state on auth change', function () {
+			const internal = manager as unknown as {
+				_sessionIgnoredRemoteNames: Set<string>;
+				_inaccessibleRepos: Set<string>;
+				_repositoryPageInformation: Map<string, unknown>;
+				_gitBlameCache: Record<string, string>;
+				_mentionableUsers?: Record<string, unknown>;
+				_assignableUsers?: Record<string, unknown>;
+				_teamReviewers?: Record<string, unknown>;
+				_invalidatedUserCaches: Set<string>;
+			};
+			internal._sessionIgnoredRemoteNames.add('origin');
+			internal._inaccessibleRepos.add('owner/repo');
+			internal._repositoryPageInformation.set('query', {});
+			internal._gitBlameCache.file = 'user';
+			internal._mentionableUsers = { origin: [] };
+			internal._assignableUsers = { origin: [] };
+			internal._teamReviewers = { origin: [] };
+
+			manager.clearForAuthChange();
+
+			assert.strictEqual(internal._sessionIgnoredRemoteNames.size, 0);
+			assert.strictEqual(internal._inaccessibleRepos.size, 0);
+			assert.strictEqual(internal._repositoryPageInformation.size, 0);
+			assert.deepStrictEqual(internal._gitBlameCache, {});
+			assert.strictEqual(internal._mentionableUsers, undefined);
+			assert.strictEqual(internal._assignableUsers, undefined);
+			assert.strictEqual(internal._teamReviewers, undefined);
+			assert.deepStrictEqual(internal._invalidatedUserCaches, new Set(['assignableUsers', 'teamReviewers', 'mentionableUsers', 'orgProjects']));
+		});
 	});
 
 	describe('getPullRequestDefaults', function () {
