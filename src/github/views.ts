@@ -75,6 +75,7 @@ export interface Issue {
 
 export interface PullRequest extends Issue {
 	isCopilotOnMyBehalf: boolean;
+	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;

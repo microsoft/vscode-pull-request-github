@@ -66,5 +66,6 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	canAssignCopilot: { default: false },
 	canRequestCopilotReview: { default: false },
 	isCopilotOnMyBehalf: { default: false },
+	isAgentSessionsWorkspace: { default: false },
 	reactions: { default: [] },
 });
