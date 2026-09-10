@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { getStatus } from './header';
+import { getStatus, ViewChangesButton } from './header';
 import { copyIcon } from './icon';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -74,6 +74,7 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 				<button title="Copy Link" onClick={copyPrLink} className="icon-button sticky-header-copy" aria-label="Copy Pull Request Link">
 					{copyIcon}
 				</button>
+				{!pr.isIssue && pr.isAgentSessionsWorkspace ? <ViewChangesButton /> : null}
 			</div>
 		</div>
 	);

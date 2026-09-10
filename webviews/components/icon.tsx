@@ -23,6 +23,7 @@ export const cloudUploadIcon = <Icon src={require('../../resources/icons/codicon
 export const commentIcon = <Icon src={require('../../resources/icons/codicons/comment.svg')} />;
 export const copilotIcon = <Icon src={require('../../resources/icons/codicons/copilot.svg')} />;
 export const copyIcon = <Icon src={require('../../resources/icons/codicons/copy.svg')} />;
+export const diffMultipleIcon = <Icon src={require('../../resources/icons/codicons/diff-multiple.svg')} />;
 export const editIcon = <Icon src={require('../../resources/icons/codicons/edit.svg')} />;
 export const errorIcon = <Icon src={require('../../resources/icons/codicons/error.svg')} />;
 export const feedbackIcon = <Icon src={require('../../resources/icons/codicons/feedback.svg')} />;
