@@ -4,6 +4,9 @@ steps:
     inputs:
       versionSpec: "20.x"
 
+  - script: npm run check:package-quarantine
+    displayName: Enforce package quarantine
+
   - script: npm ci
     displayName: Install dependencies
     retryCountOnTaskFailure: 3
