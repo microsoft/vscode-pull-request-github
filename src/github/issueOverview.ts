@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
-import { openPullRequestOnGitHub } from '../commands';
+import { openItemOnGitHub } from '../commands';
 import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
@@ -65,6 +65,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
+		if (existingPanel && panel && panel._panel !== existingPanel) {
+			panel.dispose();
+			panel = undefined;
+		}
 		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
 
 		if (panel) {
@@ -458,7 +462,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, this._telemetry);
+				return openItemOnGitHub(this._item, this._telemetry);
 			case 'pr.open-local-file':
 				return this.openLocalFile(message);
 			case 'pr.debug':

@@ -65,6 +65,8 @@ import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRe
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { IssueOverviewPanel } from '../github/issueOverview';
+import { openIssueOrPullRequestOnGitHub } from '../github/openOnGitHub';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
@@ -332,12 +334,7 @@ export class IssueFeatureRegistrar extends Disposable {
 					return;
 				}
 
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(issue.html_url));
-
-				/* __GDPR__
-					"issue.openOnGitHub" : {}
-				*/
-				this.telemetry.sendTelemetryEvent('issue.openOnGitHub');
+				return this.openIssue(issue);
 			}),
 		);
 		this._register(
@@ -828,7 +825,11 @@ export class IssueFeatureRegistrar extends Disposable {
 
 	openIssue(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
-			return vscode.env.openExternal(vscode.Uri.parse(issueModel.html_url));
+			return openIssueOrPullRequestOnGitHub(
+				vscode.Uri.parse(issueModel.html_url),
+				issueModel instanceof PullRequestModel ? 'pullRequest' : 'issue',
+				this.telemetry,
+			);
 		}
 		return undefined;
 	}

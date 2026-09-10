@@ -5,7 +5,7 @@
 
 #app {
 	display: grid;
-	grid-template-columns: 1fr minmax(200px, 300px);
+	grid-template-columns: minmax(0, 1fr) minmax(200px, 300px);
 	column-gap: 32px;
 }
 
@@ -185,6 +185,7 @@ textarea:focus,
 	display: block;
 }
 
+.comment-body,
 .comment-body code,
 .comment-body a,
 span.lineContent {

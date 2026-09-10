@@ -358,7 +358,7 @@
 				},
 				"githubPullRequests.openPullLinks": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"scope": "application",
 					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
 					"tags": [

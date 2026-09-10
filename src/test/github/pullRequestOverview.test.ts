@@ -100,6 +100,19 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
+		it('uses a serializer-provided panel when no panel is cached', async function () {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
+			const restoredWebviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, '#1000', vscode.ViewColumn.One, {});
+
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel, false, true, restoredWebviewPanel);
+
+			const restoredPanel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number);
+			assert.strictEqual((restoredPanel as any)._panel, restoredWebviewPanel);
+			restoredWebviewPanel.dispose();
+		});
+
 		it('clears all open pull request panels', function () {
 			const dispose = sinon.spy();
 			(PullRequestOverviewPanel as any)._panels.set(panelKey('aaa', 'bbb', 1000), { dispose });
@@ -170,6 +183,14 @@ describe('PullRequestOverview', function () {
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number));
 			assert.strictEqual(createWebviewPanel.callCount, 1);
+
+			const restoredWebviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, '#1000', vscode.ViewColumn.One, {});
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity0, prModel0, false, true, restoredWebviewPanel);
+
+			const restoredPanel = PullRequestOverviewPanel.findPanel(identity0.owner, identity0.repo, identity0.number);
+			assert.notStrictEqual(restoredPanel, panel0);
+			assert.strictEqual((restoredPanel as any)._panel, restoredWebviewPanel);
+			restoredWebviewPanel.dispose();
 		});
 
 		it('coalesces an update requested during initialization', async function () {

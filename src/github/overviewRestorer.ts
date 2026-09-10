@@ -6,72 +6,44 @@
 import * as vscode from 'vscode';
 import { CredentialStore } from './credentials';
 import { registerGitHubIssueOrPullRequestExternalUriOpener } from './externalUriOpener';
-import { FolderRepositoryManager } from './folderRepositoryManager';
 import { FolderRepositoryManagerResolver } from './folderRepositoryManagerResolver';
-import { GitHubRepository } from './githubRepository';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
-import { RepositoriesManager } from './repositoriesManager';
 import { PullRequest } from './views';
 import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 
 export class OverviewRestorer extends Disposable implements vscode.WebviewPanelSerializer {
-	private static ID = 'OverviewRestorer';
-
-	constructor(private readonly _repositoriesManager: RepositoriesManager,
-		private readonly _telemetry: ITelemetry,
+	constructor(private readonly _telemetry: ITelemetry,
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _credentialStore: CredentialStore,
-		folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
+		private readonly _folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 	) {
 		super();
 		this._register(vscode.window.registerWebviewPanelSerializer(IssueOverviewPanel.viewType, this));
 		this._register(vscode.window.registerWebviewPanelSerializer(PullRequestOverviewPanel.viewType, this));
-		this._register(registerGitHubIssueOrPullRequestExternalUriOpener(_context, folderRepositoryManagerResolver, _telemetry));
+		this._register(registerGitHubIssueOrPullRequestExternalUriOpener(_context, _folderRepositoryManagerResolver, _telemetry));
 	}
 
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: PullRequest): Promise<void> {
+		if (!state || !state.number) {
+			webviewPanel.dispose();
+			return;
+		}
+
 		await this.waitForAuth();
-		await this.waitForAnyGitHubRepos(this._repositoriesManager);
 
-		if (!state || !state.number || this._repositoriesManager.folderManagers.length === 0) {
-			webviewPanel.dispose();
-			return;
-		}
-
-		let repo: GitHubRepository | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
-		for (const manager of this._repositoriesManager.folderManagers) {
-			const githubRepository = manager.findExistingGitHubRepository({ owner: state.owner, repositoryName: state.repo });
-			if (githubRepository) {
-				repo = githubRepository;
-				folderManager = manager;
-				break;
-			}
-		}
-
-		if (!repo || !folderManager) {
-			folderManager = this._repositoriesManager.folderManagers[0];
-			repo = await folderManager.createGitHubRepositoryFromOwnerName(state.owner, state.repo);
-		}
-
-		if (!repo || !folderManager) {
-			webviewPanel.dispose();
-			return;
-		}
-
+		const folderManager = this._folderRepositoryManagerResolver.getManagerForRepository(state.owner, state.repo);
 		const identity = { owner: state.owner, repo: state.repo, number: state.number };
 		if (state.isIssue) {
-			const issueModel = await repo.getIssue(state.number, true);
+			const issueModel = await folderManager.resolveIssue(state.owner, state.repo, state.number, true, true);
 			if (!issueModel) {
 				webviewPanel.dispose();
 				return;
 			}
 			return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity, issueModel, undefined, true, webviewPanel);
 		} else {
-			const pullRequestModel = await repo.getPullRequest(state.number, 'OverviewRestorer.deserializeWebviewPanel', true);
+			const pullRequestModel = await folderManager.resolvePullRequest(state.owner, state.repo, state.number, true);
 			if (!pullRequestModel) {
 				webviewPanel.dispose();
 				return;
@@ -85,21 +57,5 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 			return;
 		}
 		return new Promise(resolve => this._credentialStore.onDidGetSession(() => resolve()));
-	}
-
-	protected async waitForAnyGitHubRepos(reposManager: RepositoriesManager): Promise<void> {
-		// Check if any folder manager already has GitHub repositories
-		if (reposManager.folderManagers.some(manager => manager.gitHubRepositories.length > 0)) {
-			return;
-		}
-
-		Logger.appendLine('Waiting for GitHub repositories.', OverviewRestorer.ID);
-		return new Promise(resolve => {
-			const disposable = reposManager.onDidChangeAnyGitHubRepository(() => {
-				Logger.appendLine('Found GitHub repositories.', OverviewRestorer.ID);
-				disposable.dispose();
-				resolve();
-			});
-		});
 	}
 }
