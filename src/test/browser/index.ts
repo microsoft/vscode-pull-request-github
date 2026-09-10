@@ -23,7 +23,7 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 
 	try {
 		const importAll = (r: __WebpackModuleApi.RequireContext) => r.keys().forEach(r);
-		importAll(require.context('../', true, /\.test$/));
+		importAll(require.context('../', true, /^\.\/(?!scripts\/).*\.test$/));
 	} catch (e) {
 		console.log(e);
 	}

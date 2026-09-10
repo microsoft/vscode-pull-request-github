@@ -59,6 +59,39 @@ describe('Overview', function () {
 		assert.strictEqual(openOnGitHub.callCount, 2);
 	});
 
+	it('shows view changes in both headers', function () {
+		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).build();
+		const context = new PRContext(pr);
+		const viewChanges = sinon.stub(context, 'viewChanges');
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const viewChangesButtons = out.container.querySelectorAll('[aria-label="View Pull Request Changes"]');
+		assert.strictEqual(viewChangesButtons.length, 2);
+		viewChangesButtons.forEach(button => {
+			assert.strictEqual(button.parentElement?.lastElementChild, button);
+			fireEvent.click(button);
+		});
+		assert.strictEqual(viewChanges.callCount, 2);
+	});
+
+	it('does not show view changes outside the agents window', function () {
+		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(false).build();
+		const context = new PRContext(pr);
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(out.container.querySelector('[aria-label="View Pull Request Changes"]'), null);
+	});
+
 	it('applies sticky class when scrolled', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);

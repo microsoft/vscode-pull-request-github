@@ -4,8 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { Status } from '../../api/api1';
+import { GitChangeType, SlimFileChange } from '../../common/file';
 import { CredentialStore } from '../../github/credentials';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { GithubItemStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
@@ -96,6 +100,86 @@ describe('PullRequestModel', function () {
 		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
+	});
+
+	describe('openReadonlyChanges', function () {
+		const baseCommit = '1111111111111111111111111111111111111111';
+		const mergeBase = '2222222222222222222222222222222222222222';
+		const headCommit = '3333333333333333333333333333333333333333';
+
+		function createPullRequestModel(): PullRequestModel {
+			const pr = new PullRequestBuilder()
+				.base(base => base.sha(baseCommit))
+				.head(head => head.sha(headCommit))
+				.build();
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		}
+
+		it('uses the git filesystem when the commit range is available locally', async function () {
+			const model = createPullRequestModel();
+			const oldUri = vscode.Uri.file('C:\\users\\test\\repo\\old.ts');
+			const newUri = vscode.Uri.file('C:\\users\\test\\repo\\new.ts');
+			const getCommit = sinon.stub().resolves({ hash: '', message: '', parents: [] });
+			const getMergeBase = sinon.stub().resolves(mergeBase);
+			const diffBetween = sinon.stub().resolves([{
+				uri: newUri,
+				originalUri: oldUri,
+				renameUri: newUri,
+				status: Status.INDEX_RENAMED,
+			}]);
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+			const folderManager = {
+				repository: { getCommit, getMergeBase, diffBetween },
+				telemetry,
+			} as unknown as FolderRepositoryManager;
+
+			await PullRequestModel.openReadonlyChanges(folderManager, model);
+
+			assert(getMergeBase.calledOnceWithExactly(baseCommit, headCommit));
+			assert(diffBetween.calledOnceWithExactly(mergeBase, headCommit));
+			const [command, , entries] = executeCommand.firstCall.args;
+			assert.strictEqual(command, 'vscode.changes');
+			assert.strictEqual(entries.length, 1);
+			const [resourceUri, originalUri, modifiedUri] = entries[0];
+			assert.strictEqual(resourceUri.scheme, 'git');
+			assert.strictEqual(originalUri.scheme, 'git');
+			assert.strictEqual(modifiedUri.scheme, 'git');
+			assert.deepStrictEqual(JSON.parse(originalUri.query), { path: oldUri.fsPath, ref: mergeBase });
+			assert.deepStrictEqual(JSON.parse(modifiedUri.query), { path: newUri.fsPath, ref: headCommit });
+		});
+
+		it('uses GitHub when the commit range is not available locally', async function () {
+			const model = createPullRequestModel();
+			const getCommit = sinon.stub().rejects(new Error('Unknown commit'));
+			const getAllFileChangesInfo = sinon.stub(model, 'getAllFileChangesInfo').resolves({
+				changes: [new SlimFileChange(mergeBase, '', GitChangeType.RENAME, 'new.ts', 'old.ts')],
+				mergeBase,
+			});
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+			const folderManager = {
+				repository: { getCommit },
+				telemetry,
+			} as unknown as FolderRepositoryManager;
+
+			await PullRequestModel.openReadonlyChanges(folderManager, model);
+
+			assert(getAllFileChangesInfo.calledOnce);
+			const [, , entries] = executeCommand.firstCall.args;
+			const [resourceUri, originalUri, modifiedUri] = entries[0];
+			assert.strictEqual(resourceUri.scheme, 'githubcommit');
+			assert.strictEqual(originalUri.scheme, 'githubcommit');
+			assert.strictEqual(modifiedUri.scheme, 'githubcommit');
+			assert.deepStrictEqual(JSON.parse(originalUri.query), {
+				commit: mergeBase,
+				owner: repo.remote.owner,
+				repo: repo.remote.repositoryName,
+			});
+			assert.deepStrictEqual(JSON.parse(modifiedUri.query), {
+				commit: headCommit,
+				owner: repo.remote.owner,
+				repo: repo.remote.repositoryName,
+			});
+		});
 	});
 
 	describe('reviewThreadCache', function () {

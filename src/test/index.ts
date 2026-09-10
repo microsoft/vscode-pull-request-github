@@ -33,16 +33,16 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 	// Import all test files using webpack's require.context
 	try {
 		// Load tests from src/test directory only
-		// Webview tests are compiled separately with the webview configuration
+		// Webview tests are compiled separately; CLI script tests run with test:scripts.
 		const importAll = (r: __WebpackModuleApi.RequireContext) => r.keys().forEach(r);
-		importAll(require.context('./', true, /\.test$/));
+		importAll(require.context('./', true, /^\.\/(?!scripts\/).*\.test$/));
 	} catch (e) {
 		// Fallback if 'require.context' is not available (e.g., in non-webpack environments)
 		const files = glob.sync('**/*.test.js', {
 			cwd: testsRoot,
 			absolute: true,
-			// Browser/webview tests are loaded via the separate browser runner
-			ignore: ['browser/**']
+			// Browser and CLI script tests have separate runners.
+			ignore: ['browser/**', 'scripts/**']
 		});
 		if (!files.length) {
 			console.log('Fallback test discovery found no test files. Original error:', e);

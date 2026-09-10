@@ -500,6 +500,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
+				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
@@ -683,6 +684,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openDiff(message);
 			case 'pr.open-changes':
 				return this.openChanges(message);
+			case 'pr.view-changes':
+				return this.viewChanges(message);
 			case 'pr.resolve-comment-thread':
 				return this.resolveCommentThread(message);
 			case 'pr.checkMergeability':
@@ -950,6 +953,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
 		const openToTheSide = message?.args?.openToTheSide || false;
 		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
+	}
+
+	private async viewChanges(message: IRequestMessage<void>): Promise<void> {
+		const fileSystemProvider = getGitHubCommitFileSystemProvider();
+		if (!fileSystemProvider) {
+			throw new Error('GitHub commit file system provider is not initialized.');
+		}
+		fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
+		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item);
+		await this._replyMessage(message, {});
 	}
 
 	private resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
