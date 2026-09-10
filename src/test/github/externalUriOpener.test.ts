@@ -7,7 +7,6 @@ import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 import * as vscode from 'vscode';
 import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
-import { OPEN_PULL_LINKS, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { CredentialStore } from '../../github/credentials';
 import { registerGitHubIssueOrPullRequestExternalUriOpener } from '../../github/externalUriOpener';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -33,8 +32,6 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
 		const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
-		const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
-		const previousSettingValue = configuration.inspect<boolean>(OPEN_PULL_LINKS)?.globalValue;
 		let opener: vscode.ExternalUriOpener | undefined;
 		let registration: vscode.Disposable | undefined;
 		let cancellation: vscode.CancellationTokenSource | undefined;
@@ -49,7 +46,6 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		sandbox.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 
 		try {
-			await configuration.update(OPEN_PULL_LINKS, true, vscode.ConfigurationTarget.Global);
 			registration = registerGitHubIssueOrPullRequestExternalUriOpener(
 				context,
 				folderRepositoryManagerResolver,
@@ -57,6 +53,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 			);
 			const uri = vscode.Uri.parse('https://github.com/microsoft/vscode/issues/1');
 			assert.ok(opener);
+			sandbox.stub(opener as any, 'isOpenPullLinksEnabled').returns(true);
 			cancellation = new vscode.CancellationTokenSource();
 			await opener.openExternalUri(uri, { sourceUri: uri }, cancellation.token);
 
@@ -65,7 +62,6 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		} finally {
 			cancellation?.dispose();
 			registration?.dispose();
-			await configuration.update(OPEN_PULL_LINKS, previousSettingValue, vscode.ConfigurationTarget.Global);
 			folderRepositoryManagerResolver.dispose();
 			repositoriesManager.dispose();
 			credentialStore.dispose();
