@@ -181,6 +181,8 @@ enum PagedDataType {
 
 const CACHED_TEMPLATE_BODY = 'templateBody';
 
+type UserCacheKind = 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects';
+
 export class FolderRepositoryManager extends Disposable {
 	static ID = 'FolderRepositoryManager';
 
@@ -195,6 +197,7 @@ export class FolderRepositoryManager extends Disposable {
 	private _teamReviewers?: { [key: string]: ITeam[] };
 	private _fetchAssignableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _fetchTeamReviewersPromise?: Promise<{ [key: string]: ITeam[] }>;
+	private _accountCacheToken = {};
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
@@ -480,6 +483,21 @@ export class FolderRepositoryManager extends Disposable {
 		return this._state;
 	}
 
+	clearForAuthChange(): void {
+		this._sessionIgnoredRemoteNames.clear();
+		this._inaccessibleRepos.clear();
+		this._repositoryPageInformation.clear();
+		this._gitBlameCache = {};
+		this._mentionableUsers = undefined;
+		this._fetchMentionableUsersPromise = undefined;
+		this._assignableUsers = undefined;
+		this._fetchAssignableUsersPromise = undefined;
+		this._teamReviewers = undefined;
+		this._fetchTeamReviewersPromise = undefined;
+		this._accountCacheToken = {};
+		this._updatingRepositories = undefined;
+	}
+
 	private set state(state: ReposManagerState) {
 		if (state !== this._state) {
 			this._state = state;
@@ -677,23 +695,15 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
+	private async getCachedFromGlobalState<T>(userKind: UserCacheKind): Promise<{ [key: string]: T[] } | undefined> {
 		Logger.appendLine(`Trying to use globalState for ${userKind}.`, this.id);
-
-		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
-		let usersCacheExists;
-		try {
-			usersCacheExists = await vscode.workspace.fs.stat(usersCacheLocation);
-		} catch (e) {
-			// file doesn't exit
-		}
-		if (!usersCacheExists) {
-			Logger.appendLine(`GlobalState does not exist for ${userKind}.`, this.id);
-			return undefined;
-		}
 
 		const cache: { [key: string]: T[] } = {};
 		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
+			const usersCacheLocation = this.getAccountCacheLocation(userKind, repo);
+			if (!usersCacheLocation) {
+				return false;
+			}
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
 			const repoSpecificFile = vscode.Uri.joinPath(usersCacheLocation, key);
 			let repoSpecificCache;
@@ -721,18 +731,32 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
-		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
-		await Promise.all(this._githubRepositories.map(async (repo) => {
+	private getAccountCacheLocation(userKind: UserCacheKind, repo: GitHubRepository): vscode.Uri | undefined {
+		const accountId = this._credentialStore.getAccountId(repo.remote.authProviderId);
+		if (!accountId) {
+			return undefined;
+		}
+		return vscode.Uri.joinPath(this.context.globalStorageUri, userKind, encodeURIComponent(repo.remote.authProviderId), encodeURIComponent(accountId));
+	}
+
+	private async saveInGlobalState<T>(userKind: UserCacheKind, cache: { [key: string]: T[] }): Promise<void> {
+		const repositories = [...this._githubRepositories];
+		await Promise.all(repositories.map(async (repo) => {
+			const cacheLocation = this.getAccountCacheLocation(userKind, repo);
+			if (!cacheLocation) {
+				return;
+			}
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
 			const repoSpecificFile = vscode.Uri.joinPath(cacheLocation, key);
+			await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(cacheLocation, repo.remote.owner));
 			await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
 		}));
 	}
 
 	private createFetchMentionableUsersPromise(): Promise<{ [key: string]: IAccount[] }> {
+		const accountCacheToken = this._accountCacheToken;
 		const cache: { [key: string]: IAccount[] } = {};
-		return new Promise<{ [key: string]: IAccount[] }>(resolve => {
+		return new Promise<{ [key: string]: IAccount[] }>((resolve, reject) => {
 			const promises = this._githubRepositories.map(async githubRepository => {
 				const data = await githubRepository.getMentionableUsers();
 				cache[githubRepository.remote.remoteName] = data;
@@ -740,15 +764,20 @@ export class FolderRepositoryManager extends Disposable {
 			});
 
 			Promise.all(promises).then(() => {
+				if (accountCacheToken !== this._accountCacheToken) {
+					resolve({});
+					return;
+				}
 				this._mentionableUsers = cache;
 				this._fetchMentionableUsersPromise = undefined;
 				this.saveInGlobalState('mentionableUsers', cache)
-					.then(() => resolve(cache));
-			});
+					.then(() => resolve(cache), reject);
+			}, reject);
 		});
 	}
 
 	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
+		const accountCacheToken = this._accountCacheToken;
 		if (clearCache) {
 			delete this._mentionableUsers;
 			delete this._fetchMentionableUsersPromise;
@@ -760,6 +789,9 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const globalStateMentionableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
+		if (accountCacheToken !== this._accountCacheToken) {
+			return {};
+		}
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -770,6 +802,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
+		const accountCacheToken = this._accountCacheToken;
 		if (clearCache) {
 			delete this._assignableUsers;
 			delete this._fetchAssignableUsersPromise;
@@ -781,11 +814,14 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const globalStateAssignableUsers = clearCache ? undefined : await this.getCachedFromGlobalState<IAccount>('assignableUsers');
+		if (accountCacheToken !== this._accountCacheToken) {
+			return {};
+		}
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
 			const allAssignableUsers: IAccount[] = [];
-			this._fetchAssignableUsersPromise = new Promise(resolve => {
+			this._fetchAssignableUsersPromise = new Promise((resolve, reject) => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getAssignableUsers();
 					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
@@ -794,12 +830,21 @@ export class FolderRepositoryManager extends Disposable {
 				});
 
 				Promise.all(promises).then(() => {
+					if (accountCacheToken !== this._accountCacheToken) {
+						resolve({});
+						return;
+					}
 					this._assignableUsers = cache;
 					this._fetchAssignableUsersPromise = undefined;
-					this.saveInGlobalState('assignableUsers', cache);
-					resolve(cache);
-					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
-				});
+					this.saveInGlobalState('assignableUsers', cache).then(() => {
+						if (accountCacheToken !== this._accountCacheToken) {
+							resolve({});
+							return;
+						}
+						resolve(cache);
+						this._onDidChangeAssignableUsers.fire(allAssignableUsers);
+					}, reject);
+				}, reject);
 			});
 			return globalStateAssignableUsers ?? this._fetchAssignableUsersPromise;
 		}
@@ -808,6 +853,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getTeamReviewers(refreshKind: TeamReviewerRefreshKind): Promise<{ [key: string]: ITeam[] }> {
+		const accountCacheToken = this._accountCacheToken;
 		if (refreshKind === TeamReviewerRefreshKind.Force) {
 			delete this._teamReviewers;
 		}
@@ -818,14 +864,16 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getCachedFromGlobalState<ITeam>('teamReviewers');
+		if (accountCacheToken !== this._accountCacheToken) {
+			return {};
+		}
 		if (globalStateTeamReviewers) {
 			this._teamReviewers = globalStateTeamReviewers;
 			return globalStateTeamReviewers || {};
 		}
-
 		if (!this._fetchTeamReviewersPromise) {
 			const cache: { [key: string]: ITeam[] } = {};
-			return (this._fetchTeamReviewersPromise = new Promise(async (resolve) => {
+			return (this._fetchTeamReviewersPromise = new Promise(async (resolve, reject) => {
 				// Keep track of the org teams we have already gotten so we don't make duplicate calls
 				const orgTeams: Map<string, (ITeam & { repositoryNames: string[] })[]> = new Map();
 				// Go through one github repo at a time so that we don't make overlapping auth calls
@@ -842,10 +890,14 @@ export class FolderRepositoryManager extends Disposable {
 					cache[githubRepository.remote.remoteName] = allTeamsForOrg.filter(team => team.repositoryNames.includes(githubRepository.remote.repositoryName)).sort(teamComparator);
 				}
 
+				if (accountCacheToken !== this._accountCacheToken) {
+					resolve({});
+					return;
+				}
 				this._teamReviewers = cache;
 				this._fetchTeamReviewersPromise = undefined;
-				this.saveInGlobalState('teamReviewers', cache);
-				resolve(cache);
+				this.saveInGlobalState('teamReviewers', cache)
+					.then(() => resolve(accountCacheToken === this._accountCacheToken ? cache : {}), reject);
 			}));
 		}
 
@@ -853,8 +905,9 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private createFetchOrgProjectsPromise(): Promise<{ [key: string]: IProject[] }> {
+		const accountCacheToken = this._accountCacheToken;
 		const cache: { [key: string]: IProject[] } = {};
-		return new Promise<{ [key: string]: IProject[] }>(async resolve => {
+		return new Promise<{ [key: string]: IProject[] }>(async (resolve, reject) => {
 			// Keep track of the org teams we have already gotten so we don't make duplicate calls
 			const orgProjects: Map<string, IProject[]> = new Map();
 			// Go through one github repo at a time so that we don't make overlapping auth calls
@@ -870,8 +923,12 @@ export class FolderRepositoryManager extends Disposable {
 				cache[githubRepository.remote.remoteName] = orgProjects.get(githubRepository.remote.owner) ?? [];
 			}
 
-			await this.saveInGlobalState('orgProjects', cache);
-			resolve(cache);
+			if (accountCacheToken !== this._accountCacheToken) {
+				resolve({});
+				return;
+			}
+			this.saveInGlobalState('orgProjects', cache)
+				.then(() => resolve(accountCacheToken === this._accountCacheToken ? cache : {}), reject);
 		});
 	}
 
@@ -880,7 +937,11 @@ export class FolderRepositoryManager extends Disposable {
 			return this.createFetchOrgProjectsPromise();
 		}
 
+		const accountCacheToken = this._accountCacheToken;
 		const globalStateProjects = await this.getCachedFromGlobalState<IProject>('orgProjects');
+		if (accountCacheToken !== this._accountCacheToken) {
+			return {};
+		}
 		return globalStateProjects ?? this.createFetchOrgProjectsPromise();
 	}
 

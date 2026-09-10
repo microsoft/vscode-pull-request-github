@@ -1525,6 +1525,14 @@ export class ReviewManager extends Disposable {
 		}
 	}
 
+	async clearForAuthChange(): Promise<void> {
+		this._lastCommitSha = undefined;
+		this._cachedMaxPRNumbers = undefined;
+		this._cachedBranchName = undefined;
+		this._staleMetadataCheckedBranches.clear();
+		await this.clear(true);
+	}
+
 	private async clear(quitReviewMode: boolean) {
 		if (quitReviewMode) {
 			const activePullRequest = this._folderRepoManager.activePullRequest;

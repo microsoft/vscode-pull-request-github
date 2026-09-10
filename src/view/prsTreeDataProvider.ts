@@ -365,6 +365,13 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._onDidChangeTreeData.fire();
 	}
 
+	clear() {
+		this.prsTreeModel.forceClearCache(true);
+		this._children.forEach(child => child.dispose());
+		this._children = [];
+		this._onDidChangeTreeData.fire();
+	}
+
 	private tryReset(reset: boolean) {
 		if (reset) {
 			this.prsTreeModel.clearCache(true);
@@ -565,9 +572,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		const gitHubFolderManagers = this._reposManager.folderManagers.filter(manager => manager.gitHubRepositories.length > 0);
 		if (!element) {
-			if (this._children && this._children.length) {
-				this._children.forEach(dispose => dispose.dispose());
-			}
+			this._children.forEach(child => child.dispose());
 
 			let result: WorkspaceFolderNode[] | CategoryTreeNode[];
 			if (gitHubFolderManagers.length === 1) {
