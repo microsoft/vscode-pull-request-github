@@ -420,7 +420,7 @@ describe('Package quarantine check', () => {
 		const dates = await quarantine.getPublicationDates([packageVersion]);
 
 		assert.deepStrictEqual(quarantine.findQuarantineViolations([packageVersion], dates, new Date('2026-09-08T00:00:00Z'), 7), []);
-		assert.strictEqual(fetch.firstCall.args[1].redirect, 'error');
+		assert.strictEqual(fetch.firstCall.args[1]?.redirect, 'error');
 	});
 
 	it('supports legacy SHA-1 integrity but not mixed integrity containing an attacker hash', async () => {
