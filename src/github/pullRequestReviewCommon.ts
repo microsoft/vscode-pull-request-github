@@ -306,9 +306,15 @@ export namespace PullRequestReviewCommon {
 		});
 	}
 
+	function isBranchNotFoundError(error: unknown): boolean {
+		const stderr = error && typeof error === 'object' ? Reflect.get(error, 'stderr') : undefined;
+		return typeof stderr === 'string' && stderr.includes('not found');
+	}
+
 	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
 		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
-		const actions: (vscode.MessageItem & SelectedAction & { detail: string })[] = [];
+		const actions: (vscode.MessageItem & SelectedAction)[] = [];
+		const cleanupDetails: string[] = [];
 		const defaultBranch = await folderRepositoryManager.getPullRequestRepositoryDefaultBranch(item);
 
 		if (item.isResolved()) {
@@ -317,46 +323,50 @@ export namespace PullRequestReviewCommon {
 
 			const isDefaultBranch = defaultBranch === item.head.ref;
 			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
+				const remoteBranch = headRepo ? `${headRepo.remote.remoteName}/${branchHeadRef}` : branchHeadRef;
 				actions.push({
 					title: vscode.l10n.t('Delete Remote Branch'),
-					detail: vscode.l10n.t('Delete remote branch {0} ({1})', `${headRepo?.remote.remoteName}/${branchHeadRef}`, `${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.remote.repositoryName}`),
 					type: 'remoteHead',
 				});
+				cleanupDetails.push(
+					vscode.l10n.t('Remote branch: {0}', remoteBranch),
+					vscode.l10n.t('Remote repository: {0}', `${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.remote.repositoryName}`),
+				);
 			}
 		}
 
 		if (branchInfo) {
 			actions.push({
 				title: vscode.l10n.t('Delete Local Branch'),
-				detail: vscode.l10n.t('Delete local branch {0}', branchInfo.branch),
 				type: 'local',
 			});
+			cleanupDetails.push(vscode.l10n.t('Local branch: {0}', branchInfo.branch));
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({
 					title: vscode.l10n.t('Delete Remote'),
-					detail: vscode.l10n.t('Delete remote {0}, which is no longer used by any other branch', branchInfo.remote),
 					type: 'remote',
 				});
+				cleanupDetails.push(vscode.l10n.t('Unused Git remote: {0}', branchInfo.remote));
 			}
 
 			const worktreePath = folderRepositoryManager.getWorktreeForBranch(branchInfo.branch);
 			if (worktreePath && !isWorktreeInWorkspace(worktreePath)) {
 				actions.push({
 					title: vscode.l10n.t('Remove Worktree'),
-					detail: vscode.l10n.t('Remove worktree {0}', worktreePath.fsPath),
 					type: 'worktree',
 					worktreePath: worktreePath.fsPath,
 				});
+				cleanupDetails.push(vscode.l10n.t('Worktree: {0}', worktreePath.fsPath));
 			}
 		}
 
 		if (vscode.env.remoteName === 'codespaces') {
 			actions.push({
 				title: vscode.l10n.t('Suspend Codespace'),
-				detail: vscode.l10n.t('Suspend Codespace'),
 				type: 'suspend'
 			});
+			cleanupDetails.push(vscode.l10n.t('Codespace: current Codespace'));
 		}
 
 		if (!actions.length) {
@@ -381,7 +391,13 @@ export namespace PullRequestReviewCommon {
 		}
 		const selectedOption = await vscode.window.showWarningMessage(
 			vscode.l10n.t('Choose what to delete for Pull Request #{0}', item.number),
-			{ modal: true, detail: actions.map(action => action.detail).join('\n') },
+			{
+				modal: true,
+				detail: vscode.l10n.t(
+					'Choose an action below to clean up the resources associated with this pull request.\n\n{0}',
+					cleanupDetails.join('\n'),
+				)
+			},
 			...options,
 		);
 
@@ -460,7 +476,14 @@ export namespace PullRequestReviewCommon {
 						}
 						await folderRepositoryManager.checkoutDefaultBranch(defaultBranch, item);
 					}
-					await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
+					try {
+						await folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
+					} catch (error) {
+						if (!isBranchNotFoundError(error)) {
+							throw error;
+						}
+						Logger.debug(`Local branch ${branchInfo!.branch} no longer exists.`, 'PullRequestReviewCommon');
+					}
 					return deletedBranchTypes.push(action.type);
 				case 'remote':
 					deletedBranchTypes.push(action.type);

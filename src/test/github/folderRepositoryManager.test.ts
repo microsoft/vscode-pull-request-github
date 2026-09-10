@@ -262,8 +262,13 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(showWarningMessage.firstCall.args[0], `Choose what to delete for Pull Request #${pr.number}`);
 			const options = showWarningMessage.firstCall.args[1] as MessageOptions;
 			assert.strictEqual(options.modal, true);
-			assert.ok(options.detail?.includes('origin/feature'));
-			assert.ok(options.detail?.includes('local-feature'));
+			assert.strictEqual(options.detail, [
+				'Choose an action below to clean up the resources associated with this pull request.',
+				'',
+				'Remote branch: origin/feature',
+				'Remote repository: github.com/aaa/bbb',
+				'Local branch: local-feature',
+			].join('\n'));
 			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
 				['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
 			assert.strictEqual(showQuickPick.notCalled, true);
@@ -299,6 +304,23 @@ describe('PullRequestManager', function () {
 			await PullRequestReviewCommon.deleteBranch(manager, pr);
 
 			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+		});
+
+		it('treats a local branch that no longer exists as deleted', async function () {
+			await repository.deleteBranch('local-feature', true);
+			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === 'Delete Local Branch'));
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result.message.branchTypes, ['local']);
+		});
+
+		it('rethrows other local branch deletion errors', async function () {
+			const error = new Error('Unable to delete local branch');
+			sinon.stub(repository, 'deleteBranch').rejects(error);
+			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === 'Delete Local Branch'));
+
+			await assert.rejects(PullRequestReviewCommon.deleteBranch(manager, pr), error);
 		});
 
 		it('offers only remote branch deletion when there is no local branch', async function () {
@@ -346,8 +368,15 @@ describe('PullRequestManager', function () {
 
 				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
 					['Delete All', 'Delete Remote Branch', 'Delete Local Branch', 'Delete Remote', 'Remove Worktree']);
-				assert.ok((showWarningMessage.firstCall.args[1] as MessageOptions).detail?.includes(worktreePath.fsPath));
-				assert.ok((showWarningMessage.firstCall.args[1] as MessageOptions).detail?.includes('fork'));
+				assert.strictEqual((showWarningMessage.firstCall.args[1] as MessageOptions).detail, [
+					'Choose an action below to clean up the resources associated with this pull request.',
+					'',
+					'Remote branch: origin/feature',
+					'Remote repository: github.com/aaa/bbb',
+					'Local branch: local-feature',
+					'Unused Git remote: fork',
+					`Worktree: ${worktreePath.fsPath}`,
+				].join('\n'));
 				const expectedTypes = title === 'Delete All' ? ['local', 'remote', 'remoteHead', 'worktree'] : title === 'Delete Remote' ? ['remote'] : ['worktree'];
 				assert.deepStrictEqual(result.message.branchTypes.sort(), expectedTypes);
 				assert.strictEqual(removeRemote.calledOnce, title !== 'Remove Worktree');

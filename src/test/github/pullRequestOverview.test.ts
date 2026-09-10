@@ -28,6 +28,7 @@ import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { TimelineEvent } from '../../common/timelineEvent';
+import { PullRequestReviewCommon } from '../../github/pullRequestReviewCommon';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -312,6 +313,28 @@ describe('PullRequestOverview', function () {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+
+				describe('deleteBranch', function () {
+					it('replies with the deletion state after deletion completes', async function () {
+						const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+						const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+						const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
+						await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
+						const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+						const response = { command: 'pr.deleteBranch', branchTypes: ['local'] };
+						sinon.stub(PullRequestReviewCommon, 'deleteBranch').resolves({ isReply: false, message: response });
+						const replyMessage = sinon.stub(panel as any, '_replyMessage').resolves();
+						const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+						const refreshPanel = sinon.stub(panel as any, 'refreshPanel').resolves();
+						const message = { req: '1', command: 'pr.deleteBranch', args: undefined };
+
+						await (panel as any).deleteBranch(message);
+
+						sinon.assert.calledOnceWithExactly(replyMessage, message, response);
+						sinon.assert.calledOnce(refreshPanel);
+						sinon.assert.notCalled(postMessage);
 					});
 				});
 			});
