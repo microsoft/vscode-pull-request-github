@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
@@ -19,7 +19,7 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { Uri } from 'vscode';
+import { commands, env, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -223,6 +223,172 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.gone.')).length, 0);
 			assert.strictEqual(nonExistant.has('gone'), true);
 		});
+	});
+
+	describe('deleteBranch modal', function () {
+		let pr: PullRequestModel;
+		let showWarningMessage: SinonStub;
+		let deleteRemoteBranch: SinonStub;
+		let getBranchInfo: SinonStub;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().head(head => head.ref('feature')).build(), githubRepository);
+			pr = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem);
+			await repository.createBranch('local-feature', false);
+			getBranchInfo = sinon.stub(manager, 'getBranchNameForPullRequest').resolves({
+				branch: 'local-feature',
+				createdForPullRequest: false,
+			});
+			sinon.stub(manager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
+			sinon.stub(manager, 'findRepo').returns(githubRepository);
+			sinon.stub(env, 'remoteName').value(undefined);
+			sinon.stub(workspace, 'workspaceFolders').value([]);
+			showWarningMessage = sinon.stub(window, 'showWarningMessage').resolves(undefined);
+			deleteRemoteBranch = sinon.stub(manager, 'deleteBranch').resolves();
+			sinon.stub(repository, 'fetch').resolves();
+		});
+
+		it('shows concise buttons and branch details in a modal, and cancels without deleting', async function () {
+			const showQuickPick = sinon.stub(window, 'showQuickPick');
+			const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result, { isReply: true, message: { cancelled: true } });
+			assert.strictEqual(showWarningMessage.calledOnce, true);
+			assert.strictEqual(showWarningMessage.firstCall.args[0], `Choose what to delete for Pull Request #${pr.number}`);
+			const options = showWarningMessage.firstCall.args[1] as MessageOptions;
+			assert.strictEqual(options.modal, true);
+			assert.ok(options.detail?.includes('origin/feature'));
+			assert.ok(options.detail?.includes('local-feature'));
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+				['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
+			assert.strictEqual(showQuickPick.notCalled, true);
+			assert.strictEqual(deleteRemoteBranch.notCalled, true);
+			assert.strictEqual(deleteLocalBranch.notCalled, true);
+		});
+
+		for (const [title, expectedTypes] of [
+			['Delete Remote Branch', ['remoteHead']],
+			['Delete Local Branch', ['local']],
+			['Delete All', ['local', 'remoteHead']],
+		] as const) {
+			it(`executes only the actions for "${title}"`, async function () {
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === title));
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.strictEqual(result.isReply, false);
+				assert.strictEqual(result.message.command, 'pr.deleteBranch');
+				assert.deepStrictEqual(result.message.branchTypes.sort(), [...expectedTypes]);
+				assert.strictEqual(deleteRemoteBranch.calledOnce, expectedTypes.some(type => type === 'remoteHead'));
+				assert.strictEqual(deleteLocalBranch.calledOnce, expectedTypes.some(type => type === 'local'));
+				if (deleteLocalBranch.calledOnce) {
+					sinon.assert.calledWithExactly(deleteLocalBranch, 'local-feature', true);
+				}
+			});
+		}
+
+		it('offers only local deletion when the remote branch has been deleted', async function () {
+			pr.isRemoteHeadDeleted = true;
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+		});
+
+		it('offers only remote branch deletion when there is no local branch', async function () {
+			getBranchInfo.resolves(undefined);
+			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items[0]);
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Remote Branch']);
+			assert.deepStrictEqual(result.message.branchTypes, ['remoteHead']);
+		});
+
+		it('does not offer deletion of the default remote branch', async function () {
+			assert.ok(pr.head);
+			pr.head.ref = 'main';
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+		});
+
+		it('warns without showing a modal when there are no actions', async function () {
+			pr.isRemoteHeadDeleted = true;
+			getBranchInfo.resolves(undefined);
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result, { isReply: true, message: { cancelled: true } });
+			sinon.assert.calledOnce(showWarningMessage);
+			assert.strictEqual(showWarningMessage.firstCall.args.length, 1);
+			assert.strictEqual(deleteRemoteBranch.notCalled, true);
+		});
+
+		for (const title of ['Delete Remote', 'Remove Worktree', 'Delete All']) {
+			it(`supports unused remote and worktree cleanup with "${title}"`, async function () {
+				getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: false });
+				const worktreePath = Uri.file('/worktrees/local-feature');
+				sinon.stub(manager, 'getWorktreeForBranch').returns(worktreePath);
+				const removeWorktree = sinon.stub(manager, 'removeWorktree').resolves();
+				const removeRemote = sinon.stub(repository, 'removeRemote').resolves();
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === title));
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+					['Delete All', 'Delete Remote Branch', 'Delete Local Branch', 'Delete Remote', 'Remove Worktree']);
+				assert.ok((showWarningMessage.firstCall.args[1] as MessageOptions).detail?.includes(worktreePath.fsPath));
+				assert.ok((showWarningMessage.firstCall.args[1] as MessageOptions).detail?.includes('fork'));
+				const expectedTypes = title === 'Delete All' ? ['local', 'remote', 'remoteHead', 'worktree'] : title === 'Delete Remote' ? ['remote'] : ['worktree'];
+				assert.deepStrictEqual(result.message.branchTypes.sort(), expectedTypes);
+				assert.strictEqual(removeRemote.calledOnce, title !== 'Remove Worktree');
+				assert.strictEqual(removeWorktree.calledOnce, title !== 'Delete Remote');
+				if (removeWorktree.calledOnce) {
+					sinon.assert.calledWithExactly(removeWorktree, worktreePath.fsPath);
+				}
+				if (title === 'Delete All') {
+					sinon.assert.callOrder(removeWorktree, deleteLocalBranch);
+				}
+			});
+		}
+
+		it('does not offer removal of an in-use remote or a worktree in the workspace', async function () {
+			getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: true });
+			const worktreePath = Uri.file('/worktrees/local-feature');
+			sinon.stub(manager, 'getWorktreeForBranch').returns(worktreePath);
+			sinon.stub(workspace, 'workspaceFolders').value([{ uri: worktreePath, name: 'local-feature', index: 0 }]);
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+				['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
+		});
+
+		for (const title of ['Suspend Codespace', 'Delete All']) {
+			it(`keeps Codespace suspension separate from deletion with "${title}"`, async function () {
+				sinon.stub(env, 'remoteName').value('codespaces');
+				const executeCommand = sinon.stub(commands, 'executeCommand').resolves();
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === title));
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.ok(showWarningMessage.firstCall.args.slice(2).some((item: MessageItem) => item.title === 'Suspend Codespace'));
+				assert.deepStrictEqual(result.message.branchTypes.sort(), title === 'Suspend Codespace' ? ['suspend'] : ['local', 'remoteHead']);
+				assert.strictEqual(executeCommand.calledOnce, title === 'Suspend Codespace');
+				if (executeCommand.calledOnce) {
+					sinon.assert.calledWithExactly(executeCommand, 'github.codespaces.disconnectSuspend');
+				}
+			});
+		}
 	});
 
 	describe('deleteRemotes', function () {

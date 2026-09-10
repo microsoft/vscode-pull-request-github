@@ -328,7 +328,7 @@ describe('PullRequestOverview', function () {
 				createdForPullRequest: false,
 			});
 			sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
-			const showQuickPick = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
+			const showWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
 			const replyMessage = sinon.stub(panel as any, '_replyMessage');
 
 			await (panel as any).mergePullRequest({
@@ -336,11 +336,12 @@ describe('PullRequestOverview', function () {
 				args: { title: '', description: '', method: 'squash' },
 			});
 
-			assert.strictEqual(showQuickPick.calledOnce, true);
-			const actions = showQuickPick.firstCall.args[0] as readonly (vscode.QuickPickItem & { type: string })[];
-			assert.strictEqual(actions.some(action => action.type === 'local'), true);
+			assert.strictEqual(showWarningMessage.calledOnce, true);
+			assert.strictEqual((showWarningMessage.firstCall.args[1] as vscode.MessageOptions).modal, true);
+			const actions = showWarningMessage.firstCall.args.slice(2) as vscode.MessageItem[];
+			assert.strictEqual(actions.some(action => action.title === 'Delete Local Branch'), true);
 			assert.strictEqual(replyMessage.firstCall.args[1].state, GithubItemStateEnum.Merged);
-			sinon.assert.callOrder(replyMessage, showQuickPick);
+			sinon.assert.callOrder(replyMessage, showWarningMessage);
 		});
 	});
 });
