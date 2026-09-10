@@ -95,7 +95,7 @@ describe('PullRequestManager', function () {
 				_mentionableUsers?: Record<string, unknown>;
 				_assignableUsers?: Record<string, unknown>;
 				_teamReviewers?: Record<string, unknown>;
-				_invalidatedUserCaches: Set<string>;
+				_accountCacheToken: object;
 			};
 			internal._sessionIgnoredRemoteNames.add('origin');
 			internal._inaccessibleRepos.add('owner/repo');
@@ -104,6 +104,7 @@ describe('PullRequestManager', function () {
 			internal._mentionableUsers = { origin: [] };
 			internal._assignableUsers = { origin: [] };
 			internal._teamReviewers = { origin: [] };
+			const oldAccountCacheToken = internal._accountCacheToken;
 
 			manager.clearForAuthChange();
 
@@ -114,7 +115,45 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(internal._mentionableUsers, undefined);
 			assert.strictEqual(internal._assignableUsers, undefined);
 			assert.strictEqual(internal._teamReviewers, undefined);
-			assert.deepStrictEqual(internal._invalidatedUserCaches, new Set(['assignableUsers', 'teamReviewers', 'mentionableUsers', 'orgProjects']));
+			assert.notStrictEqual(internal._accountCacheToken, oldAccountCacheToken);
+		});
+
+		it('does not publish user data into a replacement account cache', async function () {
+			let resolveUsers: (users: []) => void;
+			const users = new Promise<[]>(resolve => resolveUsers = resolve);
+			const internal = manager as unknown as {
+				_githubRepositories: { remote: { remoteName: string }, getAssignableUsers(): Promise<[]> }[];
+				_assignableUsers?: Record<string, unknown>;
+			};
+			internal._githubRepositories = [{
+				remote: { remoteName: 'origin' },
+				getAssignableUsers: () => users,
+			}];
+
+			const pendingUsers = manager.getAssignableUsers(true);
+			manager.clearForAuthChange();
+			resolveUsers!([]);
+
+			assert.deepStrictEqual(await pendingUsers, {});
+			assert.strictEqual(internal._assignableUsers, undefined);
+		});
+
+		it('scopes persisted user data to the authentication provider and account', function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const getAccountId = sinon.stub(manager.credentialStore, 'getAccountId');
+			const internal = manager as unknown as {
+				getAccountCacheLocation(userKind: string, repo: GitHubRepository): Uri | undefined;
+			};
+			getAccountId.returns('first-account');
+			const firstAccountLocation = internal.getAccountCacheLocation('assignableUsers', githubRepository);
+			getAccountId.returns('second-account');
+			const secondAccountLocation = internal.getAccountCacheLocation('assignableUsers', githubRepository);
+
+			assert.notStrictEqual(firstAccountLocation?.toString(), secondAccountLocation?.toString());
+			assert.ok(firstAccountLocation?.toString().includes('github'));
+			assert.ok(firstAccountLocation?.toString().includes('first-account'));
 		});
 	});
 

@@ -443,6 +443,10 @@ export class CredentialStore extends Disposable {
 		return this._githubEnterpriseAPI;
 	}
 
+	public getAccountId(authProviderId: AuthProvider): string | undefined {
+		return isEnterprise(authProviderId) ? this._enterpriseAccountId : this._accountId;
+	}
+
 	public areScopesOld(authProviderId: AuthProvider): boolean {
 		if (!isEnterprise(authProviderId)) {
 			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);

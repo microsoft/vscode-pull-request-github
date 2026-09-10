@@ -227,6 +227,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	}
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
+		const notificationsCache = this._notifications;
 		let pollInterval = this._pollingDuration;
 		let lastModified = this._pollingLastModified;
 		if (this._fetchNotifications) {
@@ -250,9 +251,12 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 					notification, model, kind: 'notification'
 				});
 			}));
+			if (notificationsCache !== this._notifications) {
+				return undefined;
+			}
 
 			for (const [key, value] of notificationTreeItems.entries()) {
-				this._notifications.set(key, value);
+				notificationsCache.set(key, value);
 			}
 			this._hasNextPage = notificationsData.hasNextPage;
 
@@ -261,14 +265,17 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 		// Calculate notification priority
 		if (this._sortingMethod === NotificationsSortMethod.Priority) {
-			const notificationsWithoutPriority = Array.from(this._notifications.values())
+			const notificationsWithoutPriority = Array.from(notificationsCache.values())
 				.filter(notification => notification.priority === undefined);
 
 			const notificationPriorities = await this._notificationProvider
 				.getNotificationsPriority(notificationsWithoutPriority);
+			if (notificationsCache !== this._notifications) {
+				return undefined;
+			}
 
 			for (const { key, priority, priorityReasoning } of notificationPriorities) {
-				const notification = this._notifications.get(key);
+				const notification = notificationsCache.get(key);
 				if (!notification) {
 					continue;
 				}
@@ -276,11 +283,11 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 				notification.priority = priority;
 				notification.priorityReason = priorityReasoning;
 
-				this._notifications.set(key, notification);
+				notificationsCache.set(key, notification);
 			}
 		}
 
-		const notifications = Array.from(this._notifications.values());
+		const notifications = Array.from(notificationsCache.values());
 		this._updateContext();
 		this._onDidChangeNotifications.fire(notifications);
 
@@ -310,7 +317,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		const updates = Array.from(this._notifications.values());
 		this._pageCount = 1;
 		this._dateTime = new Date();
-		this._notifications.clear();
+		this._notifications = new Map();
 		this._updateContext();
 		return updates;
 	}

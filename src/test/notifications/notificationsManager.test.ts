@@ -53,4 +53,39 @@ describe('NotificationsManager', function () {
 		assert.deepStrictEqual(onDidChangeNotifications.firstCall.args[0], [notification]);
 		assert.strictEqual(onDidChangeTreeData.calledOnce, true);
 	});
+
+	it('does not publish notifications into a replacement cache', async function () {
+		let resolveNotifications: (notifications: {
+			notifications: [];
+			hasNextPage: boolean;
+			pollInterval: number;
+			lastModified: string;
+		}) => void;
+		const notifications = new Promise<{
+			notifications: [];
+			hasNextPage: boolean;
+			pollInterval: number;
+			lastModified: string;
+		}>(resolve => resolveNotifications = resolve);
+		const getNotifications = sinon.stub().returns(notifications);
+		const internal = manager as unknown as {
+			_notificationProvider: { getNotifications: typeof getNotifications };
+			_fetchNotifications: boolean;
+		};
+		internal._notificationProvider = { getNotifications };
+		internal._fetchNotifications = true;
+
+		const pendingNotifications = manager.getNotifications();
+		manager.clear();
+		resolveNotifications!({
+			notifications: [],
+			hasNextPage: false,
+			pollInterval: 60,
+			lastModified: '',
+		});
+
+		assert.strictEqual(await pendingNotifications, undefined);
+		assert.deepStrictEqual(manager.getAllNotifications(), []);
+		assert.strictEqual(internal._fetchNotifications, false);
+	});
 });

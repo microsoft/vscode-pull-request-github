@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { StateManager } from '../../issues/stateManager';
 import { CurrentIssue } from '../../issues/currentIssue';
 import { USE_BRANCH_FOR_ISSUES, ISSUES_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { MockRepository } from '../mocks/mockRepository';
 
 // Mock classes for testing
 class MockFolderRepositoryManager {
@@ -102,6 +103,25 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 		assert.strictEqual(state.issueCollection.size, 0);
 		assert.strictEqual(state.userMap, undefined);
 		assert.strictEqual(issueDataChanged, 1);
+	});
+
+	it('does not publish issue queries into a replacement collection', async function () {
+		const repository = new MockRepository();
+		const internal = stateManager as any;
+		internal._queries = [{ label: 'My Issues', query: 'is:open' }];
+		internal.getCurrentUser = async () => 'old-account';
+		const folderManager = {
+			repository,
+			getMaxIssue: async () => 0,
+			getIssues: async () => ({ items: [] }),
+		};
+
+		const pendingIssueData = internal.setIssueData(folderManager);
+		stateManager.clearForAuthChange();
+		await pendingIssueData;
+
+		const state = internal._singleRepoStates.get(repository.rootUri.path);
+		assert.strictEqual(state.issueCollection.size, 0);
 	});
 
 	it('should checkout default branch when useBranchForIssues is not off', async function () {
