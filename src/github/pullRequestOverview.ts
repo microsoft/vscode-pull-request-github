@@ -7,7 +7,7 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
-import { openPullRequestOnGitHub } from '../commands';
+import { openItemOnGitHub } from '../commands';
 import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
@@ -44,6 +44,7 @@ import { toOpenIssueWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
+import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -92,6 +93,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
+		if (existingPanel && panel && panel._panel !== existingPanel) {
+			panel.dispose();
+			panel = undefined;
+		}
 
 		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
 
@@ -215,13 +220,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			vscode.commands.registerCommand('review.approveOnDotComDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
-					return openPullRequestOnGitHub(panel._item, telemetry);
+					return openItemOnGitHub(panel._item, telemetry);
 				}
 			}),
 			vscode.commands.registerCommand('review.requestChangesOnDotComDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
-					return openPullRequestOnGitHub(panel._item, telemetry);
+					return openItemOnGitHub(panel._item, telemetry);
 				}
 			}),
 		);
@@ -495,6 +500,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
+				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
@@ -678,6 +684,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openDiff(message);
 			case 'pr.open-changes':
 				return this.openChanges(message);
+			case 'pr.view-changes':
+				return this.viewChanges(message);
 			case 'pr.resolve-comment-thread':
 				return this.resolveCommentThread(message);
 			case 'pr.checkMergeability':
@@ -928,17 +936,33 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
+			const fileSystemProvider = getGitHubCommitFileSystemProvider();
+			if (!fileSystemProvider) {
+				throw new Error('GitHub commit file system provider is not initialized.');
+			}
+			fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
 			await PullRequestModel.openCommitChanges(this._extensionUri, this._item.githubRepository, commitSha);
-			this._replyMessage(message, {});
+			await this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
+			await this._throwError(message, formatError(error));
 		}
 	}
 
 	private async openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
 		const openToTheSide = message?.args?.openToTheSide || false;
 		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
+	}
+
+	private async viewChanges(message: IRequestMessage<void>): Promise<void> {
+		const fileSystemProvider = getGitHubCommitFileSystemProvider();
+		if (!fileSystemProvider) {
+			throw new Error('GitHub commit file system provider is not initialized.');
+		}
+		fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
+		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item);
+		await this._replyMessage(message, {});
 	}
 
 	private resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {

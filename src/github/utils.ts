@@ -1974,7 +1974,11 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 }
 
 export function vscodeDevPrLink(pullRequest: IssueModel) {
-	const itemUri = vscode.Uri.parse(pullRequest.html_url);
+	return vscodeDevPrLinkFromUrl(pullRequest.html_url);
+}
+
+export function vscodeDevPrLinkFromUrl(url: string) {
+	const itemUri = vscode.Uri.parse(url);
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }
 

@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, diffMultipleIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
@@ -28,6 +28,7 @@ export function Header({
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
+	isAgentSessionsWorkspace,
 	doneCheckoutBranch,
 	events,
 	owner,
@@ -50,6 +51,8 @@ export function Header({
 				setEditMode={setEditMode}
 				setCurrentTitle={setCurrentTitle}
 				canEdit={canEdit}
+				isIssue={isIssue}
+				isAgentSessionsWorkspace={isAgentSessionsWorkspace}
 				owner={owner}
 				repo={repo}
 			/>
@@ -79,12 +82,14 @@ interface TitleProps {
 	setEditMode: React.Dispatch<React.SetStateAction<boolean>>;
 	setCurrentTitle: React.Dispatch<React.SetStateAction<string>>;
 	canEdit: boolean;
+	isIssue: boolean;
+	isAgentSessionsWorkspace: boolean;
 	owner: string;
 	repo: string;
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }: TitleProps): JSX.Element {
-	const { setTitle, copyPrLink } = useContext(PullRequestContext);
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, isIssue, isAgentSessionsWorkspace, owner, repo }: TitleProps): JSX.Element {
+	const { setTitle, copyPrLink, openOnGitHub } = useContext(PullRequestContext);
 
 	const titleForm = (
 		<form
@@ -116,7 +121,8 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		'preventDefaultContextMenuItems': true,
 		owner,
 		repo,
-		number
+		number,
+		url,
 	};
 	context['github:copyMenu'] = true;
 
@@ -125,7 +131,15 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 			<h2>
 				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
 				{' '}
-				<a href={url} title={url} data-vscode-context={JSON.stringify(context)}>
+				<a
+					href={url}
+					title={url}
+					data-vscode-context={JSON.stringify(context)}
+					onClick={event => {
+						event.preventDefault();
+						void openOnGitHub();
+					}}
+				>
 					#{number}
 				</a>
 			</h2>
@@ -137,11 +151,21 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
 				{copyIcon}
 			</button>
+			{!isIssue && isAgentSessionsWorkspace ? <ViewChangesButton /> : null}
 		</div>
 	);
 
 	const editableTitle = inEditMode ? titleForm : displayTitle;
 	return editableTitle;
+}
+
+export function ViewChangesButton(): JSX.Element {
+	const { viewChanges } = useContext(PullRequestContext);
+	return (
+		<button title="View Changes" onClick={viewChanges} className="icon-button" aria-label="View Pull Request Changes">
+			{diffMultipleIcon}
+		</button>
+	);
 }
 
 interface ButtonGroupProps {

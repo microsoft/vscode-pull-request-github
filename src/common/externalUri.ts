@@ -48,8 +48,9 @@ export function parseGitHubIssueOrPullRequestUri(uri: vscode.Uri): GitHubIssueOr
 
 export function getGitHubIssueOrPullRequestUriOpenerPriority(
 	uri: vscode.Uri,
+	enabled: boolean,
 ): vscode.ExternalUriOpenerPriority {
-	return parseGitHubIssueOrPullRequestUri(uri)
+	return enabled && parseGitHubIssueOrPullRequestUri(uri)
 		? vscode.ExternalUriOpenerPriority.Preferred
 		: vscode.ExternalUriOpenerPriority.None;
 }

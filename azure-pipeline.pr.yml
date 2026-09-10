@@ -4,6 +4,9 @@ jobs:
     pool:
       vmImage: 'macos-15'
     steps:
+      - checkout: self
+        fetchDepth: 2
+
       - template: scripts/ci/common-setup.yml
 
       - script: npm run compile

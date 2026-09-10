@@ -44,7 +44,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.164.0",
+	"version": "0.166.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -355,6 +355,16 @@
 					],
 					"default": "ask",
 					"description": "%githubPullRequests.terminalLinksHandler.description%"
+				},
+				"githubPullRequests.openPullLinks": {
+					"type": "boolean",
+					"default": false,
+					"scope": "application",
+					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
+					"tags": [
+						"experimental",
+						"onExP"
+					]
 				},
 				"githubPullRequests.createOnPublishBranch": {
 					"type": "string",
@@ -4268,7 +4278,8 @@
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
 		"lint": "eslint --fix --cache . --ext .ts,.tsx",
 		"package": "npx vsce package",
-		"test": "npm run test:preprocess && node ./out/src/test/runTests.js",
+		"test": "npm run test:preprocess && npm run test:scripts && node ./out/src/test/runTests.js",
+		"test:scripts": "mocha \"out/src/test/scripts/**/*.test.js\"",
 		"test:preprocess": "npm run compile:test && npm run test:preprocess-gql && npm run test:preprocess-svg && npm run test:preprocess-fixtures",
 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
 		"browsertest": "npm run browsertest:preprocess && node ./dist/browser/test/runTests.js",
@@ -4280,6 +4291,7 @@
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
 		"check:commands": "node scripts/check-commands.js",
+		"check:package-quarantine": "node scripts/check-package-quarantine.js",
 		"prepare": "husky install",
 		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},

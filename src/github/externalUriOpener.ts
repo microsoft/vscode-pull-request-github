@@ -4,28 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
-import { Disposable } from '../common/lifecycle';
-import { IThemeWatcher } from '../themeWatcher';
-import { CredentialStore } from './credentials';
-import { FolderRepositoryManager } from './folderRepositoryManager';
+import { FolderRepositoryManagerResolver } from './folderRepositoryManagerResolver';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
-import { RepositoriesManager } from './repositoriesManager';
-import { GitApiImpl } from '../api/api1';
-import { getGitHubIssueOrPullRequestUriOpenerPriority, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
+import { getGitHubIssueOrPullRequestUriOpenerPriority, openWithDefaultExternalOpener, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
+import { Disposable } from '../common/lifecycle';
+import { OPEN_PULL_LINKS, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
-import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
-import { ThemeData } from '../view/theme';
 
 class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vscode.ExternalUriOpener {
-	private _remoteFolderRepositoryManager: FolderRepositoryManager | undefined;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _repositoriesManager: RepositoriesManager,
-		private readonly _credentialStore: CredentialStore,
+		private readonly _folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 		private readonly _telemetry: ITelemetry,
 	) {
 		super();
@@ -36,16 +28,21 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 	}
 
 	canOpenExternalUri(uri: vscode.Uri): vscode.ExternalUriOpenerPriority {
-		return getGitHubIssueOrPullRequestUriOpenerPriority(uri);
+		return getGitHubIssueOrPullRequestUriOpenerPriority(uri, this.isOpenPullLinksEnabled());
 	}
 
 	async openExternalUri(_resolvedUri: vscode.Uri, openContext: vscode.OpenExternalUriContext, token: vscode.CancellationToken): Promise<void> {
+		if (!this.isOpenPullLinksEnabled()) {
+			await openWithDefaultExternalOpener(openContext.sourceUri);
+			return;
+		}
+
 		const identity = parseGitHubIssueOrPullRequestUri(openContext.sourceUri);
 		if (!identity || token.isCancellationRequested) {
 			return;
 		}
 
-		const folderRepositoryManager = this.getFolderRepositoryManager(identity.owner, identity.repo);
+		const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 		if (identity.kind === 'pullRequest') {
 			const pullRequest = await folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true);
 			if (token.isCancellationRequested) {
@@ -81,43 +78,16 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 		}
 	}
 
-	private getFolderRepositoryManager(owner: string, repo: string): FolderRepositoryManager {
-		const existingManager = this._repositoriesManager.getManagerForRepository(owner, repo)
-			?? this._repositoriesManager.folderManagers[0];
-		if (existingManager) {
-			return existingManager;
-		}
-		if (this._remoteFolderRepositoryManager) {
-			return this._remoteFolderRepositoryManager;
-		}
-
-		const repository = this._register(new RemoteOnlyRepository());
-		const git = this._register(new GitApiImpl(this._repositoriesManager));
-		const createPullRequestHelper = this._register(new CreatePullRequestHelper());
-		const onDidChangeTheme = this._register(new vscode.EventEmitter<ThemeData | undefined>());
-		const themeWatcher: IThemeWatcher = {
-			onDidChangeTheme: onDidChangeTheme.event,
-			themeData: undefined,
-		};
-		this._remoteFolderRepositoryManager = this._register(new FolderRepositoryManager(
-			-1,
-			this._context,
-			repository,
-			this._telemetry,
-			git,
-			this._credentialStore,
-			createPullRequestHelper,
-			themeWatcher,
-		));
-		return this._remoteFolderRepositoryManager;
+	private isOpenPullLinksEnabled(): boolean {
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(OPEN_PULL_LINKS, false);
 	}
+
 }
 
 export function registerGitHubIssueOrPullRequestExternalUriOpener(
 	context: vscode.ExtensionContext,
-	repositoriesManager: RepositoriesManager,
-	credentialStore: CredentialStore,
+	folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
 	telemetry: ITelemetry,
 ): vscode.Disposable {
-	return new GitHubIssueOrPullRequestExternalUriOpener(context, repositoriesManager, credentialStore, telemetry);
+	return new GitHubIssueOrPullRequestExternalUriOpener(context, folderRepositoryManagerResolver, telemetry);
 }
