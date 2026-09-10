@@ -236,8 +236,8 @@ async function getExtensionConfig(target, mode, env) {
 		// Add main test runner
 		entry['test/index'] = './src/test/index.ts';
 
-		// Add individual test files as separate entry points
-		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname });
+		// CLI script tests run unbundled with test:scripts, not in the extension host.
+		const testFiles = glob.sync('src/test/**/*.test.ts', { cwd: __dirname, ignore: ['src/test/scripts/**'] });
 		testFiles.forEach(testFile => {
 			// Convert src/test/github/utils.test.ts -> test/github/utils.test
 			const entryName = testFile.replace('src/', '').replace('.ts', '');
