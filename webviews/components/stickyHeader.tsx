@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { getStatus } from './header';
+import { getStatus, ViewChangesButton } from './header';
 import { copyIcon } from './icon';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -32,7 +32,7 @@ export function useStickyHeader(titleRef: React.RefObject<HTMLDivElement | null>
 
 export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolean }): JSX.Element {
 	const { text, color, icon } = getStatus(pr.state, !!pr.isDraft, pr.isIssue, pr.stateReason);
-	const { copyPrLink } = React.useContext(PullRequestContext);
+	const { copyPrLink, openOnGitHub } = React.useContext(PullRequestContext);
 
 	const stickyRef = React.useCallback((node: HTMLDivElement | null) => {
 		if (node) {
@@ -64,12 +64,17 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 						number: pr.number,
 						'github:copyMenu': true,
 					})}
+					onClick={event => {
+						event.preventDefault();
+						void openOnGitHub();
+					}}
 				>
 					#{pr.number}
 				</a>
 				<button title="Copy Link" onClick={copyPrLink} className="icon-button sticky-header-copy" aria-label="Copy Pull Request Link">
 					{copyIcon}
 				</button>
+				{!pr.isIssue && pr.isAgentSessionsWorkspace ? <ViewChangesButton /> : null}
 			</div>
 		</div>
 	);

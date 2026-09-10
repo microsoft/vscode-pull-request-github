@@ -4,8 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { Status } from '../../api/api1';
+import { GitChangeType, SlimFileChange } from '../../common/file';
 import { CredentialStore } from '../../github/credentials';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { GithubItemStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
@@ -98,6 +102,86 @@ describe('PullRequestModel', function () {
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
 	});
 
+	describe('openReadonlyChanges', function () {
+		const baseCommit = '1111111111111111111111111111111111111111';
+		const mergeBase = '2222222222222222222222222222222222222222';
+		const headCommit = '3333333333333333333333333333333333333333';
+
+		function createPullRequestModel(): PullRequestModel {
+			const pr = new PullRequestBuilder()
+				.base(base => base.sha(baseCommit))
+				.head(head => head.sha(headCommit))
+				.build();
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		}
+
+		it('uses the git filesystem when the commit range is available locally', async function () {
+			const model = createPullRequestModel();
+			const oldUri = vscode.Uri.file('C:\\users\\test\\repo\\old.ts');
+			const newUri = vscode.Uri.file('C:\\users\\test\\repo\\new.ts');
+			const getCommit = sinon.stub().resolves({ hash: '', message: '', parents: [] });
+			const getMergeBase = sinon.stub().resolves(mergeBase);
+			const diffBetween = sinon.stub().resolves([{
+				uri: newUri,
+				originalUri: oldUri,
+				renameUri: newUri,
+				status: Status.INDEX_RENAMED,
+			}]);
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+			const folderManager = {
+				repository: { getCommit, getMergeBase, diffBetween },
+				telemetry,
+			} as unknown as FolderRepositoryManager;
+
+			await PullRequestModel.openReadonlyChanges(folderManager, model);
+
+			assert(getMergeBase.calledOnceWithExactly(baseCommit, headCommit));
+			assert(diffBetween.calledOnceWithExactly(mergeBase, headCommit));
+			const [command, , entries] = executeCommand.firstCall.args;
+			assert.strictEqual(command, 'vscode.changes');
+			assert.strictEqual(entries.length, 1);
+			const [resourceUri, originalUri, modifiedUri] = entries[0];
+			assert.strictEqual(resourceUri.scheme, 'git');
+			assert.strictEqual(originalUri.scheme, 'git');
+			assert.strictEqual(modifiedUri.scheme, 'git');
+			assert.deepStrictEqual(JSON.parse(originalUri.query), { path: oldUri.fsPath, ref: mergeBase });
+			assert.deepStrictEqual(JSON.parse(modifiedUri.query), { path: newUri.fsPath, ref: headCommit });
+		});
+
+		it('uses GitHub when the commit range is not available locally', async function () {
+			const model = createPullRequestModel();
+			const getCommit = sinon.stub().rejects(new Error('Unknown commit'));
+			const getAllFileChangesInfo = sinon.stub(model, 'getAllFileChangesInfo').resolves({
+				changes: [new SlimFileChange(mergeBase, '', GitChangeType.RENAME, 'new.ts', 'old.ts')],
+				mergeBase,
+			});
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+			const folderManager = {
+				repository: { getCommit },
+				telemetry,
+			} as unknown as FolderRepositoryManager;
+
+			await PullRequestModel.openReadonlyChanges(folderManager, model);
+
+			assert(getAllFileChangesInfo.calledOnce);
+			const [, , entries] = executeCommand.firstCall.args;
+			const [resourceUri, originalUri, modifiedUri] = entries[0];
+			assert.strictEqual(resourceUri.scheme, 'githubcommit');
+			assert.strictEqual(originalUri.scheme, 'githubcommit');
+			assert.strictEqual(modifiedUri.scheme, 'githubcommit');
+			assert.deepStrictEqual(JSON.parse(originalUri.query), {
+				commit: mergeBase,
+				owner: repo.remote.owner,
+				repo: repo.remote.repositoryName,
+			});
+			assert.deepStrictEqual(JSON.parse(modifiedUri.query), {
+				commit: headCommit,
+				owner: repo.remote.owner,
+				repo: repo.remote.repositoryName,
+			});
+		});
+	});
+
 	describe('reviewThreadCache', function () {
 		function page(id: string, endCursor: string | null) {
 			return {
@@ -125,8 +209,11 @@ describe('PullRequestModel', function () {
 			sinon.stub(repository, 'ensure').resolves(repository);
 			graphql.query.onCall(0).rejects(new Error('Unsupported query'));
 			graphql.query.onCall(1).resolves(page('1', 'first'));
-			graphql.query.onCall(2).rejects(new Error('Unsupported query'));
-			graphql.query.onCall(3).resolves(page('2', null));
+			const gatewayError = Object.assign(new Error('Bad Gateway'), { networkError: { statusCode: 502 } });
+			graphql.query.onCall(2).rejects(gatewayError);
+			graphql.query.onCall(3).rejects(gatewayError);
+			graphql.query.onCall(4).rejects(new Error('Unsupported query'));
+			graphql.query.onCall(5).resolves(page('2', null));
 
 			try {
 				const pr = new PullRequestBuilder().build();
@@ -134,18 +221,54 @@ describe('PullRequestModel', function () {
 				const threads = await model.getReviewThreads();
 
 				assert.deepStrictEqual(threads.map(thread => thread.id), ['1', '2']);
-				assert.strictEqual(graphql.query.callCount, 4);
-				for (const [call, after] of [[graphql.query.secondCall, null], [graphql.query.lastCall, 'first']] as const) {
+				assert.strictEqual(graphql.query.callCount, 6);
+				for (const [call, after, first] of [[graphql.query.secondCall, null, 20], [graphql.query.lastCall, 'first', 5]] as const) {
 					const [fallback] = call.args;
 					assert.strictEqual(fallback.query, repository.schema.LegacyPullRequestComments);
 					assert.deepStrictEqual(fallback.variables, {
-						owner: remote.owner, name: remote.repositoryName, number: pr.number, after,
+						owner: remote.owner, name: remote.repositoryName, number: pr.number, first, after,
 					});
 				}
 			} finally {
 				repository.dispose();
 			}
 		});
+
+		it('retries gateway failures with smaller pages without losing the cursor', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			const gatewayError = Object.assign(new Error('Bad Gateway'), { networkError: { statusCode: 502 } });
+			const query = sinon.stub(repo, 'query');
+			query.onCall(0).resolves(page('1', 'first'));
+			query.onCall(1).rejects(gatewayError);
+			query.onCall(2).rejects(gatewayError);
+			query.onCall(3).resolves(page('2', 'second'));
+			query.onCall(4).resolves(page('3', null));
+
+			const threads = await model.getReviewThreads();
+
+			assert.deepStrictEqual(threads.map(thread => thread.id), ['1', '2', '3']);
+			assert.deepStrictEqual(query.getCalls().map(call => call.args[0].variables), [
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 20, after: null },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 20, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 5, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 1, after: 'first' },
+				{ owner: remote.owner, name: remote.repositoryName, number: pr.number, first: 1, after: 'second' },
+			]);
+		});
+
+		for (const [statusCode, pageSizes] of [[502, [20, 5, 1]], [403, [20]]] as const) {
+			it(`stops retrying review comments after HTTP ${statusCode}`, async function () {
+				const pr = new PullRequestBuilder().build();
+				const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+				const query = sinon.stub(repo, 'query').rejects(Object.assign(new Error('Request failed'), {
+					networkError: { statusCode },
+				}));
+
+				assert.deepStrictEqual(await model.getReviewThreads(), []);
+				assert.deepStrictEqual(query.getCalls().map(call => call.args[0].variables?.first), [...pageSizes]);
+			});
+		}
 
 		it('reports missing review data without retrying', async function () {
 			const pr = new PullRequestBuilder().build();

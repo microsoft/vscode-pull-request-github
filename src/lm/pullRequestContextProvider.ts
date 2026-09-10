@@ -4,10 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { GitApiImpl } from '../api/api1';
 import { Disposable } from '../common/lifecycle';
-import Logger from '../common/logger';
-import { onceEvent } from '../common/utils';
 import { issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -21,84 +18,6 @@ export interface PRChatContextItem extends vscode.ChatContextItem {
 export namespace PRChatContextItem {
 	export function is(item: unknown): item is PRChatContextItem {
 		return (item as PRChatContextItem).pr !== undefined;
-	}
-}
-
-export class WorkspaceContextProvider extends Disposable implements vscode.ChatWorkspaceContextProvider {
-	private static readonly ID = 'WorkspaceContextProvider';
-
-	private readonly _onDidChangeWorkspaceChatContext = this._register(new vscode.EventEmitter<void>());
-	readonly onDidChangeWorkspaceChatContext = this._onDidChangeWorkspaceChatContext.event;
-
-	constructor(
-		private readonly _reposManager: RepositoriesManager,
-		private readonly _git: GitApiImpl
-	) {
-		super();
-	}
-
-	/**
-	 * Do this setup in the initialize method so that it can be called after the provider is registered.
-	 */
-	async initialize() {
-		if (this._git.state === 'uninitialized') {
-			await new Promise<void>(resolve => {
-				this._register(onceEvent(this._git.onDidChangeState)(() => resolve()));
-			});
-		}
-		this._reposManager.folderManagers.forEach(folderManager => {
-			this._register(folderManager.onDidChangeActivePullRequest(() => {
-				this._onDidChangeWorkspaceChatContext.fire();
-			}));
-		});
-		this._register(this._reposManager.onDidChangeFolderRepositories(e => {
-			if (!e.added) {
-				return;
-			}
-			this._register(e.added.onDidChangeActivePullRequest(() => {
-				this._onDidChangeWorkspaceChatContext.fire();
-			}));
-			this._onDidChangeWorkspaceChatContext.fire();
-		}));
-		this._register(this._reposManager.onDidChangeAnyGitHubRepository(() => {
-			this._onDidChangeWorkspaceChatContext.fire();
-		}));
-		this._onDidChangeWorkspaceChatContext.fire();
-	}
-
-	async provideWorkspaceChatContext(_token: vscode.CancellationToken): Promise<vscode.ChatContextItem[]> {
-		const modelDescription = this._reposManager.folderManagers.length > 1 ? 'Information about one of the current repositories. You can use this information when you need to calculate diffs or compare changes with the default branch' : 'Information about the current repository. You can use this information when you need to calculate diffs or compare changes with the default branch';
-		const contexts: vscode.ChatContextItem[] = [];
-		for (const folderManager of this._reposManager.folderManagers) {
-			if (folderManager.gitHubRepositories.length === 0) {
-				continue;
-			}
-			let defaults;
-			try {
-				defaults = await folderManager.getPullRequestDefaults();
-			} catch (e) {
-				// The folder may have no upstream, a detached HEAD, or an upstream that is not a GitHub
-				// repository. Skip it instead of letting the rejection escape as an unhandled promise.
-				Logger.debug(`Skipping workspace chat context for folder ${folderManager.repository.rootUri.toString()}: ${e.message ?? e}`, WorkspaceContextProvider.ID);
-				continue;
-			}
-
-			let value = `Repository name: ${defaults.repo}
-Owner: ${defaults.owner}
-Current branch: ${folderManager.repository.state.HEAD?.name ?? 'unknown'}
-Default branch: ${defaults.base}`;
-			if (folderManager.activePullRequest) {
-				value = `${value}
-Active pull request (may not be the same as open pull request): ${folderManager.activePullRequest.title} ${folderManager.activePullRequest.html_url}`;
-			}
-			contexts.push({
-				iconPath: new vscode.ThemeIcon('github-alt'),
-				label: `${defaults.owner}/${defaults.repo}`,
-				modelDescription,
-				value
-			});
-		}
-		return contexts;
 	}
 }
 

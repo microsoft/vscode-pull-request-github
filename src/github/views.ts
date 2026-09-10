@@ -75,6 +75,7 @@ export interface Issue {
 
 export interface PullRequest extends Issue {
 	isCopilotOnMyBehalf: boolean;
+	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
@@ -219,7 +220,8 @@ export interface BaseContext {
 	owner: string;
 	repo: string;
 	number: number;
-	[key: string]: boolean | string | number;
+	url?: string;
+	[key: string]: boolean | string | number | undefined;
 }
 
 export interface OverviewContext extends BaseContext {

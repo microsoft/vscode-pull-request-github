@@ -26,6 +26,7 @@ import { createExperimentationService, ExperimentationTelemetry } from './experi
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
@@ -34,7 +35,7 @@ import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { StateManager } from './issues/stateManager';
 import { IssueContextProvider } from './lm/issueContextProvider';
-import { PullRequestContextProvider, WorkspaceContextProvider } from './lm/pullRequestContextProvider';
+import { PullRequestContextProvider } from './lm/pullRequestContextProvider';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
@@ -49,7 +50,7 @@ import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { EmojiCompletionProvider } from './view/emojiCompletionProvider';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
-import { GitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
+import { getGitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
@@ -258,7 +259,10 @@ async function init(
 
 	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), notificationsManager);
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel, tree);
+	const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, reposManager, telemetry);
+	context.subscriptions.push(folderRepositoryManagerResolver);
+
+	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel, tree, folderRepositoryManagerResolver);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -279,10 +283,6 @@ async function init(
 		notificationsManager.refresh();
 	}));
 
-	const workspaceContextProvider = new WorkspaceContextProvider(reposManager, git);
-	context.subscriptions.push(workspaceContextProvider);
-	context.subscriptions.push(vscode.chat.registerChatWorkspaceContextProvider('githubpr', workspaceContextProvider));
-	workspaceContextProvider.initialize();
 	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, context);
 	context.subscriptions.push(pullRequestContextProvider);
 	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('githubpr', pullRequestContextProvider));
@@ -296,7 +296,7 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context.extensionUri, credentialStore));
+	context.subscriptions.push(new OverviewRestorer(telemetry, context, credentialStore, folderRepositoryManagerResolver));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
@@ -306,7 +306,7 @@ async function init(
 	await resumePendingCheckout(reviewsManager, context, reposManager);
 
 	initChat(context, credentialStore, reposManager);
-	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git)));
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git, folderRepositoryManagerResolver)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
@@ -499,7 +499,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
-	const githubFilesystemProvider = new GitHubCommitFileSystemProvider(reposManager, apiImpl, credentialStore);
+	const githubFilesystemProvider = getGitHubCommitFileSystemProvider({ reposManager, gitAPI: apiImpl, credentialStore })!;
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));
 	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(Schemes.CheckRunLog, new CheckRunLogContentProvider(reposManager)));
 

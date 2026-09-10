@@ -67,7 +67,8 @@ import {
 	ReviewEventEnum,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
-import { compareCommits, GraphQLError, GraphQLErrorType } from './loggingOctokit';
+import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
+import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -85,7 +86,8 @@ import {
 	RestAccount,
 	restPaginate,
 } from './utils';
-import { Repository } from '../api/api';
+import { Change, Repository } from '../api/api';
+import { Status } from '../api/api1';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
@@ -318,7 +320,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const openString = vscode.l10n.t('Open on GitHub');
 		vscode.window.showWarningMessage(message, openString).then(action => {
 			if (action && action === openString) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
+				openIssueOrPullRequestOnGitHub(vscode.Uri.parse(this.html_url), 'pullRequest', this._telemetry);
 			}
 		});
 
@@ -1493,29 +1495,45 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const { remote, query, schema } = await this.githubRepository.ensure();
 		let after: string | null = null;
-		let hasNextPage = false;
+		let pageSize = 20;
 		const reviewThreads: ReviewThread[] = [];
 		try {
-			do {
+			while (reviewThreads.length < 1000) {
 				const variables = {
 					owner: remote.owner,
 					name: remote.repositoryName,
 					number: this.number,
+					first: pageSize,
 					after,
 				};
-				const { data } = await query<PullRequestCommentsResponse>({
-					query: schema.PullRequestComments,
-					variables,
-				}, false, { query: schema.LegacyPullRequestComments, variables });
+				let data: PullRequestCommentsResponse | null;
+				try {
+					({ data } = await query<PullRequestCommentsResponse>({
+						query: schema.PullRequestComments,
+						variables,
+					}, false, { query: schema.LegacyPullRequestComments, variables }));
+				} catch (e) {
+					if (getErrorCode(e) !== '502' || pageSize === 1) {
+						throw e;
+					}
+					// Large review-thread queries can fail with HTTP 502.
+					// Retry the same cursor with 5, then 1 thread, and keep that size.
+					pageSize = Math.max(1, Math.floor(pageSize / 4));
+					Logger.warn(`Retrying review comments for PR #${this.number} with ${pageSize} threads per page after HTTP 502.`, PullRequestModel.ID);
+					continue;
+				}
 
 				if (!data?.repository) {
 					throw new Error('Review comments response did not include a repository.');
 				}
-				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes);
+				const page = data.repository.pullRequest.reviewThreads;
+				reviewThreads.push(...page.nodes);
 
-				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
-				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
-			} while (hasNextPage && reviewThreads.length < 1000);
+				if (!page.pageInfo.hasNextPage) {
+					break;
+				}
+				after = page.pageInfo.endCursor;
+			}
 			Logger.debug(`Fetching review comments for PR #${this.number} - exit`, PullRequestModel.ID);
 
 			return reviewThreads;
@@ -1623,6 +1641,116 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+	}
+
+	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
+		const headCommit = pullRequestModel.head?.sha;
+		if (!headCommit) {
+			throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
+		}
+
+		let startCommit = pullRequestModel.item.merged
+			? pullRequestModel.base.sha
+			: await this.getLocalMergeBase(folderManager.repository, pullRequestModel.base.sha, headCommit);
+		let localChanges: Change[] | undefined;
+		if (startCommit && await this.commitsExistLocally(folderManager.repository, startCommit, headCommit)) {
+			localChanges = await folderManager.repository.diffBetween(startCommit, headCommit);
+		}
+
+		let remoteChanges: (InMemFileChange | SlimFileChange)[] | undefined;
+		if (!localChanges) {
+			const allChanges = await pullRequestModel.getAllFileChangesInfo();
+			remoteChanges = allChanges.changes;
+			startCommit = allChanges.mergeBase;
+			if (await this.commitsExistLocally(folderManager.repository, startCommit, headCommit)) {
+				localChanges = await folderManager.repository.diffBetween(startCommit, headCommit);
+			}
+		}
+
+		if (!startCommit) {
+			throw new Error(`Pull request #${pullRequestModel.number} has no base commit.`);
+		}
+
+		let args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][];
+		if (localChanges) {
+			args = localChanges.map(change => this.localChangeToMultiDiffEntry(change, startCommit, headCommit));
+		} else {
+			if (!remoteChanges) {
+				throw new Error(`Pull request #${pullRequestModel.number} has no file changes.`);
+			}
+			const remote = pullRequestModel.githubRepository.remote;
+			args = remoteChanges.map((change): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] => {
+				const rightUri = toGitHubCommitUri(change.fileName, { commit: headCommit, owner: remote.owner, repo: remote.repositoryName });
+				const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName ?? change.fileName : change.fileName;
+				const leftUri = toGitHubCommitUri(parentFileName, { commit: startCommit, owner: remote.owner, repo: remote.repositoryName });
+				if (change.status === GitChangeType.ADD) {
+					return [rightUri, undefined, rightUri];
+				} else if (change.status === GitChangeType.DELETE) {
+					return [rightUri, leftUri, undefined];
+				}
+				return [rightUri, leftUri, rightUri];
+			});
+		}
+
+		/* __GDPR__
+			"pr.viewChanges" : {
+				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		folderManager.telemetry.sendTelemetryEvent('pr.viewChanges', { source: localChanges ? 'git' : 'github' });
+		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+	}
+
+	private static async getLocalMergeBase(repository: Repository, baseCommit: string, headCommit: string): Promise<string | undefined> {
+		if (!await this.commitsExistLocally(repository, baseCommit, headCommit)) {
+			return;
+		}
+		try {
+			return await repository.getMergeBase(baseCommit, headCommit);
+		} catch (error) {
+			Logger.debug(`Using GitHub to determine the pull request merge base: ${formatError(error)}`, PullRequestModel.ID);
+			return;
+		}
+	}
+
+	private static async commitsExistLocally(repository: Repository, startCommit: string, endCommit: string): Promise<boolean> {
+		try {
+			await Promise.all([repository.getCommit(startCommit), repository.getCommit(endCommit)]);
+			return true;
+		} catch (error) {
+			Logger.debug(`Using GitHub content because the pull request commit range is not available locally: ${formatError(error)}`, PullRequestModel.ID);
+			return false;
+		}
+	}
+
+	private static localChangeToMultiDiffEntry(change: Change, startCommit: string, endCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {
+		const rightFileUri = change.renameUri ?? change.uri;
+		const leftFileUri = change.originalUri;
+		const rightUri = this.toGitCommitUri(rightFileUri, endCommit);
+		const leftUri = this.toGitCommitUri(leftFileUri, startCommit);
+
+		switch (change.status) {
+			case Status.INDEX_ADDED:
+			case Status.ADDED_BY_US:
+			case Status.ADDED_BY_THEM:
+			case Status.UNTRACKED:
+			case Status.INTENT_TO_ADD:
+				return [rightUri, undefined, rightUri];
+			case Status.INDEX_DELETED:
+			case Status.DELETED:
+			case Status.DELETED_BY_US:
+			case Status.DELETED_BY_THEM:
+				return [rightUri, leftUri, undefined];
+			default:
+				return [rightUri, leftUri, rightUri];
+		}
+	}
+
+	private static toGitCommitUri(fileUri: vscode.Uri, commit: string): vscode.Uri {
+		return fileUri.with({
+			scheme: Schemes.Git,
+			query: JSON.stringify({ path: fileUri.fsPath, ref: commit }),
+		});
 	}
 
 	static async openCommitChanges(extensionUri: vscode.Uri, githubRepository: GitHubRepository, commitSha: string) {
@@ -1787,6 +1915,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._fileChanges.set(fileChange.fileName, fileChange);
 		});
 		return parsed;
+	}
+
+	async getAllFileChangesInfo(): Promise<{ changes: (InMemFileChange | SlimFileChange)[], mergeBase: string }> {
+		const githubRepository = this.githubRepository;
+		const { octokit, remote } = await githubRepository.ensure();
+		if (this.item.merged) {
+			const files = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				pull_number: this.number,
+			});
+			return { changes: await parseDiff(files, this.base.sha), mergeBase: this.base.sha };
+		}
+
+		if (!this.head) {
+			throw new Error(`Pull request #${this.number} has no head commit.`);
+		}
+		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head, this.base.sha, this.number, PullRequestModel.ID);
+		return { changes: await parseDiff(files, mergeBaseSha), mergeBase: mergeBaseSha };
 	}
 
 	async getPatch(): Promise<string> {

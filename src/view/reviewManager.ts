@@ -806,16 +806,12 @@ export class ReviewManager extends Disposable {
 
 		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this, previousActive);
 		this._localToDispose.push(
-			pr.onDidChangeChangesSinceReview(async _ => {
-				this._changesSinceLastReviewProgress.startProgress();
+			pr.onDidChangeChangesSinceReview(() => this._changesSinceLastReviewProgress.run(async () => {
 				this.changesInPrDataProvider.refresh();
 				await this.updateComments();
 				await this.reopenNewReviewDiffs();
-				if (pr) {
-					PullRequestModel.openChanges(this._folderRepoManager, pr);
-				}
-				this._changesSinceLastReviewProgress.endProgress();
-			})
+				PullRequestModel.openChanges(this._folderRepoManager, pr);
+			}))
 		);
 		Logger.appendLine(`Register in memory content provider`, this.id);
 		if (previousPrNumber !== pr.number) {

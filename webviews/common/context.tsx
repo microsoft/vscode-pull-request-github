@@ -54,6 +54,8 @@ export class PRContext {
 
 	public openChanges = (openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { openToTheSide } });
 
+	public viewChanges = () => this.postMessage({ command: 'pr.view-changes' });
+
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
 	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });
@@ -551,6 +553,8 @@ export class PRContext {
 				return;
 			case 'pr.initialize':
 				return this.setPR(message.pullrequest);
+			case 'pr.update':
+				return this.updatePR(message.pullrequest);
 			case 'update-state':
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':

@@ -44,7 +44,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.164.0",
+	"version": "0.166.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -60,6 +60,8 @@
 	],
 	"activationEvents": [
 		"onStartupFinished",
+		"onOpenExternalUri:http",
+		"onOpenExternalUri:https",
 		"onFileSystem:newIssue",
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
@@ -353,6 +355,16 @@
 					],
 					"default": "ask",
 					"description": "%githubPullRequests.terminalLinksHandler.description%"
+				},
+				"githubPullRequests.openPullLinks": {
+					"type": "boolean",
+					"default": false,
+					"scope": "application",
+					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
+					"tags": [
+						"experimental",
+						"onExP"
+					]
 				},
 				"githubPullRequests.createOnPublishBranch": {
 					"type": "string",
@@ -2097,7 +2109,7 @@
 				"key": "ctrl+k m",
 				"mac": "cmd+k m",
 				"command": "pr.makeSuggestion",
-				"when": "(commentEditorFocused) && !isSessionsWindow"
+				"when": "commentEditorFocused"
 			},
 			{
 				"key": "ctrl+r",
@@ -3237,37 +3249,37 @@
 				{
 					"command": "pr.diffOutdatedCommentWithHead",
 					"group": "inline@0",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/"
 				},
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThreadFromView",
 					"group": "inline@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
 				{
 					"command": "pr.diffOutdatedCommentWithHead",
 					"group": "context@0",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/"
 				},
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "context@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThreadFromView",
 					"group": "context@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
 					"group": "context@2",
-					"when": "(commentController =~ /^github-review/ && !config.chat.disableAIFeatures) && !isSessionsWindow"
+					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
 				}
 			],
 			"editor/title": [
@@ -3314,7 +3326,7 @@
 				{
 					"command": "pr.addFileComment",
 					"group": "navigation",
-					"when": "((resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)) && !isSessionsWindow"
+					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
 				}
 			],
 			"editor/content": [
@@ -3355,137 +3367,137 @@
 				{
 					"command": "pr.createComment",
 					"group": "inline@1",
-					"when": "((commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)) && !isSessionsWindow"
+					"when": "(commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)"
 				},
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@1",
-					"when": "(config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))) && !isSessionsWindow"
+					"when": "config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				},
 				{
 					"command": "pr.startReview",
 					"group": "inline@1",
-					"when": "(config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))) && !isSessionsWindow"
+					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				},
 				{
 					"command": "pr.startReview",
 					"group": "inline@2",
-					"when": "(config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))) && !isSessionsWindow"
+					"when": "config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				},
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@2",
-					"when": "(config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || commentController =~ /^github-review/ && !reviewInDraftMode)) && !isSessionsWindow"
+					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || commentController =~ /^github-review/ && !reviewInDraftMode)"
 				}
 			],
 			"comments/comment/editorActions": [
 				{
 					"command": "pr.makeSuggestion",
 					"group": "inline@3",
-					"when": "(commentController =~ /^github-(browse|review)/ && !github:activeCommentHasSuggestion) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && !github:activeCommentHasSuggestion"
 				},
 				{
 					"command": "pr.uploadFile",
 					"group": "inline@4",
-					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
 					"group": "inline@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
 				{
 					"command": "pr.openReview",
 					"group": "inline@2",
-					"when": "((commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)) && !isSessionsWindow"
+					"when": "(commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)"
 				}
 			],
 			"comments/commentThread/title/context": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
 					"group": "inline@3",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				}
 			],
 			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"when": "(commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
 				{
 					"command": "pr.applySuggestion",
-					"when": "(commentController =~ /^github-review/ && comment =~ /hasSuggestion/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
-					"when": "(commentController =~ /^github-review/ && !config.chat.disableAIFeatures) && !isSessionsWindow"
+					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
 				}
 			],
 			"comments/comment/title": [
 				{
 					"command": "pr.applySuggestion",
 					"group": "inline@0",
-					"when": "(commentController =~ /^github-review/ && comment =~ /hasSuggestion/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
 					"group": "overflow@0",
-					"when": "(commentController =~ /^github-review/ && !config.chat.disableAIFeatures) && !isSessionsWindow"
+					"when": "commentController =~ /^github-review/ && !config.chat.disableAIFeatures"
 				},
 				{
 					"command": "pr.editComment",
 					"group": "overflow@1",
-					"when": "(commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
 				},
 				{
 					"command": "pr.deleteComment",
 					"group": "overflow@2",
-					"when": "(commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
 				},
 				{
 					"command": "pr.copyCommentLink",
 					"group": "overflow@3",
-					"when": "(commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
 				}
 			],
 			"comments/commentThread/title": [
 				{
 					"command": "pr.refreshComments",
 					"group": "0_refresh@0",
-					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/"
 				},
 				{
 					"command": "pr.collapseAllComments",
 					"group": "1_collapse@0",
-					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/comment/context": [
 				{
 					"command": "pr.saveComment",
 					"group": "inline@1",
-					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/"
 				},
 				{
 					"command": "pr.cancelEditComment",
 					"group": "inline@2",
-					"when": "(commentController =~ /^github-(browse|review)/) && !isSessionsWindow"
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"editor/context/copy": [
@@ -4266,7 +4278,8 @@
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
 		"lint": "eslint --fix --cache . --ext .ts,.tsx",
 		"package": "npx vsce package",
-		"test": "npm run test:preprocess && node ./out/src/test/runTests.js",
+		"test": "npm run test:preprocess && npm run test:scripts && node ./out/src/test/runTests.js",
+		"test:scripts": "mocha \"out/src/test/scripts/**/*.test.js\"",
 		"test:preprocess": "npm run compile:test && npm run test:preprocess-gql && npm run test:preprocess-svg && npm run test:preprocess-fixtures",
 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
 		"browsertest": "npm run browsertest:preprocess && node ./dist/browser/test/runTests.js",
@@ -4278,6 +4291,7 @@
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
 		"hygiene": "node ./build/hygiene.js",
 		"check:commands": "node scripts/check-commands.js",
+		"check:package-quarantine": "node scripts/check-package-quarantine.js",
 		"prepare": "husky install",
 		"update:codicons": "npx ts-node --project tsconfig.scripts.json build/update-codicons.ts"
 	},

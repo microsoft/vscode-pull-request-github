@@ -566,10 +566,10 @@ query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 	}
 }
 
-query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
+query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviewThreads(first: 20, after: $after) {
+			reviewThreads(first: $first, after: $after) {
 				nodes {
 					id
 					isResolved
@@ -608,10 +608,10 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after
 	}
 }
 
-query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
+query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviewThreads(first: 20, after: $after) {
+			reviewThreads(first: $first, after: $after) {
 				nodes {
 					id
 					isResolved

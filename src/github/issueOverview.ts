@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
-import { openPullRequestOnGitHub } from '../commands';
+import { openItemOnGitHub } from '../commands';
 import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
@@ -65,6 +65,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
+		if (existingPanel && panel && panel._panel !== existingPanel) {
+			panel.dispose();
+			panel = undefined;
+		}
 		const activeColumn = IssueOverviewPanel._getViewColumn(toTheSide, panel);
 
 		if (panel) {
@@ -257,6 +261,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			...label,
 			displayName: emojify(label.name)
 		}));
+		const [bodyHTML, events] = await Promise.all([
+			this.processLinksInBodyHtml(issue.bodyHTML),
+			this.processTimelineEvents(timelineEvents),
+		]);
 
 		const context: Issue = {
 			owner: issue.remote.owner,
@@ -267,12 +275,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			url: issue.html_url,
 			createdAt: issue.createdAt,
 			body: issue.body,
-			bodyHTML: await this.processLinksInBodyHtml(issue.bodyHTML),
+			bodyHTML,
 			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			stateReason: issue.stateReason,
-			events: await this.processTimelineEvents(timelineEvents),
+			events,
 			continueOnGitHub: this.continueOnGitHub(),
 			canEdit,
 			hasWritePermission,
@@ -448,7 +456,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, this._telemetry);
+				return openItemOnGitHub(this._item, this._telemetry);
 			case 'pr.open-local-file':
 				return this.openLocalFile(message);
 			case 'pr.debug':
