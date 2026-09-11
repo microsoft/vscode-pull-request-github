@@ -266,7 +266,7 @@ describe('PullRequestManager', function () {
 				'Choose an action below to clean up the resources associated with this pull request.',
 				'',
 				'Remote branch: origin/feature',
-				'Remote repository: github.com/aaa/bbb',
+				'Remote repository: https://github.com/octocat/reponame',
 				'Local branch: local-feature',
 			].join('\n'));
 			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
@@ -372,7 +372,7 @@ describe('PullRequestManager', function () {
 					'Choose an action below to clean up the resources associated with this pull request.',
 					'',
 					'Remote branch: origin/feature',
-					'Remote repository: github.com/aaa/bbb',
+					'Remote repository: https://github.com/octocat/reponame',
 					'Local branch: local-feature',
 					'Unused Git remote: fork',
 					`Worktree: ${worktreePath.fsPath}`,

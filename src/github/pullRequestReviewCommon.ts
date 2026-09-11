@@ -324,13 +324,15 @@ export namespace PullRequestReviewCommon {
 			const isDefaultBranch = defaultBranch === item.head.ref;
 			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
 				const remoteBranch = headRepo ? `${headRepo.remote.remoteName}/${branchHeadRef}` : branchHeadRef;
+				const remoteRepository = item.head.repositoryCloneUrl.toString() ??
+					`${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.head.repositoryCloneUrl.repositoryName}`;
 				actions.push({
 					title: vscode.l10n.t('Delete Remote Branch'),
 					type: 'remoteHead',
 				});
 				cleanupDetails.push(
 					vscode.l10n.t('Remote branch: {0}', remoteBranch),
-					vscode.l10n.t('Remote repository: {0}', `${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.remote.repositoryName}`),
+					vscode.l10n.t('Remote repository: {0}', remoteRepository),
 				);
 			}
 		}
