@@ -28,6 +28,7 @@ import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { TimelineEvent } from '../../common/timelineEvent';
+import { PullRequestReviewCommon } from '../../github/pullRequestReviewCommon';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -338,7 +339,7 @@ describe('PullRequestOverview', function () {
 				createdForPullRequest: false,
 			});
 			sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
-			const showQuickPick = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
+			const showWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
 			const replyMessage = sinon.stub(panel as any, '_replyMessage');
 
 			await (panel as any).mergePullRequest({
@@ -346,11 +347,35 @@ describe('PullRequestOverview', function () {
 				args: { title: '', description: '', method: 'squash' },
 			});
 
-			assert.strictEqual(showQuickPick.calledOnce, true);
-			const actions = showQuickPick.firstCall.args[0] as readonly (vscode.QuickPickItem & { type: string })[];
-			assert.strictEqual(actions.some(action => action.type === 'local'), true);
+			assert.strictEqual(showWarningMessage.calledOnce, true);
+			assert.strictEqual((showWarningMessage.firstCall.args[1] as vscode.MessageOptions).modal, true);
+			const actions = showWarningMessage.firstCall.args.slice(2) as vscode.MessageItem[];
+			assert.strictEqual(actions.some(action => action.title === 'Delete Local Branch'), true);
 			assert.strictEqual(replyMessage.firstCall.args[1].state, GithubItemStateEnum.Merged);
-			sinon.assert.callOrder(replyMessage, showQuickPick);
+			sinon.assert.callOrder(replyMessage, showWarningMessage);
+		});
+	});
+
+	describe('deleteBranch', function () {
+		it('replies with the deletion state after deletion completes', async function () {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, prModel);
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+			const response = { command: 'pr.deleteBranch', branchTypes: ['local'] };
+			sinon.stub(PullRequestReviewCommon, 'deleteBranch').resolves({ isReply: false, message: response });
+			const replyMessage = sinon.stub(panel as any, '_replyMessage').resolves();
+			const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+			const refreshPanel = sinon.stub(panel as any, 'refreshPanel').resolves();
+			const message = { req: '1', command: 'pr.deleteBranch', args: undefined };
+
+			await (panel as any).deleteBranch(message);
+
+			sinon.assert.calledOnce(replyMessage);
+			sinon.assert.calledWithExactly(replyMessage, message, response);
+			sinon.assert.calledOnce(refreshPanel);
+			sinon.assert.notCalled(postMessage);
 		});
 	});
 });

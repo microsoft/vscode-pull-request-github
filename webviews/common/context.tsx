@@ -100,7 +100,13 @@ export class PRContext {
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
 
-	public deleteBranch = () => this.postMessage({ command: 'pr.deleteBranch' });
+	public deleteBranch = async () => {
+		const result = await this.postMessage({ command: 'pr.deleteBranch' });
+		if (result?.command === 'pr.deleteBranch') {
+			this.handleMessage(result);
+		}
+		return result;
+	};
 
 	public revert = async () => {
 		this.updatePR({ busy: true });
@@ -564,7 +570,7 @@ export class PRContext {
 				message.branchTypes && message.branchTypes.map((branchType: string) => {
 					if (branchType === 'local') {
 						stateChange.isLocalHeadDeleted = true;
-					} else if ((branchType === 'remote') || (branchType === 'upstream')) {
+					} else if ((branchType === 'remoteHead') || (branchType === 'remote') || (branchType === 'upstream')) {
 						stateChange.isRemoteHeadDeleted = true;
 					}
 				});
