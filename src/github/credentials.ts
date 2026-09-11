@@ -391,14 +391,20 @@ export class CredentialStore extends Disposable {
 		if (lastHandled !== undefined && (Date.now() - lastHandled) < CredentialStore.AUTH_ERROR_COOLDOWN_MS) {
 			return { canceled: true };
 		}
-		Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
-		/* __GDPR__
-			"auth.badCredentials" : {}
-		*/
-		this._telemetry.sendTelemetryEvent('auth.badCredentials');
-		const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 		const promise = (async () => {
 			try {
+				// Sign-out can invalidate in-flight requests before the session change
+				// event clears our cached authentication state. Do not prompt in that case.
+				const existingSession = await findExistingSession(authProviderId);
+				if (!existingSession || !this.isAuthenticated(authProviderId)) {
+					return { canceled: true };
+				}
+				Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
+				/* __GDPR__
+					"auth.badCredentials" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.badCredentials');
+				const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 				// Force re-auth only for the affected provider, not both. Going through
 				// recreate()/doCreate() would prompt re-auth for both GitHub.com and
 				// GitHub Enterprise when both are configured.
