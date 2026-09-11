@@ -192,7 +192,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	useEffect(() => {
 		const handle = setInterval(async () => {
 			if (mergeable === PullRequestMergeability.Unknown) {
-				const newMergeability = await checkMergeability();
+				const { mergeability: newMergeability } = await checkMergeability();
 				setMergeability(newMergeability);
 			}
 		}, 3000);
