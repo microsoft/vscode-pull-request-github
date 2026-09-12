@@ -349,12 +349,16 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 				}),
 			});
 
+			// For added files the content lives on the head side of the diff, so use `filePath`.
+			// Using `parentFilePath` here would make the commenting range provider treat the
+			// document as the base, where an added file has no deleted lines and therefore no
+			// commenting ranges at all.
 			return {
 				command: 'vscode.diff',
 				arguments:
 					this.status === GitChangeType.DELETE
 						? [this.changeModel.parentFilePath, emptyFileUri, `${this.fileName}`, {}]
-						: [emptyFileUri, this.changeModel.parentFilePath, `${this.fileName}`, {}],
+						: [emptyFileUri, this.changeModel.filePath, `${this.fileName}`, {}],
 				title: 'Open Diff',
 			};
 		}
