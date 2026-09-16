@@ -136,7 +136,10 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 					title={url}
 					data-vscode-context={JSON.stringify(context)}
 					onClick={event => {
+						// The webview host opens any anchor with an href and ignores defaultPrevented,
+						// so the click must not reach it or a second browser tab is opened.
 						event.preventDefault();
+						event.stopPropagation();
 						void openOnGitHub();
 					}}
 				>
