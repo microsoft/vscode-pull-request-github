@@ -49,7 +49,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 				return;
 			}
 			if (!pullRequest) {
-				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0} in {1}/{2}.', identity.number, identity.owner, identity.repo));
+				await openWithDefaultExternalOpener(openContext.sourceUri);
 				return;
 			}
 			await PullRequestOverviewPanel.createOrShow(
@@ -65,7 +65,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 				return;
 			}
 			if (!issue) {
-				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to find issue #{0} in {1}/{2}.', identity.number, identity.owner, identity.repo));
+				await openWithDefaultExternalOpener(openContext.sourceUri);
 				return;
 			}
 			await IssueOverviewPanel.createOrShow(

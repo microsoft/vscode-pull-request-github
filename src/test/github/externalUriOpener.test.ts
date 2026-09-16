@@ -27,7 +27,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		sandbox.restore();
 	});
 
-	it('creates a remote-only folder manager when no local manager is available', async () => {
+	it('opens an unresolved issue with the default external opener', async () => {
 		const context = new MockExtensionContext();
 		const telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry, context);
@@ -46,7 +46,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 			assert.ok(this.repository instanceof RemoteOnlyRepository);
 			return undefined;
 		});
-		sandbox.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+		const openExternal = sandbox.stub(vscode.env, 'openExternal').resolves(true);
 
 		try {
 			await configuration.update(OPEN_PULL_LINKS, true, vscode.ConfigurationTarget.Global);
@@ -62,6 +62,51 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 
 			assert.strictEqual(repositoriesManager.folderManagers.length, 0);
 			assert.strictEqual(resolveIssue.callCount, 1);
+			assert.ok(openExternal.calledOnceWith(uri, { allowContributedOpeners: 'default' }));
+		} finally {
+			cancellation?.dispose();
+			registration?.dispose();
+			folderRepositoryManagerResolver.dispose();
+			repositoriesManager.dispose();
+			credentialStore.dispose();
+			context.dispose();
+		}
+	});
+
+	it('opens an unresolved pull request with the default external opener', async () => {
+		const context = new MockExtensionContext();
+		const telemetry = new MockTelemetry();
+		const credentialStore = new CredentialStore(telemetry, context);
+		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		const folderRepositoryManagerResolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
+		let opener: vscode.ExternalUriOpener | undefined;
+		let registration: vscode.Disposable | undefined;
+		let cancellation: vscode.CancellationTokenSource | undefined;
+		sandbox.stub(vscode.window, 'registerExternalUriOpener').callsFake((_id, value) => {
+			opener = value;
+			return new vscode.Disposable(() => undefined);
+		});
+		const resolvePullRequest = sandbox.stub(FolderRepositoryManager.prototype, 'resolvePullRequest').callsFake(async function (this: FolderRepositoryManager) {
+			assert.ok(this.repository instanceof RemoteOnlyRepository);
+			return undefined;
+		});
+		const openExternal = sandbox.stub(vscode.env, 'openExternal').resolves(true);
+
+		try {
+			registration = registerGitHubIssueOrPullRequestExternalUriOpener(
+				context,
+				folderRepositoryManagerResolver,
+				telemetry,
+			);
+			const uri = vscode.Uri.parse('https://github.com/microsoft/vscode/pull/1');
+			assert.ok(opener);
+			sandbox.stub(opener as any, 'isOpenPullLinksEnabled').returns(true);
+			cancellation = new vscode.CancellationTokenSource();
+			await opener.openExternalUri(uri, { sourceUri: uri }, cancellation.token);
+
+			assert.strictEqual(repositoriesManager.folderManagers.length, 0);
+			assert.strictEqual(resolvePullRequest.callCount, 1);
+			assert.ok(openExternal.calledOnceWith(uri, { allowContributedOpeners: 'default' }));
 		} finally {
 			cancellation?.dispose();
 			registration?.dispose();
