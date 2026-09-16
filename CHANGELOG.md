@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.166.1
+
+### Fixes
+
+- Fall back to the browser when a GitHub link cannot be resolved. https://github.com/microsoft/vscode-pull-request-github/issues/8959
+
 ## 0.166.0
 
 ### Changes
