@@ -4400,7 +4400,7 @@
 	},
 	"overrides": {
 		"mocha": {
-			"diff": "7.0.0",
+			"diff": "8.0.3",
 			"serialize-javascript": "7.0.5"
 		},
 		"elliptic": "6.6.1"
