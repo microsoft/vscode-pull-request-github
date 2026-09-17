@@ -53,16 +53,19 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 		super();
 	}
 
-	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
+	protected async getRepoInfo(options: { owner?: string, name?: string, exact?: boolean }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
 		if (!this.credentialStore.isAnyAuthenticated()) {
 			throw new AuthenticationError();
+		}
+		if (options.exact && (!options.owner || !options.name)) {
+			throw new Error('Repository owner and name are required.');
 		}
 
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
 		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.owner && options.name && !options.owner.includes('owner') && !options.name.includes('name')) {
+		if (options.owner && options.name && (options.exact || (!options.owner.includes('owner') && !options.name.includes('name')))) {
 			owner = options.owner;
 			name = options.name;
 			folderManager = this.repositoriesManager.getManagerForRepository(options.owner, options.name);
