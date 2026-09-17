@@ -31,6 +31,11 @@ export enum PullRequestMergeability {
 	Behind,
 }
 
+export interface PullRequestMergeabilityResult {
+	mergeability: PullRequestMergeability;
+	conflicts?: string[];
+}
+
 export enum MergeQueueState {
 	AwaitingChecks,
 	Locked,

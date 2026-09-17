@@ -10,7 +10,7 @@ import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
+import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
 import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
 /**
@@ -86,7 +86,8 @@ export class PRContext {
 		this.updatePR(this.pr);
 	};
 
-	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
+	public checkMergeability = (): Promise<PullRequestMergeabilityResult> =>
+		this.postMessage({ command: 'pr.checkMergeability' });
 
 	public changeEmail = async (current: string) => {
 		const newEmail = await this.postMessage({ command: 'pr.change-email', args: current });
