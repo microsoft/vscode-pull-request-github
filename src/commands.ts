@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
-
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+
 import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
@@ -21,6 +21,7 @@ import { EXTENSION_ID } from './constants';
 import { addAttestationCommit } from './github/attestationCommit';
 import { CrossChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, SessionIdForPr } from './github/copilotRemoteAgent';
+import { ALL_CHANGES } from './github/diffRange';
 import { guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './github/fileUpload';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
@@ -42,6 +43,7 @@ import { PRChatContextItem } from './lm/pullRequestContextProvider';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { NotificationsManager } from './notifications/notificationsManager';
 import { CreatePullRequestDataModel } from './view/createPullRequestDataModel';
+import { selectDiffRange } from './view/diffRangeQuickPick';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { PrsTreeModel } from './view/prsTreeModel';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -1225,14 +1227,44 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: RepositoryChangesNode) => {
-			descriptionNode.pullRequestModel.showChangesSinceReview = true;
+		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (node: RepositoryChangesNode | PRNode) => {
+			node.pullRequestModel.showChangesSinceReview = true;
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: RepositoryChangesNode) => {
-			descriptionNode.pullRequestModel.showChangesSinceReview = false;
+		vscode.commands.registerCommand('pr.showDiffAll', async (node: RepositoryChangesNode | PRNode) => {
+			node.pullRequestModel.setDiffRange(ALL_CHANGES);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.selectDiffRange', async (node: RepositoryChangesNode | PRNode | PullRequestModel | undefined) => {
+			let pullRequestModel: PullRequestModel | undefined;
+			if (node instanceof RepositoryChangesNode || node instanceof PRNode) {
+				pullRequestModel = node.pullRequestModel;
+			} else if (node instanceof PullRequestModel) {
+				pullRequestModel = node;
+			} else {
+				// Invoked from the view title: use the checked out pull request.
+				const activePullRequests = reposManager.folderManagers
+					.map(folderManager => folderManager.activePullRequest)
+					.filter((pullRequest): pullRequest is PullRequestModel => !!pullRequest);
+				pullRequestModel = await chooseItem(
+					activePullRequests,
+					pullRequest => ({ label: `#${pullRequest.number}: ${pullRequest.title}`, description: `${pullRequest.remote.owner}/${pullRequest.remote.repositoryName}` }),
+					{ placeHolder: vscode.l10n.t('Select the pull request to choose a diff range for') },
+				);
+			}
+			if (!pullRequestModel) {
+				return vscode.window.showInformationMessage(vscode.l10n.t('No pull request is checked out. Use "Select Diff Range..." on a pull request in the tree instead.'));
+			}
+
+			/* __GDPR__
+				"pr.selectDiffRange" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.selectDiffRange');
+			return selectDiffRange(pullRequestModel);
 		}),
 	);
 

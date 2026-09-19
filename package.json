@@ -1203,6 +1203,11 @@
 				"icon": "$(git-pull-request-go-to-changes)"
 			},
 			{
+				"command": "pr.selectDiffRange",
+				"title": "%command.pr.selectDiffRange.title%",
+				"icon": "$(git-compare)"
+			},
+			{
 				"command": "pr.checkoutByNumber",
 				"title": "%command.pr.checkoutByNumber.title%",
 				"category": "%command.pull.request.category%",
@@ -2311,6 +2316,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.selectDiffRange",
+					"when": "false"
+				},
+				{
 					"command": "pr.closeRelatedEditors",
 					"when": "(gitHubOpenRepositoryCount != 0) && !isSessionsWindow"
 				},
@@ -2855,6 +2864,11 @@
 					"group": "navigation@2"
 				},
 				{
+					"command": "pr.selectDiffRange",
+					"when": "(view == prStatus:github) && !isSessionsWindow",
+					"group": "navigation@3"
+				},
+				{
 					"command": "pr.setFileListLayoutAsTree",
 					"when": "(view == prStatus:github && fileListLayout:flat) && !isSessionsWindow",
 					"group": "navigation1"
@@ -3017,6 +3031,11 @@
 					"group": "2_pullrequest@3"
 				},
 				{
+					"command": "pr.selectDiffRange",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /^(pullrequest|description):/) && !isSessionsWindow",
+					"group": "2_pullrequest@4"
+				},
+				{
 					"command": "pr.refreshPullRequest",
 					"when": "(view == pr:github && viewItem =~ /pullrequest/) && !isSessionsWindow",
 					"group": "3_pullrequest@1"
@@ -3060,6 +3079,11 @@
 					"command": "pr.showDiffAll",
 					"group": "inline@1",
 					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/) && !isSessionsWindow"
+				},
+				{
+					"command": "pr.selectDiffRange",
+					"group": "inline@2",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /^(pullrequest|description):/) && !isSessionsWindow"
 				},
 				{
 					"command": "notification.chatSummarizeNotification",

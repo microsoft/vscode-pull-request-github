@@ -249,6 +249,7 @@
 	"command.pr.focusDescriptionInput.title": "Focus Pull Request Description Review Input",
 	"command.pr.showDiffSinceLastReview.title": "Show Changes Since Last Review",
 	"command.pr.showDiffAll.title": "Show All Changes",
+	"command.pr.selectDiffRange.title": "Select Diff Range...",
 	"command.pr.checkoutByNumber.title": "Checkout Pull Request by Number",
 	"command.review.openFile.title": "Open File",
 	"command.review.openLocalFile.title": "Open File",
