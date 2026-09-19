@@ -3081,6 +3081,11 @@
 					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/) && !isSessionsWindow"
 				},
 				{
+					"command": "pr.showDiffAll",
+					"group": "inline@1",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /^(pullrequest|description):.*:customRange/) && !isSessionsWindow"
+				},
+				{
 					"command": "pr.selectDiffRange",
 					"group": "inline@2",
 					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /^(pullrequest|description):/) && !isSessionsWindow"

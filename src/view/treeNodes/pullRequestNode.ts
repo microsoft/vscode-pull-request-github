@@ -8,6 +8,7 @@ import { CategoryTreeNode } from './categoryNode';
 import { Repository } from '../../api/api';
 import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
+import { describeDiffRange } from '../../common/diffRangeLabels';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, LIST_HORIZONTAL_SCROLLING, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, PullRequestAvatarDisplay, SHOW_PULL_REQUEST_NUMBER_IN_TREE, WORKBENCH } from '../../common/settingKeys';
@@ -177,7 +178,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				}
 			});
 		});
-		if (pullRequest.showChangesSinceReview && !hasOpenDiff && this._fileChanges && this._fileChanges.length && !pullRequest.isActive) {
+		if (pullRequest.diffRange.preset !== 'all' && !hasOpenDiff && this._fileChanges && this._fileChanges.length && !pullRequest.isActive) {
 			this._fileChanges[0].openDiff(this._folderReposManager, { preview: true });
 		}
 	}
@@ -371,7 +372,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const label: vscode.TreeItemLabel2 = {
 			label: new vscode.MarkdownString(this._getLabel(), true)
 		};
-		const description = `by @${login}`;
+		const rangeDescription = describeDiffRange(this.pullRequestModel.diffRange, this.pullRequestModel.mergeBase, this.pullRequestModel.effectiveHeadSha);
+		// allow-any-unicode-next-line
+		const description = rangeDescription ? `by @${login} · ${rangeDescription}` : `by @${login}`;
 		const command = {
 			title: vscode.l10n.t('View Pull Request Description'),
 			command: 'pr.openDescription',
@@ -388,6 +391,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
+				(this.pullRequestModel.diffRange.preset !== 'all' && !this.pullRequestModel.showChangesSinceReview ? ':customRange' : '') +
 				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
 			iconPath: await this._getIcon(),
 			accessibilityInformation: {

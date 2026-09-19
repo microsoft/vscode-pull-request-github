@@ -5,9 +5,11 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
+import { describeDiffRange, diffRangeWarningMessage } from '../../common/diffRangeLabels';
 import Logger, { PR_TREE } from '../../common/logger';
 import { FILE_AUTO_REVEAL, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { DataUri, Schemes } from '../../common/uri';
+import { diffRangeContextValue } from '../../github/diffRange';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ProgressHelper } from '../progress';
@@ -122,9 +124,14 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 
 	private setLabel() {
 		this.label = this.pullRequestModel.title;
+		this.tooltip = vscode.l10n.t('Description of pull request #{0}', this.pullRequestModel.number);
 		if (this.label.length > 50) {
 			this.tooltip = this.label;
 			this.label = `${this.label.substring(0, 50)}...`;
+		}
+		const rangeWarning = this.pullRequestModel.diffRange.warning;
+		if (rangeWarning) {
+			this.tooltip = `${this.tooltip}\n${diffRangeWarningMessage(rangeWarning)}`;
 		}
 	}
 
@@ -147,6 +154,11 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 				this.description = `${this.pullRequestModel.remote.owner}/${this.pullRequestModel.remote.repositoryName}`;
 			}
 		}
+		const rangeDescription = describeDiffRange(this.pullRequestModel.diffRange, this.pullRequestModel.mergeBase, this.pullRequestModel.effectiveHeadSha);
+		if (rangeDescription) {
+			// allow-any-unicode-next-line
+			this.description = this.description ? `${rangeDescription} · ${this.description}` : rangeDescription;
+		}
 		this.updateContextValue();
 		return this;
 	}
@@ -156,7 +168,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 		this.contextValue = 'description' +
 			(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 			(this.pullRequestModel.hasChangesSinceLastReview ? ':hasChangesSinceReview' : '') +
-			(this.pullRequestModel.showChangesSinceReview ? ':showingChangesSinceReview' : ':showingAllChanges') +
+			diffRangeContextValue(this.pullRequestModel.diffRange) +
 			(((this.pullRequestModel.item.isRemoteHeadDeleted && !this.isLocal) || !this._pullRequestManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef');
 	}
 }
