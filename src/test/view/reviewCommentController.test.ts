@@ -409,11 +409,21 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(reviewCommentController.hasCommentThread({ uri: reviewUri } as vscode.CommentThread2), false);
 		});
 
-		it('still claims review scheme threads without a root path', function () {
+		it('falls back to the file path for review scheme threads without a root path', function () {
 			const reviewCommentController = createController();
-			const uri = vscode.Uri.parse('review:/data/products.json?%7B%22path%22%3A%22data%2Fproducts.json%22%2C%22base%22%3Atrue%2C%22isOutdated%22%3Afalse%7D');
+			const legacyQuery = encodeURIComponent(JSON.stringify({ path: 'data/products.json', base: true, isOutdated: false }));
+			const insideRepo = vscode.Uri.parse(`review:${repository.rootUri.path}/data/products.json?${legacyQuery}`);
+			const outsideRepo = vscode.Uri.parse(`review:/elsewhere/data/products.json?${legacyQuery}`);
 
-			assert.strictEqual(reviewCommentController.hasCommentThread({ uri } as vscode.CommentThread2), true);
+			assert.strictEqual(reviewCommentController.hasCommentThread({ uri: insideRepo } as vscode.CommentThread2), true);
+			assert.strictEqual(reviewCommentController.hasCommentThread({ uri: outsideRepo } as vscode.CommentThread2), false);
+		});
+
+		it('does not claim review scheme threads with a malformed query', function () {
+			const reviewCommentController = createController();
+			const uri = vscode.Uri.parse(`review:${repository.rootUri.path}/data/products.json?not-json`);
+
+			assert.strictEqual(reviewCommentController.hasCommentThread({ uri } as vscode.CommentThread2), false);
 		});
 	});
 

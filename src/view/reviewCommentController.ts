@@ -509,11 +509,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		try {
 			params = uri.query ? fromReviewUri(uri.query) : undefined;
 		} catch {
-			params = undefined;
+			// Not a uri this extension created.
+			return false;
 		}
 		if (!params?.rootPath) {
-			// Uris created before the root path was recorded cannot be attributed; keep the previous behavior.
-			return true;
+			// Uris created before the root path was recorded: fall back to the file path, which review uris keep.
+			return isFileInRepo(this._repository, uri);
 		}
 		return params.rootPath.toLowerCase() === this._repository.rootUri.path.toLowerCase();
 	}
