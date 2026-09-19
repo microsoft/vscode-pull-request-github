@@ -7,7 +7,7 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { CommentControllerBase } from './commentControllBase';
-import { DiffSide, IComment, SubjectType } from '../common/comment';
+import { DiffSide, IComment, IReviewThread, SubjectType } from '../common/comment';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
@@ -146,7 +146,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 		const currentUser = await this._folderRepoManager.getCurrentUser();
 		for (const document of documents) {
-			const { fileName, isBase } = fromPRUri(document.uri)!;
+			const { fileName, isBase, baseCommit } = fromPRUri(document.uri)!;
 			const cacheKey = this.getCommentThreadCacheKey(fileName, isBase);
 			const cachedThreads = this._commentThreadCache[cacheKey];
 			if (cachedThreads) {
@@ -180,8 +180,45 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 							this._githubRepositories
 						);
 					});
+
+				if (isBase) {
+					// When the left side shows the commit an outdated thread was written against (for example the
+					// "since my last comment" diff range), show the thread there at its original lines so that the
+					// reason for a later change stays visible.
+					for (const thread of threadsByPath[fileName]) {
+						if (!thread.isOutdated || thread.comments[0]?.originalCommitId !== baseCommit) {
+							continue;
+						}
+						const endLine = thread.originalEndLine - 1;
+						if (thread.subjectType !== SubjectType.FILE && (thread.originalStartLine < 1 || endLine >= document.lineCount)) {
+							continue;
+						}
+						const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.originalStartLine - 1, endLine, document.lineAt(endLine).range.end.character);
+						this._commentThreadCache[cacheKey].push(createVSCodeCommentThreadForReviewThread(
+							this._context,
+							document.uri,
+							range,
+							thread,
+							this._commentController,
+							currentUser,
+							this._githubRepositories
+						));
+					}
+				}
 			}
 		}
+	}
+
+	/**
+	 * The cache keys under which editor threads for a review thread can be stored: its own side, and the
+	 * left side when an outdated thread is also shown against the range's base commit.
+	 */
+	private getCommentThreadCacheKeys(thread: IReviewThread): string[] {
+		const keys = [this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT)];
+		if (thread.isOutdated && thread.diffSide !== DiffSide.LEFT) {
+			keys.push(this.getCommentThreadCacheKey(thread.path, true));
+		}
+		return keys;
 	}
 
 	private async initializeThreadsInOpenEditors(): Promise<void> {
@@ -298,21 +335,23 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		}
 
 		for (const thread of e.changed) {
-			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
-			if (index > -1) {
-				const matchingThread = this._commentThreadCache[key][index];
-				updateThread(this._context, matchingThread, thread, this._githubRepositories);
+			for (const key of this.getCommentThreadCacheKeys(thread)) {
+				for (const matchingThread of this._commentThreadCache[key]?.filter(t => t.gitHubThreadId === thread.id) ?? []) {
+					updateThread(this._context, matchingThread, thread, this._githubRepositories);
+				}
 			}
 		}
 
 		for (const thread of e.removed) {
-			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
-			if (index > -1) {
-				const matchingThread = this._commentThreadCache[key][index];
-				this._commentThreadCache[key].splice(index, 1);
-				matchingThread.dispose();
+			for (const key of this.getCommentThreadCacheKeys(thread)) {
+				const cachedThreads = this._commentThreadCache[key];
+				if (!cachedThreads) {
+					continue;
+				}
+				for (const matchingThread of cachedThreads.filter(t => t.gitHubThreadId === thread.id)) {
+					cachedThreads.splice(cachedThreads.indexOf(matchingThread), 1);
+					matchingThread.dispose();
+				}
 			}
 		}
 	}

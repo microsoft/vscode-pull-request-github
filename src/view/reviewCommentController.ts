@@ -56,6 +56,11 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	protected _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	protected _reviewSchemeFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	protected _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	/**
+	 * Copies of outdated threads shown on the left side of a non-default diff range, at the lines they were
+	 * originally written against, so that the reason for a change is visible when comparing from an earlier commit.
+	 */
+	protected _rangeBaseCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	/** The merge base the left-side threads were created against. */
 	private _commentThreadsMergeBase: string | undefined;
 
@@ -179,6 +184,46 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
+	/**
+	 * Creates a copy of an outdated thread on the left side of the selected diff range, at the lines the thread
+	 * was originally written against. Returns `undefined` when the default range is shown, or when the lines
+	 * cannot be mapped onto the range's base commit.
+	 * @param uri The uri to the file the comment thread is on.
+	 * @param path The path to the file the comment thread is on.
+	 * @param thread The comment thread information from GitHub.
+	 */
+	private async createRangeBaseCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): Promise<GHPRCommentThread | undefined> {
+		const activePullRequest = this._folderRepoManager.activePullRequest;
+		const baseCommit = activePullRequest?.mergeBase;
+		const originalCommit = thread.comments[0]?.originalCommitId;
+		if (!activePullRequest || !baseCommit || !originalCommit || activePullRequest.diffRange.preset === 'all') {
+			return undefined;
+		}
+
+		let range: vscode.Range | undefined;
+		if (thread.subjectType !== SubjectType.FILE) {
+			let startLine = thread.originalStartLine;
+			let endLine = thread.originalEndLine;
+			if (originalCommit !== baseCommit) {
+				try {
+					const diff = await this._repository.diffBetween(originalCommit, baseCommit, path);
+					startLine = mapOldPositionToNew(diff, startLine);
+					endLine = mapOldPositionToNew(diff, endLine);
+				} catch (e) {
+					Logger.debug(`Unable to map thread ${thread.id} from ${originalCommit} to ${baseCommit}: ${formatError(e)}`, ReviewCommentController.ID);
+					return undefined;
+				}
+			}
+			if (startLine <= 0 || endLine <= 0) {
+				return undefined;
+			}
+			range = threadRange(startLine - 1, endLine - 1);
+		}
+
+		const reviewUri = toReviewUri(uri, path, undefined, baseCommit, false, { base: true }, this._repository.rootUri);
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(activePullRequest));
+	}
+
 	private _initializeCommentThreadsGeneration = 0;
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
@@ -197,6 +242,10 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			disposeAll(this._obsoleteFileChangeCommentThreads[key]);
 		}
 		this._obsoleteFileChangeCommentThreads = {};
+		for (const key in this._rangeBaseCommentThreads) {
+			disposeAll(this._rangeBaseCommentThreads[key]);
+		}
+		this._rangeBaseCommentThreads = {};
 
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 
@@ -222,15 +271,21 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			const rightSideCommentThreads: GHPRCommentThread[] = [];
 			const leftSideThreads: GHPRCommentThread[] = [];
 			const outdatedCommentThreads: GHPRCommentThread[] = [];
+			const rangeBaseThreads: GHPRCommentThread[] = [];
 
 			// Register the arrays before awaiting so that incremental updates arriving meanwhile find them.
 			this._workspaceFileChangeCommentThreads[path] = rightSideCommentThreads;
 			this._reviewSchemeFileChangeCommentThreads[path] = leftSideThreads;
 			this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
+			this._rangeBaseCommentThreads[path] = rangeBaseThreads;
 
 			await Promise.all(threads.map(async thread => {
 				if (thread.isOutdated) {
 					outdatedCommentThreads.push(track(await this.createOutdatedCommentThread(path, thread)));
+					const rangeBaseThread = track(await this.createRangeBaseCommentThread(uri, path, thread));
+					if (rangeBaseThread) {
+						rangeBaseThreads.push(rangeBaseThread);
+					}
 				} else if (thread.diffSide === DiffSide.RIGHT) {
 					rightSideCommentThreads.push(track(await this.createWorkspaceCommentThread(uri, path, thread)));
 				} else {
@@ -283,6 +338,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					this._workspaceFileChangeCommentThreads,
 					this._obsoleteFileChangeCommentThreads,
 					this._reviewSchemeFileChangeCommentThreads,
+					this._rangeBaseCommentThreads,
 				].forEach(commentThreadMap => {
 					for (const fileName in commentThreadMap) {
 						commentThreadMap[fileName].forEach(thread => {
@@ -355,6 +411,14 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					} else {
 						threadMap[path] = [newThread];
 					}
+
+					if (thread.isOutdated) {
+						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
+						const rangeBaseThread = await this.createRangeBaseCommentThread(this._repository.rootUri.with({ path: fullPath }), path, thread);
+						if (rangeBaseThread) {
+							(this._rangeBaseCommentThreads[path] ??= []).push(rangeBaseThread);
+						}
+					}
 				}
 
 				for (const thread of e.changed) {
@@ -362,6 +426,9 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					if (match.index > -1) {
 						const matchingThread = match.threadMap[thread.path][match.index];
 						updateThread(this._context, matchingThread, thread, githubRepositories);
+					}
+					for (const rangeBaseThread of this._findRangeBaseThreads(thread)) {
+						updateThread(this._context, rangeBaseThread, thread, githubRepositories);
 					}
 				}
 
@@ -372,11 +439,19 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 						match.threadMap[thread.path].splice(match.index, 1);
 						matchingThread.dispose();
 					}
+					for (const rangeBaseThread of this._findRangeBaseThreads(thread)) {
+						this._rangeBaseCommentThreads[thread.path].splice(this._rangeBaseCommentThreads[thread.path].indexOf(rangeBaseThread), 1);
+						rangeBaseThread.dispose();
+					}
 				}
 
 				this.updateResourcesWithCommentingRanges();
 			}),
 		);
+	}
+
+	private _findRangeBaseThreads(thread: IReviewThread): GHPRCommentThread[] {
+		return this._rangeBaseCommentThreads[thread.path]?.filter(t => t.gitHubThreadId === thread.id) ?? [];
 	}
 
 	private _findMatchingThread(thread: IReviewThread): { threadMap: { [key: string]: GHPRCommentThread[] }, index: number } {
@@ -999,7 +1074,7 @@ ${suggestionInformation.suggestionContent}
 		const activePullRequest = this._folderRepoManager.activePullRequest!;
 		await activePullRequest.validateDraftMode();
 		if (activePullRequest.mergeBase && this._commentThreadsMergeBase !== activePullRequest.mergeBase) {
-			// The compared base changed, so the left side documents now show a different commit. Recreate the
+			// The diff range changed, so the left side documents now show a different commit. Recreate the
 			// threads so that they attach to the documents that are actually open.
 			await this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
 		}
