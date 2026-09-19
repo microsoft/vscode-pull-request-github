@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
+import { ALL_CHANGES, DiffRange, DiffRangeInputs, diffRangeKey, isUnavailableDiffRange, ResolvableDiffRangePreset, resolveDiffRangePreset } from './diffRange';
 import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -141,7 +142,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
 	public closingIssues: IssueReference[] = [];
-	private _showChangesSinceReview: boolean;
+	private _diffRange: DiffRange;
+	/**
+	 * The base commit resolved for a review-data based preset, keyed by the range it was resolved for.
+	 * Kept off the range itself so that resolving does not look like a range change to observers.
+	 */
+	private _resolvedPresetBase?: { key: string; baseSha: string | undefined };
+	/** Incremented whenever the range changes so that in-flight file change requests can detect that they are stale. */
+	private _diffRangeGeneration = 0;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = this._register(new vscode.EventEmitter<boolean>());
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
@@ -185,7 +193,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this.isActive = !!isActive;
 
-		this._showChangesSinceReview = false;
+		this._diffRange = ALL_CHANGES;
 
 		this.update(item);
 	}
@@ -221,17 +229,41 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	public get showChangesSinceReview() {
-		return this._showChangesSinceReview;
+	/**
+	 * The commit range used when listing the changed files of this pull request and when opening their diffs.
+	 */
+	public get diffRange(): DiffRange {
+		return this._diffRange;
+	}
+
+	/**
+	 * The commit shown as the right side of file diffs: the selected head commit, or the pull request head.
+	 */
+	public get effectiveHeadSha(): string | undefined {
+		return this._diffRange.headSha ?? this.head?.sha;
+	}
+
+	public setDiffRange(range: DiffRange): void {
+		if (diffRangeKey(range) === diffRangeKey(this._diffRange)) {
+			return;
+		}
+		this._diffRange = range;
+		this._resolvedPresetBase = undefined;
+		this._diffRangeGeneration++;
+		this._fileChanges.clear();
+		this._rawFileChangesCache = undefined;
+		this._onDidChangeChangesSinceReview.fire();
+	}
+
+	/**
+	 * Whether the "since my last review" range is selected. Kept for the existing menus and the overview webview.
+	 */
+	public get showChangesSinceReview(): boolean {
+		return this._diffRange.preset === 'sinceLastReview';
 	}
 
 	public set showChangesSinceReview(isChangesSinceReview: boolean) {
-		if (this._showChangesSinceReview !== isChangesSinceReview) {
-			this._showChangesSinceReview = isChangesSinceReview;
-			this._fileChanges.clear();
-			this._rawFileChangesCache = undefined;
-			this._onDidChangeChangesSinceReview.fire();
-		}
+		this.setDiffRange(isChangesSinceReview ? { preset: 'sinceLastReview' } : ALL_CHANGES);
 	}
 
 	get comments(): readonly IComment[] {
@@ -1974,6 +2006,42 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	/**
+	 * Resolves the base commit of a review-data based diff range preset and caches it for the current range.
+	 * Returns `undefined`, and records a warning on the range, when the preset has no candidate commit.
+	 */
+	private async resolvePresetBaseSha(preset: ResolvableDiffRangePreset, latestReviewSha: string | undefined): Promise<string | undefined> {
+		const range = this._diffRange;
+		const key = diffRangeKey(range);
+		if (this._resolvedPresetBase?.key === key) {
+			return this._resolvedPresetBase.baseSha;
+		}
+		try {
+			const [threads, viewer] = await Promise.all([
+				this.reviewThreadsCacheReady ? this.reviewThreadsCache : this.initializeReviewThreadCache(),
+				this.githubRepository.getAuthenticatedUser(),
+			]);
+			const inputs: DiffRangeInputs = { threads, latestReviewSha, viewerLogin: viewer.login, commits: [], headSha: this.head!.sha };
+			const resolution = resolveDiffRangePreset(preset, inputs);
+			if (diffRangeKey(this._diffRange) !== key) {
+				// The range changed while we were resolving; the caller will be invoked again for the new range.
+				return undefined;
+			}
+			if (isUnavailableDiffRange(resolution)) {
+				Logger.appendLine(`Diff range preset ${preset} is unavailable for PR #${this.number}: ${resolution.unavailable}`, PullRequestModel.ID);
+				this._diffRange = { ...this._diffRange, warning: 'presetUnavailable' };
+				this._resolvedPresetBase = { key, baseSha: undefined };
+				return undefined;
+			}
+			this._diffRange = { ...this._diffRange, warning: resolution.warning };
+			this._resolvedPresetBase = { key, baseSha: resolution.baseSha };
+			return resolution.baseSha;
+		} catch (e) {
+			Logger.error(`Failed to resolve diff range preset ${preset} for PR #${this.number}: ${formatError(e)}`, PullRequestModel.ID);
+			return undefined;
+		}
+	}
+
+	/**
 	 * List the changed files in a pull request.
 	 */
 	public async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
@@ -1981,6 +2049,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const githubRepository = this.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
+		const generation = this._diffRangeGeneration;
+		// The diff range may change while the compare request is in flight. A stale response must not
+		// overwrite the merge base or the caches, so fetch again for the new range instead.
+		const refetchIfRangeChanged = (): Promise<IRawFileChange[]> | undefined => {
+			if (generation !== this._diffRangeGeneration) {
+				Logger.debug(`Diff range of PR #${this.number} changed while fetching file changes, fetching again`, PullRequestModel.ID);
+				return this.getRawFileChangesInfo();
+			}
+			return undefined;
+		};
 
 		if (!this.base) {
 			Logger.appendLine('No base branch found for PR, fetching it now', PullRequestModel.ID);
@@ -1998,12 +2076,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const oldHasChangesSinceReview = this.hasChangesSinceLastReview;
 		this.hasChangesSinceLastReview = latestReview !== undefined && this.head?.sha !== latestReview.sha;
 
-		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
-			compareWithBaseRef = latestReview.sha;
+		const range = this._diffRange;
+		switch (range.preset) {
+			case 'sinceLastReview':
+				if (this.hasChangesSinceLastReview && latestReview != undefined) {
+					compareWithBaseRef = latestReview.sha;
+				}
+				break;
+			case 'custom':
+				compareWithBaseRef = range.baseSha ?? this.base.sha;
+				break;
+			case 'sinceLastComment':
+			case 'sinceEarliestUnresolvedThread':
+				compareWithBaseRef = range.baseSha ?? (await this.resolvePresetBaseSha(range.preset, latestReview?.sha)) ?? this.base.sha;
+				break;
 		}
-		// When comparing from a later commit than the pull request base, the pull request's own file list
-		// cannot be used as a fallback for large diffs because it covers the whole pull request.
-		const isWholePullRequest = compareWithBaseRef === this.base.sha;
+		const isWholePullRequest = compareWithBaseRef === this.base.sha && !range.headSha;
+		// Resolving a preset may have recorded a warning on the range.
+		const resolvedRange = this._diffRange;
 
 		if (this.item.merged && isWholePullRequest) {
 			Logger.appendLine('PR is merged, fetching all file changes', PullRequestModel.ID);
@@ -2012,6 +2102,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				owner: remote.owner,
 				pull_number: this.number,
 			});
+			const refetched = refetchIfRangeChanged();
+			if (refetched) {
+				return refetched;
+			}
 
 			// Use the original base to compare against for merged PRs
 			this.mergeBase = this.base.sha;
@@ -2021,9 +2115,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
 		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID, isWholePullRequest);
+		const refetched = refetchIfRangeChanged();
+		if (refetched) {
+			return refetched;
+		}
 		this.mergeBase = mergeBaseSha;
 
-		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
+		if (!isWholePullRequest && mergeBaseSha !== compareWithBaseRef && this._diffRange === resolvedRange) {
+			// The selected base is not an ancestor of the head (for example after a force push), so GitHub compared from the merge base.
+			Logger.appendLine(`Selected diff range base ${compareWithBaseRef} is not an ancestor of the head; comparing from merge base ${mergeBaseSha}`, PullRequestModel.ID);
+			this._diffRange = { ...resolvedRange, warning: 'baseNotAncestor' };
+		}
+
+		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this.showChangesSinceReview) {
 			this._onDidChangeChangesSinceReview.fire();
 		}
 

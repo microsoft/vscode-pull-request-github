@@ -40,6 +40,7 @@ import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, t
 import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
+import { ALL_CHANGES, diffRangeKey } from '../github/diffRange';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { GithubItemStateEnum } from '../github/interface';
@@ -64,7 +65,7 @@ export class ReviewManager extends Disposable {
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
-	private _isShowingLastReviewChanges: boolean = false;
+	private _diffRangeKey: string = diffRangeKey(ALL_CHANGES);
 	private _previousRepositoryState: {
 		HEAD: Branch | undefined;
 		remotes: Remote[];
@@ -740,13 +741,13 @@ export class ReviewManager extends Disposable {
 		}
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
-		if (!this.justSwitchedToReviewMode && (previousPrNumber === pr.number) && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
+		if (!this.justSwitchedToReviewMode && (previousPrNumber === pr.number) && !hasPushedChanges && (this._diffRangeKey === diffRangeKey(pr.diffRange))) {
 			// No meaningful state change; keep the previous commit SHA so polling
 			// doesn't treat this as a change on the next cycle.
 			this._lastCommitSha = oldLastCommitSha;
 			return;
 		}
-		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
+		this._diffRangeKey = diffRangeKey(pr.diffRange);
 		if (previousPrNumber !== pr.number) {
 			this.clear(false);
 		}
