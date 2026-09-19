@@ -56,6 +56,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	protected _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	protected _reviewSchemeFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	protected _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	/** The merge base the left-side threads were created against. */
+	private _commentThreadsMergeBase: string | undefined;
 
 	protected _visibleNormalTextEditors: vscode.TextEditor[] = [];
 
@@ -177,7 +179,11 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
+	private _initializeCommentThreadsGeneration = 0;
+
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
+		const generation = ++this._initializeCommentThreadsGeneration;
+		this._commentThreadsMergeBase = this._folderRepoManager.activePullRequest?.mergeBase;
 		// First clean up all the old comments.
 		for (const key in this._workspaceFileChangeCommentThreads) {
 			disposeAll(this._workspaceFileChangeCommentThreads[key]);
@@ -194,36 +200,50 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 
-		Object.keys(threadsByPath).forEach(path => {
+		// Every thread created by this initialization, so that they can be disposed if a newer
+		// initialization supersedes this one while the asynchronous creation is still running.
+		const created: GHPRCommentThread[] = [];
+		const track = <T extends GHPRCommentThread | undefined>(thread: T): T => {
+			if (thread) {
+				created.push(thread);
+			}
+			return thread;
+		};
+
+		await Promise.all(Object.keys(threadsByPath).map(async path => {
 			const threads = threadsByPath[path];
 			const firstThread = threads[0];
-			if (firstThread) {
-				const fullPath = nodePath.join(this._repository.rootUri.path, firstThread.path).replace(/\\/g, '/');
-				const uri = this._repository.rootUri.with({ path: fullPath });
-
-				let rightSideCommentThreads: GHPRCommentThread[] = [];
-				let leftSideThreads: GHPRCommentThread[] = [];
-				let outdatedCommentThreads: GHPRCommentThread[] = [];
-
-				const threadPromises = threads.map(async thread => {
-					if (thread.isOutdated) {
-						outdatedCommentThreads.push(await this.createOutdatedCommentThread(path, thread));
-					} else {
-						if (thread.diffSide === DiffSide.RIGHT) {
-							rightSideCommentThreads.push(await this.createWorkspaceCommentThread(uri, path, thread));
-						} else {
-							leftSideThreads.push(await this.createReviewCommentThread(uri, path, thread));
-						}
-					}
-				});
-
-				Promise.all(threadPromises);
-
-				this._workspaceFileChangeCommentThreads[path] = rightSideCommentThreads;
-				this._reviewSchemeFileChangeCommentThreads[path] = leftSideThreads;
-				this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
+			if (!firstThread) {
+				return;
 			}
-		});
+			const fullPath = nodePath.join(this._repository.rootUri.path, firstThread.path).replace(/\\/g, '/');
+			const uri = this._repository.rootUri.with({ path: fullPath });
+
+			const rightSideCommentThreads: GHPRCommentThread[] = [];
+			const leftSideThreads: GHPRCommentThread[] = [];
+			const outdatedCommentThreads: GHPRCommentThread[] = [];
+
+			// Register the arrays before awaiting so that incremental updates arriving meanwhile find them.
+			this._workspaceFileChangeCommentThreads[path] = rightSideCommentThreads;
+			this._reviewSchemeFileChangeCommentThreads[path] = leftSideThreads;
+			this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
+
+			await Promise.all(threads.map(async thread => {
+				if (thread.isOutdated) {
+					outdatedCommentThreads.push(track(await this.createOutdatedCommentThread(path, thread)));
+				} else if (thread.diffSide === DiffSide.RIGHT) {
+					rightSideCommentThreads.push(track(await this.createWorkspaceCommentThread(uri, path, thread)));
+				} else {
+					leftSideThreads.push(track(await this.createReviewCommentThread(uri, path, thread)));
+				}
+			}));
+		}));
+
+		if (generation !== this._initializeCommentThreadsGeneration) {
+			// A newer initialization has replaced the maps; anything created here would otherwise leak.
+			disposeAll(created);
+			return;
+		}
 		this.updateResourcesWithCommentingRanges();
 	}
 
@@ -976,7 +996,13 @@ ${suggestionInformation.suggestionContent}
 
 	// #region Incremental update comments
 	public async update(): Promise<void> {
-		await this._folderRepoManager.activePullRequest!.validateDraftMode();
+		const activePullRequest = this._folderRepoManager.activePullRequest!;
+		await activePullRequest.validateDraftMode();
+		if (activePullRequest.mergeBase && this._commentThreadsMergeBase !== activePullRequest.mergeBase) {
+			// The compared base changed, so the left side documents now show a different commit. Recreate the
+			// threads so that they attach to the documents that are actually open.
+			await this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
+		}
 	}
 	// #endregion
 
