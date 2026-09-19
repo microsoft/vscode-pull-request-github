@@ -487,7 +487,9 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 	hasCommentThread(thread: vscode.CommentThread2): boolean {
 		if (thread.uri.scheme === Schemes.Review) {
-			return true;
+			// Several repositories can be in review mode at once, for example a repository and its worktrees.
+			// Review uris carry the root path of the repository they were created for, so only claim ours.
+			return this.isReviewUriForThisRepository(thread.uri);
 		}
 
 
@@ -500,6 +502,20 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 
 		return false;
+	}
+
+	private isReviewUriForThisRepository(uri: vscode.Uri): boolean {
+		let params: ReviewUriParams | undefined;
+		try {
+			params = uri.query ? fromReviewUri(uri.query) : undefined;
+		} catch {
+			params = undefined;
+		}
+		if (!params?.rootPath) {
+			// Uris created before the root path was recorded cannot be attributed; keep the previous behavior.
+			return true;
+		}
+		return params.rootPath.toLowerCase() === this._repository.rootUri.path.toLowerCase();
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {

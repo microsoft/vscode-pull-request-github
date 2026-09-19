@@ -378,6 +378,45 @@ describe('ReviewCommentController', function () {
 		});
 	});
 
+	describe('hasCommentThread', function () {
+		function createController(): TestReviewCommentController {
+			return new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				new ReviewModel(),
+				gitApiImpl,
+				telemetry,
+			);
+		}
+
+		it('claims review scheme threads created for its own repository', function () {
+			const reviewCommentController = createController();
+			const fileName = 'data/products.json';
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+			const reviewUri = toReviewUri(uri, fileName, undefined, 'abcdef0', false, { base: true }, repository.rootUri);
+
+			assert.strictEqual(reviewCommentController.hasCommentThread({ uri: reviewUri } as vscode.CommentThread2), true);
+		});
+
+		it('does not claim review scheme threads created for another repository, such as a worktree', function () {
+			const reviewCommentController = createController();
+			const worktreeRoot = vscode.Uri.file(`${repository.rootUri.path}/worktrees/2`);
+			const fileName = 'data/products.json';
+			const uri = vscode.Uri.parse(`${worktreeRoot.toString()}/${fileName}`);
+			const reviewUri = toReviewUri(uri, fileName, undefined, 'abcdef0', false, { base: true }, worktreeRoot);
+
+			assert.strictEqual(reviewCommentController.hasCommentThread({ uri: reviewUri } as vscode.CommentThread2), false);
+		});
+
+		it('still claims review scheme threads without a root path', function () {
+			const reviewCommentController = createController();
+			const uri = vscode.Uri.parse('review:/data/products.json?%7B%22path%22%3A%22data%2Fproducts.json%22%2C%22base%22%3Atrue%2C%22isOutdated%22%3Afalse%7D');
+
+			assert.strictEqual(reviewCommentController.hasCommentThread({ uri } as vscode.CommentThread2), true);
+		});
+	});
+
 	describe('_findMatchingThread', function () {
 		it('returns the moved thread when an existing workspace thread becomes outdated', function () {
 			const fileName = 'data/products.json';
