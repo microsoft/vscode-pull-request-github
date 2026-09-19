@@ -229,6 +229,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (this._showChangesSinceReview !== isChangesSinceReview) {
 			this._showChangesSinceReview = isChangesSinceReview;
 			this._fileChanges.clear();
+			this._rawFileChangesCache = undefined;
 			this._onDidChangeChangesSinceReview.fire();
 		}
 	}

@@ -148,8 +148,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		for (const document of documents) {
 			const { fileName, isBase } = fromPRUri(document.uri)!;
 			const cacheKey = this.getCommentThreadCacheKey(fileName, isBase);
-			if (this._commentThreadCache[cacheKey]) {
-				continue;
+			const cachedThreads = this._commentThreadCache[cacheKey];
+			if (cachedThreads) {
+				if (cachedThreads.every(thread => thread.uri.toString() === document.uri.toString())) {
+					continue;
+				}
+				// The file was reopened with a different base or head commit, so the cached threads belong to a
+				// document that is no longer shown. Recreate them on the new document.
+				disposeAll(cachedThreads);
+				delete this._commentThreadCache[cacheKey];
 			}
 			if (threadsByPath[fileName]) {
 				this._commentThreadCache[cacheKey] = threadsByPath[fileName]

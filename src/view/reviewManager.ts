@@ -810,6 +810,7 @@ export class ReviewManager extends Disposable {
 				this.changesInPrDataProvider.refresh();
 				await this.updateComments();
 				await this.reopenNewReviewDiffs();
+				await this._closeOutdatedMultiDiffEditors(pr);
 				PullRequestModel.openChanges(this._folderRepoManager, pr);
 			}))
 		);
