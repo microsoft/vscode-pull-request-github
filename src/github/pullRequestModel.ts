@@ -2000,8 +2000,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
 			compareWithBaseRef = latestReview.sha;
 		}
+		// When comparing from a later commit than the pull request base, the pull request's own file list
+		// cannot be used as a fallback for large diffs because it covers the whole pull request.
+		const isWholePullRequest = compareWithBaseRef === this.base.sha;
 
-		if (this.item.merged) {
+		if (this.item.merged && isWholePullRequest) {
 			Logger.appendLine('PR is merged, fetching all file changes', PullRequestModel.ID);
 			const response = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				repo: remote.repositoryName,
@@ -2016,7 +2019,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
-		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID, isWholePullRequest);
 		this.mergeBase = mergeBaseSha;
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {

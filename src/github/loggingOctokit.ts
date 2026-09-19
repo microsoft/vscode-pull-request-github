@@ -286,7 +286,17 @@ export class LoggingOctokit {
 	}
 }
 
-export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
+const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
+// The compare API returns at most this many files in total, even when paginating.
+const MAX_FILE_CHANGES_IN_PAGINATED_COMPARE_COMMITS = 300;
+
+/**
+ * Lists the files changed between `compareWithBaseRef` and the head of a pull request.
+ * @param isWholePullRequest Whether the range covers the whole pull request, in which case the pull request's
+ * own file list can be used as a fallback for large diffs. For a narrower range the fallback would list files
+ * outside the range, so the compare API is paginated instead.
+ */
+export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string, isWholePullRequest: boolean = true): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
 	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}`, logId);
 	let files: IRawFileChange[] | undefined;
 	let mergeBaseSha: string | undefined;
@@ -299,27 +309,45 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 		}, perPage);
 	};
 
+	const compareParams = {
+		repo: remote.repositoryName,
+		owner: remote.owner,
+		base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+		head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
+	};
+
+	// Fetches the remaining pages of files after `firstPage`, which was requested with the same page size.
+	const comparePaginated = async (firstPage: IRawFileChange[]): Promise<IRawFileChange[]> => {
+		const result: IRawFileChange[] = [...firstPage];
+		const maxPages = Math.ceil(MAX_FILE_CHANGES_IN_PAGINATED_COMPARE_COMMITS / MAX_FILE_CHANGES_IN_COMPARE_COMMITS);
+		for (let page = 2; page <= maxPages; page++) {
+			const { data } = await octokit.call(octokit.api.repos.compareCommits, { ...compareParams, per_page: MAX_FILE_CHANGES_IN_COMPARE_COMMITS, page });
+			const pageFiles = data.files ? data.files as IRawFileChange[] : [];
+			result.push(...pageFiles);
+			if (pageFiles.length < MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
+				return result;
+			}
+		}
+		Logger.warn(`The compare API returned its maximum of ${result.length} files for #${prNumber}; the file list may be incomplete.`, logId);
+		return result;
+	};
+
 	try {
-		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
-			head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
-		});
-		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
+		// Ask for a full page explicitly so that the check below is against a known page size.
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, { ...compareParams, per_page: MAX_FILE_CHANGES_IN_COMPARE_COMMITS });
 
 		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
 			// compareCommits will return a maximum of 100 changed files
 			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
 			Logger.appendLine(`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed in #${prNumber}`, logId);
-			files = await listFiles();
+			files = isWholePullRequest ? await listFiles() : await comparePaginated(data.files as IRawFileChange[]);
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
 			files = data.files ? data.files as IRawFileChange[] : [];
 		}
 		mergeBaseSha = data.merge_base_commit.sha;
 	} catch (e) {
-		if (e.message === 'Server Error') {
+		if (e.message === 'Server Error' && isWholePullRequest) {
 			// Happens when github times out. Let's try to get a few at a time.
 			files = await listFiles(3);
 			mergeBaseSha = base.sha;
