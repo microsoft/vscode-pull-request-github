@@ -1117,10 +1117,7 @@ export function registerCommands(
 			return;
 		}
 
-		const folderManager = folderRepositoryManagerResolver.getManagerForRepository(
-			issueModel.remote.owner,
-			issueModel.remote.repositoryName,
-		);
+		const folderManager = folderRepositoryManagerResolver.getManagerForIssueModel(issueModel);
 
 		let descriptionNode: PRNode | RepositoryChangesNode | undefined;
 		if (argument instanceof PRNode) {
@@ -1152,7 +1149,7 @@ export function registerCommands(
 			return;
 		}
 
-		const folderManager = reposManager.getManagerForRepository(pr.githubRepository.remote.owner, pr.githubRepository.remote.repositoryName);
+		const folderManager = reposManager.getManagerForIssueModel(pr);
 		if (!folderManager) {
 			Logger.warn(`No folder manager found for pull request ${pr.number}`, logId);
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for pull request #{0}', pr.number.toString()));

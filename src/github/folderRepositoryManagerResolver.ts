@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { IssueModel } from './issueModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { GitApiImpl } from '../api/api1';
 import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
@@ -23,6 +24,15 @@ export class FolderRepositoryManagerResolver extends Disposable {
 		private readonly _telemetry: ITelemetry,
 	) {
 		super();
+	}
+
+	/**
+	 * Gets the folder manager for an issue or pull request model, preferring the folder the model belongs to
+	 * when several open folders share its GitHub remote.
+	 */
+	getManagerForIssueModel(issueModel: IssueModel): FolderRepositoryManager {
+		return this._repositoriesManager.getManagerForIssueModel(issueModel)
+			?? this.getManagerForRepository(issueModel.remote.owner, issueModel.remote.repositoryName);
 	}
 
 	getManagerForRepository(owner: string, repo: string): FolderRepositoryManager {

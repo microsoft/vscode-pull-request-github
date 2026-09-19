@@ -167,6 +167,17 @@ export class RepositoriesManager extends Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
+		// Several folders can share the same GitHub remote, for example a repository and its worktrees.
+		// Prefer the folder that owns this model, then the folder that has it checked out, so that actions
+		// such as approving compare against the checkout the model came from rather than an arbitrary folder.
+		const owningManager = this._folderManagers.find(folderManager => folderManager.gitHubRepositories.includes(issueModel.githubRepository));
+		if (owningManager) {
+			return owningManager;
+		}
+		const activeManager = this._folderManagers.find(folderManager => folderManager.activePullRequest && issueModel.equals(folderManager.activePullRequest));
+		if (activeManager) {
+			return activeManager;
+		}
 		return this.getManagerForRepository(issueModel.remote.owner, issueModel.remote.repositoryName);
 	}
 

@@ -18,6 +18,13 @@ import { MockRepository } from '../mocks/mockRepository';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { GitHubServerType } from '../../common/authentication';
+import { Protocol } from '../../common/protocol';
+import { GitHubRemote } from '../../common/remote';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 
 describe('RepositoriesManager', function () {
 	let sinon: SinonSandbox;
@@ -212,6 +219,80 @@ describe('RepositoriesManager', function () {
 			(repo as any)._onDidChangeState.fire();
 
 			assert.strictEqual(reposManager.folderManagers.length, 1);
+		});
+	});
+	describe('getManagerForIssueModel', function () {
+		const protocol = new Protocol('https://github.com/aaa/bbb.git');
+		const remote = new GitHubRemote('origin', 'aaa/bbb', protocol, GitHubServerType.GitHubDotCom);
+
+		function createFolderManagers(): { mainFolder: FolderRepositoryManager; worktreeFolder: FolderRepositoryManager } {
+			// A repository and one of its worktrees, both open as folders and both pointing at the same GitHub remote.
+			const mainRepo = new MockRepository();
+			mainRepo.rootUri = vscode.Uri.file('/repo');
+			mainRepo.addRemote('origin', 'git@github.com:aaa/bbb');
+
+			const worktreeRepo = new MockRepository();
+			worktreeRepo.rootUri = vscode.Uri.file('/repo/worktrees/2');
+			worktreeRepo.addRemote('origin', 'git@github.com:aaa/bbb');
+
+			const mainFolder = new FolderRepositoryManager(0, context, mainRepo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			const worktreeFolder = new FolderRepositoryManager(1, context, worktreeRepo, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(mainFolder);
+			reposManager.insertFolderManager(worktreeFolder);
+			return { mainFolder, worktreeFolder };
+		}
+
+		function createPullRequest(gitHubRepository: MockGitHubRepository, number: number): PullRequestModel {
+			const pr = new PullRequestBuilder().number(number).build();
+			return new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, convertRESTPullRequestToRawPullRequest(pr, gitHubRepository));
+		}
+
+		it('prefers the folder that owns the model when several folders share the remote', function () {
+			const { mainFolder, worktreeFolder } = createFolderManagers();
+			const mainGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const worktreeGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			sinon.stub(mainFolder, 'gitHubRepositories').get(() => [mainGitHubRepository]);
+			sinon.stub(worktreeFolder, 'gitHubRepositories').get(() => [worktreeGitHubRepository]);
+
+			const pullRequest = createPullRequest(worktreeGitHubRepository, 1);
+
+			// The plain remote lookup returns whichever folder comes first.
+			assert.strictEqual(reposManager.getManagerForRepository('aaa', 'bbb'), reposManager.folderManagers[0]);
+			// The model lookup returns the folder the model came from.
+			assert.strictEqual(reposManager.getManagerForIssueModel(pullRequest), worktreeFolder);
+		});
+
+		it('falls back to the folder that has the pull request checked out', function () {
+			const { mainFolder, worktreeFolder } = createFolderManagers();
+			const mainGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const worktreeGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const detachedGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			sinon.stub(mainFolder, 'gitHubRepositories').get(() => [mainGitHubRepository]);
+			sinon.stub(worktreeFolder, 'gitHubRepositories').get(() => [worktreeGitHubRepository]);
+			sinon.stub(worktreeFolder, 'activePullRequest').get(() => createPullRequest(worktreeGitHubRepository, 2));
+
+			// A model that belongs to neither folder, e.g. resolved from a URI, for the pull request checked out in the worktree.
+			const pullRequest = createPullRequest(detachedGitHubRepository, 2);
+
+			assert.strictEqual(reposManager.getManagerForIssueModel(pullRequest), worktreeFolder);
+		});
+
+		it('falls back to the remote match when no folder owns or has checked out the model', function () {
+			const { mainFolder, worktreeFolder } = createFolderManagers();
+			const mainGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const worktreeGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const detachedGitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			sinon.stub(mainFolder, 'gitHubRepositories').get(() => [mainGitHubRepository]);
+			sinon.stub(worktreeFolder, 'gitHubRepositories').get(() => [worktreeGitHubRepository]);
+
+			const pullRequest = createPullRequest(detachedGitHubRepository, 3);
+
+			assert.strictEqual(reposManager.getManagerForIssueModel(pullRequest), reposManager.getManagerForRepository('aaa', 'bbb'));
+		});
+
+		it('returns undefined for an undefined model', function () {
+			createFolderManagers();
+			assert.strictEqual(reposManager.getManagerForIssueModel(undefined), undefined);
 		});
 	});
 });
