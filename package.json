@@ -308,6 +308,21 @@
 					"default": false,
 					"description": "%githubPullRequests.hideViewedFiles.description%"
 				},
+				"githubPullRequests.defaultDiffRange": {
+					"type": "string",
+					"enum": [
+						"all",
+						"sinceLastReview",
+						"sinceEarliestUnresolvedThread"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.defaultDiffRange.all%",
+						"%githubPullRequests.defaultDiffRange.sinceLastReview%",
+						"%githubPullRequests.defaultDiffRange.sinceEarliestUnresolvedThread%"
+					],
+					"default": "all",
+					"description": "%githubPullRequests.defaultDiffRange.description%"
+				},
 				"githubPullRequests.fileAutoReveal": {
 					"type": "boolean",
 					"default": true,

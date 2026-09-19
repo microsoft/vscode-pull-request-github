@@ -29,6 +29,7 @@ import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { OverviewRestorer } from './github/overviewRestorer';
+import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
@@ -265,6 +266,7 @@ async function init(
 	context.subscriptions.push(folderRepositoryManagerResolver);
 
 	registerCommands(context, reposManager, reviewsManager, telemetry, copilotRemoteAgentManager, notificationsManager, prsTreeModel, tree, folderRepositoryManagerResolver);
+	context.subscriptions.push(PullRequestModel.registerSettingsListener());
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');

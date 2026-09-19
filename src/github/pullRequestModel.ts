@@ -11,7 +11,7 @@ import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { ALL_CHANGES, DiffRange, DiffRangeInputs, diffRangeKey, isUnavailableDiffRange, ResolvableDiffRangePreset, resolveDiffRangePreset } from './diffRange';
+import { ALL_CHANGES, DefaultDiffRangePreset, DiffRange, DiffRangeInputs, diffRangeKey, isUnavailableDiffRange, ResolvableDiffRangePreset, resolveDiffRangePreset } from './diffRange';
 import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -96,7 +96,7 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { DEFAULT_DIFF_RANGE, DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
@@ -193,7 +193,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this.isActive = !!isActive;
 
-		this._diffRange = ALL_CHANGES;
+		this._diffRange = PullRequestModel.defaultDiffRange();
 
 		this.update(item);
 	}
@@ -227,6 +227,30 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._hasPendingReview = hasPendingReview;
 			this._onDidChangePendingReviewState.fire(this._hasPendingReview);
 		}
+	}
+
+	private static _defaultDiffRange: DiffRange | undefined;
+
+	/**
+	 * The range from the `defaultDiffRange` setting. Cached because a model is created for every listed pull request.
+	 */
+	private static defaultDiffRange(): DiffRange {
+		if (!PullRequestModel._defaultDiffRange) {
+			const preset = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<DefaultDiffRangePreset>(DEFAULT_DIFF_RANGE, 'all');
+			PullRequestModel._defaultDiffRange = preset === 'sinceLastReview' || preset === 'sinceEarliestUnresolvedThread' ? { preset } : ALL_CHANGES;
+		}
+		return PullRequestModel._defaultDiffRange;
+	}
+
+	/**
+	 * Keeps the cached `defaultDiffRange` setting up to date. Call once during activation.
+	 */
+	public static registerSettingsListener(): vscode.Disposable {
+		return vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${DEFAULT_DIFF_RANGE}`)) {
+				PullRequestModel._defaultDiffRange = undefined;
+			}
+		});
 	}
 
 	/**

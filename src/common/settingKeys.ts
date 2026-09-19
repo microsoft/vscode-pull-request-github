@@ -33,6 +33,7 @@ export const CREATE_DRAFT = 'createDraft';
 export const SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION = 'showCreatePullRequestCancelConfirmation';
 export const QUICK_DIFF = 'quickDiff';
 export const SET_AUTO_MERGE = 'setAutoMerge';
+export const DEFAULT_DIFF_RANGE = 'defaultDiffRange';
 export const SHOW_PULL_REQUEST_NUMBER_IN_TREE = 'showPullRequestNumberInTree';
 export const DEFAULT_MERGE_METHOD = 'defaultMergeMethod';
 export const DEFAULT_DELETION_METHOD = 'defaultDeletionMethod';
