@@ -379,25 +379,45 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		branchName: string,
 	): Promise<PullRequestMetadata | undefined> {
-		try {
-			const configKey = this.getMetadataKeyForBranch(branchName);
-			const allConfigs = await repository.getConfigs();
-			// When the same branch name has been associated with multiple PRs over
-			// time (resulting in duplicate config entries), prefer the most recent
-			// association: parse the trailing PR number and sort numerically so the
-			// highest PR number wins. Entries that fail to parse, or whose PR
-			// number is not a finite integer (e.g. malformed config values like
-			// `owner#repo#abc`), are filtered out so they cannot poison the sort.
-			// Returns `undefined` when no entries parse to valid metadata.
-			const matchingConfigs = allConfigs
-				.filter(config => config.key === configKey)
-				.map(config => ({ config, metadata: PullRequestGitHelper.parsePullRequestMetadata(config.value) }))
-				.filter((entry): entry is { config: { key: string; value: string }, metadata: PullRequestMetadata } => !!entry.metadata && Number.isFinite(entry.metadata.prNumber))
-				.sort((a, b) => b.metadata.prNumber - a.metadata.prNumber);
-			return matchingConfigs[0]?.metadata;
-		} catch (_) {
-			return;
+		const metadata = await this.getMatchingPullRequestMetadataForBranches(repository, [branchName]);
+		return metadata.get(branchName);
+	}
+
+	static async getMatchingPullRequestMetadataForBranches(
+		repository: Repository,
+		branchNames: readonly string[],
+	): Promise<Map<string, PullRequestMetadata>> {
+		const matchingMetadata = new Map<string, PullRequestMetadata>();
+		if (!branchNames.length) {
+			return matchingMetadata;
 		}
+
+		let configs: { key: string; value: string }[];
+		try {
+			configs = await repository.getConfigs();
+		} catch (_) {
+			return matchingMetadata;
+		}
+
+		const requestedBranches = new Map(branchNames.map(branchName => [this.getMetadataKeyForBranch(branchName), branchName]));
+		for (const config of configs) {
+			const branchName = requestedBranches.get(config.key);
+			if (branchName === undefined) {
+				continue;
+			}
+
+			const metadata = this.parsePullRequestMetadata(config.value);
+			if (!metadata || !Number.isFinite(metadata.prNumber)) {
+				continue;
+			}
+
+			// Prefer the highest PR number; retain the first entry for ties.
+			const previous = matchingMetadata.get(branchName);
+			if (!previous || metadata.prNumber > previous.prNumber) {
+				matchingMetadata.set(branchName, metadata);
+			}
+		}
+		return matchingMetadata;
 	}
 
 	static async createRemote(repository: Repository, baseRemote: Remote, cloneUrl: Protocol) {

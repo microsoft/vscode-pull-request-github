@@ -1041,6 +1041,7 @@ export class FolderRepositoryManager extends Disposable {
 		const localBranches = (await this.repository.getRefs({ pattern: 'refs/heads/' }))
 			.filter(r => r.name !== undefined)
 			.map(r => r.name!);
+		const matchingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, localBranches);
 
 		// Chunk localBranches into chunks of 100 to avoid hitting the GitHub API rate limit
 		const chunkedLocalBranches: string[][] = [];
@@ -1053,10 +1054,7 @@ export class FolderRepositoryManager extends Disposable {
 		const models: (PullRequestModel | undefined)[] = [];
 		for (const chunk of chunkedLocalBranches) {
 			models.push(...await Promise.all(chunk.map(async localBranchName => {
-				const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-					this.repository,
-					localBranchName,
-				);
+				const matchingPRMetadata = matchingMetadata.get(localBranchName);
 
 				if (matchingPRMetadata) {
 					const { owner, prNumber } = matchingPRMetadata;
