@@ -190,6 +190,53 @@ describe('PullRequestManager', function () {
 		});
 	});
 
+	describe('getLocalPullRequests', function () {
+		it('reads one fresh config snapshot across branch chunks', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry, true);
+			(manager as any)._githubRepositories = [githubRepository];
+			for (let i = 0; i < 102; i++) {
+				await repository.createBranch(`branch-${i}`, false);
+			}
+			await repository.setConfig('branch.branch-0.github-pr-owner-number', 'owner#repo#5');
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#7');
+			const first = { localBranchName: undefined } as PullRequestModel;
+			const last = { localBranchName: undefined } as PullRequestModel;
+			const updated = { localBranchName: undefined } as PullRequestModel;
+			const models = new Map([[5, first], [7, last], [11, updated]]);
+			const getPullRequest = sinon.stub(githubRepository, 'getPullRequest').callsFake(async (number: number) => models.get(number));
+			const getConfigs = sinon.spy(repository, 'getConfigs');
+
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, last]);
+			assert.strictEqual(getConfigs.calledOnce, true);
+			assert.deepStrictEqual(getPullRequest.args, [
+				[5, 'FolderRepositoryManager.getLocalPullRequests'],
+				[7, 'FolderRepositoryManager.getLocalPullRequests'],
+			]);
+			assert.strictEqual(first.localBranchName, 'branch-0');
+			assert.strictEqual(last.localBranchName, 'branch-101');
+
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#11');
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, updated]);
+			assert.strictEqual(getConfigs.calledTwice, true);
+			assert.strictEqual(updated.localBranchName, 'branch-101');
+		});
+
+		it('skips config reads without branches and handles config failures', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			(manager as any)._githubRepositories = [new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry, true)];
+			const getConfigs = sinon.stub(repository, 'getConfigs').rejects(new Error('config unavailable'));
+
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), []);
+			assert.strictEqual(getConfigs.notCalled, true);
+			await repository.createBranch('feature', false);
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), []);
+			assert.strictEqual(getConfigs.calledOnce, true);
+		});
+	});
+
 	describe('getPullRequestDefaults', function () {
 		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
 			const url = 'https://github.com/owner/repo.git';

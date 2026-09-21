@@ -383,6 +383,7 @@ describe('PullRequestGitHelper', function () {
 			sinon.stub(repository, 'getConfigs').resolves([
 				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#5' },
 				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#42' },
+				{ key: 'branch.feature.github-pr-owner-number', value: 'other#name#42' },
 				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#17' },
 				{ key: 'branch.other.github-pr-owner-number', value: 'owner#name#999' },
 			]);
