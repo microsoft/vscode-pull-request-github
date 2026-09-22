@@ -374,7 +374,7 @@ describe('PullRequestGitHelper', function () {
 		});
 	});
 
-	describe('getMatchingPullRequestMetadataForBranch', function () {
+	describe('getMatchingPullRequestMetadataForBranches', function () {
 		it('returns the highest-numbered PR when duplicate config entries exist for the branch', async function () {
 			// Simulate the case where a branch name has been associated with multiple
 			// PRs over time and `git config --get-all` returns duplicate entries.
@@ -388,9 +388,9 @@ describe('PullRequestGitHelper', function () {
 				{ key: 'branch.other.github-pr-owner-number', value: 'owner#name#999' },
 			]);
 
-			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(repository, ['feature']);
 
-			assert.deepStrictEqual(metadata, {
+			assert.deepStrictEqual(metadata.get('feature'), {
 				owner: 'owner',
 				repositoryName: 'name',
 				prNumber: 42,
@@ -407,9 +407,9 @@ describe('PullRequestGitHelper', function () {
 				{ key: 'branch.feature.github-pr-owner-number', value: 'owner#name#7' },
 			]);
 
-			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(repository, ['feature']);
 
-			assert.deepStrictEqual(metadata, {
+			assert.deepStrictEqual(metadata.get('feature'), {
 				owner: 'owner',
 				repositoryName: 'name',
 				prNumber: 7,
@@ -422,9 +422,9 @@ describe('PullRequestGitHelper', function () {
 				{ key: 'branch.feature.github-pr-owner-number', value: 'not-valid' },
 			]);
 
-			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, 'feature');
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(repository, ['feature']);
 
-			assert.strictEqual(metadata, undefined);
+			assert.strictEqual(metadata.get('feature'), undefined);
 		});
 	});
 });
