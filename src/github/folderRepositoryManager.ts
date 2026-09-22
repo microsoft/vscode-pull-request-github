@@ -1083,7 +1083,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		try {
-			// Only check the 3 most recently used branches to minimize API calls
+			// Only check the 10 most recently used branches to minimize API calls
 			const localBranches = (await this.repository.getRefs({
 				pattern: 'refs/heads/',
 				sort: 'committerdate',
@@ -1094,18 +1094,14 @@ export class FolderRepositoryManager extends Disposable {
 
 			Logger.debug(`Found ${localBranches.length} local branches to check`, this.id);
 
+			const matchingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, localBranches);
 			const associationResults: boolean[] = [];
 
-			// Process all branches (max 3) in parallel
+			// Process the selected branches in parallel
 			const chunkResults = await Promise.all(localBranches.map(async branchName => {
 				try {
 					// Check if this branch already has PR metadata
-					const existingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-						this.repository,
-						branchName,
-					);
-
-					if (existingMetadata) {
+					if (matchingMetadata.has(branchName)) {
 						// Branch already has PR metadata, skip
 						return false;
 					}
@@ -2191,29 +2187,10 @@ export class FolderRepositoryManager extends Disposable {
 			progress.report({ message: vscode.l10n.t('Deleted {0} of {1} branches', deletedBranches, totalBranches) });
 		};
 
-		const deleteConfig = async (branch: string) => {
-			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, branch, undefined);
-			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
-			if (this.repository.unsetConfig) {
-				const prefix = `branch.${branch}.`;
-				const remaining = (await this.repository.getConfigs()).filter(config => config.key.startsWith(prefix));
-				for (const config of remaining) {
-					try {
-						await this.repository.unsetConfig(config.key);
-					} catch (e) {
-						Logger.error(`Failed to remove leftover git config ${config.key}: ${e}`, this.id);
-					}
-				}
-			}
-		};
-
 		// batch deleting the branches to avoid consuming all available resources
 		await batchPromiseAll(picks, 5, async (pick) => {
 			try {
 				await this.repository.deleteBranch(pick.label, true);
-				if ((await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, pick.label))) {
-					console.log(`Branch ${pick.label} was not deleted`);
-				}
 				reportProgress();
 			} catch (e) {
 				if (typeof e.stderr === 'string' && e.stderr.includes('not found')) {
@@ -2247,10 +2224,29 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}
 
-		// Config operations can't be parallelized. Clean up any keys left by providers that don't remove sections.
+		// Clear associations serially before refreshing the remaining config.
 		for (const pick of picks) {
 			if (!branchesNeedingRetry.has(pick.label)) {
-				await deleteConfig(pick.label);
+				await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, pick.label, undefined);
+				await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, pick.label);
+			}
+		}
+
+		// Refresh after the fallback deletions, then remove remaining keys serially.
+		if (this.repository.unsetConfig && branchesNeedingConfigCleanup.length) {
+			const remainingConfigs = await this.repository.getConfigs();
+			for (const pick of branchesNeedingConfigCleanup) {
+				if (branchesNeedingRetry.has(pick.label)) {
+					continue;
+				}
+				const prefix = `branch.${pick.label}.`;
+				for (const config of remainingConfigs.filter(config => config.key.startsWith(prefix))) {
+					try {
+						await this.repository.unsetConfig(config.key);
+					} catch (e) {
+						Logger.error(`Failed to remove leftover git config ${config.key}: ${e}`, this.id);
+					}
+				}
 			}
 		}
 		if (needsRetry && needsRetry.length) {
@@ -2534,18 +2530,6 @@ export class FolderRepositoryManager extends Disposable {
 		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		return githubRepository?.resolveUser(login);
-	}
-
-	async getMatchingPullRequestMetadataForBranch() {
-		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name) {
-			return null;
-		}
-
-		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-			this.repository,
-			this.repository.state.HEAD.name,
-		);
-		return matchingPullRequestMetadata;
 	}
 
 	async getMatchingPullRequestMetadataFromGitHub(branch: Branch, remoteName?: string, remoteUrl?: string, upstreamBranchName?: string): Promise<

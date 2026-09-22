@@ -375,14 +375,6 @@ export class PullRequestGitHelper {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
 	}
 
-	static async getMatchingPullRequestMetadataForBranch(
-		repository: Repository,
-		branchName: string,
-	): Promise<PullRequestMetadata | undefined> {
-		const metadata = await this.getMatchingPullRequestMetadataForBranches(repository, [branchName]);
-		return metadata.get(branchName);
-	}
-
 	static async getMatchingPullRequestMetadataForBranches(
 		repository: Repository,
 		branchNames: readonly string[],
