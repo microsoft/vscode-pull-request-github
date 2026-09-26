@@ -479,7 +479,7 @@ export class CredentialStore extends Disposable {
 			}
 		*/
 		this._telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
-			succeeded: result.canceled ? 'false' : 'true'
+			succeeded: result.canceled || result.unavailable ? 'false' : 'true'
 		});
 
 		if (result.canceled || result.unavailable) {

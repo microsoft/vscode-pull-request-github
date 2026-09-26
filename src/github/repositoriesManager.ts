@@ -323,7 +323,7 @@ export class RepositoriesManager extends Disposable {
 			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise);
 		}
 		let github;
-		if (!githubEnterprise && enterprise !== true) {
+		if (!githubEnterprise && (!preferEnterprise || (enterprise !== true && enterpriseRemotes.length === 0))) {
 			github = await this._credentialStore.login(AuthProvider.github);
 		}
 		return !!github || !!githubEnterprise;

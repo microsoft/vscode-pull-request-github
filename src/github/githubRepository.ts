@@ -299,9 +299,11 @@ export class GitHubRepository extends Disposable {
 		GitHubRepository._allRepoIds.add(this._id);
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
 		this._register(this._credentialStore.onDidChangeSessions(e => {
-			if (e.provider.id === this.remote.authProviderId && e.serverChanged) {
-				this._hub = undefined;
-				this._metadata = undefined;
+			if (e.provider.id === this.remote.authProviderId) {
+				this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+				if (e.accountChanged || e.serverChanged) {
+					this._metadata = undefined;
+				}
 			}
 		}));
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
@@ -487,7 +489,6 @@ export class GitHubRepository extends Disposable {
 
 	async ensure(additionalScopes: boolean = false): Promise<GitHubRepository> {
 		this._initialized = true;
-		const oldHub = this._hub;
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
 			// We need auth now. (ex., a PR is already checked out)
 			// We can no longer wait until later for login to be done
@@ -510,7 +511,8 @@ export class GitHubRepository extends Disposable {
 			throw error;
 		}
 
-		if (oldHub !== this._hub) {
+		// A session event may have already refreshed the hub before ensure().
+		if (this._hub) {
 			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);

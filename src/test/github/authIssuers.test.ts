@@ -9,12 +9,14 @@ import { Response } from 'cross-fetch';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { GitHubManager } from '../../authentication/githubServer';
-import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import { AuthenticationError, AuthProvider, GitHubServerType } from '../../common/authentication';
 import { GitHubRemote, parseRemote } from '../../common/remote';
 import { GithubRemoteSourceProvider } from '../../gitExtensionIntegration';
 import { CredentialStore, CredentialStoreSessionsChangeEvent, GitHub } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { LoggingOctokit } from '../../github/loggingOctokit';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import * as utils from '../../github/utils';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 
@@ -55,13 +57,13 @@ describe('authIssuers', function () {
 		return hub;
 	}
 
-	async function refreshSession(value?: vscode.AuthenticationSession): Promise<void> {
+	async function refreshSession(value?: vscode.AuthenticationSession, provider: AuthProvider = AuthProvider.githubEnterprise): Promise<void> {
 		if (value) {
-			selected.set(AuthProvider.githubEnterprise, value);
+			selected.set(provider, value);
 		} else {
-			selected.delete(AuthProvider.githubEnterprise);
+			selected.delete(provider);
 		}
-		sessionEvents.fire({ provider: { id: AuthProvider.githubEnterprise, label: 'GitHub Enterprise' } });
+		sessionEvents.fire({ provider: { id: provider, label: 'GitHub' } });
 		await new Promise<void>(resolve => setImmediate(resolve));
 	}
 
@@ -244,7 +246,7 @@ describe('authIssuers', function () {
 				await repo.ensure();
 				assert.strictEqual(repo.hub, enterpriseHub());
 				await refreshSession(session(`${hostA}/login/oauth`));
-				assert.throws(() => repo.hub, /Not authenticated/);
+				assert.throws(() => repo.hub, AuthenticationError);
 			}
 		}
 	});
@@ -258,5 +260,77 @@ describe('authIssuers', function () {
 		await refreshSession(session(`${hostB}/login/oauth`));
 		apiCall.onCall(apiCall.callCount).resolves({ data: { items: [] } });
 		assert.deepStrictEqual(await provider.getRemoteSources('query'), []);
+	});
+
+	describe('selected review feedback', function () {
+		for (const issuer of [undefined, `${hostB}/login/oauth`]) {
+			it(`reports ${issuer ? 'successful' : 'unavailable'} Copilot authentication accurately`, async function () {
+				const telemetry = sinon.spy(MockTelemetry.prototype, 'sendTelemetryEvent');
+				sinon.stub(vscode.commands, 'executeCommand').resolves(true);
+				selected.set(AuthProvider.githubEnterprise, session(issuer));
+
+				assert.strictEqual(await store.tryPromptForCopilotAuth(), !!issuer);
+				assert.ok(telemetry.calledWithExactly('remoteAgent.command.auth', { succeeded: issuer ? 'true' : 'false' }));
+			});
+		}
+
+		for (const provider of [AuthProvider.github, AuthProvider.githubEnterprise]) {
+			it(`refreshes ${provider} repository clients without discarding same-account metadata`, async function () {
+				const host = provider === AuthProvider.github ? 'https://github.com' : hostB;
+				const type = provider === AuthProvider.github ? GitHubServerType.GitHubDotCom : GitHubServerType.Enterprise;
+				selected.set(provider, session(`${host}/login/oauth`));
+				await store.create({ silent: true });
+				const remote = parseRemote('origin', `${host}/owner/repo`);
+				assert.ok(remote);
+				const repo = new GitHubRepository(1, GitHubRemote.remoteAsGitHub(remote, type), context.extensionUri, store, new MockTelemetry(), true);
+				context.subscriptions.push(repo);
+				await repo.ensure();
+				const metadata = await repo.getMetadata();
+
+				const refreshed = session(`${host}/login/oauth`, { accessToken: 'refreshed-token' });
+				await refreshSession(refreshed, provider);
+				assert.strictEqual(repo.hub, store.getHub(provider));
+				assert.strictEqual(await repo.getMetadata(), metadata);
+				await repo.query({ query: viewerQuery });
+				assert.strictEqual(graphqlFetch.lastCall.args[1].headers.authorization, 'Bearer refreshed-token');
+
+				selected.set(provider, { ...refreshed, accessToken: 'upgraded-token', scopes: additionalScopes });
+				await store.getHubEnsureAdditionalScopes(provider);
+				assert.strictEqual(repo.hub, store.getHub(provider));
+				assert.strictEqual(await repo.getMetadata(), metadata);
+				await repo.ensure();
+				if (provider === AuthProvider.github) {
+					assert.ok(repo.schema.GetRepoProjects);
+				}
+
+				await refreshSession(session(`${host}/login/oauth`, { account: { id: 'other', label: 'other' } }), provider);
+				assert.notStrictEqual(await repo.getMetadata(), metadata);
+			});
+		}
+
+		for (const remoteKind of ['enterprise', 'unknown', 'public']) {
+			it(`uses the intended login fallback for ${remoteKind} remotes`, async function () {
+				selected.set(AuthProvider.github, session());
+				await store.create({ silent: true });
+				const publicHub = store.getHub(AuthProvider.github);
+				assert.ok(publicHub);
+				const remote = parseRemote('origin', `${hostB}/owner/repo`);
+				assert.ok(remote);
+				sinon.stub(utils, 'findDotComAndEnterpriseRemotes').resolves({
+					dotComRemotes: remoteKind === 'public' ? [remote] : [],
+					enterpriseRemotes: remoteKind === 'enterprise' ? [remote] : [],
+					unknownRemotes: remoteKind === 'unknown' ? [remote] : [],
+				});
+				const login = sinon.stub(store, 'login').resolves(undefined);
+				login.withArgs(AuthProvider.github).resolves(publicHub);
+				const repositories = new RepositoriesManager(store, new MockTelemetry());
+				context.subscriptions.push(repositories);
+
+				assert.strictEqual(await repositories.authenticate(), remoteKind !== 'enterprise');
+				assert.deepStrictEqual(login.getCalls().map(call => call.args[0]), remoteKind === 'public'
+					? [AuthProvider.github]
+					: remoteKind === 'enterprise' ? [AuthProvider.githubEnterprise] : [AuthProvider.githubEnterprise, AuthProvider.github]);
+			});
+		}
 	});
 });
