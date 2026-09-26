@@ -69,6 +69,7 @@ describe('GitHub Pull Requests view', function () {
 		// a dummy GitHub/Octokit object.
 		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
 			const github: GitHub = {
+				serverUri: vscode.Uri.parse('https://github.com'),
 				octokit: new LoggingOctokit(new Octokit({
 					request: {},
 					baseUrl: 'https://github.com',

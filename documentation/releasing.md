@@ -1,5 +1,19 @@
 # How to release
 
+## Authentication API dependency
+
+Enterprise API destinations use the selected session's `authorizationServer`,
+with `/login/oauth` removed, rather than `github-enterprise.uri` (setup only).
+This requires the **proposed** `authIssuers` API from
+[microsoft/vscode#337846](https://github.com/microsoft/vscode/pull/337846),
+merged at `2f84f5b38264788d80a9399413cc47cb2a17db51` on the 1.140 development line.
+The engine floor is 1.140.0; Insiders must contain that commit. Production
+allowlisting is a separate [vscode-distro](https://github.com/microsoft/vscode-distro)
+change. Missing enterprise metadata is explicitly unavailable, without a
+configuration fallback. Public GitHub/PAT authentication does not require it.
+
+## Release steps
+
 1. Edit version in [package.json](https://github.com/Microsoft/vscode-pull-request-github/blob/main/package.json)
     - Update version of the extension - this is usually the minor version.
 	**Until the marketplace supports semantic versioning, the minor version should always be an event number. Odd numbers are reserved for the pre-release version of the extension.**

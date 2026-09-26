@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { Uri } from 'vscode';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync } from '../../common/remote';
 import { MockRepository } from '../mocks/mockRepository';
@@ -25,6 +26,36 @@ describe('GitHubRemote', () => {
 		const githubRemote = GitHubRemote.remoteAsGitHub(remote, GitHubServerType.GitHubDotCom);
 
 		assert.strictEqual(githubRemote.authProviderId, AuthProvider.github);
+	});
+
+	it('classifies unconfigured enterprise remotes without reading settings', () => {
+		const remote = parseRemote('origin', 'https://host-b.example/owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.authProviderId, AuthProvider.githubEnterprise);
+	});
+
+	it('matches enterprise deployments including their paths and ports', () => {
+		const remote = parseRemote('origin', 'https://host-b.example:8443/deployment/owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.normalizedHost, 'https://host-b.example:8443/deployment');
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:8443/deployment')), true);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-a.example:8443/deployment')), false);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:9443/deployment')), false);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:8443/another')), false);
+	});
+
+	it('matches SSH remotes to the session deployment without treating SSH ports as API ports', () => {
+		const remote = parseRemote('origin', 'git@host-b.example:owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:8443/deployment')), true);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-a.example')), false);
+	});
+
+	it('preserves public SSH host routing', () => {
+		const remote = parseRemote('origin', 'git@ssh.github.com:owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.authProviderId, AuthProvider.github);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://github.com')), true);
 	});
 });
 

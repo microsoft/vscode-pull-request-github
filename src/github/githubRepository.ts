@@ -218,6 +218,9 @@ export class GitHubRepository extends Disposable {
 	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
+		if (this._hub && this.remote.isEnterprise && (!this.authMatchesServer || !this.remote.matchesServerUri(this._hub.serverUri))) {
+			throw new AuthenticationError(vscode.l10n.t('The authentication session no longer matches this GitHub repository. Refresh the repository or sign in again.'));
+		}
 		if (!this._hub) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
@@ -295,6 +298,14 @@ export class GitHubRepository extends Disposable {
 		super();
 		GitHubRepository._allRepoIds.add(this._id);
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
+		this._register(this._credentialStore.onDidChangeSessions(e => {
+			if (e.provider.id === this.remote.authProviderId) {
+				this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+				if (e.accountChanged || e.serverChanged) {
+					this._metadata = undefined;
+				}
+			}
+		}));
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -304,8 +315,9 @@ export class GitHubRepository extends Disposable {
 	get authMatchesServer(): boolean {
 		if ((this.remote.githubServerType === GitHubServerType.GitHubDotCom) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			return true;
-		} else if ((this.remote.githubServerType === GitHubServerType.Enterprise) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
-			return true;
+		} else if (this.remote.githubServerType === GitHubServerType.Enterprise) {
+			const hub = this._credentialStore.getHub(AuthProvider.githubEnterprise);
+			return !!hub && this.remote.matchesServerUri(hub.serverUri);
 		} else {
 			// Not good. We have a mismatch between auth type and server type.
 			return false;
@@ -477,7 +489,6 @@ export class GitHubRepository extends Disposable {
 
 	async ensure(additionalScopes: boolean = false): Promise<GitHubRepository> {
 		this._initialized = true;
-		const oldHub = this._hub;
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
 			// We need auth now. (ex., a PR is already checked out)
 			// We can no longer wait until later for login to be done
@@ -493,7 +504,15 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 
-		if (oldHub !== this._hub) {
+		if (this._hub && !this.remote.matchesServerUri(this._hub.serverUri)) {
+			this._hub = undefined;
+			const error = new AuthenticationError(vscode.l10n.t('The selected authentication session does not match the GitHub server for this repository.'));
+			Logger.warn(error.message, this.id);
+			throw error;
+		}
+
+		// A session event may have already refreshed the hub before ensure().
+		if (this._hub) {
 			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);

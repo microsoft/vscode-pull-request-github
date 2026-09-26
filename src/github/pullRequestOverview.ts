@@ -28,7 +28,7 @@ import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
-import { getEnterpriseUri, getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -447,7 +447,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const contextStart = performance.now();
 			const closingIssuesPromise = (async () => {
-				const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
+				const enterpriseUri = pullRequest.remote.isEnterprise ? pullRequest.githubRepository.hub.serverUri : undefined;
 				const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
 				return Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
 					const parsed = parseIssueExpressionOutput(issue.url.match(issueOrUrlExpression));

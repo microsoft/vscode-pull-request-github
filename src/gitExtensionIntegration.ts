@@ -37,7 +37,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	readonly icon = 'github';
 	readonly supportsQuery = true;
 
-	private userReposCache: RemoteSource[] = [];
+	private userReposCache = new WeakMap<GitHub, RemoteSource[]>();
 
 	constructor(private readonly credentialStore: CredentialStore, private readonly authProviderId: AuthProvider = AuthProvider.github) {
 		if (isEnterprise(authProviderId)) {
@@ -65,10 +65,10 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
 			const res = await hub.octokit.call(hub.octokit.api.repos.listForAuthenticatedUser, { sort: 'pushed', per_page: 100 });
-			this.userReposCache = res.data.map(asRemoteSource);
+			this.userReposCache.set(hub, res.data.map(asRemoteSource));
 		}
 
-		return this.userReposCache;
+		return this.userReposCache.get(hub) ?? [];
 	}
 
 	private async getQueryRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
