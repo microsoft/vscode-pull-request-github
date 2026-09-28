@@ -252,6 +252,12 @@ export class RepositoriesManager extends Disposable {
 		return this._credentialStore;
 	}
 
+	clearForAuthChange(): void {
+		for (const folderManager of this._folderManagers) {
+			folderManager.clearForAuthChange();
+		}
+	}
+
 	async refreshRepositories(): Promise<void> {
 		await Promise.all(this._folderManagers.map(folderManager => folderManager.updateRepositories(false, true)));
 		this.updateState();
@@ -302,7 +308,8 @@ export class RepositoriesManager extends Disposable {
 		else if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
 			const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', enterpriseRemotes[0].normalizedHost),
 				{ modal: true }, yes, vscode.l10n.t('No, use GitHub.com'));
-			if (promptResult === yes) {
+			enterprise = promptResult === yes;
+			if (enterprise) {
 				await setEnterpriseUri(enterpriseRemotes[0].normalizedHost);
 			} else if (promptResult === undefined) {
 				return false;
@@ -311,11 +318,12 @@ export class RepositoriesManager extends Disposable {
 
 		let githubEnterprise;
 		const hasNonDotComRemote = (enterpriseRemotes.length > 0) || (unknownRemotes.length > 0);
-		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && hasNonDotComRemote) {
+		const preferEnterprise = enterprise ?? (hasNonDotComRemote && (dotComRemotes.length === 0 || this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)));
+		if (preferEnterprise) {
 			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise);
 		}
 		let github;
-		if (!githubEnterprise && (!hasEnterpriseUri() || enterpriseRemotes.length === 0)) {
+		if (!githubEnterprise && (!preferEnterprise || (enterprise !== true && enterpriseRemotes.length === 0))) {
 			github = await this._credentialStore.login(AuthProvider.github);
 		}
 		return !!github || !!githubEnterprise;

@@ -209,14 +209,18 @@ export class StateManager {
 		}
 	}
 
-	async refreshForAuthChange() {
+	clearForAuthChange(): void {
 		this.resolvedIssues.clear();
 		for (const state of this._singleRepoStates.values()) {
 			if (state) {
-				state.issueCollection.clear();
+				state.issueCollection = new Map();
 				state.userMap = undefined;
 			}
 		}
+		this._onDidChangeIssueData.fire();
+	}
+
+	async refreshAfterAuthChange() {
 		if (this.manager.credentialStore.isAnyAuthenticated()) {
 			await this.refresh();
 		} else {
@@ -335,7 +339,8 @@ export class StateManager {
 		if (!singleRepoState) {
 			return;
 		}
-		singleRepoState.issueCollection.clear();
+		const issueCollection = singleRepoState.issueCollection;
+		issueCollection.clear();
 		const enterpriseRemotes = (await parseRepositoryRemotesAsync(folderManager.repository)).filter(
 			remote => remote.isEnterprise
 		);
@@ -354,7 +359,7 @@ export class StateManager {
 			).then(issues => ({ groupBy: query.groupBy ?? [], issues }));
 
 			if (items) {
-				singleRepoState.issueCollection.set(query.label, items);
+				issueCollection.set(query.label, items);
 			}
 		}
 		singleRepoState.maxIssueNumber = await folderManager.getMaxIssue(folderManager.repository);

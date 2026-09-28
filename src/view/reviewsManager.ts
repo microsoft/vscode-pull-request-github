@@ -51,6 +51,15 @@ export class ReviewsManager extends Disposable {
 		return this._reviewManagers;
 	}
 
+	async clearForAuthChange(): Promise<void> {
+		this._prsTreeDataProvider.clear();
+		await Promise.all(this._reviewManagers.map(reviewManager => reviewManager.clearForAuthChange()));
+	}
+
+	refreshPullRequestsTree(reset: boolean = false): void {
+		this._prsTreeDataProvider.refreshAll(reset);
+	}
+
 	private registerListeners(): void {
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
@@ -232,4 +241,3 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 		return false;
 	}
 }
-

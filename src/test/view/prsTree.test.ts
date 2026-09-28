@@ -69,6 +69,7 @@ describe('GitHub Pull Requests view', function () {
 		// a dummy GitHub/Octokit object.
 		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
 			const github: GitHub = {
+				serverUri: vscode.Uri.parse('https://github.com'),
 				octokit: new LoggingOctokit(new Octokit({
 					request: {},
 					baseUrl: 'https://github.com',
@@ -134,6 +135,25 @@ describe('GitHub Pull Requests view', function () {
 			treeItems.map(n => n.label),
 			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 		);
+	});
+
+	it('clears the tree immediately', async function () {
+		const repository = new MockRepository();
+		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'aaa', repo: 'bbb', base: 'main' });
+		reposManager.insertFolderManager(folderManager);
+		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+		await folderManager.updateRepositories();
+		provider.initialize([], mockNotificationsManager as NotificationsManager);
+		await provider.getChildren();
+		const onDidChangeTreeData = sinon.spy();
+		provider.onDidChangeTreeData(onDidChangeTreeData);
+
+		provider.clear();
+
+		assert.deepStrictEqual(await provider.cachedChildren(), []);
+		assert(onDidChangeTreeData.calledOnce);
 	});
 
 	it('refreshes tree when GitHub repositories are discovered in existing folder manager', async function () {

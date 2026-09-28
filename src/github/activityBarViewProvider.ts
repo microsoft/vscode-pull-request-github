@@ -447,11 +447,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private async deleteBranch(message: IRequestMessage<any>) {
 		const result = await PullRequestReviewCommon.deleteBranch(this._folderRepositoryManager, this._item);
-		if (result.isReply) {
-			this._replyMessage(message, result.message);
-		} else {
-			this._postMessage(result.message);
-		}
+		await this._replyMessage(message, result.message);
 	}
 
 	private async setReadyForReview(message: IRequestMessage<Record<string, unknown>>): Promise<void> {

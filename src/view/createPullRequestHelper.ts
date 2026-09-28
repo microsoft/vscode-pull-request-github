@@ -284,6 +284,10 @@ export class CreatePullRequestHelper extends Disposable {
 
 	}
 
+	clearForAuthChange(): void {
+		this.reset();
+	}
+
 	override dispose() {
 		this.reset();
 		super.dispose();

@@ -6,8 +6,20 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { getIssueOrURLExpression, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../../github/utils';
+import { getUpstreamOrigin } from '../../issues/util';
 
 describe('Issues utilities', function () {
+	it('derives enterprise links from the upstream instead of enterprise configuration', function () {
+		assert.strictEqual(getUpstreamOrigin({ name: 'origin', fetchUrl: 'https://host-b.example:8443/deployment/owner/repo.git', isReadOnly: false }),
+			'https://host-b.example:8443/deployment');
+		assert.strictEqual(getUpstreamOrigin({ name: 'origin', fetchUrl: 'git@host-b.example:owner/repo.git', isReadOnly: false }),
+			'https://host-b.example');
+	});
+
+	it('preserves static public share-link destinations', function () {
+		assert.strictEqual(getUpstreamOrigin({ name: 'origin', fetchUrl: 'git@github.com:owner/repo.git', isReadOnly: false }, 'github.dev'), 'https://github.dev');
+	});
+
 	it('regular expressions', async function () {
 		const issueNumber = '#1234';
 		const issueNumberParsed = parseIssueExpressionOutput(issueNumber.match(ISSUE_OR_URL_EXPRESSION));

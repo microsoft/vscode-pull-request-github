@@ -124,6 +124,29 @@ describe('ReviewManager polling', function () {
 		assert.strictEqual(latestScheduledDelay(), POLL_MIN_INTERVAL_MS * POLL_BACKOFF_MULTIPLIER);
 	});
 
+	it('clears account-specific review state on auth change', async function () {
+		const internal = reviewManager as unknown as {
+			_lastCommitSha?: string;
+			_cachedMaxPRNumbers?: Map<string, number>;
+			_cachedBranchName?: string;
+			_staleMetadataCheckedBranches: Set<string>;
+			clear(quitReviewMode: boolean): Promise<void>;
+		};
+		internal._lastCommitSha = 'commit';
+		internal._cachedMaxPRNumbers = new Map([['owner/repo', 1]]);
+		internal._cachedBranchName = 'branch';
+		internal._staleMetadataCheckedBranches.add('branch');
+		const clear = sinon.stub(internal, 'clear').resolves();
+
+		await reviewManager.clearForAuthChange();
+
+		assert.strictEqual(internal._lastCommitSha, undefined);
+		assert.strictEqual(internal._cachedMaxPRNumbers, undefined);
+		assert.strictEqual(internal._cachedBranchName, undefined);
+		assert.strictEqual(internal._staleMetadataCheckedBranches.size, 0);
+		assert.strictEqual(clear.calledOnceWithExactly(true), true);
+	});
+
 	it('resets polling interval to minimum when a change is detected', async function () {
 		// doPoll detects a change by comparing ReviewManager's internal _prNumber /
 		// _lastCommitSha before and after updateState, so the stub must mutate one of

@@ -29,6 +29,11 @@ export class WebviewViewCoordinator extends Disposable {
 		this._webviewViewProvider = undefined;
 	}
 
+	clearForAuthChange(): void {
+		this._pullRequestModel.clear();
+		this.reset();
+	}
+
 	private create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
 		this._webviewViewProvider = addDisposable(new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, reviewManager, pullRequestModel), this._currentDisposables);
 		addDisposable(vscode.window.registerWebviewViewProvider(

@@ -15,7 +15,7 @@ import { Issue, Notification, NotificationSubjectType } from '../github/interfac
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { hasEnterpriseUri, parseNotification } from '../github/utils';
+import { parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
 
 export interface INotifications {
@@ -41,7 +41,7 @@ export class NotificationsProvider extends Disposable {
 	) {
 		super();
 		const setAuthProvider = () => {
-			if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 				this._authProvider = AuthProvider.githubEnterprise;
 			} else if (_credentialStore.isAuthenticated(AuthProvider.github)) {
 				this._authProvider = AuthProvider.github;

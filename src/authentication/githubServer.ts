@@ -6,11 +6,11 @@
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { HostHelper } from './configuration';
-import { GitHubServerType } from '../common/authentication';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
-import { getEnterpriseUri } from '../github/utils';
+import type { CredentialStore } from '../github/credentials';
 
 export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
@@ -19,7 +19,10 @@ export class GitHubManager {
 	private static readonly _reportedEnterpriseVersions = new Set<string>();
 	private _knownServers: Map<string, GitHubServerType> = new Map([...Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]), ...Array.from(GitHubManager._gheServers.keys()).map(key => [key, GitHubServerType.Enterprise])] as [string, GitHubServerType][]);
 
-	constructor(private readonly _telemetry?: ITelemetry) { }
+	constructor(
+		private readonly credentialStore: CredentialStore,
+		private readonly _telemetry?: ITelemetry,
+	) { }
 
 	public static isGithubDotCom(host: string): boolean {
 		return this._githubDotComServers.has(host);
@@ -60,8 +63,9 @@ export class GitHubManager {
 
 		const matchingKnownServer = Array.from(this._knownServers.keys()).find(server => authority.endsWith(server));
 
-		const knownEnterprise = getEnterpriseUri();
-		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!matchingKnownServer || (this._knownServers.get(matchingKnownServer) === GitHubServerType.None))) {
+		const enterprise = this.credentialStore.getHub(AuthProvider.githubEnterprise);
+		if (enterprise && authority === new URL(enterprise.serverUri.toString()).hostname.toLowerCase()
+			&& (!matchingKnownServer || (this._knownServers.get(matchingKnownServer) === GitHubServerType.None))) {
 			return GitHubServerType.Enterprise;
 		}
 

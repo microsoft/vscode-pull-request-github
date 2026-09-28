@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
@@ -18,9 +18,10 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { LoggingOctokit } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { Uri } from 'vscode';
-import { GitHubServerType } from '../../common/authentication';
+import { commands, env, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -84,6 +85,108 @@ describe('PullRequestManager', function () {
 				manager.createGitHubRepository(inaccessibleRemote, manager.credentialStore),
 				/Repository owner\/missing is not accessible\./,
 			);
+		});
+
+		it('clears account-specific repository state on auth change', function () {
+			const internal = manager as unknown as {
+				_sessionIgnoredRemoteNames: Set<string>;
+				_inaccessibleRepos: Set<string>;
+				_repositoryPageInformation: Map<string, unknown>;
+				_gitBlameCache: Record<string, string>;
+				_mentionableUsers?: Record<string, unknown>;
+				_assignableUsers?: Record<string, unknown>;
+				_teamReviewers?: Record<string, unknown>;
+				_accountCacheToken: object;
+			};
+			internal._sessionIgnoredRemoteNames.add('origin');
+			internal._inaccessibleRepos.add('owner/repo');
+			internal._repositoryPageInformation.set('query', {});
+			internal._gitBlameCache.file = 'user';
+			internal._mentionableUsers = { origin: [] };
+			internal._assignableUsers = { origin: [] };
+			internal._teamReviewers = { origin: [] };
+			const oldAccountCacheToken = internal._accountCacheToken;
+
+			manager.clearForAuthChange();
+
+			assert.strictEqual(internal._sessionIgnoredRemoteNames.size, 0);
+			assert.strictEqual(internal._inaccessibleRepos.size, 0);
+			assert.strictEqual(internal._repositoryPageInformation.size, 0);
+			assert.deepStrictEqual(internal._gitBlameCache, {});
+			assert.strictEqual(internal._mentionableUsers, undefined);
+			assert.strictEqual(internal._assignableUsers, undefined);
+			assert.strictEqual(internal._teamReviewers, undefined);
+			assert.notStrictEqual(internal._accountCacheToken, oldAccountCacheToken);
+		});
+
+		it('does not publish user data into a replacement account cache', async function () {
+			let resolveUsers: (users: []) => void;
+			const users = new Promise<[]>(resolve => resolveUsers = resolve);
+			const internal = manager as unknown as {
+				_githubRepositories: { remote: { remoteName: string }, getAssignableUsers(): Promise<[]> }[];
+				_assignableUsers?: Record<string, unknown>;
+			};
+			internal._githubRepositories = [{
+				remote: { remoteName: 'origin' },
+				getAssignableUsers: () => users,
+			}];
+
+			const pendingUsers = manager.getAssignableUsers(true);
+			manager.clearForAuthChange();
+			resolveUsers!([]);
+
+			assert.deepStrictEqual(await pendingUsers, {});
+			assert.strictEqual(internal._assignableUsers, undefined);
+		});
+
+		it('scopes persisted user data to the authentication provider and account', function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const getAccountId = sinon.stub(manager.credentialStore, 'getAccountId');
+			const internal = manager as unknown as {
+				getAccountCacheLocation(userKind: string, repo: GitHubRepository): Uri | undefined;
+			};
+			getAccountId.returns('first-account');
+			const firstAccountLocation = internal.getAccountCacheLocation('assignableUsers', githubRepository);
+			getAccountId.returns('second-account');
+			const secondAccountLocation = internal.getAccountCacheLocation('assignableUsers', githubRepository);
+
+			assert.notStrictEqual(firstAccountLocation?.toString(), secondAccountLocation?.toString());
+			assert.ok(firstAccountLocation?.toString().includes('github'));
+			assert.ok(firstAccountLocation?.toString().includes('first-account'));
+		});
+
+		it('separates persisted enterprise user caches by session deployment even for the same account ID', function () {
+			const firstUrl = 'https://host-a.example/owner/repo';
+			const secondUrl = 'https://host-b.example:8443/deployment/owner/repo';
+			const firstRepo = new GitHubRepository(1, new GitHubRemote('origin', firstUrl, new Protocol(firstUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			const secondRepo = new GitHubRepository(2, new GitHubRemote('origin', secondUrl, new Protocol(secondUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			sinon.stub(manager.credentialStore, 'getAccountId').returns('same-account');
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({
+				data: { login: 'user', node_id: 'user', html_url: firstUrl, avatar_url: '', type: 'User' },
+			});
+			const getHub = sinon.stub(manager.credentialStore, 'getHub');
+			const hubFor = (deployment: string) => manager.credentialStore['createHub']({
+				id: 'session',
+				account: { id: 'same-account', label: 'account' },
+				accessToken: 'test-token',
+				scopes: [],
+				authorizationServer: Uri.parse(`${deployment}/login/oauth`),
+			}, AuthProvider.githubEnterprise);
+			getHub.returns(hubFor('https://host-a.example'));
+			const firstCache = manager['getAccountCacheLocation']('assignableUsers', firstRepo);
+			getHub.returns(hubFor('https://host-b.example:8443/deployment'));
+			const secondCache = manager['getAccountCacheLocation']('assignableUsers', secondRepo);
+
+			assert.ok(firstCache);
+			assert.ok(secondCache);
+			assert.notStrictEqual(firstCache.toString(), secondCache.toString());
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', firstRepo), undefined);
+			getHub.returns(undefined);
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', secondRepo), undefined);
+			firstRepo.dispose();
+			secondRepo.dispose();
 		});
 	});
 
@@ -223,6 +326,201 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.gone.')).length, 0);
 			assert.strictEqual(nonExistant.has('gone'), true);
 		});
+	});
+
+	describe('deleteBranch modal', function () {
+		let pr: PullRequestModel;
+		let showWarningMessage: SinonStub;
+		let deleteRemoteBranch: SinonStub;
+		let getBranchInfo: SinonStub;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().head(head => head.ref('feature')).build(), githubRepository);
+			pr = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem);
+			await repository.createBranch('local-feature', false);
+			getBranchInfo = sinon.stub(manager, 'getBranchNameForPullRequest').resolves({
+				branch: 'local-feature',
+				createdForPullRequest: false,
+			});
+			sinon.stub(manager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
+			sinon.stub(manager, 'findRepo').returns(githubRepository);
+			sinon.stub(env, 'remoteName').value(undefined);
+			sinon.stub(workspace, 'workspaceFolders').value([]);
+			showWarningMessage = sinon.stub(window, 'showWarningMessage').resolves(undefined);
+			deleteRemoteBranch = sinon.stub(manager, 'deleteBranch').resolves();
+			sinon.stub(repository, 'fetch').resolves();
+		});
+
+		it('shows concise buttons and branch details in a modal, and cancels without deleting', async function () {
+			const showQuickPick = sinon.stub(window, 'showQuickPick');
+			const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result, { isReply: true, message: { cancelled: true } });
+			assert.strictEqual(showWarningMessage.calledOnce, true);
+			assert.strictEqual(showWarningMessage.firstCall.args[0], `Choose what to delete for Pull Request #${pr.number}`);
+			const options = showWarningMessage.firstCall.args[1] as MessageOptions;
+			assert.strictEqual(options.modal, true);
+			assert.strictEqual(options.detail, [
+				'Choose an action below to clean up the resources associated with this pull request.',
+				'',
+				'Remote branch: origin/feature',
+				'Remote repository: https://github.com/octocat/reponame',
+				'Local branch: local-feature',
+			].join('\n'));
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+				['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
+			assert.strictEqual(showQuickPick.notCalled, true);
+			assert.strictEqual(deleteRemoteBranch.notCalled, true);
+			assert.strictEqual(deleteLocalBranch.notCalled, true);
+		});
+
+		for (const [title, expectedTypes] of [
+			['Delete Remote Branch', ['remoteHead']],
+			['Delete Local Branch', ['local']],
+			['Delete All', ['local', 'remoteHead']],
+		] as const) {
+			it(`executes only the actions for "${title}"`, async function () {
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === title));
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.strictEqual(result.isReply, false);
+				assert.strictEqual(result.message.command, 'pr.deleteBranch');
+				assert.deepStrictEqual(result.message.branchTypes.sort(), [...expectedTypes]);
+				assert.strictEqual(deleteRemoteBranch.calledOnce, expectedTypes.some(type => type === 'remoteHead'));
+				assert.strictEqual(deleteLocalBranch.calledOnce, expectedTypes.some(type => type === 'local'));
+				if (deleteLocalBranch.calledOnce) {
+					sinon.assert.calledWithExactly(deleteLocalBranch, 'local-feature', true);
+				}
+			});
+		}
+
+		it('offers only local deletion when the remote branch has been deleted', async function () {
+			pr.isRemoteHeadDeleted = true;
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+		});
+
+		it('treats a local branch that no longer exists as deleted', async function () {
+			await repository.deleteBranch('local-feature', true);
+			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === 'Delete Local Branch'));
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result.message.branchTypes, ['local']);
+		});
+
+		it('rethrows other local branch deletion errors', async function () {
+			const error = new Error('Unable to delete local branch');
+			sinon.stub(repository, 'deleteBranch').rejects(error);
+			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === 'Delete Local Branch'));
+
+			await assert.rejects(PullRequestReviewCommon.deleteBranch(manager, pr), error);
+		});
+
+		it('offers only remote branch deletion when there is no local branch', async function () {
+			getBranchInfo.resolves(undefined);
+			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items[0]);
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Remote Branch']);
+			assert.deepStrictEqual(result.message.branchTypes, ['remoteHead']);
+		});
+
+		it('does not offer deletion of the default remote branch', async function () {
+			assert.ok(pr.head);
+			pr.head.ref = 'main';
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+		});
+
+		it('warns without showing a modal when there are no actions', async function () {
+			pr.isRemoteHeadDeleted = true;
+			getBranchInfo.resolves(undefined);
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result, { isReply: true, message: { cancelled: true } });
+			sinon.assert.calledOnce(showWarningMessage);
+			assert.strictEqual(showWarningMessage.firstCall.args.length, 1);
+			assert.strictEqual(deleteRemoteBranch.notCalled, true);
+		});
+
+		for (const title of ['Delete Remote', 'Remove Worktree', 'Delete All']) {
+			it(`supports unused remote and worktree cleanup with "${title}"`, async function () {
+				getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: false });
+				const worktreePath = Uri.file('/worktrees/local-feature');
+				sinon.stub(manager, 'getWorktreeForBranch').returns(worktreePath);
+				const removeWorktree = sinon.stub(manager, 'removeWorktree').resolves();
+				const removeRemote = sinon.stub(repository, 'removeRemote').resolves();
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === title));
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+					['Delete All', 'Delete Remote Branch', 'Delete Local Branch', 'Delete Remote', 'Remove Worktree']);
+				assert.strictEqual((showWarningMessage.firstCall.args[1] as MessageOptions).detail, [
+					'Choose an action below to clean up the resources associated with this pull request.',
+					'',
+					'Remote branch: origin/feature',
+					'Remote repository: https://github.com/octocat/reponame',
+					'Local branch: local-feature',
+					'Unused Git remote: fork',
+					`Worktree: ${worktreePath.fsPath}`,
+				].join('\n'));
+				const expectedTypes = title === 'Delete All' ? ['local', 'remote', 'remoteHead', 'worktree'] : title === 'Delete Remote' ? ['remote'] : ['worktree'];
+				assert.deepStrictEqual(result.message.branchTypes.sort(), expectedTypes);
+				assert.strictEqual(removeRemote.calledOnce, title !== 'Remove Worktree');
+				assert.strictEqual(removeWorktree.calledOnce, title !== 'Delete Remote');
+				if (removeWorktree.calledOnce) {
+					sinon.assert.calledWithExactly(removeWorktree, worktreePath.fsPath);
+				}
+				if (title === 'Delete All') {
+					sinon.assert.callOrder(removeWorktree, deleteLocalBranch);
+				}
+			});
+		}
+
+		it('does not offer removal of an in-use remote or a worktree in the workspace', async function () {
+			getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: true });
+			const worktreePath = Uri.file('/worktrees/local-feature');
+			sinon.stub(manager, 'getWorktreeForBranch').returns(worktreePath);
+			sinon.stub(workspace, 'workspaceFolders').value([{ uri: worktreePath, name: 'local-feature', index: 0 }]);
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+				['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
+		});
+
+		for (const title of ['Suspend Codespace', 'Delete All']) {
+			it(`keeps Codespace suspension separate from deletion with "${title}"`, async function () {
+				sinon.stub(env, 'remoteName').value('codespaces');
+				const executeCommand = sinon.stub(commands, 'executeCommand').resolves();
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === title));
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.ok(showWarningMessage.firstCall.args.slice(2).some((item: MessageItem) => item.title === 'Suspend Codespace'));
+				assert.deepStrictEqual(result.message.branchTypes.sort(), title === 'Suspend Codespace' ? ['suspend'] : ['local', 'remoteHead']);
+				assert.strictEqual(executeCommand.calledOnce, title === 'Suspend Codespace');
+				if (executeCommand.calledOnce) {
+					sinon.assert.calledWithExactly(executeCommand, 'github.codespaces.disconnectSuspend');
+				}
+			});
+		}
 	});
 
 	describe('deleteRemotes', function () {
