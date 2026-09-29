@@ -311,7 +311,7 @@ export namespace PullRequestReviewCommon {
 		return typeof stderr === 'string' && stderr.includes('not found');
 	}
 
-	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
+	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel, remoteBranchDeletedOnMerge = false): Promise<{ isReply: boolean, message: any }> {
 		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
 		const actions: (vscode.MessageItem & SelectedAction)[] = [];
 		const cleanupDetails: string[] = [];
@@ -322,7 +322,7 @@ export namespace PullRequestReviewCommon {
 			const headRepo = folderRepositoryManager.findRepo(repo => repo.remote.owner === item.head.owner && repo.remote.repositoryName === item.remote.repositoryName);
 
 			const isDefaultBranch = defaultBranch === item.head.ref;
-			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
+			if (!isDefaultBranch && !item.isRemoteHeadDeleted && !remoteBranchDeletedOnMerge) {
 				const remoteBranch = headRepo ? `${headRepo.remote.remoteName}/${branchHeadRef}` : branchHeadRef;
 				const remoteRepository = item.head.repositoryCloneUrl.toString() ??
 					`${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.head.repositoryCloneUrl.repositoryName}`;
@@ -372,9 +372,11 @@ export namespace PullRequestReviewCommon {
 		}
 
 		if (!actions.length) {
-			vscode.window.showWarningMessage(
-				vscode.l10n.t('There is no longer an upstream or local branch for Pull Request #{0}', item.number),
-			);
+			if (!remoteBranchDeletedOnMerge) {
+				vscode.window.showWarningMessage(
+					vscode.l10n.t('There is no longer an upstream or local branch for Pull Request #{0}', item.number),
+				);
+			}
 			return {
 				isReply: true,
 				message: {
@@ -429,7 +431,8 @@ export namespace PullRequestReviewCommon {
 			if (deleteBranchAfterMerge) {
 				await autoDeleteBranchesAfterMerge(folderRepositoryManager, item);
 			} else if ((await item.githubRepository.getMetadata()).delete_branch_on_merge) {
-				const result = await deleteBranch(folderRepositoryManager, item);
+				const remoteBranchDeletedOnMerge = item.head?.repositoryCloneUrl.equals(item.base.repositoryCloneUrl) ?? false;
+				const result = await deleteBranch(folderRepositoryManager, item, remoteBranchDeletedOnMerge);
 				return result.isReply ? undefined : result.message;
 			}
 		} catch (e) {

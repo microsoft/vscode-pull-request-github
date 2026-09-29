@@ -350,7 +350,7 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(showWarningMessage.calledOnce, true);
 			assert.strictEqual((showWarningMessage.firstCall.args[1] as vscode.MessageOptions).modal, true);
 			const actions = showWarningMessage.firstCall.args.slice(2) as vscode.MessageItem[];
-			assert.strictEqual(actions.some(action => action.title === 'Delete Local Branch'), true);
+			assert.deepStrictEqual(actions.map(action => action.title), ['Delete Local Branch']);
 			assert.strictEqual(replyMessage.firstCall.args[1].state, GithubItemStateEnum.Merged);
 			sinon.assert.callOrder(replyMessage, showWarningMessage);
 		});
