@@ -69,7 +69,7 @@ describe('checkoutPRInWorktree', () => {
 		await checkout();
 
 		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor', ref: 'feature' }));
-		assert.strictEqual(repository.state.remotes[1].fetchUrl, 'git@github.com:contributor/repo.git');
+		assert.strictEqual(repository.state.remotes[1].fetchUrl, 'git@github.com:contributor/repo');
 		assert.strictEqual(await repository.getConfig('remote.contributor.github-pr-remote'), 'true');
 		assert.ok(createWorktree.calledOnceWithExactly({
 			path: worktreeUri.fsPath,
