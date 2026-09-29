@@ -16,10 +16,12 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	PullRequestStack,
 	Reaction,
 	ReviewState,
 	StateReason,
 } from './interface';
+import type { StackMergeOutcome } from './pullRequestModel';
 import { IComment } from '../common/comment';
 import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
@@ -74,6 +76,10 @@ export interface Issue {
 }
 
 export interface PullRequest extends Issue {
+	stack?: PullRequestStack;
+	stackLoaded?: boolean;
+	stackLoadError?: boolean;
+	stackMergeStatus?: 'pending' | 'enqueued';
 	isCopilotOnMyBehalf: boolean;
 	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
@@ -172,6 +178,11 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface StackMergeResult {
+	status: StackMergeOutcome;
+	state?: GithubItemStateEnum;
 }
 
 export interface DeleteReviewResult {

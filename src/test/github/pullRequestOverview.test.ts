@@ -23,12 +23,12 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, PullRequestMergeability, PullRequestStack } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { TimelineEvent } from '../../common/timelineEvent';
-import { PullRequestReviewCommon } from '../../github/pullRequestReviewCommon';
+import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -324,6 +324,63 @@ describe('PullRequestOverview', function () {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
 					});
+				});
+			});
+
+			describe('mergeStack', function () {
+				const stack: PullRequestStack = {
+					position: 2,
+					size: 2,
+					base: 'production',
+					pullRequests: [
+						{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+						{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					],
+				};
+
+				function createMergeContext() {
+					const item = new PullRequestModel(credentialStore, telemetry, repo, remote,
+						convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+					sinon.stub(item, 'getStack').resolves(stack);
+					return {
+						item,
+						folderRepositoryManager: pullRequestManager,
+						existingReviewers: [],
+						postMessage: sinon.stub().resolves(),
+						replyMessage: sinon.spy(),
+						throwError: sinon.spy(),
+						getTimeline: sinon.stub().resolves([]),
+					} satisfies ReviewContext;
+				}
+
+				it('uses the stack target branch merge queue and reports enqueue without marking the PR merged', async function () {
+					const ctx = createMergeContext();
+					sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
+					const queue = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves('squash');
+					const merge = sinon.stub(ctx.item, 'mergeStack').resolves('enqueued');
+					const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+					const message = { req: '1', command: 'pr.merge-stack', args: { method: 'squash' as const } };
+
+					await PullRequestReviewCommon.mergeStack(ctx, message);
+
+					assert(queue.calledOnceWithExactly('production', remote.owner, remote.repositoryName));
+					assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue'));
+					sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'enqueued', state: undefined });
+					assert(information.calledOnce);
+					assert(ctx.throwError.notCalled);
+				});
+
+				it('reports a rejected merge rather than sending a successful response', async function () {
+					const ctx = createMergeContext();
+					sinon.stub(ctx.item, 'mergeStack').rejects(new Error('Required checks failed'));
+					const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+					const message = { req: '2', command: 'pr.merge-stack', args: { method: 'merge' as const } };
+
+					await PullRequestReviewCommon.mergeStack(ctx, message);
+
+					assert(showError.calledOnce);
+					assert(ctx.replyMessage.notCalled);
+					sinon.assert.calledWithExactly(ctx.throwError, message, 'Required checks failed');
 				});
 			});
 
