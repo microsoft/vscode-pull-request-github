@@ -52,6 +52,12 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: ${{ runner.temp }}/test-results.xml
 
+      - name: Publish test summary
+        if: ${{ !cancelled() }}
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
+        with:
+          paths: ${{ runner.temp }}/*test-results.xml
+
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
