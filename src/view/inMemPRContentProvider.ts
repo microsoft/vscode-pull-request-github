@@ -159,6 +159,10 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 		return '';
 	}
 
+	if (fileChange.submoduleChange) {
+		return params.isBase ? fileChange.submoduleChange.base : fileChange.submoduleChange.head;
+	}
+
 	const diffHunks = await fileChange.diffHunks();
 	let inMemNeedsFullFile = false;
 	if (fileChange instanceof InMemFileChangeModel) {

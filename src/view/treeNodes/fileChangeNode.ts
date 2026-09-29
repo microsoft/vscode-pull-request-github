@@ -291,7 +291,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	}
 
 	async resolve(): Promise<void> {
-		if (this.status === GitChangeType.ADD) {
+		if (this.status === GitChangeType.ADD && !this.changeModel.submoduleChange) {
 			this.command = openFileCommand(this.changeModel.filePath);
 		} else {
 			this.command = await openDiffCommand(
@@ -407,7 +407,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			this.command = await this.alternateCommand();
 		} else {
 			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
-			if (openDiff && this.status !== GitChangeType.ADD) {
+			if (this.changeModel.submoduleChange || (openDiff && this.status !== GitChangeType.ADD)) {
 				this.command = await openDiffCommand(
 					this.pullRequestManager,
 					this.changeModel.parentFilePath,
