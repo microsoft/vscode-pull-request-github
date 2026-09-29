@@ -1847,7 +1847,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				false,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.head : undefined,
 			);
 			baseUri = toPRUri(
 				vscode.Uri.file(resolvePath(folderManager.repository.rootUri, parentFileName)),
@@ -1857,7 +1858,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				true,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.base : undefined,
 			);
 		} else {
 			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));

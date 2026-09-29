@@ -33,7 +33,8 @@ export abstract class FileChangeModel {
 			return uri;
 		}
 		return toPRUri(uri, this.pullRequest, this.change.baseCommit, this.sha ?? this.pullRequest.head!.sha,
-			this.fileName, isBase, this.status, this.change.previousFileName);
+			this.fileName, isBase, this.status, this.change.previousFileName,
+			isBase ? this.submoduleChange.base : this.submoduleChange.head);
 	}
 
 	get status(): GitChangeType {

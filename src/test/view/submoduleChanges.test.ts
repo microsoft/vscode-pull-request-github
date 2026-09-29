@@ -110,7 +110,9 @@ describe('Submodule changes', function () {
 				assert.strictEqual(params.baseCommit, 'base');
 				assert.strictEqual(params.headCommit, 'head');
 				assert.strictEqual(params.fileName, model.fileName);
+				assert.strictEqual(params.submoduleContent, expected);
 				assert.strictEqual(new TextDecoder().decode(await provider.readFile(uri)), expected);
+				assert.strictEqual(await provideDocumentContentForChangeModel(folderManager, pr, params, model), expected);
 			}
 			assert.strictEqual(show.called, false);
 			assert.strictEqual(getObjectDetails.called, false);
@@ -180,6 +182,27 @@ describe('Submodule changes', function () {
 		assert.strictEqual(command, 'vscode.diff');
 		assert.strictEqual(baseUri.scheme, 'pr');
 		assert.strictEqual(headUri.scheme, 'pr');
+		assert.strictEqual(fromPRUri(baseUri)!.submoduleContent, `${oldPointer}\n`);
+		assert.strictEqual(fromPRUri(headUri)!.submoduleContent, `${newPointer}\n`);
+	});
+
+	it('keeps pointer documents tied to their URI when the PR receives another push', async function () {
+		const original = localModel(await parseChange());
+		const provider = new InMemPRFileSystemProvider(undefined!, undefined!, undefined!);
+		const registration = provider.registerTextDocumentContentProvider(pr.number, uri =>
+			provideDocumentContentForChangeModel(folderManager, pr, fromPRUri(uri)!, original));
+		try {
+			const nextPointer = `Subproject commit ${'c'.repeat(40)}`;
+			const nextChange = await parseChange('modified', `@@ -1 +1 @@\n-${oldPointer}\n+${nextPointer}`);
+			const next = new GitFileChangeModel(folderManager, pr, nextChange, original.filePath, original.parentFilePath, 'next-head');
+			assert.strictEqual(fromPRUri(next.filePath)!.headCommit, 'next-head');
+			assert.strictEqual(new TextDecoder().decode(await provider.readFile(next.filePath)), `${nextPointer}\n`);
+			assert.strictEqual(new TextDecoder().decode(await provider.readFile(original.filePath)), `${newPointer}\n`);
+			registration.dispose();
+			assert.strictEqual(new TextDecoder().decode(await provider.readFile(next.filePath)), `${nextPointer}\n`);
+		} finally {
+			registration.dispose();
+		}
 	});
 
 	for (const patch of [

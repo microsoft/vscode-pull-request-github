@@ -132,6 +132,9 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		if (!prUriParams || (prUriParams.prNumber === undefined)) {
 			return new TextEncoder().encode('');
 		}
+		if (prUriParams.submoduleContent !== undefined) {
+			return new TextEncoder().encode(prUriParams.submoduleContent);
+		}
 		const providerResult = await this.readFileWithProvider(uri, prUriParams.prNumber);
 		if (providerResult) {
 			return providerResult;
