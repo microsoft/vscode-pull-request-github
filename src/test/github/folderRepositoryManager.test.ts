@@ -414,7 +414,7 @@ describe('PullRequestManager', function () {
 
 			beforeEach(function () {
 				getMetadata = sinon.stub(pr.githubRepository, 'getMetadata').resolves({ delete_branch_on_merge: true } as any);
-				const configuration = workspace.getConfiguration('githubPullRequests');
+				const configuration = { ...workspace.getConfiguration('githubPullRequests') };
 				sinon.stub(configuration, 'get').callThrough().withArgs('deleteBranchAfterMerge', false).returns(false);
 				sinon.stub(workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
 			});
