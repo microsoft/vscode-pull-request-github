@@ -11,7 +11,7 @@ import { GitChangeType, SlimFileChange } from '../../common/file';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GithubItemStateEnum } from '../../github/interface';
+import { GithubItemStateEnum, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
@@ -26,6 +26,7 @@ import { mergeQuerySchemaWithShared } from '../../github/common';
 import { GitHubRepository } from '../../github/githubRepository';
 import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
 import Logger from '../../common/logger';
+import { GraphQLError } from 'graphql';
 const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const telemetry = new MockTelemetry();
@@ -101,6 +102,98 @@ describe('PullRequestModel', function () {
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
 	});
+
+	for (const [method, mutationName, responseField, eventName, isDraft] of [
+		['convertToDraft', 'ConvertToDraft', 'convertPullRequestToDraft', 'pr.convertToDraft', true],
+		['setReadyForReview', 'ReadyForReview', 'markPullRequestReadyForReview', 'pr.readyForReview', false],
+	] as const) {
+		describe(method, function () {
+			let model: PullRequestModel;
+
+			beforeEach(function () {
+				const pr = new PullRequestBuilder().draft!(!isDraft).build();
+				model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			});
+
+			afterEach(function () {
+				model.dispose();
+			});
+
+			it('updates state and notifies listeners after a successful mutation', async function () {
+				const mutate = sinon.stub(repo, 'mutate').resolves({
+					data: {
+						[responseField]: {
+							pullRequest: {
+								isDraft,
+								mergeable: 'CONFLICTING',
+								mergeStateStatus: 'DIRTY',
+								viewerCanEnableAutoMerge: true,
+								viewerCanDisableAutoMerge: false,
+							},
+						},
+					},
+				});
+				const onDidChange = sinon.spy();
+				context.subscriptions.push(model.onDidChange(onDidChange));
+				const success = sinon.spy(telemetry, 'sendTelemetryEvent');
+				const failure = sinon.spy(telemetry, 'sendTelemetryErrorEvent');
+
+				const result = await model[method]();
+
+				assert.deepStrictEqual(mutate.firstCall.args[0], {
+					mutation: repo.schema[mutationName],
+					variables: { input: { pullRequestId: model.graphNodeId } },
+				});
+				assert.strictEqual(result.isDraft, isDraft);
+				assert.strictEqual(model.isDraft, isDraft);
+				assert.strictEqual(result.mergeable, PullRequestMergeability.Conflict);
+				assert.strictEqual(model.item.mergeable, result.mergeable);
+				if (method === 'setReadyForReview') {
+					assert.strictEqual(model.allowAutoMerge, true);
+				}
+				assert(onDidChange.calledOnceWithExactly({ draft: true }));
+				assert(success.calledOnceWithExactly(`${eventName}.success`));
+				assert(failure.notCalled);
+			});
+
+			for (const [name, response, message] of [
+				['missing data', {}, 'GitHub did not return the updated pull request. Please try again.'],
+				['null data', { data: null }, 'GitHub did not return the updated pull request. Please try again.'],
+				['missing payload', { data: {} }, 'GitHub did not return the updated pull request. Please try again.'],
+				['null payload', { data: { [responseField]: null } }, 'GitHub did not return the updated pull request. Please try again.'],
+				['null pull request', { data: { [responseField]: { pullRequest: null } } }, 'GitHub did not return the updated pull request. Please try again.'],
+				['GraphQL error', {
+					data: { [responseField]: null },
+					errors: [new GraphQLError('Resource not accessible by integration')],
+				}, 'Resource not accessible by integration'],
+			] as const) {
+				it(`rejects ${name} without changing state or reporting success`, async function () {
+					sinon.stub(repo, 'mutate').resolves(response);
+					const mergeable = model.item.mergeable;
+					const onDidChange = sinon.spy();
+					context.subscriptions.push(model.onDidChange(onDidChange));
+					const success = sinon.spy(telemetry, 'sendTelemetryEvent');
+					const failure = sinon.spy(telemetry, 'sendTelemetryErrorEvent');
+
+					await assert.rejects(model[method](), { message });
+
+					assert.strictEqual(model.isDraft, !isDraft);
+					assert.strictEqual(model.item.mergeable, mergeable);
+					assert(onDidChange.notCalled);
+					assert(success.notCalled);
+					assert(failure.calledOnceWithExactly(`${eventName}.failure`));
+				});
+			}
+
+			it('preserves a rejected mutation error', async function () {
+				const error = new Error('Network request failed');
+				sinon.stub(repo, 'mutate').rejects(error);
+
+				await assert.rejects(model[method](), candidate => candidate === error);
+				assert.strictEqual(model.isDraft, !isDraft);
+			});
+		});
+	}
 
 	describe('openReadonlyChanges', function () {
 		const baseCommit = '1111111111111111111111111111111111111111';
