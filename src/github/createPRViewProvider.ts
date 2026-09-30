@@ -747,9 +747,25 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return;
 		}
 		this._defaultCompareBranch = compareBranch.name;
-		this.model.setCompareBranch(compareBranch.name);
-		this.changeBranch(compareBranch.name, false).then(async titleAndDescription => {
-			if (compareBranch.name !== this.model.compareBranch) {
+		const { baseOwner, baseBranch, compareOwner } = this.model;
+		const isCurrentSelection = () =>
+			this.model.baseOwner === baseOwner && this.model.baseBranch === baseBranch
+			&& this.model.compareOwner === compareOwner && this.model.compareBranch === compareBranch.name;
+		try {
+			const titleAndDescription = await this.changeBranch(compareBranch.name, false);
+			if (!isCurrentSelection()) {
+				return;
+			}
+			const [warning, stackCandidate] = await Promise.all([
+				this.existingPRMessage(),
+				this.getStackCandidateForView(
+					{ owner: baseOwner, repositoryName: this.model.repositoryName },
+					baseBranch,
+					{ owner: compareOwner, repositoryName: this.model.repositoryName },
+					compareBranch.name
+				),
+			]);
+			if (!isCurrentSelection()) {
 				return;
 			}
 			const params: Partial<CreateParamsNew> = {
@@ -757,20 +773,17 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				defaultDescription: titleAndDescription.description,
 				compareBranch: compareBranch.name,
 				defaultCompareBranch: compareBranch.name,
-				warning: await this.existingPRMessage(),
-				stackCandidate: await this.getStackCandidateForView(
-					{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
-					this.model.baseBranch,
-					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName },
-					this.model.compareBranch
-				),
+				warning,
+				stackCandidate,
 			};
-			return this._postMessage({
+			await this._postMessage({
 				command: 'pr.initialize',
 				params,
 			});
-		});
-
+		} catch (error) {
+			Logger.error(`Failed to change the default compare branch: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to change compare branch: {0}', formatError(error)));
+		}
 	}
 
 	public override show(compareBranch?: Branch): void {
@@ -1158,6 +1171,7 @@ Don't forget to commit your template file to the repository so that it can be us
 
 		let chooseResult: ChooseBaseRemoteAndBranchResult | ChooseCompareRemoteAndBranchResult;
 		if (isBase) {
+			const warning = await this.existingPRMessage();
 			commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 			const baseRemoteChanged = this.model.baseOwner !== result.remote.owner;
 			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
@@ -1188,6 +1202,7 @@ Don't forget to commit your template file to the repository so that it can be us
 				baseHasMergeQueue: !!mergeQueueMethodForBranch,
 				stackCandidate: await this.getStackCandidateForView(result.remote, result.branch,
 					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName }, this.model.compareBranch),
+				warning,
 				mergeMethodsAvailability: mergeConfiguration?.mergeMethodsAvailability ?? { merge: true, squash: true, rebase: true },
 				autoMergeDefault,
 				defaultTitle: titleAndDescription.title,
@@ -1219,7 +1234,8 @@ Don't forget to commit your template file to the repository so that it can be us
 					defaultCompareBranch: defaultBranch,
 					stackCandidate: await this.getStackCandidateForView(
 						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
-						this.model.baseBranch, result.remote, result.branch)
+						this.model.baseBranch, result.remote, result.branch),
+					warning: await this.existingPRMessage()
 				};
 			} catch (error) {
 				const ownerChanged = this.model.compareOwner !== previousOwner;

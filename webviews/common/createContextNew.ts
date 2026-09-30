@@ -163,7 +163,8 @@ export class CreatePRContextNew {
 			baseBranch: response.baseBranch,
 			stackCandidate: response.stackCandidate,
 			addToStack: false,
-			createError: ''
+			createError: '',
+			warning: response.warning
 		};
 		if ((startingBaseOwner !== response.baseRemote.owner) || (startingBaseRepo !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
@@ -209,7 +210,8 @@ export class CreatePRContextNew {
 				compareBranch: response.compareBranch,
 				stackCandidate: response.stackCandidate,
 				addToStack: false,
-				createError: ''
+				createError: '',
+				warning: response.warning
 			};
 
 			this.updateState(updateValues);

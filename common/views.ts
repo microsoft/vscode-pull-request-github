@@ -157,6 +157,7 @@ export interface ChooseBaseRemoteAndBranchResult {
 	autoMergeDefault: boolean;
 	baseHasMergeQueue: boolean;
 	stackCandidate?: StackCandidate;
+	warning?: string;
 	defaultTitle: string;
 	defaultDescription: string;
 }
@@ -166,6 +167,7 @@ export interface ChooseCompareRemoteAndBranchResult {
 	compareBranch: string;
 	defaultCompareBranch: string;
 	stackCandidate?: StackCandidate;
+	warning?: string;
 }
 
 export interface StackCandidate {

@@ -36,6 +36,14 @@ import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 class TestCreatePullRequestViewProvider extends CreatePullRequestViewProvider {
 	failTitleAndDescription = false;
 
+	public override getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined) {
+		return super.getStackCandidateForView(baseRemote, baseBranch, compareRemote, compareBranch);
+	}
+
+	public override _postMessage(message: any) {
+		return super._postMessage(message);
+	}
+
 	protected override async getTitleAndDescription(_compareBranch: Branch, _baseBranch: string) {
 		if (this.failTitleAndDescription) {
 			throw new Error('Unable to compute the title');
@@ -140,6 +148,27 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(model.compareOwner, 'fork');
 		assert.strictEqual(result.stackCandidate?.parentPullRequestNumber, 795);
 		assert(getCandidate.calledWithExactly('D3'));
+	});
+
+	it('does not post a stale default compare branch after its stack lookup completes', async function () {
+		let releaseLookup!: (candidate: StackCandidate | undefined) => void;
+		const pendingLookup = new Promise<StackCandidate | undefined>(resolve => { releaseLookup = resolve; });
+		let lookupStarted!: () => void;
+		const started = new Promise<void>(resolve => { lookupStarted = resolve; });
+		sinon.stub(provider, 'getStackCandidateForView').callsFake(async () => {
+			lookupStarted();
+			return pendingLookup;
+		});
+		const postMessage = sinon.stub(provider, '_postMessage').resolves();
+
+		const update = provider.setDefaultCompareBranch(await repository.getBranch('D4'));
+		await started;
+		await repository.createBranch('D5', false, 'new-commit-sha');
+		await model.setCompareBranch('D5');
+		releaseLookup({ parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+		await update;
+
+		assert(postMessage.getCalls().every(call => call.args[0].params?.compareBranch !== 'D4'));
 	});
 
 	it('keeps the old owner when the selected compare branch is not available locally', async function () {

@@ -842,7 +842,15 @@ export class GitHubRepository extends Disposable {
 				headers: { 'X-GitHub-Api-Version': '2026-03-10' },
 			})));
 		} catch (error) {
-			if (isObject(error) && error.status === 404) {
+			const response = isObject(error) && isObject(error.response) ? error.response.data : undefined;
+			const unsupportedVersion = isObject(response) && [response.message, response.errors].some(detail => {
+				if (typeof detail !== 'string') {
+					return false;
+				}
+				const text = detail.toLowerCase();
+				return text.includes('version') && (text.includes('not supported') || text.includes('not a supported version'));
+			});
+			if (isObject(error) && (error.status === 404 || (error.status === 400 && unsupportedVersion))) {
 				Logger.debug('Pull request stacks are not supported by this GitHub server.', this.id);
 				return;
 			}

@@ -505,6 +505,41 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
 		});
 
+		it('does not offer stack creation when the requested API version is unsupported', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Bad Request'), {
+				status: 400,
+				response: {
+					data: {
+						message: 'Bad Request',
+						errors: 'The version you specified in the "X-GitHub-API-Version" request header, "2026-03-10", is not a supported version.',
+					},
+				},
+			}));
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('recognizes the Enterprise unsupported API version response', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Bad Request'), {
+				status: 400,
+				response: { data: { message: 'The requested API version is not supported' } },
+			}));
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('does not hide unrelated validation errors as unsupported API versions', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Bad Request'), {
+				status: 400,
+				response: { data: { message: 'Validation failed', errors: 'pull_request must be an integer' } },
+			}));
+
+			await assert.rejects(repo.getStackCandidate('D3'), /Bad Request/);
+		});
+
 		it('reports failures other than unsupported Stacks API', async function () {
 			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
 			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Forbidden'), { status: 403 }));

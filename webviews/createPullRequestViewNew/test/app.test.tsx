@@ -212,4 +212,45 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(context.createParams.addToStack, true);
 		assert.strictEqual(context.createParams.warning, 'Branch does not exist locally.');
 	});
+
+	it('clears a stale branch warning after a successful selection of the same base branch', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D3',
+			stackCandidate: candidate,
+			warning: undefined,
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D3',
+			stackCandidate: candidate,
+			warning: 'Unable to change the base branch.',
+		});
+
+		await context.changeBaseRemoteAndBranch(context.createParams.baseRemote, 'D3');
+
+		assert.strictEqual(context.createParams.warning, undefined);
+	});
+
+	it('replaces a stale compare-branch warning with the current server warning', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'D4',
+			stackCandidate: candidate,
+			warning: 'A pull request already exists for this branch.',
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'D4',
+			warning: 'Unable to change the merge branch.',
+		});
+
+		await context.changeMergeRemoteAndBranch(context.createParams.compareRemote, 'D4');
+
+		assert.strictEqual(context.createParams.warning, 'A pull request already exists for this branch.');
+	});
 });
