@@ -190,6 +190,36 @@ describe('PullRequestManager', function () {
 		});
 	});
 
+	describe('getLocalPullRequests', function () {
+		it('reads one fresh config snapshot across branch chunks', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry, true);
+			(manager as any)._githubRepositories = [githubRepository];
+			for (let i = 0; i < 102; i++) {
+				await repository.createBranch(`branch-${i}`, false);
+			}
+			await repository.setConfig('branch.branch-0.github-pr-owner-number', 'owner#repo#5');
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#7');
+			const first = { localBranchName: undefined } as PullRequestModel;
+			const last = { localBranchName: undefined } as PullRequestModel;
+			const updated = { localBranchName: undefined } as PullRequestModel;
+			const models = new Map([[5, first], [7, last], [11, updated]]);
+			sinon.stub(githubRepository, 'getPullRequest').callsFake(async (number: number) => models.get(number));
+			const getConfigs = sinon.spy(repository, 'getConfigs');
+
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, last]);
+			assert.strictEqual(getConfigs.calledOnce, true);
+			assert.strictEqual(first.localBranchName, 'branch-0');
+			assert.strictEqual(last.localBranchName, 'branch-101');
+
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#11');
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, updated]);
+			assert.strictEqual(getConfigs.calledTwice, true);
+			assert.strictEqual(updated.localBranchName, 'branch-101');
+		});
+	});
+
 	describe('getPullRequestDefaults', function () {
 		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
 			const url = 'https://github.com/owner/repo.git';
@@ -302,12 +332,36 @@ describe('PullRequestManager', function () {
 			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
 			repository.preserveConfigOnNextBranchDelete = true;
 
+			await repository.createBranch('other', false, 'commit-hash');
+			const getConfigs = sinon.spy(repository, 'getConfigs');
 			const nonExistant = new Set<string>();
-			await (manager as any).deleteBranches([{ label: 'feature' }], nonExistant, noopProgress, 1, 0, []);
+			await (manager as any).deleteBranches([{ label: 'feature' }, { label: 'other' }], nonExistant, noopProgress, 2, 0, []);
 
+			assert.strictEqual(getConfigs.callCount, 2);
 			const configs = await repository.getConfigs();
 			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.feature.')).length, 0);
 			assert.strictEqual(nonExistant.has('feature'), false);
+		});
+
+		it('clears associations even when refreshing leftover config fails', async function () {
+			await repository.createBranch('feature', false, 'commit-hash');
+			await repository.setConfig('branch.feature.github-pr-base-branch', 'owner#repo#main');
+			await repository.setConfig('branch.feature.vscode-merge-base', 'origin/main');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.other.github-pr-owner-number', 'owner#repo#2');
+			repository.preserveConfigOnNextBranchDelete = true;
+			sinon.stub(repository, 'createBranch').rejects(new Error('Cannot recreate branch'));
+			const error = new Error('Cannot read config');
+			sinon.stub(repository, 'getConfigs').callThrough().onSecondCall().rejects(error);
+
+			await assert.rejects(
+				(manager as any).deleteBranches([{ label: 'feature' }], new Set<string>(), noopProgress, 1, 0, []),
+				error,
+			);
+
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.other.github-pr-owner-number', value: 'owner#repo#2' },
+			]);
 		});
 
 		it('removes leftover branch config for a branch that no longer exists', async function () {

@@ -656,11 +656,17 @@ export class ReviewManager extends Disposable {
 			this._switchedToPullRequestBranch = undefined;
 		}
 
-		let matchingPullRequestMetadata = switchedToPullRequest ? {
-			owner: switchedToPullRequest.remote.owner,
-			repositoryName: switchedToPullRequest.remote.repositoryName,
-			prNumber: switchedToPullRequest.number,
-		} : await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		let matchingPullRequestMetadata: PullRequestMetadata | undefined;
+		if (switchedToPullRequest) {
+			matchingPullRequestMetadata = {
+				owner: switchedToPullRequest.remote.owner,
+				repositoryName: switchedToPullRequest.remote.repositoryName,
+				prNumber: switchedToPullRequest.number,
+			};
+		} else if (branch.name) {
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branch.name]);
+			matchingPullRequestMetadata = metadata.get(branch.name);
+		}
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
 		}
@@ -1156,11 +1162,12 @@ export class ReviewManager extends Disposable {
 
 	public async updateComments(): Promise<void> {
 		const branch = this._repository.state.HEAD;
-		if (!branch) {
+		if (!branch?.name) {
 			return;
 		}
 
-		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branch.name]);
+		const matchingPullRequestMetadata = metadata.get(branch.name);
 		if (!matchingPullRequestMetadata) {
 			return;
 		}
