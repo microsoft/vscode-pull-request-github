@@ -17,6 +17,7 @@ import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockRepository } from '../mocks/mockRepository';
@@ -393,6 +394,133 @@ describe('PullRequestModel', function () {
 			} finally {
 				enterpriseRepo.dispose();
 			}
+		});
+	});
+
+	describe('stack creation', function () {
+		function parentModel() {
+			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
+			pr.html_url = 'https://github.com/github/test/pull/795';
+			pr.head.repo.name = 'test';
+			pr.head.repo.owner.login = 'github';
+			pr.head.repo.clone_url = 'https://github.com/github/test.git';
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		}
+
+		const listRoute = 'GET /repos/{owner}/{repo}/stacks';
+		const listParams = {
+			owner: 'github',
+			repo: 'test',
+			pull_request: 795,
+			per_page: 1,
+			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+		};
+
+		it('detects an unstacked parent and creates a new stack with both PRs', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], []);
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks', {
+				owner: 'github',
+				repo: 'test',
+				headers: listParams.headers,
+				pull_requests: [795, 796],
+			}], {});
+
+			const candidate = await repo.getStackCandidate('D3');
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+			assert(candidate);
+			await repo.addPullRequestToStack(candidate, 796);
+		});
+
+		it('finds the parent from its GraphQL head branch before offering a stack', async function () {
+			const parent = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
+			parent.number = 795;
+			parent.url = 'https://github.com/github/test/pull/795';
+			parent.headRefName = 'D3';
+			parent.headRef!.name = 'D3';
+			parent.headRef!.repository.owner.login = 'github';
+			parent.headRef!.repository.url = 'https://github.com/github/test';
+			parent.headRepository!.owner.login = 'github';
+			parent.headRepository!.url = 'https://github.com/github/test';
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestForHead,
+				variables: { owner: 'github', name: 'test', headRefName: 'D3' },
+			}, {
+				data: {
+					repository: {
+						openPullRequests: { nodes: [parent] },
+						pullRequests: { nodes: [] },
+					},
+				},
+				loading: false,
+				stale: false,
+				networkStatus: NetworkStatus.ready,
+			});
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], []);
+
+			assert.deepStrictEqual(await repo.getStackCandidate('D3'), { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+		});
+
+		it('surfaces a failed GraphQL parent lookup rather than treating the branch as unstackable', async function () {
+			const error = new Error('GraphQL unavailable');
+			sinon.stub(repo, 'query').rejects(error);
+
+			await assert.rejects(repo.getStackCandidate('D3'), candidate => candidate === error);
+		});
+
+		it('only offers an existing stack when the parent is at its top', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], [{
+				number: 12,
+				pull_requests: [{ number: 793 }, { number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+				owner: 'github',
+				repo: 'test',
+				headers: listParams.headers,
+				stack_number: 12,
+				pull_requests: [796],
+			}], {});
+
+			const candidate = await repo.getStackCandidate('D3');
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795' });
+			assert(candidate);
+			await repo.addPullRequestToStack(candidate, 796);
+		});
+
+		it('does not offer a stack when the matching PR is not the top', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], [{
+				number: 12,
+				pull_requests: [{ number: 795 }, { number: 797 }],
+			}]);
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('does not offer stack creation on servers without the Stacks API', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Not Found'), { status: 404 }));
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('reports failures other than unsupported Stacks API', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Forbidden'), { status: 403 }));
+
+			await assert.rejects(repo.getStackCandidate('D3'), /Forbidden/);
+		});
+
+		it('does not mistake a pull request from another repository for the base head', async function () {
+			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
+			pr.head.repo.name = 'other';
+			pr.head.repo.owner.login = 'github';
+			pr.head.repo.clone_url = 'https://github.com/github/other.git';
+			const parent = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parent);
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
 		});
 	});
 
