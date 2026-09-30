@@ -2104,7 +2104,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
+			const { data, errors } = await mutate<MarkPullRequestReadyForReviewResponse>({
 				mutation: schema.ReadyForReview,
 				variables: {
 					input: {
@@ -2113,15 +2113,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.markPullRequestReadyForReview?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.readyForReview.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
 
 			const result: ReadyForReview = {
-				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.markPullRequestReadyForReview.pullRequest.mergeable, data!.markPullRequestReadyForReview.pullRequest.mergeStateStatus),
-				allowAutoMerge: data!.markPullRequestReadyForReview.pullRequest.viewerCanEnableAutoMerge || data!.markPullRequestReadyForReview.pullRequest.viewerCanDisableAutoMerge
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
+				allowAutoMerge: pullRequest.viewerCanEnableAutoMerge || pullRequest.viewerCanDisableAutoMerge
 			};
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
@@ -2144,7 +2149,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<ConvertPullRequestToDraftResponse>({
+			const { data, errors } = await mutate<ConvertPullRequestToDraftResponse>({
 				mutation: schema.ConvertToDraft,
 				variables: {
 					input: {
@@ -2153,14 +2158,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.convertPullRequestToDraft?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.convertToDraft.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.convertToDraft.success');
 
 			const result: ConvertToDraft = {
-				isDraft: data!.convertPullRequestToDraft.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.convertPullRequestToDraft.pullRequest.mergeable, data!.convertPullRequestToDraft.pullRequest.mergeStateStatus),
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
 			};
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
