@@ -67,7 +67,7 @@ describe('Overview', function () {
 			base: 'main',
 			pullRequests: [
 				{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-				{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.NotMergeable },
+				{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 				{ position: 3, number: 795, title: 'Third Change', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
 			],
 		}).build();
@@ -95,12 +95,12 @@ describe('Overview', function () {
 		]);
 		assert.deepStrictEqual([...section.querySelectorAll('.stack-entry-readiness')].map(entry => [entry.classList[1], entry.getAttribute('aria-label')]), [
 			['waiting', 'Draft pull request cannot be merged'],
-			['blocked', 'Merge requirements not met'],
+			['ready', 'Ready to merge'],
 			['ready', 'Ready to merge'],
 		]);
 		assert.deepStrictEqual([...section.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('title')), [
 			'Draft pull request cannot be merged',
-			'Merge requirements not met',
+			'Ready to merge',
 			'Ready to merge',
 		]);
 		assert.strictEqual(section.querySelector('.stack-entry-state'), null);
@@ -184,6 +184,64 @@ describe('Overview', function () {
 			'Mergeability is being checked',
 			'Already merged',
 		]);
+		assert.strictEqual(out.container.querySelector('.stack-merge'), null);
+	});
+
+	it('hides stack merge when the current or an open downstack PR is not mergeable', function () {
+		const readyStack = {
+			position: 2,
+			size: 3,
+			base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 3, number: 795, title: 'Third Change', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict },
+			],
+		};
+		const blocked = [
+			new PullRequestBuilder().number(794).mergeable(PullRequestMergeability.Conflict).stack(readyStack).build(),
+			...[
+				{ mergeable: PullRequestMergeability.Conflict },
+				{ mergeable: PullRequestMergeability.NotMergeable },
+				{ mergeable: PullRequestMergeability.Behind },
+				{ mergeable: PullRequestMergeability.Unknown },
+				{ isDraft: true },
+				{ state: GithubItemStateEnum.Closed },
+			].map(change => new PullRequestBuilder().number(794).stack({
+				...readyStack,
+				pullRequests: [{ ...readyStack.pullRequests[0], ...change }, ...readyStack.pullRequests.slice(1)],
+			}).build()),
+		];
+		for (const pr of blocked) {
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			assert(out.container.querySelector('#pull-request-stack'));
+			assert.strictEqual(out.container.querySelector('.stack-merge'), null);
+			out.unmount();
+		}
+	});
+
+	it('ignores PRs above and already merged PRs below the current stack merge', function () {
+		const stack = {
+			position: 2,
+			size: 3,
+			base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+				{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 3, number: 795, title: 'Third Change', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict },
+			],
+		};
+		const pr = new PullRequestBuilder().number(794).stack(stack).build();
+		const out = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		assert(out.getByText('Merge stack (1 pull request)'));
 	});
 
 	it('does not offer to merge a stack without write permission', function () {

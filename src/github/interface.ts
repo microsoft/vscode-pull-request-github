@@ -47,6 +47,19 @@ export enum PullRequestMergeability {
 	Behind,
 }
 
+export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
+	const current = stack.pullRequests.find(entry => entry.number === number);
+	if (!current || current.position !== stack.position || current.state !== GithubItemStateEnum.Open
+		|| current.isDraft || current.mergeable !== PullRequestMergeability.Mergeable) {
+		return false;
+	}
+	return stack.pullRequests.every(entry =>
+		entry.position > stack.position ||
+		entry.state === GithubItemStateEnum.Merged ||
+		(entry.state === GithubItemStateEnum.Open && !entry.isDraft && entry.mergeable === PullRequestMergeability.Mergeable)
+	);
+}
+
 export enum MergeQueueState {
 	AwaitingChecks,
 	Locked,

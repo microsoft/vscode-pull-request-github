@@ -24,6 +24,7 @@ import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
 	GithubItemStateEnum,
+	isStackMergeable,
 	MergeMethod,
 	PullRequestCheckStatus,
 	PullRequestMergeability,
@@ -424,8 +425,9 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 	if (pr.stackMergeStatus === 'enqueued') {
 		return <div className="status-item">Pull request stack added to the merge queue.</div>;
 	}
-	if (pr.stack && hasWritePermission && !pr.mergeQueueEntry) {
-		return <MergeStack pr={pr} />;
+	if (pr.stack) {
+		return hasWritePermission && !pr.mergeQueueEntry && mergeable === PullRequestMergeability.Mergeable
+			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
 	}
 
 	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
