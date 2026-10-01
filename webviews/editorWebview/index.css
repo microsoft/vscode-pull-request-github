@@ -544,6 +544,15 @@ button.input-box {
 	display: inline-block;
 }
 
+#status-checks .stacked-delete-branch-container {
+	display: block;
+	padding: 12px 16px;
+}
+
+#status-checks .stacked-delete-branch-container form {
+	margin: 0;
+}
+
 #status-checks .branch-status-message {
 	display: inline-block;
 	line-height: 100%;
@@ -790,7 +799,11 @@ body button .icon {
 }
 
 .stack-entry-readiness.blocked {
-	color: var(--vscode-errorForeground);
+	color: var(--vscode-pullRequests-closed);
+}
+
+.stack-entry-readiness.blocked svg path {
+	fill: var(--vscode-pullRequests-closed);
 }
 
 .stack-entry-readiness.waiting {

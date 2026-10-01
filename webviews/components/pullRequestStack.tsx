@@ -4,30 +4,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, layersIcon, warningIcon } from './icon';
+import { checkIcon, chevronDownIcon, circleFilledIcon, gitPullRequestDraftIcon, layersIcon, passIcon, skipIcon } from './icon';
 import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack as Stack } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
-function getReadiness(entry: Stack['pullRequests'][number]): { icon: JSX.Element; label: string; kind: string } {
+function getReadiness(entry: Stack['pullRequests'][number], currentPosition: number): { icon: JSX.Element; label: string; kind: string } {
 	if (entry.state === GithubItemStateEnum.Merged) {
 		return { icon: checkIcon, label: 'Already merged', kind: 'ready' };
 	}
 	if (entry.state === GithubItemStateEnum.Closed) {
-		return { icon: closeIcon, label: 'Closed pull request cannot be merged', kind: 'blocked' };
+		return { icon: skipIcon, label: 'Closed pull request cannot be merged', kind: 'blocked' };
 	}
 	if (entry.isDraft) {
-		return { icon: warningIcon, label: 'Draft pull request cannot be merged', kind: 'waiting' };
+		return { icon: gitPullRequestDraftIcon, label: 'Draft pull request cannot be merged', kind: 'waiting' };
 	}
 	switch (entry.mergeable) {
 		case PullRequestMergeability.Mergeable:
-			return { icon: checkIcon, label: 'Ready to merge', kind: 'ready' };
+			return { icon: entry.position > currentPosition ? circleFilledIcon : passIcon, label: 'Ready to merge', kind: 'ready' };
 		case PullRequestMergeability.Conflict:
-			return { icon: closeIcon, label: 'Merge conflicts', kind: 'blocked' };
+			return { icon: circleFilledIcon, label: 'Merge conflicts', kind: 'waiting' };
 		case PullRequestMergeability.NotMergeable:
-			return { icon: closeIcon, label: 'Merge requirements not met', kind: 'blocked' };
+			return { icon: circleFilledIcon, label: 'Merge requirements not met', kind: 'waiting' };
 		case PullRequestMergeability.Behind:
-			return { icon: warningIcon, label: 'Branch is behind its base', kind: 'waiting' };
+			return { icon: circleFilledIcon, label: 'Branch is behind its base', kind: 'waiting' };
 		default:
 			return { icon: circleFilledIcon, label: 'Mergeability is being checked', kind: 'waiting' };
 	}
@@ -87,7 +87,7 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 			<ol className="stack-entries" aria-label={`Pull requests merging down into ${stack.base}`}>
 				{[...stack.pullRequests].reverse().map(entry => {
 					const current = entry.number === pr.number;
-					const readiness = getReadiness(entry);
+					const readiness = getReadiness(entry, stack.position);
 
 					return <li key={entry.number} className={`stack-entry${current ? ' current' : ''}`} aria-current={current ? 'step' : undefined}>
 						<span className={`stack-entry-readiness ${readiness.kind}`} role="img" aria-label={readiness.label} title={readiness.label}>{readiness.icon}</span>
