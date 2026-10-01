@@ -56,6 +56,10 @@ describe('GitHub Pull Requests view', function () {
 		sinon = createSandbox();
 		discoveredRepository = undefined;
 		MockCommandRegistry.install(sinon);
+		sinon.stub(vscode.commands, 'executeCommand').callsFake(async command => {
+			assert.strictEqual(command, 'setContext', 'Tree tests must not execute workbench commands');
+			return undefined;
+		});
 		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
@@ -67,7 +71,19 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 		);
 		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
-		createTreeView = sinon.spy(vscode.window, 'createTreeView');
+		// Unit tests must not depend on workbench RPC or unsolicited view rendering.
+		const noEvent: vscode.Event<never> = () => new vscode.Disposable(() => { });
+		createTreeView = sinon.stub(vscode.window, 'createTreeView').callsFake(<T>(): vscode.TreeView<T> => ({
+			onDidExpandElement: noEvent,
+			onDidCollapseElement: noEvent,
+			onDidChangeSelection: noEvent,
+			onDidChangeVisibility: noEvent,
+			onDidChangeCheckboxState: noEvent,
+			selection: [],
+			visible: false,
+			reveal: async () => { },
+			dispose: () => { },
+		}));
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
@@ -102,6 +118,13 @@ describe('GitHub Pull Requests view', function () {
 	afterEach(function () {
 		provider.dispose();
 		discoveredRepository?.dispose();
+		prsTreeModel.dispose();
+		for (const manager of [...reposManager.folderManagers]) {
+			for (const repository of manager.gitHubRepositories) {
+				repository.dispose();
+			}
+			reposManager.removeRepo(manager.repository);
+		}
 		reposManager.dispose();
 		credentialStore.dispose();
 		context.dispose();
@@ -126,7 +149,7 @@ describe('GitHub Pull Requests view', function () {
 
 	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		await repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 		provider.initialize([], mockNotificationsManager as NotificationsManager);
 
@@ -379,7 +402,7 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		this.timeout(10000);
 		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		await repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
 		stubRepositoryDiscovery(folderManager);
 		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
@@ -402,7 +425,7 @@ describe('GitHub Pull Requests view', function () {
 
 	it('clears the tree immediately', async function () {
 		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		await repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
 		stubRepositoryDiscovery(folderManager);
 		sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'aaa', repo: 'bbb', base: 'main' });
@@ -422,7 +445,7 @@ describe('GitHub Pull Requests view', function () {
 
 	it('refreshes tree when GitHub repositories are discovered in existing folder manager', async function () {
 		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		await repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
 		stubRepositoryDiscovery(folderManager);
 		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
