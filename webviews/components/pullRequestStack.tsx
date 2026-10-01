@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { checkIcon, chevronDownIcon, circleFilledIcon, gitPullRequestDraftIcon, layersIcon, passIcon, skipIcon } from './icon';
+import { chevronDownIcon, circleFilledIcon, gitMergeIcon, gitPullRequestDraftIcon, layersIcon, passIcon, skipIcon } from './icon';
 import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack as Stack } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
 function getReadiness(entry: Stack['pullRequests'][number], currentPosition: number): { icon: JSX.Element; label: string; kind: string } {
 	if (entry.state === GithubItemStateEnum.Merged) {
-		return { icon: checkIcon, label: 'Already merged', kind: 'ready' };
+		return { icon: gitMergeIcon, label: 'Already merged', kind: 'merged' };
 	}
 	if (entry.state === GithubItemStateEnum.Closed) {
 		return { icon: skipIcon, label: 'Closed pull request cannot be merged', kind: 'blocked' };
 	}
 	if (entry.isDraft) {
-		return { icon: gitPullRequestDraftIcon, label: 'Draft pull request cannot be merged', kind: 'waiting' };
+		return { icon: gitPullRequestDraftIcon, label: 'Draft pull request cannot be merged', kind: 'draft' };
 	}
 	switch (entry.mergeable) {
 		case PullRequestMergeability.Mergeable:

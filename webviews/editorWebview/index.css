@@ -798,6 +798,36 @@ body button .icon {
 	fill: var(--vscode-issues-open);
 }
 
+.stack-entry-readiness.merged {
+	color: var(--vscode-pullRequests-merged);
+}
+
+.stack-entry-readiness.merged svg path {
+	fill: var(--vscode-pullRequests-merged);
+}
+
+.stack-entry-readiness.draft {
+	color: var(--vscode-pullRequests-draft);
+}
+
+.stack-entry-readiness.draft svg path {
+	fill: var(--vscode-pullRequests-draft);
+}
+
+.vscode-high-contrast .stack-entry-readiness.merged,
+.vscode-high-contrast-light .stack-entry-readiness.merged,
+.vscode-high-contrast .stack-entry-readiness.draft,
+.vscode-high-contrast-light .stack-entry-readiness.draft {
+	color: var(--vscode-foreground);
+}
+
+.vscode-high-contrast .stack-entry-readiness.merged svg path,
+.vscode-high-contrast-light .stack-entry-readiness.merged svg path,
+.vscode-high-contrast .stack-entry-readiness.draft svg path,
+.vscode-high-contrast-light .stack-entry-readiness.draft svg path {
+	fill: var(--vscode-foreground);
+}
+
 .stack-entry-readiness.blocked {
 	color: var(--vscode-pullRequests-closed);
 }
@@ -808,6 +838,10 @@ body button .icon {
 
 .stack-entry-readiness.waiting {
 	color: var(--vscode-list-warningForeground);
+}
+
+.stack-entry-readiness.waiting svg path {
+	fill: var(--vscode-list-warningForeground);
 }
 
 .stack-entry-details {

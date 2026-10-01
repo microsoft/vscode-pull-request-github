@@ -95,7 +95,7 @@ describe('Overview', function () {
 			'First Change#793 - D1',
 		]);
 		assert.deepStrictEqual([...section.querySelectorAll('.stack-entry-readiness')].map(entry => [entry.classList[1], entry.getAttribute('aria-label')]), [
-			['waiting', 'Draft pull request cannot be merged'],
+			['draft', 'Draft pull request cannot be merged'],
 			['ready', 'Ready to merge'],
 			['ready', 'Ready to merge'],
 		]);
@@ -165,12 +165,12 @@ describe('Overview', function () {
 			['Branch is behind its base', 'waiting', dot],
 			['Merge requirements not met', 'waiting', dot],
 			['Merge conflicts', 'waiting', dot],
-			['Draft pull request cannot be merged', 'waiting', iconPath(require('../../../resources/icons/codicons/git-pull-request-draft.svg'))],
+			['Draft pull request cannot be merged', 'draft', iconPath(require('../../../resources/icons/codicons/git-pull-request-draft.svg'))],
 			['Ready to merge', 'ready', dot],
 			['Ready to merge', 'ready', pass],
 			['Ready to merge', 'ready', pass],
 			['Closed pull request cannot be merged', 'blocked', iconPath(require('../../../resources/icons/codicons/skip.svg'))],
-			['Already merged', 'ready', iconPath(require('../../../resources/icons/codicons/check.svg'))],
+			['Already merged', 'merged', iconPath(require('../../../resources/icons/codicons/git-merge.svg'))],
 		]);
 	});
 
