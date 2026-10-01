@@ -317,6 +317,41 @@ describe('PullRequestModel', function () {
 				const invalidStack: PullRequestStack = { ...stack, pullRequests: [{ ...stack.pullRequests[1], state: GithubItemStateEnum.Merged }] };
 				await assert.rejects(model.mergeStack(new MockRepository(), invalidStack, 'squash', 'direct_merge'), /not open in this stack/);
 			});
+
+			it('does not submit a merge when the current or a downstack PR is blocked', async function () {
+				const model = createModel();
+				const blocked = [
+					{ ...stack, pullRequests: [stack.pullRequests[0], { ...stack.pullRequests[1], mergeable: PullRequestMergeability.NotMergeable }] },
+					...[
+						{ mergeable: PullRequestMergeability.Conflict },
+						{ mergeable: PullRequestMergeability.Behind },
+						{ mergeable: PullRequestMergeability.Unknown },
+						{ isDraft: true },
+						{ state: GithubItemStateEnum.Closed },
+					].map(change => ({
+						...stack,
+						pullRequests: [{ ...stack.pullRequests[0], ...change }, stack.pullRequests[1]],
+					})),
+				];
+
+				for (const candidate of blocked) {
+					await assert.rejects(model.mergeStack(new MockRepository(), candidate, 'squash', 'direct_merge'), /not ready to merge/);
+				}
+			});
+
+			it('permits merging when a downstack PR is already merged', async function () {
+				const model = createModel();
+				const withMergedBelow = {
+					...stack,
+					pullRequests: [{ ...stack.pullRequests[0], state: GithubItemStateEnum.Merged, mergeable: PullRequestMergeability.Unknown }, stack.pullRequests[1]],
+				};
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, requestParams(model)], {
+					status: 'merged',
+					details: { message: 'Merged', sha: 'merge-sha' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), withMergedBelow, 'squash', 'direct_merge'), 'merged');
+			});
 		});
 
 		it('returns no stack when the pull request is not stacked', async function () {

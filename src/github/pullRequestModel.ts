@@ -55,6 +55,7 @@ import {
 	IGitTreeItem,
 	IRawFileChange,
 	IRawFileContent,
+	isStackMergeable,
 	IssueReference,
 	ISuggestedReviewer,
 	ITeam,
@@ -532,6 +533,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue'): Promise<StackMergeOutcome> {
 		if (!stack.pullRequests.some(entry => entry.number === this.number && entry.state === GithubItemStateEnum.Open)) {
 			throw new Error(`Pull request #${this.number} is not open in this stack.`);
+		}
+		if (!isStackMergeable(stack, this.number)) {
+			throw new Error(`Pull request stack for #${this.number} is not ready to merge.`);
 		}
 		const headSha = this.head?.sha;
 		if (!headSha) {
