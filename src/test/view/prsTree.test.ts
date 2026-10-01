@@ -47,11 +47,13 @@ describe('GitHub Pull Requests view', function () {
 	let mockNotificationsManager: MockNotificationManager;
 	let prsTreeModel: PrsTreeModel;
 	let discoveredRepository: MockGitHubRepository | undefined;
+	let createTreeView: ReturnType<SinonSandbox['spy']>;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		discoveredRepository = undefined;
 		MockCommandRegistry.install(sinon);
+		createTreeView = sinon.spy(vscode.window, 'createTreeView');
 		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
@@ -106,6 +108,13 @@ describe('GitHub Pull Requests view', function () {
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 0);
+	});
+
+	it('allows selecting multiple pull requests to create a stack', function () {
+		const tree = createTreeView.getCalls().find(call => call.args[0] === 'pr:github');
+		assert(tree);
+		const options = tree.args[1] as { canSelectMany?: boolean };
+		assert.strictEqual(options.canSelectMany, true);
 	});
 
 	it('has no children when no GitHub remotes are available', async function () {

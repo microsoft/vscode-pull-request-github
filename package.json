@@ -1135,6 +1135,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.addToStack",
+				"title": "%command.pr.addToStack.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openFileOnGitHub",
 				"title": "%command.pr.openFileOnGitHub.title%",
 				"category": "%command.pull.request.category%"
@@ -2252,6 +2257,10 @@
 					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
+					"command": "pr.addToStack",
+					"when": "false"
+				},
+				{
 					"command": "pr.openAllDiffs",
 					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
@@ -2977,6 +2986,11 @@
 				}
 			],
 			"view/item/context": [
+				{
+					"command": "pr.addToStack",
+					"when": "(view == pr:github && viewItem =~ /pullrequest.*:stackable/ && github:canAddToStack) && !isSessionsWindow",
+					"group": "0_stack@1"
+				},
 				{
 					"command": "pr.pick",
 					"when": "(view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/) && !isSessionsWindow",
