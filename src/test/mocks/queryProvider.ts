@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { inspect } from 'util';
 import { Octokit } from '@octokit/rest';
 import {
@@ -8,7 +13,7 @@ import {
 	MutationOptions,
 	FetchResult,
 } from 'apollo-boost';
-import { SinonSandbox, SinonStubbedInstance } from 'sinon';
+import { SinonSandbox, SinonStub, SinonStubbedInstance } from 'sinon';
 import equals from 'fast-deep-equal';
 
 interface RecordedQueryResult<T> {
@@ -69,6 +74,17 @@ export class QueryProvider {
 	}
 
 	expectOctokitRequest<R>(accessorPath: string[], args: any[], response: R) {
+		this.getOctokitRequestStub(accessorPath).withArgs(...args).resolves({
+			data: response,
+			headers: { 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4999' },
+		});
+	}
+
+	expectOctokitError(accessorPath: string[], args: any[], error: Error) {
+		this.getOctokitRequestStub(accessorPath).withArgs(...args).rejects(error);
+	}
+
+	private getOctokitRequestStub(accessorPath: string[]): SinonStub {
 		let currentStub: SinonStubbedInstance<any> = this._octokit;
 		accessorPath.forEach((accessor, i) => {
 			let nextStub = currentStub[accessor];
@@ -87,7 +103,7 @@ export class QueryProvider {
 			}
 			currentStub = nextStub;
 		});
-		currentStub.withArgs(...args).resolves({ data: response });
+		return currentStub as SinonStub;
 	}
 
 	emulateGraphQLQuery<T>(q: QueryOptions): ApolloQueryResult<T> {

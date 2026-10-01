@@ -40,7 +40,7 @@ import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
-import { toOpenIssueWebviewUri } from '../common/uri';
+import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
@@ -501,6 +501,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
 				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
+				stack: undefined,
+				stackLoaded: false,
+				stackLoadError: false,
+				stackMergeStatus: undefined,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
@@ -520,6 +524,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			};
 			const reviewRequestsPromise = measureDeferred('reviewRequests', pullRequestModel.getReviewRequests());
+			let stackLoaded = false;
 			const deferredDataPromise = Promise.all([
 				measureDeferred('statusChecks', pullRequestModel.getStatusChecks()),
 				reviewRequestsPromise,
@@ -561,7 +566,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						mergeable: mergeability.mergeability,
 						reviewers,
 						hasReviewDraft,
-						mergeQueueMethod,
+						...(stackLoaded ? {} : { mergeQueueMethod }),
 						emailForCommit,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 						isCopilotOnMyBehalf: isCopilotOnBehalf,
@@ -575,6 +580,39 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				Logger.debug(`Deferred data timings: ${deferredTimingSummary}`, PullRequestOverviewPanel.ID);
 			}, error => {
 				Logger.error(`Failed to update deferred pull request data: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			});
+			void pullRequestModel.getStack().then(async stack => {
+				if (updateSequence !== this._updateSequence) {
+					return;
+				}
+				const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequest.remote.owner, pullRequest.remote.repositoryName) : undefined;
+				const linkedStack = stack && {
+					...stack,
+					pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
+						...entry,
+						url: (await toOpenPullRequestWebviewUri({
+							owner: pullRequest.remote.owner,
+							repo: pullRequest.remote.repositoryName,
+							pullRequestNumber: entry.number,
+						})).toString(),
+					}))),
+				};
+				if (updateSequence === this._updateSequence) {
+					stackLoaded = true;
+					await this._postMessage({
+						command: 'pr.update',
+						pullrequest: {
+							stack: linkedStack,
+							stackLoaded: true,
+							...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+						} satisfies Partial<PullRequest>,
+					});
+				}
+			}).catch(error => {
+				Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+				if (updateSequence === this._updateSequence) {
+					void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+				}
 			});
 			const timelineStart = performance.now();
 			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
@@ -662,6 +700,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.merge-stack':
+				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
 			case 'pr.change-email':
 				return this.changeEmail(message);
 			case 'pr.deleteBranch':

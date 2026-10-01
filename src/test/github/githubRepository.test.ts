@@ -41,6 +41,31 @@ describe('GitHubRepository', function () {
 	});
 
 	describe('query', function () {
+		it('does not switch schemas for an unsupported optional stack query', async function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry, true);
+			const graphql = sinon.createStubInstance(LoggingApolloClient);
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(repo, 'hub').get(() => ({ graphql, octokit: sinon.createStubInstance(LoggingOctokit) }));
+			const error = Object.assign(new Error("Field 'stack' doesn't exist on type 'PullRequest'"), {
+				graphQLErrors: [{ extensions: { code: 'undefinedField', typeName: 'PullRequest', fieldName: 'stack' } }],
+			});
+			graphql.query.rejects(error);
+
+			try {
+				await assert.rejects(repo.query({
+					query: repo.schema.PullRequestStack,
+					variables: { owner: 'some', name: 'repo', number: 1, after: null },
+				}, false, undefined, false), candidate => candidate === error);
+
+				assert.strictEqual(repo.areQueriesLimited, false);
+				assert.strictEqual(graphql.query.callCount, 1);
+			} finally {
+				repo.dispose();
+			}
+		});
+
 		it('replaces variables for a legacy query with different arguments', async function () {
 			const url = 'https://github.com/some/repo';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);

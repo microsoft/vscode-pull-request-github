@@ -6,10 +6,11 @@
 import React, { useContext, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
 import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, diffMultipleIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
+import { StackBadge } from './pullRequestStack';
 import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
+import { GithubItemStateEnum, PullRequestStack, StateReason } from '../../src/github/interface';
 import { BaseContext, CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
 import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -34,7 +35,8 @@ export function Header({
 	owner,
 	repo,
 	busy,
-	stateReason
+	stateReason,
+	stack,
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
@@ -56,7 +58,7 @@ export function Header({
 				owner={owner}
 				repo={repo}
 			/>
-			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} canEdit={canEdit} />
+			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} canEdit={canEdit} stack={stack} />
 			<div className="header-actions">
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
@@ -274,9 +276,10 @@ interface SubtitleProps {
 	head: string;
 	codingAgentEvent: TimelineEvent | undefined;
 	canEdit: boolean;
+	stack?: PullRequestStack;
 }
 
-function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent, canEdit }: SubtitleProps): JSX.Element {
+function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent, canEdit, stack }: SubtitleProps): JSX.Element {
 	const { changeBaseBranch } = useContext(PullRequestContext);
 	const { text, color, icon } = getStatus(state, !!isDraft, isIssue, stateReason);
 	const copilotStatus = copilotEventToStatus(codingAgentEvent);
@@ -295,6 +298,7 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 				<span className='icon'>{icon}</span>
 				<span>{text}</span>
 			</div>
+			{!isIssue ? <StackBadge stack={stack} /> : null}
 			<div className="author">
 				{<Avatar for={author} substituteIcon={copilotStatusIcon} />}
 				<div className="merge-branches">

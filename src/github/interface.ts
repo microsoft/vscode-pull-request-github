@@ -23,6 +23,22 @@ export enum GithubItemStateEnum {
 	Closed = 'CLOSED',
 }
 
+export interface PullRequestStack {
+	position: number;
+	size: number;
+	base: string;
+	pullRequests: {
+		position: number;
+		number: number;
+		title: string;
+		url: string;
+		head: string;
+		state: GithubItemStateEnum;
+		isDraft: boolean;
+		mergeable: PullRequestMergeability;
+	}[];
+}
+
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
