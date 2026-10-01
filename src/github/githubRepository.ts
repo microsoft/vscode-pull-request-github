@@ -907,6 +907,37 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
+	async unstackAll(pullRequestNumber: number): Promise<number[]> {
+		const { octokit, remote } = await this.ensure();
+		const params = {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+		};
+		const { data: stacks } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
+			...params,
+			pull_request: pullRequestNumber,
+			per_page: 1,
+		}));
+		if (!Array.isArray(stacks) || stacks.length !== 1 || !isObject(stacks[0])
+			|| typeof stacks[0].number !== 'number' || !Array.isArray(stacks[0].pull_requests)
+			|| !stacks[0].pull_requests.some((pr: unknown) => isObject(pr) && pr.number === pullRequestNumber)) {
+			throw new Error(`Could not find the stack containing pull request #${pullRequestNumber}.`);
+		}
+		const result = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack', {
+			...params,
+			stack_number: stacks[0].number,
+		}));
+		if (result.status === 204) {
+			return [];
+		}
+		if (result.status !== 200 || !isObject(result.data) || !Array.isArray(result.data.pull_requests)
+			|| !result.data.pull_requests.every((pr: unknown) => isObject(pr) && typeof pr.number === 'number')) {
+			throw new Error('GitHub returned an invalid result when unstacking pull requests.');
+		}
+		return result.data.pull_requests.map((pr: { number: number }) => pr.number);
+	}
+
 	async canGetProjectsNow(): Promise<boolean> {
 		let { schema } = await this.ensure();
 		if (schema.GetRepoProjects && schema.GetOrgProjects) {

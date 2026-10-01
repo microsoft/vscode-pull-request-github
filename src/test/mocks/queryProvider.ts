@@ -73,9 +73,10 @@ export class QueryProvider {
 		}
 	}
 
-	expectOctokitRequest<R>(accessorPath: string[], args: any[], response: R) {
+	expectOctokitRequest<R>(accessorPath: string[], args: any[], response: R, status?: number) {
 		this.getOctokitRequestStub(accessorPath).withArgs(...args).resolves({
 			data: response,
+			status,
 			headers: { 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4999' },
 		});
 	}

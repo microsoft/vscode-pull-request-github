@@ -137,6 +137,66 @@ describe('Overview', function () {
 		assert(out.getByText('Merge Pull Request'));
 	});
 
+	it('offers Unstack all for an eligible stack without showing it to users without write permission', function () {
+		const stack = {
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 794, title: 'First', head: 'D1', url: 'https://example.com/794', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+				{ position: 2, number: 795, title: 'Second', head: 'D2', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		};
+		const pr = new PullRequestBuilder().number(795).stack(stack).build();
+		const context = new PRContext(pr);
+		const unstackAll = sinon.stub(context, 'unstackAll').resolves({ cancelled: false, remainingPullRequests: [794] });
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		const button = out.getByText('Unstack all');
+		const section = button.closest('#pull-request-stack');
+		assert(section);
+		assert.strictEqual(section.children[0].tagName, 'SUMMARY');
+		assert.strictEqual(section.children[0], button.parentElement?.parentElement);
+		assert.strictEqual(button.parentElement?.nextElementSibling?.className, 'stack-chevron');
+		assert.strictEqual(fireEvent.click(button), false);
+		assert(unstackAll.calledOnce);
+		assert(section.hasAttribute('open'));
+
+		out.rerender(
+			<PullRequestContext.Provider value={new PRContext({ ...pr, hasWritePermission: false })}>
+				<Overview {...pr} hasWritePermission={false} />
+			</PullRequestContext.Provider>,
+		);
+		assert.strictEqual(out.queryByText('Unstack all'), null);
+		out.rerender(
+			<PullRequestContext.Provider value={new PRContext({ ...pr, stack: { ...stack, pullRequests: [stack.pullRequests[0]] } })}>
+				<Overview {...pr} stack={{ ...stack, pullRequests: [stack.pullRequests[0]] }} />
+			</PullRequestContext.Provider>,
+		);
+		assert.strictEqual(out.queryByText('Unstack all'), null);
+	});
+
+	it('shows an inline error when unstacking fails', async function () {
+		const pr = new PullRequestBuilder().stack({
+			position: 1, size: 1, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		}).build();
+		const context = new PRContext(pr);
+		sinon.stub(context, 'unstackAll').rejects(new Error('Stack is locked'));
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		fireEvent.click(out.getByText('Unstack all'));
+		const alert = await waitForElement(() => out.container.querySelector('.stack-unstack-error[role="alert"]'));
+		assert.strictEqual(alert?.textContent, 'Unable to unstack pull requests: Stack is locked');
+		assert.strictEqual((out.getByText('Unstack all') as HTMLButtonElement).disabled, false);
+	});
+
 	it('shows a closed stack without suggesting it can be merged', function () {
 		const pr = new PullRequestBuilder().state(GithubItemStateEnum.Closed).stack({
 			position: 1,

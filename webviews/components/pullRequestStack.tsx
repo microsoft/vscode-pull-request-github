@@ -7,6 +7,7 @@ import * as React from 'react';
 import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, layersIcon, warningIcon } from './icon';
 import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack as Stack } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
+import PullRequestContext from '../common/context';
 
 function getReadiness(entry: Stack['pullRequests'][number]): { icon: JSX.Element; label: string; kind: string } {
 	if (entry.state === GithubItemStateEnum.Merged) {
@@ -40,17 +41,35 @@ export const StackBadge = ({ stack }: { stack?: Stack }) => stack ? (
 ) : null;
 
 export const StackSection = ({ pr }: { pr: PullRequest }) => {
+	const { unstackAll } = React.useContext(PullRequestContext);
+	const [busy, setBusy] = React.useState(false);
+	const [error, setError] = React.useState<string | undefined>();
 	const { stack } = pr;
 	if (!stack) {
 		return null;
 	}
 	const openBelow = stack.pullRequests.filter(entry => entry.position < stack.position && entry.state === GithubItemStateEnum.Open).length;
+	const canUnstack = pr.hasWritePermission && stack.pullRequests.some(entry => entry.state !== GithubItemStateEnum.Merged);
+
+	const unstack = async (event: React.MouseEvent<HTMLButtonElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
+		try {
+			setBusy(true);
+			setError(undefined);
+			await unstackAll();
+		} catch (unstackError) {
+			setError(unstackError instanceof Error ? unstackError.message || unstackError.name : String(unstackError));
+		} finally {
+			setBusy(false);
+		}
+	};
 
 	return (
-		<details className="stack-section" id="pull-request-stack" open>
+		<details className={`stack-section${canUnstack ? ' has-actions' : ''}`} id="pull-request-stack" open>
 			<summary className="status-item">
 				{layersIcon}
-				<span>
+				<span className="stack-heading-text">
 					<strong>Pull request stack</strong>
 					<span className="stack-description">
 						{pr.state === GithubItemStateEnum.Open && openBelow > 0
@@ -58,8 +77,15 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 							: `${stack.size} pull requests in this stack.`}
 					</span>
 				</span>
+				{canUnstack ? <span className="stack-actions">
+					<button className="secondary" type="button" title="Unstack all eligible pull requests"
+						disabled={busy || !!pr.stackMergeStatus} onClick={unstack}>
+						{busy ? 'Unstacking...' : 'Unstack all'}
+					</button>
+				</span> : null}
 				<span className="stack-chevron">{chevronDownIcon}</span>
 			</summary>
+			{error ? <div className="stack-unstack-error" role="alert">Unable to unstack pull requests: {error}</div> : null}
 			<ol className="stack-entries" aria-label={`Pull requests merging down into ${stack.base}`}>
 				{[...stack.pullRequests].reverse().map(entry => {
 					const current = entry.number === pr.number;

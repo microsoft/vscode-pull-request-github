@@ -20,16 +20,19 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
+import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { PRNode } from '../../view/treeNodes/pullRequestNode';
 import { GitHubRemote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
-import { parseGraphQLPullRequest } from '../../github/utils';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { GitHubServerType } from '../../common/authentication';
 import { DataUri } from '../../common/uri';
-import { IAccount, ITeam } from '../../github/interface';
+import { GithubItemStateEnum, IAccount, ITeam, PullRequestMergeability } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -115,6 +118,52 @@ describe('GitHub Pull Requests view', function () {
 		assert(tree);
 		const options = tree.args[1] as { canSelectMany?: boolean };
 		assert.strictEqual(options.canSelectMany, true);
+	});
+
+	it('refreshes selected and existing stack PR panels after adding from the tree', async function () {
+		const url = 'https://github.com/aaa/bbb';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		const repository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		try {
+			const makePR = (number: number, base: string, head: string) => {
+				const rest = new PullRequestBuilder().number(number)
+					.base(ref => ref.ref(base)).head(ref => ref.ref(head)).build();
+				for (const ref of [rest.base, rest.head]) {
+					ref.repo.owner.login = remote.owner;
+					ref.repo.name = remote.repositoryName;
+					ref.repo.clone_url = `${url}.git`;
+				}
+				return new PullRequestModel(credentialStore, telemetry, repository, remote,
+					convertRESTPullRequestToRawPullRequest(rest, repository));
+			};
+			const bottom = makePR(1, 'main', 'D1');
+			const top = makePR(2, 'D1', 'D2');
+			const node = (model: PullRequestModel) => Object.assign(Object.create(PRNode.prototype), { pullRequestModel: model }) as PRNode;
+			const selected = [node(bottom), node(top)];
+			const existing = {
+				position: 2, size: 2, base: 'main',
+				pullRequests: [
+					{ position: 1, number: 10, title: 'Existing', url, head: 'main', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+					{ position: 2, number: 1, title: 'Bottom', url, head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+				],
+			};
+			sinon.stub(bottom, 'getStack').resolves(existing);
+			sinon.stub(top, 'getStack').resolves(undefined);
+			sinon.stub(repository, 'getStackCandidate').resolves({ parentPullRequestNumber: 1, stackNumber: 10, size: 2, url });
+			sinon.stub(repository, 'getPullRequest').callsFake(async number => number === 1 ? bottom : top);
+			const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+			const confirm = sinon.stub(vscode.window, 'showInformationMessage');
+			confirm.onFirstCall().resolves('Add to Stack' as never);
+			confirm.onSecondCall().resolves(undefined);
+			const refresh = sinon.stub(PullRequestOverviewPanel, 'refreshStackPanels').resolves();
+
+			await (provider as any).addSelectedPullRequestsToStack(selected[0], selected);
+
+			assert(add.calledOnce);
+			assert(refresh.calledOnceWithExactly(remote.owner, remote.repositoryName, [10, 1, 2]));
+		} finally {
+			repository.dispose();
+		}
 	});
 
 	it('has no children when no GitHub remotes are available', async function () {
