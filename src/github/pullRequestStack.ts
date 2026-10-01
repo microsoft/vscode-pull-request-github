@@ -6,6 +6,7 @@
 import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { StackCandidate } from '../../common/views';
+import { areStacksEnabled } from '../common/settingsUtils';
 import { compareIgnoreCase } from '../common/utils';
 
 function sameRepository(first: PullRequestModel, second: PullRequestModel): boolean {
@@ -55,6 +56,10 @@ export function orderStackablePullRequests(pullRequests: readonly PullRequestMod
 }
 
 export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[], confirmedCandidate: StackCandidate): Promise<number[]> {
+	if (!areStacksEnabled()) {
+		throw new Error('Pull request stack features are disabled.');
+	}
+
 	const initial = orderStackablePullRequests(pullRequests);
 	if (!initial) {
 		throw new Error('Select two or more open pull requests whose head and base branches form a chain in the same repository.');

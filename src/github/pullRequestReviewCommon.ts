@@ -12,6 +12,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
 import Logger from '../common/logger';
 import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
+import { areStacksEnabled } from '../common/settingsUtils';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -37,6 +38,9 @@ export interface ReviewContext {
 export namespace PullRequestReviewCommon {
 	export async function mergeStack(ctx: ReviewContext, message: IRequestMessage<{ method: MergeMethod }>): Promise<void> {
 		try {
+			if (!areStacksEnabled()) {
+				throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
+			}
 			const { item, folderRepositoryManager } = ctx;
 			const stack = await item.getStack();
 			if (!stack) {
