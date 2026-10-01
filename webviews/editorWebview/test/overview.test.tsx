@@ -124,6 +124,54 @@ describe('Overview', function () {
 		assert(openOnGitHub.notCalled);
 	});
 
+	it('shows stack state icons appropriate to each pull request and its position', function () {
+		const states = [
+			{ state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+			{ state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			{ state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.NotMergeable },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+			{ state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+		];
+		const pr = new PullRequestBuilder().number(4).stack({
+			position: 4, size: states.length, base: 'main',
+			pullRequests: states.map((state, index) => ({
+				...state, position: index + 1, number: index + 1, title: `PR ${index + 1}`,
+				head: `D${index + 1}`, url: `https://example.com/${index + 1}`,
+			})),
+		}).build();
+		const out = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		const iconPath = (svg: string) => {
+			const element = document.createElement('div');
+			element.innerHTML = svg;
+			return element.querySelector('path')?.getAttribute('d');
+		};
+		const dot = iconPath(require('../../../resources/icons/codicons/circle-filled.svg'));
+		const pass = iconPath(require('../../../resources/icons/codicons/pass.svg'));
+		assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(entry => [
+			entry.getAttribute('aria-label'), entry.classList[1], entry.querySelector('svg path')?.getAttribute('d'),
+		]), [
+			['Mergeability is being checked', 'waiting', dot],
+			['Branch is behind its base', 'waiting', dot],
+			['Merge requirements not met', 'waiting', dot],
+			['Merge conflicts', 'waiting', dot],
+			['Draft pull request cannot be merged', 'waiting', iconPath(require('../../../resources/icons/codicons/git-pull-request-draft.svg'))],
+			['Ready to merge', 'ready', dot],
+			['Ready to merge', 'ready', pass],
+			['Ready to merge', 'ready', pass],
+			['Closed pull request cannot be merged', 'blocked', iconPath(require('../../../resources/icons/codicons/skip.svg'))],
+			['Already merged', 'ready', iconPath(require('../../../resources/icons/codicons/check.svg'))],
+		]);
+	});
+
 	it('does not show a stack badge or section for an unstacked pull request', function () {
 		const pr = new PullRequestBuilder().build();
 		const out = render(
@@ -218,7 +266,21 @@ describe('Overview', function () {
 			'Mergeability is being checked',
 			'Closed pull request cannot be merged',
 		]);
+		assert(out.container.querySelector('.stack-entry-readiness.blocked .icon.skip'));
+		assert.strictEqual(out.container.querySelector('#status-checks > .stacked-delete-branch-container button')?.textContent?.trim(), 'Delete Branch...');
 		assert.strictEqual(out.container.querySelector('.automerge-section'), null);
+	});
+
+	it('keeps the original Delete Branch placement outside stacks', function () {
+		const pr = new PullRequestBuilder().state(GithubItemStateEnum.Closed).build();
+		const out = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(out.container.querySelector('#pull-request-stack'), null);
+		assert.strictEqual(out.container.querySelector('#status-checks > .branch-status-container:not(.stacked-delete-branch-container) button')?.textContent?.trim(), 'Delete Branch...');
 	});
 
 	it('does not count already merged pull requests in the merge impact', function () {
