@@ -1255,6 +1255,10 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.selectEnterpriseAccount', () => reposManager.selectEnterpriseAccount()),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
 			for (const folderManager of reposManager.folderManagers) {
 				await folderManager.deleteLocalBranchesNRemotes();
@@ -1981,7 +1985,7 @@ ${contents}
 
 			const githubRepositories: { manager: FolderRepositoryManager, repo: GitHubRepository }[] = [];
 			for (const manager of reposManager.folderManagers) {
-				const remotes = await manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
+				const remotes = manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
 				const activeGitHubRepos = manager.gitHubRepositories.filter(repo => remotes.find(remote => remote.remoteName === repo.remote.remoteName));
 				githubRepositories.push(...(activeGitHubRepos.map(repo => { return { manager, repo }; })));
 			}

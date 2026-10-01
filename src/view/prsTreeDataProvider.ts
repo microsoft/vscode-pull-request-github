@@ -7,22 +7,24 @@ import * as vscode from 'vscode';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
 import { PrsTreeModel } from './prsTreeModel';
 import { ReviewModel } from './reviewModel';
+import { getEnterpriseUris } from '../authentication/configuration';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
+import { Remote } from '../common/remote';
+import { FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
+import { formatError } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PullRequestChangeEvent } from '../github/githubRepository';
 import { PRType } from '../github/interface';
-import { issueMarkdown } from '../github/markdownUtils';
+import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { PRNode } from './treeNodes/pullRequestNode';
@@ -30,6 +32,43 @@ import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 import { NotificationsManager } from '../notifications/notificationsManager';
+
+export function getEnterpriseAuthenticationMessage(remotes: readonly Remote[], instances: readonly vscode.Uri[], selectedInstance: vscode.Uri | undefined): string | undefined {
+	const unavailable = remotes.filter(remote => remote.isEnterprise && (!selectedInstance || !remote.matchesServerUri(selectedInstance)));
+	const configured = unavailable.filter(remote => instances.some(instance => remote.matchesServerUri(instance)));
+	const unconfigured = unavailable.filter(remote => !instances.some(instance => remote.matchesServerUri(instance)));
+	const instanceLabel = (uri: vscode.Uri) => `${uri.authority}${uri.path.replace(/\/+$/, '')}`;
+	const hosts = (remotes: readonly Remote[]) => [...new Set(remotes.map(remote => instanceLabel(vscode.Uri.parse(remote.normalizedHost))))].join(', ');
+	const messages: string[] = [];
+	if (configured.length) {
+		messages.push(selectedInstance
+			? vscode.l10n.t('Using {0} for GitHub Enterprise.\n\nSelect an account for {1} to view its repositories.', instanceLabel(selectedInstance), hosts(configured))
+			: vscode.l10n.t('Select a GitHub Enterprise account to view repositories on {0}.', hosts(configured)));
+	}
+	if (unconfigured.length) {
+		messages.push(vscode.l10n.t('Add {0} to your GitHub Enterprise instances in Settings.', hosts(unconfigured)));
+	}
+	return messages.length ? messages.join('\n\n') : undefined;
+}
+
+function enterpriseSettingsMessage(text: string | undefined, actions: { github: boolean; githubEnterprise: boolean; configure: boolean }): vscode.MarkdownString | undefined {
+	if (!text) {
+		return undefined;
+	}
+	const message = new vscode.MarkdownString(escapeMarkdownText(text));
+	message.isTrusted = { enabledCommands: ['pr.signinNoEnterprise', 'pr.selectEnterpriseAccount', 'workbench.action.openSettings'] };
+	if (actions.githubEnterprise) {
+		message.appendMarkdown(`\n\n[${vscode.l10n.t('Select Account')}](command:pr.selectEnterpriseAccount)`);
+	}
+	if (actions.github) {
+		message.appendMarkdown(`\n[${vscode.l10n.t('Sign in with GitHub.com')}](command:pr.signinNoEnterprise)`);
+	}
+	if (actions.configure) {
+		const settingsQuery = encodeURIComponent(JSON.stringify([`${GITHUB_ENTERPRISE}.${URIS}`]));
+		message.appendMarkdown(`\n[${vscode.l10n.t('Configure GitHub Enterprise')}](command:workbench.action.openSettings?${settingsQuery})`);
+	}
+	return message;
+}
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode[] | TreeNode | void>();
@@ -43,6 +82,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return this._children;
 	}
 	private readonly _view: vscode.TreeView<TreeNode>;
+	private readonly _loginView: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
 	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
@@ -76,6 +116,16 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			treeDataProvider: this,
 			showCollapseAll: true,
 			manageCheckboxStateManually: true
+		}));
+		this._loginView = this._register(vscode.window.createTreeView('github:login', {
+			treeDataProvider: {
+				onDidChangeTreeData: this.onDidChangeTreeData,
+				getTreeItem: element => element.getTreeItem(),
+				getChildren: () => {
+					this.updateEnterpriseAuthenticationMessage();
+					return [];
+				},
+			},
 		}));
 
 		this._register(this._view.onDidChangeVisibility(e => {
@@ -145,10 +195,13 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
+				|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URIS}`)
+				|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
 				this.refreshAll();
 			}
 		}));
+		this._register(vscode.workspace.onDidGrantWorkspaceTrust(() => this.refreshAll()));
 
 		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
 
@@ -523,7 +576,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return item;
 	}
 
-	private async needsRemotes() {
+	private needsRemotes(remotes: readonly Remote[]) {
 		if (this._reposManager?.state === ReposManagerState.NeedsAuthentication) {
 			return [];
 		}
@@ -540,8 +593,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		const { enterpriseRemotes } = this._reposManager ? await findDotComAndEnterpriseRemotes(this._reposManager?.folderManagers) : { enterpriseRemotes: [] };
-		if ((enterpriseRemotes.length > 0) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		if (remotes.some(remote => remote.isEnterprise) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
 		}
 
@@ -555,8 +607,30 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return element.cachedChildren();
 	}
 
+	private updateEnterpriseAuthenticationMessage(remotes: readonly Remote[] = this._reposManager.activeGitHubRemotes): void {
+		const selected = this._reposManager.credentialStore.getHub(AuthProvider.githubEnterprise)?.serverUri;
+		const showPublicSignIn = remotes.some(remote => remote.authProviderId === AuthProvider.github)
+			&& !this._reposManager.credentialStore.isAuthenticated(AuthProvider.github);
+		let message: vscode.MarkdownString | undefined;
+		try {
+			const instances = getEnterpriseUris();
+			const text = getEnterpriseAuthenticationMessage(remotes, instances, selected);
+			const unavailable = remotes.filter(remote => remote.isEnterprise && (!selected || !remote.matchesServerUri(selected)));
+			const selectAccount = unavailable.some(remote => instances.some(uri => remote.matchesServerUri(uri)));
+			const configure = unavailable.some(remote => !instances.some(uri => remote.matchesServerUri(uri)));
+			message = enterpriseSettingsMessage(text, { github: showPublicSignIn, githubEnterprise: selectAccount, configure });
+		} catch (error) {
+			Logger.error(`GitHub Enterprise configuration is unavailable: ${formatError(error)}`, 'PullRequestsTree');
+			message = enterpriseSettingsMessage(vscode.l10n.t('Check your GitHub Enterprise instances in Settings.\n\n{0}', formatError(error)), { github: showPublicSignIn, githubEnterprise: false, configure: true });
+		}
+		(this._view as vscode.TreeView2<TreeNode>).message = message;
+		(this._loginView as vscode.TreeView2<TreeNode>).message = message;
+	}
+
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!this._reposManager?.folderManagers.length) {
+			this._view.message = undefined;
+			this._loginView.message = undefined;
 			return [];
 		}
 
@@ -565,12 +639,16 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			return [];
 		}
 
-		const remotes = await Promise.all(this._reposManager.folderManagers.map(manager => manager.getGitHubRemotes()));
-		if ((this._reposManager.folderManagers.filter((_manager, index) => remotes[index].length > 0).length === 0)) {
-			return this.needsRemotes();
+		const remotes = this._reposManager.activeGitHubRemotes;
+		if (!element) {
+			this.updateEnterpriseAuthenticationMessage(remotes);
 		}
 
-		const gitHubFolderManagers = this._reposManager.folderManagers.filter(manager => manager.gitHubRepositories.length > 0);
+		const gitHubFolderManagers = this._reposManager.folderManagers.filter(manager =>
+			manager.gitHubRepositories.some(repository => repository.authMatchesServer));
+		if (gitHubFolderManagers.length === 0) {
+			return this.needsRemotes(remotes);
+		}
 		if (!element) {
 			this._children.forEach(child => child.dispose());
 

@@ -14,6 +14,7 @@ export namespace contexts {
 	export const ACTIVE_PR_COUNT = 'github:activePRCount'; // Number of PRs that are currently checked out
 	export const LOADING_PRS_TREE = 'github:loadingPrsTree';
 	export const LOADING_ISSUES_TREE = 'github:loadingIssuesTree';
+	export const HAS_ENTERPRISE_URIS = 'github:hasEnterpriseUris';
 	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
 	export const RESOLVING_CONFLICTS = 'github:resolvingConflicts';
 	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible'; // Boolean indicating if the pull request description is visible
@@ -28,6 +29,7 @@ export namespace commands {
 	export const NEW_CHAT = 'workbench.action.chat.newChat';
 	export const SHOW_CHAT = 'workbench.panel.chat';
 	export const CHAT_SETUP_ACTION_ID = 'workbench.action.chat.triggerSetup';
+	export const MANAGE_EXTENSION_ACCOUNT_PREFERENCES = '_manageAccountPreferencesForExtension';
 
 	export const QUICK_CHAT_OPEN = 'workbench.action.quickchat.toggle';
 

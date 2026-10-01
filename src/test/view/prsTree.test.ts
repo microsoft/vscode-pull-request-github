@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SinonSandbox, createSandbox } from 'sinon';
+import { SinonSandbox, SinonSpy, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
+import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
 
-import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { getEnterpriseAuthenticationMessage, PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { NotificationsManager } from '../../notifications/notificationsManager';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState } from '../../github/folderRepositoryManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockNotificationManager } from '../mocks/mockNotificationManager';
@@ -26,14 +27,16 @@ import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
-import { GitHubServerType } from '../../common/authentication';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import * as configuration from '../../authentication/configuration';
 import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { PrsTreeModel } from '../../view/prsTreeModel';
+import { escapeMarkdownText } from '../../github/markdownUtils';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -47,6 +50,7 @@ describe('GitHub Pull Requests view', function () {
 	let mockNotificationsManager: MockNotificationManager;
 	let prsTreeModel: PrsTreeModel;
 	let discoveredRepository: MockGitHubRepository | undefined;
+	let createTreeView: SinonSpy;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -63,6 +67,7 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 		);
 		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
+		createTreeView = sinon.spy(vscode.window, 'createTreeView');
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
@@ -97,6 +102,8 @@ describe('GitHub Pull Requests view', function () {
 	afterEach(function () {
 		provider.dispose();
 		discoveredRepository?.dispose();
+		reposManager.dispose();
+		credentialStore.dispose();
 		context.dispose();
 		sinon.restore();
 	});
@@ -125,6 +132,248 @@ describe('GitHub Pull Requests view', function () {
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 0);
+	});
+
+	describe('Enterprise host guidance', function () {
+		const hostA = vscode.Uri.parse('https://host-a.example');
+		const hostB = vscode.Uri.parse('https://host-b.example:8443/deployment');
+		let enterpriseRemote: GitHubRemote;
+
+		beforeEach(function () {
+			const url = `${hostB.toString()}/owner/repo`;
+			enterpriseRemote = new GitHubRemote('upstream', url, new Protocol(url), GitHubServerType.Enterprise);
+		});
+
+		it('explains a configured but unselected host instead of reporting an empty result', function () {
+			const message = getEnterpriseAuthenticationMessage([enterpriseRemote], [hostA, hostB], hostA);
+			assert.strictEqual(message, 'Using host-a.example for GitHub Enterprise.\n\nSelect an account for host-b.example:8443/deployment to view its repositories.');
+		});
+
+		it('distinguishes configuration from sign-in', function () {
+			assert.strictEqual(getEnterpriseAuthenticationMessage([enterpriseRemote], [], undefined), 'Add host-b.example:8443/deployment to your GitHub Enterprise instances in Settings.');
+			assert.strictEqual(getEnterpriseAuthenticationMessage([enterpriseRemote], [hostB], undefined), 'Select a GitHub Enterprise account to view repositories on host-b.example:8443/deployment.');
+			assert.strictEqual(getEnterpriseAuthenticationMessage([enterpriseRemote], [hostB], hostB), undefined);
+		});
+
+		it('shows host guidance alongside loaded public repositories and clears it after switching', async function () {
+			const repository = new MockRepository();
+			await repository.addRemote('origin', 'https://github.com/owner/repo');
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'owner', repo: 'repo', base: 'main' });
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			await folderManager.updateRepositories();
+			const publicRemotes = await folderManager.getGitHubRemotes();
+			assert.strictEqual(publicRemotes.length, 1);
+			sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([...publicRemotes, enterpriseRemote]);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([hostA, hostB]);
+			const hub: GitHub = {
+				serverUri: hostA,
+				octokit: new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false)),
+				graphql: new LoggingApolloClient(new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() }), new RateLogger(telemetry, false)),
+			};
+			const getHub = sinon.stub(credentialStore, 'getHub').withArgs(AuthProvider.githubEnterprise).returns(hub);
+			await folderManager.updateRepositories();
+			provider.initialize([], mockNotificationsManager as NotificationsManager);
+
+			assert.ok((await provider.getChildren()).length > 0);
+			const message = (provider.view as vscode.TreeView2<unknown>).message;
+			assert.ok(message instanceof vscode.MarkdownString);
+			assert.ok(message.value.includes(escapeMarkdownText('host-b.example:8443/deployment')));
+			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|https?:\/\/|Accounts.*Preferences/);
+			assert.match(message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.doesNotMatch(message.value, /command:workbench\.action\.openSettings/);
+
+			getHub.returns({ ...hub, serverUri: hostB });
+			await provider.getChildren();
+			assert.strictEqual(provider.view.message, undefined);
+		});
+
+		it('shows switching guidance in the login view while the PR view is hidden', async function () {
+			const repository = new MockRepository();
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([enterpriseRemote]);
+			sinon.stub(reposManager, 'state').get(() => ReposManagerState.NeedsAuthentication);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([hostA, hostB]);
+			sinon.stub(credentialStore, 'getHub').withArgs(AuthProvider.githubEnterprise).returns({
+				serverUri: hostA,
+				octokit: new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false)),
+				graphql: new LoggingApolloClient(new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() }), new RateLogger(telemetry, false)),
+			});
+			await folderManager.updateRepositories();
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			assert.ok(loginView);
+
+			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
+			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
+			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-b.example')));
+			assert.doesNotMatch(loginView.returnValue.message.value, /\]\(command:pr\.signinenterprise\)/);
+			assert.doesNotMatch(loginView.returnValue.message.value, /&nbsp;|\u00a0|command:workbench\.action\.openSettings/);
+			assert.strictEqual(loginView.returnValue.message, provider.view.message);
+		});
+
+		it('offers account selection from the login view when there is no selected session', async function () {
+			const repository = new MockRepository();
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([enterpriseRemote]);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([hostB]);
+			await folderManager.updateRepositories();
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			assert.ok(loginView);
+
+			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
+			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
+			assert.ok(loginView.returnValue.message.value.startsWith('Select a GitHub Enterprise account to view repositories on '));
+			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.doesNotMatch(loginView.returnValue.message.value, /&nbsp;|\u00a0|command:workbench\.action\.openSettings/);
+			assert.deepStrictEqual(loginView.returnValue.message.isTrusted, {
+				enabledCommands: ['pr.signinNoEnterprise', 'pr.selectEnterpriseAccount', 'workbench.action.openSettings'],
+			});
+		});
+
+		it('preserves both sign-in actions for mixed repositories with no selected sessions', async function () {
+			const repository = new MockRepository();
+			const publicUrl = 'https://github.com/owner/repo';
+			await repository.addRemote('origin', publicUrl);
+			await repository.addRemote(enterpriseRemote.remoteName, enterpriseRemote.url);
+			const publicRemote = new GitHubRemote('origin', publicUrl, new Protocol(publicUrl), GitHubServerType.GitHubDotCom);
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			context.subscriptions.push(folderManager);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([publicRemote, enterpriseRemote]);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([hostB]);
+			await folderManager.updateRepositories();
+			assert.strictEqual(reposManager.state, ReposManagerState.NeedsAuthentication);
+			assert.strictEqual(credentialStore.isAnyAuthenticated(), false);
+
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			assert.ok(loginView);
+			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
+			const message = loginView.returnValue.message;
+			assert.ok(message instanceof vscode.MarkdownString);
+			assert.match(message.value, /\]\(command:pr\.signinNoEnterprise\)/);
+			assert.match(message.value, /\]\(command:pr\.selectEnterpriseAccount\)/);
+		});
+
+		it('preserves public sign-in when Enterprise configuration is invalid', async function () {
+			const repository = new MockRepository();
+			await repository.addRemote('origin', 'https://github.com/owner/repo');
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			context.subscriptions.push(folderManager);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(configuration, 'getEnterpriseUris').throws(new Error('Invalid instance list'));
+			await folderManager.updateRepositories();
+			assert.strictEqual(reposManager.state, ReposManagerState.NeedsAuthentication);
+
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			assert.ok(loginView);
+			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
+			const message = loginView.returnValue.message;
+			assert.ok(message instanceof vscode.MarkdownString);
+			assert.ok(message.value.includes('Invalid instance list'));
+			assert.match(message.value, /\]\(command:pr\.signinNoEnterprise\)/);
+			assert.match(message.value, /command:workbench\.action\.openSettings/);
+			assert.doesNotMatch(message.value, /\]\(command:pr\.selectEnterpriseAccount\)/);
+		});
+
+		it('renders known repositories and guidance while discovery of an excluded remote is pending', async function () {
+			const repository = new MockRepository();
+			const publicUrl = 'https://github.com/owner/repo';
+			await repository.addRemote('origin', publicUrl);
+			await repository.addRemote(enterpriseRemote.remoteName, enterpriseRemote.url);
+			const publicRemote = new GitHubRemote('origin', publicUrl, new Protocol(publicUrl), GitHubServerType.GitHubDotCom);
+			const knownRemotes = [publicRemote, enterpriseRemote];
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			context.subscriptions.push(folderManager);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'owner', repo: 'repo', base: 'main' });
+			sinon.stub(credentialStore, 'isAuthenticated').callsFake(provider => provider === AuthProvider.github);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([hostB]);
+			const discovery = sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves(knownRemotes);
+			await folderManager.updateRepositories();
+			provider.initialize([], mockNotificationsManager as NotificationsManager);
+
+			await repository.addRemote('backup', 'https://offline.example/owner/repo');
+			let completeDiscovery!: (remotes: GitHubRemote[]) => void;
+			const pendingDiscovery = new Promise<GitHubRemote[]>(resolve => completeDiscovery = resolve);
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => markStarted = resolve);
+			discovery.resetHistory();
+			discovery.onFirstCall().callsFake(() => {
+				markStarted();
+				return pendingDiscovery;
+			});
+			discovery.onSecondCall().rejects(new Error('Rendering must not start remote discovery'));
+			const refresh = folderManager.updateRepositories();
+			await started;
+			const reclassification = sinon.stub(folderManager, 'getGitHubRemotes').rejects(new Error('Rendering must not reclassify loaded repositories'));
+
+			try {
+				assert.ok((await provider.getChildren()).length > 0);
+				const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+				assert.ok(loginView);
+				assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
+				assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
+				assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-b.example')));
+				assert.doesNotMatch(loginView.returnValue.message.value, /offline\.example/);
+				assert.strictEqual(discovery.calledOnce, true);
+				assert.strictEqual(reclassification.called, false);
+			} finally {
+				completeDiscovery(knownRemotes);
+				await refresh;
+			}
+		});
+
+		it('refreshes guidance when owned discovery completes without changing authentication state', async function () {
+			const repository = new MockRepository();
+			await repository.addRemote(enterpriseRemote.remoteName, enterpriseRemote.url);
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			context.subscriptions.push(folderManager);
+			reposManager.insertFolderManager(folderManager);
+			const discovery = sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([enterpriseRemote]);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([hostA, hostB]);
+			await folderManager.updateRepositories();
+			provider.initialize([], mockNotificationsManager as NotificationsManager);
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+			const replacementUrl = `${hostA.toString()}/owner/repo`;
+			const replacementRemote = new GitHubRemote('upstream', replacementUrl, new Protocol(replacementUrl), GitHubServerType.Enterprise);
+			await repository.removeRemote('upstream');
+			await repository.addRemote('upstream', replacementUrl);
+			discovery.resolves([replacementRemote]);
+
+			await folderManager.updateRepositories();
+
+			assert.strictEqual(reposManager.state, ReposManagerState.NeedsAuthentication);
+			assert.strictEqual(onDidChangeTreeData.called, true);
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			assert.ok(loginView);
+			await loginView.args[1].treeDataProvider.getChildren();
+			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
+			assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-a.example')));
+			assert.doesNotMatch(loginView.returnValue.message.value, /host-b\.example/);
+		});
+
+		it('reports invalid configuration in the view without falling back to a host', async function () {
+			const repository = new MockRepository();
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([enterpriseRemote]);
+			sinon.stub(reposManager, 'state').get(() => ReposManagerState.NeedsAuthentication);
+			sinon.stub(configuration, 'getEnterpriseUris').throws(new Error('Invalid instance list'));
+			await folderManager.updateRepositories();
+
+			assert.deepStrictEqual(await provider.getChildren(), []);
+			const message = (provider.view as vscode.TreeView2<unknown>).message;
+			assert.ok(message instanceof vscode.MarkdownString);
+			assert.ok(message.value.includes('Invalid instance list'));
+			assert.ok(message.value.includes('GitHub Enterprise instances in Settings'));
+			assert.match(message.value, /command:workbench\.action\.openSettings/);
+			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/);
+		});
 	});
 
 	it('opens the viewlet and displays the default categories', async function () {
