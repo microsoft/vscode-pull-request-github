@@ -18,6 +18,7 @@ import { MockNotificationManager } from '../mocks/mockNotificationManager';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { mockTreeViewWorkbench } from '../mocks/mockTreeViewWorkbench';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -56,10 +57,7 @@ describe('GitHub Pull Requests view', function () {
 		sinon = createSandbox();
 		discoveredRepository = undefined;
 		MockCommandRegistry.install(sinon);
-		sinon.stub(vscode.commands, 'executeCommand').callsFake(async command => {
-			assert.strictEqual(command, 'setContext', 'Tree tests must not execute workbench commands');
-			return undefined;
-		});
+		createTreeView = mockTreeViewWorkbench(sinon);
 		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
@@ -71,19 +69,6 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 		);
 		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
-		// Unit tests must not depend on workbench RPC or unsolicited view rendering.
-		const noEvent: vscode.Event<never> = () => new vscode.Disposable(() => { });
-		createTreeView = sinon.stub(vscode.window, 'createTreeView').callsFake(<T>(): vscode.TreeView<T> => ({
-			onDidExpandElement: noEvent,
-			onDidCollapseElement: noEvent,
-			onDidChangeSelection: noEvent,
-			onDidChangeVisibility: noEvent,
-			onDidChangeCheckboxState: noEvent,
-			selection: [],
-			visible: false,
-			reveal: async () => { },
-			dispose: () => { },
-		}));
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
