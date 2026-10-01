@@ -612,6 +612,59 @@ describe('PullRequestModel', function () {
 		});
 	});
 
+	describe('unstackAll', function () {
+		const headers = { 'X-GitHub-Api-Version': '2026-03-10' };
+		const params = { owner: 'github', repo: 'test', headers };
+		const listRoute = 'GET /repos/{owner}/{repo}/stacks';
+		const unstackRoute = 'POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack';
+		const listArgs = [listRoute, { ...params, pull_request: 795, per_page: 1 }];
+		const unstackArgs = [unstackRoute, { ...params, stack_number: 12 }];
+
+		it('dissolves a stack when GitHub returns 204', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 794 }, { number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, undefined, 204);
+
+			assert.deepStrictEqual(await repo.unstackAll(795), []);
+		});
+
+		it('reports merged or queued PRs remaining after unstacking', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 794 }, { number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, {
+				number: 12, pull_requests: [{ number: 794 }],
+			}, 200);
+
+			assert.deepStrictEqual(await repo.unstackAll(795), [794]);
+		});
+
+		it('does not unstack a different or missing stack', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 794 }],
+			}]);
+			await assert.rejects(repo.unstackAll(795), /Could not find the stack/);
+		});
+
+		it('reports an invalid successful response rather than assuming the stack dissolved', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, { pull_requests: null }, 200);
+			await assert.rejects(repo.unstackAll(795), /invalid result/);
+		});
+
+		it('surfaces an unstack failure rather than reporting success', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitError(['request'], unstackArgs, new Error('Stack is locked'));
+
+			await assert.rejects(repo.unstackAll(795), /Stack is locked/);
+		});
+	});
+
 	describe('openReadonlyChanges', function () {
 		const baseCommit = '1111111111111111111111111111111111111111';
 		const mergeBase = '2222222222222222222222222222222222222222';

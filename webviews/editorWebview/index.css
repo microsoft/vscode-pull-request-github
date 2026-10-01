@@ -705,12 +705,21 @@ body button .icon {
 	scroll-margin-top: 64px;
 }
 
+.stack-heading-text {
+	flex: 1;
+	min-width: 0;
+}
+
 .stack-section summary > .icon {
 	flex-shrink: 0;
 }
 
 .stack-chevron {
 	margin-left: auto;
+}
+
+.stack-section.has-actions .stack-chevron {
+	margin-left: 0;
 }
 
 .stack-section:not([open]) .stack-chevron {
@@ -807,6 +816,29 @@ body button .icon {
 
 .stack-base .branch-tag {
 	width: fit-content;
+}
+
+.stack-actions {
+	margin-left: auto;
+}
+
+.stack-section:not([open]) .stack-actions {
+	display: none;
+}
+
+@media (max-width: 480px) {
+	.stack-section[open].has-actions summary {
+		flex-wrap: wrap;
+	}
+
+	.stack-section[open].has-actions .stack-heading-text {
+		flex-basis: calc(100% - 24px);
+	}
+}
+
+.stack-unstack-error {
+	padding: 8px 16px 0;
+	color: var(--vscode-errorForeground);
 }
 
 .subtitle .avatar,
