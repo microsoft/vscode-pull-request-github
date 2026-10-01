@@ -19,7 +19,7 @@ import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOpt
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
-import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, TitleAndDescriptionArgs } from '../../common/views';
+import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, StackCandidate, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch } from '../api/api';
 import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
@@ -39,6 +39,7 @@ import {
 	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
+import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
@@ -673,6 +674,7 @@ function serializeRemoteInfo(remote: { owner: string, repositoryName: string }) 
 
 export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:createPullRequestWebview';
+	private _stackCandidateSequence = 0;
 
 	constructor(
 		telemetry: ITelemetry,
@@ -684,6 +686,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
 
 		this._register(this.model.onDidChange(async (e) => {
+			const stackCandidateSequence = ++this._stackCandidateSequence;
 			let baseRemote: RemoteInfo | undefined;
 			let baseBranch: string | undefined;
 			if (e.baseOwner) {
@@ -710,7 +713,16 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				compareRemote,
 				compareBranch,
 				warning: await this.existingPRMessage(),
+				stackCandidate: await this.getStackCandidateForView(
+					{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
+					this.model.baseBranch,
+					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName },
+					this.model.compareBranch
+				),
 			};
+			if (stackCandidateSequence !== this._stackCandidateSequence) {
+				return;
+			}
 			// TODO: consider updating title and description
 			return this._postMessage({
 				command: 'pr.initialize',
@@ -735,21 +747,43 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return;
 		}
 		this._defaultCompareBranch = compareBranch.name;
-		this.model.setCompareBranch(compareBranch.name);
-		this.changeBranch(compareBranch.name, false).then(async titleAndDescription => {
+		const { baseOwner, baseBranch, compareOwner } = this.model;
+		const isCurrentSelection = () =>
+			this.model.baseOwner === baseOwner && this.model.baseBranch === baseBranch
+			&& this.model.compareOwner === compareOwner && this.model.compareBranch === compareBranch.name;
+		try {
+			const titleAndDescription = await this.changeBranch(compareBranch.name, false);
+			if (!isCurrentSelection()) {
+				return;
+			}
+			const [warning, stackCandidate] = await Promise.all([
+				this.existingPRMessage(),
+				this.getStackCandidateForView(
+					{ owner: baseOwner, repositoryName: this.model.repositoryName },
+					baseBranch,
+					{ owner: compareOwner, repositoryName: this.model.repositoryName },
+					compareBranch.name
+				),
+			]);
+			if (!isCurrentSelection()) {
+				return;
+			}
 			const params: Partial<CreateParamsNew> = {
 				defaultTitle: titleAndDescription.title,
 				defaultDescription: titleAndDescription.description,
 				compareBranch: compareBranch.name,
 				defaultCompareBranch: compareBranch.name,
-				warning: await this.existingPRMessage(),
+				warning,
+				stackCandidate,
 			};
-			return this._postMessage({
+			await this._postMessage({
 				command: 'pr.initialize',
 				params,
 			});
-		});
-
+		} catch (error) {
+			Logger.error(`Failed to change the default compare branch: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to change compare branch: {0}', formatError(error)));
+		}
 	}
 
 	public override show(compareBranch?: Branch): void {
@@ -1058,7 +1092,41 @@ Don't forget to commit your template file to the repository so that it can be us
 		const params = await super.getCreateParams();
 		// Pre-fetch branches so they're cached when the user opens the branch picker
 		this.prefetchBranches(params.defaultBaseRemote!);
+		params.stackCandidate = await this.getStackCandidateForView(params.defaultBaseRemote, params.defaultBaseBranch, params.defaultCompareRemote, params.defaultCompareBranch);
 		return params;
+	}
+
+	private async getStackCandidate(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
+		if (!baseRemote || !baseBranch || !compareRemote || !compareBranch ||
+			(compareIgnoreCase(baseRemote.owner, compareRemote.owner) === 0 &&
+				compareIgnoreCase(baseRemote.repositoryName, compareRemote.repositoryName) === 0 &&
+				baseBranch === compareBranch)) {
+			return;
+		}
+		const repo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(baseRemote.owner, baseRemote.repositoryName);
+		if (!repo) {
+			throw new Error(vscode.l10n.t('Unable to find the selected base repository.'));
+		}
+		return repo.getStackCandidate(baseBranch);
+	}
+
+	protected async getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
+		try {
+			const candidate = await this.getStackCandidate(baseRemote, baseBranch, compareRemote, compareBranch);
+			if (!candidate || !baseRemote) {
+				return candidate;
+			}
+			const url = await toOpenPullRequestWebviewUri({
+				owner: baseRemote.owner,
+				repo: baseRemote.repositoryName,
+				pullRequestNumber: candidate.parentPullRequestNumber,
+			});
+			return { ...candidate, url: url.toString() };
+		} catch (error) {
+			Logger.error(`Failed to check stack eligibility: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			return;
+		}
 	}
 
 	private prefetchBranches(baseRemote: RemoteInfo): void {
@@ -1101,9 +1169,10 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 		const defaultBranch = await githubRepository.getDefaultBranch();
 
-		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 		let chooseResult: ChooseBaseRemoteAndBranchResult | ChooseCompareRemoteAndBranchResult;
 		if (isBase) {
+			const warning = await this.existingPRMessage();
+			commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 			const baseRemoteChanged = this.model.baseOwner !== result.remote.owner;
 			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
 			this.model.baseOwner = result.remote.owner;
@@ -1131,6 +1200,9 @@ Don't forget to commit your template file to the repository so that it can be us
 				defaultMergeMethod: mergeConfiguration ? getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability) : 'merge' as MergeMethod,
 				allowAutoMerge: mergeConfiguration?.viewerCanAutoMerge ?? false,
 				baseHasMergeQueue: !!mergeQueueMethodForBranch,
+				stackCandidate: await this.getStackCandidateForView(result.remote, result.branch,
+					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName }, this.model.compareBranch),
+				warning,
 				mergeMethodsAvailability: mergeConfiguration?.mergeMethodsAvailability ?? { merge: true, squash: true, rebase: true },
 				autoMergeDefault,
 				defaultTitle: titleAndDescription.title,
@@ -1149,12 +1221,31 @@ Don't forget to commit your template file to the repository so that it can be us
 				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
 			}
 		} else {
-			await this.changeBranch(result.branch, false);
-			chooseResult = {
-				compareRemote: result.remote,
-				compareBranch: result.branch,
-				defaultCompareBranch: defaultBranch
-			};
+			const compareBranch = await this._folderRepositoryManager.repository.getBranch(result.branch);
+			const previousOwner = this.model.compareOwner;
+			const previousBranch = this.model.compareBranch;
+			try {
+				this.model.compareOwner = result.remote.owner;
+				await this.model.setCompareBranch(result.branch);
+				await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+				chooseResult = {
+					compareRemote: result.remote,
+					compareBranch: result.branch,
+					defaultCompareBranch: defaultBranch,
+					stackCandidate: await this.getStackCandidateForView(
+						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
+						this.model.baseBranch, result.remote, result.branch),
+					warning: await this.existingPRMessage()
+				};
+			} catch (error) {
+				const ownerChanged = this.model.compareOwner !== previousOwner;
+				this.model.compareOwner = previousOwner;
+				if (ownerChanged || this.model.compareBranch !== previousBranch) {
+					await this.model.setCompareBranch(previousBranch);
+				}
+				throw error;
+			}
+			commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 			/* __GDPR__
 			"pr.create.changedCompare" : {}
 			*/
@@ -1252,12 +1343,17 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 
 		quickPick.busy = true;
-		const chooseResult = await this.processRemoteAndBranchResult(githubRepository, result, isBase);
-
-		quickPick.hide();
-		quickPick.dispose();
-		onDidChangeValueDisposable?.dispose();
-		return this._replyMessage(message, chooseResult);
+		try {
+			const chooseResult = await this.processRemoteAndBranchResult(githubRepository, result, isBase);
+			await this._replyMessage(message, chooseResult);
+		} catch (error) {
+			Logger.error(`Failed to change pull request branch: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			await this._throwError(message, formatError(error));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
+			onDidChangeValueDisposable?.dispose();
+		}
 	}
 
 	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
@@ -1439,7 +1535,21 @@ Don't forget to commit your template file to the repository so that it can be us
 				let totalIncrement = 0;
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
 				let createdPR: PullRequestModel | undefined = undefined;
+				let stackAdditionFailed = false;
 				try {
+					let stackCandidate: StackCandidate | undefined;
+					if (message.args.addToStack) {
+						if (message.args.autoMerge) {
+							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
+						}
+						stackCandidate = await this.getStackCandidate(
+							{ owner: message.args.owner, repositoryName: message.args.repo }, message.args.base,
+							{ owner: message.args.compareOwner, repositoryName: message.args.compareRepo }, message.args.compareBranch);
+						if (!stackCandidate || stackCandidate.parentPullRequestNumber !== message.args.stackParentPullRequest
+							|| stackCandidate.stackNumber !== message.args.stackNumber) {
+							throw new Error(vscode.l10n.t('The selected base branch is no longer at the top of a pull request stack. Refresh and try again.'));
+						}
+					}
 					const compareOwner = message.args.compareOwner;
 					const compareRepositoryName = message.args.compareRepo;
 					const compareBranchName = message.args.compareBranch;
@@ -1540,7 +1650,24 @@ Don't forget to commit your template file to the repository so that it can be us
 					} else {
 						// Save the base branch to recently used branches after successful PR creation
 						this.saveRecentlyUsedBranch(message.args.owner, message.args.repo, message.args.base);
-						await this.postCreate(message, createdPR);
+						let postCreateError: unknown;
+						try {
+							await this.postCreate(message, createdPR);
+						} catch (error) {
+							postCreateError = error;
+							Logger.error(`Failed to set pull request details: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+						}
+						if (stackCandidate) {
+							try {
+								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
+							} catch (error) {
+								stackAdditionFailed = true;
+								throw error;
+							}
+						}
+						if (postCreateError) {
+							throw postCreateError;
+						}
 					}
 				} catch (e) {
 					if (!createdPR) {
@@ -1555,7 +1682,9 @@ Don't forget to commit your template file to the repository so that it can be us
 							await this.postCreate(message, createdPR);
 						}
 						// All of these errors occur after the PR is created, so the error is not critical.
-						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
+						vscode.window.showErrorMessage(stackAdditionFailed
+							? vscode.l10n.t('Pull request #{0} was created but could not be added to its stack: {1}', createdPR.number, formatError(e))
+							: vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
 					}
 				} finally {
 					commands.setContext(contexts.CREATING, false);

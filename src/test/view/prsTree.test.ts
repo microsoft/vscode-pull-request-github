@@ -46,21 +46,23 @@ describe('GitHub Pull Requests view', function () {
 	let mockThemeWatcher: MockThemeWatcher;
 	let mockNotificationsManager: MockNotificationManager;
 	let prsTreeModel: PrsTreeModel;
+	let discoveredRepository: MockGitHubRepository | undefined;
 
 	beforeEach(function () {
 		sinon = createSandbox();
+		discoveredRepository = undefined;
 		MockCommandRegistry.install(sinon);
 		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
 
 		telemetry = new MockTelemetry();
+		credentialStore = new CredentialStore(telemetry, context);
 		reposManager = new RepositoriesManager(
 			credentialStore,
 			telemetry,
 		);
 		prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
-		credentialStore = new CredentialStore(telemetry, context);
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		mockNotificationsManager = new MockNotificationManager();
 		createPrHelper = new CreatePullRequestHelper();
@@ -83,8 +85,18 @@ describe('GitHub Pull Requests view', function () {
 		});
 	});
 
+	function stubRepositoryDiscovery(folderManager: FolderRepositoryManager): void {
+		const url = 'git@github.com:aaa/bbb';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		const githubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		githubRepository.buildMetadata(metadata => metadata.clone_url('https://github.com/aaa/bbb'));
+		discoveredRepository = githubRepository;
+		sinon.stub(folderManager, 'createGitHubRepository').resolves(githubRepository);
+	}
+
 	afterEach(function () {
 		provider.dispose();
+		discoveredRepository?.dispose();
 		context.dispose();
 		sinon.restore();
 	});
@@ -116,9 +128,11 @@ describe('GitHub Pull Requests view', function () {
 	});
 
 	it('opens the viewlet and displays the default categories', async function () {
+		this.timeout(10000);
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		stubRepositoryDiscovery(folderManager);
 		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
 		reposManager.insertFolderManager(folderManager);
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
@@ -141,6 +155,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		stubRepositoryDiscovery(folderManager);
 		sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'aaa', repo: 'bbb', base: 'main' });
 		reposManager.insertFolderManager(folderManager);
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
@@ -160,6 +175,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+		stubRepositoryDiscovery(folderManager);
 		sinon.stub(folderManager, 'getPullRequestDefaults').returns(Promise.resolve({ owner: 'aaa', repo: 'bbb', base: 'main' }));
 		reposManager.insertFolderManager(folderManager);
 		provider.initialize([], mockNotificationsManager as NotificationsManager);

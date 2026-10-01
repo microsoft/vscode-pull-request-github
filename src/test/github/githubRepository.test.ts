@@ -283,6 +283,19 @@ describe('GitHubRepository', function () {
 			const pullRequest = await repo.getPullRequestForBranch('feature', 'me');
 
 			assert.strictEqual(pullRequest?.number, 7231);
+			assert.strictEqual((await repo.getPullRequestForBranch('feature', 'ME'))?.number, 7231);
+		});
+
+		it('preserves legacy behavior on lookup errors unless requested by the caller', async function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry, true);
+			const error = new Error('GraphQL unavailable');
+			sinon.stub(repo, 'ensure').resolves(repo);
+			sinon.stub(repo, 'query').rejects(error);
+
+			assert.strictEqual(await repo.getPullRequestForBranch('feature', 'some'), undefined);
+			await assert.rejects(repo.getPullRequestForBranch('feature', 'some', true), candidate => candidate === error);
 		});
 	});
 
