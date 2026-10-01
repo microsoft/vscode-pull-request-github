@@ -598,6 +598,12 @@
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": true
 				},
+				"githubPullRequests.experimental.stacks": {
+					"type": "boolean",
+					"description": "%githubPullRequests.experimental.stacks.description%",
+					"default": false,
+					"included": false
+				},
 				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
 					"default": true,
