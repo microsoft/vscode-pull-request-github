@@ -36,6 +36,7 @@ import { GithubItemStateEnum, IAccount, ITeam, PullRequestMergeability } from '.
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { mockStackSetting } from '../mocks/mockStackSetting';
 import { PrsTreeModel } from '../../view/prsTreeModel';
 
 describe('GitHub Pull Requests view', function () {
@@ -51,11 +52,13 @@ describe('GitHub Pull Requests view', function () {
 	let prsTreeModel: PrsTreeModel;
 	let discoveredRepository: MockGitHubRepository | undefined;
 	let createTreeView: ReturnType<SinonSandbox['spy']>;
+	let setStacksEnabled: (enabled: boolean) => void;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		discoveredRepository = undefined;
 		MockCommandRegistry.install(sinon);
+		setStacksEnabled = mockStackSetting(sinon);
 		createTreeView = sinon.spy(vscode.window, 'createTreeView');
 		mockThemeWatcher = new MockThemeWatcher();
 
@@ -118,6 +121,29 @@ describe('GitHub Pull Requests view', function () {
 		assert(tree);
 		const options = tree.args[1] as { canSelectMany?: boolean };
 		assert.strictEqual(options.canSelectMany, true);
+	});
+
+	it('does not enable multi-selection when stacks are disabled', function () {
+		setStacksEnabled(false);
+		provider.dispose();
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+
+		const tree = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').pop();
+		assert(tree);
+		const options = tree.args[1] as { canSelectMany?: boolean };
+		assert.strictEqual(options.canSelectMany, false);
+	});
+
+	it('does not offer or execute Add to Stack when stacks are disabled', async function () {
+		setStacksEnabled(false);
+		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+		const executeCommand = sinon.spy(vscode.commands, 'executeCommand');
+
+		(provider as any).updateCanAddToStack();
+		await (provider as any).addSelectedPullRequestsToStack(undefined, undefined);
+
+		assert(executeCommand.calledWith('setContext', 'github:canAddToStack', false));
+		assert.match(showError.firstCall.args[0], /stack features are disabled/);
 	});
 
 	it('refreshes selected and existing stack PR panels after adding from the tree', async function () {

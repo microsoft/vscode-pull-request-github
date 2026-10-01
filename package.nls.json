@@ -2,6 +2,7 @@
 	"displayName": "GitHub Pull Requests",
 	"description": "Pull Request and Issue Provider for GitHub",
 	"githubPullRequests.pullRequestDescription.description": "The description used when creating pull requests.",
+	"githubPullRequests.experimental.stacks.description": "Enable experimental pull request stack features.",
 	"githubPullRequests.pullRequestDescription.template": "Use a pull request template and commit description, or just use the commit description if no templates were found.",
 	"githubPullRequests.pullRequestDescription.commit": "Use the latest commit message only.",
 	"githubPullRequests.pullRequestDescription.branchName": "Use the branch name as the pull request title",

@@ -19,6 +19,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
+import { mockStackSetting } from '../mocks/mockStackSetting';
 
 describe('Pull request stack selection', function () {
 	let sinon: SinonSandbox;
@@ -27,10 +28,12 @@ describe('Pull request stack selection', function () {
 	let repository: MockGitHubRepository;
 	let remote: GitHubRemote;
 	let telemetry: MockTelemetry;
+	let setStacksEnabled: (enabled: boolean) => void;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 		telemetry = new MockTelemetry();
 		credentials = new CredentialStore(telemetry, context);
@@ -134,6 +137,16 @@ describe('Pull request stack selection', function () {
 
 		assert.deepStrictEqual(await addPullRequestsToStack([top, bottom]), [1, 2]);
 		assert(add.calledOnceWithExactly(candidate, [2]));
+	});
+
+	it('rejects stack creation when the feature is disabled', async function () {
+		setStacksEnabled(false);
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		const add = sinon.stub(repository, 'addPullRequestsToStack');
+
+		await assert.rejects(addPullRequestsToStack([bottom, top]), /stack features are disabled/);
+		assert(add.notCalled);
 	});
 
 	it('rejects stale branch chains and PRs already in another stack before writing', async function () {

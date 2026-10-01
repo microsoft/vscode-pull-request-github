@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
+export const EXPERIMENTAL_STACKS = 'experimental.stacks';
 export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
 export const OPEN_PULL_LINKS = 'openPullLinks';
 export const BRANCH_PUBLISH = 'createOnPublishBranch';
