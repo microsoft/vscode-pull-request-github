@@ -16,6 +16,10 @@ import { ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
 
+export function escapeMarkdownText(text: string): string {
+	return text.replace(/&/g, '&amp;').replace(/[\\`*_{}[\]()#+.!|<>~-]/g, '\\$&');
+}
+
 function getIconString(issue: IssueModel) {
 	switch (issue.state) {
 		case GithubItemStateEnum.Open: {

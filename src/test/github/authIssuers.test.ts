@@ -9,6 +9,7 @@ import { Response } from 'cross-fetch';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { GitHubManager } from '../../authentication/githubServer';
+import * as enterpriseConfiguration from '../../authentication/configuration';
 import { AuthenticationError, AuthProvider, GitHubServerType } from '../../common/authentication';
 import { GitHubRemote, parseRemote } from '../../common/remote';
 import { GithubRemoteSourceProvider } from '../../gitExtensionIntegration';
@@ -234,7 +235,9 @@ describe('authIssuers', function () {
 		selected.set(AuthProvider.githubEnterprise, session(`${hostB}/login/oauth`));
 		await store.create({ silent: true });
 		const manager = new GitHubManager(store);
-		assert.strictEqual(await manager.isGitHub(vscode.Uri.parse(`${hostB}/owner/repo`)), GitHubServerType.Enterprise);
+		const selectedRemote = parseRemote('origin', `${hostB}/owner/repo`);
+		assert.ok(selectedRemote);
+		assert.strictEqual(await manager.isGitHub(selectedRemote), GitHubServerType.Enterprise);
 		for (const host of [hostA, hostB]) {
 			const remote = parseRemote('origin', `${host}/owner/repo`);
 			assert.ok(remote);
@@ -260,6 +263,88 @@ describe('authIssuers', function () {
 		await refreshSession(session(`${hostB}/login/oauth`));
 		apiCall.onCall(apiCall.callCount).resolves({ data: { items: [] } });
 		assert.deepStrictEqual(await provider.getRemoteSources('query'), []);
+	});
+
+	it('recognizes configured instances without probing or selecting an authentication session', async function () {
+		const configured = vscode.Uri.parse(`${hostB}:8443/deployment`);
+		sinon.stub(enterpriseConfiguration, 'getEnterpriseUris').returns([configured]);
+		const probe = sinon.stub(GitHubManager, 'getOptions').rejects(new Error('Network probe required'));
+		const manager = new GitHubManager(store);
+		for (const url of [`${configured.toString()}/owner/repo`, 'git@host-b.example:owner/repo']) {
+			const remote = parseRemote('origin', url);
+			assert.ok(remote);
+			assert.strictEqual(await manager.isGitHub(remote), GitHubServerType.Enterprise);
+		}
+		assert.strictEqual(probe.called || getSession.called, false);
+		for (const url of [`${hostB}:9443/deployment/owner/repo`, `${hostB}:8443/other/owner/repo`, `${hostA}/owner/repo`]) {
+			const remote = parseRemote('origin', url);
+			assert.ok(remote);
+			await assert.rejects(manager.isGitHub(remote), /Network probe required/);
+		}
+	});
+
+	it('keeps an unchanged selected client when other configured hosts change', async function () {
+		const original = session(`${hostA}/login/oauth`);
+		selected.set(AuthProvider.githubEnterprise, original);
+		await store.create({ silent: true });
+		const hub = enterpriseHub();
+		for (const instances of [[hostA, hostB], [hostB, hostA], [hostA]]) {
+			const settings: vscode.WorkspaceConfiguration = {
+				get: sinon.stub().withArgs('uris').returns(instances),
+				inspect: sinon.stub().returns({ key: 'uris', globalValue: instances }),
+				has: sinon.stub().returns(true),
+				update: sinon.stub().rejects(new Error('Unexpected settings write')),
+			};
+			configuration.withArgs('github-enterprise').returns(settings);
+			await refreshSession(original);
+			assert.strictEqual(enterpriseHub(), hub);
+		}
+		assert.deepStrictEqual(changes, []);
+	});
+
+	it('retires the active Enterprise client without affecting the public client or reusing its token', async function () {
+		selected.set(AuthProvider.github, session());
+		selected.set(AuthProvider.githubEnterprise, session(`${hostB}/login/oauth`));
+		await store.create({ silent: true });
+		const publicHub = store.getHub(AuthProvider.github);
+		const remote = parseRemote('origin', `${hostB}/owner/repo`);
+		assert.ok(remote);
+		const repo = new GitHubRepository(1, GitHubRemote.remoteAsGitHub(remote, GitHubServerType.Enterprise), context.extensionUri, store, new MockTelemetry(), true);
+		context.subscriptions.push(repo);
+		await repo.ensure();
+		getSession.resetHistory();
+
+		await refreshSession();
+
+		assert.strictEqual(store.getHub(AuthProvider.githubEnterprise), undefined);
+		assert.strictEqual(store.getHub(AuthProvider.github), publicHub);
+		assert.throws(() => repo.hub, AuthenticationError);
+		assert.ok(getSession.getCalls().every(call => call.args[0] === AuthProvider.githubEnterprise && call.args[2].silent === true));
+
+		await refreshSession(session(`${hostB}/login/oauth`));
+		await repo.ensure();
+		assert.strictEqual(repo.hub, enterpriseHub());
+		assert.strictEqual(store.getHub(AuthProvider.github), publicHub);
+	});
+
+	it('keeps forced reauthentication pinned to the selected account and issuer', async function () {
+		const original = session(`${hostB}/login/oauth`);
+		selected.set(AuthProvider.githubEnterprise, original);
+		await store.create({ silent: true });
+		getSession.resetHistory();
+		await store.handleAuthError(AuthProvider.githubEnterprise);
+		assert.strictEqual(getSession.firstCall.args[0], AuthProvider.githubEnterprise);
+		assert.deepStrictEqual(getSession.firstCall.args[2].account, original.account);
+		assert.deepStrictEqual(getSession.firstCall.args[2].authorizationServer, original.authorizationServer);
+		assert.ok(getSession.firstCall.args[2].forceNewSession);
+	});
+
+	it('does not open a picker or guess a host when silent native selection is unavailable', async function () {
+		await store.create({ silent: true });
+		assert.strictEqual(store.isAnyAuthenticated(), false);
+		assert.ok(getSession.getCalls().every(call => call.args[2].silent === true));
+		assert.ok(getSession.getCalls().every(call => !call.args[2].authorizationServer));
+		assert.strictEqual(showError.called, false);
 	});
 
 	describe('selected review feedback', function () {

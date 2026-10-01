@@ -3,14 +3,30 @@
 ## Authentication API dependency
 
 Enterprise API destinations use the selected session's `authorizationServer`,
-with `/login/oauth` removed, rather than `github-enterprise.uri` (setup only).
+with `/login/oauth` removed, rather than either Enterprise configuration setting.
 This requires the **proposed** `authIssuers` API from
 [microsoft/vscode#337846](https://github.com/microsoft/vscode/pull/337846),
 merged at `2f84f5b38264788d80a9399413cc47cb2a17db51` on the 1.140 development line.
-The engine floor is 1.140.0; Insiders must contain that commit. Production
+The engine floor is now **1.141.0** for the plural `github-enterprise.uris`
+setting and provider lifecycle from
+[microsoft/vscode#338080](https://github.com/microsoft/vscode/pull/338080).
+Insiders users are expected to use the latest build; the brief compatibility
+gap in early 1.141 Insiders snapshots is accepted, without a runtime version
+check or legacy-setting write fallback. Confirm stable 1.141 contains the
+upstream change before stable rollout. Production
 allowlisting is a separate [vscode-distro](https://github.com/microsoft/vscode-distro)
 change. Missing enterprise metadata is explicitly unavailable, without a
 configuration fallback. Public GitHub/PAT authentication does not require it.
+
+Setup writes only `github-enterprise.uris`. Legacy `github-enterprise.uri` is
+still read when no eligible plural value is configured; explicit `[]` disables
+Enterprise instances. This extension continues to use one selected Enterprise
+account/client at a time, separate from GitHub.com. Release messaging must
+explain the **Select Account** action, which opens this extension's GitHub
+Enterprise account preferences (or starts first-time sign-in), not advertise
+simultaneous multi-host operation. The scoped picker uses VS Code's
+`_manageAccountPreferencesForExtension` command with the extension ID and
+`github-enterprise` provider ID; include that path in release validation.
 
 ## Release steps
 
