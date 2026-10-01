@@ -16,6 +16,7 @@ import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { GithubItemStateEnum } from '../../github/interface';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
+import { isStackablePullRequest } from '../../github/pullRequestStack';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
 import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../theme';
@@ -388,7 +389,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
-				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
+				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef') +
+				(isStackablePullRequest(this.pullRequestModel) ? ':stackable' : ''),
 			iconPath: await this._getIcon(),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${number}: ${title} by ${login}`

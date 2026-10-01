@@ -881,6 +881,13 @@ export class GitHubRepository extends Disposable {
 	}
 
 	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<void> {
+		return this.addPullRequestsToStack(candidate, [number]);
+	}
+
+	async addPullRequestsToStack(candidate: StackCandidate, numbers: number[]): Promise<void> {
+		if (numbers.length === 0) {
+			throw new Error('At least one pull request is required to add to a stack.');
+		}
 		const { octokit, remote } = await this.ensure();
 		const params = {
 			owner: remote.owner,
@@ -892,12 +899,12 @@ export class GitHubRepository extends Disposable {
 			await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
 				...params,
 				stack_number: stackNumber,
-				pull_requests: [number],
+				pull_requests: numbers,
 			}));
 		} else {
 			await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks', {
 				...params,
-				pull_requests: [candidate.parentPullRequestNumber, number],
+				pull_requests: [candidate.parentPullRequestNumber, ...numbers],
 			}));
 		}
 	}

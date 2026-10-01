@@ -236,6 +236,7 @@
 	"command.pr.openPullRequestOnGitHub.title": "Open Pull Request on GitHub",
 	"command.pr.openAllDiffs.title": "Open All Diffs",
 	"command.pr.refreshPullRequest.title": "Refresh Pull Request",
+	"command.pr.addToStack.title": "Add to Stack",
 	"command.pr.openFileOnGitHub.title": "Open File on GitHub",
 	"command.pr.revealFileInOS.title": "Reveal in File Explorer",
 	"command.pr.copyCommitHash.title": "Copy Commit Hash",
