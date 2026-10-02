@@ -6,9 +6,9 @@
 import * as debounce from 'debounce';
 import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
-import { Overview } from './overview';
+import { Overview, OverviewPreview } from './overview';
 import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
-import { PullRequest } from '../../src/github/views';
+import { PullRequest, PullRequestPreview } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 
@@ -19,9 +19,16 @@ export function main() {
 export function Root({ children }) {
 	const ctx = useContext(PullRequestContext);
 	const [pr, setPR] = useState<PullRequest | undefined>(ctx.pr);
+	const [preview, setPreview] = useState<PullRequestPreview | undefined>(ctx.preview);
 	useEffect(() => {
 		ctx.onchange = setPR;
+		ctx.onPreviewChange = setPreview;
 		setPR(ctx.pr);
+		setPreview(ctx.preview);
+		return () => {
+			ctx.onchange = null;
+			ctx.onPreviewChange = null;
+		};
 	}, []);
 
 	// Restore focus to comment textarea when window regains focus if user was typing
@@ -80,5 +87,5 @@ export function Root({ children }) {
 	}, 200);
 	ctx.postMessage({ command: 'ready' });
 	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
-	return pr ? children(pr) : <div className="loading-indicator">Loading...</div>;
+	return pr ? children(pr) : preview ? <OverviewPreview {...preview} /> : <div className="loading-indicator">Loading...</div>;
 }

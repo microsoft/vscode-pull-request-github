@@ -3,6 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+html {
+	scrollbar-gutter: stable;
+}
+
 #app {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(200px, 300px);
@@ -176,6 +180,40 @@ textarea:focus,
 	margin-right: 4px;
 }
 
+.overview-placeholder {
+	display: inline-block;
+	height: 12px;
+	width: 70%;
+	border-radius: 4px;
+	background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.overview-preview-actions .overview-placeholder {
+	height: 26px;
+	width: 96px;
+}
+
+.overview-preview-actions .overview-placeholder + .overview-placeholder {
+	width: 72px;
+}
+
+.overview-preview-status {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.overview-preview-sidebar .collapsible-sidebar-header {
+	cursor: default;
+}
+
+.overview-preview-sidebar .collapsible-label-see-more .overview-placeholder {
+	width: 56px;
+}
+
+.vscode-high-contrast .overview-placeholder {
+	outline: 1px solid var(--vscode-contrastBorder);
+}
+
 .comment-body li div {
 	display: inline;
 }
@@ -260,7 +298,8 @@ body .comment-container.review {
 	position: relative;
 }
 
-body #main .comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
+body #main .comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)),
+#description .review-comment-header {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 

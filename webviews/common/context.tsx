@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, PullRequestPreview, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -32,6 +32,9 @@ function bytesToBase64(bytes: Uint8Array): string {
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 
 export class PRContext {
+	public preview: PullRequestPreview | undefined;
+	public onPreviewChange: ((preview: PullRequestPreview | undefined) => void) | null = null;
+
 	constructor(
 		public pr: PullRequest | undefined = getState(),
 		public onchange: ((ctx: PullRequest | undefined) => void) | null = null,
@@ -531,6 +534,8 @@ export class PRContext {
 	};
 
 	setPR = (pr: PullRequest | undefined) => {
+		this.preview = undefined;
+		this.onPreviewChange?.(undefined);
 		this.pr = pr;
 		setState(this.pr);
 		if (this.onchange) {
@@ -554,6 +559,12 @@ export class PRContext {
 
 	handleMessage = (message: any) => {
 		switch (message.command) {
+			case 'pr.preview':
+				if (!this.pr) {
+					this.preview = message.pullrequest;
+					this.onPreviewChange?.(this.preview);
+				}
+				return;
 			case 'pr.clear':
 				this.setPR(undefined);
 				return;

@@ -10,7 +10,7 @@ import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
-import { BaseContext, CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
+import { BaseContext, CodingAgentContext, OverviewContext, PullRequest, PullRequestPreview } from '../../src/github/views';
 import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
@@ -73,6 +73,43 @@ export function Header({
 	);
 }
 
+export function HeaderPreview(preview: PullRequestPreview) {
+	return <>
+		<div className="overview-title">
+			<TitleText {...preview} />
+		</div>
+		<Subtitle {...preview} isIssue={false} canEdit={false} codingAgentEvent={undefined} />
+		<div className="header-actions">
+			<div className="button-group overview-preview-actions" aria-hidden="true">
+				<span className="overview-placeholder" />
+				<span className="overview-placeholder" />
+			</div>
+			<span className="overview-preview-status" role="status">Loading...</span>
+		</div>
+	</>;
+}
+
+function TitleText({ titleHTML, number, url, context, onOpen }: Pick<PullRequest, 'titleHTML' | 'number' | 'url'> & {
+	context?: BaseContext;
+	onOpen?: () => void;
+}) {
+	return <h2>
+		<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
+		{' '}
+		<a
+			href={url}
+			title={url}
+			data-vscode-context={context ? JSON.stringify(context) : undefined}
+			onClick={onOpen ? event => {
+				event.preventDefault();
+				onOpen();
+			} : undefined}
+		>
+			#{number}
+		</a>
+	</h2>;
+}
+
 interface TitleProps {
 	title: string;
 	titleHTML: string;
@@ -128,21 +165,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 
 	const displayTitle = (
 		<div className="overview-title">
-			<h2>
-				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
-				{' '}
-				<a
-					href={url}
-					title={url}
-					data-vscode-context={JSON.stringify(context)}
-					onClick={event => {
-						event.preventDefault();
-						void openOnGitHub();
-					}}
-				>
-					#{number}
-				</a>
-			</h2>
+			<TitleText {...{ titleHTML, number, url, context }} onOpen={openOnGitHub} />
 			{canEdit ?
 				<button id={EDIT_TITLE_BUTTON_ID} title="Rename" onClick={() => setEditMode(true)} className="icon-button">
 					{editIcon}

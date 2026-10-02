@@ -9,8 +9,10 @@ import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { getGitHubIssueOrPullRequestUriOpenerPriority, openWithDefaultExternalOpener, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { OPEN_PULL_LINKS, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
+import { formatError } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 
 class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vscode.ExternalUriOpener {
@@ -44,21 +46,30 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 
 		const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 		if (identity.kind === 'pullRequest') {
-			const pullRequest = await folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true);
-			if (token.isCancellationRequested) {
-				return;
+			const pullRequest = folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true, 'overview').then(pullRequest => {
+				if (token.isCancellationRequested) {
+					throw new vscode.CancellationError();
+				}
+				if (!pullRequest) {
+					throw new Error(vscode.l10n.t('Unable to find pull request #{0} in {1}/{2}.', identity.number, identity.owner, identity.repo));
+				}
+				return pullRequest;
+			});
+			// Start the webview while the first repository and PR requests are in flight.
+			try {
+				await PullRequestOverviewPanel.createOrShow(
+					this._telemetry,
+					this._context.extensionUri,
+					folderRepositoryManager,
+					identity,
+					pullRequest,
+				);
+			} catch (error) {
+				if (!(error instanceof vscode.CancellationError)) {
+					Logger.error(`Failed to open pull request: ${formatError(error)}`, 'GitHubIssueOrPullRequestExternalUriOpener');
+					await vscode.window.showErrorMessage(formatError(error));
+				}
 			}
-			if (!pullRequest) {
-				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to find pull request #{0} in {1}/{2}.', identity.number, identity.owner, identity.repo));
-				return;
-			}
-			await PullRequestOverviewPanel.createOrShow(
-				this._telemetry,
-				this._context.extensionUri,
-				folderRepositoryManager,
-				identity,
-				pullRequest,
-			);
 		} else {
 			const issue = await folderRepositoryManager.resolveIssue(identity.owner, identity.repo, identity.number, true, true);
 			if (token.isCancellationRequested) {

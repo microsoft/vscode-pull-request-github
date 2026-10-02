@@ -42,6 +42,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected _identity: UnresolvedIdentity;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+	private _identityUpdateSequence = 0;
 
 	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
 		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
@@ -56,7 +57,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: IssueModel,
+		issue?: IssueModel | Promise<IssueModel>,
 		toTheSide: boolean = false,
 		_preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
@@ -377,7 +378,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * Update the panel with an unresolved identity and optional model.
 	 * If no model is provided, it will be resolved from the identity.
 	 */
-	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem, progressLocation?: string): Promise<void> {
+	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem>, progressLocation?: string): Promise<void> {
+		const updateSequence = ++this._identityUpdateSequence;
 		this._identity = identity;
 		this._folderRepositoryManager = foldersManager;
 
@@ -393,6 +395,20 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 		}
 
+		if (issueModel instanceof Promise) {
+			try {
+				issueModel = await issueModel;
+			} catch (error) {
+				if (updateSequence === this._identityUpdateSequence && !this._item) {
+					this.dispose();
+				}
+				throw error;
+			}
+		}
+		if (this.isDisposed || updateSequence !== this._identityUpdateSequence) {
+			return;
+		}
+
 		// If no model provided, resolve it from the identity
 		if (!issueModel) {
 			const resolvedModel = await this.resolveModel(identity);
@@ -402,6 +418,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				);
 			}
 			issueModel = resolvedModel;
+		}
+
+		if (this.isDisposed || updateSequence !== this._identityUpdateSequence) {
+			return;
 		}
 
 		if (progressLocation) {

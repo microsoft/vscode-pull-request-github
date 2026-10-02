@@ -66,6 +66,7 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
+	GraphQLAccount,
 	isInCodespaces,
 	parseAccount,
 	parseGraphQLIssue,
@@ -76,6 +77,7 @@ import {
 	parseMilestone,
 	restPaginate,
 } from './utils';
+import { PullRequestPreview } from './views';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 
 import { Disposable, disposeAll } from '../common/lifecycle';
@@ -1301,13 +1303,44 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number, callerName: string, useCache: boolean = false, silent: boolean = false): Promise<PullRequestModel | undefined> {
+	async getPullRequestPreview(number: number): Promise<PullRequestPreview> {
+		if (!Number.isSafeInteger(number) || number <= 0) {
+			throw new Error(`Invalid pull request number: ${number}`);
+		}
+		const { query, remote, schema } = await this.ensure();
+		type PreviewData = Omit<PullRequestPreview, 'author' | 'base' | 'head'> & {
+			author: GraphQLAccount | null;
+			baseRefName: string;
+			headRefName: string;
+			baseRepository: { owner: { login: string } };
+			headRepository: { owner: { login: string } } | null;
+		};
+		const { data } = await query<{ repository: { pullRequest: PreviewData | null } | null }>({
+			query: schema.PullRequestPreview,
+			variables: { owner: remote.owner, name: remote.repositoryName, number },
+		});
+		if (!data.repository?.pullRequest) {
+			throw new Error(`Unable to load pull request preview for ${remote.owner}/${remote.repositoryName}#${number}`);
+		}
+		// A preview must never populate the shared cache of actionable PR models.
+		const { author, baseRefName, headRefName, baseRepository, headRepository, ...preview } = data.repository.pullRequest;
+		return {
+			...preview,
+			author: parseAccount(author, this),
+			base: `${baseRepository.owner.login}/${remote.repositoryName}:${baseRefName}`,
+			head: headRepository ? `${headRepository.owner.login}/${remote.repositoryName}:${headRefName}` : '',
+		};
+	}
+
+	async getPullRequest(id: number, callerName: string, useCache: boolean = false, silent: boolean = false, loadMode: 'default' | 'overview' = 'default'): Promise<PullRequestModel | undefined> {
 		if (useCache && this._pullRequestModelsByNumber.has(id)) {
 			Logger.debug(`Using cached pull request model for ${id}`, this.id);
 			return this._pullRequestModelsByNumber.get(id)!.model;
 		}
 
-		if (!(await this.isPlausibleItemNumber(id))) {
+		// Explicit overview requests already identify a PR; the max-number lookup is
+		// only useful for speculative references extracted from text.
+		if (!Number.isSafeInteger(id) || id <= 0 || (loadMode === 'default' && !(await this.isPlausibleItemNumber(id)))) {
 			Logger.debug(`Skipping pull request fetch for implausible number ${id} (caller: ${callerName})`, this.id);
 			return;
 		}
@@ -1331,7 +1364,9 @@ export class GitHubRepository extends Disposable {
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
 			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this), silent);
-			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			if (loadMode === 'default') {
+				await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			}
 			let repoIds = GitHubRepository._succeededPullRequests.get(id);
 			if (!repoIds) {
 				repoIds = new Set();

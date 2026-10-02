@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import { NetworkStatus } from 'apollo-boost';
-import { SinonSandbox, createSandbox } from 'sinon';
+import { SinonSandbox, createSandbox, match } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -16,10 +16,14 @@ import { Uri } from 'vscode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
-import { CheckState, PullRequestCheckStatus } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, PullRequestCheckStatus } from '../../github/interface';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import Logger from '../../common/logger';
 import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { visit } from 'graphql';
+import { parseAccount } from '../../github/utils';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -67,6 +71,127 @@ describe('GitHubRepository', function () {
 			} finally {
 				repo.dispose();
 			}
+		});
+	});
+
+	describe('getPullRequest', function () {
+		let repo: MockGitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		});
+
+		afterEach(function () {
+			repo.dispose();
+		});
+
+		it('loads a read-only preview without populating the PR model cache', async function () {
+			const preview = {
+				number: 1347, title: 'Preview', titleHTML: '<strong>Preview</strong>',
+				body: 'Description', bodyHTML: '<p>Description</p>', url: 'https://github.com/owner/repo/pull/1347',
+				state: GithubItemStateEnum.Open, isDraft: true, createdAt: '2026-10-01T10:00:00Z',
+				author: { __typename: 'User', id: 'author', login: 'contributor', url: 'https://github.com/contributor', avatarUrl: '' },
+				baseRefName: 'main', headRefName: 'feature',
+				baseRepository: { owner: { login: 'owner' } }, headRepository: { owner: { login: 'contributor' } },
+			};
+			const query = sinon.stub(repo, 'query').resolves({
+				data: { repository: { pullRequest: preview } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+
+			const { author, baseRefName, headRefName, baseRepository, headRepository, ...content } = preview;
+			assert.deepStrictEqual(await repo.getPullRequestPreview(1347), {
+				...content,
+				author: parseAccount(author, repo),
+				base: 'owner/repo:main',
+				head: 'contributor/repo:feature',
+			});
+			assert.strictEqual(repo.getExistingPullRequestModel(1347), undefined);
+			sinon.assert.calledOnce(query);
+			assert.strictEqual(query.firstCall.args[0].query, repo.schema.PullRequestPreview);
+			assert.deepStrictEqual(query.firstCall.args[0].variables, { owner: 'owner', name: 'repo', number: 1347 });
+			const fields: string[] = [];
+			visit(repo.schema.PullRequestPreview, { Field(node) { fields.push(node.name.value); } });
+			assert.ok(fields.includes('titleHTML') && fields.includes('bodyHTML'));
+			for (const field of ['commits', 'suggestedReviewers', 'mergeable', 'mergeStateStatus', 'reactionGroups', 'reviewThreads']) {
+				assert.ok(!fields.includes(field), `Preview must not query ${field}`);
+			}
+			assert.ok(!fields.includes('email'), 'Preview must not require additional user scopes');
+
+			query.resolves({
+				data: { repository: { pullRequest: { ...preview, author: null, headRepository: null } } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			const deletedAuthorPreview = await repo.getPullRequestPreview(1347);
+			assert.deepStrictEqual(deletedAuthorPreview.author, parseAccount(null, repo));
+			assert.strictEqual(deletedAuthorPreview.head, '');
+		});
+
+		it('rejects missing previews and invalid preview numbers', async function () {
+			const query = sinon.stub(repo, 'query').resolves({
+				data: { repository: { pullRequest: null } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			for (const number of [0, -1, NaN, Infinity, 1.5]) {
+				await assert.rejects(repo.getPullRequestPreview(number), /Invalid pull request number/);
+			}
+			sinon.assert.notCalled(query);
+			await assert.rejects(repo.getPullRequestPreview(1347), /Unable to load pull request preview/);
+			assert.strictEqual(repo.getExistingPullRequestModel(1347), undefined);
+		});
+
+		it('loads an overview with only the PR query and reuses its cached model', async function () {
+			const data = new GraphQLPullRequestBuilder().build();
+			const query = sinon.stub(repo, 'query').resolves({ data, loading: false, stale: false, networkStatus: NetworkStatus.ready });
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+
+			const pr = await repo.getPullRequest(1347, 'test', false, false, 'overview');
+
+			assert.ok(pr);
+			assert.strictEqual(pr.title, data.repository!.pullRequest.title);
+			assert.strictEqual(pr.bodyHTML, data.repository!.pullRequest.bodyHTML);
+			sinon.assert.calledOnce(query);
+			assert.strictEqual(query.firstCall.args[0].query, repo.schema.PullRequest);
+			sinon.assert.notCalled(updates);
+			assert.strictEqual(await repo.getPullRequest(1347, 'test', true, false, 'overview'), pr);
+			sinon.assert.calledOnce(query);
+		});
+
+		it('preserves number validation and update checks for default loads', async function () {
+			const query = sinon.stub(repo, 'query').resolves({
+				data: new GraphQLPullRequestBuilder().build(),
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			const maxItemResult = {
+				data: { repository: { issues: { edges: [{ node: { number: 1347 } }] } } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			};
+			query.withArgs(match.has('query', repo.schema.MaxIssue)).resolves(maxItemResult);
+			query.withArgs(match.has('query', repo.schema.MaxPullRequest)).resolves(maxItemResult);
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+
+			assert.ok(await repo.getPullRequest(1347, 'test'));
+
+			assert.strictEqual(query.callCount, 3);
+			sinon.assert.calledOnce(updates);
+		});
+
+		it('rejects invalid overview numbers without a network request', async function () {
+			const query = sinon.spy(repo, 'query');
+			for (const number of [0, -1, NaN, Infinity, 1.5]) {
+				assert.strictEqual(await repo.getPullRequest(number, 'test', false, false, 'overview'), undefined);
+			}
+			sinon.assert.notCalled(query);
+		});
+
+		it('logs a failed overview fetch instead of returning a partial model', async function () {
+			sinon.stub(repo, 'query').rejects(new Error('PR unavailable'));
+			const logError = sinon.spy(Logger, 'error');
+
+			assert.strictEqual(await repo.getPullRequest(1347, 'test', false, false, 'overview'), undefined);
+			assert.strictEqual(logError.firstCall.args[0], 'Unable to fetch PR: Error: PR unavailable');
 		});
 	});
 

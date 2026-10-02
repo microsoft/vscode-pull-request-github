@@ -12,7 +12,7 @@ import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest, ReviewCommentContext, ReviewType } from '../../src/github/views';
+import { PullRequest, PullRequestPreview, ReviewCommentContext, ReviewType } from '../../src/github/views';
 import { ariaAnnouncementForReview } from '../common/aria';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -182,8 +182,14 @@ export function CommentView(commentProps: Props) {
 	);
 }
 
+export const CommentPreview = (preview: PullRequestPreview) => (
+	<CommentBox for={preview}>
+		<CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />
+	</CommentBox>
+);
+
 type CommentBoxProps = {
-	for: IComment | ReviewEvent | PullRequest | CommentEvent;
+	for: IComment | ReviewEvent | PullRequest | CommentEvent | PullRequestPreview;
 	header?: React.ReactChild;
 	onFocus?: React.FocusEventHandler;
 	onMouseEnter?: React.MouseEventHandler;
@@ -191,7 +197,7 @@ type CommentBoxProps = {
 	children?: React.ReactNode;
 };
 
-function isReviewEvent(comment: IComment | ReviewEvent | PullRequest | CommentEvent): comment is ReviewEvent {
+function isReviewEvent(comment: CommentBoxProps['for']): comment is ReviewEvent {
 	return (comment as ReviewEvent).authorAssociation !== undefined;
 }
 

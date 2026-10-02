@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox, match as sinonMatch } from 'sinon';
 
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -23,12 +23,15 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, PullRequestMergeability } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { TimelineEvent } from '../../common/timelineEvent';
 import { PullRequestReviewCommon } from '../../github/pullRequestReviewCommon';
+import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
+import Logger from '../../common/logger';
+import { PullRequest, PullRequestPreview } from '../../github/views';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -313,6 +316,271 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(createWebviewPanel.callCount, 2);
 			assert.strictEqual(panel0!.getCurrentTitle(), '#1000 New feature');
 			assert.strictEqual(panel1!.getCurrentTitle(), '#2000 New feature');
+		});
+	});
+
+	describe('deferred assignable users', function () {
+		let prModel: PullRequestModel;
+		let webviewPanel: vscode.WebviewPanel;
+		let messages: { command: string; pullrequest?: Partial<PullRequest> }[];
+		let onDidReceiveMessage: vscode.EventEmitter<{ command: string }>;
+		let resolveUsers: (users: { [key: string]: IAccount[] }) => void;
+		let rejectUsers: (error: Error) => void;
+		let usersPromise: Promise<{ [key: string]: IAccount[] }>;
+		let getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
+		let getReviewRequests: SinonStub<[], ReturnType<PullRequestModel['getReviewRequests']>>;
+		let getPreview: SinonStub<[number], Promise<PullRequestPreview>>;
+		const preview: PullRequestPreview = {
+			number: 1000, title: 'Preview title', titleHTML: 'Preview title',
+			body: 'Preview description', bodyHTML: '<p>Preview description</p>', url: 'https://github.com/aaa/bbb/pull/1000',
+			author: COPILOT_REVIEWER_ACCOUNT, createdAt: '2026-10-01T10:00:00Z',
+			state: GithubItemStateEnum.Open, isDraft: false, base: 'aaa/bbb:main', head: 'aaa/bbb:feature',
+		};
+
+		beforeEach(function () {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			sinon.stub(pullRequestManager, 'createGitHubRepositoryFromOwnerName').resolves(repo);
+			getPreview = sinon.stub(repo, 'getPullRequestPreview').resolves(preview);
+			sinon.stub(pullRequestManager, 'getCurrentUser').resolves(prModel.author);
+			sinon.stub(prModel, 'canEdit').resolves(true);
+			getReviewRequests = sinon.stub(prModel, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel, 'validateDraftMode').resolves(false);
+			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			sinon.stub(prModel, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
+			sinon.stub(pullRequestManager, 'getBranchNameForPullRequest').resolves(undefined);
+			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+			sinon.stub(pullRequestManager, 'isHeadUpToDateWithBase').resolves(true);
+			sinon.stub(pullRequestManager, 'getPreferredEmail').resolves(undefined);
+			sinon.stub(pullRequestManager, 'checkBranchUpToDate').resolves();
+			usersPromise = new Promise((resolve, reject) => {
+				resolveUsers = resolve;
+				rejectUsers = reject;
+			});
+			getAssignableUsers = sinon.stub(pullRequestManager, 'getAssignableUsers').returns(usersPromise);
+
+			messages = [];
+			webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, '#1000', vscode.ViewColumn.One, {});
+			onDidReceiveMessage = new vscode.EventEmitter();
+			context.subscriptions.push(webviewPanel, onDidReceiveMessage);
+			sinon.stub(webviewPanel.webview, 'onDidReceiveMessage').callsFake(onDidReceiveMessage.event);
+			sinon.stub(webviewPanel.webview, 'postMessage').callsFake(async message => {
+				messages.push(message.res);
+				return true;
+			});
+		});
+
+		async function openPanel(model: PullRequestModel | Promise<PullRequestModel> = prModel): Promise<void> {
+			const identity = { owner: remote.owner, repo: remote.repositoryName, number: prModel.number };
+			const opening = PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model, false, true, webviewPanel);
+			onDidReceiveMessage.fire({ command: 'ready' });
+			await opening;
+			await new Promise(resolve => setImmediate(resolve));
+		}
+
+		afterEach(async function () {
+			resolveUsers({});
+			await new Promise(resolve => setImmediate(resolve));
+		});
+
+		it('shows the title and description while the full PR is still pending', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const opening = openPanel(new Promise<PullRequestModel>(resolve => resolveModel = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				assert.deepStrictEqual(messages.find(message => message.command === 'pr.preview')?.pullrequest, preview);
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+				sinon.assert.notCalled(getAssignableUsers);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('does not fetch a preview for an already available PR model', async function () {
+			await openPanel();
+			sinon.assert.notCalled(getPreview);
+		});
+
+		it('ignores a preview from an older lookup while a newer lookup is pending', async function () {
+			let resolvePreview: (value: PullRequestPreview) => void;
+			let resolveFirst: (value: PullRequestModel) => void;
+			let resolveSecond: (value: PullRequestModel) => void;
+			getPreview.onFirstCall().returns(new Promise(resolve => resolvePreview = resolve));
+			const first = openPanel(new Promise(resolve => resolveFirst = resolve));
+			await new Promise(resolve => setImmediate(resolve));
+			const second = openPanel(new Promise(resolve => resolveSecond = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				messages.length = 0;
+				resolvePreview!({ ...preview, title: 'Outdated preview' });
+				await new Promise(resolve => setImmediate(resolve));
+				assert.strictEqual(messages.some(message => message.command === 'pr.preview'), false);
+			} finally {
+				resolveFirst!(prModel);
+				resolveSecond!(prModel);
+				await Promise.all([first, second]);
+			}
+		});
+
+		it('does not let a late preview replace the complete PR', async function () {
+			let resolvePreview: (value: PullRequestPreview) => void;
+			let resolveModel: (value: PullRequestModel) => void;
+			getPreview.returns(new Promise(resolve => resolvePreview = resolve));
+			const opening = openPanel(new Promise(resolve => resolveModel = resolve));
+			await new Promise(resolve => setImmediate(resolve));
+			resolveModel!(prModel);
+			await opening;
+			resolvePreview!(preview);
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.preview'), false);
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('ignores a preview that finishes after the panel is closed', async function () {
+			let resolvePreview: (value: PullRequestPreview) => void;
+			let resolveModel: (value: PullRequestModel) => void;
+			getPreview.returns(new Promise(resolve => resolvePreview = resolve));
+			const opening = openPanel(new Promise(resolve => resolveModel = resolve));
+			await new Promise(resolve => setImmediate(resolve));
+			webviewPanel.dispose();
+			resolvePreview!(preview);
+			resolveModel!(prModel);
+			await opening;
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.preview'), false);
+		});
+
+		it('logs a preview failure without preventing full PR initialization', async function () {
+			let resolveModel: (value: PullRequestModel) => void;
+			getPreview.rejects(new Error('Preview unavailable'));
+			const logError = sinon.spy(Logger, 'error');
+			const opening = openPanel(new Promise(resolve => resolveModel = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				assert.ok(logError.getCalls().some(call => typeof call.args[0] === 'string' && call.args[0].includes('Preview unavailable')));
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('loads the webview before a supplied PR model resolves', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const pendingModel = new Promise<PullRequestModel>(resolve => resolveModel = resolve);
+			const opening = openPanel(pendingModel);
+			try {
+				assert.ok(webviewPanel.webview.html.includes('webview-pr-description.js'));
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.title, prModel.title);
+		});
+
+		it('does not initialize a closed panel when its PR model resolves', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const pendingModel = new Promise<PullRequestModel>(resolve => resolveModel = resolve);
+			const opening = openPanel(pendingModel);
+			webviewPanel.dispose();
+			resolveModel!(prModel);
+			await opening;
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			sinon.assert.notCalled(getAssignableUsers);
+		});
+
+		it('does not overwrite a newer model when an older lookup finishes', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const pendingModel = new Promise<PullRequestModel>(resolve => resolveModel = resolve);
+			const opening = openPanel(pendingModel);
+			await openPanel();
+			messages.length = 0;
+			resolveModel!(prModel);
+			await opening;
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			sinon.assert.calledOnce(getAssignableUsers);
+		});
+
+		it('initializes the PR and loads checks before cold assignable users finish', async function () {
+			const opening = openPanel();
+			await new Promise(resolve => setImmediate(resolve));
+			try {
+				const initial = messages.find(message => message.command === 'pr.initialize')?.pullrequest;
+				assert.ok(initial, 'PR initialization must not wait for assignable users');
+				assert.strictEqual(initial.title, prModel.title);
+				assert.strictEqual(initial.body, prModel.body);
+				assert.strictEqual(initial.canAssignCopilot, false);
+				assert.strictEqual(initial.canRequestCopilotReview, false);
+				assert.ok(messages.some(message => message.command === 'pr.update' && message.pullrequest?.status?.state === CheckState.Success));
+			} finally {
+				resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+				await opening;
+				await new Promise(resolve => setImmediate(resolve));
+			}
+
+			assert.ok(messages.some(message => message.command === 'pr.update'
+				&& message.pullrequest?.canAssignCopilot === true
+				&& message.pullrequest.canRequestCopilotReview === true));
+		});
+
+		it('keeps Copilot actions unavailable when no assignable Copilot account exists', async function () {
+			resolveUsers({ [remote.remoteName]: [prModel.author] });
+			await openPanel();
+
+			assert.ok(messages.some(message => message.command === 'pr.update'
+				&& message.pullrequest?.canAssignCopilot === false
+				&& message.pullrequest.canRequestCopilotReview === false));
+		});
+
+		it('does not offer another Copilot review when one is already requested', async function () {
+			getReviewRequests.resolves([COPILOT_REVIEWER_ACCOUNT]);
+			resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+			await openPanel();
+
+			assert.ok(messages.some(message => message.command === 'pr.update'
+				&& message.pullrequest?.canAssignCopilot === true
+				&& message.pullrequest.canRequestCopilotReview === false));
+		});
+
+		it('logs assignable-user failures without preventing PR initialization', async function () {
+			const logError = sinon.spy(Logger, 'error');
+			await openPanel();
+			rejectUsers(new Error('Assignable users unavailable'));
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+			sinon.assert.calledWith(logError, 'Failed to update deferred assignable users: Assignable users unavailable', PullRequestOverviewPanel.ID);
+			assert.strictEqual(messages.some(message => message.pullrequest?.canAssignCopilot === true), false);
+		});
+
+		it('ignores assignable users from an older update', async function () {
+			await openPanel();
+			getAssignableUsers.resolves({});
+			await openPanel();
+			messages.length = 0;
+
+			resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.deepStrictEqual(messages, []);
+		});
+
+		it('ignores assignable users after the panel is disposed', async function () {
+			await openPanel();
+			webviewPanel.dispose();
+			messages.length = 0;
+
+			resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.deepStrictEqual(messages, []);
 		});
 	});
 

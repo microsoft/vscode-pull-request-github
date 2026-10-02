@@ -28,6 +28,8 @@ import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequest
 import { IRequestMessage } from '../../common/webview';
 import { PullRequestMergeability } from '../../github/interface';
 import { PullRequest } from '../../github/views';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { UserBuilder } from '../builders/rest/userBuilder';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -51,6 +53,70 @@ describe('PullRequestManager', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('overview resolution', function () {
+		const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+
+		beforeEach(function () {
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('fetches the PR concurrently with cold repository metadata', async function () {
+			let resolveMetadata: (value: typeof metadata) => void;
+			const pendingMetadata = new Promise<typeof metadata>(resolve => resolveMetadata = resolve);
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').returns(pendingMetadata);
+			const getPullRequest = sinon.stub(GitHubRepository.prototype, 'getPullRequest').callsFake(async function (this: GitHubRepository) {
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), this);
+				return new PullRequestModel(manager.credentialStore, telemetry, this, this.remote, item);
+			});
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+			const opening = manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview');
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.calledOnce(getMetadata);
+				sinon.assert.calledOnce(getPullRequest);
+				sinon.assert.calledWithExactly(getPullRequest, 1347, 'FolderRepositoryManager.resolvePullRequest', false, false, 'overview');
+			} finally {
+				resolveMetadata!(metadata);
+			}
+			const pr = await opening;
+			assert.strictEqual(pr?.number, 1347);
+			sinon.assert.notCalled(updates);
+		});
+
+		it('shares repository creation between concurrent preview and full loads', async function () {
+			const [previewRepository, fullRepository] = await Promise.all([
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+			]);
+
+			assert.ok(previewRepository);
+			assert.strictEqual(previewRepository, fullRepository);
+			assert.deepStrictEqual(manager.gitHubRepositories, [previewRepository]);
+		});
+
+		it('still rejects and remembers inaccessible repositories', async function () {
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(new Error('Not Found'));
+			sinon.stub(GitHubRepository.prototype, 'getPullRequest').resolves(undefined);
+
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			sinon.assert.calledOnce(getMetadata);
+		});
 	});
 
 	describe('updateRepositories', function () {
