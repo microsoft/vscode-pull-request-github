@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest } from '../../src/github/views';
+import { PullRequest, PullRequestPreview } from '../../src/github/views';
 
-import { AddComment, CommentView } from '../components/comment';
-import { Header } from '../components/header';
+import { AddComment, CommentPreview, CommentView } from '../components/comment';
+import { Header, HeaderPreview } from '../components/header';
 import { StatusChecksSection } from '../components/merge';
-import Sidebar, { CollapsibleSidebar } from '../components/sidebar';
+import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
 import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
 import { Timeline } from '../components/timeline';
 
@@ -53,6 +53,24 @@ export const Overview = (pr: PullRequest) => {
 				<Sidebar {...pr} />
 			</>
 		}
+	</>;
+};
+
+export const OverviewPreview = (preview: PullRequestPreview) => {
+	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
+	return <>
+		<div id="title" className="title">
+			<div className="details">
+				<HeaderPreview {...preview} />
+			</div>
+		</div>
+		{isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout /> : null}
+		<div id="main">
+			<div id="description">
+				<CommentPreview {...preview} />
+			</div>
+		</div>
+		{!isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout={false} /> : null}
 	</>;
 };
 

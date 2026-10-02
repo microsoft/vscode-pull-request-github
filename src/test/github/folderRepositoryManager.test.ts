@@ -29,6 +29,8 @@ import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequest
 import { IRequestMessage } from '../../common/webview';
 import { PullRequestMergeability } from '../../github/interface';
 import { PullRequest } from '../../github/views';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { UserBuilder } from '../builders/rest/userBuilder';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -52,6 +54,93 @@ describe('PullRequestManager', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('overview resolution', function () {
+		const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+
+		beforeEach(function () {
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('fetches the PR concurrently with cold repository metadata', async function () {
+			let resolveMetadata: (value: typeof metadata) => void;
+			const pendingMetadata = new Promise<typeof metadata>(resolve => resolveMetadata = resolve);
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').returns(pendingMetadata);
+			const getPullRequest = sinon.stub(GitHubRepository.prototype, 'getPullRequest').callsFake(async function (this: GitHubRepository) {
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), this);
+				return new PullRequestModel(manager.credentialStore, telemetry, this, this.remote, item);
+			});
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+			const opening = manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview');
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.calledOnce(getMetadata);
+				sinon.assert.calledOnce(getPullRequest);
+				sinon.assert.calledWithExactly(getPullRequest, 1347, 'FolderRepositoryManager.resolvePullRequest', false, false, 'overview');
+			} finally {
+				resolveMetadata!(metadata);
+			}
+			const pr = await opening;
+			assert.strictEqual(pr?.number, 1347);
+			sinon.assert.notCalled(updates);
+		});
+
+		it('shares repository creation between concurrent preview and full loads', async function () {
+			const [previewRepository, fullRepository] = await Promise.all([
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+			]);
+
+			assert.ok(previewRepository);
+			assert.strictEqual(previewRepository, fullRepository);
+			assert.deepStrictEqual(manager.gitHubRepositories, [previewRepository]);
+		});
+
+		it('still rejects and remembers inaccessible repositories', async function () {
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(GitHubRepository.prototype, 'getPullRequest').resolves(undefined);
+
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			sinon.assert.calledOnce(getMetadata);
+		});
+
+		for (const [name, error] of [
+			['network timeout', new Error('Temporary network timeout')],
+			['server error', Object.assign(new Error('Service unavailable'), { status: 503 })],
+			['rate limit', Object.assign(new Error('Rate limited'), { status: 429 })],
+			['SAML authorization', Object.assign(new Error('Resource protected by organization SAML enforcement.'), { status: 404 })],
+		] as const) {
+			it(`retries metadata after a ${name} failure without removing the repository`, async function () {
+				const repo = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+				assert.ok(repo);
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), repo);
+				const pr = new PullRequestModel(manager.credentialStore, telemetry, repo, repo.remote, item);
+				sinon.stub(repo, 'getPullRequest').resolves(pr);
+				const getMetadata = sinon.stub(repo, 'getMetadata');
+				getMetadata.onFirstCall().rejects(error);
+				getMetadata.onSecondCall().resolves(metadata);
+
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+				assert.deepStrictEqual(manager.gitHubRepositories, [repo]);
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), pr);
+				sinon.assert.calledTwice(getMetadata);
+			});
+		}
 	});
 
 	describe('updateRepositories', function () {

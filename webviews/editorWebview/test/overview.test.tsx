@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as React from 'react';
-import { cleanup, fireEvent, render, waitForElement } from 'react-testing-library';
+import { cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../src/github/interface';
@@ -60,7 +60,7 @@ describe('Overview', function () {
 		assert.strictEqual(openOnGitHub.callCount, 2);
 	});
 
-	it('shows the stack position and ordered pull requests in the merge section', function () {
+	it('shows the stack position and ordered pull requests in the merge section', async function () {
 		const pr = new PullRequestBuilder().number(794).stack({
 			position: 2,
 			size: 3,
@@ -72,6 +72,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const context = new PRContext(pr);
+		context.setPR(pr);
 		const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'merged', state: GithubItemStateEnum.Merged });
 		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
 
@@ -120,6 +121,7 @@ describe('Overview', function () {
 		fireEvent.click(mergeButton);
 		assert(out.getByText('Merge this pull request and 1 open pull request below it?'));
 		fireEvent.click(out.getByText('Merge stack (2 pull requests)'));
+		await wait(() => assert.strictEqual(context.pr?.state, GithubItemStateEnum.Merged));
 		assert(mergeStack.calledOnceWithExactly('squash'));
 		assert(openOnGitHub.notCalled);
 	});
@@ -293,6 +295,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const context = new PRContext(pr);
+		context.setPR(pr);
 		const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'pending' });
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -302,11 +305,12 @@ describe('Overview', function () {
 
 		fireEvent.click(out.getByText('Merge stack (1 pull request)'));
 		fireEvent.click(out.getByText('Merge stack (1 pull request)'));
-		await Promise.resolve();
+		await wait(() => assert.strictEqual(context.pr?.stackMergeStatus, 'pending'));
 
 		assert(mergeStack.calledOnceWithExactly('merge'));
 		assert.strictEqual(context.pr?.state, GithubItemStateEnum.Open);
-		assert.strictEqual(context.pr?.stackMergeStatus, 'pending');
+		assert.strictEqual(context.pr?.revertable, false);
+		assert.strictEqual(out.container.querySelector('[role="alert"]'), null);
 	});
 
 	it('shows stack merge failures without marking the pull request merged', async function () {
@@ -413,6 +417,7 @@ describe('Overview', function () {
 	it('applies deferred pull request updates', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
+		context.setPR(pr);
 
 		context.handleMessage({
 			command: 'pr.update',
