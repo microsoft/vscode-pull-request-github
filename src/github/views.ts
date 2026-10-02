@@ -81,6 +81,7 @@ export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHT
 
 export interface PullRequest extends Issue {
 	stack?: PullRequestStack;
+	canUpdateStack?: boolean;
 	stackLoaded?: boolean;
 	stackLoadError?: boolean;
 	stackMergeStatus?: 'pending' | 'enqueued';
@@ -192,6 +193,10 @@ export interface StackMergeResult {
 export interface UnstackAllResult {
 	cancelled: boolean;
 	remainingPullRequests?: number[];
+}
+
+export interface UpdateStackResult {
+	updatedPullRequests: number[];
 }
 
 export interface DeleteReviewResult {
