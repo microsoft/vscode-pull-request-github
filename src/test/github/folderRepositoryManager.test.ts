@@ -16,11 +16,12 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { IGit, Repository } from '../../api/api';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { LoggingOctokit } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { commands, env, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
+import { commands, env, EventEmitter, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -36,6 +37,7 @@ describe('PullRequestManager', function () {
 	let telemetry: MockTelemetry;
 	let mockThemeWatcher: MockThemeWatcher;
 	let repository: MockRepository;
+	let git: GitApiImpl;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -47,11 +49,54 @@ describe('PullRequestManager', function () {
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+		git = new GitApiImpl(repositoriesManager);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, git, credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
 	});
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('openWorktreeRepository', function () {
+		it('opens temporary worktrees through the provider for the selected repository', async function () {
+			const events = new EventEmitter<Repository>();
+			const worktree = new MockRepository();
+			const openWorktreeRepository = sinon.stub().resolves(worktree);
+			const unrelated = new MockRepository();
+			unrelated.rootUri = Uri.file('/unrelated');
+			const unrelatedOpen = sinon.stub().resolves(unrelated);
+			git.registerGitProvider({
+				repositories: [unrelated],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+				openWorktreeRepository: unrelatedOpen,
+			});
+			const provider: IGit = {
+				repositories: [repository],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+				openWorktreeRepository,
+			};
+			git.registerGitProvider(provider);
+			const uri = Uri.file('/tmp/pr-stack-worktree');
+
+			assert.strictEqual(await manager.openWorktreeRepository(uri), worktree);
+			assert(openWorktreeRepository.calledOnceWithExactly(uri));
+			assert(unrelatedOpen.notCalled);
+			events.dispose();
+		});
+
+		it('reports a provider that cannot open temporary worktrees', async function () {
+			const events = new EventEmitter<Repository>();
+			git.registerGitProvider({
+				repositories: [repository],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+			});
+			await assert.rejects(manager.openWorktreeRepository(Uri.file('/tmp/pr-stack-worktree')),
+				/The Git provider cannot open a temporary worktree/);
+			events.dispose();
+		});
 	});
 
 	describe('updateRepositories', function () {

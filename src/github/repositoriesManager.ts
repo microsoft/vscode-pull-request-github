@@ -42,6 +42,8 @@ export class RepositoriesManager extends Disposable {
 
 	private _onDidChangeFolderRepositories = new vscode.EventEmitter<{ added?: FolderRepositoryManager }>();
 	readonly onDidChangeFolderRepositories = this._onDidChangeFolderRepositories.event;
+	private _onDidChangeActivePullRequest = new vscode.EventEmitter<FolderRepositoryManager>();
+	readonly onDidChangeActivePullRequest = this._onDidChangeActivePullRequest.event;
 
 	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
 	readonly onDidLoadAnyRepositories = this._onDidLoadAnyRepositories.event;
@@ -86,7 +88,10 @@ export class RepositoriesManager extends Disposable {
 				this.updateState();
 				this._onDidLoadAnyRepositories.fire();
 			}),
-			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount()),
+			folderManager.onDidChangeActivePullRequest(() => {
+				this.updateActiveReviewCount();
+				this._onDidChangeActivePullRequest.fire(folderManager);
+			}),
 			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository)),
 			folderManager.onDidChangeAnyPullRequests(e => this._onDidChangeAnyPullRequests.fire(e)),
 			folderManager.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)),

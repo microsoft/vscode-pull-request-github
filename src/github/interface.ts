@@ -35,6 +35,7 @@ export interface PullRequestStack {
 		head: string;
 		state: GithubItemStateEnum;
 		isDraft: boolean;
+		isQueued?: boolean;
 		mergeable: PullRequestMergeability;
 	}[];
 }
@@ -45,6 +46,24 @@ export enum PullRequestMergeability {
 	Conflict,
 	Unknown,
 	Behind,
+}
+
+export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestStack['pullRequests'] | undefined {
+	if (stack.pullRequests.length !== stack.size) {
+		return;
+	}
+	const firstClosed = stack.pullRequests.findIndex(entry => entry.state === GithubItemStateEnum.Closed);
+	const entries = firstClosed < 0 ? stack.pullRequests : stack.pullRequests.slice(0, firstClosed);
+	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued
+		|| entry.mergeable === PullRequestMergeability.Conflict || entry.mergeable === PullRequestMergeability.Unknown)
+		|| stack.pullRequests.slice(entries.length).some(entry => entry.state !== GithubItemStateEnum.Closed)) {
+		return;
+	}
+	return entries;
+}
+
+export function isStackUpdatable(stack: PullRequestStack): boolean {
+	return !!getUpdatableStackEntries(stack);
 }
 
 export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
