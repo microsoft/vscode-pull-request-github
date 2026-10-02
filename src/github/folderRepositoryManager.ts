@@ -388,6 +388,14 @@ export class FolderRepositoryManager extends Disposable {
 		return this._repository;
 	}
 
+	async openWorktreeRepository(uri: vscode.Uri): Promise<Repository | null> {
+		const provider = this._git.getGitProvider(this._repository.rootUri);
+		if (!provider?.openWorktreeRepository) {
+			throw new Error(vscode.l10n.t('The Git provider cannot open a temporary worktree.'));
+		}
+		return provider.openWorktreeRepository(uri);
+	}
+
 	set repository(repository: Repository) {
 		this._repository = repository;
 	}

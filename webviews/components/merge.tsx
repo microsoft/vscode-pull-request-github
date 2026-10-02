@@ -186,6 +186,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	}
 
 	const { mergeable: _mergeable } = pr;
+	const canUpdateWithMergeCommit = !pr.stack && pr.stackLoaded !== false && !pr.stackLoadError;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
 	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
@@ -204,8 +205,10 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	return (
 		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch} />
-			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
+			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
+				canUpdateWithMergeCommit={canUpdateWithMergeCommit} />
+			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
+				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 		</div>
 	);
@@ -213,7 +216,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean; canUpdateWithMergeCommit: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
 	const [busy, setBusy] = useState(false);
 
@@ -238,7 +241,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeabl
 	} else if (mergeable === PullRequestMergeability.Behind) {
 		icon = closeIcon;
 		summary = 'This branch is out-of-date with the base branch.';
-		action = 'Update with merge commit';
+		action = canUpdateWithMergeCommit ? 'Update with merge commit' : null;
 	}
 
 	if (isSimple) {
@@ -266,7 +269,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch }: { mergeabl
 	);
 };
 
-export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
+export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean; canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const update = () => {

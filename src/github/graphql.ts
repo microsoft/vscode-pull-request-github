@@ -832,9 +832,13 @@ export interface PullRequestStackResponse {
 							url: string;
 							state: GithubItemStateEnum;
 							isDraft: boolean;
+							baseRefName: string;
+							baseRepository: { owner: { login: string } } | null;
 							headRefName: string;
+							headRepository: { owner: { login: string } } | null;
 							mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 							mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+							mergeQueueEntry?: { state: string } | null;
 						};
 					}[];
 					pageInfo: { hasNextPage: boolean; endCursor: string | null };

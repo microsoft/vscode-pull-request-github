@@ -827,6 +827,8 @@ body button .icon {
 }
 
 .stack-actions {
+	display: flex;
+	gap: 8px;
 	margin-left: auto;
 }
 
@@ -834,7 +836,7 @@ body button .icon {
 	display: none;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 700px) {
 	.stack-section[open].has-actions summary {
 		flex-wrap: wrap;
 	}
@@ -844,7 +846,7 @@ body button .icon {
 	}
 }
 
-.stack-unstack-error {
+.stack-action-error {
 	padding: 8px 16px 0;
 	color: var(--vscode-errorForeground);
 }

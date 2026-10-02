@@ -1716,6 +1716,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { query, remote, schema } = await this.githubRepository.ensure();
 		let stack: PullRequestStack | undefined;
 		let after: string | null = null;
+		const comparisons = new Map<number, { base: string; head: string }>();
 
 		while (true) {
 			let data: PullRequestStackResponse;
@@ -1759,20 +1760,45 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				base: pullRequest.stack.baseRefName,
 				pullRequests: [],
 			};
-			stack.pullRequests.push(...pullRequest.stack.entries.nodes.map(entry => ({
-				position: entry.position,
-				number: entry.pullRequest.number,
-				title: entry.pullRequest.title,
-				url: entry.pullRequest.url,
-				head: entry.pullRequest.headRefName,
-				state: entry.pullRequest.state,
-				isDraft: entry.pullRequest.isDraft,
-				mergeable: parseMergeability(entry.pullRequest.mergeable, entry.pullRequest.mergeStateStatus),
-			})));
+			stack.pullRequests.push(...pullRequest.stack.entries.nodes.map(entry => {
+				const pr = entry.pullRequest;
+				if (pr.state === GithubItemStateEnum.Open) {
+					if (!pr.baseRepository || !pr.headRepository || !pr.baseRefName || !pr.headRefName) {
+						throw new Error(`Missing branch information for pull request #${pr.number} in this stack.`);
+					}
+					comparisons.set(pr.number, {
+						base: `${pr.baseRepository.owner.login}:${pr.baseRefName}`,
+						head: `${pr.headRepository.owner.login}:${pr.headRefName}`,
+					});
+				}
+				return {
+					position: entry.position,
+					number: pr.number,
+					title: pr.title,
+					url: pr.url,
+					head: pr.headRefName,
+					state: pr.state,
+					isDraft: pr.isDraft,
+					isQueued: !!pr.mergeQueueEntry,
+					mergeable: parseMergeability(pr.mergeable, pr.mergeStateStatus),
+				};
+			}));
 
 			const pageInfo = pullRequest.stack.entries.pageInfo;
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
+				await Promise.all(stack.pullRequests.filter(entry =>
+					entry.state === GithubItemStateEnum.Open && entry.mergeable !== PullRequestMergeability.Conflict,
+				).map(async entry => {
+					const refs = comparisons.get(entry.number)!;
+					const comparison = await this.githubRepository.compareCommits(refs.base, refs.head);
+					if (comparison?.behind_by === undefined) {
+						throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
+					}
+					if (comparison.behind_by > 0) {
+						entry.mergeable = PullRequestMergeability.Behind;
+					}
+				}));
 				return stack;
 			}
 			if (!pageInfo.endCursor || pageInfo.endCursor === after) {
