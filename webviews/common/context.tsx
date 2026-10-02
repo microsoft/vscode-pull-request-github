@@ -101,7 +101,10 @@ export class PRContext {
 		return result;
 	};
 
-	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
+	public openOnGitHub = () => this.postMessage({
+		command: 'pr.openOnGitHub',
+		args: this.preview ? { url: this.preview.url } : undefined,
+	});
 
 	public deleteBranch = async () => {
 		const result = await this.postMessage({ command: 'pr.deleteBranch' });

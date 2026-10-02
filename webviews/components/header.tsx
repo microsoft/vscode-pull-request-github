@@ -74,9 +74,10 @@ export function Header({
 }
 
 export function HeaderPreview(preview: PullRequestPreview) {
+	const { openOnGitHub } = useContext(PullRequestContext);
 	return <>
 		<div className="overview-title">
-			<TitleText {...preview} />
+			<TitleText {...preview} onOpen={openOnGitHub} />
 		</div>
 		<Subtitle {...preview} isIssue={false} canEdit={false} codingAgentEvent={undefined} />
 		<div className="header-actions">

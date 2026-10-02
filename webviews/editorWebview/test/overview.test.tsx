@@ -117,6 +117,7 @@ describe('Overview', function () {
 	it('applies deferred pull request updates', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
+		context.setPR(pr);
 
 		context.handleMessage({
 			command: 'pr.update',

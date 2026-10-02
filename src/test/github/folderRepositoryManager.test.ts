@@ -109,7 +109,7 @@ describe('PullRequestManager', function () {
 		});
 
 		it('still rejects and remembers inaccessible repositories', async function () {
-			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(new Error('Not Found'));
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
 			sinon.stub(GitHubRepository.prototype, 'getPullRequest').resolves(undefined);
 
 			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
@@ -117,6 +117,29 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
 			sinon.assert.calledOnce(getMetadata);
 		});
+
+		for (const [name, error] of [
+			['network timeout', new Error('Temporary network timeout')],
+			['server error', Object.assign(new Error('Service unavailable'), { status: 503 })],
+			['rate limit', Object.assign(new Error('Rate limited'), { status: 429 })],
+			['SAML authorization', Object.assign(new Error('Resource protected by organization SAML enforcement.'), { status: 404 })],
+		] as const) {
+			it(`retries metadata after a ${name} failure without removing the repository`, async function () {
+				const repo = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+				assert.ok(repo);
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), repo);
+				const pr = new PullRequestModel(manager.credentialStore, telemetry, repo, repo.remote, item);
+				sinon.stub(repo, 'getPullRequest').resolves(pr);
+				const getMetadata = sinon.stub(repo, 'getMetadata');
+				getMetadata.onFirstCall().rejects(error);
+				getMetadata.onSecondCall().resolves(metadata);
+
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+				assert.deepStrictEqual(manager.gitHubRepositories, [repo]);
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), pr);
+				sinon.assert.calledTwice(getMetadata);
+			});
+		}
 	});
 
 	describe('updateRepositories', function () {

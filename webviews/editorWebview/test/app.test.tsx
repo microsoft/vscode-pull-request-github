@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as React from 'react';
-import { act, cleanup, render, wait } from 'react-testing-library';
+import { act, cleanup, fireEvent, render, wait } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PRContext, default as PullRequestContext } from '../../common/context';
@@ -48,6 +48,7 @@ describe('Root', function () {
 	it('renders preview HTML without exposing actions or persisting an incomplete PR', async function () {
 		const context = new PRContext();
 		const persist = sinon.stub(vscode, 'setState');
+		const postMessage = sinon.stub(context, 'postMessage').resolves();
 		const children = sinon.stub().returns(<div>Complete overview</div>);
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -75,6 +76,10 @@ describe('Root', function () {
 		assert.strictEqual(context.pr, undefined);
 		sinon.assert.notCalled(children);
 		sinon.assert.notCalled(persist);
+		postMessage.resetHistory();
+		assert.strictEqual(fireEvent.click(out.container.querySelector('.overview-title a')!), false);
+		sinon.assert.calledOnce(postMessage);
+		assert.deepStrictEqual(postMessage.firstCall.args[0], { command: 'pr.openOnGitHub', args: { url: preview.url } });
 
 		act(() => context.handleMessage({ command: 'pr.clear' }));
 		assert.strictEqual(out.queryByText('Early title'), null);

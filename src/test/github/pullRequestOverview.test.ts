@@ -323,7 +323,9 @@ describe('PullRequestOverview', function () {
 		let prModel: PullRequestModel;
 		let webviewPanel: vscode.WebviewPanel;
 		let messages: { command: string; pullrequest?: Partial<PullRequest> }[];
-		let onDidReceiveMessage: vscode.EventEmitter<{ command: string }>;
+		let onDidReceiveMessage: vscode.EventEmitter<{ command: string; args?: { url: string } }>;
+		let onDidChangeViewState: vscode.EventEmitter<vscode.WebviewPanelOnDidChangeViewStateEvent>;
+		let pollInterval: number;
 		let resolveUsers: (users: { [key: string]: IAccount[] }) => void;
 		let rejectUsers: (error: Error) => void;
 		let usersPromise: Promise<{ [key: string]: IAccount[] }>;
@@ -363,8 +365,11 @@ describe('PullRequestOverview', function () {
 			messages = [];
 			webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, '#1000', vscode.ViewColumn.One, {});
 			onDidReceiveMessage = new vscode.EventEmitter();
-			context.subscriptions.push(webviewPanel, onDidReceiveMessage);
+			onDidChangeViewState = new vscode.EventEmitter();
+			pollInterval = 1000 * (vscode.workspace.getConfiguration().get<number>('githubPullRequests.webviewRefreshInterval') || 60);
+			context.subscriptions.push(webviewPanel, onDidReceiveMessage, onDidChangeViewState);
 			sinon.stub(webviewPanel.webview, 'onDidReceiveMessage').callsFake(onDidReceiveMessage.event);
+			sinon.stub(webviewPanel, 'onDidChangeViewState').callsFake(onDidChangeViewState.event);
 			sinon.stub(webviewPanel.webview, 'postMessage').callsFake(async message => {
 				messages.push(message.res);
 				return true;
@@ -402,6 +407,80 @@ describe('PullRequestOverview', function () {
 		it('does not fetch a preview for an already available PR model', async function () {
 			await openPanel();
 			sinon.assert.notCalled(getPreview);
+		});
+
+		it('skips polling a pending model and resumes once the PR is available', async function () {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime').resolves(new Date(0));
+			let resolveModel: (model: PullRequestModel) => void;
+			const opening = openPanel(new Promise<PullRequestModel>(resolve => resolveModel = resolve));
+			try {
+				onDidChangeViewState.fire({ webviewPanel });
+				clock.tick(pollInterval);
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.notCalled(getLastUpdateTime);
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+			sinon.assert.calledOnce(getLastUpdateTime);
+		});
+
+		it('logs poll failures and continues polling on the next interval', async function () {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime');
+			getLastUpdateTime.onFirstCall().rejects(new Error('Temporary polling failure'));
+			getLastUpdateTime.onSecondCall().resolves(new Date(0));
+			const logError = sinon.spy(Logger, 'error');
+			await openPanel();
+
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+			assert.ok(logError.getCalls().some(call => call.args[0] === 'Failed to poll overview updates: Temporary polling failure'));
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+			sinon.assert.calledTwice(getLastUpdateTime);
+		});
+
+		it('does not refresh or restart polling after an in-flight poll is disposed', async function () {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			let resolvePoll: (date: Date) => void;
+			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime').returns(new Promise(resolve => resolvePoll = resolve));
+			await openPanel();
+			const panel = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, prModel.number)!;
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
+
+			clock.tick(pollInterval);
+			webviewPanel.dispose();
+			resolvePoll!(new Date(Date.now() + 1000));
+			await new Promise(resolve => setImmediate(resolve));
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+
+			sinon.assert.notCalled(refresh);
+			sinon.assert.calledOnce(getLastUpdateTime);
+		});
+
+		it('opens a preview link with the default browser before the full PR resolves', async function () {
+			const openExternal = sinon.stub(vscode.env, 'openExternal').resolves(true);
+			let resolveModel: (model: PullRequestModel) => void;
+			const opening = openPanel(new Promise<PullRequestModel>(resolve => resolveModel = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				onDidReceiveMessage.fire({ command: 'pr.openOnGitHub', args: { url: preview.url } });
+				await new Promise(resolve => setImmediate(resolve));
+
+				sinon.assert.calledOnce(openExternal);
+				assert.strictEqual(openExternal.firstCall.args[0].toString(), preview.url);
+				assert.deepStrictEqual(openExternal.firstCall.args[1], { allowContributedOpeners: 'default' });
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
 		});
 
 		it('ignores a preview from an older lookup while a newer lookup is pending', async function () {

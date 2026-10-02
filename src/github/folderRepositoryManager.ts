@@ -15,6 +15,7 @@ import { CopilotWorkingStatus, GitHubRepository, isRateLimitError, ItemsData, PU
 import { PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
+import { getErrorCode } from './loggingOctokit';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 import {
@@ -30,7 +31,7 @@ import {
 import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
-import { AuthProvider, GitHubServerType } from '../common/authentication';
+import { AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
@@ -3082,6 +3083,11 @@ export class FolderRepositoryManager extends Disposable {
 			await repo.getMetadata();
 			return repo;
 		} catch (e) {
+			// Only a definitive not-found response should prevent subsequent retries.
+			if (getErrorCode(e) !== '404' || isSamlError(e)) {
+				Logger.warn(`Failed to validate repository ${owner}/${repositoryName}: ${formatError(e)}`, this.id);
+				return undefined;
+			}
 			reason = 'error';
 			Logger.appendLine(`Repository ${owner}/${repositoryName} is not accessible: ${e}`, this.id);
 		}
