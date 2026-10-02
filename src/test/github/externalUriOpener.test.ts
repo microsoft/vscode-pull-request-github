@@ -124,6 +124,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 		let resolvePullRequest: (pr: PullRequestModel | undefined) => void;
 		let rejectPullRequest: (error: Error) => void;
 		let resolvePullRequestStub: SinonStub<Parameters<FolderRepositoryManager['resolvePullRequest']>, ReturnType<FolderRepositoryManager['resolvePullRequest']>>;
+		let openExternal: SinonStub<Parameters<typeof vscode.env.openExternal>, ReturnType<typeof vscode.env.openExternal>>;
 
 		beforeEach(() => {
 			context = new MockExtensionContext();
@@ -144,6 +145,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 				rejectPullRequest = reject;
 			});
 			resolvePullRequestStub = sandbox.stub(FolderRepositoryManager.prototype, 'resolvePullRequest').returns(pendingPullRequest);
+			openExternal = sandbox.stub(vscode.env, 'openExternal').resolves(true);
 		});
 
 		afterEach(() => {
@@ -165,7 +167,10 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 				resolvePullRequest(undefined);
 				await opening;
 			}
-			assert.strictEqual(showError.firstCall.args[0], 'Unable to find pull request #1000 in aaa/bbb.');
+			sandbox.assert.calledOnce(resolvePullRequestStub);
+			sandbox.assert.calledOnce(openExternal);
+			sandbox.assert.calledWithExactly(openExternal, uri, { allowContributedOpeners: 'default' });
+			sandbox.assert.notCalled(showError);
 			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
@@ -176,6 +181,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 
 			sandbox.assert.notCalled(createWebviewPanel);
 			sandbox.assert.notCalled(resolvePullRequestStub);
+			sandbox.assert.notCalled(openExternal);
 		});
 
 		it('closes the new tab without an error when cancelled during resolution', async () => {
@@ -188,6 +194,19 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 
 			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 			sandbox.assert.notCalled(showError);
+			sandbox.assert.notCalled(openExternal);
+		});
+
+		it('reports a browser fallback failure and closes the new tab', async () => {
+			openExternal.rejects(new Error('Browser unavailable'));
+			const showError = sandbox.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const opening = opener.openExternalUri(uri, { sourceUri: uri }, cancellation.token);
+			resolvePullRequest(undefined);
+			await opening;
+
+			sandbox.assert.calledOnce(resolvePullRequestStub);
+			assert.strictEqual(showError.firstCall.args[0], 'Browser unavailable');
+			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 		});
 
 		it('reports resolution failures and closes the new tab', async () => {

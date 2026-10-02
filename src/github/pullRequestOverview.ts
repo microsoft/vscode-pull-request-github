@@ -79,7 +79,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: PullRequestModel | Promise<PullRequestModel | undefined>,
+		issue?: PullRequestModel | Promise<PullRequestModel>,
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
@@ -701,12 +701,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	public override async updateWithIdentity(
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		pullRequestModel?: PullRequestModel | Promise<PullRequestModel | undefined>,
+		pullRequestModel?: PullRequestModel | Promise<PullRequestModel>,
 		progressLocation?: string
 	): Promise<void> {
 		const previewSequence = ++this._previewSequence;
 		let loading = true;
-		const isLoading = () => loading && !this.isDisposed && previewSequence === this._previewSequence && !this._item;
+		const isLoading = () => loading && !this.isDisposed && previewSequence === this._previewSequence;
 		const update = super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
 		if (isLoading() && (!pullRequestModel || pullRequestModel instanceof Promise)) {
 			void (async () => {

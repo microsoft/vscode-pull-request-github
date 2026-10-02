@@ -52,7 +52,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 				}
 				if (!pullRequest) {
 					await openWithDefaultExternalOpener(openContext.sourceUri);
-					return;
+					throw new vscode.CancellationError();
 				}
 				return pullRequest;
 			});

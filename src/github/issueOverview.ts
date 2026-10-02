@@ -58,7 +58,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: IssueModel | Promise<IssueModel | undefined>,
+		issue?: IssueModel | Promise<IssueModel>,
 		toTheSide: boolean = false,
 		_preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel

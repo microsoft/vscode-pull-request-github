@@ -409,6 +409,42 @@ describe('PullRequestOverview', function () {
 			sinon.assert.notCalled(getPreview);
 		});
 
+		for (const previewHasStarted of [false, true]) {
+			it(`shows a preview during slow initialization when the model resolves ${previewHasStarted ? 'after' : 'before'} the preview query starts`, async function () {
+				let resolveModel: ((model: PullRequestModel) => void) | undefined;
+				let resolvePreview: (value: PullRequestPreview) => void;
+				let resolveDefaultBranch: (branch: string) => void;
+				const getDefaultBranch = sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch')
+					.returns(new Promise(resolve => resolveDefaultBranch = resolve));
+				getPreview.returns(new Promise(resolve => resolvePreview = resolve));
+				const model = previewHasStarted
+					? new Promise<PullRequestModel>(resolve => resolveModel = resolve)
+					: Promise.resolve(prModel);
+				const opening = openPanel(model);
+				try {
+					if (previewHasStarted) {
+						await new Promise(resolve => setImmediate(resolve));
+						sinon.assert.calledOnce(getPreview);
+						resolveModel!(prModel);
+					}
+					await new Promise(resolve => setImmediate(resolve));
+					sinon.assert.calledOnce(getDefaultBranch);
+					assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+
+					resolvePreview!(preview);
+					await new Promise(resolve => setImmediate(resolve));
+					assert.deepStrictEqual(messages.find(message => message.command === 'pr.preview')?.pullrequest, preview);
+					assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+				} finally {
+					resolveModel?.(prModel);
+					resolvePreview!(preview);
+					resolveDefaultBranch!('main');
+					await opening;
+				}
+				assert.ok(messages.some(message => message.command === 'pr.initialize'));
+			});
+		}
+
 		it('skips polling a pending model and resumes once the PR is available', async function () {
 			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime').resolves(new Date(0));
