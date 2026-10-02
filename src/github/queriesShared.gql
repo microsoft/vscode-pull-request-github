@@ -761,6 +761,39 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			stackEntry {
+				position
+			}
+			stack {
+				size
+				baseRefName
+				entries(first: 100, after: $after) {
+					nodes {
+						position
+						pullRequest {
+							number
+							title
+							url
+							state
+							isDraft
+							headRefName
+							mergeable
+							mergeStateStatus
+						}
+					}
+					pageInfo {
+						hasNextPage
+						endCursor
+					}
+				}
+			}
+		}
+	}
+}
+
 query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

@@ -672,6 +672,141 @@ body button .icon {
 	align-items: center;
 	flex-wrap: wrap;
 	row-gap: 12px;
+	column-gap: 8px;
+}
+
+.stack-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 16px;
+	color: var(--vscode-foreground);
+	text-decoration: none;
+}
+
+.stack-badge:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.stack-badge .icon svg,
+.stack-section summary .icon svg,
+.stack-entry-readiness svg {
+	width: 16px;
+	height: 16px;
+}
+
+.stack-section summary {
+	cursor: pointer;
+}
+
+.stack-section {
+	scroll-margin-top: 64px;
+}
+
+.stack-section summary > .icon {
+	flex-shrink: 0;
+}
+
+.stack-chevron {
+	margin-left: auto;
+}
+
+.stack-section:not([open]) .stack-chevron {
+	transform: rotate(-90deg);
+}
+
+.stack-description,
+.stack-entry-meta {
+	display: block;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.stack-entries {
+	list-style: none;
+	margin: 0;
+	padding: 8px 16px;
+}
+
+.stack-entry,
+.stack-base {
+	display: grid;
+	grid-template-columns: 20px minmax(0, 1fr);
+	column-gap: 8px;
+	position: relative;
+	padding: 8px;
+}
+
+.stack-entry::before {
+	content: '';
+	position: absolute;
+	left: 17px;
+	top: 30px;
+	bottom: 0;
+	border-left: 1px solid var(--vscode-descriptionForeground);
+	opacity: 0.65;
+}
+
+.stack-entry.current {
+	background: var(--vscode-panel-background);
+	border-radius: 4px;
+	box-shadow: inset 3px 0 var(--vscode-focusBorder);
+}
+
+.stack-entry-readiness {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	position: relative;
+	z-index: 1;
+	border-radius: 50%;
+	background: var(--vscode-editor-background);
+}
+
+.stack-entry.current .stack-entry-readiness {
+	background: var(--vscode-panel-background);
+}
+
+.stack-entry-readiness.ready {
+	color: var(--vscode-issues-open);
+}
+
+.stack-entry-readiness.ready svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.stack-entry-readiness.blocked {
+	color: var(--vscode-errorForeground);
+}
+
+.stack-entry-readiness.waiting {
+	color: var(--vscode-list-warningForeground);
+}
+
+.stack-entry-details {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.stack-base {
+	align-items: center;
+}
+
+.stack-base-marker {
+	box-sizing: border-box;
+	width: 8px;
+	height: 8px;
+	margin-left: 5px;
+	border: 2px solid var(--vscode-descriptionForeground);
+	border-radius: 50%;
+}
+
+.stack-base .branch-tag {
+	width: fit-content;
 }
 
 .subtitle .avatar,
@@ -755,7 +890,6 @@ button.secondary.change-base {
 	color: var(--vscode-button-foreground);
 	border-radius: 18px;
 	padding: 4px 12px;
-	margin-right: 10px;
 	font-weight: 600;
 	display: flex;
 	gap: 4px;

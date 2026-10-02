@@ -58,7 +58,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: IssueModel | Promise<IssueModel>,
+		issue?: IssueModel | Promise<IssueModel | undefined>,
 		toTheSide: boolean = false,
 		_preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
@@ -394,7 +394,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * Update the panel with an unresolved identity and optional model.
 	 * If no model is provided, it will be resolved from the identity.
 	 */
-	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem>, progressLocation?: string): Promise<void> {
+	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem | undefined>, progressLocation?: string): Promise<void> {
 		const updateSequence = ++this._identityUpdateSequence;
 		this._identity = identity;
 		this._folderRepositoryManager = foldersManager;

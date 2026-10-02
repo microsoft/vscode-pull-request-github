@@ -23,12 +23,41 @@ export enum GithubItemStateEnum {
 	Closed = 'CLOSED',
 }
 
+export interface PullRequestStack {
+	position: number;
+	size: number;
+	base: string;
+	pullRequests: {
+		position: number;
+		number: number;
+		title: string;
+		url: string;
+		head: string;
+		state: GithubItemStateEnum;
+		isDraft: boolean;
+		mergeable: PullRequestMergeability;
+	}[];
+}
+
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
 	Conflict,
 	Unknown,
 	Behind,
+}
+
+export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
+	const current = stack.pullRequests.find(entry => entry.number === number);
+	if (!current || current.position !== stack.position || current.state !== GithubItemStateEnum.Open
+		|| current.isDraft || current.mergeable !== PullRequestMergeability.Mergeable) {
+		return false;
+	}
+	return stack.pullRequests.every(entry =>
+		entry.position > stack.position ||
+		entry.state === GithubItemStateEnum.Merged ||
+		(entry.state === GithubItemStateEnum.Open && !entry.isDraft && entry.mergeable === PullRequestMergeability.Mergeable)
+	);
 }
 
 export enum MergeQueueState {

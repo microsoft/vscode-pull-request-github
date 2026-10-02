@@ -42,6 +42,7 @@ import {
 } from './graphql';
 import {
 	CheckState,
+	GithubItemStateEnum,
 	IAccount,
 	IMilestone,
 	IProject,
@@ -78,6 +79,7 @@ import {
 	restPaginate,
 } from './utils';
 import { PullRequestPreview } from './views';
+import { StackCandidate } from '../../common/views';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 
 import { Disposable, disposeAll } from '../common/lifecycle';
@@ -88,6 +90,7 @@ import { GitHubRemote, parseRemote } from '../common/remote';
 
 import { BRANCH_LIST_TIMEOUT, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
+import { compareIgnoreCase, isObject } from '../common/utils';
 
 import { PullRequestCommentController } from '../view/pullRequestCommentController';
 
@@ -220,6 +223,9 @@ export class GitHubRepository extends Disposable {
 	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
+		if (this._hub && this.remote.isEnterprise && (!this.authMatchesServer || !this.remote.matchesServerUri(this._hub.serverUri))) {
+			throw new AuthenticationError(vscode.l10n.t('The authentication session no longer matches this GitHub repository. Refresh the repository or sign in again.'));
+		}
 		if (!this._hub) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
@@ -297,6 +303,14 @@ export class GitHubRepository extends Disposable {
 		super();
 		GitHubRepository._allRepoIds.add(this._id);
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
+		this._register(this._credentialStore.onDidChangeSessions(e => {
+			if (e.provider.id === this.remote.authProviderId) {
+				this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+				if (e.accountChanged || e.serverChanged) {
+					this._metadata = undefined;
+				}
+			}
+		}));
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -306,8 +320,9 @@ export class GitHubRepository extends Disposable {
 	get authMatchesServer(): boolean {
 		if ((this.remote.githubServerType === GitHubServerType.GitHubDotCom) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			return true;
-		} else if ((this.remote.githubServerType === GitHubServerType.Enterprise) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
-			return true;
+		} else if (this.remote.githubServerType === GitHubServerType.Enterprise) {
+			const hub = this._credentialStore.getHub(AuthProvider.githubEnterprise);
+			return !!hub && this.remote.matchesServerUri(hub.serverUri);
 		} else {
 			// Not good. We have a mismatch between auth type and server type.
 			return false;
@@ -330,7 +345,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables: OperationVariables }): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables: OperationVariables }, allowLimitedFallback: boolean = true): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -357,7 +372,7 @@ export class GitHubRepository extends Disposable {
 				return this.query(query, ignoreSamlErrors);
 			}
 
-			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
+			if (allowLimitedFallback && gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
@@ -479,7 +494,6 @@ export class GitHubRepository extends Disposable {
 
 	async ensure(additionalScopes: boolean = false): Promise<GitHubRepository> {
 		this._initialized = true;
-		const oldHub = this._hub;
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
 			// We need auth now. (ex., a PR is already checked out)
 			// We can no longer wait until later for login to be done
@@ -495,7 +509,15 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 
-		if (oldHub !== this._hub) {
+		if (this._hub && !this.remote.matchesServerUri(this._hub.serverUri)) {
+			this._hub = undefined;
+			const error = new AuthenticationError(vscode.l10n.t('The selected authentication session does not match the GitHub server for this repository.'));
+			Logger.warn(error.message, this.id);
+			throw error;
+		}
+
+		// A session event may have already refreshed the hub before ensure().
+		if (this._hub) {
 			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
@@ -761,7 +783,7 @@ export class GitHubRepository extends Disposable {
 		return undefined;
 	}
 
-	async getPullRequestForBranch(branch: string, headOwner: string): Promise<PullRequestModel | undefined> {
+	async getPullRequestForBranch(branch: string, headOwner: string, throwOnError: boolean = false): Promise<PullRequestModel | undefined> {
 		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, this.id);
@@ -781,7 +803,7 @@ export class GitHubRepository extends Disposable {
 			if (data?.repository) {
 				const nodes = [...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
 					.filter((pullRequest, index, pullRequests) => pullRequests.findIndex(candidate => candidate.number === pullRequest.number) === index);
-				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head?.repo.owner === headOwner);
+				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head && compareIgnoreCase(pr.head.repo.owner, headOwner) === 0);
 				if (prs.length === 0) {
 					return undefined;
 				}
@@ -790,6 +812,9 @@ export class GitHubRepository extends Disposable {
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull request for branch failed: ${e}`, this.id);
+			if (throwOnError) {
+				throw e;
+			}
 			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
@@ -798,6 +823,83 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 		return undefined;
+	}
+
+	async getStackCandidate(baseBranch: string): Promise<StackCandidate | undefined> {
+		const parent = await this.getPullRequestForBranch(baseBranch, this.remote.owner, true);
+		if (!parent || parent.state !== GithubItemStateEnum.Open || parent.head?.ref !== baseBranch
+			|| parent.head.owner.toLowerCase() !== this.remote.owner.toLowerCase()
+			|| parent.head.repositoryCloneUrl.repositoryName.toLowerCase() !== this.remote.repositoryName.toLowerCase()) {
+			return;
+		}
+
+		const { octokit, remote } = await this.ensure();
+		let data: unknown;
+		try {
+			({ data } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				pull_request: parent.number,
+				per_page: 1,
+				headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+			})));
+		} catch (error) {
+			const response = isObject(error) && isObject(error.response) ? error.response.data : undefined;
+			const unsupportedVersion = isObject(response) && [response.message, response.errors].some(detail => {
+				if (typeof detail !== 'string') {
+					return false;
+				}
+				const text = detail.toLowerCase();
+				return text.includes('version') && (text.includes('not supported') || text.includes('not a supported version'));
+			});
+			if (isObject(error) && (error.status === 404 || (error.status === 400 && unsupportedVersion))) {
+				Logger.debug('Pull request stacks are not supported by this GitHub server.', this.id);
+				return;
+			}
+			throw error;
+		}
+
+		if (!Array.isArray(data) || data.length > 1) {
+			throw new Error('GitHub returned an invalid pull request stack list.');
+		}
+		if (data.length === 0) {
+			return { parentPullRequestNumber: parent.number, size: 1, url: parent.html_url };
+		}
+		const stack: unknown = data[0];
+		if (!isObject(stack) || typeof stack.number !== 'number' || !Array.isArray(stack.pull_requests)
+			|| stack.pull_requests.length === 0) {
+			throw new Error('GitHub returned an invalid pull request stack.');
+		}
+		const top: unknown = stack.pull_requests[stack.pull_requests.length - 1];
+		if (!isObject(top) || typeof top.number !== 'number') {
+			throw new Error('GitHub returned an invalid pull request stack entry.');
+		}
+		if (top.number !== parent.number) {
+			return;
+		}
+		return { parentPullRequestNumber: parent.number, stackNumber: stack.number, size: stack.pull_requests.length, url: parent.html_url };
+	}
+
+	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<void> {
+		const { octokit, remote } = await this.ensure();
+		const params = {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+		};
+		const stackNumber = candidate.stackNumber;
+		if (stackNumber !== undefined) {
+			await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+				...params,
+				stack_number: stackNumber,
+				pull_requests: [number],
+			}));
+		} else {
+			await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks', {
+				...params,
+				pull_requests: [candidate.parentPullRequestNumber, number],
+			}));
+		}
 	}
 
 	async canGetProjectsNow(): Promise<boolean> {

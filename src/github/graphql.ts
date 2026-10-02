@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ForkDetails } from './githubRepository';
+import { GithubItemStateEnum } from './interface';
 import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 
 interface PageInfo {
@@ -813,6 +814,34 @@ export interface PullRequestResponse {
 		pullRequest: PullRequest;
 	} | null;
 	rateLimit: RateLimit;
+}
+
+export interface PullRequestStackResponse {
+	repository: {
+		pullRequest: {
+			stackEntry: { position: number } | null;
+			stack: {
+				size: number;
+				baseRefName: string;
+				entries: {
+					nodes: {
+						position: number;
+						pullRequest: {
+							number: number;
+							title: string;
+							url: string;
+							state: GithubItemStateEnum;
+							isDraft: boolean;
+							headRefName: string;
+							mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+							mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+						};
+					}[];
+					pageInfo: { hasNextPage: boolean; endCursor: string | null };
+				};
+			} | null;
+		} | null;
+	} | null;
 }
 
 export interface IssueResponse {

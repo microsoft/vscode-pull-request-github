@@ -94,6 +94,7 @@ export const BRANCH_RANDOM_NAME_DICTIONARY = 'branchRandomName.dictionary';
 // GitHub Enterprise
 export const GITHUB_ENTERPRISE = 'github-enterprise';
 export const URI = 'uri';
+export const URIS = 'uris';
 
 // Editor
 export const EDITOR = 'editor';

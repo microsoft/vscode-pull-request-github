@@ -28,7 +28,7 @@ import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
-import { getEnterpriseUri, getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -40,7 +40,7 @@ import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
-import { toOpenIssueWebviewUri } from '../common/uri';
+import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
@@ -79,7 +79,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: PullRequestModel | Promise<PullRequestModel>,
+		issue?: PullRequestModel | Promise<PullRequestModel | undefined>,
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
@@ -445,7 +445,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			const contextStart = performance.now();
 			const closingIssuesPromise = (async () => {
-				const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
+				const enterpriseUri = pullRequest.remote.isEnterprise ? pullRequest.githubRepository.hub.serverUri : undefined;
 				const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
 				return Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
 					const parsed = parseIssueExpressionOutput(issue.url.match(issueOrUrlExpression));
@@ -499,6 +499,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
 				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
+				stack: undefined,
+				stackLoaded: false,
+				stackLoadError: false,
+				stackMergeStatus: undefined,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
@@ -541,6 +545,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}).catch(error => {
 				Logger.error(`Failed to update deferred assignable users: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
+			let stackLoaded = false;
 			const deferredDataPromise = Promise.all([
 				measureDeferred('statusChecks', pullRequestModel.getStatusChecks()),
 				reviewRequestsPromise,
@@ -580,7 +585,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						mergeable: mergeability.mergeability,
 						reviewers,
 						hasReviewDraft,
-						mergeQueueMethod,
+						...(stackLoaded ? {} : { mergeQueueMethod }),
 						emailForCommit,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 						isCopilotOnMyBehalf: isCopilotOnBehalf,
@@ -593,6 +598,39 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				Logger.debug(`Deferred data timings: ${deferredTimingSummary}`, PullRequestOverviewPanel.ID);
 			}, error => {
 				Logger.error(`Failed to update deferred pull request data: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			});
+			void pullRequestModel.getStack().then(async stack => {
+				if (updateSequence !== this._updateSequence) {
+					return;
+				}
+				const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequest.remote.owner, pullRequest.remote.repositoryName) : undefined;
+				const linkedStack = stack && {
+					...stack,
+					pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
+						...entry,
+						url: (await toOpenPullRequestWebviewUri({
+							owner: pullRequest.remote.owner,
+							repo: pullRequest.remote.repositoryName,
+							pullRequestNumber: entry.number,
+						})).toString(),
+					}))),
+				};
+				if (updateSequence === this._updateSequence) {
+					stackLoaded = true;
+					await this._postMessage({
+						command: 'pr.update',
+						pullrequest: {
+							stack: linkedStack,
+							stackLoaded: true,
+							...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+						} satisfies Partial<PullRequest>,
+					});
+				}
+			}).catch(error => {
+				Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+				if (updateSequence === this._updateSequence) {
+					void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+				}
 			});
 			const timelineStart = performance.now();
 			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
@@ -663,7 +701,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	public override async updateWithIdentity(
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		pullRequestModel?: PullRequestModel | Promise<PullRequestModel>,
+		pullRequestModel?: PullRequestModel | Promise<PullRequestModel | undefined>,
 		progressLocation?: string
 	): Promise<void> {
 		const previewSequence = ++this._previewSequence;
@@ -710,6 +748,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.merge-stack':
+				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
 			case 'pr.change-email':
 				return this.changeEmail(message);
 			case 'pr.deleteBranch':

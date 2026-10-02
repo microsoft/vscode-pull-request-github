@@ -18,9 +18,10 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { LoggingOctokit } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { commands, env, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
-import { GitHubServerType } from '../../common/authentication';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -243,6 +244,38 @@ describe('PullRequestManager', function () {
 			assert.notStrictEqual(firstAccountLocation?.toString(), secondAccountLocation?.toString());
 			assert.ok(firstAccountLocation?.toString().includes('github'));
 			assert.ok(firstAccountLocation?.toString().includes('first-account'));
+		});
+
+		it('separates persisted enterprise user caches by session deployment even for the same account ID', function () {
+			const firstUrl = 'https://host-a.example/owner/repo';
+			const secondUrl = 'https://host-b.example:8443/deployment/owner/repo';
+			const firstRepo = new GitHubRepository(1, new GitHubRemote('origin', firstUrl, new Protocol(firstUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			const secondRepo = new GitHubRepository(2, new GitHubRemote('origin', secondUrl, new Protocol(secondUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			sinon.stub(manager.credentialStore, 'getAccountId').returns('same-account');
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({
+				data: { login: 'user', node_id: 'user', html_url: firstUrl, avatar_url: '', type: 'User' },
+			});
+			const getHub = sinon.stub(manager.credentialStore, 'getHub');
+			const hubFor = (deployment: string) => manager.credentialStore['createHub']({
+				id: 'session',
+				account: { id: 'same-account', label: 'account' },
+				accessToken: 'test-token',
+				scopes: [],
+				authorizationServer: Uri.parse(`${deployment}/login/oauth`),
+			}, AuthProvider.githubEnterprise);
+			getHub.returns(hubFor('https://host-a.example'));
+			const firstCache = manager['getAccountCacheLocation']('assignableUsers', firstRepo);
+			getHub.returns(hubFor('https://host-b.example:8443/deployment'));
+			const secondCache = manager['getAccountCacheLocation']('assignableUsers', secondRepo);
+
+			assert.ok(firstCache);
+			assert.ok(secondCache);
+			assert.notStrictEqual(firstCache.toString(), secondCache.toString());
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', firstRepo), undefined);
+			getHub.returns(undefined);
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', secondRepo), undefined);
+			firstRepo.dispose();
+			secondRepo.dispose();
 		});
 	});
 

@@ -14,6 +14,7 @@
 		"activeComment",
 		"agentSessionsWorkspace",
 		"agentsWindowActivation",
+		"authIssuers",
 		"chatContextProvider",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
@@ -44,11 +45,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.166.0",
+	"version": "0.166.1",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.137.0"
+		"vscode": "^1.141.0"
 	},
 	"categories": [
 		"Other",
@@ -1275,6 +1276,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.selectEnterpriseAccount",
+				"title": "%command.pr.selectEnterpriseAccount.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.deleteLocalBranchesNRemotes",
 				"title": "%command.pr.deleteLocalBranchesNRemotes.title%",
 				"category": "%command.pull.request.category%"
@@ -2003,7 +2009,7 @@
 			},
 			{
 				"view": "github:login",
-				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)) && !isSessionsWindow",
+				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || github:hasEnterpriseUris)) && !isSessionsWindow",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
@@ -2429,6 +2435,10 @@
 				{
 					"command": "pr.signinenterprise",
 					"when": "(gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes) && !isSessionsWindow"
+				},
+				{
+					"command": "pr.selectEnterpriseAccount",
+					"when": "github:hasEnterpriseUris && !isSessionsWindow"
 				},
 				{
 					"command": "pr.signinAndRefreshList",
@@ -4401,7 +4411,7 @@
 	},
 	"overrides": {
 		"mocha": {
-			"diff": "7.0.0",
+			"diff": "8.0.3",
 			"serialize-javascript": "7.0.5"
 		},
 		"elliptic": "6.6.1"

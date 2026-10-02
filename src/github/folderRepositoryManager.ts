@@ -49,6 +49,7 @@ import {
 	DEFAULT_DELETION_METHOD,
 	DISABLE_AI_FEATURES,
 	GIT,
+	GITHUB_ENTERPRISE,
 	POST_DONE,
 	PR_SETTINGS_NAMESPACE,
 	PULL_BEFORE_CHECKOUT,
@@ -56,6 +57,8 @@ import {
 	REMOTES,
 	SELECT_WORKTREE,
 	UPSTREAM_REMOTE,
+	URI,
+	URIS,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
@@ -245,17 +248,20 @@ export class FolderRepositoryManager extends Disposable {
 	) {
 		super();
 		this._githubRepositories = [];
-		this._githubManager = new GitHubManager(this.telemetry);
+		this._githubManager = new GitHubManager(this._credentialStore, this.telemetry);
 
 		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)
+					|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URIS}`)
+					|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
 					await this.updateRepositories();
 				}
 			}),
 		);
 
 		this._register(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+		this._register(vscode.workspace.onDidGrantWorkspaceTrust(() => this.updateRepositories()));
 		this._register({ dispose: () => disposeAll(this._onDidChangePullRequestsEvents) });
 
 		this.cleanStoredRepoState();
@@ -291,7 +297,7 @@ export class FolderRepositoryManager extends Disposable {
 		const remotes = await parseRepositoryRemotesAsync(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
-			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+			potentialRemotes.map(remote => this._githubManager.isGitHub(remote)),
 		).catch(e => {
 			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
@@ -312,7 +318,7 @@ export class FolderRepositoryManager extends Disposable {
 		const remotes = await parseRepositoryRemotesAsync(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
-			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+			potentialRemotes.map(remote => this._githubManager.isGitHub(remote)),
 		).catch(e => {
 			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
@@ -329,12 +335,12 @@ export class FolderRepositoryManager extends Disposable {
 		return githubRemotes;
 	}
 
-	public async getActiveGitHubRemotes(allGitHubRemotes: GitHubRemote[]): Promise<GitHubRemote[]> {
+	public getActiveGitHubRemotes(allGitHubRemotes: readonly GitHubRemote[] = this._allGitHubRemotes): GitHubRemote[] {
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
 
 		if (!remotesSetting) {
 			Logger.error(`Unable to read remotes setting`, this.id);
-			return Promise.resolve([]);
+			return [];
 		}
 
 		const missingRemotes = remotesSetting.filter(remote => {
@@ -431,7 +437,7 @@ export class FolderRepositoryManager extends Disposable {
 
 	private async getActiveRemotes(): Promise<GitHubRemote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
-		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
+		const activeRemotes = this.getActiveGitHubRemotes();
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -470,7 +476,7 @@ export class FolderRepositoryManager extends Disposable {
 		let isAuthenticated = this._credentialStore.isAuthenticated(AuthProvider.github) || this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise);
 		if ((dotComCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			// good
-		} else if ((enterpriseCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		} else if ((enterpriseCount > 0) && activeRemotes.some(remote => this.matchesEnterpriseSession(remote))) {
 			// also good
 		} else if (isAuthenticated && ((dotComCount > 0) || (enterpriseCount > 0))) {
 			// Not good. We have a mismatch between auth type and server type.
@@ -478,6 +484,11 @@ export class FolderRepositoryManager extends Disposable {
 		}
 		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
 		return isAuthenticated;
+	}
+
+	private matchesEnterpriseSession(remote: Remote): boolean {
+		const hub = this._credentialStore.getHub(AuthProvider.githubEnterprise);
+		return remote.isEnterprise && !!hub && remote.matchesServerUri(hub.serverUri);
 	}
 
 	get state(): ReposManagerState {
@@ -531,6 +542,7 @@ export class FolderRepositoryManager extends Disposable {
 
 		const authenticatedRemotes = activeRemotes.filter(remote =>
 			this._credentialStore.isAuthenticated(remote.authProviderId)
+			&& (!remote.isEnterprise || this.matchesEnterpriseSession(remote))
 			&& !this._inaccessibleRepos.has(`${remote.owner.toLowerCase()}/${remote.repositoryName.toLowerCase()}`)
 		);
 		for (const remote of authenticatedRemotes) {
@@ -736,6 +748,14 @@ export class FolderRepositoryManager extends Disposable {
 		const accountId = this._credentialStore.getAccountId(repo.remote.authProviderId);
 		if (!accountId) {
 			return undefined;
+		}
+		if (repo.remote.isEnterprise) {
+			const hub = this._credentialStore.getHub(AuthProvider.githubEnterprise);
+			if (!hub || !repo.remote.matchesServerUri(hub.serverUri)) {
+				Logger.debug('Enterprise user cache is unavailable for this authentication session.', this.id);
+				return undefined;
+			}
+			return vscode.Uri.joinPath(this.context.globalStorageUri, userKind, encodeURIComponent(repo.remote.authProviderId), encodeURIComponent(hub.serverUri.toString()), encodeURIComponent(accountId));
 		}
 		return vscode.Uri.joinPath(this.context.globalStorageUri, userKind, encodeURIComponent(repo.remote.authProviderId), encodeURIComponent(accountId));
 	}
@@ -980,7 +1000,7 @@ export class FolderRepositoryManager extends Disposable {
 		const remotes = githubRepositories.map(repo => repo.remote).flat();
 
 		const serverTypes = await Promise.all(
-			remotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+			remotes.map(remote => this._githubManager.isGitHub(remote)),
 		).catch(e => {
 			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
@@ -1286,7 +1306,7 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		};
 
-		const activeGitHubRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
+		const activeGitHubRemotes = this.getActiveGitHubRemotes();
 
 		// Check if user has explicitly configured remotes (not using defaults)
 		const remotesConfig = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(REMOTES);
@@ -3018,18 +3038,19 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
-	public findExistingGitHubRepository(remote: { owner: string, repositoryName: string, remoteName?: string }): GitHubRepository | undefined {
+	public findExistingGitHubRepository(remote: { owner: string, repositoryName: string, remoteName?: string, normalizedHost?: string }): GitHubRepository | undefined {
 		return this._githubRepositories.find(
 			r =>
 				(r.remote.owner.toLowerCase() === remote.owner.toLowerCase())
 				&& (r.remote.repositoryName.toLowerCase() === remote.repositoryName.toLowerCase())
-				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName)),
+				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName))
+				&& (!remote.normalizedHost || r.remote.normalizedHost === remote.normalizedHost),
 		);
 	}
 
 	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
 		const repoId = this._id + (this._githubRepositories.length * 0.1);
-		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
+		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
@@ -3054,7 +3075,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
 		return this._createGitHubRepositoryBulkhead.execute(async () => {
-			return this.findExistingGitHubRepository({ owner: remote.owner, repositoryName: remote.repositoryName, remoteName: ignoreRemoteName ? undefined : remote.remoteName }) ??
+			return this.findExistingGitHubRepository({ owner: remote.owner, repositoryName: remote.repositoryName, remoteName: ignoreRemoteName ? undefined : remote.remoteName, normalizedHost: remote.normalizedHost }) ??
 				await this.createAndAddGitHubRepository(remote, credentialStore, silent);
 		});
 	}

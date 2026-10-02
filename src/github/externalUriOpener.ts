@@ -46,12 +46,13 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 
 		const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 		if (identity.kind === 'pullRequest') {
-			const pullRequest = folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true, 'overview').then(pullRequest => {
+			const pullRequest = folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true, 'overview').then(async (pullRequest) => {
 				if (token.isCancellationRequested) {
 					throw new vscode.CancellationError();
 				}
 				if (!pullRequest) {
-					throw new Error(vscode.l10n.t('Unable to find pull request #{0} in {1}/{2}.', identity.number, identity.owner, identity.repo));
+					await openWithDefaultExternalOpener(openContext.sourceUri);
+					return;
 				}
 				return pullRequest;
 			});
@@ -76,7 +77,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 				return;
 			}
 			if (!issue) {
-				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to find issue #{0} in {1}/{2}.', identity.number, identity.owner, identity.repo));
+				await openWithDefaultExternalOpener(openContext.sourceUri);
 				return;
 			}
 			await IssueOverviewPanel.createOrShow(
