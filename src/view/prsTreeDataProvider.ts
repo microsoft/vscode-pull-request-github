@@ -15,7 +15,7 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { EXPERIMENTAL_STACKS, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES, URI, URIS } from '../common/settingKeys';
-import { areStacksEnabled } from '../common/settingsUtils';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -243,22 +243,19 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 
 	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
-		if (!areStacksEnabled()) {
-			void vscode.window.showErrorMessage(vscode.l10n.t('Pull request stack features are disabled.'));
-			return;
-		}
-		const selection = selected ?? this._view.selection;
-		if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
-			|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
-			void vscode.window.showErrorMessage(vscode.l10n.t('Select at least two pull requests in the Pull Requests view to add them to a stack.'));
-			return;
-		}
-		const ordered = orderStackablePullRequests(selection.map(node => (node as PRNode).pullRequestModel));
-		if (!ordered) {
-			void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
-			return;
-		}
 		try {
+			assertStacksEnabled();
+			const selection = selected ?? this._view.selection;
+			if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
+				|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
+				void vscode.window.showErrorMessage(vscode.l10n.t('Select at least two pull requests in the Pull Requests view to add them to a stack.'));
+				return;
+			}
+			const ordered = orderStackablePullRequests(selection.map(node => (node as PRNode).pullRequestModel));
+			if (!ordered) {
+				void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
+				return;
+			}
 			const bottom = ordered[0];
 			const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
 			if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {

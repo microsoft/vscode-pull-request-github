@@ -39,7 +39,7 @@ import {
 	PUSH_BRANCH,
 	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
-import { areStacksEnabled } from '../common/settingsUtils';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
@@ -1562,9 +1562,7 @@ Don't forget to commit your template file to the repository so that it can be us
 				try {
 					let stackCandidate: StackCandidate | undefined;
 					if (message.args.addToStack) {
-						if (!areStacksEnabled()) {
-							throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-						}
+						assertStacksEnabled();
 						if (message.args.autoMerge) {
 							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
 						}
@@ -1685,9 +1683,7 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						if (stackCandidate) {
 							try {
-								if (!areStacksEnabled()) {
-									throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-								}
+								assertStacksEnabled();
 								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
 							} catch (error) {
 								stackAdditionFailed = true;
