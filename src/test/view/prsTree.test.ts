@@ -106,6 +106,19 @@ describe('GitHub Pull Requests view', function () {
 		sinon.stub(folderManager, 'createGitHubRepository').resolves(githubRepository);
 	}
 
+	function stackablePullRequest(repository: MockGitHubRepository, number: number, base: string, head: string): PullRequestModel {
+		const remote = repository.remote;
+		const rest = new PullRequestBuilder().number(number)
+			.base(ref => ref.ref(base)).head(ref => ref.ref(head)).build();
+		for (const ref of [rest.base, rest.head]) {
+			ref.repo.owner.login = remote.owner;
+			ref.repo.name = remote.repositoryName;
+			ref.repo.clone_url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
+		}
+		return new PullRequestModel(credentialStore, telemetry, repository, remote,
+			convertRESTPullRequestToRawPullRequest(rest, repository));
+	}
+
 	afterEach(function () {
 		provider.dispose();
 		discoveredRepository?.dispose();
@@ -136,7 +149,7 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(options.canSelectMany, true);
 	});
 
-	it('does not enable multi-selection when stacks are disabled', function () {
+	it('disables multi-selection when created with stacks disabled', function () {
 		setStacksEnabled(false);
 		provider.dispose();
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
@@ -145,6 +158,64 @@ describe('GitHub Pull Requests view', function () {
 		assert(tree);
 		const options = tree.args[1] as { canSelectMany?: boolean };
 		assert.strictEqual(options.canSelectMany, false);
+	});
+
+	it('applies multi-selection setting changes only when recreating the tree', function () {
+		const configurationChanged = new vscode.EventEmitter<vscode.ConfigurationChangeEvent>();
+		context.subscriptions.push(configurationChanged);
+		sinon.stub(vscode.workspace, 'onDidChangeConfiguration').callsFake(configurationChanged.event);
+		provider.dispose();
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+		const event = {
+			affectsConfiguration: (section: string) => section === 'githubPullRequests.experimental.stacks',
+		};
+
+		for (const enabled of [false, true, false]) {
+			const view = provider.view;
+			const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length;
+			setStacksEnabled(enabled);
+			configurationChanged.fire(event);
+			assert.strictEqual(provider.view, view);
+			assert.strictEqual(createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length, treeCount);
+
+			provider.dispose();
+			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+			const tree = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').pop();
+			assert(tree);
+			const options = tree.args[1] as { canSelectMany?: boolean };
+			assert.strictEqual(options.canSelectMany, enabled);
+		}
+	});
+
+	it('updates stack actions when the setting changes on an existing multi-select tree', function () {
+		const configurationChanged = new vscode.EventEmitter<vscode.ConfigurationChangeEvent>();
+		context.subscriptions.push(configurationChanged);
+		sinon.stub(vscode.workspace, 'onDidChangeConfiguration').callsFake(configurationChanged.event);
+		provider.dispose();
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+
+		const url = 'https://github.com/aaa/bbb';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		discoveredRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		const selected = [
+			stackablePullRequest(discoveredRepository, 1, 'main', 'D1'),
+			stackablePullRequest(discoveredRepository, 2, 'D1', 'D2'),
+		].map(model => Object.assign(Object.create(PRNode.prototype), { pullRequestModel: model }) as PRNode);
+		sinon.stub(provider.view, 'selection').get(() => selected);
+		const executeCommand = sinon.spy(vscode.commands, 'executeCommand');
+		const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length;
+		const event = {
+			affectsConfiguration: (section: string) => section === 'githubPullRequests.experimental.stacks',
+		};
+
+		for (const enabled of [true, false, true]) {
+			setStacksEnabled(enabled);
+			executeCommand.resetHistory();
+			configurationChanged.fire(event);
+			assert(executeCommand.calledOnceWithExactly('setContext', 'github:canAddToStack', enabled));
+		}
+
+		assert.strictEqual(createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length, treeCount);
 	});
 
 	it('does not offer or execute Add to Stack when stacks are disabled', async function () {
@@ -164,19 +235,8 @@ describe('GitHub Pull Requests view', function () {
 		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 		const repository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 		try {
-			const makePR = (number: number, base: string, head: string) => {
-				const rest = new PullRequestBuilder().number(number)
-					.base(ref => ref.ref(base)).head(ref => ref.ref(head)).build();
-				for (const ref of [rest.base, rest.head]) {
-					ref.repo.owner.login = remote.owner;
-					ref.repo.name = remote.repositoryName;
-					ref.repo.clone_url = `${url}.git`;
-				}
-				return new PullRequestModel(credentialStore, telemetry, repository, remote,
-					convertRESTPullRequestToRawPullRequest(rest, repository));
-			};
-			const bottom = makePR(1, 'main', 'D1');
-			const top = makePR(2, 'D1', 'D2');
+			const bottom = stackablePullRequest(repository, 1, 'main', 'D1');
+			const top = stackablePullRequest(repository, 2, 'D1', 'D2');
 			const node = (model: PullRequestModel) => Object.assign(Object.create(PRNode.prototype), { pullRequestModel: model }) as PRNode;
 			const selected = [node(bottom), node(top)];
 			const existing = {

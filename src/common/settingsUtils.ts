@@ -12,6 +12,12 @@ export function areStacksEnabled(): boolean {
 	return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_STACKS, false);
 }
 
+export function assertStacksEnabled(): void {
+	if (!areStacksEnabled()) {
+		throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
+	}
+}
+
 export function getReviewMode(): { merged: boolean, closed: boolean } {
 	const desktopDefaults = { merged: false, closed: false };
 	const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)

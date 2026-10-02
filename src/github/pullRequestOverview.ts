@@ -38,7 +38,7 @@ import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
-import { areStacksEnabled } from '../common/settingsUtils';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -1132,9 +1132,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {
 		try {
-			if (!areStacksEnabled()) {
-				throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-			}
+			assertStacksEnabled();
 			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
 			if (!access.hasWritePermission) {
 				throw new Error(vscode.l10n.t('You do not have permission to unstack these pull requests.'));
