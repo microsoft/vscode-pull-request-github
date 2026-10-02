@@ -565,14 +565,14 @@ export function registerCommands(
 
 		}));
 
-	const resolvePr = async (context: BaseContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
+	const resolvePr = async (context: BaseContext | undefined, loadMode: 'default' | 'overview' = 'default'): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
 		if (!context) {
 			return undefined;
 		}
 
 		const folderManager = folderRepositoryManagerResolver.getManagerForRepository(context.owner, context.repo);
 
-		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true);
+		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true, loadMode);
 		if (!pr) {
 			return undefined;
 		}
@@ -1102,7 +1102,7 @@ export function registerCommands(
 					repo: argument.pullRequestDetails.repository.name,
 					number: argument.pullRequestDetails.number,
 					preventDefaultContextMenuItems: true,
-				}))?.pr;
+				}, 'overview'))?.pr;
 			} else if (PRChatContextItem.is(argument)) {
 				issueModel = argument.pr;
 			} else if (IssueChatContextItem.is(argument)) {

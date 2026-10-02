@@ -706,6 +706,49 @@ query GetUser($login: String!) {
 	}
 }
 
+query PullRequestPreview($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			number
+			title
+			titleHTML
+			url
+			body
+			bodyHTML
+			createdAt
+			state
+			isDraft
+			author {
+				__typename
+				login
+				url
+				avatarUrl
+				... on Node {
+					id
+				}
+				... on User {
+					name
+				}
+			}
+			baseRefName
+			headRefName
+			baseRepository {
+				owner {
+					login
+				}
+			}
+			headRepository {
+				owner {
+					login
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

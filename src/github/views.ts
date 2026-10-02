@@ -75,6 +75,10 @@ export interface Issue {
 	busy?: boolean;
 }
 
+/** Read-only content shown during a cold load; never persisted as a complete PR. */
+export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head'>;
+
 export interface PullRequest extends Issue {
 	stack?: PullRequestStack;
 	stackLoaded?: boolean;

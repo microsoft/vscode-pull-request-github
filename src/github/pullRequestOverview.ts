@@ -71,6 +71,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _refreshing = false;
 	private _updateItemPromise: Promise<void> | undefined;
 	private _updateSequence = 0;
+	private _previewSequence = 0;
 	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	public static override async createOrShow(
@@ -78,18 +79,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: PullRequestModel,
+		issue?: PullRequestModel | Promise<PullRequestModel>,
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
 	) {
-
-		/* __GDPR__
-			"pr.openDescription" : {
-				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
@@ -116,6 +110,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 
 		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
+		if (!panel.isDisposed && panel._item) {
+			/* __GDPR__
+				"pr.openDescription" : {
+					"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (panel._item?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
+		}
 	}
 
 	public static scrollToReview(owner: string, repo: string, number: number): void {
@@ -411,7 +413,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				measure('repositoryAccess', this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)),
 				measure('currentUser', this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository)),
 				measure('canEdit', pullRequestModel.canEdit()),
-				measure('assignableUsers', this._folderRepositoryManager.getAssignableUsers())
 			]);
 
 			const [
@@ -419,7 +420,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				repositoryAccess,
 				currentUser,
 				viewerCanEdit,
-				assignableUsers
 			] = await updatingPromise;
 			const pullRequest = pullRequestModel;
 			const timelineEvents = cachedTimelineEvents;
@@ -433,7 +433,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._item = pullRequest;
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
-			this._assignableUsers = assignableUsers;
 			this.setPanelTitle(this.buildPanelTitle(pullRequestModel.number, pullRequestModel.title));
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
@@ -444,7 +443,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const contextStart = performance.now();
 			const closingIssuesPromise = (async () => {
 				const enterpriseUri = pullRequest.remote.isEnterprise ? pullRequest.githubRepository.hub.serverUri : undefined;
@@ -458,7 +456,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}));
 			})();
 			const [baseContext, closingIssues] = await Promise.all([
-				this.getInitializeContext(currentUser, pullRequest, timelineEvents ?? [], repositoryAccess, viewerCanEdit, users),
+				this.getInitializeContext(currentUser, pullRequest, timelineEvents ?? [], repositoryAccess, viewerCanEdit, []),
 				closingIssuesPromise,
 			]);
 			const contextDuration = performance.now() - contextStart;
@@ -524,6 +522,29 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			};
 			const reviewRequestsPromise = measureDeferred('reviewRequests', pullRequestModel.getReviewRequests());
+			// Fetching all assignable users can require many pages on a cold open.
+			// Neither rendering the PR nor loading its checks should wait for it.
+			const assignableUsersStart = performance.now();
+			void Promise.all([this._folderRepositoryManager.getAssignableUsers(), reviewRequestsPromise]).then(async ([assignableUsers, requestedReviewers]) => {
+				if (updateSequence !== this._updateSequence) {
+					return;
+				}
+				this._assignableUsers = assignableUsers;
+				const users = assignableUsers[pullRequestModel.remote.remoteName] ?? [];
+				const canAssignCopilot = users.some(user => COPILOT_ACCOUNTS[user.login]);
+				const reviewers = parseReviewers(requestedReviewers, [...(pullRequestModel.timelineEvents ?? timelineEvents)], pullRequest.author);
+				const isCopilotAlreadyReviewer = reviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						canAssignCopilot,
+						canRequestCopilotReview: canAssignCopilot && !isCopilotAlreadyReviewer,
+					} satisfies Partial<PullRequest>,
+				});
+				Logger.debug(`Deferred assignable users loaded in ${Math.round(performance.now() - assignableUsersStart)}ms`, PullRequestOverviewPanel.ID);
+			}).catch(error => {
+				Logger.error(`Failed to update deferred assignable users: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			});
 			let stackLoaded = false;
 			const deferredDataPromise = Promise.all([
 				measureDeferred('statusChecks', pullRequestModel.getStatusChecks()),
@@ -549,8 +570,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			]) => {
 				const latestTimelineEvents = [...(pullRequestModel.timelineEvents ?? timelineEvents)];
 				const reviewers = parseReviewers(requestedReviewers!, latestTimelineEvents, pullRequest.author);
-				const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
-				const isCopilotAlreadyReviewer = reviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
 				const isCopilotOnBehalf = await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors);
 				if (updateSequence !== this._updateSequence) {
 					return;
@@ -570,7 +589,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						emailForCommit,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 						isCopilotOnMyBehalf: isCopilotOnBehalf,
-						canRequestCopilotReview: copilotUser !== undefined && !isCopilotAlreadyReviewer,
 					} satisfies Partial<PullRequest>,
 				});
 				const deferredTimingSummary = [...deferredTimings]
@@ -670,7 +688,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this._folderRepositoryManager.resolvePullRequest(
 			identity.owner,
 			identity.repo,
-			identity.number
+			identity.number,
+			false,
+			'overview',
 		);
 	}
 
@@ -681,13 +701,41 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	public override async updateWithIdentity(
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		pullRequestModel?: PullRequestModel,
+		pullRequestModel?: PullRequestModel | Promise<PullRequestModel>,
 		progressLocation?: string
 	): Promise<void> {
-		await super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
+		const previewSequence = ++this._previewSequence;
+		let loading = true;
+		const isLoading = () => loading && !this.isDisposed && previewSequence === this._previewSequence;
+		const update = super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
+		if (isLoading() && (!pullRequestModel || pullRequestModel instanceof Promise)) {
+			void (async () => {
+				try {
+					const start = Date.now();
+					const repository = await folderRepositoryManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
+					if (!repository || !isLoading()) {
+						return;
+					}
+					const preview = await repository.getPullRequestPreview(identity.number);
+					if (isLoading()) {
+						await this._postMessage({ command: 'pr.preview', pullrequest: preview });
+						Logger.debug(`PR overview preview loaded in ${Date.now() - start}ms`, PullRequestOverviewPanel.ID);
+					}
+				} catch (error) {
+					Logger.error(`Unable to load PR overview preview: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+				}
+			})();
+		}
+		try {
+			await update;
+		} finally {
+			loading = false;
+		}
 
 		// Notify that this PR overview is now active
-		PullRequestOverviewPanel._onVisible.fire(this._item);
+		if (!this.isDisposed && this._item) {
+			PullRequestOverviewPanel._onVisible.fire(this._item);
+		}
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -1447,6 +1495,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	override dispose() {
+		++this._updateSequence;
 		super.dispose();
 		disposeAll(this._prListeners);
 	}
