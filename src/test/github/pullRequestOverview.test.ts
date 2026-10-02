@@ -830,12 +830,45 @@ describe('PullRequestOverview', function () {
 			await (panel as any).unstackAll(message);
 
 			assert.strictEqual((confirm.firstCall.args[1] as vscode.MessageOptions).modal, true);
-			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Merged and queued pull requests will remain/);
-			assert(unstack.calledOnceWithExactly(1000));
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Eligible open, draft, and closed pull requests/);
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Merged, queued, and currently merging pull requests will remain/);
+			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
 			sinon.assert.calledWithExactly(reply, message, { cancelled: false, remainingPullRequests: [999] });
 			assert(refresh.calledOnce);
 			assert(information.calledOnce);
+			assert.match(information.firstCall.args[0], /1 merged, queued, or currently merging pull requests remain/);
 			sinon.assert.callOrder(unstack, reply, refresh);
+		});
+
+		it('keeps the confirmed membership when stack data changes while the modal is open', async function () {
+			const { panel, stackQuery } = await createPanel();
+			const stack = await stackQuery();
+			assert(stack);
+			sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, action) => {
+				stack.pullRequests[0].number = 998;
+				return action;
+			});
+			sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll').resolves([999]);
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+
+			await (panel as any).unstackAll({ req: '6', command: 'pr.unstack-all', args: undefined });
+
+			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
+		});
+
+		it('explains that currently merging PRs may remain when nothing is unstacked', async function () {
+			const { panel } = await createPanel();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			sinon.stub(repo, 'unstackAll').resolves([999, 1000]);
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+
+			await (panel as any).unstackAll({ req: '7', command: 'pr.unstack-all', args: undefined });
+
+			assert.match(information.firstCall.args[0], /No pull requests were unstacked.*currently merging pull requests remain/);
 		});
 
 		it('refreshes other visible PR panels in the unstacked stack', async function () {

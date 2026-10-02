@@ -626,10 +626,10 @@ describe('PullRequestModel', function () {
 			}]);
 			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, undefined, 204);
 
-			assert.deepStrictEqual(await repo.unstackAll(795), []);
+			assert.deepStrictEqual(await repo.unstackAll(795, [794, 795]), []);
 		});
 
-		it('reports merged or queued PRs remaining after unstacking', async function () {
+		it('reports locked PRs remaining after unstacking', async function () {
 			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
 				number: 12, pull_requests: [{ number: 794 }, { number: 795 }],
 			}]);
@@ -637,22 +637,37 @@ describe('PullRequestModel', function () {
 				number: 12, pull_requests: [{ number: 794 }],
 			}, 200);
 
-			assert.deepStrictEqual(await repo.unstackAll(795), [794]);
+			assert.deepStrictEqual(await repo.unstackAll(795, [794, 795]), [794]);
 		});
 
 		it('does not unstack a different or missing stack', async function () {
 			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
 				number: 12, pull_requests: [{ number: 794 }],
 			}]);
-			await assert.rejects(repo.unstackAll(795), /Could not find the stack/);
+			await assert.rejects(repo.unstackAll(795, [794, 795]), /Could not find the stack/);
 		});
+
+		for (const { description, numbers } of [
+			{ description: 'a different stack', numbers: [796, 795] },
+			{ description: 'an added PR', numbers: [794, 795, 796] },
+			{ description: 'a removed PR', numbers: [795] },
+			{ description: 'reordered PRs', numbers: [795, 794] },
+		]) {
+			it(`rejects ${description} after confirmation before unstacking`, async function () {
+				repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+					number: 13, pull_requests: numbers.map(number => ({ number })),
+				}]);
+
+				await assert.rejects(repo.unstackAll(795, [794, 795]), /stack has changed/);
+			});
+		}
 
 		it('reports an invalid successful response rather than assuming the stack dissolved', async function () {
 			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
 				number: 12, pull_requests: [{ number: 795 }],
 			}]);
 			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, { pull_requests: null }, 200);
-			await assert.rejects(repo.unstackAll(795), /invalid result/);
+			await assert.rejects(repo.unstackAll(795, [795]), /invalid result/);
 		});
 
 		it('surfaces an unstack failure rather than reporting success', async function () {
@@ -661,7 +676,7 @@ describe('PullRequestModel', function () {
 			}]);
 			repo.queryProvider.expectOctokitError(['request'], unstackArgs, new Error('Stack is locked'));
 
-			await assert.rejects(repo.unstackAll(795), /Stack is locked/);
+			await assert.rejects(repo.unstackAll(795, [795]), /Stack is locked/);
 		});
 	});
 

@@ -909,7 +909,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async unstackAll(pullRequestNumber: number): Promise<number[]> {
+	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
 		const { octokit, remote } = await this.ensure();
 		const params = {
 			owner: remote.owner,
@@ -925,6 +925,10 @@ export class GitHubRepository extends Disposable {
 			|| typeof stacks[0].number !== 'number' || !Array.isArray(stacks[0].pull_requests)
 			|| !stacks[0].pull_requests.some((pr: unknown) => isObject(pr) && pr.number === pullRequestNumber)) {
 			throw new Error(`Could not find the stack containing pull request #${pullRequestNumber}.`);
+		}
+		if (stacks[0].pull_requests.length !== expectedPullRequests.length
+			|| stacks[0].pull_requests.some((pr: unknown, index: number) => !isObject(pr) || pr.number !== expectedPullRequests[index])) {
+			throw new Error('The pull request stack has changed. Refresh the view and try again.');
 		}
 		const result = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack', {
 			...params,

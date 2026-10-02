@@ -702,6 +702,7 @@ body button .icon {
 }
 
 .stack-section {
+	position: relative;
 	scroll-margin-top: 64px;
 }
 
@@ -718,8 +719,8 @@ body button .icon {
 	margin-left: auto;
 }
 
-.stack-section.has-actions .stack-chevron {
-	margin-left: 0;
+.stack-section[open].has-actions .stack-heading-text {
+	padding-right: 128px;
 }
 
 .stack-section:not([open]) .stack-chevron {
@@ -819,7 +820,9 @@ body button .icon {
 }
 
 .stack-actions {
-	margin-left: auto;
+	position: absolute;
+	top: 16px;
+	right: 48px;
 }
 
 .stack-section:not([open]) .stack-actions {
@@ -827,12 +830,15 @@ body button .icon {
 }
 
 @media (max-width: 480px) {
-	.stack-section[open].has-actions summary {
-		flex-wrap: wrap;
+	.stack-section[open].has-actions .stack-heading-text {
+		padding-right: 0;
 	}
 
-	.stack-section[open].has-actions .stack-heading-text {
-		flex-basis: calc(100% - 24px);
+	.stack-actions {
+		position: static;
+		display: flex;
+		justify-content: flex-end;
+		padding: 0 16px 8px;
 	}
 }
 

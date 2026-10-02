@@ -51,9 +51,7 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 	const openBelow = stack.pullRequests.filter(entry => entry.position < stack.position && entry.state === GithubItemStateEnum.Open).length;
 	const canUnstack = pr.hasWritePermission && stack.pullRequests.some(entry => entry.state !== GithubItemStateEnum.Merged);
 
-	const unstack = async (event: React.MouseEvent<HTMLButtonElement>) => {
-		event.preventDefault();
-		event.stopPropagation();
+	const unstack = async () => {
 		try {
 			setBusy(true);
 			setError(undefined);
@@ -77,14 +75,14 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 							: `${stack.size} pull requests in this stack.`}
 					</span>
 				</span>
-				{canUnstack ? <span className="stack-actions">
-					<button className="secondary" type="button" title="Unstack all eligible pull requests"
-						disabled={busy || !!pr.stackMergeStatus} onClick={unstack}>
-						{busy ? 'Unstacking...' : 'Unstack all'}
-					</button>
-				</span> : null}
 				<span className="stack-chevron">{chevronDownIcon}</span>
 			</summary>
+			{canUnstack ? <div className="stack-actions">
+				<button className="secondary" type="button" title="Unstack all eligible pull requests"
+					disabled={busy || !!pr.stackMergeStatus} onClick={unstack}>
+					{busy ? 'Unstacking...' : 'Unstack all'}
+				</button>
+			</div> : null}
 			{error ? <div className="stack-unstack-error" role="alert">Unable to unstack pull requests: {error}</div> : null}
 			<ol className="stack-entries" aria-label={`Pull requests merging down into ${stack.base}`}>
 				{[...stack.pullRequests].reverse().map(entry => {

@@ -1125,12 +1125,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (!stack || !stack.pullRequests.some(pr => pr.state !== GithubItemStateEnum.Merged)) {
 				throw new Error(vscode.l10n.t('No unmerged pull requests are available to unstack.'));
 			}
+			const expectedPullRequests = stack.pullRequests.map(pr => pr.number);
 			const action = vscode.l10n.t('Unstack all');
 			const answer = await vscode.window.showWarningMessage(
 				vscode.l10n.t('Unstack all eligible pull requests?'),
 				{
 					modal: true,
-					detail: vscode.l10n.t('Open, draft, and closed pull requests will be removed from this stack. Their base branches will not change. Merged and queued pull requests will remain in the stack.'),
+					detail: vscode.l10n.t('Eligible open, draft, and closed pull requests will be removed from this stack. Their base branches will not change. Merged, queued, and currently merging pull requests will remain in the stack.'),
 				},
 				action,
 			);
@@ -1138,14 +1139,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._replyMessage(message, { cancelled: true } satisfies UnstackAllResult);
 				return;
 			}
-			const remainingPullRequests = await this._item.githubRepository.unstackAll(this._item.number);
+			const remainingPullRequests = await this._item.githubRepository.unstackAll(this._item.number, expectedPullRequests);
 			await this._replyMessage(message, { cancelled: false, remainingPullRequests } satisfies UnstackAllResult);
 			await PullRequestOverviewPanel.refreshStackPanels(this._identity.owner, this._identity.repo,
 				stack.pullRequests.map(pr => pr.number));
 			if (remainingPullRequests.length === stack.size) {
-				void vscode.window.showInformationMessage(vscode.l10n.t('No pull requests were unstacked. Merged or queued pull requests remain in the stack.'));
+				void vscode.window.showInformationMessage(vscode.l10n.t('No pull requests were unstacked. Merged, queued, or currently merging pull requests remain in the stack.'));
 			} else {
-				void vscode.window.showInformationMessage(vscode.l10n.t('Eligible pull requests unstacked. {0} merged or queued pull requests remain in the stack.', remainingPullRequests.length));
+				void vscode.window.showInformationMessage(vscode.l10n.t('Eligible pull requests unstacked. {0} merged, queued, or currently merging pull requests remain in the stack.', remainingPullRequests.length));
 			}
 		} catch (error) {
 			Logger.error(`Failed to unstack pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);

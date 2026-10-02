@@ -159,9 +159,10 @@ describe('Overview', function () {
 		const section = button.closest('#pull-request-stack');
 		assert(section);
 		assert.strictEqual(section.children[0].tagName, 'SUMMARY');
-		assert.strictEqual(section.children[0], button.parentElement?.parentElement);
-		assert.strictEqual(button.parentElement?.nextElementSibling?.className, 'stack-chevron');
-		assert.strictEqual(fireEvent.click(button), false);
+		assert.strictEqual(button.closest('summary'), null);
+		assert.strictEqual(section.children[1], button.parentElement);
+		assert.strictEqual(section.children[0].lastElementChild?.className, 'stack-chevron');
+		assert.strictEqual(fireEvent.click(button), true);
 		assert(unstackAll.calledOnce);
 		assert(section.hasAttribute('open'));
 
