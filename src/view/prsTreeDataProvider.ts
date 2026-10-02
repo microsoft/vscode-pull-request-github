@@ -266,7 +266,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (approved !== confirmation.action) {
 				return;
 			}
-			await addPullRequestsToStack(ordered);
+			await addPullRequestsToStack(ordered, candidate);
 			this.refreshAll(true);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {

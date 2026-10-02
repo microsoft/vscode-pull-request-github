@@ -5,6 +5,7 @@
 
 import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
+import { StackCandidate } from '../../common/views';
 import { compareIgnoreCase } from '../common/utils';
 
 function sameRepository(first: PullRequestModel, second: PullRequestModel): boolean {
@@ -15,7 +16,8 @@ function sameRepository(first: PullRequestModel, second: PullRequestModel): bool
 
 export function isStackablePullRequest(pullRequest: PullRequestModel): boolean {
 	const { base, head } = pullRequest;
-	if (pullRequest.state !== GithubItemStateEnum.Open || !head || !base || head.ref === base.ref) {
+	if (pullRequest.state !== GithubItemStateEnum.Open || pullRequest.isRemoteHeadDeleted || pullRequest.isRemoteBaseDeleted
+		|| !head || !base || head.ref === base.ref) {
 		return false;
 	}
 	const repository = pullRequest.githubRepository.remote;
@@ -52,7 +54,7 @@ export function orderStackablePullRequests(pullRequests: readonly PullRequestMod
 	return ordered.length === pullRequests.length && !current ? ordered : undefined;
 }
 
-export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[]): Promise<number[]> {
+export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[], confirmedCandidate: StackCandidate): Promise<number[]> {
 	const initial = orderStackablePullRequests(pullRequests);
 	if (!initial) {
 		throw new Error('Select two or more open pull requests whose head and base branches form a chain in the same repository.');
@@ -77,6 +79,10 @@ export async function addPullRequestsToStack(pullRequests: readonly PullRequestM
 	const candidate = await repository.getStackCandidate(bottom.head!.ref);
 	if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
 		throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
+	}
+	if (candidate.parentPullRequestNumber !== confirmedCandidate.parentPullRequestNumber
+		|| candidate.stackNumber !== confirmedCandidate.stackNumber) {
+		throw new Error('The selected pull request stack has changed. Refresh the view and try again.');
 	}
 	for (const pr of ordered.slice(1)) {
 		if (await pr.getStack()) {

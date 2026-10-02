@@ -5,6 +5,7 @@
 
 import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
+import { StackCandidate } from '../../../common/views';
 import { Protocol } from '../../common/protocol';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
@@ -108,17 +109,54 @@ describe('Pull request stack selection', function () {
 		assert.strictEqual(orderStackablePullRequests([bottom, top])?.map(pr => pr.number).join(','), '1,2');
 	});
 
+	for (const flag of ['isRemoteHeadDeleted', 'isRemoteBaseDeleted'] as const) {
+		it(`hides the action when ${flag} is set despite retained ref metadata`, function () {
+			const bottom = pullRequest(1, 'main', 'D1');
+			const top = pullRequest(2, 'D1', 'D2');
+			for (const pr of [bottom, top]) {
+				pr[flag] = true;
+				assert(pr.head && pr.base);
+				assert.strictEqual(isStackablePullRequest(pr), false);
+				assert.strictEqual(orderStackablePullRequests([bottom, top]), undefined);
+				pr[flag] = false;
+			}
+			assert.deepStrictEqual(orderStackablePullRequests([top, bottom]), [bottom, top]);
+		});
+
+		for (const number of [1, 2]) {
+			it(`rejects PR #${number} when ${flag} is set during refresh before writing`, async function () {
+				const bottom = pullRequest(1, 'main', 'D1');
+				const top = pullRequest(2, 'D1', 'D2');
+				sinon.stub(repository, 'getPullRequest').callsFake(async prNumber => {
+					const pr = prNumber === bottom.number ? bottom : top;
+					if (prNumber === number) {
+						pr[flag] = true;
+					}
+					return pr;
+				});
+				const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+				const findCandidate = sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+				const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+
+				await assert.rejects(addPullRequestsToStack([bottom, top], candidate), /branches have changed/);
+				assert(findCandidate.notCalled);
+				assert(add.notCalled);
+			});
+		}
+	}
+
 	it('creates a new stack with selected PRs in branch order after refreshing them', async function () {
 		const bottom = pullRequest(1, 'main', 'D1');
 		const middle = pullRequest(2, 'D1', 'D2');
 		const top = pullRequest(3, 'D2', 'D3');
 		const refresh = sinon.stub(repository, 'getPullRequest').callsFake(async number => [bottom, middle, top].find(pr => pr.number === number));
-		sinon.stub(repository, 'getStackCandidate').resolves({ parentPullRequestNumber: 1, size: 1, url: bottom.html_url });
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
 		sinon.stub(middle, 'getStack').resolves(undefined);
 		sinon.stub(top, 'getStack').resolves(undefined);
 		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
 
-		assert.deepStrictEqual(await addPullRequestsToStack([top, bottom, middle]), [1, 2, 3]);
+		assert.deepStrictEqual(await addPullRequestsToStack([top, bottom, middle], candidate), [1, 2, 3]);
 		assert(refresh.calledThrice);
 		assert(add.calledOnceWithExactly({ parentPullRequestNumber: 1, size: 1, url: bottom.html_url }, [2, 3]));
 	});
@@ -132,9 +170,29 @@ describe('Pull request stack selection', function () {
 		sinon.stub(top, 'getStack').resolves(undefined);
 		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
 
-		assert.deepStrictEqual(await addPullRequestsToStack([top, bottom]), [1, 2]);
+		assert.deepStrictEqual(await addPullRequestsToStack([top, bottom], candidate), [1, 2]);
 		assert(add.calledOnceWithExactly(candidate, [2]));
 	});
+
+	for (const { confirmedStackNumber, currentStackNumber } of [
+		{ confirmedStackNumber: undefined, currentStackNumber: 10 },
+		{ confirmedStackNumber: 10, currentStackNumber: undefined },
+		{ confirmedStackNumber: 10, currentStackNumber: 11 },
+	]) {
+		it(`rejects a stack changing from ${confirmedStackNumber} to ${currentStackNumber} after confirmation`, async function () {
+			const bottom = pullRequest(1, 'main', 'D1');
+			const top = pullRequest(2, 'D1', 'D2');
+			sinon.stub(repository, 'getPullRequest').callsFake(async number => number === bottom.number ? bottom : top);
+			const confirmedCandidate: StackCandidate = {
+				parentPullRequestNumber: bottom.number, stackNumber: confirmedStackNumber, size: 1, url: bottom.html_url,
+			};
+			sinon.stub(repository, 'getStackCandidate').resolves({ ...confirmedCandidate, stackNumber: currentStackNumber });
+			const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+
+			await assert.rejects(addPullRequestsToStack([bottom, top], confirmedCandidate), /stack has changed/);
+			assert(add.notCalled);
+		});
+	}
 
 	it('rejects stale branch chains and PRs already in another stack before writing', async function () {
 		const bottom = pullRequest(1, 'main', 'D1');
@@ -142,18 +200,19 @@ describe('Pull request stack selection', function () {
 		const moved = pullRequest(2, 'other', 'D2');
 		const refresh = sinon.stub(repository, 'getPullRequest').callsFake(async number => number === 1 ? bottom : moved);
 		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
-		await assert.rejects(addPullRequestsToStack([top, bottom]), /branches have changed/);
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		await assert.rejects(addPullRequestsToStack([top, bottom], candidate), /branches have changed/);
 		assert(add.notCalled);
 
 		refresh.callsFake(async number => number === 1 ? bottom : top);
-		sinon.stub(repository, 'getStackCandidate').resolves({ parentPullRequestNumber: 1, size: 1, url: bottom.html_url });
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
 		sinon.stub(top, 'getStack').resolves({
 			position: 1, size: 1, base: 'main', pullRequests: [{
 				position: 1, number: 2, title: top.title, url: top.html_url, head: 'D2',
 				state: GithubItemStateEnum.Open, isDraft: false, mergeable: top.item.mergeable!,
 			}],
 		});
-		await assert.rejects(addPullRequestsToStack([bottom, top]), /already in a stack/);
+		await assert.rejects(addPullRequestsToStack([bottom, top], candidate), /already in a stack/);
 		assert(add.notCalled);
 	});
 
@@ -167,8 +226,9 @@ describe('Pull request stack selection', function () {
 			return number === bottom.number ? bottom : top;
 		});
 		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
 
-		await assert.rejects(addPullRequestsToStack([bottom, top]), /branches have changed/);
+		await assert.rejects(addPullRequestsToStack([bottom, top], candidate), /branches have changed/);
 		assert(add.notCalled);
 	});
 });
