@@ -1998,7 +1998,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		line?: number
 	): Promise<void> {
 		let headUri, baseUri: vscode.Uri;
-		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
+		if ((change instanceof InMemFileChange && change.submoduleChange) || !pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			headUri = toPRUri(
@@ -2009,7 +2009,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				false,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.head : undefined,
 			);
 			baseUri = toPRUri(
 				vscode.Uri.file(resolvePath(folderManager.repository.rootUri, parentFileName)),
@@ -2019,7 +2020,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				true,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.base : undefined,
 			);
 		} else {
 			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
