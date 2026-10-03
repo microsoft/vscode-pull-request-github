@@ -32,12 +32,14 @@ import {
 	ASSIGN_TO,
 	CREATE_BASE_BRANCH,
 	DEFAULT_CREATE_OPTION,
+	EXPERIMENTAL_STACKS,
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
 	PULL_REQUEST_LABELS,
 	PUSH_BRANCH,
 	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
@@ -685,6 +687,21 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	) {
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
 
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (!e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`) || !this._view) {
+				return;
+			}
+			const sequence = ++this._stackCandidateSequence;
+			void this.getStackCandidateForView(
+				{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName }, this.model.baseBranch,
+				{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName }, this.model.compareBranch,
+			).then(stackCandidate => {
+				if (sequence === this._stackCandidateSequence) {
+					return this._postMessage({ command: 'pr.initialize', params: { stackCandidate } });
+				}
+			});
+		}));
+
 		this._register(this.model.onDidChange(async (e) => {
 			const stackCandidateSequence = ++this._stackCandidateSequence;
 			let baseRemote: RemoteInfo | undefined;
@@ -1111,8 +1128,14 @@ Don't forget to commit your template file to the repository so that it can be us
 	}
 
 	protected async getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
+		if (!areStacksEnabled()) {
+			return;
+		}
 		try {
 			const candidate = await this.getStackCandidate(baseRemote, baseBranch, compareRemote, compareBranch);
+			if (!areStacksEnabled()) {
+				return;
+			}
 			if (!candidate || !baseRemote) {
 				return candidate;
 			}
@@ -1539,6 +1562,7 @@ Don't forget to commit your template file to the repository so that it can be us
 				try {
 					let stackCandidate: StackCandidate | undefined;
 					if (message.args.addToStack) {
+						assertStacksEnabled();
 						if (message.args.autoMerge) {
 							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
 						}
@@ -1659,6 +1683,7 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						if (stackCandidate) {
 							try {
+								assertStacksEnabled();
 								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
 							} catch (error) {
 								stackAdditionFailed = true;

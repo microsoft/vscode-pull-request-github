@@ -27,6 +27,7 @@ import { CheckState, GithubItemStateEnum, IAccount, PullRequestMergeability, Pul
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { mockStackSetting } from '../mocks/mockStackSetting';
 import { TimelineEvent } from '../../common/timelineEvent';
 import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
@@ -44,10 +45,12 @@ describe('PullRequestOverview', function () {
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
 	let mockThemeWatcher: MockThemeWatcher;
+	let setStacksEnabled: (enabled: boolean) => void;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 
 		const repository = new MockRepository();
@@ -75,6 +78,25 @@ describe('PullRequestOverview', function () {
 	});
 
 	describe('createOrShow', function () {
+		it('does not load stack membership when stacks are disabled', async function () {
+			setStacksEnabled(false);
+			const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+			const getStack = sinon.stub(model, 'getStack');
+			const postMessage = sinon.spy(PullRequestOverviewPanel.prototype as any, '_postMessage');
+			sinon.stub(pullRequestManager, 'getCurrentUser').resolves(model.author);
+
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
+				{ owner: remote.owner, repo: remote.repositoryName, number: model.number }, model);
+
+			assert(getStack.notCalled);
+			const initialize = postMessage.getCalls().find(call => call.args[0].command === 'pr.initialize'
+				&& call.args[0].pullrequest?.stackLoaded !== undefined);
+			assert(initialize);
+			assert.strictEqual(initialize?.args[0].pullrequest.stackLoaded, true);
+			assert.strictEqual(initialize?.args[0].pullrequest.stack, undefined);
+		});
+
 		it('creates a new panel', async function () {
 			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
@@ -710,63 +732,6 @@ describe('PullRequestOverview', function () {
 				});
 			});
 
-			describe('mergeStack', function () {
-				const stack: PullRequestStack = {
-					position: 2,
-					size: 2,
-					base: 'production',
-					pullRequests: [
-						{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-						{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-					],
-				};
-
-				function createMergeContext() {
-					const item = new PullRequestModel(credentialStore, telemetry, repo, remote,
-						convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
-					sinon.stub(item, 'getStack').resolves(stack);
-					return {
-						item,
-						folderRepositoryManager: pullRequestManager,
-						existingReviewers: [],
-						postMessage: sinon.stub().resolves(),
-						replyMessage: sinon.spy(),
-						throwError: sinon.spy(),
-						getTimeline: sinon.stub().resolves([]),
-					} satisfies ReviewContext;
-				}
-
-				it('uses the stack target branch merge queue and reports enqueue without marking the PR merged', async function () {
-					const ctx = createMergeContext();
-					sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
-					const queue = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves('squash');
-					const merge = sinon.stub(ctx.item, 'mergeStack').resolves('enqueued');
-					const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
-					const message = { req: '1', command: 'pr.merge-stack', args: { method: 'squash' as const } };
-
-					await PullRequestReviewCommon.mergeStack(ctx, message);
-
-					assert(queue.calledOnceWithExactly('production', remote.owner, remote.repositoryName));
-					assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue'));
-					sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'enqueued', state: undefined });
-					assert(information.calledOnce);
-					assert(ctx.throwError.notCalled);
-				});
-
-				it('reports a rejected merge rather than sending a successful response', async function () {
-					const ctx = createMergeContext();
-					sinon.stub(ctx.item, 'mergeStack').rejects(new Error('Required checks failed'));
-					const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
-					const message = { req: '2', command: 'pr.merge-stack', args: { method: 'merge' as const } };
-
-					await PullRequestReviewCommon.mergeStack(ctx, message);
-
-					assert(showError.calledOnce);
-					assert(ctx.replyMessage.notCalled);
-					sinon.assert.calledWithExactly(ctx.throwError, message, 'Required checks failed');
-				});
-			});
-
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
 			const identity = { owner: prModel.remote.owner, repo: prModel.remote.repositoryName, number: prModel.number };
@@ -796,27 +761,132 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
-	describe('unstackAll', function () {
-		async function createPanel() {
-			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
-			const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
-			const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
-			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model);
-			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
-			const stackQuery = sinon.stub(model, 'getStack').resolves({
-				position: 2, size: 2, base: 'main',
-				pullRequests: [
-					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
-					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-				],
-			});
-			const access = sinon.stub(pullRequestManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
-				hasWritePermission: true,
-				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
-				viewerCanAutoMerge: false,
-			});
-			return { panel, model, access, stackQuery };
+	describe('mergeStack', function () {
+		const stack: PullRequestStack = {
+			position: 2,
+			size: 2,
+			base: 'production',
+			pullRequests: [
+				{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		};
+
+		function createMergeContext() {
+			const item = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+			sinon.stub(item, 'getStack').resolves(stack);
+			return {
+				item,
+				folderRepositoryManager: pullRequestManager,
+				existingReviewers: [],
+				postMessage: sinon.stub().resolves(),
+				replyMessage: sinon.spy(),
+				throwError: sinon.spy(),
+				getTimeline: sinon.stub().resolves([]),
+			} satisfies ReviewContext;
 		}
+
+		it('uses the stack target branch merge queue and reports enqueue without marking the PR merged', async function () {
+			const ctx = createMergeContext();
+			sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
+			const queue = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves('squash');
+			const merge = sinon.stub(ctx.item, 'mergeStack').resolves('enqueued');
+			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			const message = { req: '1', command: 'pr.merge-stack', args: { method: 'squash' as const } };
+
+			await PullRequestReviewCommon.mergeStack(ctx, message);
+
+			assert(queue.calledOnceWithExactly('production', remote.owner, remote.repositoryName));
+			assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue'));
+			sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'enqueued', state: undefined });
+			assert(information.calledOnce);
+			assert(ctx.throwError.notCalled);
+		});
+
+		it('reports a rejected merge rather than sending a successful response', async function () {
+			const ctx = createMergeContext();
+			sinon.stub(ctx.item, 'mergeStack').rejects(new Error('Required checks failed'));
+			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const message = { req: '2', command: 'pr.merge-stack', args: { method: 'merge' as const } };
+
+			await PullRequestReviewCommon.mergeStack(ctx, message);
+
+			assert(showError.calledOnce);
+			assert(ctx.replyMessage.notCalled);
+			sinon.assert.calledWithExactly(ctx.throwError, message, 'Required checks failed');
+		});
+
+		it('does not merge a stack when the feature is disabled', async function () {
+			setStacksEnabled(false);
+			const ctx = createMergeContext();
+			const getStack = ctx.item.getStack as ReturnType<SinonSandbox['stub']>;
+			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const message = { req: '3', command: 'pr.merge-stack', args: { method: 'merge' as const } };
+
+			await PullRequestReviewCommon.mergeStack(ctx, message);
+
+			assert(getStack.notCalled);
+			assert(ctx.replyMessage.notCalled);
+			sinon.assert.calledWithExactly(ctx.throwError, message, 'Pull request stack features are disabled.');
+			assert(showError.calledOnce);
+		});
+	});
+
+	async function createPanel() {
+		const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+		const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+		const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
+		await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model);
+		const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+		const stackQuery = sinon.stub(model, 'getStack').resolves({
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+				{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		});
+		const access = sinon.stub(pullRequestManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
+			hasWritePermission: true,
+			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			viewerCanAutoMerge: false,
+		});
+		return { panel, model, access, stackQuery };
+	}
+
+	describe('loadStack', function () {
+		it('marks the stack loaded before posting linked stack details', async function () {
+			const { panel, model, stackQuery } = await createPanel();
+			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+			const onLoaded = sinon.spy();
+			const postMessage = sinon.stub(panel as any, '_postMessage').callsFake(async (message: { pullrequest?: { stackLoaded?: boolean } }) => {
+				if (message.pullrequest?.stackLoaded) {
+					assert(onLoaded.calledOnce);
+				}
+			});
+
+			await (panel as any).loadStack(model, (panel as any)._updateSequence, onLoaded);
+
+			assert(stackQuery.calledOnce);
+			const update = postMessage.getCalls().find(call => call.args[0].pullrequest?.stackLoaded);
+			assert(update);
+			assert.strictEqual(update.args[0].pullrequest.stack.pullRequests.length, 2);
+			assert(update.args[0].pullrequest.stack.pullRequests.every(entry => entry.url.includes('/open-pull-request-webview')));
+		});
+
+		it('ignores results from a stale overview update', async function () {
+			const { panel, model } = await createPanel();
+			const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+			const onLoaded = sinon.spy();
+
+			await (panel as any).loadStack(model, (panel as any)._updateSequence - 1, onLoaded);
+
+			assert(onLoaded.notCalled);
+			assert(postMessage.notCalled);
+		});
+	});
+
+	describe('unstackAll', function () {
 
 		it('confirms unstacking all eligible PRs and reports remaining locked PRs', async function () {
 			const { panel } = await createPanel();
@@ -869,6 +939,21 @@ describe('PullRequestOverview', function () {
 			await (panel as any).unstackAll({ req: '7', command: 'pr.unstack-all', args: undefined });
 
 			assert.match(information.firstCall.args[0], /No pull requests were unstacked.*currently merging pull requests remain/);
+		});
+
+		it('does not unstack when the feature is disabled', async function () {
+			setStacksEnabled(false);
+			const { panel } = await createPanel();
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const throwError = sinon.stub(panel as any, '_throwError').resolves();
+			const message = { req: 'disabled', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert(unstack.notCalled);
+			assert(showError.calledOnce);
+			assert.match(throwError.firstCall.args[1], /stack features are disabled/);
 		});
 
 		it('refreshes other visible PR panels in the unstacked stack', async function () {

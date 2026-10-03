@@ -30,6 +30,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockRepository } from '../mocks/mockRepository';
+import { mockStackSetting } from '../mocks/mockStackSetting';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
@@ -81,10 +82,12 @@ describe('Create pull request stack', function () {
 	let githubRepository: MockGitHubRepository;
 	let provider: TestCreatePullRequestViewProvider;
 	let model: CreatePullRequestDataModel;
+	let setStacksEnabled: (enabled: boolean) => void;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 		const telemetry = new MockTelemetry();
 		credentials = new CredentialStore(telemetry, context);
@@ -110,6 +113,42 @@ describe('Create pull request stack', function () {
 		credentials.dispose();
 		context.dispose();
 		sinon.restore();
+	});
+
+	it('does not look for stack candidates while stacks are disabled', async function () {
+		setStacksEnabled(false);
+		const lookup = sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName');
+
+		const candidate = await provider.getStackCandidateForTest(
+			{ owner: 'github', repositoryName: 'test' }, 'D3',
+			{ owner: 'github', repositoryName: 'test' }, 'D4',
+		);
+
+		assert.strictEqual(candidate, undefined);
+		assert(lookup.notCalled);
+	});
+
+	it('rejects a stale stack selection before creating a pull request when disabled', async function () {
+		setStacksEnabled(false);
+		const cancellation = new vscode.CancellationTokenSource();
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		const create = sinon.stub(folderManager, 'createPullRequest');
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		sinon.stub(provider, '_replyMessage').resolves();
+
+		await provider.createForTest({
+			command: 'pr.create', req: '1',
+			args: {
+				title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
+				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
+				draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
+				addToStack: true, stackParentPullRequest: 795, stackNumber: 12,
+			},
+		});
+
+		assert(create.notCalled);
+		assert.match(throwError.firstCall.args[1], /stack features are disabled/);
+		cancellation.dispose();
 	});
 
 	it('links to the parent PR webview from the stack option', async function () {
