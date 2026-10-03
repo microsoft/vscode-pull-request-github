@@ -796,6 +796,178 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
+	describe('unstackAll', function () {
+		async function createPanel() {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model);
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+			const stackQuery = sinon.stub(model, 'getStack').resolves({
+				position: 2, size: 2, base: 'main',
+				pullRequests: [
+					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			});
+			const access = sinon.stub(pullRequestManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
+				hasWritePermission: true,
+				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+				viewerCanAutoMerge: false,
+			});
+			return { panel, model, access, stackQuery };
+		}
+
+		it('confirms unstacking all eligible PRs and reports remaining locked PRs', async function () {
+			const { panel } = await createPanel();
+			const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll').resolves([999]);
+			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
+			const message = { req: '1', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert.strictEqual((confirm.firstCall.args[1] as vscode.MessageOptions).modal, true);
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Eligible open, draft, and closed pull requests/);
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Merged, queued, and currently merging pull requests will remain/);
+			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
+			sinon.assert.calledWithExactly(reply, message, { cancelled: false, remainingPullRequests: [999] });
+			assert(refresh.calledOnce);
+			assert(information.calledOnce);
+			assert.match(information.firstCall.args[0], /1 merged, queued, or currently merging pull requests remain/);
+			sinon.assert.callOrder(unstack, reply, refresh);
+		});
+
+		it('keeps the confirmed membership when stack data changes while the modal is open', async function () {
+			const { panel, stackQuery } = await createPanel();
+			const stack = await stackQuery();
+			assert(stack);
+			sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, action) => {
+				stack.pullRequests[0].number = 998;
+				return action;
+			});
+			sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll').resolves([999]);
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+
+			await (panel as any).unstackAll({ req: '6', command: 'pr.unstack-all', args: undefined });
+
+			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
+		});
+
+		it('explains that currently merging PRs may remain when nothing is unstacked', async function () {
+			const { panel } = await createPanel();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			sinon.stub(repo, 'unstackAll').resolves([999, 1000]);
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+
+			await (panel as any).unstackAll({ req: '7', command: 'pr.unstack-all', args: undefined });
+
+			assert.match(information.firstCall.args[0], /No pull requests were unstacked.*currently merging pull requests remain/);
+		});
+
+		it('refreshes other visible PR panels in the unstacked stack', async function () {
+			const { panel } = await createPanel();
+			const siblingModel = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(999).build(), repo));
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
+				{ owner: remote.owner, repo: remote.repositoryName, number: 999 }, siblingModel);
+			const sibling = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, 999)!;
+			const refreshSibling = sinon.stub(sibling, 'refreshPanel').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			sinon.stub(repo, 'unstackAll').resolves([]);
+
+			await (panel as any).unstackAll({ req: '5', command: 'pr.unstack-all', args: undefined });
+
+			assert(refreshSibling.calledOnce);
+		});
+
+		it('refreshes the stack entry in other open panels when a PR changes draft state', async function () {
+			const { panel, model } = await createPanel();
+			const siblingModel = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(999).build(), repo));
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
+				{ owner: remote.owner, repo: remote.repositoryName, number: 999 }, siblingModel);
+			const sibling = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, 999)!;
+			const refreshCurrent = sinon.stub(panel, 'refreshPanel').resolves();
+			let finishRefresh: () => void;
+			const refreshedSibling = new Promise<void>(resolve => { finishRefresh = resolve; });
+			const refreshSibling = sinon.stub(sibling, 'refreshPanel').callsFake(async () => finishRefresh());
+
+			(model as any)._onDidChange.fire({ draft: true });
+			await refreshedSibling;
+
+			assert(refreshCurrent.calledOnce);
+			assert(refreshSibling.calledOnce);
+		});
+
+		it('refreshes only the requested open stack panels', async function () {
+			const { panel } = await createPanel();
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
+
+			await PullRequestOverviewPanel.refreshStackPanels(remote.owner, remote.repositoryName, [1000, 999]);
+
+			assert(refresh.calledOnce);
+		});
+
+		it('does not call the Stacks API when confirmation is cancelled', async function () {
+			const { panel } = await createPanel();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+			const message = { req: '2', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert(unstack.notCalled);
+			sinon.assert.calledWithExactly(reply, message, { cancelled: true });
+		});
+
+		it('rejects unstacking without write permission', async function () {
+			const { panel, access } = await createPanel();
+			access.resolves({
+				hasWritePermission: false,
+				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+				viewerCanAutoMerge: false,
+			});
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const reply = sinon.stub(panel as any, '_throwError').resolves();
+			sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const message = { req: '3', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert(unstack.notCalled);
+			assert.match(reply.firstCall.args[1], /do not have permission/);
+		});
+
+		it('does not offer to unstack a stack containing only merged PRs', async function () {
+			const { panel, stackQuery } = await createPanel();
+			stackQuery.resolves({
+				position: 1, size: 1, base: 'main',
+				pullRequests: [{ position: 1, number: 1000, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown }],
+			});
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const reply = sinon.stub(panel as any, '_throwError').resolves();
+			sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+			await (panel as any).unstackAll({ req: '4', command: 'pr.unstack-all', args: undefined });
+
+			assert(warning.notCalled);
+			assert(unstack.notCalled);
+			assert.match(reply.firstCall.args[1], /No unmerged pull requests/);
+		});
+	});
+
 	describe('deleteBranch', function () {
 		it('replies with the deletion state after deletion completes', async function () {
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);

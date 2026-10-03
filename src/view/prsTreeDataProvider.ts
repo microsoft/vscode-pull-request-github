@@ -266,8 +266,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (approved !== confirmation.action) {
 				return;
 			}
-			await addPullRequestsToStack(ordered, candidate);
+			const existingStack = candidate.stackNumber !== undefined ? await bottom.getStack() : undefined;
+			if (candidate.stackNumber !== undefined && !existingStack) {
+				throw new Error(`Unable to load the existing stack for pull request #${bottom.number}. Refresh the view and try again.`);
+			}
+			const added = await addPullRequestsToStack(ordered, candidate);
 			this.refreshAll(true);
+			await PullRequestOverviewPanel.refreshStackPanels(bottom.remote.owner, bottom.remote.repositoryName,
+				[...new Set([...(existingStack?.pullRequests.map(pr => pr.number) ?? []), ...added])]);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {
 			Logger.error(`Failed to add pull requests to stack: ${formatError(error)}`, PullRequestsTreeDataProvider.name);

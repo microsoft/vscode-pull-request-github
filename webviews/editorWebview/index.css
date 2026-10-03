@@ -702,7 +702,13 @@ body button .icon {
 }
 
 .stack-section {
+	position: relative;
 	scroll-margin-top: 64px;
+}
+
+.stack-heading-text {
+	flex: 1;
+	min-width: 0;
 }
 
 .stack-section summary > .icon {
@@ -711,6 +717,10 @@ body button .icon {
 
 .stack-chevron {
 	margin-left: auto;
+}
+
+.stack-section[open].has-actions .stack-heading-text {
+	padding-right: 128px;
 }
 
 .stack-section:not([open]) .stack-chevron {
@@ -807,6 +817,34 @@ body button .icon {
 
 .stack-base .branch-tag {
 	width: fit-content;
+}
+
+.stack-actions {
+	position: absolute;
+	top: 16px;
+	right: 48px;
+}
+
+.stack-section:not([open]) .stack-actions {
+	display: none;
+}
+
+@media (max-width: 480px) {
+	.stack-section[open].has-actions .stack-heading-text {
+		padding-right: 0;
+	}
+
+	.stack-actions {
+		position: static;
+		display: flex;
+		justify-content: flex-end;
+		padding: 0 16px 8px;
+	}
+}
+
+.stack-unstack-error {
+	padding: 8px 16px 0;
+	color: var(--vscode-errorForeground);
 }
 
 .subtitle .avatar,

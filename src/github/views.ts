@@ -189,6 +189,11 @@ export interface StackMergeResult {
 	state?: GithubItemStateEnum;
 }
 
+export interface UnstackAllResult {
+	cancelled: boolean;
+	remainingPullRequests?: number[];
+}
+
 export interface DeleteReviewResult {
 	deletedReviewId: number;
 	deletedReviewComments: IComment[];
