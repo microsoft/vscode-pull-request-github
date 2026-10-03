@@ -16,6 +16,7 @@ export namespace contexts {
 	export const LOADING_ISSUES_TREE = 'github:loadingIssuesTree';
 	export const HAS_ENTERPRISE_URIS = 'github:hasEnterpriseUris';
 	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
+	export const CAN_ADD_TO_STACK = 'github:canAddToStack';
 	export const RESOLVING_CONFLICTS = 'github:resolvingConflicts';
 	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible'; // Boolean indicating if the pull request description is visible
 	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion'; // Boolean indicating if the active comment has a suggestion

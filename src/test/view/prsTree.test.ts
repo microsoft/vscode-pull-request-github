@@ -123,6 +123,13 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(rootNodes.length, 0);
 	});
 
+	it('allows selecting multiple pull requests to create a stack', function () {
+		const tree = createTreeView.getCalls().find(call => call.args[0] === 'pr:github');
+		assert(tree);
+		const options = tree.args[1] as { canSelectMany?: boolean };
+		assert.strictEqual(options.canSelectMany, true);
+	});
+
 	it('has no children when no GitHub remotes are available', async function () {
 		sinon
 			.stub(vscode.workspace, 'workspaceFolders')
