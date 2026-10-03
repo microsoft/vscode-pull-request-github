@@ -542,7 +542,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 		return <div />;
 	} else {
 		return (
-			<div className="branch-status-container">
+			<div className={`branch-status-container${pr.stack ? ' stacked-delete-branch-container' : ''}`}>
 				<form
 					onSubmit={async event => {
 						event.preventDefault();
