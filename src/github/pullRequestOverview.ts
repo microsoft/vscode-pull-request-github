@@ -29,7 +29,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -181,6 +181,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.findPanel(owner, repo, number) as PullRequestOverviewPanel | undefined;
 	}
 
+	public static async refreshStackPanels(owner: string, repo: string, numbers: readonly number[]): Promise<void> {
+		const panels = numbers
+			.map(number => this.findPanel(owner, repo, number))
+			.filter((panel): panel is PullRequestOverviewPanel => !!panel);
+		await Promise.all(panels.map(panel => panel.refreshPanel()));
+	}
+
 	/**
 	 * Register the webview context-menu commands once globally,
 	 * rather than per panel instance.  Each command receives the
@@ -266,7 +273,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChange(e => {
-				if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
+				if (e.draft) {
+					const item = this._item;
+					void this.refreshPanel();
+					void item.getStack().then(stack => {
+						if (stack) {
+							return PullRequestOverviewPanel.refreshStackPanels(item.remote.owner, item.remote.repositoryName,
+								stack.pullRequests.filter(entry => entry.number !== item.number).map(entry => entry.number));
+						}
+					}).catch(error => {
+						Logger.error(`Failed to refresh pull request stack after draft change: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+						void vscode.window.showErrorMessage(vscode.l10n.t('Unable to refresh pull request stack: {0}', formatError(error)));
+					});
+				} else if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
 					this.refreshPanel();
 				}
 			}));
@@ -750,6 +769,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.mergePullRequest(message);
 			case 'pr.merge-stack':
 				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
+			case 'pr.unstack-all':
+				return this.unstackAll(message);
 			case 'pr.change-email':
 				return this.changeEmail(message);
 			case 'pr.deleteBranch':
@@ -1092,6 +1113,46 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 			},
 		);
+	}
+
+	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {
+		try {
+			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
+			if (!access.hasWritePermission) {
+				throw new Error(vscode.l10n.t('You do not have permission to unstack these pull requests.'));
+			}
+			const stack = await this._item.getStack();
+			if (!stack || !stack.pullRequests.some(pr => pr.state !== GithubItemStateEnum.Merged)) {
+				throw new Error(vscode.l10n.t('No unmerged pull requests are available to unstack.'));
+			}
+			const expectedPullRequests = stack.pullRequests.map(pr => pr.number);
+			const action = vscode.l10n.t('Unstack all');
+			const answer = await vscode.window.showWarningMessage(
+				vscode.l10n.t('Unstack all eligible pull requests?'),
+				{
+					modal: true,
+					detail: vscode.l10n.t('Eligible open, draft, and closed pull requests will be removed from this stack. Their base branches will not change. Merged, queued, and currently merging pull requests will remain in the stack.'),
+				},
+				action,
+			);
+			if (answer !== action) {
+				await this._replyMessage(message, { cancelled: true } satisfies UnstackAllResult);
+				return;
+			}
+			const remainingPullRequests = await this._item.githubRepository.unstackAll(this._item.number, expectedPullRequests);
+			await this._replyMessage(message, { cancelled: false, remainingPullRequests } satisfies UnstackAllResult);
+			await PullRequestOverviewPanel.refreshStackPanels(this._identity.owner, this._identity.repo,
+				stack.pullRequests.map(pr => pr.number));
+			if (remainingPullRequests.length === stack.size) {
+				void vscode.window.showInformationMessage(vscode.l10n.t('No pull requests were unstacked. Merged, queued, or currently merging pull requests remain in the stack.'));
+			} else {
+				void vscode.window.showInformationMessage(vscode.l10n.t('Eligible pull requests unstacked. {0} merged, queued, or currently merging pull requests remain in the stack.', remainingPullRequests.length));
+			}
+		} catch (error) {
+			Logger.error(`Failed to unstack pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to unstack pull requests: {0}', formatError(error)));
+			await this._throwError(message, formatError(error));
+		}
 	}
 
 	private async mergePullRequest(
