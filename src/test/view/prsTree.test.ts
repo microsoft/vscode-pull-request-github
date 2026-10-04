@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SinonSandbox, SinonSpy, createSandbox } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
@@ -55,7 +55,8 @@ describe('GitHub Pull Requests view', function () {
 	let mockNotificationsManager: MockNotificationManager;
 	let prsTreeModel: PrsTreeModel;
 	let discoveredRepository: MockGitHubRepository | undefined;
-	let createTreeView: SinonSpy;
+	let createTreeView: SinonStub;
+	let executeCommand: SinonStub;
 	let setStacksEnabled: (enabled: boolean) => void;
 
 	beforeEach(function () {
@@ -63,7 +64,7 @@ describe('GitHub Pull Requests view', function () {
 		discoveredRepository = undefined;
 		MockCommandRegistry.install(sinon);
 		setStacksEnabled = mockStackSetting(sinon);
-		createTreeView = mockTreeViewWorkbench(sinon);
+		({ createTreeView, executeCommand } = mockTreeViewWorkbench(sinon));
 		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
@@ -202,7 +203,6 @@ describe('GitHub Pull Requests view', function () {
 			stackablePullRequest(discoveredRepository, 2, 'D1', 'D2'),
 		].map(model => Object.assign(Object.create(PRNode.prototype), { pullRequestModel: model }) as PRNode);
 		sinon.stub(provider.view, 'selection').get(() => selected);
-		const executeCommand = sinon.spy(vscode.commands, 'executeCommand');
 		const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length;
 		const event = {
 			affectsConfiguration: (section: string) => section === 'githubPullRequests.experimental.stacks',
@@ -221,7 +221,6 @@ describe('GitHub Pull Requests view', function () {
 	it('does not offer or execute Add to Stack when stacks are disabled', async function () {
 		setStacksEnabled(false);
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
-		const executeCommand = vscode.commands.executeCommand as SinonSpy;
 
 		(provider as any).updateCanAddToStack();
 		await (provider as any).addSelectedPullRequestsToStack(undefined, undefined);
