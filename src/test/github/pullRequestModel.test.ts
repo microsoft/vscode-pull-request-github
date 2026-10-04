@@ -467,6 +467,24 @@ describe('PullRequestModel', function () {
 			await repo.addPullRequestToStack(candidate, 796);
 		});
 
+		it('creates a stack from multiple existing pull requests in branch order', async function () {
+			const candidate = { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' };
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks', {
+				owner: 'github', repo: 'test', headers: listParams.headers, pull_requests: [795, 796, 797],
+			}], {});
+
+			await repo.addPullRequestsToStack(candidate, [796, 797]);
+		});
+
+		it('extends a stack with multiple existing pull requests in branch order', async function () {
+			const candidate = { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795' };
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+				owner: 'github', repo: 'test', headers: listParams.headers, stack_number: 12, pull_requests: [796, 797],
+			}], {});
+
+			await repo.addPullRequestsToStack(candidate, [796, 797]);
+		});
+
 		it('finds the parent from its GraphQL head branch before offering a stack', async function () {
 			const parent = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
 			parent.number = 795;

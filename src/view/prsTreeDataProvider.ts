@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
 import { PrsTreeModel } from './prsTreeModel';
 import { ReviewModel } from './reviewModel';
+import { StackCandidate } from '../../common/views';
 import { getEnterpriseUris } from '../authentication/configuration';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -24,6 +25,7 @@ import { PRType } from '../github/interface';
 import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
+import { addPullRequestsToStack, orderStackablePullRequests } from '../github/pullRequestStack';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -68,6 +70,20 @@ function enterpriseSettingsMessage(text: string | undefined, actions: { github: 
 		message.appendMarkdown(`\n[${vscode.l10n.t('Configure GitHub Enterprise')}](command:workbench.action.openSettings?${settingsQuery})`);
 	}
 	return message;
+}
+
+export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate): { message: string; detail: string; action: string } {
+	const existing = candidate.stackNumber !== undefined;
+	const additions = ordered.slice(1);
+	const message = existing
+		? additions.length === 1
+			? vscode.l10n.t('Add 1 pull request to an existing stack?')
+			: vscode.l10n.t('Add {0} pull requests to an existing stack?', additions.length)
+		: vscode.l10n.t('Create a stack with {0} pull requests?', ordered.length);
+	const detail = existing
+		? vscode.l10n.t('Adding {0}\nto #{1}', [additions.map(pr => `#${pr.number} ${pr.title}`).join('\n'), `${ordered[0].number} ${ordered[0].title}`])
+		: ordered.map(pr => `#${pr.number} ${pr.title}`).join('\n');
+	return { message, detail, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
 }
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
@@ -115,6 +131,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+			canSelectMany: true,
 			manageCheckboxStateManually: true
 		}));
 		this._loginView = this._register(vscode.window.createTreeView('github:login', {
@@ -127,6 +144,17 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				},
 			},
 		}));
+
+		void commands.setContext(contexts.CAN_ADD_TO_STACK, false);
+		this._register(this._view.onDidChangeSelection(e => {
+			const selectedPRs = e.selection.filter((node): node is PRNode => node instanceof PRNode);
+			const stackable = selectedPRs.length === e.selection.length
+				&& !!orderStackablePullRequests(selectedPRs.map(node => node.pullRequestModel));
+			void commands.setContext(contexts.CAN_ADD_TO_STACK, stackable);
+		}));
+		this._register({ dispose: () => { void commands.setContext(contexts.CAN_ADD_TO_STACK, false); } });
+		this._register(vscode.commands.registerCommand('pr.addToStack',
+			(clicked: PRNode, selected: TreeNode[]) => this.addSelectedPullRequestsToStack(clicked, selected)));
 
 		this._register(this._view.onDidChangeVisibility(e => {
 			if (e.visible) {
@@ -211,6 +239,40 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+	}
+
+	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
+		const selection = selected ?? this._view.selection;
+		if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
+			|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
+			void vscode.window.showErrorMessage(vscode.l10n.t('Select at least two pull requests in the Pull Requests view to add them to a stack.'));
+			return;
+		}
+		const ordered = orderStackablePullRequests(selection.map(node => (node as PRNode).pullRequestModel));
+		if (!ordered) {
+			void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
+			return;
+		}
+		try {
+			const bottom = ordered[0];
+			const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
+			if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
+				throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
+			}
+			const confirmation = getAddToStackConfirmation(ordered, candidate);
+			const approved = await vscode.window.showInformationMessage(
+				confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action,
+			);
+			if (approved !== confirmation.action) {
+				return;
+			}
+			await addPullRequestsToStack(ordered, candidate);
+			this.refreshAll(true);
+			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
+		} catch (error) {
+			Logger.error(`Failed to add pull requests to stack: ${formatError(error)}`, PullRequestsTreeDataProvider.name);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to add pull requests to stack: {0}', formatError(error)));
+		}
 	}
 
 	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {
