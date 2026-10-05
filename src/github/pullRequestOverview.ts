@@ -37,7 +37,8 @@ import { commands, contexts } from '../common/executeCommands';
 import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -255,6 +256,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 
 		this.registerPrListeners();
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
+				void this.refreshPanel();
+			}
+		}));
 
 		this.setVisibilityContext();
 	}
@@ -276,15 +282,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				if (e.draft) {
 					const item = this._item;
 					void this.refreshPanel();
-					void item.getStack().then(stack => {
-						if (stack) {
-							return PullRequestOverviewPanel.refreshStackPanels(item.remote.owner, item.remote.repositoryName,
-								stack.pullRequests.filter(entry => entry.number !== item.number).map(entry => entry.number));
-						}
-					}).catch(error => {
-						Logger.error(`Failed to refresh pull request stack after draft change: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-						void vscode.window.showErrorMessage(vscode.l10n.t('Unable to refresh pull request stack: {0}', formatError(error)));
-					});
+					if (areStacksEnabled()) {
+						void item.getStack().then(stack => {
+							if (stack) {
+								return PullRequestOverviewPanel.refreshStackPanels(item.remote.owner, item.remote.repositoryName,
+									stack.pullRequests.filter(entry => entry.number !== item.number).map(entry => entry.number));
+							}
+						}).catch(error => {
+							Logger.error(`Failed to refresh pull request stack after draft change: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+							void vscode.window.showErrorMessage(vscode.l10n.t('Unable to refresh pull request stack: {0}', formatError(error)));
+						});
+					}
 				} else if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
 					this.refreshPanel();
 				}
@@ -519,7 +527,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isCopilotOnMyBehalf: false,
 				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
 				stack: undefined,
-				stackLoaded: false,
+				stackLoaded: !areStacksEnabled(),
 				stackLoadError: false,
 				stackMergeStatus: undefined,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
@@ -618,39 +626,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}, error => {
 				Logger.error(`Failed to update deferred pull request data: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
-			void pullRequestModel.getStack().then(async stack => {
-				if (updateSequence !== this._updateSequence) {
-					return;
-				}
-				const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequest.remote.owner, pullRequest.remote.repositoryName) : undefined;
-				const linkedStack = stack && {
-					...stack,
-					pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
-						...entry,
-						url: (await toOpenPullRequestWebviewUri({
-							owner: pullRequest.remote.owner,
-							repo: pullRequest.remote.repositoryName,
-							pullRequestNumber: entry.number,
-						})).toString(),
-					}))),
-				};
-				if (updateSequence === this._updateSequence) {
-					stackLoaded = true;
-					await this._postMessage({
-						command: 'pr.update',
-						pullrequest: {
-							stack: linkedStack,
-							stackLoaded: true,
-							...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
-						} satisfies Partial<PullRequest>,
-					});
-				}
-			}).catch(error => {
-				Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-				if (updateSequence === this._updateSequence) {
-					void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
-				}
-			});
+			if (areStacksEnabled()) {
+				void this.loadStack(pullRequestModel, updateSequence, () => { stackLoaded = true; });
+			}
 			const timelineStart = performance.now();
 			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
 				const events = latestTimelineEvents ?? [];
@@ -677,6 +655,43 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+		}
+	}
+
+	private async loadStack(pullRequestModel: PullRequestModel, updateSequence: number, onLoaded: () => void): Promise<void> {
+		try {
+			const stack = await pullRequestModel.getStack();
+			if (updateSequence !== this._updateSequence || !areStacksEnabled()) {
+				return;
+			}
+			const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName) : undefined;
+			const linkedStack = stack && {
+				...stack,
+				pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
+					...entry,
+					url: (await toOpenPullRequestWebviewUri({
+						owner: pullRequestModel.remote.owner,
+						repo: pullRequestModel.remote.repositoryName,
+						pullRequestNumber: entry.number,
+					})).toString(),
+				}))),
+			};
+			if (updateSequence === this._updateSequence && areStacksEnabled()) {
+				onLoaded();
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						stack: linkedStack,
+						stackLoaded: true,
+						...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+					} satisfies Partial<PullRequest>,
+				});
+			}
+		} catch (error) {
+			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			if (updateSequence === this._updateSequence && areStacksEnabled()) {
+				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+			}
 		}
 	}
 
@@ -1117,6 +1132,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {
 		try {
+			assertStacksEnabled();
 			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
 			if (!access.hasWritePermission) {
 				throw new Error(vscode.l10n.t('You do not have permission to unstack these pull requests.'));

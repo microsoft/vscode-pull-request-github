@@ -14,7 +14,8 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES, URI, URIS } from '../common/settingKeys';
+import { EXPERIMENTAL_STACKS, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES, URI, URIS } from '../common/settingKeys';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -131,7 +132,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
-			canSelectMany: true,
+			canSelectMany: areStacksEnabled(),
 			manageCheckboxStateManually: true
 		}));
 		this._loginView = this._register(vscode.window.createTreeView('github:login', {
@@ -146,11 +147,11 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		void commands.setContext(contexts.CAN_ADD_TO_STACK, false);
-		this._register(this._view.onDidChangeSelection(e => {
-			const selectedPRs = e.selection.filter((node): node is PRNode => node instanceof PRNode);
-			const stackable = selectedPRs.length === e.selection.length
-				&& !!orderStackablePullRequests(selectedPRs.map(node => node.pullRequestModel));
-			void commands.setContext(contexts.CAN_ADD_TO_STACK, stackable);
+		this._register(this._view.onDidChangeSelection(() => this.updateCanAddToStack()));
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
+				this.updateCanAddToStack();
+			}
 		}));
 		this._register({ dispose: () => { void commands.setContext(contexts.CAN_ADD_TO_STACK, false); } });
 		this._register(vscode.commands.registerCommand('pr.addToStack',
@@ -242,18 +243,19 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 
 	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
-		const selection = selected ?? this._view.selection;
-		if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
-			|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
-			void vscode.window.showErrorMessage(vscode.l10n.t('Select at least two pull requests in the Pull Requests view to add them to a stack.'));
-			return;
-		}
-		const ordered = orderStackablePullRequests(selection.map(node => (node as PRNode).pullRequestModel));
-		if (!ordered) {
-			void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
-			return;
-		}
 		try {
+			assertStacksEnabled();
+			const selection = selected ?? this._view.selection;
+			if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
+				|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
+				void vscode.window.showErrorMessage(vscode.l10n.t('Select at least two pull requests in the Pull Requests view to add them to a stack.'));
+				return;
+			}
+			const ordered = orderStackablePullRequests(selection.map(node => (node as PRNode).pullRequestModel));
+			if (!ordered) {
+				void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
+				return;
+			}
 			const bottom = ordered[0];
 			const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
 			if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
@@ -279,6 +281,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			Logger.error(`Failed to add pull requests to stack: ${formatError(error)}`, PullRequestsTreeDataProvider.name);
 			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to add pull requests to stack: {0}', formatError(error)));
 		}
+	}
+
+	private updateCanAddToStack(): void {
+		const selection = this._view.selection;
+		const selectedPRs = selection.filter((node): node is PRNode => node instanceof PRNode);
+		const stackable = areStacksEnabled() && selectedPRs.length === selection.length
+			&& !!orderStackablePullRequests(selectedPRs.map(node => node.pullRequestModel));
+		void commands.setContext(contexts.CAN_ADD_TO_STACK, stackable);
 	}
 
 	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {

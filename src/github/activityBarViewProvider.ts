@@ -17,7 +17,8 @@ import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { areStacksEnabled } from '../common/settingsUtils';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -36,6 +37,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		private _item: PullRequestModel,
 	) {
 		super(extensionUri);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
+				void this.updatePullRequest(this._item);
+			}
+		}));
 
 		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
 			return this.readyForReviewCommand();
@@ -303,7 +309,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				defaultMergeMethod,
 				mergeQueueMethod,
 				stack: undefined,
-				stackLoaded: false,
+				stackLoaded: !areStacksEnabled(),
 				stackLoadError: false,
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch,
@@ -323,27 +329,29 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				command: 'pr.initialize',
 				pullrequest: context,
 			});
-			void pullRequest.getStack().then(async stack => {
-				if (!this._item.equals(pullRequest)) {
-					return;
-				}
-				const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequest.remote.owner, pullRequest.remote.repositoryName) : undefined;
-				if (this._item.equals(pullRequest)) {
-					this._postMessage({
-						command: 'pr.update',
-						pullrequest: {
-							stack,
-							stackLoaded: true,
-							...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
-						} satisfies Partial<PullRequest>,
-					});
-				}
-			}).catch(error => {
-				Logger.error(`Failed to load active pull request stack: ${formatError(error)}`, PullRequestViewProvider.name);
-				if (this._item.equals(pullRequest)) {
-					this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
-				}
-			});
+			if (areStacksEnabled()) {
+				void pullRequest.getStack().then(async stack => {
+					if (!this._item.equals(pullRequest) || !areStacksEnabled()) {
+						return;
+					}
+					const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequest.remote.owner, pullRequest.remote.repositoryName) : undefined;
+					if (this._item.equals(pullRequest) && areStacksEnabled()) {
+						this._postMessage({
+							command: 'pr.update',
+							pullrequest: {
+								stack,
+								stackLoaded: true,
+								...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+							} satisfies Partial<PullRequest>,
+						});
+					}
+				}).catch(error => {
+					Logger.error(`Failed to load active pull request stack: ${formatError(error)}`, PullRequestViewProvider.name);
+					if (this._item.equals(pullRequest) && areStacksEnabled()) {
+						this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+					}
+				});
+			}
 
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);

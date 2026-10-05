@@ -7,13 +7,14 @@ import { default as assert } from 'assert';
 import { SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 
-export function mockTreeViewWorkbench(sinon: SinonSandbox): SinonStub {
-	sinon.stub(vscode.commands, 'executeCommand').callsFake(async command => {
+/** Reuse the returned stubs instead of wrapping the VS Code APIs again. */
+export function mockTreeViewWorkbench(sinon: SinonSandbox): { createTreeView: SinonStub; executeCommand: SinonStub } {
+	const executeCommand = sinon.stub(vscode.commands, 'executeCommand').callsFake(async command => {
 		assert.strictEqual(command, 'setContext', 'Tree fixtures must not execute workbench commands');
 		return undefined;
 	});
 	const noEvent: vscode.Event<never> = () => new vscode.Disposable(() => { });
-	return sinon.stub(vscode.window, 'createTreeView').callsFake(<T>(): vscode.TreeView<T> => ({
+	const createTreeView = sinon.stub(vscode.window, 'createTreeView').callsFake(<T>(): vscode.TreeView<T> => ({
 		onDidExpandElement: noEvent,
 		onDidCollapseElement: noEvent,
 		onDidChangeSelection: noEvent,
@@ -24,4 +25,5 @@ export function mockTreeViewWorkbench(sinon: SinonSandbox): SinonStub {
 		reveal: async () => { },
 		dispose: () => { },
 	}));
+	return { createTreeView, executeCommand };
 }
