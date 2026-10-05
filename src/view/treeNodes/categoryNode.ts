@@ -74,8 +74,8 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 			case PRCategoryActionType.LoginEnterprise:
 				this.label = vscode.l10n.t('Sign in with GitHub Enterprise...');
 				this.command = {
-					title: 'Sign in',
-					command: 'pr.signinAndRefreshList',
+					title: vscode.l10n.t('Sign in'),
+					command: 'pr.signinenterprise',
 					arguments: [],
 				};
 				break;

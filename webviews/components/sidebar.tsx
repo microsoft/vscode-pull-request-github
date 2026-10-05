@@ -53,6 +53,26 @@ function Section({
 	);
 }
 
+const collapsedPullRequestSections = 'Reviewers, Assignees, Labels, Project, and Milestone';
+
+export function SidebarPreview({ isSingleColumnLayout }: { isSingleColumnLayout: boolean }) {
+	if (isSingleColumnLayout) {
+		return <div className="collapsible-sidebar overview-preview-sidebar" aria-hidden="true">
+			<div className="collapsible-sidebar-header">
+				<span className="collapsible-sidebar-title"><span className="collapsed-label">{collapsedPullRequestSections}</span></span>
+			</div>
+			<span className="collapsible-label-see-more"><span className="overview-placeholder" /></span>
+		</div>;
+	}
+	return <div id="sidebar" className="overview-preview-sidebar" aria-hidden="true">
+		{['Reviewers', 'Assignees', 'Labels', 'Project', 'Milestone'].map(title => (
+			<Section key={title} id={`preview-${title.toLowerCase()}`} title={title} hasWritePermission={false}>
+				<div className="section-placeholder"><span className="overview-placeholder" /></div>
+			</Section>
+		))}
+	</div>;
+}
+
 export default function Sidebar({ reviewers, labels, closingIssues = [], hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot, canRequestCopilotReview }: PullRequest) {
 	const {
 		addReviewers,
@@ -470,7 +490,7 @@ function CollapsedLabel(props: PullRequest) {
 	}
 
 	if (!sections.length) {
-		return <span className="collapsed-label">{isIssue ? 'Assignees, Labels, Project, and Milestone' : 'Reviewers, Assignees, Labels, Project, and Milestone'}</span>;
+		return <span className="collapsed-label">{isIssue ? 'Assignees, Labels, Project, and Milestone' : collapsedPullRequestSections}</span>;
 	}
 
 	return (
@@ -601,4 +621,3 @@ function IssueItem({ issue }: { issue: IssueReference }) {
 		</a>
 	);
 }
-

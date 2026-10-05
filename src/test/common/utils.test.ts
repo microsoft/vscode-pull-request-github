@@ -9,6 +9,15 @@ import { EventEmitter } from 'vscode';
 import * as timers from 'timers';
 
 describe('utils', () => {
+	describe('isObject', () => {
+		it('accepts non-null objects and rejects primitives', () => {
+			assert.strictEqual(utils.isObject({ status: 409 }), true);
+			assert.strictEqual(utils.isObject([]), true);
+			assert.strictEqual(utils.isObject(null), false);
+			assert.strictEqual(utils.isObject('text'), false);
+		});
+	});
+
 	class HookError extends Error {
 		public errors: any[];
 

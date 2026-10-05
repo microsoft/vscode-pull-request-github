@@ -6,10 +6,10 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
+import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
 import Logger from '../common/logger';
 import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
@@ -35,6 +35,40 @@ export interface ReviewContext {
  * These are shared between PullRequestOverviewPanel and PullRequestViewProvider.
  */
 export namespace PullRequestReviewCommon {
+	export async function mergeStack(ctx: ReviewContext, message: IRequestMessage<{ method: MergeMethod }>): Promise<void> {
+		try {
+			const { item, folderRepositoryManager } = ctx;
+			const stack = await item.getStack();
+			if (!stack) {
+				throw new Error(vscode.l10n.t('This pull request is no longer part of a stack. Refresh and try again.'));
+			}
+			const queueMethod = await folderRepositoryManager.mergeQueueMethodForBranch(stack.base, item.remote.owner, item.remote.repositoryName);
+			const status = await item.mergeStack(folderRepositoryManager.repository, stack, message.args.method, queueMethod ? 'merge_queue' : 'direct_merge');
+			const result: StackMergeResult = {
+				status,
+				state: status === 'merged' ? GithubItemStateEnum.Merged : undefined,
+			};
+			ctx.replyMessage(message, result);
+
+			if (status === 'pending') {
+				void vscode.window.showInformationMessage(vscode.l10n.t('The stack merge is still processing on GitHub. Refresh the pull request to check its status.'));
+			} else if (status === 'enqueued') {
+				void vscode.window.showInformationMessage(vscode.l10n.t('The pull request stack has been added to the merge queue.'));
+			}
+			if (status === 'merged' || status === 'enqueued') {
+				void item.githubRepository.getPullRequest(item.number, 'mergeStack').then(refreshed => {
+					if (!refreshed) {
+						Logger.error(`Unable to refresh pull request #${item.number} after stack merge`, 'PullRequestReviewCommon');
+					}
+				}, error => Logger.error(`Unable to refresh stack merge: ${formatError(error)}`, 'PullRequestReviewCommon'));
+			}
+		} catch (error) {
+			Logger.error(`Failed to merge pull request stack: ${formatError(error)}`, 'PullRequestReviewCommon');
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request stack: {0}', formatError(error)));
+			ctx.throwError(message, formatError(error));
+		}
+	}
+
 	/**
 	 * Find currently configured user's review status for the current PR
 	 */

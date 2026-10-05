@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox, match as sinonMatch } from 'sinon';
 
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -23,12 +23,15 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, PullRequestMergeability, PullRequestStack } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { TimelineEvent } from '../../common/timelineEvent';
-import { PullRequestReviewCommon } from '../../github/pullRequestReviewCommon';
+import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
+import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
+import Logger from '../../common/logger';
+import { PullRequest, PullRequestPreview } from '../../github/views';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -316,6 +319,386 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
+	describe('deferred assignable users', function () {
+		let prModel: PullRequestModel;
+		let webviewPanel: vscode.WebviewPanel;
+		let messages: { command: string; pullrequest?: Partial<PullRequest> }[];
+		let onDidReceiveMessage: vscode.EventEmitter<{ command: string; args?: { url: string } }>;
+		let onDidChangeViewState: vscode.EventEmitter<vscode.WebviewPanelOnDidChangeViewStateEvent>;
+		let pollInterval: number;
+		let resolveUsers: (users: { [key: string]: IAccount[] }) => void;
+		let rejectUsers: (error: Error) => void;
+		let usersPromise: Promise<{ [key: string]: IAccount[] }>;
+		let getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
+		let getReviewRequests: SinonStub<[], ReturnType<PullRequestModel['getReviewRequests']>>;
+		let getPreview: SinonStub<[number], Promise<PullRequestPreview>>;
+		const preview: PullRequestPreview = {
+			number: 1000, title: 'Preview title', titleHTML: 'Preview title',
+			body: 'Preview description', bodyHTML: '<p>Preview description</p>', url: 'https://github.com/aaa/bbb/pull/1000',
+			author: COPILOT_REVIEWER_ACCOUNT, createdAt: '2026-10-01T10:00:00Z',
+			state: GithubItemStateEnum.Open, isDraft: false, base: 'aaa/bbb:main', head: 'aaa/bbb:feature',
+		};
+
+		beforeEach(function () {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			sinon.stub(pullRequestManager, 'createGitHubRepositoryFromOwnerName').resolves(repo);
+			getPreview = sinon.stub(repo, 'getPullRequestPreview').resolves(preview);
+			sinon.stub(pullRequestManager, 'getCurrentUser').resolves(prModel.author);
+			sinon.stub(prModel, 'canEdit').resolves(true);
+			getReviewRequests = sinon.stub(prModel, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel, 'validateDraftMode').resolves(false);
+			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			sinon.stub(prModel, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
+			sinon.stub(pullRequestManager, 'getBranchNameForPullRequest').resolves(undefined);
+			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+			sinon.stub(pullRequestManager, 'isHeadUpToDateWithBase').resolves(true);
+			sinon.stub(pullRequestManager, 'getPreferredEmail').resolves(undefined);
+			sinon.stub(pullRequestManager, 'checkBranchUpToDate').resolves();
+			usersPromise = new Promise((resolve, reject) => {
+				resolveUsers = resolve;
+				rejectUsers = reject;
+			});
+			getAssignableUsers = sinon.stub(pullRequestManager, 'getAssignableUsers').returns(usersPromise);
+
+			messages = [];
+			webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, '#1000', vscode.ViewColumn.One, {});
+			onDidReceiveMessage = new vscode.EventEmitter();
+			onDidChangeViewState = new vscode.EventEmitter();
+			pollInterval = 1000 * (vscode.workspace.getConfiguration().get<number>('githubPullRequests.webviewRefreshInterval') || 60);
+			context.subscriptions.push(webviewPanel, onDidReceiveMessage, onDidChangeViewState);
+			sinon.stub(webviewPanel.webview, 'onDidReceiveMessage').callsFake(onDidReceiveMessage.event);
+			sinon.stub(webviewPanel, 'onDidChangeViewState').callsFake(onDidChangeViewState.event);
+			sinon.stub(webviewPanel.webview, 'postMessage').callsFake(async message => {
+				messages.push(message.res);
+				return true;
+			});
+		});
+
+		async function openPanel(model: PullRequestModel | Promise<PullRequestModel> = prModel): Promise<void> {
+			const identity = { owner: remote.owner, repo: remote.repositoryName, number: prModel.number };
+			const opening = PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model, false, true, webviewPanel);
+			onDidReceiveMessage.fire({ command: 'ready' });
+			await opening;
+			await new Promise(resolve => setImmediate(resolve));
+		}
+
+		afterEach(async function () {
+			resolveUsers({});
+			await new Promise(resolve => setImmediate(resolve));
+		});
+
+		it('shows the title and description while the full PR is still pending', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const opening = openPanel(new Promise<PullRequestModel>(resolve => resolveModel = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				assert.deepStrictEqual(messages.find(message => message.command === 'pr.preview')?.pullrequest, preview);
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+				sinon.assert.notCalled(getAssignableUsers);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('does not fetch a preview for an already available PR model', async function () {
+			await openPanel();
+			sinon.assert.notCalled(getPreview);
+		});
+
+		for (const previewHasStarted of [false, true]) {
+			it(`shows a preview during slow initialization when the model resolves ${previewHasStarted ? 'after' : 'before'} the preview query starts`, async function () {
+				let resolveModel: ((model: PullRequestModel) => void) | undefined;
+				let resolvePreview: (value: PullRequestPreview) => void;
+				let resolveDefaultBranch: (branch: string) => void;
+				const getDefaultBranch = sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch')
+					.returns(new Promise(resolve => resolveDefaultBranch = resolve));
+				getPreview.returns(new Promise(resolve => resolvePreview = resolve));
+				const model = previewHasStarted
+					? new Promise<PullRequestModel>(resolve => resolveModel = resolve)
+					: Promise.resolve(prModel);
+				const opening = openPanel(model);
+				try {
+					if (previewHasStarted) {
+						await new Promise(resolve => setImmediate(resolve));
+						sinon.assert.calledOnce(getPreview);
+						resolveModel!(prModel);
+					}
+					await new Promise(resolve => setImmediate(resolve));
+					sinon.assert.calledOnce(getDefaultBranch);
+					assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+
+					resolvePreview!(preview);
+					await new Promise(resolve => setImmediate(resolve));
+					assert.deepStrictEqual(messages.find(message => message.command === 'pr.preview')?.pullrequest, preview);
+					assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+				} finally {
+					resolveModel?.(prModel);
+					resolvePreview!(preview);
+					resolveDefaultBranch!('main');
+					await opening;
+				}
+				assert.ok(messages.some(message => message.command === 'pr.initialize'));
+			});
+		}
+
+		it('skips polling a pending model and resumes once the PR is available', async function () {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime').resolves(new Date(0));
+			let resolveModel: (model: PullRequestModel) => void;
+			const opening = openPanel(new Promise<PullRequestModel>(resolve => resolveModel = resolve));
+			try {
+				onDidChangeViewState.fire({ webviewPanel });
+				clock.tick(pollInterval);
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.notCalled(getLastUpdateTime);
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+			sinon.assert.calledOnce(getLastUpdateTime);
+		});
+
+		it('logs poll failures and continues polling on the next interval', async function () {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime');
+			getLastUpdateTime.onFirstCall().rejects(new Error('Temporary polling failure'));
+			getLastUpdateTime.onSecondCall().resolves(new Date(0));
+			const logError = sinon.spy(Logger, 'error');
+			await openPanel();
+
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+			assert.ok(logError.getCalls().some(call => call.args[0] === 'Failed to poll overview updates: Temporary polling failure'));
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+			sinon.assert.calledTwice(getLastUpdateTime);
+		});
+
+		it('does not refresh or restart polling after an in-flight poll is disposed', async function () {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			let resolvePoll: (date: Date) => void;
+			const getLastUpdateTime = sinon.stub(prModel, 'getLastUpdateTime').returns(new Promise(resolve => resolvePoll = resolve));
+			await openPanel();
+			const panel = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, prModel.number)!;
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
+
+			clock.tick(pollInterval);
+			webviewPanel.dispose();
+			resolvePoll!(new Date(Date.now() + 1000));
+			await new Promise(resolve => setImmediate(resolve));
+			clock.tick(pollInterval);
+			await new Promise(resolve => setImmediate(resolve));
+
+			sinon.assert.notCalled(refresh);
+			sinon.assert.calledOnce(getLastUpdateTime);
+		});
+
+		it('opens a preview link with the default browser before the full PR resolves', async function () {
+			const openExternal = sinon.stub(vscode.env, 'openExternal').resolves(true);
+			let resolveModel: (model: PullRequestModel) => void;
+			const opening = openPanel(new Promise<PullRequestModel>(resolve => resolveModel = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				onDidReceiveMessage.fire({ command: 'pr.openOnGitHub', args: { url: preview.url } });
+				await new Promise(resolve => setImmediate(resolve));
+
+				sinon.assert.calledOnce(openExternal);
+				assert.strictEqual(openExternal.firstCall.args[0].toString(), preview.url);
+				assert.deepStrictEqual(openExternal.firstCall.args[1], { allowContributedOpeners: 'default' });
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+		});
+
+		it('ignores a preview from an older lookup while a newer lookup is pending', async function () {
+			let resolvePreview: (value: PullRequestPreview) => void;
+			let resolveFirst: (value: PullRequestModel) => void;
+			let resolveSecond: (value: PullRequestModel) => void;
+			getPreview.onFirstCall().returns(new Promise(resolve => resolvePreview = resolve));
+			const first = openPanel(new Promise(resolve => resolveFirst = resolve));
+			await new Promise(resolve => setImmediate(resolve));
+			const second = openPanel(new Promise(resolve => resolveSecond = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				messages.length = 0;
+				resolvePreview!({ ...preview, title: 'Outdated preview' });
+				await new Promise(resolve => setImmediate(resolve));
+				assert.strictEqual(messages.some(message => message.command === 'pr.preview'), false);
+			} finally {
+				resolveFirst!(prModel);
+				resolveSecond!(prModel);
+				await Promise.all([first, second]);
+			}
+		});
+
+		it('does not let a late preview replace the complete PR', async function () {
+			let resolvePreview: (value: PullRequestPreview) => void;
+			let resolveModel: (value: PullRequestModel) => void;
+			getPreview.returns(new Promise(resolve => resolvePreview = resolve));
+			const opening = openPanel(new Promise(resolve => resolveModel = resolve));
+			await new Promise(resolve => setImmediate(resolve));
+			resolveModel!(prModel);
+			await opening;
+			resolvePreview!(preview);
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.preview'), false);
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('ignores a preview that finishes after the panel is closed', async function () {
+			let resolvePreview: (value: PullRequestPreview) => void;
+			let resolveModel: (value: PullRequestModel) => void;
+			getPreview.returns(new Promise(resolve => resolvePreview = resolve));
+			const opening = openPanel(new Promise(resolve => resolveModel = resolve));
+			await new Promise(resolve => setImmediate(resolve));
+			webviewPanel.dispose();
+			resolvePreview!(preview);
+			resolveModel!(prModel);
+			await opening;
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.preview'), false);
+		});
+
+		it('logs a preview failure without preventing full PR initialization', async function () {
+			let resolveModel: (value: PullRequestModel) => void;
+			getPreview.rejects(new Error('Preview unavailable'));
+			const logError = sinon.spy(Logger, 'error');
+			const opening = openPanel(new Promise(resolve => resolveModel = resolve));
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				assert.ok(logError.getCalls().some(call => typeof call.args[0] === 'string' && call.args[0].includes('Preview unavailable')));
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('loads the webview before a supplied PR model resolves', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const pendingModel = new Promise<PullRequestModel>(resolve => resolveModel = resolve);
+			const opening = openPanel(pendingModel);
+			try {
+				assert.ok(webviewPanel.webview.html.includes('webview-pr-description.js'));
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveModel!(prModel);
+				await opening;
+			}
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.title, prModel.title);
+		});
+
+		it('does not initialize a closed panel when its PR model resolves', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const pendingModel = new Promise<PullRequestModel>(resolve => resolveModel = resolve);
+			const opening = openPanel(pendingModel);
+			webviewPanel.dispose();
+			resolveModel!(prModel);
+			await opening;
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			sinon.assert.notCalled(getAssignableUsers);
+		});
+
+		it('does not overwrite a newer model when an older lookup finishes', async function () {
+			let resolveModel: (model: PullRequestModel) => void;
+			const pendingModel = new Promise<PullRequestModel>(resolve => resolveModel = resolve);
+			const opening = openPanel(pendingModel);
+			await openPanel();
+			messages.length = 0;
+			resolveModel!(prModel);
+			await opening;
+
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			sinon.assert.calledOnce(getAssignableUsers);
+		});
+
+		it('initializes the PR and loads checks before cold assignable users finish', async function () {
+			const opening = openPanel();
+			await new Promise(resolve => setImmediate(resolve));
+			try {
+				const initial = messages.find(message => message.command === 'pr.initialize')?.pullrequest;
+				assert.ok(initial, 'PR initialization must not wait for assignable users');
+				assert.strictEqual(initial.title, prModel.title);
+				assert.strictEqual(initial.body, prModel.body);
+				assert.strictEqual(initial.canAssignCopilot, false);
+				assert.strictEqual(initial.canRequestCopilotReview, false);
+				assert.ok(messages.some(message => message.command === 'pr.update' && message.pullrequest?.status?.state === CheckState.Success));
+			} finally {
+				resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+				await opening;
+				await new Promise(resolve => setImmediate(resolve));
+			}
+
+			assert.ok(messages.some(message => message.command === 'pr.update'
+				&& message.pullrequest?.canAssignCopilot === true
+				&& message.pullrequest.canRequestCopilotReview === true));
+		});
+
+		it('keeps Copilot actions unavailable when no assignable Copilot account exists', async function () {
+			resolveUsers({ [remote.remoteName]: [prModel.author] });
+			await openPanel();
+
+			assert.ok(messages.some(message => message.command === 'pr.update'
+				&& message.pullrequest?.canAssignCopilot === false
+				&& message.pullrequest.canRequestCopilotReview === false));
+		});
+
+		it('does not offer another Copilot review when one is already requested', async function () {
+			getReviewRequests.resolves([COPILOT_REVIEWER_ACCOUNT]);
+			resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+			await openPanel();
+
+			assert.ok(messages.some(message => message.command === 'pr.update'
+				&& message.pullrequest?.canAssignCopilot === true
+				&& message.pullrequest.canRequestCopilotReview === false));
+		});
+
+		it('logs assignable-user failures without preventing PR initialization', async function () {
+			const logError = sinon.spy(Logger, 'error');
+			await openPanel();
+			rejectUsers(new Error('Assignable users unavailable'));
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+			sinon.assert.calledWith(logError, 'Failed to update deferred assignable users: Assignable users unavailable', PullRequestOverviewPanel.ID);
+			assert.strictEqual(messages.some(message => message.pullrequest?.canAssignCopilot === true), false);
+		});
+
+		it('ignores assignable users from an older update', async function () {
+			await openPanel();
+			getAssignableUsers.resolves({});
+			await openPanel();
+			messages.length = 0;
+
+			resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.deepStrictEqual(messages, []);
+		});
+
+		it('ignores assignable users after the panel is disposed', async function () {
+			await openPanel();
+			webviewPanel.dispose();
+			messages.length = 0;
+
+			resolveUsers({ [remote.remoteName]: [COPILOT_REVIEWER_ACCOUNT] });
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.deepStrictEqual(messages, []);
+		});
+	});
+
 	describe('mergePullRequest', function () {
 		it('prompts to delete the local branch when GitHub deletes branches after merge', async function () {
 			repo.buildMetadata(repository => repository.delete_branch_on_merge!(true));
@@ -324,6 +707,63 @@ describe('PullRequestOverview', function () {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
 					});
+				});
+			});
+
+			describe('mergeStack', function () {
+				const stack: PullRequestStack = {
+					position: 2,
+					size: 2,
+					base: 'production',
+					pullRequests: [
+						{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+						{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					],
+				};
+
+				function createMergeContext() {
+					const item = new PullRequestModel(credentialStore, telemetry, repo, remote,
+						convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+					sinon.stub(item, 'getStack').resolves(stack);
+					return {
+						item,
+						folderRepositoryManager: pullRequestManager,
+						existingReviewers: [],
+						postMessage: sinon.stub().resolves(),
+						replyMessage: sinon.spy(),
+						throwError: sinon.spy(),
+						getTimeline: sinon.stub().resolves([]),
+					} satisfies ReviewContext;
+				}
+
+				it('uses the stack target branch merge queue and reports enqueue without marking the PR merged', async function () {
+					const ctx = createMergeContext();
+					sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
+					const queue = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves('squash');
+					const merge = sinon.stub(ctx.item, 'mergeStack').resolves('enqueued');
+					const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+					const message = { req: '1', command: 'pr.merge-stack', args: { method: 'squash' as const } };
+
+					await PullRequestReviewCommon.mergeStack(ctx, message);
+
+					assert(queue.calledOnceWithExactly('production', remote.owner, remote.repositoryName));
+					assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue'));
+					sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'enqueued', state: undefined });
+					assert(information.calledOnce);
+					assert(ctx.throwError.notCalled);
+				});
+
+				it('reports a rejected merge rather than sending a successful response', async function () {
+					const ctx = createMergeContext();
+					sinon.stub(ctx.item, 'mergeStack').rejects(new Error('Required checks failed'));
+					const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+					const message = { req: '2', command: 'pr.merge-stack', args: { method: 'merge' as const } };
+
+					await PullRequestReviewCommon.mergeStack(ctx, message);
+
+					assert(showError.calledOnce);
+					assert(ctx.replyMessage.notCalled);
+					sinon.assert.calledWithExactly(ctx.throwError, message, 'Required checks failed');
 				});
 			});
 
@@ -353,6 +793,178 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(actions.some(action => action.title === 'Delete Local Branch'), true);
 			assert.strictEqual(replyMessage.firstCall.args[1].state, GithubItemStateEnum.Merged);
 			sinon.assert.callOrder(replyMessage, showWarningMessage);
+		});
+	});
+
+	describe('unstackAll', function () {
+		async function createPanel() {
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model);
+			const panel = PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number)!;
+			const stackQuery = sinon.stub(model, 'getStack').resolves({
+				position: 2, size: 2, base: 'main',
+				pullRequests: [
+					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			});
+			const access = sinon.stub(pullRequestManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
+				hasWritePermission: true,
+				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+				viewerCanAutoMerge: false,
+			});
+			return { panel, model, access, stackQuery };
+		}
+
+		it('confirms unstacking all eligible PRs and reports remaining locked PRs', async function () {
+			const { panel } = await createPanel();
+			const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll').resolves([999]);
+			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
+			const message = { req: '1', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert.strictEqual((confirm.firstCall.args[1] as vscode.MessageOptions).modal, true);
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Eligible open, draft, and closed pull requests/);
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Merged, queued, and currently merging pull requests will remain/);
+			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
+			sinon.assert.calledWithExactly(reply, message, { cancelled: false, remainingPullRequests: [999] });
+			assert(refresh.calledOnce);
+			assert(information.calledOnce);
+			assert.match(information.firstCall.args[0], /1 merged, queued, or currently merging pull requests remain/);
+			sinon.assert.callOrder(unstack, reply, refresh);
+		});
+
+		it('keeps the confirmed membership when stack data changes while the modal is open', async function () {
+			const { panel, stackQuery } = await createPanel();
+			const stack = await stackQuery();
+			assert(stack);
+			sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, action) => {
+				stack.pullRequests[0].number = 998;
+				return action;
+			});
+			sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll').resolves([999]);
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+
+			await (panel as any).unstackAll({ req: '6', command: 'pr.unstack-all', args: undefined });
+
+			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
+		});
+
+		it('explains that currently merging PRs may remain when nothing is unstacked', async function () {
+			const { panel } = await createPanel();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			sinon.stub(repo, 'unstackAll').resolves([999, 1000]);
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+
+			await (panel as any).unstackAll({ req: '7', command: 'pr.unstack-all', args: undefined });
+
+			assert.match(information.firstCall.args[0], /No pull requests were unstacked.*currently merging pull requests remain/);
+		});
+
+		it('refreshes other visible PR panels in the unstacked stack', async function () {
+			const { panel } = await createPanel();
+			const siblingModel = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(999).build(), repo));
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
+				{ owner: remote.owner, repo: remote.repositoryName, number: 999 }, siblingModel);
+			const sibling = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, 999)!;
+			const refreshSibling = sinon.stub(sibling, 'refreshPanel').resolves();
+			sinon.stub(panel, 'refreshPanel').resolves();
+			sinon.stub(panel as any, '_replyMessage').resolves();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
+			sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			sinon.stub(repo, 'unstackAll').resolves([]);
+
+			await (panel as any).unstackAll({ req: '5', command: 'pr.unstack-all', args: undefined });
+
+			assert(refreshSibling.calledOnce);
+		});
+
+		it('refreshes the stack entry in other open panels when a PR changes draft state', async function () {
+			const { panel, model } = await createPanel();
+			const siblingModel = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(999).build(), repo));
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
+				{ owner: remote.owner, repo: remote.repositoryName, number: 999 }, siblingModel);
+			const sibling = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, 999)!;
+			const refreshCurrent = sinon.stub(panel, 'refreshPanel').resolves();
+			let finishRefresh: () => void;
+			const refreshedSibling = new Promise<void>(resolve => { finishRefresh = resolve; });
+			const refreshSibling = sinon.stub(sibling, 'refreshPanel').callsFake(async () => finishRefresh());
+
+			(model as any)._onDidChange.fire({ draft: true });
+			await refreshedSibling;
+
+			assert(refreshCurrent.calledOnce);
+			assert(refreshSibling.calledOnce);
+		});
+
+		it('refreshes only the requested open stack panels', async function () {
+			const { panel } = await createPanel();
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
+
+			await PullRequestOverviewPanel.refreshStackPanels(remote.owner, remote.repositoryName, [1000, 999]);
+
+			assert(refresh.calledOnce);
+		});
+
+		it('does not call the Stacks API when confirmation is cancelled', async function () {
+			const { panel } = await createPanel();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+			const message = { req: '2', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert(unstack.notCalled);
+			sinon.assert.calledWithExactly(reply, message, { cancelled: true });
+		});
+
+		it('rejects unstacking without write permission', async function () {
+			const { panel, access } = await createPanel();
+			access.resolves({
+				hasWritePermission: false,
+				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+				viewerCanAutoMerge: false,
+			});
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const reply = sinon.stub(panel as any, '_throwError').resolves();
+			sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			const message = { req: '3', command: 'pr.unstack-all', args: undefined };
+
+			await (panel as any).unstackAll(message);
+
+			assert(unstack.notCalled);
+			assert.match(reply.firstCall.args[1], /do not have permission/);
+		});
+
+		it('does not offer to unstack a stack containing only merged PRs', async function () {
+			const { panel, stackQuery } = await createPanel();
+			stackQuery.resolves({
+				position: 1, size: 1, base: 'main',
+				pullRequests: [{ position: 1, number: 1000, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown }],
+			});
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const unstack = sinon.stub(repo, 'unstackAll');
+			const reply = sinon.stub(panel as any, '_throwError').resolves();
+			sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+			await (panel as any).unstackAll({ req: '4', command: 'pr.unstack-all', args: undefined });
+
+			assert(warning.notCalled);
+			assert(unstack.notCalled);
+			assert.match(reply.firstCall.args[1], /No unmerged pull requests/);
 		});
 	});
 

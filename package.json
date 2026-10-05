@@ -49,7 +49,7 @@
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.140.0"
+		"vscode": "^1.141.0"
 	},
 	"categories": [
 		"Other",
@@ -1135,6 +1135,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.addToStack",
+				"title": "%command.pr.addToStack.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openFileOnGitHub",
 				"title": "%command.pr.openFileOnGitHub.title%",
 				"category": "%command.pull.request.category%"
@@ -1273,6 +1278,11 @@
 			{
 				"command": "pr.signinenterprise",
 				"title": "%command.pr.signinenterprise.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.selectEnterpriseAccount",
+				"title": "%command.pr.selectEnterpriseAccount.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2004,7 +2014,7 @@
 			},
 			{
 				"view": "github:login",
-				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)) && !isSessionsWindow",
+				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || github:hasEnterpriseUris)) && !isSessionsWindow",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
@@ -2252,6 +2262,10 @@
 					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
 				{
+					"command": "pr.addToStack",
+					"when": "false"
+				},
+				{
 					"command": "pr.openAllDiffs",
 					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
 				},
@@ -2430,6 +2444,10 @@
 				{
 					"command": "pr.signinenterprise",
 					"when": "(gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes) && !isSessionsWindow"
+				},
+				{
+					"command": "pr.selectEnterpriseAccount",
+					"when": "github:hasEnterpriseUris && !isSessionsWindow"
 				},
 				{
 					"command": "pr.signinAndRefreshList",
@@ -2977,6 +2995,11 @@
 				}
 			],
 			"view/item/context": [
+				{
+					"command": "pr.addToStack",
+					"when": "(view == pr:github && viewItem =~ /pullrequest.*:stackable/ && github:canAddToStack) && !isSessionsWindow",
+					"group": "0_stack@1"
+				},
 				{
 					"command": "pr.pick",
 					"when": "(view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/) && !isSessionsWindow",
@@ -4279,8 +4302,9 @@
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
 		"lint": "eslint --fix --cache . --ext .ts,.tsx",
 		"package": "npx vsce package",
-		"test": "npm run test:preprocess && npm run test:scripts && node ./out/src/test/runTests.js",
+		"test": "npm run test:preprocess && npm run test:scripts && npm run test:webviews && node ./out/src/test/runTests.js",
 		"test:scripts": "mocha \"out/src/test/scripts/**/*.test.js\"",
+		"test:webviews": "node scripts/test-webviews.js",
 		"test:preprocess": "npm run compile:test && npm run test:preprocess-gql && npm run test:preprocess-svg && npm run test:preprocess-fixtures",
 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
 		"browsertest": "npm run browsertest:preprocess && node ./dist/browser/test/runTests.js",
@@ -4386,7 +4410,7 @@
 		"js-yaml": "^4.3.2",
 		"jsonc-parser": "^3.3.1",
 		"lru-cache": "6.0.0",
-		"markdown-it": "^14.2.0",
+		"markdown-it": "^14.3.1",
 		"marked": "^4.0.10",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",

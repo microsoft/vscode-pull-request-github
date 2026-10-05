@@ -5,10 +5,12 @@
 
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
-import { HostHelper } from './configuration';
+import { getEnterpriseUris, HostHelper } from './configuration';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
+import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { formatError } from '../common/utils';
 import { agent } from '../env/node/net';
 import type { CredentialStore } from '../github/credentials';
 
@@ -46,8 +48,9 @@ export class GitHubManager {
 		this._telemetry?.sendTelemetryEvent('github.enterprise.version', { version });
 	}
 
-	public async isGitHub(host: vscode.Uri): Promise<GitHubServerType> {
-		if (host === null) {
+	public async isGitHub(remote: Remote): Promise<GitHubServerType> {
+		const host = remote.gitProtocol.normalizeUri();
+		if (!host) {
 			return GitHubServerType.None;
 		}
 		const authority = host.authority.toLowerCase();
@@ -64,9 +67,17 @@ export class GitHubManager {
 		const matchingKnownServer = Array.from(this._knownServers.keys()).find(server => authority.endsWith(server));
 
 		const enterprise = this.credentialStore.getHub(AuthProvider.githubEnterprise);
-		if (enterprise && authority === new URL(enterprise.serverUri.toString()).hostname.toLowerCase()
+		if (enterprise && remote.matchesServerUri(enterprise.serverUri)
 			&& (!matchingKnownServer || (this._knownServers.get(matchingKnownServer) === GitHubServerType.None))) {
 			return GitHubServerType.Enterprise;
+		}
+
+		try {
+			if (getEnterpriseUris().some(uri => remote.matchesServerUri(uri))) {
+				return GitHubServerType.Enterprise;
+			}
+		} catch (error) {
+			Logger.warn(`Cannot use GitHub Enterprise configuration for discovery: ${formatError(error)}`, 'GitHubServer');
 		}
 
 		if (matchingKnownServer) {

@@ -89,6 +89,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.createComment(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.merge-stack':
+				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
 			case 'pr.open-create':
 				return this.create();
 			case 'pr.deleteBranch':
@@ -300,6 +302,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				mergeMethodsAvailability,
 				defaultMergeMethod,
 				mergeQueueMethod,
+				stack: undefined,
+				stackLoaded: false,
+				stackLoadError: false,
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch,
 				isIssue: false,
@@ -317,6 +322,27 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: context,
+			});
+			void pullRequest.getStack().then(async stack => {
+				if (!this._item.equals(pullRequest)) {
+					return;
+				}
+				const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequest.remote.owner, pullRequest.remote.repositoryName) : undefined;
+				if (this._item.equals(pullRequest)) {
+					this._postMessage({
+						command: 'pr.update',
+						pullrequest: {
+							stack,
+							stackLoaded: true,
+							...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+						} satisfies Partial<PullRequest>,
+					});
+				}
+			}).catch(error => {
+				Logger.error(`Failed to load active pull request stack: ${formatError(error)}`, PullRequestViewProvider.name);
+				if (this._item.equals(pullRequest)) {
+					this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+				}
 			});
 
 		} catch (e) {
