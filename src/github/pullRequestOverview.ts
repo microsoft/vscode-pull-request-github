@@ -751,7 +751,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			};
 			if (updateSequence === this._updateSequence && areStacksEnabled()) {
 				const updatableEntries = stack && getUpdatableStackEntries(stack);
-				this._updatableStackPullRequestNumbers = updatableEntries
+				this._updatableStackPullRequestNumbers = stack?.needsUpdate && updatableEntries
 					? new Set(updatableEntries.map(entry => entry.number)) : undefined;
 				onLoaded();
 				await this._postMessage({

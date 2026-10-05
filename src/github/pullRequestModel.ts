@@ -1758,6 +1758,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				position: pullRequest.stackEntry.position,
 				size: pullRequest.stack.size,
 				base: pullRequest.stack.baseRefName,
+				needsUpdate: false,
 				pullRequests: [],
 			};
 			stack.pullRequests.push(...pullRequest.stack.entries.nodes.map(entry => {
@@ -1787,7 +1788,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const pageInfo = pullRequest.stack.entries.pageInfo;
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
-				await Promise.all(stack.pullRequests.filter(entry =>
+				const outdated = await Promise.all(stack.pullRequests.filter(entry =>
 					entry.state === GithubItemStateEnum.Open && entry.mergeable !== PullRequestMergeability.Conflict,
 				).map(async entry => {
 					const refs = comparisons.get(entry.number)!;
@@ -1798,7 +1799,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					if (comparison.behind_by > 0) {
 						entry.mergeable = PullRequestMergeability.Behind;
 					}
+					return comparison.behind_by > 0;
 				}));
+				stack.needsUpdate = outdated.some(Boolean);
 				return stack;
 			}
 			if (!pageInfo.endCursor || pageInfo.endCursor === after) {

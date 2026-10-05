@@ -188,6 +188,8 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(stack?.position, 2);
 			assert.strictEqual(stack?.size, 3);
 			assert.strictEqual(stack?.base, 'main');
+			assert.strictEqual(stack?.needsUpdate, false);
+			assert.strictEqual(isStackUpdatable(stack!), false);
 			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.number), [793, 794, 795]);
 			assert.strictEqual(stack?.pullRequests[0].url, 'https://github.com/github/test/pull/793');
 			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
@@ -235,13 +237,61 @@ describe('PullRequestModel', function () {
 				readiness: stack?.pullRequests.map(entry => entry.mergeable),
 				canMerge: isStackMergeable(stack!, 794),
 				canUpdate: isStackUpdatable(stack!),
+				needsUpdate: stack?.needsUpdate,
 				comparedSecond: compare.calledWithExactly('github:D1', 'github:D2'),
 			}, {
 				readiness: [PullRequestMergeability.Mergeable, PullRequestMergeability.Behind, PullRequestMergeability.Mergeable],
 				canMerge: false,
 				canUpdate: true,
+				needsUpdate: true,
 				comparedSecond: true,
 			});
+		});
+
+		it('offers an update when only the bottom branch is behind the stack base', async function () {
+			const model = createModel();
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D1' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null));
+
+			const stack = await model.getStack();
+			assert.strictEqual(stack?.needsUpdate, true);
+			assert.strictEqual(isStackUpdatable(stack!), true);
+			assert(compare.calledWithExactly('github:main', 'github:D1'));
+		});
+
+		it('offers an update when a changed middle PR has not been propagated to the top', async function () {
+			const model = createModel(795);
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D3' ? 1 : 0, ahead_by: head === 'github:D2' ? 2 : 1 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 795, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null, 3));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Behind,
+			]);
+			assert.strictEqual(stack?.needsUpdate, true);
+			assert.strictEqual(isStackUpdatable(stack!), true);
+			assert(compare.calledWithExactly('github:main', 'github:D1'));
+			assert(compare.calledWithExactly('github:D1', 'github:D2'));
+			assert(compare.calledWithExactly('github:D2', 'github:D3'));
+			assert.strictEqual(compare.callCount, 3);
 		});
 
 		it('blocks merging an up-to-date PR above a behind PR with a closed top', async function () {

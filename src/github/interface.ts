@@ -27,6 +27,7 @@ export interface PullRequestStack {
 	position: number;
 	size: number;
 	base: string;
+	needsUpdate?: boolean;
 	pullRequests: {
 		position: number;
 		number: number;
@@ -63,7 +64,7 @@ export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestSt
 }
 
 export function isStackUpdatable(stack: PullRequestStack): boolean {
-	return !!getUpdatableStackEntries(stack);
+	return !!stack.needsUpdate && !!getUpdatableStackEntries(stack);
 }
 
 export function isStackMergeable(stack: PullRequestStack, number: number): boolean {

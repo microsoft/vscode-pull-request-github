@@ -916,7 +916,7 @@ describe('PullRequestOverview', function () {
 			pullRequestManager.activePullRequest = result.model;
 			provideStackGit(pullRequestManager.repository);
 			result.stackQuery.resolves({
-				position: 2, size: 2, base: 'main',
+				position: 2, size: 2, base: 'main', needsUpdate: true,
 				pullRequests: [
 					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
 					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
@@ -925,7 +925,7 @@ describe('PullRequestOverview', function () {
 			return result;
 		}
 
-		it('uses the checked-out stack PR and Git remote from another folder manager', async function () {
+		it('offers Update stack for unpropagated middle changes with a checked-out stack PR in another folder', async function () {
 			const { panel, model, stackQuery } = await openStackPanel();
 			pullRequestManager.activePullRequest = undefined;
 			const url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
@@ -951,6 +951,14 @@ describe('PullRequestOverview', function () {
 					command: 'pr.update-checkout-status',
 					canUpdateStack: false,
 				}));
+				stackQuery.resolves({
+					position: 3, size: 3, base: 'main', needsUpdate: true,
+					pullRequests: [
+						{ position: 1, number: 998, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+						{ position: 2, number: 999, title: 'Middle', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+						{ position: 3, number: 1000, title: 'Top', url: '', head: 'D3', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+					],
+				});
 				sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
 				await (panel as any).loadStack(model, (panel as any)._updateSequence, () => undefined);
 				assert(postMessage.calledWithMatch({
@@ -990,6 +998,25 @@ describe('PullRequestOverview', function () {
 					canUpdateStack: false,
 				}));
 				(panel as any)._canUpdateStackAccess = true;
+
+				stackQuery.resolves({
+					position: 2, size: 2, base: 'main', needsUpdate: false,
+					pullRequests: [
+						{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+						{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					],
+				});
+				await (panel as any).loadStack(model, (panel as any)._updateSequence, () => undefined);
+				assert(postMessage.lastCall.calledWithMatch({
+					command: 'pr.update',
+					pullrequest: { stackLoaded: true, canUpdateStack: false },
+				}));
+				other.activePullRequest = undefined;
+				other.activePullRequest = checkedOut;
+				assert(postMessage.lastCall.calledWithMatch({
+					command: 'pr.update-checkout-status',
+					canUpdateStack: false,
+				}));
 
 				stackQuery.resolves({
 					position: 2, size: 3, base: 'main',
