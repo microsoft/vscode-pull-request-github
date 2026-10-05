@@ -13,6 +13,7 @@
 		"src/@types",
 		"src/common",
 		"src/github",
+		"src/test/webviews",
 		"webviews"
 	]
 }

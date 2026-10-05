@@ -28,8 +28,8 @@ import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
-import { getEnterpriseUri, getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity } from './views';
+import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -37,10 +37,11 @@ import { commands, contexts } from '../common/executeCommands';
 import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
-import { toOpenIssueWebviewUri } from '../common/uri';
+import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
@@ -71,6 +72,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _refreshing = false;
 	private _updateItemPromise: Promise<void> | undefined;
 	private _updateSequence = 0;
+	private _previewSequence = 0;
 	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	public static override async createOrShow(
@@ -78,18 +80,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: PullRequestModel,
+		issue?: PullRequestModel | Promise<PullRequestModel>,
 		toTheSide: boolean = false,
 		preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
 	) {
-
-		/* __GDPR__
-			"pr.openDescription" : {
-				"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (issue?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
@@ -116,6 +111,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 
 		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
+		if (!panel.isDisposed && panel._item) {
+			/* __GDPR__
+				"pr.openDescription" : {
+					"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (panel._item?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
+		}
 	}
 
 	public static scrollToReview(owner: string, repo: string, number: number): void {
@@ -177,6 +180,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 */
 	public static override findPanel(owner: string, repo: string, number: number): PullRequestOverviewPanel | undefined {
 		return super.findPanel(owner, repo, number) as PullRequestOverviewPanel | undefined;
+	}
+
+	public static async refreshStackPanels(owner: string, repo: string, numbers: readonly number[]): Promise<void> {
+		const panels = numbers
+			.map(number => this.findPanel(owner, repo, number))
+			.filter((panel): panel is PullRequestOverviewPanel => !!panel);
+		await Promise.all(panels.map(panel => panel.refreshPanel()));
 	}
 
 	/**
@@ -246,6 +256,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 
 		this.registerPrListeners();
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
+				void this.refreshPanel();
+			}
+		}));
 
 		this.setVisibilityContext();
 	}
@@ -264,7 +279,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChange(e => {
-				if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
+				if (e.draft) {
+					const item = this._item;
+					void this.refreshPanel();
+					if (areStacksEnabled()) {
+						void item.getStack().then(stack => {
+							if (stack) {
+								return PullRequestOverviewPanel.refreshStackPanels(item.remote.owner, item.remote.repositoryName,
+									stack.pullRequests.filter(entry => entry.number !== item.number).map(entry => entry.number));
+							}
+						}).catch(error => {
+							Logger.error(`Failed to refresh pull request stack after draft change: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+							void vscode.window.showErrorMessage(vscode.l10n.t('Unable to refresh pull request stack: {0}', formatError(error)));
+						});
+					}
+				} else if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
 					this.refreshPanel();
 				}
 			}));
@@ -411,7 +440,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				measure('repositoryAccess', this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)),
 				measure('currentUser', this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository)),
 				measure('canEdit', pullRequestModel.canEdit()),
-				measure('assignableUsers', this._folderRepositoryManager.getAssignableUsers())
 			]);
 
 			const [
@@ -419,7 +447,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				repositoryAccess,
 				currentUser,
 				viewerCanEdit,
-				assignableUsers
 			] = await updatingPromise;
 			const pullRequest = pullRequestModel;
 			const timelineEvents = cachedTimelineEvents;
@@ -433,7 +460,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._item = pullRequest;
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
-			this._assignableUsers = assignableUsers;
 			this.setPanelTitle(this.buildPanelTitle(pullRequestModel.number, pullRequestModel.title));
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
@@ -444,10 +470,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const users = this._assignableUsers[pullRequestModel.remote.remoteName] ?? [];
 			const contextStart = performance.now();
 			const closingIssuesPromise = (async () => {
-				const enterpriseUri = pullRequest.remote.isEnterprise ? getEnterpriseUri() : undefined;
+				const enterpriseUri = pullRequest.remote.isEnterprise ? pullRequest.githubRepository.hub.serverUri : undefined;
 				const issueOrUrlExpression = getIssueOrURLExpression(enterpriseUri);
 				return Promise.all((pullRequest.closingIssues ?? []).map(async issue => {
 					const parsed = parseIssueExpressionOutput(issue.url.match(issueOrUrlExpression));
@@ -458,7 +483,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}));
 			})();
 			const [baseContext, closingIssues] = await Promise.all([
-				this.getInitializeContext(currentUser, pullRequest, timelineEvents ?? [], repositoryAccess, viewerCanEdit, users),
+				this.getInitializeContext(currentUser, pullRequest, timelineEvents ?? [], repositoryAccess, viewerCanEdit, []),
 				closingIssuesPromise,
 			]);
 			const contextDuration = performance.now() - contextStart;
@@ -501,6 +526,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
 				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
+				stack: undefined,
+				stackLoaded: !areStacksEnabled(),
+				stackLoadError: false,
+				stackMergeStatus: undefined,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
@@ -520,6 +549,30 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			};
 			const reviewRequestsPromise = measureDeferred('reviewRequests', pullRequestModel.getReviewRequests());
+			// Fetching all assignable users can require many pages on a cold open.
+			// Neither rendering the PR nor loading its checks should wait for it.
+			const assignableUsersStart = performance.now();
+			void Promise.all([this._folderRepositoryManager.getAssignableUsers(), reviewRequestsPromise]).then(async ([assignableUsers, requestedReviewers]) => {
+				if (updateSequence !== this._updateSequence) {
+					return;
+				}
+				this._assignableUsers = assignableUsers;
+				const users = assignableUsers[pullRequestModel.remote.remoteName] ?? [];
+				const canAssignCopilot = users.some(user => COPILOT_ACCOUNTS[user.login]);
+				const reviewers = parseReviewers(requestedReviewers, [...(pullRequestModel.timelineEvents ?? timelineEvents)], pullRequest.author);
+				const isCopilotAlreadyReviewer = reviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						canAssignCopilot,
+						canRequestCopilotReview: canAssignCopilot && !isCopilotAlreadyReviewer,
+					} satisfies Partial<PullRequest>,
+				});
+				Logger.debug(`Deferred assignable users loaded in ${Math.round(performance.now() - assignableUsersStart)}ms`, PullRequestOverviewPanel.ID);
+			}).catch(error => {
+				Logger.error(`Failed to update deferred assignable users: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			});
+			let stackLoaded = false;
 			const deferredDataPromise = Promise.all([
 				measureDeferred('statusChecks', pullRequestModel.getStatusChecks()),
 				reviewRequestsPromise,
@@ -544,8 +597,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			]) => {
 				const latestTimelineEvents = [...(pullRequestModel.timelineEvents ?? timelineEvents)];
 				const reviewers = parseReviewers(requestedReviewers!, latestTimelineEvents, pullRequest.author);
-				const copilotUser = users.find(user => COPILOT_ACCOUNTS[user.login]);
-				const isCopilotAlreadyReviewer = reviewers.some(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.login === COPILOT_REVIEWER);
 				const isCopilotOnBehalf = await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors);
 				if (updateSequence !== this._updateSequence) {
 					return;
@@ -561,11 +612,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						mergeable: mergeability.mergeability,
 						reviewers,
 						hasReviewDraft,
-						mergeQueueMethod,
+						...(stackLoaded ? {} : { mergeQueueMethod }),
 						emailForCommit,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 						isCopilotOnMyBehalf: isCopilotOnBehalf,
-						canRequestCopilotReview: copilotUser !== undefined && !isCopilotAlreadyReviewer,
 					} satisfies Partial<PullRequest>,
 				});
 				const deferredTimingSummary = [...deferredTimings]
@@ -576,6 +626,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}, error => {
 				Logger.error(`Failed to update deferred pull request data: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
+			if (areStacksEnabled()) {
+				void this.loadStack(pullRequestModel, updateSequence, () => { stackLoaded = true; });
+			}
 			const timelineStart = performance.now();
 			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
 				const events = latestTimelineEvents ?? [];
@@ -602,6 +655,43 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+		}
+	}
+
+	private async loadStack(pullRequestModel: PullRequestModel, updateSequence: number, onLoaded: () => void): Promise<void> {
+		try {
+			const stack = await pullRequestModel.getStack();
+			if (updateSequence !== this._updateSequence || !areStacksEnabled()) {
+				return;
+			}
+			const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName) : undefined;
+			const linkedStack = stack && {
+				...stack,
+				pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
+					...entry,
+					url: (await toOpenPullRequestWebviewUri({
+						owner: pullRequestModel.remote.owner,
+						repo: pullRequestModel.remote.repositoryName,
+						pullRequestNumber: entry.number,
+					})).toString(),
+				}))),
+			};
+			if (updateSequence === this._updateSequence && areStacksEnabled()) {
+				onLoaded();
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						stack: linkedStack,
+						stackLoaded: true,
+						...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+					} satisfies Partial<PullRequest>,
+				});
+			}
+		} catch (error) {
+			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			if (updateSequence === this._updateSequence && areStacksEnabled()) {
+				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+			}
 		}
 	}
 
@@ -632,7 +722,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this._folderRepositoryManager.resolvePullRequest(
 			identity.owner,
 			identity.repo,
-			identity.number
+			identity.number,
+			false,
+			'overview',
 		);
 	}
 
@@ -643,13 +735,41 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	public override async updateWithIdentity(
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		pullRequestModel?: PullRequestModel,
+		pullRequestModel?: PullRequestModel | Promise<PullRequestModel>,
 		progressLocation?: string
 	): Promise<void> {
-		await super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
+		const previewSequence = ++this._previewSequence;
+		let loading = true;
+		const isLoading = () => loading && !this.isDisposed && previewSequence === this._previewSequence;
+		const update = super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
+		if (isLoading() && (!pullRequestModel || pullRequestModel instanceof Promise)) {
+			void (async () => {
+				try {
+					const start = Date.now();
+					const repository = await folderRepositoryManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
+					if (!repository || !isLoading()) {
+						return;
+					}
+					const preview = await repository.getPullRequestPreview(identity.number);
+					if (isLoading()) {
+						await this._postMessage({ command: 'pr.preview', pullrequest: preview });
+						Logger.debug(`PR overview preview loaded in ${Date.now() - start}ms`, PullRequestOverviewPanel.ID);
+					}
+				} catch (error) {
+					Logger.error(`Unable to load PR overview preview: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+				}
+			})();
+		}
+		try {
+			await update;
+		} finally {
+			loading = false;
+		}
 
 		// Notify that this PR overview is now active
-		PullRequestOverviewPanel._onVisible.fire(this._item);
+		if (!this.isDisposed && this._item) {
+			PullRequestOverviewPanel._onVisible.fire(this._item);
+		}
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -662,6 +782,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.merge-stack':
+				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
+			case 'pr.unstack-all':
+				return this.unstackAll(message);
 			case 'pr.change-email':
 				return this.changeEmail(message);
 			case 'pr.deleteBranch':
@@ -1004,6 +1128,47 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 			},
 		);
+	}
+
+	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {
+		try {
+			assertStacksEnabled();
+			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
+			if (!access.hasWritePermission) {
+				throw new Error(vscode.l10n.t('You do not have permission to unstack these pull requests.'));
+			}
+			const stack = await this._item.getStack();
+			if (!stack || !stack.pullRequests.some(pr => pr.state !== GithubItemStateEnum.Merged)) {
+				throw new Error(vscode.l10n.t('No unmerged pull requests are available to unstack.'));
+			}
+			const expectedPullRequests = stack.pullRequests.map(pr => pr.number);
+			const action = vscode.l10n.t('Unstack all');
+			const answer = await vscode.window.showWarningMessage(
+				vscode.l10n.t('Unstack all eligible pull requests?'),
+				{
+					modal: true,
+					detail: vscode.l10n.t('Eligible open, draft, and closed pull requests will be removed from this stack. Their base branches will not change. Merged, queued, and currently merging pull requests will remain in the stack.'),
+				},
+				action,
+			);
+			if (answer !== action) {
+				await this._replyMessage(message, { cancelled: true } satisfies UnstackAllResult);
+				return;
+			}
+			const remainingPullRequests = await this._item.githubRepository.unstackAll(this._item.number, expectedPullRequests);
+			await this._replyMessage(message, { cancelled: false, remainingPullRequests } satisfies UnstackAllResult);
+			await PullRequestOverviewPanel.refreshStackPanels(this._identity.owner, this._identity.repo,
+				stack.pullRequests.map(pr => pr.number));
+			if (remainingPullRequests.length === stack.size) {
+				void vscode.window.showInformationMessage(vscode.l10n.t('No pull requests were unstacked. Merged, queued, or currently merging pull requests remain in the stack.'));
+			} else {
+				void vscode.window.showInformationMessage(vscode.l10n.t('Eligible pull requests unstacked. {0} merged, queued, or currently merging pull requests remain in the stack.', remainingPullRequests.length));
+			}
+		} catch (error) {
+			Logger.error(`Failed to unstack pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to unstack pull requests: {0}', formatError(error)));
+			await this._throwError(message, formatError(error));
+		}
 	}
 
 	private async mergePullRequest(
@@ -1407,6 +1572,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	override dispose() {
+		++this._updateSequence;
 		super.dispose();
 		disposeAll(this._prListeners);
 	}

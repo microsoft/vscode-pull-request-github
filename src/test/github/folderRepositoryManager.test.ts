@@ -18,9 +18,10 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { LoggingOctokit } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { commands, env, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
-import { GitHubServerType } from '../../common/authentication';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -28,6 +29,8 @@ import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequest
 import { IRequestMessage } from '../../common/webview';
 import { PullRequestMergeability } from '../../github/interface';
 import { PullRequest } from '../../github/views';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { UserBuilder } from '../builders/rest/userBuilder';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -51,6 +54,93 @@ describe('PullRequestManager', function () {
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('overview resolution', function () {
+		const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+
+		beforeEach(function () {
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('fetches the PR concurrently with cold repository metadata', async function () {
+			let resolveMetadata: (value: typeof metadata) => void;
+			const pendingMetadata = new Promise<typeof metadata>(resolve => resolveMetadata = resolve);
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').returns(pendingMetadata);
+			const getPullRequest = sinon.stub(GitHubRepository.prototype, 'getPullRequest').callsFake(async function (this: GitHubRepository) {
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), this);
+				return new PullRequestModel(manager.credentialStore, telemetry, this, this.remote, item);
+			});
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+			const opening = manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview');
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.calledOnce(getMetadata);
+				sinon.assert.calledOnce(getPullRequest);
+				sinon.assert.calledWithExactly(getPullRequest, 1347, 'FolderRepositoryManager.resolvePullRequest', false, false, 'overview');
+			} finally {
+				resolveMetadata!(metadata);
+			}
+			const pr = await opening;
+			assert.strictEqual(pr?.number, 1347);
+			sinon.assert.notCalled(updates);
+		});
+
+		it('shares repository creation between concurrent preview and full loads', async function () {
+			const [previewRepository, fullRepository] = await Promise.all([
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+			]);
+
+			assert.ok(previewRepository);
+			assert.strictEqual(previewRepository, fullRepository);
+			assert.deepStrictEqual(manager.gitHubRepositories, [previewRepository]);
+		});
+
+		it('still rejects and remembers inaccessible repositories', async function () {
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(GitHubRepository.prototype, 'getPullRequest').resolves(undefined);
+
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			sinon.assert.calledOnce(getMetadata);
+		});
+
+		for (const [name, error] of [
+			['network timeout', new Error('Temporary network timeout')],
+			['server error', Object.assign(new Error('Service unavailable'), { status: 503 })],
+			['rate limit', Object.assign(new Error('Rate limited'), { status: 429 })],
+			['SAML authorization', Object.assign(new Error('Resource protected by organization SAML enforcement.'), { status: 404 })],
+		] as const) {
+			it(`retries metadata after a ${name} failure without removing the repository`, async function () {
+				const repo = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+				assert.ok(repo);
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), repo);
+				const pr = new PullRequestModel(manager.credentialStore, telemetry, repo, repo.remote, item);
+				sinon.stub(repo, 'getPullRequest').resolves(pr);
+				const getMetadata = sinon.stub(repo, 'getMetadata');
+				getMetadata.onFirstCall().rejects(error);
+				getMetadata.onSecondCall().resolves(metadata);
+
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+				assert.deepStrictEqual(manager.gitHubRepositories, [repo]);
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), pr);
+				sinon.assert.calledTwice(getMetadata);
+			});
+		}
 	});
 
 	describe('updateRepositories', function () {
@@ -154,6 +244,38 @@ describe('PullRequestManager', function () {
 			assert.notStrictEqual(firstAccountLocation?.toString(), secondAccountLocation?.toString());
 			assert.ok(firstAccountLocation?.toString().includes('github'));
 			assert.ok(firstAccountLocation?.toString().includes('first-account'));
+		});
+
+		it('separates persisted enterprise user caches by session deployment even for the same account ID', function () {
+			const firstUrl = 'https://host-a.example/owner/repo';
+			const secondUrl = 'https://host-b.example:8443/deployment/owner/repo';
+			const firstRepo = new GitHubRepository(1, new GitHubRemote('origin', firstUrl, new Protocol(firstUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			const secondRepo = new GitHubRepository(2, new GitHubRemote('origin', secondUrl, new Protocol(secondUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			sinon.stub(manager.credentialStore, 'getAccountId').returns('same-account');
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({
+				data: { login: 'user', node_id: 'user', html_url: firstUrl, avatar_url: '', type: 'User' },
+			});
+			const getHub = sinon.stub(manager.credentialStore, 'getHub');
+			const hubFor = (deployment: string) => manager.credentialStore['createHub']({
+				id: 'session',
+				account: { id: 'same-account', label: 'account' },
+				accessToken: 'test-token',
+				scopes: [],
+				authorizationServer: Uri.parse(`${deployment}/login/oauth`),
+			}, AuthProvider.githubEnterprise);
+			getHub.returns(hubFor('https://host-a.example'));
+			const firstCache = manager['getAccountCacheLocation']('assignableUsers', firstRepo);
+			getHub.returns(hubFor('https://host-b.example:8443/deployment'));
+			const secondCache = manager['getAccountCacheLocation']('assignableUsers', secondRepo);
+
+			assert.ok(firstCache);
+			assert.ok(secondCache);
+			assert.notStrictEqual(firstCache.toString(), secondCache.toString());
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', firstRepo), undefined);
+			getHub.returns(undefined);
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', secondRepo), undefined);
+			firstRepo.dispose();
+			secondRepo.dispose();
 		});
 	});
 

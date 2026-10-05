@@ -38,6 +38,33 @@ textarea {
 	padding: 16px 0;
 }
 
+#status-checks .stack-merge {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	flex-wrap: nowrap;
+	gap: 8px;
+	width: 100%;
+	max-width: 260px;
+	margin: 0 auto;
+	padding: 0;
+	background: transparent;
+}
+
+#status-checks .stack-merge > button {
+	width: 100%;
+}
+
+#status-checks .stack-merge .stack-merge-method select {
+	flex: 1;
+	min-width: 0;
+}
+
+#status-checks .stack-merge p {
+	margin: 0;
+}
+
 .comment-form {
 	padding-bottom: 16px;
 }

@@ -16,10 +16,12 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	PullRequestStack,
 	Reaction,
 	ReviewState,
 	StateReason,
 } from './interface';
+import type { StackMergeOutcome } from './pullRequestModel';
 import { IComment } from '../common/comment';
 import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
@@ -73,7 +75,15 @@ export interface Issue {
 	busy?: boolean;
 }
 
+/** Read-only content shown during a cold load; never persisted as a complete PR. */
+export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head'>;
+
 export interface PullRequest extends Issue {
+	stack?: PullRequestStack;
+	stackLoaded?: boolean;
+	stackLoadError?: boolean;
+	stackMergeStatus?: 'pending' | 'enqueued';
 	isCopilotOnMyBehalf: boolean;
 	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
@@ -172,6 +182,16 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface StackMergeResult {
+	status: StackMergeOutcome;
+	state?: GithubItemStateEnum;
+}
+
+export interface UnstackAllResult {
+	cancelled: boolean;
+	remainingPullRequests?: number[];
 }
 
 export interface DeleteReviewResult {

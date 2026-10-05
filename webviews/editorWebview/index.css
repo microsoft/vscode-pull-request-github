@@ -3,6 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+html {
+	scrollbar-gutter: stable;
+}
+
 #app {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(200px, 300px);
@@ -176,6 +180,40 @@ textarea:focus,
 	margin-right: 4px;
 }
 
+.overview-placeholder {
+	display: inline-block;
+	height: 12px;
+	width: 70%;
+	border-radius: 4px;
+	background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.overview-preview-actions .overview-placeholder {
+	height: 26px;
+	width: 96px;
+}
+
+.overview-preview-actions .overview-placeholder + .overview-placeholder {
+	width: 72px;
+}
+
+.overview-preview-status {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.overview-preview-sidebar .collapsible-sidebar-header {
+	cursor: default;
+}
+
+.overview-preview-sidebar .collapsible-label-see-more .overview-placeholder {
+	width: 56px;
+}
+
+.vscode-high-contrast .overview-placeholder {
+	outline: 1px solid var(--vscode-contrastBorder);
+}
+
 .comment-body li div {
 	display: inline;
 }
@@ -260,7 +298,8 @@ body .comment-container.review {
 	position: relative;
 }
 
-body #main .comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
+body #main .comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)),
+#description .review-comment-header {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -505,6 +544,15 @@ button.input-box {
 	display: inline-block;
 }
 
+#status-checks .stacked-delete-branch-container {
+	display: block;
+	padding: 12px 16px;
+}
+
+#status-checks .stacked-delete-branch-container form {
+	margin: 0;
+}
+
 #status-checks .branch-status-message {
 	display: inline-block;
 	line-height: 100%;
@@ -633,6 +681,217 @@ body button .icon {
 	align-items: center;
 	flex-wrap: wrap;
 	row-gap: 12px;
+	column-gap: 8px;
+}
+
+.stack-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 16px;
+	color: var(--vscode-foreground);
+	text-decoration: none;
+}
+
+.stack-badge:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.stack-badge .icon svg,
+.stack-section summary .icon svg,
+.stack-entry-readiness svg {
+	width: 16px;
+	height: 16px;
+}
+
+.stack-section summary {
+	cursor: pointer;
+}
+
+.stack-section {
+	position: relative;
+	scroll-margin-top: 64px;
+}
+
+.stack-heading-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.stack-section summary > .icon {
+	flex-shrink: 0;
+}
+
+.stack-chevron {
+	margin-left: auto;
+}
+
+.stack-section[open].has-actions .stack-heading-text {
+	padding-right: 128px;
+}
+
+.stack-section:not([open]) .stack-chevron {
+	transform: rotate(-90deg);
+}
+
+.stack-description,
+.stack-entry-meta {
+	display: block;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.stack-entries {
+	list-style: none;
+	margin: 0;
+	padding: 8px 16px;
+}
+
+.stack-entry,
+.stack-base {
+	display: grid;
+	grid-template-columns: 20px minmax(0, 1fr);
+	column-gap: 8px;
+	position: relative;
+	padding: 8px;
+}
+
+.stack-entry::before {
+	content: '';
+	position: absolute;
+	left: 17px;
+	top: 30px;
+	bottom: 0;
+	border-left: 1px solid var(--vscode-descriptionForeground);
+	opacity: 0.65;
+}
+
+.stack-entry.current {
+	background: var(--vscode-panel-background);
+	border-radius: 4px;
+	box-shadow: inset 3px 0 var(--vscode-focusBorder);
+}
+
+.stack-entry-readiness {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	position: relative;
+	z-index: 1;
+	border-radius: 50%;
+	background: var(--vscode-editor-background);
+}
+
+.stack-entry.current .stack-entry-readiness {
+	background: var(--vscode-panel-background);
+}
+
+.stack-entry-readiness.ready {
+	color: var(--vscode-issues-open);
+}
+
+.stack-entry-readiness.ready svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.stack-entry-readiness.merged {
+	color: var(--vscode-pullRequests-merged);
+}
+
+.stack-entry-readiness.merged svg path {
+	fill: var(--vscode-pullRequests-merged);
+}
+
+.stack-entry-readiness.draft {
+	color: var(--vscode-pullRequests-draft);
+}
+
+.stack-entry-readiness.draft svg path {
+	fill: var(--vscode-pullRequests-draft);
+}
+
+.vscode-high-contrast .stack-entry-readiness.merged,
+.vscode-high-contrast-light .stack-entry-readiness.merged,
+.vscode-high-contrast .stack-entry-readiness.draft,
+.vscode-high-contrast-light .stack-entry-readiness.draft {
+	color: var(--vscode-foreground);
+}
+
+.vscode-high-contrast .stack-entry-readiness.merged svg path,
+.vscode-high-contrast-light .stack-entry-readiness.merged svg path,
+.vscode-high-contrast .stack-entry-readiness.draft svg path,
+.vscode-high-contrast-light .stack-entry-readiness.draft svg path {
+	fill: var(--vscode-foreground);
+}
+
+.stack-entry-readiness.blocked {
+	color: var(--vscode-pullRequests-closed);
+}
+
+.stack-entry-readiness.blocked svg path {
+	fill: var(--vscode-pullRequests-closed);
+}
+
+.stack-entry-readiness.waiting {
+	color: var(--vscode-list-warningForeground);
+}
+
+.stack-entry-readiness.waiting svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.stack-entry-details {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.stack-base {
+	align-items: center;
+}
+
+.stack-base-marker {
+	box-sizing: border-box;
+	width: 8px;
+	height: 8px;
+	margin-left: 5px;
+	border: 2px solid var(--vscode-descriptionForeground);
+	border-radius: 50%;
+}
+
+.stack-base .branch-tag {
+	width: fit-content;
+}
+
+.stack-actions {
+	position: absolute;
+	top: 16px;
+	right: 48px;
+}
+
+.stack-section:not([open]) .stack-actions {
+	display: none;
+}
+
+@media (max-width: 480px) {
+	.stack-section[open].has-actions .stack-heading-text {
+		padding-right: 0;
+	}
+
+	.stack-actions {
+		position: static;
+		display: flex;
+		justify-content: flex-end;
+		padding: 0 16px 8px;
+	}
+}
+
+.stack-unstack-error {
+	padding: 8px 16px 0;
+	color: var(--vscode-errorForeground);
 }
 
 .subtitle .avatar,
@@ -716,7 +975,6 @@ button.secondary.change-base {
 	color: var(--vscode-button-foreground);
 	border-radius: 18px;
 	padding: 4px 12px;
-	margin-right: 10px;
 	font-weight: 600;
 	display: flex;
 	gap: 4px;

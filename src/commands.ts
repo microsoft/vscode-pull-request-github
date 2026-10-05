@@ -565,14 +565,14 @@ export function registerCommands(
 
 		}));
 
-	const resolvePr = async (context: BaseContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
+	const resolvePr = async (context: BaseContext | undefined, loadMode: 'default' | 'overview' = 'default'): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
 		if (!context) {
 			return undefined;
 		}
 
 		const folderManager = folderRepositoryManagerResolver.getManagerForRepository(context.owner, context.repo);
 
-		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true);
+		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true, loadMode);
 		if (!pr) {
 			return undefined;
 		}
@@ -1102,7 +1102,7 @@ export function registerCommands(
 					repo: argument.pullRequestDetails.repository.name,
 					number: argument.pullRequestDetails.number,
 					preventDefaultContextMenuItems: true,
-				}))?.pr;
+				}, 'overview'))?.pr;
 			} else if (PRChatContextItem.is(argument)) {
 				issueModel = argument.pr;
 			} else if (IssueChatContextItem.is(argument)) {
@@ -1252,6 +1252,10 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.signinenterprise', async () => {
 			await reposManager.authenticate(true);
 		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.selectEnterpriseAccount', () => reposManager.selectEnterpriseAccount()),
 	);
 
 	context.subscriptions.push(
@@ -1981,7 +1985,7 @@ ${contents}
 
 			const githubRepositories: { manager: FolderRepositoryManager, repo: GitHubRepository }[] = [];
 			for (const manager of reposManager.folderManagers) {
-				const remotes = await manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
+				const remotes = manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
 				const activeGitHubRepos = manager.gitHubRepositories.filter(repo => remotes.find(remote => remote.remoteName === repo.remote.remoteName));
 				githubRepositories.push(...(activeGitHubRepos.map(repo => { return { manager, repo }; })));
 			}
