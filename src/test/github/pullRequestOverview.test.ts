@@ -856,6 +856,7 @@ describe('PullRequestOverview', function () {
 
 	describe('loadStack', function () {
 		it('marks the stack loaded before posting linked stack details', async function () {
+			const externalUri = sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri.with({ scheme: 'test-external' }));
 			const { panel, model, stackQuery } = await createPanel();
 			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
 			const onLoaded = sinon.spy();
@@ -871,7 +872,13 @@ describe('PullRequestOverview', function () {
 			const update = postMessage.getCalls().find(call => call.args[0].pullrequest?.stackLoaded);
 			assert(update);
 			assert.strictEqual(update.args[0].pullrequest.stack.pullRequests.length, 2);
+			assert(externalUri.calledTwice);
 			assert(update.args[0].pullrequest.stack.pullRequests.every(entry => entry.url.includes('/open-pull-request-webview')));
+			assert(update.args[0].pullrequest.stack.pullRequests.every(entry => entry.url.startsWith('test-external:')));
+			assert.deepStrictEqual(update.args[0].pullrequest.stack.pullRequests.map(entry => JSON.parse(vscode.Uri.parse(entry.url).query)), [
+				{ owner: remote.owner, repo: remote.repositoryName, pullRequestNumber: 999 },
+				{ owner: remote.owner, repo: remote.repositoryName, pullRequestNumber: 1000 },
+			]);
 		});
 
 		it('ignores results from a stale overview update', async function () {
