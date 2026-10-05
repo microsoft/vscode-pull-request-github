@@ -1307,9 +1307,9 @@ export async function parseCombinedTimelineEvents(
 					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
-					author: commitEv.commit.author.user
+					author: commitEv.commit.author?.user
 						? parseAccount(commitEv.commit.author.user, githubRepository)
-						: { login: commitEv.commit.committer.name },
+						: { login: commitEv.commit.committer?.name ?? '' },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
@@ -1337,7 +1337,7 @@ export async function parseCombinedTimelineEvents(
 					event: type,
 					user: parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
-					mergeRef: mergeEv.mergeRef.name,
+					mergeRef: mergeEv.mergeRef?.name ?? mergeEv.mergeRefName,
 					sha: mergeEv.commit.oid,
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,

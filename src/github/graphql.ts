@@ -15,11 +15,12 @@ interface PageInfo {
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	actor: Actor;
+	actor: Actor | null;
 	createdAt: string;
 	mergeRef: {
 		name: string;
-	};
+	} | null;
+	mergeRefName: string;
 	commit: {
 		oid: string;
 		commitUrl: string;
@@ -194,12 +195,12 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
-			user: Account;
-		};
+			user: Account | null;
+		} | null;
 		committer: {
 			avatarUrl: string;
 			name: string;
-		};
+		} | null;
 		oid: string;
 		message: string;
 		committedDate: Date;

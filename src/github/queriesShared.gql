@@ -55,6 +55,7 @@ fragment Merged on MergedEvent {
 	mergeRef {
 		name
 	}
+	mergeRefName
 	commit {
 		oid
 		commitUrl
