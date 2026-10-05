@@ -729,7 +729,7 @@ body button .icon {
 }
 
 .stack-section[open].has-actions .stack-heading-text {
-	padding-right: 128px;
+	padding-right: 230px;
 }
 
 .stack-section:not([open]) .stack-chevron {
@@ -867,6 +867,9 @@ body button .icon {
 }
 
 .stack-actions {
+	position: absolute;
+	top: 16px;
+	right: 48px;
 	display: flex;
 	gap: 8px;
 	margin-left: auto;

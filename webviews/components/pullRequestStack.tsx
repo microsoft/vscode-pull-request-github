@@ -70,9 +70,7 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 		}
 	};
 
-	const update = async (event: React.MouseEvent<HTMLButtonElement>) => {
-		event.preventDefault();
-		event.stopPropagation();
+	const update = async () => {
 		try {
 			setUpdating(true);
 			setUpdateError(undefined);
@@ -96,18 +94,18 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 							: `${stack.size} pull requests in this stack.`}
 					</span>
 				</span>
-				{canUnstack || canUpdate ? <div className="stack-actions">
-					{canUpdate ? <button className="secondary" type="button" title="Rebase and push all pull requests in this stack"
-						disabled={busy || updating || !!pr.stackMergeStatus} onClick={update}>
-						{updating ? 'Updating...' : 'Update stack'}
-					</button> : null}
-					{canUnstack ? <button className="secondary" type="button" title="Unstack all eligible pull requests"
-						disabled={busy || updating || !!pr.stackMergeStatus} onClick={unstack}>
-						{busy ? 'Unstacking...' : 'Unstack all'}
-					</button> : null}
-				</div> : null}
 				<span className="stack-chevron">{chevronDownIcon}</span>
 			</summary>
+			{canUnstack || canUpdate ? <div className="stack-actions">
+				{canUpdate ? <button className="secondary" type="button" title="Rebase and push all pull requests in this stack"
+					disabled={busy || updating || !!pr.stackMergeStatus} onClick={update}>
+					{updating ? 'Updating...' : 'Update stack'}
+				</button> : null}
+				{canUnstack ? <button className="secondary" type="button" title="Unstack all eligible pull requests"
+					disabled={busy || updating || !!pr.stackMergeStatus} onClick={unstack}>
+					{busy ? 'Unstacking...' : 'Unstack all'}
+				</button> : null}
+			</div> : null}
 			{error || updateError ? <div className="stack-action-error" role="alert">{error ?? updateError}</div> : null}
 			<ol className="stack-entries" aria-label={`Pull requests merging down into ${stack.base}`}>
 				{[...stack.pullRequests].reverse().map(entry => {

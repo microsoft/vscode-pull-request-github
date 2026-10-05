@@ -299,8 +299,9 @@ describe('Overview', function () {
 		);
 		const button = out.getByText('Update stack');
 		const section = button.closest('#pull-request-stack');
-		assert.strictEqual(section?.querySelector('summary'), button.closest('summary'));
-		assert.strictEqual(fireEvent.click(button), false);
+		assert.strictEqual(button.closest('summary'), null);
+		assert.strictEqual(section?.children[1], button.parentElement);
+		assert.strictEqual(fireEvent.click(button), true);
 		assert(updateStack.calledOnce);
 		assert(section?.hasAttribute('open'));
 	});
@@ -438,7 +439,8 @@ describe('Overview', function () {
 
 		assert(out.getByText('This branch is out-of-date with the base branch.'));
 		const button = out.getByText('Update stack');
-		assert(button.closest('.stack-section summary'));
+		assert.strictEqual(button.closest('summary'), null);
+		assert(button.closest('.stack-section'));
 		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(button);
@@ -462,7 +464,7 @@ describe('Overview', function () {
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794, 795] });
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert(out.getByText('Update stack').closest('.stack-section summary'));
+		assert.strictEqual(out.getByText('Update stack').closest('summary'), null);
 		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(out.getByText('Update stack'));
@@ -493,7 +495,7 @@ describe('Overview', function () {
 		const updateBranch = sinon.stub(context, 'updateBranch');
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert(out.getByText('Update stack').closest('.stack-section summary'));
+		assert.strictEqual(out.getByText('Update stack').closest('summary'), null);
 		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(out.getByText('Update stack'));
