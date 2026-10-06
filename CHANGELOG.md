@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.168.0
+
+### Changes
+
+- Add support for stacked pull requests.
+
+![Add existing pull requests to stack](./documentation/changelog/0.168.0/add-prs-to-stack.png)
+
+![Stack shows in pull request webview](./documentation/changelog/0.168.0/show-pr-stack-in-webview.png)
+
+![Unstack all pull requests in a stack](./documentation/changelog/0.168.0/unstack-a-stack.png)
+
+- Show branch deletion options in a modal dialog after merging a pull request.
+- Support configuring and selecting between multiple GitHub Enterprise instances.
+
+### Fixes
+
+- Multiple accounts don't work for any but the first account added. https://github.com/microsoft/vscode-pull-request-github/issues/8789
+
 ## 0.166.1
 
 ### Fixes
