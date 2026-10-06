@@ -4,7 +4,7 @@
 
 ### Changes
 
-- Add support for stacked pull requests.
+- Add support for stacked pull requests. Set `githubPullRequests.experimental.stacks` to `true` to enable this feature.
 
 ![Add existing pull requests to stack](./documentation/changelog/0.168.0/add-prs-to-stack.png)
 
