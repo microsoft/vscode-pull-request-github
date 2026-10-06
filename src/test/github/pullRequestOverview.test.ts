@@ -928,6 +928,7 @@ describe('PullRequestOverview', function () {
 		it('offers Update stack for unpropagated middle changes with a checked-out stack PR in another folder', async function () {
 			const { panel, model, stackQuery } = await openStackPanel();
 			pullRequestManager.activePullRequest = undefined;
+			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 			const url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
 			model.head = new GitHubRef('D2', `${remote.owner}:D2`, 'a'.repeat(40),
 				url, remote.owner, remote.repositoryName, false);
@@ -998,42 +999,66 @@ describe('PullRequestOverview', function () {
 					canUpdateStack: false,
 				}));
 				(panel as any)._canUpdateStackAccess = true;
-
-				stackQuery.resolves({
-					position: 2, size: 2, base: 'main', needsUpdate: false,
-					pullRequests: [
-						{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-						{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-					],
-				});
-				await (panel as any).loadStack(model, (panel as any)._updateSequence, () => undefined);
-				assert(postMessage.lastCall.calledWithMatch({
-					command: 'pr.update',
-					pullrequest: { stackLoaded: true, canUpdateStack: false },
-				}));
-				other.activePullRequest = undefined;
-				other.activePullRequest = checkedOut;
-				assert(postMessage.lastCall.calledWithMatch({
-					command: 'pr.update-checkout-status',
-					canUpdateStack: false,
-				}));
-
-				stackQuery.resolves({
-					position: 2, size: 3, base: 'main',
-					pullRequests: [
-						{ position: 1, number: 998, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-						{ position: 2, number: 999, title: 'Closed', url: '', head: 'D2', state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Unknown },
-						{ position: 3, number: 1000, title: 'Third', url: '', head: 'D3', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-					],
-				});
-				await (panel as any).loadStack(model, (panel as any)._updateSequence, () => undefined);
-				assert(postMessage.lastCall.calledWithMatch({
-					command: 'pr.update',
-					pullrequest: { stackLoaded: true, canUpdateStack: false },
-				}));
 			} finally {
 				other.dispose();
 			}
+		});
+
+		it('hides Update stack when the stack no longer needs updating', async function () {
+			const { panel, model, stackQuery } = await openStackPanel();
+			const url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
+			model.head = new GitHubRef('D2', `${remote.owner}:D2`, 'a'.repeat(40), url, remote.owner, remote.repositoryName, false);
+			await pullRequestManager.repository.addRemote('origin', url);
+			(panel as any)._canUpdateStackAccess = true;
+			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
+			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+			const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+			stackQuery.resolves({
+				position: 2, size: 2, base: 'main', needsUpdate: false,
+				pullRequests: [
+					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			});
+
+			await (panel as any).loadStack(model, (panel as any)._updateSequence, () => undefined);
+
+			assert(postMessage.lastCall.calledWithMatch({
+				command: 'pr.update',
+				pullrequest: { stackLoaded: true, canUpdateStack: false },
+			}));
+			pullRequestManager.activePullRequest = undefined;
+			pullRequestManager.activePullRequest = model;
+			assert(postMessage.lastCall.calledWithMatch({
+				command: 'pr.update-checkout-status',
+				canUpdateStack: false,
+			}));
+		});
+
+		it('hides Update stack when a closed PR interrupts the open chain', async function () {
+			const { panel, model, stackQuery } = await openStackPanel();
+			const url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
+			model.head = new GitHubRef('D2', `${remote.owner}:D2`, 'a'.repeat(40), url, remote.owner, remote.repositoryName, false);
+			await pullRequestManager.repository.addRemote('origin', url);
+			(panel as any)._canUpdateStackAccess = true;
+			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
+			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+			const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+			stackQuery.resolves({
+				position: 2, size: 3, base: 'main', needsUpdate: true,
+				pullRequests: [
+					{ position: 1, number: 998, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 999, title: 'Closed', url: '', head: 'D2', state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+					{ position: 3, number: 1000, title: 'Third', url: '', head: 'D3', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			});
+
+			await (panel as any).loadStack(model, (panel as any)._updateSequence, () => undefined);
+
+			assert(postMessage.lastCall.calledWithMatch({
+				command: 'pr.update',
+				pullrequest: { stackLoaded: true, canUpdateStack: false },
+			}));
 		});
 
 		it('requires a checked-out PR in the stack even for direct webview requests', async function () {
