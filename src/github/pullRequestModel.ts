@@ -298,6 +298,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			changes.draft = true;
 			this.isDraft = item.isDraft;
 		}
+		if (this.head && item.head && (this.head.ref !== item.head.ref || this.head.sha !== item.head.sha)) {
+			changes.head = true;
+		}
+		if (this.item.mergeable !== item.mergeable) {
+			changes.mergeability = true;
+		}
+		if (this.base && item.base && (this.base.ref !== item.base.ref || this.base.sha !== item.base.sha)) {
+			changes.base = true;
+		}
 
 		this.suggestedReviewers = item.suggestedReviewers;
 		this.closingIssues = item.closingIssues ?? [];
@@ -315,6 +324,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
 		}
 		if (item.mergeQueueEntry !== undefined) {
+			if (this.mergeQueueEntry?.position !== item.mergeQueueEntry?.position
+				|| this.mergeQueueEntry?.state !== item.mergeQueueEntry?.state
+				|| this.mergeQueueEntry?.url !== item.mergeQueueEntry?.url) {
+				changes.mergeQueue = true;
+			}
 			this.mergeQueueEntry = item.mergeQueueEntry ?? undefined;
 		}
 		if (item.hasComments !== undefined) {
@@ -593,6 +607,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error('GitHub returned an unknown stack merge result.');
 		}
 		Logger.debug(`Stack merge for #${this.number}: ${response.status}`, PullRequestModel.ID);
+		this.githubRepository.notifyStackChanged(stack.pullRequests.map(entry => entry.number));
 		return response.status;
 	}
 
@@ -2249,9 +2264,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
+			const previousMergeability = this.item.mergeable;
 			this.item.mergeable = mergeability;
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
 			this.update(this.item);
+			if (previousMergeability !== mergeability) {
+				this._onDidChange.fire({ mergeability: true });
+			}
 			return { mergeability, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);

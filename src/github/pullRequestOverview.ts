@@ -73,6 +73,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _updateItemPromise: Promise<void> | undefined;
 	private _updateSequence = 0;
 	private _previewSequence = 0;
+	private _stackLoaded = false;
+	private _stackPullRequestNumbers = new Set<number>();
+	private _stackRefreshPending = false;
+	private _stackRefreshPromise: Promise<void> | undefined;
 	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	public static override async createOrShow(
@@ -182,13 +186,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.findPanel(owner, repo, number) as PullRequestOverviewPanel | undefined;
 	}
 
-	public static async refreshStackPanels(owner: string, repo: string, numbers: readonly number[]): Promise<void> {
-		const panels = numbers
-			.map(number => this.findPanel(owner, repo, number))
-			.filter((panel): panel is PullRequestOverviewPanel => !!panel);
-		await Promise.all(panels.map(panel => panel.refreshPanel()));
-	}
-
 	/**
 	 * Register the webview context-menu commands once globally,
 	 * rather than per panel instance.  Each command receives the
@@ -278,26 +275,50 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 
 		if (this._item) {
+			const repository = this._item.githubRepository;
+			this._prListeners.push(repository.onDidChangeStack(numbers => {
+				if (numbers.includes(this._item.number) || numbers.some(number => this._stackPullRequestNumbers.has(number))) {
+					void this.refreshStack();
+				}
+			}));
+			this._prListeners.push(repository.onDidChangePullRequests(changes => {
+				if (changes.some(({ model, event }) => model.number !== this._item.number
+					&& this._stackPullRequestNumbers.has(model.number)
+					&& (event.state || event.draft || event.title || event.base || event.head || event.mergeability || event.mergeQueue))) {
+					void this.refreshStack();
+				}
+			}));
 			this._prListeners.push(this._item.onDidChange(e => {
 				if (e.draft) {
-					const item = this._item;
 					void this.refreshPanel();
-					if (areStacksEnabled()) {
-						void item.getStack().then(stack => {
-							if (stack) {
-								return PullRequestOverviewPanel.refreshStackPanels(item.remote.owner, item.remote.repositoryName,
-									stack.pullRequests.filter(entry => entry.number !== item.number).map(entry => entry.number));
-							}
-						}).catch(error => {
-							Logger.error(`Failed to refresh pull request stack after draft change: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-							void vscode.window.showErrorMessage(vscode.l10n.t('Unable to refresh pull request stack: {0}', formatError(error)));
-						});
-					}
 				} else if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
 					this.refreshPanel();
+				} else if (e.title || e.base || e.head || e.mergeability || e.mergeQueue) {
+					void this.refreshStack();
 				}
 			}));
 		}
+	}
+
+	private refreshStack(): Promise<void> {
+		if (this.isDisposed || !areStacksEnabled()) {
+			return Promise.resolve();
+		}
+		this._stackRefreshPending = true;
+		this._stackRefreshPromise ??= Promise.resolve().then(async () => {
+			while (this._stackRefreshPending && !this.isDisposed && this._panel.visible && areStacksEnabled()) {
+				this._stackRefreshPending = false;
+				if (this._item) {
+					await this.loadStack(this._item, this._updateSequence);
+				}
+			}
+		}).finally(() => {
+			this._stackRefreshPromise = undefined;
+			if (this._stackRefreshPending && !this.isDisposed && this._panel.visible && areStacksEnabled()) {
+				void this.refreshStack();
+			}
+		});
+		return this._stackRefreshPromise;
 	}
 
 	/**
@@ -338,6 +359,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onDidChangeViewState(e);
+		if (e.webviewPanel.visible && this._stackRefreshPending) {
+			void this.refreshStack();
+		}
 		this.setVisibilityContext();
 
 		// If the panel becomes visible and we have an item, notify that this PR is active
@@ -422,6 +446,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item = pullRequestModel;
 		this._diffLinkHashMapPromise = undefined;
 		const updateSequence = ++this._updateSequence;
+		this._stackLoaded = false;
 		const updateStart = performance.now();
 
 		try {
@@ -457,6 +482,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				.join(', ');
 			Logger.debug(`Data timings: ${dataTimingSummary}`, PullRequestOverviewPanel.ID);
 
+			if (this._item !== pullRequest) {
+				this._stackPullRequestNumbers.clear();
+			}
 			this._item = pullRequest;
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
@@ -572,7 +600,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}).catch(error => {
 				Logger.error(`Failed to update deferred assignable users: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
-			let stackLoaded = false;
 			const deferredDataPromise = Promise.all([
 				measureDeferred('statusChecks', pullRequestModel.getStatusChecks()),
 				reviewRequestsPromise,
@@ -612,7 +639,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						mergeable: mergeability.mergeability,
 						reviewers,
 						hasReviewDraft,
-						...(stackLoaded ? {} : { mergeQueueMethod }),
+						...(this._stackLoaded ? {} : { mergeQueueMethod }),
 						emailForCommit,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 						isCopilotOnMyBehalf: isCopilotOnBehalf,
@@ -627,7 +654,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				Logger.error(`Failed to update deferred pull request data: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
 			if (areStacksEnabled()) {
-				void this.loadStack(pullRequestModel, updateSequence, () => { stackLoaded = true; });
+				void this.refreshStack();
 			}
 			const timelineStart = performance.now();
 			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
@@ -658,10 +685,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async loadStack(pullRequestModel: PullRequestModel, updateSequence: number, onLoaded: () => void): Promise<void> {
+	private async loadStack(pullRequestModel: PullRequestModel, updateSequence: number): Promise<void> {
 		try {
 			const stack = await pullRequestModel.getStack();
-			if (updateSequence !== this._updateSequence || !areStacksEnabled()) {
+			if (this.isDisposed || updateSequence !== this._updateSequence || !areStacksEnabled()) {
 				return;
 			}
 			const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName) : undefined;
@@ -676,20 +703,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					})).toString(),
 				}))),
 			};
-			if (updateSequence === this._updateSequence && areStacksEnabled()) {
-				onLoaded();
+			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
+				this._stackLoaded = true;
+				this._stackPullRequestNumbers = new Set(stack?.pullRequests.map(entry => entry.number));
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
 						stack: linkedStack,
 						stackLoaded: true,
+						stackLoadError: false,
 						...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
 					} satisfies Partial<PullRequest>,
 				});
 			}
 		} catch (error) {
 			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-			if (updateSequence === this._updateSequence && areStacksEnabled()) {
+			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
 				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
 			}
 		}
@@ -1157,8 +1186,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 			const remainingPullRequests = await this._item.githubRepository.unstackAll(this._item.number, expectedPullRequests);
 			await this._replyMessage(message, { cancelled: false, remainingPullRequests } satisfies UnstackAllResult);
-			await PullRequestOverviewPanel.refreshStackPanels(this._identity.owner, this._identity.repo,
-				stack.pullRequests.map(pr => pr.number));
 			if (remainingPullRequests.length === stack.size) {
 				void vscode.window.showInformationMessage(vscode.l10n.t('No pull requests were unstacked. Merged, queued, or currently merging pull requests remain in the stack.'));
 			} else {
@@ -1573,6 +1600,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	override dispose() {
 		++this._updateSequence;
+		this._stackRefreshPending = false;
 		super.dispose();
 		disposeAll(this._prListeners);
 	}
