@@ -1326,6 +1326,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {
+		let acquiredLockKey: string | undefined;
 		try {
 			assertStacksEnabled();
 			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
@@ -1357,6 +1358,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (PullRequestOverviewPanel._updatingStacks.has(lockKey)) {
 				throw new Error(vscode.l10n.t('The pull request stack is already being updated.'));
 			}
+			acquiredLockKey = lockKey;
+			PullRequestOverviewPanel._updatingStacks.add(acquiredLockKey);
 			const remainingPullRequests = await this._item.githubRepository.unstackAll(this._item.number, expectedPullRequests);
 			await this._replyMessage(message, { cancelled: false, remainingPullRequests } satisfies UnstackAllResult);
 			await PullRequestOverviewPanel.refreshStackPanels(this._identity.owner, this._identity.repo,
@@ -1370,6 +1373,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(`Failed to unstack pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to unstack pull requests: {0}', formatError(error)));
 			await this._throwError(message, formatError(error));
+		} finally {
+			if (acquiredLockKey) {
+				PullRequestOverviewPanel._updatingStacks.delete(acquiredLockKey);
+			}
 		}
 	}
 

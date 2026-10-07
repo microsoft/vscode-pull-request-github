@@ -62,6 +62,7 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 		try {
 			setBusy(true);
 			setError(undefined);
+			setUpdateError(undefined);
 			await unstackAll();
 		} catch (unstackError) {
 			setError(`Unable to unstack pull requests: ${unstackError instanceof Error ? unstackError.message || unstackError.name : String(unstackError)}`);
@@ -74,6 +75,7 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 		try {
 			setUpdating(true);
 			setUpdateError(undefined);
+			setError(undefined);
 			await updateStack();
 		} catch (updateFailure) {
 			setUpdateError(`Unable to update the stack: ${updateFailure instanceof Error ? updateFailure.message || updateFailure.name : String(updateFailure)}`);

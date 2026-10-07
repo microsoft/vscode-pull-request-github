@@ -338,6 +338,52 @@ describe('Overview', function () {
 		assert.strictEqual((out.getByText('Update stack') as HTMLButtonElement).disabled, false);
 	});
 
+	['update', 'unstack'].forEach(firstAction => {
+		it(`clears the previous ${firstAction} error when the other stack action starts`, async function () {
+			const pr = new PullRequestBuilder().canUpdateStack(true).stack({
+				position: 1, size: 1, base: 'main',
+				pullRequests: [{
+					position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234',
+					state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind,
+				}],
+			}).build();
+			const context = new PRContext(pr);
+			const failure = new Error('Previous action failed');
+			const update = sinon.stub(context, 'updateStack');
+			const unstack = sinon.stub(context, 'unstackAll');
+			let finish!: () => void;
+			const pending = new Promise<void>(resolve => { finish = resolve; });
+			if (firstAction === 'update') {
+				update.rejects(failure);
+				unstack.callsFake(async () => {
+					await pending;
+					return { cancelled: false, remainingPullRequests: [] };
+				});
+			} else {
+				unstack.rejects(failure);
+				update.callsFake(async () => {
+					await pending;
+					return { updatedPullRequests: [1234] };
+				});
+			}
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			fireEvent.click(out.getByText(firstAction === 'update' ? 'Update stack' : 'Unstack all'));
+			const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
+			assert(alert?.textContent?.includes('Previous action failed'));
+
+			fireEvent.click(out.getByText(firstAction === 'update' ? 'Unstack all' : 'Update stack'));
+			assert.strictEqual(out.container.querySelector('.stack-action-error'), null);
+			assert(out.getByText(firstAction === 'update' ? 'Unstacking...' : 'Updating...'));
+			finish();
+			await waitForElement(() => out.getByText(firstAction === 'update' ? 'Unstack all' : 'Update stack'));
+			assert.strictEqual(out.container.querySelector('.stack-action-error'), null);
+		});
+	});
+
 	it('shows a closed stack without suggesting it can be merged', function () {
 		const pr = new PullRequestBuilder().state(GithubItemStateEnum.Closed).stack({
 			position: 1,
