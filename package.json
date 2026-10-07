@@ -359,7 +359,7 @@
 				},
 				"githubPullRequests.openPullLinks": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "application",
 					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
 					"tags": [
