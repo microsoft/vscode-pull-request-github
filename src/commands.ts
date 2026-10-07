@@ -193,7 +193,7 @@ export function registerCommands(
 ) {
 	const logId = 'RegisterCommands';
 
-	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry);
+	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, reposManager);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(

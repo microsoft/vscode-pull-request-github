@@ -729,7 +729,7 @@ body button .icon {
 }
 
 .stack-section[open].has-actions .stack-heading-text {
-	padding-right: 128px;
+	padding-right: 230px;
 }
 
 .stack-section:not([open]) .stack-chevron {
@@ -870,13 +870,20 @@ body button .icon {
 	position: absolute;
 	top: 16px;
 	right: 48px;
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
 }
 
 .stack-section:not([open]) .stack-actions {
 	display: none;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 700px) {
+	.stack-section[open].has-actions summary {
+		flex-wrap: wrap;
+	}
+
 	.stack-section[open].has-actions .stack-heading-text {
 		padding-right: 0;
 	}
@@ -889,7 +896,7 @@ body button .icon {
 	}
 }
 
-.stack-unstack-error {
+.stack-action-error {
 	padding: 8px 16px 0;
 	color: var(--vscode-errorForeground);
 }
