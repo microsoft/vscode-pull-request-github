@@ -380,8 +380,9 @@ body .comment-container .review-comment-header {
 	gap: 4px;
 }
 
+.status-check .icon-button,
 .view-check-logs-placeholder {
-	width: 20px;
+	flex: 0 0 22px;
 }
 
 #merge-on-github {
