@@ -22,7 +22,6 @@ import { mockTreeViewWorkbench } from '../mocks/mockTreeViewWorkbench';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PRNode } from '../../view/treeNodes/pullRequestNode';
@@ -229,7 +228,7 @@ describe('GitHub Pull Requests view', function () {
 		assert.match(showError.firstCall.args[0], /stack features are disabled/);
 	});
 
-	it('refreshes selected and existing stack PR panels after adding from the tree', async function () {
+	it('adds selected PRs without fetching stack membership to refresh panels', async function () {
 		const url = 'https://github.com/aaa/bbb';
 		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 		const repository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
@@ -245,7 +244,7 @@ describe('GitHub Pull Requests view', function () {
 					{ position: 2, number: 1, title: 'Bottom', url, head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
 				],
 			};
-			sinon.stub(bottom, 'getStack').resolves(existing);
+			const getStack = sinon.stub(bottom, 'getStack').resolves(existing);
 			sinon.stub(top, 'getStack').resolves(undefined);
 			sinon.stub(repository, 'getStackCandidate').resolves({ parentPullRequestNumber: 1, stackNumber: 10, size: 2, url });
 			sinon.stub(repository, 'getPullRequest').callsFake(async number => number === 1 ? bottom : top);
@@ -253,12 +252,11 @@ describe('GitHub Pull Requests view', function () {
 			const confirm = sinon.stub(vscode.window, 'showInformationMessage');
 			confirm.onFirstCall().resolves('Add to Stack' as never);
 			confirm.onSecondCall().resolves(undefined);
-			const refresh = sinon.stub(PullRequestOverviewPanel, 'refreshStackPanels').resolves();
 
 			await (provider as any).addSelectedPullRequestsToStack(selected[0], selected);
 
 			assert(add.calledOnce);
-			assert(refresh.calledOnceWithExactly(remote.owner, remote.repositoryName, [10, 1, 2]));
+			assert(getStack.notCalled);
 		} finally {
 			repository.dispose();
 		}
