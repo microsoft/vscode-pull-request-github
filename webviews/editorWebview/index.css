@@ -380,10 +380,6 @@ body .comment-container .review-comment-header {
 	gap: 4px;
 }
 
-.status-check-link-placeholder {
-	visibility: hidden;
-}
-
 .status-check .icon-button,
 .view-check-logs-placeholder {
 	flex: 0 0 22px;

@@ -4,12 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { readFileSync } from 'fs';
+import * as path from 'path';
 import * as React from 'react';
 import { cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
+import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Overview } from '../overview';
 
@@ -124,6 +127,40 @@ describe('Overview', function () {
 			}
 		}
 		assert.strictEqual(viewCheckLogs.callCount, 1);
+	});
+
+	it('keeps Details placeholders invisible in both PR overviews using shared styles', function () {
+		const status: PullRequestCheckStatus = {
+			id: 'missing-details', state: CheckState.Failure, context: 'Check without details',
+			description: null, targetUrl: null, workflowName: undefined, event: undefined,
+			url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: false, databaseId: undefined,
+		};
+		const pr = new PullRequestBuilder().status(checks => checks.state(CheckState.Failure).statuses([status])).build();
+		const sharedCss = readFileSync(path.resolve('webviews', 'common', 'common.css'), 'utf8');
+		const placeholderRule = /^\.status-check-link-placeholder\s*\{[^}]*\}/m.exec(sharedCss);
+		assert(placeholderRule);
+		const sharedStyles = document.createElement('style');
+		sharedStyles.textContent = placeholderRule[0];
+		document.head.appendChild(sharedStyles);
+		try {
+			for (const Component of [Overview, ActivityBarOverview]) {
+				const out = render(
+					<PullRequestContext.Provider value={new PRContext(pr)}>
+						<Component {...pr} />
+					</PullRequestContext.Provider>,
+				);
+				const placeholder = out.container.querySelector('.status-check-link-placeholder');
+				assert(placeholder);
+				assert.strictEqual(placeholder.textContent, 'Details');
+				assert.strictEqual(placeholder.getAttribute('aria-hidden'), 'true');
+				const style = window.getComputedStyle(placeholder);
+				assert.strictEqual(style.visibility, 'hidden');
+				assert.notStrictEqual(style.display, 'none');
+				out.unmount();
+			}
+		} finally {
+			sharedStyles.remove();
+		}
 	});
 
 	it('shows the stack position and ordered pull requests in the merge section', async function () {
