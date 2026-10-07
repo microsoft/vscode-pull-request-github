@@ -718,6 +718,9 @@ body button .icon {
 .stack-heading-text {
 	flex: 1;
 	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
 .stack-section summary > .icon {
@@ -729,7 +732,7 @@ body button .icon {
 }
 
 .stack-section[open].has-actions .stack-heading-text {
-	padding-right: 128px;
+	padding-right: 230px;
 }
 
 .stack-section:not([open]) .stack-chevron {
@@ -746,7 +749,7 @@ body button .icon {
 .stack-entries {
 	list-style: none;
 	margin: 0;
-	padding: 8px 16px;
+	padding: 12px 20px 4px 20px;
 }
 
 .stack-entry,
@@ -755,23 +758,33 @@ body button .icon {
 	grid-template-columns: 20px minmax(0, 1fr);
 	column-gap: 8px;
 	position: relative;
-	padding: 8px;
+	padding: 6px 8px 12px 8px;
 }
 
 .stack-entry::before {
 	content: '';
 	position: absolute;
 	left: 17px;
-	top: 30px;
-	bottom: 0;
+	top: 28px;
+	bottom: 6px;
 	border-left: 1px solid var(--vscode-descriptionForeground);
-	opacity: 0.65;
+	opacity: 0.5;
 }
 
 .stack-entry.current {
 	background: var(--vscode-panel-background);
 	border-radius: 4px;
-	box-shadow: inset 3px 0 var(--vscode-focusBorder);
+}
+
+.stack-entry.current::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 3px;
+	border-radius: 2px 0 0 2px;
+	background: var(--vscode-focusBorder);
 }
 
 .stack-entry-readiness {
@@ -847,6 +860,9 @@ body button .icon {
 .stack-entry-details {
 	min-width: 0;
 	overflow-wrap: anywhere;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
 .stack-base {
@@ -870,13 +886,20 @@ body button .icon {
 	position: absolute;
 	top: 16px;
 	right: 48px;
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
 }
 
 .stack-section:not([open]) .stack-actions {
 	display: none;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 700px) {
+	.stack-section[open].has-actions summary {
+		flex-wrap: wrap;
+	}
+
 	.stack-section[open].has-actions .stack-heading-text {
 		padding-right: 0;
 	}
@@ -889,7 +912,7 @@ body button .icon {
 	}
 }
 
-.stack-unstack-error {
+.stack-action-error {
 	padding: 8px 16px 0;
 	color: var(--vscode-errorForeground);
 }

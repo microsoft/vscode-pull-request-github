@@ -45,7 +45,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.166.1",
+	"version": "0.168.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -601,7 +601,7 @@
 				"githubPullRequests.experimental.stacks": {
 					"type": "boolean",
 					"description": "%githubPullRequests.experimental.stacks.description%",
-					"default": false,
+					"default": true,
 					"included": false
 				},
 				"githubPullRequests.codingAgent.enabled": {
