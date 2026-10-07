@@ -8,10 +8,10 @@ import * as React from 'react';
 import { cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { GithubItemStateEnum, PullRequestMergeability } from '../../../src/github/interface';
+import { PullRequestBuilder } from './builder/pullRequest';
+import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Overview } from '../overview';
-import { PullRequestBuilder } from './builder/pullRequest';
 
 describe('Overview', function () {
 	let sinon: SinonSandbox;
@@ -58,6 +58,72 @@ describe('Overview', function () {
 			fireEvent.click(link);
 		});
 		assert.strictEqual(openOnGitHub.callCount, 2);
+	});
+
+	it('reserves details and log action slots for every status check', async function () {
+		const cases: Pick<PullRequestCheckStatus, 'state' | 'isCheckRun' | 'databaseId'>[] = [
+			{ state: CheckState.Failure, isCheckRun: false, databaseId: undefined },
+			{ state: CheckState.Failure, isCheckRun: true, databaseId: 1 },
+			{ state: CheckState.Pending, isCheckRun: true, databaseId: 2 },
+			{ state: CheckState.Success, isCheckRun: true, databaseId: 3 },
+			{ state: CheckState.Neutral, isCheckRun: true, databaseId: 4 },
+			{ state: CheckState.Unknown, isCheckRun: true, databaseId: 5 },
+			{ state: CheckState.Failure, isCheckRun: true, databaseId: null },
+			{ state: CheckState.Failure, isCheckRun: true, databaseId: undefined },
+			{ state: CheckState.Failure, isCheckRun: true, databaseId: 0 },
+		];
+		const statuses: PullRequestCheckStatus[] = cases.map((check, index) => ({
+			...check,
+			id: `check-${index}`,
+			context: `Check ${index}`,
+			description: null,
+			workflowName: undefined,
+			event: undefined,
+			url: undefined,
+			avatarUrl: undefined,
+			targetUrl: index === cases.length - 1 ? null : `https://example.com/checks/${index}`,
+			isRequired: index % 2 === 0,
+		}));
+		const pr = new PullRequestBuilder().status(status => status.state(CheckState.Failure).statuses(statuses)).build();
+		const context = new PRContext(pr);
+		const viewCheckLogs = sinon.stub(context, 'viewCheckLogs').resolves();
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const rows = out.container.querySelectorAll('.status-check');
+		assert.strictEqual(rows.length, statuses.length);
+		for (const status of statuses) {
+			const row = [...rows].find(row => row.querySelector('.status-check-detail-text')?.textContent?.trim() === status.context);
+			assert(row);
+			const actions = row.lastElementChild;
+			assert(actions);
+			assert.strictEqual(actions.querySelector('.label')?.textContent ?? null, status.isRequired ? 'Required' : null);
+			assert.strictEqual(actions.querySelector('a')?.getAttribute('href') ?? null, status.targetUrl);
+			const linkPlaceholder = actions.querySelector('.status-check-link-placeholder');
+			if (status.targetUrl) {
+				assert.strictEqual(linkPlaceholder, null);
+			} else {
+				assert(linkPlaceholder);
+				assert.strictEqual(linkPlaceholder.textContent, 'Details');
+				assert.strictEqual(linkPlaceholder.getAttribute('aria-hidden'), 'true');
+			}
+			const slot = actions.lastElementChild;
+			assert(slot);
+			if (status.isCheckRun && status.databaseId && status.state === CheckState.Failure) {
+				assert.strictEqual(slot.getAttribute('title'), 'View Logs');
+				assert.strictEqual(actions.querySelector('.view-check-logs-placeholder'), null);
+				fireEvent.click(slot);
+				await wait(() => assert(viewCheckLogs.calledOnceWithExactly(status)));
+			} else {
+				assert(slot.classList.contains('view-check-logs-placeholder'));
+				assert.strictEqual(slot.getAttribute('aria-hidden'), 'true');
+				assert.strictEqual(actions.querySelector('button'), null);
+			}
+		}
+		assert.strictEqual(viewCheckLogs.callCount, 1);
 	});
 
 	it('shows the stack position and ordered pull requests in the merge section', async function () {

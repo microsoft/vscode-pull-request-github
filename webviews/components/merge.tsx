@@ -705,14 +705,12 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 							<a href={s.targetUrl} title={s.targetUrl}>
 								Details
 							</a>
-						) : null}
-						{s.isCheckRun && s.databaseId ? (
-							s.state === CheckState.Failure ? (
-								<button className="icon-button" title="View Logs" onClick={() => handleViewLogs(s)}>
-									{loadingLogId === s.id ? loadingIcon : outputIcon}
-								</button>
-							) : <span className="view-check-logs-placeholder" />
-						) : null}
+						) : <span className="status-check-link-placeholder" aria-hidden="true">Details</span>}
+						{s.isCheckRun && s.databaseId && s.state === CheckState.Failure ? (
+							<button className="icon-button" title="View Logs" onClick={() => handleViewLogs(s)}>
+								{loadingLogId === s.id ? loadingIcon : outputIcon}
+							</button>
+						) : <span className="view-check-logs-placeholder" aria-hidden="true" />}
 					</div>
 				</div>
 			))}
