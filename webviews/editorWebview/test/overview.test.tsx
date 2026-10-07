@@ -126,6 +126,39 @@ describe('Overview', function () {
 		assert(openOnGitHub.notCalled);
 	});
 
+	it('shows a behind base as waiting and withholds stack merging for it and PRs above it', function () {
+		for (const [number, position] of [[794, 2], [795, 3]]) {
+			const pr = new PullRequestBuilder().number(number).stack({
+				position,
+				size: 4,
+				base: 'main',
+				pullRequests: [
+					{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+					{ position: 3, number: 795, title: 'Third', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 4, number: 798, title: 'Closed', head: 'D4', url: 'https://example.com/798', state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			}).build();
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(readiness => [
+				readiness.getAttribute('aria-label'), readiness.classList[1],
+			]), [
+				['Closed pull request cannot be merged', 'blocked'],
+				['A pull request below is behind its base', 'waiting'],
+				['Branch is behind its base', 'waiting'],
+				['Ready to merge', 'ready'],
+			]);
+			assert.strictEqual(out.container.querySelector('.stack-merge'), null);
+			assert.strictEqual(out.queryByText('Merge Pull Request'), null);
+			out.unmount();
+		}
+	});
+
 	it('shows stack state icons appropriate to each pull request and its position', function () {
 		const states = [
 			{ state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
@@ -243,7 +276,7 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 		fireEvent.click(out.getByText('Unstack all'));
-		const alert = await waitForElement(() => out.container.querySelector('.stack-unstack-error[role="alert"]'));
+		const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
 		assert.strictEqual(alert?.textContent, 'Unable to unstack pull requests: Stack is locked');
 		assert.strictEqual((out.getByText('Unstack all') as HTMLButtonElement).disabled, false);
 	});
@@ -267,6 +300,109 @@ describe('Overview', function () {
 			assert.strictEqual(out.container.querySelector('.stack-badge')?.textContent?.trim(), '1/1');
 			out.unmount();
 		}
+	});
+
+	it('offers Update stack for an open, conflict-free stack without collapsing the heading', async function () {
+		const stack = {
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 1233, title: 'First', head: 'D1', url: 'https://example.com/1233', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+				{ position: 2, number: 1234, title: 'Second', head: 'D2', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.NotMergeable },
+			],
+		};
+		const pr = new PullRequestBuilder().stack(stack).canUpdateStack(true).build();
+		const context = new PRContext(pr);
+		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1233, 1234] });
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		const button = out.getByText('Update stack');
+		const section = button.closest('#pull-request-stack');
+		assert.strictEqual(button.closest('summary'), null);
+		assert.strictEqual(section?.children[1], button.parentElement);
+		assert.strictEqual(fireEvent.click(button), true);
+		assert(updateStack.calledOnce);
+		assert(section?.hasAttribute('open'));
+	});
+
+	it('does not offer Update stack when the host rejects eligibility or stack details are unavailable', function () {
+		const entry = { position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable };
+		const stack = { position: 1, size: 1, base: 'main', pullRequests: [entry] };
+		const pr = new PullRequestBuilder().stack(stack).canUpdateStack(true).build();
+		const context = new PRContext(pr);
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+		assert(out.getByText('Update stack'));
+		for (const change of [
+			{ canUpdateStack: false },
+			{ stackLoaded: false },
+			{ stackLoadError: true },
+			{ stack: undefined },
+		]) {
+			out.rerender(<PullRequestContext.Provider value={context}><Overview {...pr} {...change} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText('Update stack'), null);
+		}
+	});
+
+	it('shows a recoverable inline error when updating the stack fails', async function () {
+		const pr = new PullRequestBuilder().canUpdateStack(true).stack({
+			position: 1, size: 1, base: 'main',
+			pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable }],
+		}).build();
+		const context = new PRContext(pr);
+		sinon.stub(context, 'updateStack').rejects(new Error('Branch changed on GitHub'));
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+		fireEvent.click(out.getByText('Update stack'));
+		const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
+		assert.strictEqual(alert?.textContent, 'Unable to update the stack: Branch changed on GitHub');
+		assert.strictEqual((out.getByText('Update stack') as HTMLButtonElement).disabled, false);
+	});
+
+	['update', 'unstack'].forEach(firstAction => {
+		it(`clears the previous ${firstAction} error when the other stack action starts`, async function () {
+			const pr = new PullRequestBuilder().canUpdateStack(true).stack({
+				position: 1, size: 1, base: 'main',
+				pullRequests: [{
+					position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234',
+					state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind,
+				}],
+			}).build();
+			const context = new PRContext(pr);
+			const failure = new Error('Previous action failed');
+			const update = sinon.stub(context, 'updateStack');
+			const unstack = sinon.stub(context, 'unstackAll');
+			let finish!: () => void;
+			const pending = new Promise<void>(resolve => { finish = resolve; });
+			if (firstAction === 'update') {
+				update.rejects(failure);
+				unstack.callsFake(async () => {
+					await pending;
+					return { cancelled: false, remainingPullRequests: [] };
+				});
+			} else {
+				unstack.rejects(failure);
+				update.callsFake(async () => {
+					await pending;
+					return { updatedPullRequests: [1234] };
+				});
+			}
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			fireEvent.click(out.getByText(firstAction === 'update' ? 'Update stack' : 'Unstack all'));
+			const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
+			assert(alert?.textContent?.includes('Previous action failed'));
+
+			fireEvent.click(out.getByText(firstAction === 'update' ? 'Unstack all' : 'Update stack'));
+			assert.strictEqual(out.container.querySelector('.stack-action-error'), null);
+			assert(out.getByText(firstAction === 'update' ? 'Unstacking...' : 'Updating...'));
+			finish();
+			await waitForElement(() => out.getByText(firstAction === 'update' ? 'Unstack all' : 'Update stack'));
+			assert.strictEqual(out.container.querySelector('.stack-action-error'), null);
+		});
 	});
 
 	it('shows a closed stack without suggesting it can be merged', function () {
@@ -331,6 +467,132 @@ describe('Overview', function () {
 			'Already merged',
 		]);
 		assert.strictEqual(out.container.querySelector('.stack-merge'), null);
+	});
+
+	it('never offers an update with a merge commit for stacked PRs', function () {
+		const stack = {
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+			],
+		};
+		for (const mergeable of [PullRequestMergeability.Behind, PullRequestMergeability.Mergeable, PullRequestMergeability.NotMergeable]) {
+			const pr = new PullRequestBuilder().number(794).canUpdateBranch(true).mergeable(mergeable).stack(stack).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert(out.container.querySelector('#pull-request-stack'));
+			if (mergeable === PullRequestMergeability.Behind) {
+				assert(out.getByText('This branch is out-of-date with the base branch.'));
+			}
+			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+			out.unmount();
+		}
+	});
+
+	it('offers Update stack only in the stack header when a PR is behind', function () {
+		const stack = {
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+			],
+		};
+		const pr = new PullRequestBuilder().number(794).canUpdateBranch(true).canUpdateStack(true)
+			.mergeable(PullRequestMergeability.Behind).stack(stack).build();
+		const context = new PRContext(pr);
+		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794] });
+		const updateBranch = sinon.stub(context, 'updateBranch');
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		assert(out.getByText('This branch is out-of-date with the base branch.'));
+		const button = out.getByText('Update stack');
+		assert.strictEqual(button.closest('summary'), null);
+		assert(button.closest('.stack-section'));
+		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+		fireEvent.click(button);
+		assert(updateStack.calledOnce);
+		assert(updateBranch.notCalled);
+	});
+
+	it('offers Update stack for an open PR when only the top of the stack is closed', function () {
+		const stack = {
+			position: 2, size: 4, base: 'master',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+				{ position: 3, number: 795, title: 'Third', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 4, number: 798, title: 'Closed', head: 'D4', url: 'https://example.com/798', state: GithubItemStateEnum.Closed, isDraft: true, mergeable: PullRequestMergeability.Unknown },
+			],
+		};
+		const pr = new PullRequestBuilder().number(794).canUpdateBranch(true).canUpdateStack(true)
+			.mergeable(PullRequestMergeability.Behind).stack(stack).build();
+		const context = new PRContext(pr);
+		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794, 795] });
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		assert.strictEqual(out.getByText('Update stack').closest('summary'), null);
+		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+		fireEvent.click(out.getByText('Update stack'));
+		assert(updateStack.calledOnce);
+	});
+
+	it('does not offer Update stack across a closed PR in the middle of a chain', function () {
+		const pr = new PullRequestBuilder().number(793).canUpdateStack(false).stack({
+			position: 1, size: 3, base: 'master',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 794, title: 'Closed', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+				{ position: 3, number: 795, title: 'Third', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		}).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		assert.strictEqual(out.queryByText('Update stack'), null);
+	});
+
+	it('keeps Update stack in the header for other updateable stacked branches', function () {
+		const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
+			.stack({
+				position: 1, size: 1, base: 'main',
+				pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.NotMergeable }],
+			}).build();
+		const context = new PRContext(pr);
+		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1234] });
+		const updateBranch = sinon.stub(context, 'updateBranch');
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		assert.strictEqual(out.getByText('Update stack').closest('summary'), null);
+		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+		fireEvent.click(out.getByText('Update stack'));
+		assert(updateStack.calledOnce);
+		assert(updateBranch.notCalled);
+	});
+
+	it('retains merge-commit updates for unstacked PRs and conflict resolution for stacked PRs', function () {
+		for (const mergeable of [PullRequestMergeability.Behind, PullRequestMergeability.Mergeable]) {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(mergeable).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert(out.getByText(/Update with merge commit/i));
+			out.unmount();
+		}
+		const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).stack({
+			position: 1, size: 1, base: 'main',
+			pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict }],
+		}).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		assert(out.getByText('Resolve conflicts'));
+		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+	});
+
+	it('does not offer merge-commit updates before stack membership is known or when loading fails', function () {
+		for (const change of [{ stackLoaded: false }, { stackLoadError: true }]) {
+			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Behind).build(), ...change };
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+			out.unmount();
+		}
 	});
 
 	it('hides stack merge when the current or an open downstack PR is not mergeable', function () {
