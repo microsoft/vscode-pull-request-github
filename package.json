@@ -601,7 +601,7 @@
 				"githubPullRequests.experimental.stacks": {
 					"type": "boolean",
 					"description": "%githubPullRequests.experimental.stacks.description%",
-					"default": false,
+					"default": true,
 					"included": false
 				},
 				"githubPullRequests.codingAgent.enabled": {
