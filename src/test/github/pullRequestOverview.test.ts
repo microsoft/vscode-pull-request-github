@@ -24,7 +24,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum, IAccount, MergeQueueState, PullRequestMergeability, PullRequestStack } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestMergeability, PullRequestStack } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -911,7 +911,7 @@ describe('PullRequestOverview', function () {
 		});
 		sinon.stub(pullRequestManager, 'getAssignableUsers').resolves({});
 		const branch = sinon.stub(pullRequestManager, 'getBranchNameForPullRequest').resolves(undefined);
-		sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+		const queueMethod = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
 		sinon.stub(pullRequestManager, 'isHeadUpToDateWithBase').resolves(true);
 		sinon.stub(pullRequestManager, 'getPreferredEmail').resolves(undefined);
 		sinon.stub(pullRequestManager, 'checkBranchUpToDate').resolves();
@@ -919,7 +919,7 @@ describe('PullRequestOverview', function () {
 		const externalUri = sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		const query = sinon.spy(repo, 'query');
-		return { models, access, branch, externalUri, showError, query };
+		return { models, access, branch, queueMethod, externalUri, showError, query };
 	}
 
 	async function createPanel(number = 1000) {
@@ -1130,6 +1130,30 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.stack, undefined);
 			assert.strictEqual((panel as any)._stackPullRequestNumbers.size, 0);
 		});
+
+		const queueMethods: (MergeMethod | undefined)[] = [undefined, 'merge'];
+		for (const method of queueMethods) {
+			it(`restores the PR base queue setting after unstacking ${method ? 'when it has a queue' : 'when it has no queue'}`, async function () {
+				const { panel, model, stackQuery, stack, postMessage, queueMethod } = await openStackPanel();
+				assert.notStrictEqual(model.base.ref, stack.base);
+				queueMethod.callsFake(async base => base === stack.base ? 'squash' : method);
+				repo.notifyStackChanged([999, 1000]);
+				await (panel as any)._stackRefreshPromise;
+				assert.strictEqual(postMessage.lastCall.args[0].pullrequest.mergeQueueMethod, 'squash');
+				queueMethod.resetHistory();
+				postMessage.resetHistory();
+				stackQuery.resolves(undefined);
+
+				repo.notifyStackChanged([999, 1000]);
+				await (panel as any)._stackRefreshPromise;
+
+				assert(queueMethod.calledOnceWithExactly(model.base.ref, remote.owner, remote.repositoryName));
+				const update = postMessage.lastCall.args[0].pullrequest;
+				assert.strictEqual(update.stack, undefined);
+				assert('mergeQueueMethod' in update);
+				assert.strictEqual(update.mergeQueueMethod, method);
+			});
+		}
 
 		it('ignores changes to unrelated PRs and other repositories', async function () {
 			const { panel, stackQuery } = await openStackPanel();

@@ -761,7 +761,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (this.isDisposed || updateSequence !== this._updateSequence || !areStacksEnabled()) {
 				return;
 			}
-			const stackQueueMethod = stack ? await this._folderRepositoryManager.mergeQueueMethodForBranch(stack.base, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName) : undefined;
+			const mergeQueueMethod = await this._folderRepositoryManager.mergeQueueMethodForBranch(
+				stack?.base ?? pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName);
 			const linkedStack = stack && {
 				...stack,
 				pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
@@ -786,7 +787,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						stackLoaded: true,
 						stackLoadError: false,
 						canUpdateStack: this.canUpdateStack(pullRequestModel),
-						...(stack ? { mergeQueueMethod: stackQueueMethod } : {}),
+						mergeQueueMethod,
 					} satisfies Partial<PullRequest>,
 				});
 			}
