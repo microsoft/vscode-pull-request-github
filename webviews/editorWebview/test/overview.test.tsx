@@ -281,6 +281,27 @@ describe('Overview', function () {
 		assert.strictEqual((out.getByText('Unstack all') as HTMLButtonElement).disabled, false);
 	});
 
+	it('uses singular wording for single-member stacks, including a retained merged PR', function () {
+		for (const state of [GithubItemStateEnum.Open, GithubItemStateEnum.Closed, GithubItemStateEnum.Merged]) {
+			const pr = new PullRequestBuilder().number(793).state(state).stack({
+				position: 1, size: 1, base: 'main',
+				pullRequests: [{
+					position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793',
+					state, isDraft: false, mergeable: PullRequestMergeability.Unknown,
+				}],
+			}).build();
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			assert.strictEqual(out.container.querySelector('.stack-description')?.textContent, '1 pull request in this stack.');
+			assert.strictEqual(out.container.querySelector('.stack-badge')?.textContent?.trim(), '1/1');
+			out.unmount();
+		}
+	});
+
 	it('offers Update stack for an open, conflict-free stack without collapsing the heading', async function () {
 		const stack = {
 			position: 2, size: 2, base: 'main',
@@ -400,7 +421,7 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 
-		assert(out.container.querySelector('#pull-request-stack')?.textContent?.includes('2 pull requests in this stack.'));
+		assert.strictEqual(out.container.querySelector('.stack-description')?.textContent, '2 pull requests in this stack.');
 		assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')), [
 			'Mergeability is being checked',
 			'Closed pull request cannot be merged',

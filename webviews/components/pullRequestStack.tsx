@@ -93,7 +93,7 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 					<span className="stack-description">
 						{pr.state === GithubItemStateEnum.Open && openBelow > 0
 							? `Merging this pull request will also merge ${openBelow} pull request${openBelow === 1 ? '' : 's'} below it.`
-							: `${stack.size} pull requests in this stack.`}
+							: `${stack.size} pull request${stack.size === 1 ? '' : 's'} in this stack.`}
 					</span>
 				</span>
 				<span className="stack-chevron">{chevronDownIcon}</span>
