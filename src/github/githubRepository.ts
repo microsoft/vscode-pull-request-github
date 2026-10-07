@@ -221,6 +221,12 @@ export class GitHubRepository extends Disposable {
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
 	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
 	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
+	private readonly _onDidChangeStack = this._register(new vscode.EventEmitter<readonly number[]>());
+	public readonly onDidChangeStack = this._onDidChangeStack.event;
+
+	notifyStackChanged(numbers: readonly number[]): void {
+		this._onDidChangeStack.fire(numbers);
+	}
 
 	public get hub(): GitHub {
 		if (this._hub && this.remote.isEnterprise && (!this.authMatchesServer || !this.remote.matchesServerUri(this._hub.serverUri))) {
@@ -880,11 +886,11 @@ export class GitHubRepository extends Disposable {
 		return { parentPullRequestNumber: parent.number, stackNumber: stack.number, size: stack.pull_requests.length, url: parent.html_url };
 	}
 
-	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<void> {
+	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<number[]> {
 		return this.addPullRequestsToStack(candidate, [number]);
 	}
 
-	async addPullRequestsToStack(candidate: StackCandidate, numbers: number[]): Promise<void> {
+	async addPullRequestsToStack(candidate: StackCandidate, numbers: number[]): Promise<number[]> {
 		if (numbers.length === 0) {
 			throw new Error('At least one pull request is required to add to a stack.');
 		}
@@ -895,18 +901,30 @@ export class GitHubRepository extends Disposable {
 			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
 		};
 		const stackNumber = candidate.stackNumber;
+		let data: unknown;
 		if (stackNumber !== undefined) {
-			await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+			({ data } = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
 				...params,
 				stack_number: stackNumber,
 				pull_requests: numbers,
-			}));
+			})));
 		} else {
-			await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks', {
+			({ data } = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks', {
 				...params,
 				pull_requests: [candidate.parentPullRequestNumber, ...numbers],
-			}));
+			})));
 		}
+		if (!isObject(data) || !Array.isArray(data.pull_requests) || data.pull_requests.length === 0) {
+			throw new Error('GitHub returned an invalid result when adding pull requests to a stack.');
+		}
+		const members = data.pull_requests.map((pr: unknown) => {
+			if (!isObject(pr) || typeof pr.number !== 'number') {
+				throw new Error('GitHub returned an invalid pull request stack entry.');
+			}
+			return pr.number;
+		});
+		this.notifyStackChanged(members);
+		return members;
 	}
 
 	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
@@ -935,13 +953,16 @@ export class GitHubRepository extends Disposable {
 			stack_number: stacks[0].number,
 		}));
 		if (result.status === 204) {
+			this.notifyStackChanged(expectedPullRequests);
 			return [];
 		}
 		if (result.status !== 200 || !isObject(result.data) || !Array.isArray(result.data.pull_requests)
 			|| !result.data.pull_requests.every((pr: unknown) => isObject(pr) && typeof pr.number === 'number')) {
 			throw new Error('GitHub returned an invalid result when unstacking pull requests.');
 		}
-		return result.data.pull_requests.map((pr: { number: number }) => pr.number);
+		const remaining = result.data.pull_requests.map((pr: { number: number }) => pr.number);
+		this.notifyStackChanged(expectedPullRequests);
+		return remaining;
 	}
 
 	async canGetProjectsNow(): Promise<boolean> {

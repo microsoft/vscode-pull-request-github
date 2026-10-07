@@ -270,44 +270,44 @@ describe('Create pull request stack', function () {
 		assert.match(warn.firstCall.args[0], /GraphQL unavailable/);
 	});
 
-	it('revalidates the parent and adds the new PR to its stack', async function () {
-		this.timeout(10000);
-		const cancellation = new vscode.CancellationTokenSource();
-		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
-		const candidate: StackCandidate = { parentPullRequestNumber: 795, stackNumber: 12, size: 3, url: 'https://github.com/github/test/pull/795' };
-		const getCandidate = sinon.stub(githubRepository, 'getStackCandidate').resolves(candidate);
-		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
-		sinon.stub(model, 'filesHaveChanges').resolves(false);
-		repository.expectFetch('origin', 'D4');
-		const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
-			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(796).build(), githubRepository));
-		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
-		const addToStack = sinon.stub(githubRepository, 'addPullRequestToStack').resolves();
-		sinon.stub(provider, 'postCreate').resolves();
-		sinon.stub(provider, '_replyMessage').resolves();
-		const throwError = sinon.stub(provider, '_throwError').resolves();
-		const done = asPromise(provider.onDone);
+	for (const stackNumber of [undefined, 12]) {
+		it(`${stackNumber === undefined ? 'creates' : 'extends'} a stack without querying or refreshing webviews directly`, async function () {
+			const cancellation = new vscode.CancellationTokenSource();
+			sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+			const candidate: StackCandidate = { parentPullRequestNumber: 795, stackNumber, size: stackNumber === undefined ? 1 : 3, url: 'https://github.com/github/test/pull/795' };
+			const getCandidate = sinon.stub(githubRepository, 'getStackCandidate').resolves(candidate);
+			sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+			sinon.stub(model, 'filesHaveChanges').resolves(false);
+			repository.expectFetch('origin', 'D4');
+			const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(796).build(), githubRepository));
+			const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+			const numbers = stackNumber === undefined ? [795, 796] : [793, 794, 795, 796];
+			const addToStack = sinon.stub(githubRepository, 'addPullRequestToStack').resolves(numbers);
+			const getStack = sinon.stub(createdPR, 'getStack').rejects(new Error('Unexpected stack refetch'));
+			sinon.stub(provider, 'postCreate').resolves();
+			sinon.stub(provider, '_replyMessage').resolves();
+			const throwError = sinon.stub(provider, '_throwError').resolves();
+			const done = asPromise(provider.onDone);
 
-		await provider.createForTest({
-			command: 'pr.create', req: '1',
-			args: {
-				title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
-				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
-				draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
-				addToStack: true, stackParentPullRequest: 795, stackNumber: 12,
-			},
+			await provider.createForTest({
+				command: 'pr.create', req: '1',
+				args: {
+					title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
+					compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
+					draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
+					addToStack: true, stackParentPullRequest: 795, stackNumber,
+				},
+			});
+			assert.strictEqual(await done, createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
+			assert(getCandidate.calledWithExactly('D3'));
+			assert(create.calledOnce);
+			assert(addToStack.calledOnceWithExactly(candidate, 796));
+			assert(getStack.notCalled);
+			sinon.assert.callOrder(getCandidate, create, addToStack);
+			cancellation.dispose();
 		});
-		const result = await Promise.race([
-			done,
-			new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 2000)),
-		]);
-		assert(result === createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
-		assert(getCandidate.calledWithExactly('D3'));
-		assert(create.calledOnce);
-		assert(addToStack.calledOnceWithExactly(candidate, 796));
-		sinon.assert.callOrder(getCandidate, create, addToStack);
-		cancellation.dispose();
-	});
+	}
 
 	it('does not create a pull request when the selected stack parent has changed', async function () {
 		const cancellation = new vscode.CancellationTokenSource();
@@ -351,6 +351,7 @@ describe('Create pull request stack', function () {
 		sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
 		const setDetails = sinon.stub(provider, 'postCreate').resolves();
 		sinon.stub(githubRepository, 'addPullRequestToStack').rejects(new Error('Stack is locked'));
+		const getStack = sinon.stub(createdPR, 'getStack');
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		const done = asPromise(provider.onDone);
 
@@ -365,6 +366,7 @@ describe('Create pull request stack', function () {
 		});
 		assert((await done) === createdPR);
 		assert(setDetails.calledOnce);
+		assert(getStack.notCalled);
 		assert(showError.calledOnce);
 		assert.match(showError.firstCall.args[0], /#796 was created but could not be added to its stack: Stack is locked/);
 		cancellation.dispose();

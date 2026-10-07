@@ -91,7 +91,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 	}
 
 	private isOpenPullLinksEnabled(): boolean {
-		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(OPEN_PULL_LINKS, false);
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(OPEN_PULL_LINKS, true);
 	}
 
 }

@@ -376,6 +376,10 @@ body img.avatar {
 	margin-right: 0;
 }
 
+.status-check-link-placeholder {
+	visibility: hidden;
+}
+
 .automerge-section {
 	display: flex;
 }
