@@ -1223,15 +1223,23 @@ describe('PullRequestOverview', function () {
 
 		it('shows a progress notification and reports a missing writable remote', async function () {
 			const { panel } = await openStackPanel();
+			const cancellation = new vscode.CancellationTokenSource();
 			sinon.stub(vscode.window, 'showWarningMessage').resolves('Update stack' as never);
 			const progress = sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) =>
-				task({ report: () => undefined }, new vscode.CancellationTokenSource().token));
+				task({ report: () => undefined }, cancellation.token));
+			sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
+			const refresh = sinon.stub(panel, 'refreshPanel').resolves();
 
 			await (panel as any).updateStack({ req: '3', command: 'pr.update-stack' });
 
+			assert(progress.calledOnce);
 			assert.strictEqual(progress.firstCall.args[0].location, vscode.ProgressLocation.Notification);
+			assert(throwError.calledOnce);
 			assert.match(throwError.firstCall.args[1], /writable Git remote/);
+			assert(refresh.calledOnce);
+			sinon.assert.callOrder(progress, throwError, refresh);
+			cancellation.dispose();
 		});
 	});
 
