@@ -65,7 +65,10 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 						'github:copyMenu': true,
 					})}
 					onClick={event => {
+						// The webview host opens any anchor with an href and ignores defaultPrevented,
+						// so the click must not reach it or a second browser tab is opened.
 						event.preventDefault();
+						event.stopPropagation();
 						void openOnGitHub();
 					}}
 				>

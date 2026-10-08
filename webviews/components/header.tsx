@@ -104,7 +104,10 @@ function TitleText({ titleHTML, number, url, context, onOpen }: Pick<PullRequest
 			title={url}
 			data-vscode-context={context ? JSON.stringify(context) : undefined}
 			onClick={onOpen ? event => {
+				// The webview host opens any anchor with an href and ignores defaultPrevented,
+				// so the click must not reach it or a second browser tab is opened.
 				event.preventDefault();
+				event.stopPropagation();
 				onOpen();
 			} : undefined}
 		>

@@ -163,6 +163,45 @@ describe('Overview', function () {
 		}
 	});
 
+	it('opens a PR number link exactly once', function () {
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(pr);
+		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
+
+		// Stands in for the webview host, which opens any anchor with an href that a click
+		// reaches, and does not check defaultPrevented.
+		const hostOpenedLinks: string[] = [];
+		const hostLinkHandler = (event: Event) => {
+			const anchor = (event.target as HTMLElement).closest('a[href]');
+			if (anchor) {
+				hostOpenedLinks.push(anchor.getAttribute('href')!);
+			}
+		};
+		window.addEventListener('click', hostLinkHandler);
+
+		try {
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			const numberLinks = out.container.querySelectorAll('.overview-title a, .sticky-header-number');
+			assert.strictEqual(numberLinks.length, 2);
+			numberLinks.forEach(link => {
+				openOnGitHub.resetHistory();
+				hostOpenedLinks.length = 0;
+
+				fireEvent.click(link);
+
+				assert.strictEqual(openOnGitHub.callCount, 1);
+				assert.deepStrictEqual(hostOpenedLinks, []);
+			});
+		} finally {
+			window.removeEventListener('click', hostLinkHandler);
+		}
+	});
+
 	it('shows the stack position and ordered pull requests in the merge section', async function () {
 		const pr = new PullRequestBuilder().number(794).stack({
 			position: 2,
