@@ -36,6 +36,7 @@ import { mockStackSetting } from '../mocks/mockStackSetting';
 import { TimelineEvent } from '../../common/timelineEvent';
 import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
+import * as emoji from '../../common/emoji';
 import Logger from '../../common/logger';
 import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview } from '../../github/views';
 
@@ -951,6 +952,7 @@ describe('PullRequestOverview', function () {
 		let getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		let getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
 		let showError: SinonStub<Parameters<typeof vscode.window.showErrorMessage>, ReturnType<typeof vscode.window.showErrorMessage>>;
+		let loadEmojis: SinonStub<Parameters<typeof emoji.ensureEmojis>, ReturnType<typeof emoji.ensureEmojis>>;
 		const preview: IssuePreview = {
 			number: 1000, title: 'Preview title', titleHTML: 'Preview title',
 			body: 'Preview description', bodyHTML: '<p>Preview description</p>', url: 'https://github.com/aaa/bbb/issues/1000',
@@ -960,6 +962,7 @@ describe('PullRequestOverview', function () {
 
 		beforeEach(function () {
 			context.extensionUri = EXTENSION_URI;
+			loadEmojis = sinon.stub(emoji, 'ensureEmojis').resolves({});
 			showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 			const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			issueModel = new IssueModel(telemetry, repo, remote, { ...item, url: 'https://github.com/aaa/bbb/issues/1000' });
@@ -1034,6 +1037,24 @@ describe('PullRequestOverview', function () {
 				assert.ok(messages.some(message => message.command === 'pr.initialize'));
 			});
 		}
+
+		it('shows the model-backed preview before emoji resources finish loading', async function () {
+			let resolveEmojis!: (emojis: Record<string, string>) => void;
+			loadEmojis.returns(new Promise(resolve => resolveEmojis = resolve));
+			const opening = openPanel();
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.calledOnce(loadEmojis);
+				const modelPreview = messages.find(message => message.command === 'pr.preview')?.pullrequest;
+				assert.strictEqual(modelPreview?.title, issueModel.title);
+				assert.strictEqual(modelPreview?.body, issueModel.body);
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			} finally {
+				resolveEmojis({});
+				await opening;
+			}
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
 
 		it('keeps the complete issue visible while refreshing an existing panel', async function () {
 			await openPanel();
