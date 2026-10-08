@@ -58,6 +58,7 @@ export class PrsTreeModel extends Disposable {
 
 	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private _getPullRequestsForQueryLock: Promise<void> = Promise.resolve();
+	private _getAllPullRequestsLock: Promise<void> = Promise.resolve();
 	private _sentNoRepoTelemetry: boolean = false;
 
 	public readonly copilotStateModel: CopilotStateModel;
@@ -418,30 +419,40 @@ export class PrsTreeModel extends Disposable {
 	}
 
 	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
-		const cache = this.getFolderCache(folderRepoManager);
-		const allCache = cache.get(PRType.All);
-		if (!update && allCache && !allCache.clearRequested && !fetchNextPage) {
-			return allCache.items;
-		}
+		let release: () => void;
+		const lock = new Promise<void>(resolve => { release = resolve; });
+		const prev = this._getAllPullRequestsLock;
+		this._getAllPullRequestsLock = prev.then(() => lock);
+		await prev;
 
-		const prs = await folderRepoManager.getPullRequests(
-			PRType.All,
-			{ fetchNextPage }
-		);
-		if (fetchNextPage) {
-			prs.items = allCache?.items.items.concat(prs.items) ?? prs.items;
-		}
-		cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
-		prs.items.forEach(pr => this._allCachedPRs.add(pr));
+		try {
+			const cache = this.getFolderCache(folderRepoManager);
+			const allCache = cache.get(PRType.All);
+			if (!update && allCache && !allCache.clearRequested && !fetchNextPage) {
+				return allCache.items;
+			}
 
-		/* __GDPR__
-			"pr.expand.all" : {}
-		*/
-		this._telemetry.sendTelemetryEvent('pr.expand.all');
-		// Don't await this._getChecks. It fires an event that will be listened to.
-		this._getChecks(prs.items);
-		this.hasLoaded = true;
-		return prs;
+			const prs = await folderRepoManager.getPullRequests(
+				PRType.All,
+				{ fetchNextPage }
+			);
+			if (fetchNextPage) {
+				prs.items = allCache?.items.items.concat(prs.items) ?? prs.items;
+			}
+			cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
+			prs.items.forEach(pr => this._allCachedPRs.add(pr));
+
+			/* __GDPR__
+				"pr.expand.all" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.expand.all');
+			// Don't await this._getChecks. It fires an event that will be listened to.
+			this._getChecks(prs.items);
+			this.hasLoaded = true;
+			return prs;
+		} finally {
+			release!();
+		}
 	}
 
 	private forceClearQueriesContainingPullRequests(pullRequests: PullRequestChangeEvent[]): void {
