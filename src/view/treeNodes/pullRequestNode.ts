@@ -58,12 +58,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	) {
 		super(parent);
 		this.registerSinceReviewChange();
-		this.registerConfigurationChange();
-		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
-			if (e.new?.number === this.pullRequestModel.number || e.old?.number === this.pullRequestModel.number) {
-				this.refresh(this);
-			}
-		}));
 		this._register(this._folderReposManager.themeWatcher.onDidChangeTheme(() => {
 			this.refresh(this);
 		}));
@@ -138,14 +132,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	protected registerSinceReviewChange() {
 		this._register(this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
 			this.refresh(this);
-		}));
-	}
-
-	protected registerConfigurationChange() {
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`) || e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)) {
-				this.refresh();
-			}
 		}));
 	}
 
