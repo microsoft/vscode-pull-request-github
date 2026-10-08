@@ -127,6 +127,8 @@ export interface ItemsResponseResult<T> {
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
 	totalCount?: number;
+	// Pages reached across repositories, including pages with no matching items.
+	paginationProgress?: number;
 }
 
 export class NoGitHubReposError extends Error {
@@ -1268,9 +1270,9 @@ export class FolderRepositoryManager extends Disposable {
 	 * 2) Fetch Next: fetch the next page from this remote, or if it has no more pages, the first page from the next remote that does have pages
 	 * 3) Restore: fetch all the pages you previously have fetched
 	 *
-	 * When `options.fetchNextPage === false`, we are in case 2.
+	 * When `options.fetchNextPage === true`, we are in case 2.
 	 * Otherwise:
-	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
+	 *   If `this.totalFetchedPages.get(queryId)` is zero or unset, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
 	private async fetchPagedData<T>(
@@ -1286,7 +1288,8 @@ export class FolderRepositoryManager extends Disposable {
 				items: [],
 				hasMorePages: false,
 				hasUnsearchedRepositories: false,
-				totalCount: 0
+				totalCount: 0,
+				paginationProgress: 0
 			};
 		}
 
@@ -1329,6 +1332,12 @@ export class FolderRepositoryManager extends Disposable {
 			// If we are in case 1 or 3, don't filter out repos that are out of pages, as we will be querying from the start.
 			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
 		});
+		const hasMorePages = () => githubRepositories.some(repo =>
+			this._repositoryPageInformation.get(repo.remote.url.toString() + queryId)?.hasMorePages === true
+		);
+		const paginationProgress = () => githubRepositoriesWithGitRemotes.reduce((total, repo) =>
+			total + (this._repositoryPageInformation.get(repo.remote.url.toString() + queryId)?.pullRequestPage ?? 0), 0
+		);
 
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
@@ -1400,18 +1409,20 @@ export class FolderRepositoryManager extends Disposable {
 
 				return {
 					items: itemData.items,
-					hasMorePages: pageInformation.hasMorePages,
+					hasMorePages: hasMorePages(),
 					hasUnsearchedRepositories: i < githubRepositories.length - 1,
 					totalCount: itemData.totalCount,
+					paginationProgress: paginationProgress()
 				};
 			}
 		}
 
 		return {
 			items: itemData.items,
-			hasMorePages: itemData.hasMorePages,
+			hasMorePages: hasMorePages(),
 			hasUnsearchedRepositories: false,
-			totalCount: itemData.totalCount
+			totalCount: itemData.totalCount,
+			paginationProgress: paginationProgress()
 		};
 	}
 
