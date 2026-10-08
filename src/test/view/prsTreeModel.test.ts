@@ -334,6 +334,44 @@ describe('Copilot pull request polling', function () {
 		assert.deepStrictEqual(timeline.getCalls().map(call => call.thisValue), prs);
 	});
 
+	for (const fetchOnePagePerRepo of [false, true]) {
+		it(`preserves other remotes on sidebar recovery after a failed page with fetchOnePagePerRepo=${fetchOnePagePerRepo}`, async function () {
+			const upstream = await addRemote('upstream', 'other');
+			const first = pullRequest(1);
+			const second = pullRequest(2);
+			const third = pullRequest(3, upstream);
+			pages.set(origin, [[first]]);
+			pages.set(upstream, [[third]]);
+
+			let response = await model.getPullRequestsForQuery(folderManager, false, query, fetchOnePagePerRepo);
+			if (response.hasUnsearchedRepositories) {
+				response = await model.getPullRequestsForQuery(folderManager, true, query);
+			}
+			assert.deepStrictEqual(response.items, [first, third]);
+
+			pages.set(origin, [[first], [second]]);
+			maxKnownPR.resolves(101);
+			model.clearCopilotCaches();
+			response = await model.getPullRequestsForQuery(folderManager, false, query, fetchOnePagePerRepo);
+			assert.deepStrictEqual(response.items, [first, third]);
+			assert.strictEqual(response.hasMorePages, true);
+
+			const error = new Error('Temporary request failure');
+			fetchPages.onCall(fetchPages.callCount).rejects(error);
+			await assert.rejects(model.getPullRequestsForQuery(folderManager, true, query), error);
+			fetchPages.resetHistory();
+
+			const restored = await model.getPullRequestsForQuery(folderManager, false, query);
+			assert.deepStrictEqual(fetchPages.getCalls().map(call => [call.args[0].remote.remoteName, call.args[2]]),
+				[['origin', 1], ['origin', 2], ['upstream', 1]]);
+			assert.deepStrictEqual(restored.items, [first, second, third]);
+			assert.strictEqual(restored.hasMorePages, false);
+			assert.strictEqual(restored.hasUnsearchedRepositories, false);
+			assert.strictEqual(restored.paginationProgress, 3);
+			assert.strictEqual(await model.getPullRequestsForQuery(folderManager, false, query), restored);
+		});
+	}
+
 	describe('watcher recovery', function () {
 		let clock: SinonFakeTimers;
 		let focusedWindow: boolean;

@@ -1261,7 +1261,7 @@ export class FolderRepositoryManager extends Disposable {
 		this.telemetry.sendTelemetryEvent('branch.delete');
 	}
 
-	// Keep track of how many pages we've fetched for each query, so when we reload we pull the same ones.
+	// Track reached pages, including failed requests, so reloading retries all of them.
 	private totalFetchedPages = new Map<string, number>();
 
 	/**
@@ -1371,16 +1371,17 @@ export class FolderRepositoryManager extends Disposable {
 			};
 
 			if (options.fetchNextPage) {
-				// Case 2. Fetch a single new page, and increment the global number of pages fetched for this query.
+				// Case 2. Advance both counters before fetching so failures don't shorten the restore limit.
 				pageInformation.pullRequestPage++;
-				addPage(await fetchPage(pageInformation.pullRequestPage));
 				setTotalFetchedPages(getTotalFetchedPages() + 1);
+				addPage(await fetchPage(pageInformation.pullRequestPage));
 			} else {
 				// Case 1&3. Fetch all the pages we have fetched in the past, or in case 1, just a single page.
 
 				if (pageInformation.pullRequestPage === 0) {
 					// Case 1. Pretend we have previously fetched the first page, then hand off to the case 3 machinery to "fetch all pages we have fetched in the past"
 					pageInformation.pullRequestPage = 1;
+					setTotalFetchedPages(getTotalFetchedPages() + 1);
 				}
 
 				const pages = await Promise.all(
@@ -1402,11 +1403,6 @@ export class FolderRepositoryManager extends Disposable {
 			const shouldBreakEarly = hasReceivedData && (isFetchingNextPage || hasReachedPreviousFetchLimit) && !hasUserConfiguredRemotes;
 
 			if (shouldBreakEarly) {
-				if (getTotalFetchedPages() === 0) {
-					// We're in case 1, manually set number of pages we looked through until we found first results.
-					setTotalFetchedPages(pagesFetched);
-				}
-
 				return {
 					items: itemData.items,
 					hasMorePages: hasMorePages(),
