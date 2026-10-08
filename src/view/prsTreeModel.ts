@@ -58,7 +58,8 @@ export class PrsTreeModel extends Disposable {
 
 	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private _getPullRequestsForQueryLock: Promise<void> = Promise.resolve();
-	private _getAllPullRequestsLock: Promise<void> = Promise.resolve();
+	private readonly _getAllPullRequestsLocks = new WeakMap<FolderRepositoryManager, Promise<void>>();
+	private _allPullRequestsCacheGeneration: number = 0;
 	private _sentNoRepoTelemetry: boolean = false;
 
 	public readonly copilotStateModel: CopilotStateModel;
@@ -198,6 +199,7 @@ export class PrsTreeModel extends Disposable {
 	}
 
 	public forceClearCache(silent: boolean = false) {
+		this._allPullRequestsCacheGeneration++;
 		this._cachedPRs.clear();
 		this._allCachedPRs.clear();
 		if (!silent) {
@@ -214,6 +216,7 @@ export class PrsTreeModel extends Disposable {
 			return;
 		}
 
+		this._allPullRequestsCacheGeneration++;
 		// Instead of clearing the entire cache, mark each cached query as requiring refresh.
 		for (const queries of this._cachedPRs.values()) {
 			for (const [, cachedPRs] of queries.entries()) {
@@ -421,11 +424,13 @@ export class PrsTreeModel extends Disposable {
 	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
 		let release: () => void;
 		const lock = new Promise<void>(resolve => { release = resolve; });
-		const prev = this._getAllPullRequestsLock;
-		this._getAllPullRequestsLock = prev.then(() => lock);
+		const prev = this._getAllPullRequestsLocks.get(folderRepoManager) ?? Promise.resolve();
+		const queued = prev.then(() => lock);
+		this._getAllPullRequestsLocks.set(folderRepoManager, queued);
 		await prev;
 
 		try {
+			const cacheGeneration = this._allPullRequestsCacheGeneration;
 			const cache = this.getFolderCache(folderRepoManager);
 			const allCache = cache.get(PRType.All);
 			if (!update && allCache && !allCache.clearRequested && !fetchNextPage) {
@@ -439,8 +444,11 @@ export class PrsTreeModel extends Disposable {
 			if (fetchNextPage) {
 				prs.items = allCache?.items.items.concat(prs.items) ?? prs.items;
 			}
-			cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
-			prs.items.forEach(pr => this._allCachedPRs.add(pr));
+			// An invalidation during the fetch must not be undone by its response.
+			if (cacheGeneration === this._allPullRequestsCacheGeneration && cache.get(PRType.All) === allCache) {
+				cache.set(PRType.All, { clearRequested: false, items: prs, maxKnownPR: undefined });
+				prs.items.forEach(pr => this._allCachedPRs.add(pr));
+			}
 
 			/* __GDPR__
 				"pr.expand.all" : {}
@@ -452,6 +460,9 @@ export class PrsTreeModel extends Disposable {
 			return prs;
 		} finally {
 			release!();
+			if (this._getAllPullRequestsLocks.get(folderRepoManager) === queued) {
+				this._getAllPullRequestsLocks.delete(folderRepoManager);
+			}
 		}
 	}
 

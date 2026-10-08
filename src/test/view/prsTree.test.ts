@@ -636,6 +636,101 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(getPullRequests.callCount, 2);
 		});
 
+		for (const cached of [false, true]) {
+			for (const force of [false, true]) {
+				it(`refetches after ${force ? 'force-clearing' : 'clearing'} ${cached ? 'an existing' : 'an initially empty'} cache during a fetch`, async function () {
+					const oldResult: ItemsResponseResult<PullRequestModel> = {
+						items: [pullRequest],
+						hasMorePages: false,
+						hasUnsearchedRepositories: false,
+					};
+					if (cached) {
+						getPullRequests.resolves(oldResult);
+						await prsTreeModel.getAllPullRequests(folderManager, false);
+						getPullRequests.resetHistory();
+					}
+
+					let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+					const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+					let markStarted!: () => void;
+					const started = new Promise<void>(resolve => { markStarted = resolve; });
+					getPullRequests.onFirstCall().callsFake(() => {
+						markStarted();
+						return pendingFetch;
+					});
+					const freshResult: ItemsResponseResult<PullRequestModel> = {
+						items: [nextPullRequest],
+						hasMorePages: false,
+						hasUnsearchedRepositories: false,
+					};
+					getPullRequests.onSecondCall().resolves(freshResult);
+
+					const first = prsTreeModel.getAllPullRequests(folderManager, false, true);
+					await started;
+					if (force) {
+						prsTreeModel.forceClearCache(true);
+					} else {
+						prsTreeModel.clearCache(true);
+					}
+					const refresh = prsTreeModel.getAllPullRequests(folderManager, false);
+					await new Promise<void>(resolve => setImmediate(resolve));
+					assert.strictEqual(getPullRequests.callCount, 1);
+					resolveFetch(oldResult);
+
+					assert.strictEqual(await first, oldResult);
+					assert.strictEqual(await refresh, freshResult);
+					assert.strictEqual(await prsTreeModel.getAllPullRequests(folderManager, false), freshResult);
+					assert.strictEqual(getPullRequests.callCount, 2);
+					if (force) {
+						assert.strictEqual(prsTreeModel.hasPullRequest(pullRequest), false);
+					}
+					assert.strictEqual(prsTreeModel.hasPullRequest(nextPullRequest), true);
+				});
+			}
+		}
+
+		it('loads another folder independently while keeping requests in the first folder serialized', async function () {
+			const otherFolderManager = new FolderRepositoryManager(1, context, new MockRepository(), telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			context.subscriptions.push(otherFolderManager);
+			const otherResult: ItemsResponseResult<PullRequestModel> = {
+				items: [nextPullRequest],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			};
+			const getOtherPullRequests = sinon.stub(otherFolderManager, 'getPullRequests').resolves(otherResult);
+			let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+			const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => { markStarted = resolve; });
+			getPullRequests.callsFake(() => {
+				markStarted();
+				return pendingFetch;
+			});
+			const first = prsTreeModel.getAllPullRequests(folderManager, false);
+			await started;
+			const overlapping = prsTreeModel.getAllPullRequests(folderManager, false);
+			const other = prsTreeModel.getAllPullRequests(otherFolderManager, false);
+			const firstResult: ItemsResponseResult<PullRequestModel> = {
+				items: [pullRequest],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			};
+
+			try {
+				await new Promise<void>(resolve => setImmediate(resolve));
+				assert.strictEqual(getPullRequests.callCount, 1);
+				assert.strictEqual(getOtherPullRequests.callCount, 1);
+				assert.strictEqual(await other, otherResult);
+				assert.strictEqual(await prsTreeModel.getAllPullRequests(otherFolderManager, false), otherResult);
+				assert.strictEqual(getOtherPullRequests.callCount, 1);
+			} finally {
+				resolveFetch(firstResult);
+				await Promise.all([first, overlapping, other]);
+			}
+			assert.strictEqual(await overlapping, firstResult);
+			assert.strictEqual(getPullRequests.callCount, 1);
+		});
+
 		for (const loadMoreFirst of [true, false]) {
 			it(loadMoreFirst ? 'preserves results when refreshing during load more' : 'preserves results when loading more during a refresh', async function () {
 				getPullRequests.onFirstCall().resolves({
@@ -746,6 +841,47 @@ describe('GitHub Pull Requests view', function () {
 				assert.deepStrictEqual(onDidChangeTreeData.firstCall.args, [provider.children]);
 				await prsTreeModel.getAllPullRequests(folderManager, false);
 				assert.strictEqual(getPullRequests.callCount, 1);
+			});
+
+			it('loads fresh category children when manual Refresh supersedes an in-flight fetch', async function () {
+				getPullRequests.resetHistory();
+				let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+				const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+				let markStarted!: () => void;
+				const started = new Promise<void>(resolve => { markStarted = resolve; });
+				getPullRequests.onFirstCall().callsFake(() => {
+					markStarted();
+					return pendingFetch;
+				});
+				getPullRequests.onSecondCall().resolves({
+					items: [nextPullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: false,
+				});
+				const first = prsTreeModel.getAllPullRequests(folderManager, false, true);
+				await started;
+				const refreshCommand = (vscode.commands.registerCommand as SinonStub).getCalls()
+					.filter(call => call.args[0] === 'pr.refreshList').pop();
+				assert(refreshCommand);
+
+				refreshCommand.args[1]();
+				const refresh = allCategory.getChildren();
+				resolveFetch({
+					items: [pullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: false,
+				});
+				await first;
+				const children = await refresh;
+				context.subscriptions.push(...children);
+
+				assert.strictEqual(onDidChangeTreeData.callCount, 1);
+				assert.strictEqual(getPullRequests.callCount, 2);
+				assert.strictEqual(children.length, 1);
+				assert(children[0] instanceof PRNode);
+				assert.strictEqual(children[0].pullRequestModel, nextPullRequest);
+				assert.strictEqual(prsTreeModel.hasPullRequest(pullRequest), false);
+				assert.strictEqual(prsTreeModel.hasPullRequest(nextPullRequest), true);
 			});
 
 			for (const setting of ['githubPullRequests.showPullRequestNumberInTree', 'githubPullRequests.pullRequestAvatarDisplay']) {
