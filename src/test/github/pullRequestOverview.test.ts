@@ -23,6 +23,7 @@ import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { Repository } from '../../api/api';
 import { GitApiImpl } from '../../api/api1';
 import { openDescription } from '../../commands';
+import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
@@ -38,7 +39,7 @@ import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import Logger from '../../common/logger';
 import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview } from '../../github/views';
 
-const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
+const EXTENSION_URI = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 
 class TestPullRequestOverviewPanel extends PullRequestOverviewPanel {
 	constructor(telemetry: MockTelemetry, folderRepositoryManager: FolderRepositoryManager) {
@@ -949,6 +950,7 @@ describe('PullRequestOverview', function () {
 		let getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		let getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		let getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
+		let showError: SinonStub<Parameters<typeof vscode.window.showErrorMessage>, ReturnType<typeof vscode.window.showErrorMessage>>;
 		const preview: IssuePreview = {
 			number: 1000, title: 'Preview title', titleHTML: 'Preview title',
 			body: 'Preview description', bodyHTML: '<p>Preview description</p>', url: 'https://github.com/aaa/bbb/issues/1000',
@@ -958,6 +960,7 @@ describe('PullRequestOverview', function () {
 
 		beforeEach(function () {
 			context.extensionUri = EXTENSION_URI;
+			showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 			const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			issueModel = new IssueModel(telemetry, repo, remote, { ...item, url: 'https://github.com/aaa/bbb/issues/1000' });
 			context.subscriptions.push(issueModel);
@@ -983,6 +986,10 @@ describe('PullRequestOverview', function () {
 				messages.push(message.res);
 				return true;
 			});
+		});
+
+		afterEach(function () {
+			sinon.assert.notCalled(showError);
 		});
 
 		async function openPanel(model: IssueModel | Promise<IssueModel> = issueModel): Promise<void> {
