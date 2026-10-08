@@ -9,7 +9,7 @@ import { commands } from './executeCommands';
 import { CHAT_SETTINGS_NAMESPACE, DISABLE_AI_FEATURES, EXPERIMENTAL_STACKS, PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
 
 export function areStacksEnabled(): boolean {
-	return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_STACKS, false);
+	return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_STACKS, true);
 }
 
 export function assertStacksEnabled(): void {

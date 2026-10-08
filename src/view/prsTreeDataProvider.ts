@@ -14,7 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { EXPERIMENTAL_STACKS, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES, URI, URIS } from '../common/settingKeys';
+import { EXPERIMENTAL_STACKS, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
 import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
@@ -121,7 +121,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.prsTreeModel.forceClearCache();
-			this.refreshAllQueryResults(true);
 		}));
 
 		this._register(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
@@ -225,6 +224,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
+				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)
+				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)
 				|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URIS}`)
 				|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
 				this.refreshAll();
@@ -268,14 +269,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (approved !== confirmation.action) {
 				return;
 			}
-			const existingStack = candidate.stackNumber !== undefined ? await bottom.getStack() : undefined;
-			if (candidate.stackNumber !== undefined && !existingStack) {
-				throw new Error(`Unable to load the existing stack for pull request #${bottom.number}. Refresh the view and try again.`);
-			}
-			const added = await addPullRequestsToStack(ordered, candidate);
+			await addPullRequestsToStack(ordered, candidate);
 			this.refreshAll(true);
-			await PullRequestOverviewPanel.refreshStackPanels(bottom.remote.owner, bottom.remote.repositoryName,
-				[...new Set([...(existingStack?.pullRequests.map(pr => pr.number) ?? []), ...added])]);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {
 			Logger.error(`Failed to add pull requests to stack: ${formatError(error)}`, PullRequestsTreeDataProvider.name);

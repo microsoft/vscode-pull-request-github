@@ -45,7 +45,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.166.1",
+	"version": "0.168.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -359,7 +359,7 @@
 				},
 				"githubPullRequests.openPullLinks": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "application",
 					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
 					"tags": [
@@ -601,7 +601,7 @@
 				"githubPullRequests.experimental.stacks": {
 					"type": "boolean",
 					"description": "%githubPullRequests.experimental.stacks.description%",
-					"default": false,
+					"default": true,
 					"included": false
 				},
 				"githubPullRequests.codingAgent.enabled": {

@@ -15,11 +15,12 @@ interface PageInfo {
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	actor: Actor;
+	actor: Actor | null;
 	createdAt: string;
 	mergeRef: {
 		name: string;
-	};
+	} | null;
+	mergeRefName: string;
 	commit: {
 		oid: string;
 		commitUrl: string;
@@ -194,12 +195,12 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
-			user: Account;
-		};
+			user: Account | null;
+		} | null;
 		committer: {
 			avatarUrl: string;
 			name: string;
-		};
+		} | null;
 		oid: string;
 		message: string;
 		committedDate: Date;
@@ -832,9 +833,13 @@ export interface PullRequestStackResponse {
 							url: string;
 							state: GithubItemStateEnum;
 							isDraft: boolean;
+							baseRefName: string;
+							baseRepository: { owner: { login: string } } | null;
 							headRefName: string;
+							headRepository: { owner: { login: string } } | null;
 							mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 							mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+							mergeQueueEntry?: { state: string } | null;
 						};
 					}[];
 					pageInfo: { hasNextPage: boolean; endCursor: string | null };
