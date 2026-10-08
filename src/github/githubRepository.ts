@@ -78,7 +78,7 @@ import {
 	parseMilestone,
 	restPaginate,
 } from './utils';
-import { PullRequestPreview } from './views';
+import { IssuePreview, PullRequestPreview } from './views';
 import { StackCandidate } from '../../common/views';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 
@@ -1494,6 +1494,29 @@ export class GitHubRepository extends Disposable {
 			author: parseAccount(author, this),
 			base: `${baseRepository.owner.login}/${remote.repositoryName}:${baseRefName}`,
 			head: headRepository ? `${headRepository.owner.login}/${remote.repositoryName}:${headRefName}` : '',
+		};
+	}
+
+	async getIssuePreview(number: number): Promise<IssuePreview> {
+		if (!Number.isSafeInteger(number) || number <= 0) {
+			throw new Error(`Invalid issue number: ${number}`);
+		}
+		const { query, remote, schema } = await this.ensure();
+		type PreviewData = Omit<IssuePreview, 'author' | 'isIssue'> & {
+			author: GraphQLAccount | null;
+		};
+		const { data } = await query<{ repository: { issue: PreviewData | null } | null }>({
+			query: schema.IssuePreview,
+			variables: { owner: remote.owner, name: remote.repositoryName, number },
+		});
+		if (!data.repository?.issue) {
+			throw new Error(`Unable to load issue preview for ${remote.owner}/${remote.repositoryName}#${number}`);
+		}
+		const { author, ...preview } = data.repository.issue;
+		return {
+			...preview,
+			author: parseAccount(author, this),
+			isIssue: true,
 		};
 	}
 

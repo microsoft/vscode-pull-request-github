@@ -11,7 +11,7 @@ import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum, PullRequestStack, StateReason } from '../../src/github/interface';
-import { BaseContext, CodingAgentContext, OverviewContext, PullRequest, PullRequestPreview } from '../../src/github/views';
+import { BaseContext, CodingAgentContext, OverviewContext, OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
@@ -75,13 +75,24 @@ export function Header({
 	);
 }
 
-export function HeaderPreview(preview: PullRequestPreview) {
+export function HeaderPreview(preview: OverviewItemPreview | PullRequest) {
 	const { openOnGitHub } = useContext(PullRequestContext);
+	const pullRequest = preview.isIssue === true ? undefined : preview;
 	return <>
 		<div className="overview-title">
 			<TitleText {...preview} onOpen={openOnGitHub} />
 		</div>
-		<Subtitle {...preview} isIssue={false} canEdit={false} codingAgentEvent={undefined} />
+		<Subtitle
+			state={preview.state}
+			stateReason={preview.stateReason}
+			author={preview.author}
+			isDraft={pullRequest?.isDraft}
+			base={pullRequest?.base}
+			head={pullRequest?.head}
+			isIssue={preview.isIssue === true}
+			canEdit={false}
+			codingAgentEvent={undefined}
+		/>
 		<div className="header-actions">
 			<div className="button-group overview-preview-actions" aria-hidden="true">
 				<span className="overview-placeholder" />

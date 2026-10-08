@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest, PullRequestPreview } from '../../src/github/views';
+import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
@@ -56,7 +56,7 @@ export const Overview = (pr: PullRequest) => {
 	</>;
 };
 
-export const OverviewPreview = (preview: PullRequestPreview) => {
+export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	return <>
 		<div id="title" className="title">
@@ -64,13 +64,13 @@ export const OverviewPreview = (preview: PullRequestPreview) => {
 				<HeaderPreview {...preview} />
 			</div>
 		</div>
-		{isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout /> : null}
+		{isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout isIssue={preview.isIssue === true} /> : null}
 		<div id="main">
 			<div id="description">
 				<CommentPreview {...preview} />
 			</div>
 		</div>
-		{!isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout={false} /> : null}
+		{!isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout={false} isIssue={preview.isIssue === true} /> : null}
 	</>;
 };
 
