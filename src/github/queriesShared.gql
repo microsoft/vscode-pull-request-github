@@ -55,6 +55,7 @@ fragment Merged on MergedEvent {
 	mergeRef {
 		name
 	}
+	mergeRefName
 	commit {
 		oid
 		commitUrl
@@ -779,9 +780,23 @@ query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: S
 							url
 							state
 							isDraft
+							baseRefName
+							baseRepository {
+								owner {
+									login
+								}
+							}
 							headRefName
+							headRepository {
+								owner {
+									login
+								}
+							}
 							mergeable
 							mergeStateStatus
+							mergeQueueEntry {
+								state
+							}
 						}
 					}
 					pageInfo {

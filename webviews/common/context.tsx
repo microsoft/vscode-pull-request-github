@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, PullRequestPreview, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, PullRequestPreview, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -106,6 +106,9 @@ export class PRContext {
 
 	public unstackAll = (): Promise<UnstackAllResult> =>
 		this.postMessage({ command: 'pr.unstack-all' });
+
+	public updateStack = (): Promise<UpdateStackResult> =>
+		this.postMessage({ command: 'pr.update-stack' });
 
 	public openOnGitHub = () => this.postMessage({
 		command: 'pr.openOnGitHub',
@@ -584,7 +587,10 @@ export class PRContext {
 			case 'update-state':
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':
-				return this.updatePR({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
+				return this.updatePR({
+					isCurrentlyCheckedOut: message.isCurrentlyCheckedOut,
+					canUpdateStack: message.canUpdateStack,
+				});
 			case 'pr.deleteBranch':
 				const stateChange: { isLocalHeadDeleted?: boolean, isRemoteHeadDeleted?: boolean } = {};
 				message.branchTypes && message.branchTypes.map((branchType: string) => {
