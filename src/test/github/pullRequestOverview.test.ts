@@ -142,7 +142,7 @@ describe('PullRequestOverview', function () {
 				assert.strictEqual(checkoutUpdate.args[0].isCurrentlyCheckedOut, !initiallyCheckedOut);
 				const initialize = calls.find(call => call.args[0].command === 'pr.initialize');
 				assert(initialize);
-				assert.strictEqual(initialize.args[0].pullrequest.isCurrentlyCheckedOut, !initiallyCheckedOut);
+				assert.strictEqual(initialize.args[0].pullrequest?.isCurrentlyCheckedOut, !initiallyCheckedOut);
 				assert(calls.indexOf(checkoutUpdate) < calls.indexOf(initialize));
 			});
 		}
