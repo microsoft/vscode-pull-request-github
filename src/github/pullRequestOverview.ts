@@ -782,11 +782,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
-						stack: linkedStack,
+						stack: linkedStack ?? null,
 						stackLoaded: true,
 						stackLoadError: false,
 						canUpdateStack: this.canUpdateStack(pullRequestModel),
-						mergeQueueMethod,
+						mergeQueueMethod: mergeQueueMethod ?? null,
 					} satisfies Partial<PullRequest>,
 				});
 			}

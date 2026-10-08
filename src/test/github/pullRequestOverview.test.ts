@@ -1184,7 +1184,8 @@ describe('PullRequestOverview', function () {
 			stackQuery.resolves(undefined);
 			repo.notifyStackChanged([999, 1000]);
 			await (panel as any)._stackRefreshPromise;
-			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.stack, undefined);
+			const message = JSON.parse(JSON.stringify(postMessage.lastCall.args[0]));
+			assert.strictEqual(message.pullrequest.stack, null);
 			assert.strictEqual((panel as any)._stackPullRequestNumbers.size, 0);
 		});
 
@@ -1205,10 +1206,10 @@ describe('PullRequestOverview', function () {
 				await (panel as any)._stackRefreshPromise;
 
 				assert(queueMethod.calledOnceWithExactly(model.base.ref, remote.owner, remote.repositoryName));
-				const update = postMessage.lastCall.args[0].pullrequest;
-				assert.strictEqual(update.stack, undefined);
+				const update = JSON.parse(JSON.stringify(postMessage.lastCall.args[0])).pullrequest;
+				assert.strictEqual(update.stack, null);
 				assert('mergeQueueMethod' in update);
-				assert.strictEqual(update.mergeQueueMethod, method);
+				assert.strictEqual(update.mergeQueueMethod, method ?? null);
 			});
 		}
 
@@ -1458,7 +1459,7 @@ describe('PullRequestOverview', function () {
 			stackQuery.resolves(undefined);
 			repo.notifyStackChanged([999, 1000]);
 			await (panel as any)._stackRefreshPromise;
-			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.stack, undefined);
+			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.stack, null);
 			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.canUpdateStack, false);
 		});
 
