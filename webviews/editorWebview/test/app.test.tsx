@@ -188,4 +188,32 @@ describe('Root', function () {
 
 		assert(children.calledWith(pr));
 	});
+
+	it('updates the checkout button when the active pull request changes without clicking checkout', function () {
+		const pr = new PullRequestBuilder().build();
+		pr.isCurrentlyCheckedOut = true;
+		pr.doneCheckoutBranch = 'main';
+		const context = new PRContext(pr);
+		context.setPR(pr);
+		const checkout = sinon.spy(context, 'checkout');
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Root>{pullRequest => <Overview {...pullRequest} />}</Root>
+			</PullRequestContext.Provider>,
+		);
+
+		assert(out.getByText('Checkout \'main\''));
+		act(() => {
+			context.handleMessage({ command: 'pr.update-checkout-status', isCurrentlyCheckedOut: false });
+		});
+		assert(out.getByText('Checkout'));
+		assert.strictEqual(out.queryByText('Checkout \'main\''), null);
+
+		act(() => {
+			context.handleMessage({ command: 'pr.update-checkout-status', isCurrentlyCheckedOut: true });
+		});
+		assert(out.getByText('Checkout \'main\''));
+		assert.strictEqual(out.queryByText('Checkout'), null);
+		sinon.assert.notCalled(checkout);
+	});
 });

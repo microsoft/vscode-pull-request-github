@@ -40,6 +40,20 @@ import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPrevi
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
+class TestPullRequestOverviewPanel extends PullRequestOverviewPanel {
+	constructor(telemetry: MockTelemetry, folderRepositoryManager: FolderRepositoryManager) {
+		super(telemetry, EXTENSION_URI, vscode.ViewColumn.One, '#1000', folderRepositoryManager);
+	}
+
+	public override processLinksInBodyHtml(bodyHTML: string | undefined): Promise<string | undefined> {
+		return super.processLinksInBodyHtml(bodyHTML);
+	}
+
+	public override _postMessage(message: { command: string; isCurrentlyCheckedOut?: boolean; pullrequest?: Partial<PullRequest> }): Promise<void> {
+		return super._postMessage(message);
+	}
+}
+
 describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;
 	let pullRequestManager: FolderRepositoryManager;
@@ -326,6 +340,49 @@ describe('PullRequestOverview', function () {
 			});
 		}
 	}
+
+	describe('checkout status', function () {
+		for (const initiallyCheckedOut of [false, true]) {
+			it(`initializes with the latest checkout state when ${initiallyCheckedOut ? 'leaving' : 'entering'} review mode during loading`, async function () {
+				setStacksEnabled(false);
+				const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+					convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+				const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
+				pullRequestManager.activePullRequest = initiallyCheckedOut ? model : undefined;
+				sinon.stub(pullRequestManager, 'getCurrentUser').resolves(model.author);
+				sinon.stub(model, 'getTimelineEvents').resolves([]);
+				sinon.stub(model, 'getReviewRequests').resolves([]);
+				sinon.stub(model, 'validateDraftMode').resolves(false);
+				sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+				const panel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+				context.subscriptions.push(panel);
+				const postMessage = sinon.spy(panel, '_postMessage');
+				let releaseBody: (bodyHTML: string | undefined) => void;
+				const blockedBody = new Promise<string | undefined>(resolve => releaseBody = resolve);
+				let bodyProcessingStarted: () => void;
+				const bodyStarted = new Promise<void>(resolve => bodyProcessingStarted = resolve);
+				sinon.stub(panel, 'processLinksInBodyHtml').callsFake(() => {
+					bodyProcessingStarted();
+					return blockedBody;
+				});
+
+				const opening = panel.updateWithIdentity(pullRequestManager, identity, model);
+				await bodyStarted;
+				pullRequestManager.activePullRequest = initiallyCheckedOut ? undefined : model;
+				releaseBody!(model.bodyHTML);
+				await opening;
+
+				const calls = postMessage.getCalls();
+				const checkoutUpdate = calls.find(call => call.args[0].command === 'pr.update-checkout-status');
+				assert(checkoutUpdate);
+				assert.strictEqual(checkoutUpdate.args[0].isCurrentlyCheckedOut, !initiallyCheckedOut);
+				const initialize = calls.find(call => call.args[0].command === 'pr.initialize');
+				assert(initialize);
+				assert.strictEqual(initialize.args[0].pullrequest?.isCurrentlyCheckedOut, !initiallyCheckedOut);
+				assert(calls.indexOf(checkoutUpdate) < calls.indexOf(initialize));
+			});
+		}
+	});
 
 	describe('createOrShow', function () {
 		it('does not load stack membership when stacks are disabled', async function () {

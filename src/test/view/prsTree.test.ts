@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
+import { SinonSandbox, SinonSpy, SinonStub, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
 
 import { getEnterpriseAuthenticationMessage, PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { NotificationsManager } from '../../notifications/notificationsManager';
-import { FolderRepositoryManager, ReposManagerState } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, ItemsResponseResult, ReposManagerState } from '../../github/folderRepositoryManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockNotificationManager } from '../mocks/mockNotificationManager';
@@ -25,6 +25,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PRNode } from '../../view/treeNodes/pullRequestNode';
+import { CategoryTreeNode } from '../../view/treeNodes/categoryNode';
 import { GitHubRemote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
@@ -34,7 +35,7 @@ import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/lo
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import * as configuration from '../../authentication/configuration';
 import { DataUri } from '../../common/uri';
-import { GithubItemStateEnum, IAccount, ITeam, PullRequestMergeability } from '../../github/interface';
+import { GithubItemStateEnum, IAccount, ITeam, PRType, PullRequestMergeability } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -108,7 +109,8 @@ describe('GitHub Pull Requests view', function () {
 
 	function stackablePullRequest(repository: MockGitHubRepository, number: number, base: string, head: string): PullRequestModel {
 		const remote = repository.remote;
-		const rest = new PullRequestBuilder().number(number)
+		const rest = new PullRequestBuilder().number(number).id(number)
+			.html_url(`https://github.com/${remote.owner}/${remote.repositoryName}/pull/${number}`)
 			.base(ref => ref.ref(base)).head(ref => ref.ref(head)).build();
 		for (const ref of [rest.base, rest.head]) {
 			ref.repo.owner.login = remote.owner;
@@ -545,6 +547,391 @@ describe('GitHub Pull Requests view', function () {
 			treeItems.map(n => n.label),
 			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 		);
+	});
+
+	describe('All Open', function () {
+		let folderManager: FolderRepositoryManager;
+		let pullRequest: PullRequestModel;
+		let nextPullRequest: PullRequestModel;
+		let getPullRequests: SinonStub;
+
+		beforeEach(function () {
+			const repository = new MockRepository();
+			folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			const url = 'https://github.com/aaa/bbb';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			discoveredRepository = githubRepository;
+			pullRequest = stackablePullRequest(githubRepository, 1, 'main', 'feature');
+			nextPullRequest = stackablePullRequest(githubRepository, 2, 'main', 'next-feature');
+			sinon.stub(pullRequest, 'getStatusChecks').resolves([null, null]);
+			sinon.stub(nextPullRequest, 'getStatusChecks').resolves([null, null]);
+			getPullRequests = sinon.stub(folderManager, 'getPullRequests');
+		});
+
+		it('serializes overlapping requests and reuses the cached result', async function () {
+			let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+			const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => { markStarted = resolve; });
+			getPullRequests.onFirstCall().callsFake(() => {
+				markStarted();
+				return pendingFetch;
+			});
+			getPullRequests.onSecondCall().resolves({
+				items: [],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			});
+
+			const first = prsTreeModel.getAllPullRequests(folderManager, false);
+			await started;
+			const overlapping = prsTreeModel.getAllPullRequests(folderManager, false);
+			await new Promise<void>(resolve => setImmediate(resolve));
+			assert.strictEqual(getPullRequests.callCount, 1);
+			const result: ItemsResponseResult<PullRequestModel> = {
+				items: [pullRequest],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			};
+			resolveFetch(result);
+
+			const [firstResult, overlappingResult] = await Promise.all([first, overlapping]);
+			assert.strictEqual(firstResult, result);
+			assert.strictEqual(overlappingResult, result);
+			assert.strictEqual(await prsTreeModel.getAllPullRequests(folderManager, false), result);
+			assert.strictEqual(getPullRequests.callCount, 1);
+		});
+
+		it('releases the lock after a failed fetch so a queued request can succeed', async function () {
+			let rejectFetch!: (error: Error) => void;
+			const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>((_, reject) => { rejectFetch = reject; });
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => { markStarted = resolve; });
+			getPullRequests.onFirstCall().callsFake(() => {
+				markStarted();
+				return pendingFetch;
+			});
+			const result: ItemsResponseResult<PullRequestModel> = {
+				items: [pullRequest],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			};
+			getPullRequests.onSecondCall().resolves(result);
+
+			const error = new Error('Fetching pull requests failed');
+			const failed = assert.rejects(prsTreeModel.getAllPullRequests(folderManager, false), error);
+			await started;
+			const retry = prsTreeModel.getAllPullRequests(folderManager, false);
+			await new Promise<void>(resolve => setImmediate(resolve));
+			assert.strictEqual(getPullRequests.callCount, 1);
+			rejectFetch(error);
+
+			await failed;
+			assert.strictEqual(await retry, result);
+			assert.strictEqual(await prsTreeModel.getAllPullRequests(folderManager, false), result);
+			assert.strictEqual(getPullRequests.callCount, 2);
+		});
+
+		for (const cached of [false, true]) {
+			for (const force of [false, true]) {
+				it(`refetches after ${force ? 'force-clearing' : 'clearing'} ${cached ? 'an existing' : 'an initially empty'} cache during a fetch`, async function () {
+					const oldResult: ItemsResponseResult<PullRequestModel> = {
+						items: [pullRequest],
+						hasMorePages: false,
+						hasUnsearchedRepositories: false,
+					};
+					if (cached) {
+						getPullRequests.resolves(oldResult);
+						await prsTreeModel.getAllPullRequests(folderManager, false);
+						getPullRequests.resetHistory();
+					}
+
+					let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+					const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+					let markStarted!: () => void;
+					const started = new Promise<void>(resolve => { markStarted = resolve; });
+					getPullRequests.onFirstCall().callsFake(() => {
+						markStarted();
+						return pendingFetch;
+					});
+					const freshResult: ItemsResponseResult<PullRequestModel> = {
+						items: [nextPullRequest],
+						hasMorePages: false,
+						hasUnsearchedRepositories: false,
+					};
+					getPullRequests.onSecondCall().resolves(freshResult);
+
+					const first = prsTreeModel.getAllPullRequests(folderManager, false, true);
+					await started;
+					if (force) {
+						prsTreeModel.forceClearCache(true);
+					} else {
+						prsTreeModel.clearCache(true);
+					}
+					const refresh = prsTreeModel.getAllPullRequests(folderManager, false);
+					await new Promise<void>(resolve => setImmediate(resolve));
+					assert.strictEqual(getPullRequests.callCount, 1);
+					resolveFetch(oldResult);
+
+					assert.strictEqual(await first, oldResult);
+					assert.strictEqual(await refresh, freshResult);
+					assert.strictEqual(await prsTreeModel.getAllPullRequests(folderManager, false), freshResult);
+					assert.strictEqual(getPullRequests.callCount, 2);
+					if (force) {
+						assert.strictEqual(prsTreeModel.hasPullRequest(pullRequest), false);
+					}
+					assert.strictEqual(prsTreeModel.hasPullRequest(nextPullRequest), true);
+				});
+			}
+		}
+
+		it('loads another folder independently while keeping requests in the first folder serialized', async function () {
+			const otherFolderManager = new FolderRepositoryManager(1, context, new MockRepository(), telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			context.subscriptions.push(otherFolderManager);
+			const otherResult: ItemsResponseResult<PullRequestModel> = {
+				items: [nextPullRequest],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			};
+			const getOtherPullRequests = sinon.stub(otherFolderManager, 'getPullRequests').resolves(otherResult);
+			let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+			const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => { markStarted = resolve; });
+			getPullRequests.callsFake(() => {
+				markStarted();
+				return pendingFetch;
+			});
+			const first = prsTreeModel.getAllPullRequests(folderManager, false);
+			await started;
+			const overlapping = prsTreeModel.getAllPullRequests(folderManager, false);
+			const other = prsTreeModel.getAllPullRequests(otherFolderManager, false);
+			const firstResult: ItemsResponseResult<PullRequestModel> = {
+				items: [pullRequest],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			};
+
+			try {
+				await new Promise<void>(resolve => setImmediate(resolve));
+				assert.strictEqual(getPullRequests.callCount, 1);
+				assert.strictEqual(getOtherPullRequests.callCount, 1);
+				assert.strictEqual(await other, otherResult);
+				assert.strictEqual(await prsTreeModel.getAllPullRequests(otherFolderManager, false), otherResult);
+				assert.strictEqual(getOtherPullRequests.callCount, 1);
+			} finally {
+				resolveFetch(firstResult);
+				await Promise.all([first, overlapping, other]);
+			}
+			assert.strictEqual(await overlapping, firstResult);
+			assert.strictEqual(getPullRequests.callCount, 1);
+		});
+
+		for (const loadMoreFirst of [true, false]) {
+			it(loadMoreFirst ? 'preserves results when refreshing during load more' : 'preserves results when loading more during a refresh', async function () {
+				getPullRequests.onFirstCall().resolves({
+					items: [pullRequest],
+					hasMorePages: true,
+					hasUnsearchedRepositories: false,
+				});
+				await prsTreeModel.getAllPullRequests(folderManager, false);
+
+				let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+				const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+				let markStarted!: () => void;
+				const started = new Promise<void>(resolve => { markStarted = resolve; });
+				getPullRequests.onSecondCall().callsFake(() => {
+					markStarted();
+					return pendingFetch;
+				});
+				getPullRequests.onThirdCall().resolves({
+					items: loadMoreFirst ? [pullRequest, nextPullRequest] : [nextPullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: true,
+					totalCount: 2,
+				});
+
+				const first = prsTreeModel.getAllPullRequests(folderManager, loadMoreFirst, !loadMoreFirst);
+				await started;
+				const overlapping = prsTreeModel.getAllPullRequests(folderManager, !loadMoreFirst, loadMoreFirst);
+				await new Promise<void>(resolve => setImmediate(resolve));
+				assert.strictEqual(getPullRequests.callCount, 2);
+				resolveFetch({
+					items: loadMoreFirst ? [nextPullRequest] : [pullRequest],
+					hasMorePages: !loadMoreFirst,
+					hasUnsearchedRepositories: loadMoreFirst,
+					totalCount: 2,
+				});
+
+				const [firstResult, overlappingResult] = await Promise.all([first, overlapping]);
+				assert.deepStrictEqual(firstResult, {
+					items: loadMoreFirst ? [pullRequest, nextPullRequest] : [pullRequest],
+					hasMorePages: !loadMoreFirst,
+					hasUnsearchedRepositories: loadMoreFirst,
+					totalCount: 2,
+				});
+				assert.deepStrictEqual(overlappingResult, {
+					items: [pullRequest, nextPullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: true,
+					totalCount: 2,
+				});
+				assert.strictEqual(await prsTreeModel.getAllPullRequests(folderManager, false), overlappingResult);
+				assert.deepStrictEqual(getPullRequests.getCalls().map(call => call.args), [
+					[PRType.All, { fetchNextPage: false }],
+					[PRType.All, { fetchNextPage: loadMoreFirst }],
+					[PRType.All, { fetchNextPage: !loadMoreFirst }],
+				]);
+			});
+		}
+
+		describe('Refresh notifications', function () {
+			let configurationChanged: vscode.EventEmitter<vscode.ConfigurationChangeEvent>;
+			let onDidChangeTreeData: SinonSpy;
+			let allCategory: CategoryTreeNode;
+			let localCategory: CategoryTreeNode;
+
+			beforeEach(async function () {
+				configurationChanged = new vscode.EventEmitter<vscode.ConfigurationChangeEvent>();
+				context.subscriptions.push(configurationChanged);
+				sinon.stub(vscode.workspace, 'onDidChangeConfiguration').callsFake(configurationChanged.event);
+				provider.dispose();
+				provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+				sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+				sinon.stub(reposManager, 'state').get(() => ReposManagerState.RepositoriesLoaded);
+				const githubRepository = discoveredRepository;
+				assert(githubRepository);
+				sinon.stub(folderManager, 'gitHubRepositories').get(() => [githubRepository]);
+				getPullRequests.resolves({
+					items: [pullRequest, nextPullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: false,
+				});
+				sinon.stub(folderManager, 'getLocalPullRequests').resolves([pullRequest, nextPullRequest]);
+				await prsTreeModel.getAllPullRequests(folderManager, false);
+				provider.initialize([], mockNotificationsManager as NotificationsManager);
+				const categories = await provider.getChildren();
+				const all = categories.find(node => node instanceof CategoryTreeNode && node.type === PRType.All);
+				const local = categories.find(node => node instanceof CategoryTreeNode && node.type === PRType.LocalPullRequest);
+				assert(all instanceof CategoryTreeNode);
+				assert(local instanceof CategoryTreeNode);
+				allCategory = all;
+				localCategory = local;
+				context.subscriptions.push(...await allCategory.getChildren(), ...await localCategory.getChildren());
+				await githubRepository.ensureCommentsController();
+				onDidChangeTreeData = sinon.spy();
+				context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+			});
+
+			it('refreshes once when the manual Refresh command clears the cache', async function () {
+				const forceClearCache = sinon.spy(prsTreeModel, 'forceClearCache');
+				const refreshCommand = (vscode.commands.registerCommand as SinonStub).getCalls()
+					.filter(call => call.args[0] === 'pr.refreshList').pop();
+				assert(refreshCommand);
+				getPullRequests.resetHistory();
+
+				refreshCommand.args[1]();
+
+				assert.strictEqual(forceClearCache.callCount, 1);
+				assert.strictEqual(onDidChangeTreeData.callCount, 1);
+				assert.deepStrictEqual(onDidChangeTreeData.firstCall.args, [provider.children]);
+				await prsTreeModel.getAllPullRequests(folderManager, false);
+				assert.strictEqual(getPullRequests.callCount, 1);
+			});
+
+			it('loads fresh category children when manual Refresh supersedes an in-flight fetch', async function () {
+				getPullRequests.resetHistory();
+				let resolveFetch!: (result: ItemsResponseResult<PullRequestModel>) => void;
+				const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>(resolve => { resolveFetch = resolve; });
+				let markStarted!: () => void;
+				const started = new Promise<void>(resolve => { markStarted = resolve; });
+				getPullRequests.onFirstCall().callsFake(() => {
+					markStarted();
+					return pendingFetch;
+				});
+				getPullRequests.onSecondCall().resolves({
+					items: [nextPullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: false,
+				});
+				const first = prsTreeModel.getAllPullRequests(folderManager, false, true);
+				await started;
+				const refreshCommand = (vscode.commands.registerCommand as SinonStub).getCalls()
+					.filter(call => call.args[0] === 'pr.refreshList').pop();
+				assert(refreshCommand);
+
+				refreshCommand.args[1]();
+				const refresh = allCategory.getChildren();
+				resolveFetch({
+					items: [pullRequest],
+					hasMorePages: false,
+					hasUnsearchedRepositories: false,
+				});
+				await first;
+				const children = await refresh;
+				context.subscriptions.push(...children);
+
+				assert.strictEqual(onDidChangeTreeData.callCount, 1);
+				assert.strictEqual(getPullRequests.callCount, 2);
+				assert.strictEqual(children.length, 1);
+				assert(children[0] instanceof PRNode);
+				assert.strictEqual(children[0].pullRequestModel, nextPullRequest);
+				assert.strictEqual(prsTreeModel.hasPullRequest(pullRequest), false);
+				assert.strictEqual(prsTreeModel.hasPullRequest(nextPullRequest), true);
+			});
+
+			for (const setting of ['githubPullRequests.showPullRequestNumberInTree', 'githubPullRequests.pullRequestAvatarDisplay']) {
+				it(`refreshes once for ${setting}, regardless of the number of PR nodes`, function () {
+					const clearCache = sinon.spy(prsTreeModel, 'clearCache');
+
+					configurationChanged.fire({ affectsConfiguration: section => section === setting });
+
+					assert.strictEqual(onDidChangeTreeData.callCount, 1);
+					assert.deepStrictEqual(onDidChangeTreeData.firstCall.args, [undefined]);
+					assert.strictEqual(clearCache.callCount, 0);
+				});
+			}
+
+			it('does not refresh for unrelated settings', function () {
+				configurationChanged.fire({ affectsConfiguration: section => section === 'editor.fontSize' });
+
+				assert.strictEqual(onDidChangeTreeData.callCount, 0);
+			});
+
+			it('refreshes all affected PR copies in one event when switching checkouts', function () {
+				const copiesOf = (model: PullRequestModel) => [allCategory, localCategory]
+					.flatMap(category => category.children ?? [])
+					.filter((node): node is PRNode => node instanceof PRNode && node.pullRequestModel.equals(model));
+				const oldCopies = copiesOf(pullRequest);
+				const newCopies = copiesOf(nextPullRequest);
+				assert.strictEqual(oldCopies.length, 2);
+				assert.strictEqual(newCopies.length, 2);
+				const assertRefreshed = (expected: PRNode[]) => {
+					assert.strictEqual(onDidChangeTreeData.callCount, 1);
+					const refreshed = onDidChangeTreeData.firstCall.args[0];
+					assert(Array.isArray(refreshed));
+					assert.strictEqual(refreshed.length, expected.length);
+					assert(expected.every(node => refreshed.includes(node)));
+				};
+
+				folderManager.activePullRequest = pullRequest;
+				assertRefreshed(oldCopies);
+				onDidChangeTreeData.resetHistory();
+
+				folderManager.activePullRequest = nextPullRequest;
+				assertRefreshed([...oldCopies, ...newCopies]);
+				assert.strictEqual(pullRequest.isActive, false);
+				assert.strictEqual(nextPullRequest.isActive, true);
+				onDidChangeTreeData.resetHistory();
+
+				folderManager.activePullRequest = nextPullRequest;
+				assert.strictEqual(onDidChangeTreeData.callCount, 0);
+				folderManager.activePullRequest = undefined;
+				assertRefreshed(newCopies);
+			});
+		});
 	});
 
 	it('clears the tree immediately', async function () {

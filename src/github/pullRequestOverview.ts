@@ -559,7 +559,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._repositoryDefaultBranch = defaultBranch!;
 			this.setPanelTitle(this.buildPanelTitle(pullRequestModel.number, pullRequestModel.title));
 
-			const isCurrentlyCheckedOut = this.getCheckedOutPullRequestNumber(pullRequestModel) === pullRequestModel.number;
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
@@ -595,7 +594,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				...baseContext,
 				canUpdateStack: this.canUpdateStack(pullRequest),
 				canRequestCopilotReview: false,
-				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+				isCurrentlyCheckedOut: this.getCheckedOutPullRequestNumber(pullRequestModel) === pullRequestModel.number,
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 				base: `${pullRequest.base.owner}/${pullRequest.remote.repositoryName}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
