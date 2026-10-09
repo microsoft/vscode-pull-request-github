@@ -908,7 +908,7 @@ describe('Overview', function () {
 	});
 
 	it('shows view changes in both headers', function () {
-		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).build();
+		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
 		const viewChanges = sinon.stub(context, 'viewChanges');
 
@@ -928,7 +928,7 @@ describe('Overview', function () {
 	});
 
 	it('does not show view changes outside the agents window', function () {
-		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(false).build();
+		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
 
 		const out = render(
