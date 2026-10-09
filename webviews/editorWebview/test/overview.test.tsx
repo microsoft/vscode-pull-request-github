@@ -927,8 +927,8 @@ describe('Overview', function () {
 		assert.strictEqual(viewChanges.callCount, 2);
 	});
 
-	it('does not show view changes outside the agents window', function () {
-		const pr = new PullRequestBuilder().build();
+	it('does not show view changes in either header for issues', function () {
+		const pr = new PullRequestBuilder().isIssue(true).build();
 		const context = new PRContext(pr);
 
 		const out = render(
