@@ -132,6 +132,9 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		if (!prUriParams || (prUriParams.prNumber === undefined)) {
 			return new TextEncoder().encode('');
 		}
+		if (prUriParams.submoduleContent !== undefined) {
+			return new TextEncoder().encode(prUriParams.submoduleContent);
+		}
 		const providerResult = await this.readFileWithProvider(uri, prUriParams.prNumber);
 		if (providerResult) {
 			return providerResult;
@@ -157,6 +160,10 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 		(!params.isBase && fileChange.status === GitChangeType.DELETE)
 	) {
 		return '';
+	}
+
+	if (fileChange.submoduleChange) {
+		return params.isBase ? fileChange.submoduleChange.base : fileChange.submoduleChange.head;
 	}
 
 	const diffHunks = await fileChange.diffHunks();
