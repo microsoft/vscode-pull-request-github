@@ -10,6 +10,7 @@ import { createSandbox, SinonFakeTimers, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { PullRequestMergeability } from '../../../src/github/interface';
+import { createTestHost } from '../../../src/test/webviews/testHost';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { MergeStatusAndActions } from '../../components/merge';
 
@@ -32,7 +33,7 @@ describe('Merge status and actions', function () {
 			.mergeable(PullRequestMergeability.Unknown)
 			.hasWritePermission(false)
 			.build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const checkMergeability = sinon.stub(context, 'checkMergeability').resolves({
 			mergeability: PullRequestMergeability.Mergeable,
 		});

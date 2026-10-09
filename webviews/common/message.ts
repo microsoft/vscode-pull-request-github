@@ -3,46 +3,57 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-interface IRequestMessage<T> {
-	req: string;
-	command: string;
-	args: T;
+import type { CommandMessage, ReplyMessage, WebviewHost, WebviewTransport } from './host';
+
+let lastSentReq = 0;
+
+export class MessageHandlerDisposedError extends Error {
+	constructor() {
+		super('The webview message handler has been disposed.');
+	}
 }
 
-interface IReplyMessage {
-	seq: string;
-	err: string;
-	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
-	res: any;
+export function rethrowUnlessDisposed(error: unknown): void {
+	if (!(error instanceof MessageHandlerDisposedError)) {
+		throw error;
+	}
 }
 
-// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
-declare let acquireVsCodeApi: any;
-export const vscode = acquireVsCodeApi();
-
-export class MessageHandler {
-	private _commandHandler: ((message: any) => void) | null;
-	private lastSentReq: number;
+export class MessageHandler implements WebviewHost {
+	private readonly _commandListeners = new Set<(command: unknown) => void>();
 	private readonly _pendingReplies = new Map<string, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>();
-	constructor(commandHandler: any) {
-		this._commandHandler = commandHandler;
-		this.lastSentReq = 0;
-		window.addEventListener('message', this.handleMessage.bind(this) as (this: Window, ev: MessageEvent<any>) => any);
+	private readonly _unsubscribe: () => void;
+	private _disposed = false;
+
+	constructor(private readonly _transport: WebviewTransport) {
+		this._unsubscribe = _transport.onMessage(this._handleMessage);
 	}
 
-	public registerCommandHandler(commandHandler: (message: any) => void) {
-		this._commandHandler = commandHandler;
+	public getState<T>(): T | undefined {
+		return this._transport.getState<T>();
 	}
 
-	public async postMessage(message: any): Promise<any> {
-		const req = String(++this.lastSentReq);
-		return new Promise<any>((resolve, reject) => {
+	public setState<T>(state: T): void {
+		this._transport.setState(state);
+	}
+
+	public onCommand(listener: (command: unknown) => void): () => void {
+		if (this._disposed) {
+			throw new MessageHandlerDisposedError();
+		}
+		this._commandListeners.add(listener);
+		return () => this._commandListeners.delete(listener);
+	}
+
+	public async postMessage(message: CommandMessage): Promise<unknown> {
+		if (this._disposed) {
+			throw new MessageHandlerDisposedError();
+		}
+		const req = String(++lastSentReq);
+		return new Promise<unknown>((resolve, reject) => {
 			this._pendingReplies.set(req, { resolve, reject });
 			try {
-				message = Object.assign(message, {
-					req: req,
-				});
-				vscode.postMessage(message as IRequestMessage<any>);
+				this._transport.postMessage({ ...message, req });
 			} catch (error) {
 				this._pendingReplies.delete(req);
 				reject(error);
@@ -50,11 +61,21 @@ export class MessageHandler {
 		});
 	}
 
-	// handle message should resolve promises
-	private handleMessage(event: any) {
-		const message: IReplyMessage = event.data; // The json data that the extension sent
+	public dispose(): void {
+		if (this._disposed) {
+			return;
+		}
+		this._disposed = true;
+		this._unsubscribe();
+		this._commandListeners.clear();
+		for (const reply of this._pendingReplies.values()) {
+			reply.reject(new MessageHandlerDisposedError());
+		}
+		this._pendingReplies.clear();
+	}
+
+	private _handleMessage = (message: ReplyMessage) => {
 		if (message.seq) {
-			// this is a reply
 			const pendingReply = this._pendingReplies.get(message.seq);
 			if (pendingReply) {
 				this._pendingReplies.delete(message.seq);
@@ -67,12 +88,8 @@ export class MessageHandler {
 			return;
 		}
 
-		if (this._commandHandler) {
-			this._commandHandler(message.res);
+		for (const listener of this._commandListeners) {
+			listener(message.res);
 		}
-	}
-}
-
-export function getMessageHandler(handler: ((message: any) => void) | null) {
-	return new MessageHandler(handler);
+	};
 }

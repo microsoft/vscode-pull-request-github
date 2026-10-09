@@ -9,9 +9,11 @@ import { RemoteInfo } from '../../common/types';
 import { CreateParamsNew, StackCandidate } from '../../common/views';
 import { isITeam, MergeMethod } from '../../src/github/interface';
 import { ChangeTemplateReply } from '../../src/github/views';
-import PullRequestContextNew from '../common/createContextNew';
+import PullRequestContextNew, { CreatePRContextNew } from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
+import { createWebviewHost } from '../common/host';
 import { LabelCreate } from '../common/label';
+import { rethrowUnlessDisposed } from '../common/message';
 import { ContextDropdown } from '../components/contextDropdown';
 import { accountIcon, feedbackIcon, gitCompareIcon, layersIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
@@ -88,7 +90,10 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, i
 };
 
 export function main() {
+	const host = createWebviewHost();
+	const context = new CreatePRContextNew(host);
 	render(
+		<PullRequestContextNew.Provider value={context}>
 		<Root>
 			{(params: CreateParamsNew) => {
 				const ctx = useContext(PullRequestContextNew);
@@ -418,7 +423,8 @@ export function main() {
 					</div>
 				</div>;
 			}}
-		</Root>,
+		</Root>
+		</PullRequestContextNew.Provider>,
 		document.getElementById('app'),
 	);
 }
@@ -431,7 +437,10 @@ export function Root({ children }: RootProps): JSX.Element {
 	useEffect(() => {
 		ctx.onchange = setPR;
 		setPR(ctx.createParams);
+		return () => {
+			ctx.onchange = null;
+		};
 	}, []);
-	ctx.postMessage({ command: 'ready' });
+	ctx.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
 	return <>{children(pr)}</>;
 }

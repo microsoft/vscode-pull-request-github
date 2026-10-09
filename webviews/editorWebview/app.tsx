@@ -10,10 +10,19 @@ import { Overview, OverviewPreview } from './overview';
 import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
-import PullRequestContext from '../common/context';
+import PullRequestContext, { PRContext } from '../common/context';
+import { createWebviewHost } from '../common/host';
+import { rethrowUnlessDisposed } from '../common/message';
 
 export function main() {
-	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
+	const host = createWebviewHost();
+	const context = new PRContext(host);
+	render(
+		<PullRequestContext.Provider value={context}>
+			<Root>{pr => <Overview {...pr} />}</Root>
+		</PullRequestContext.Provider>,
+		document.getElementById('app')
+	);
 }
 
 export function Root({ children }) {
@@ -74,18 +83,25 @@ export function Root({ children }) {
 		return () => document.removeEventListener('click', handleLinkClick, true);
 	}, [ctx]);
 
-	window.onscroll = debounce(() => {
-		ctx.postMessage({
-			command: 'scroll',
-			args: {
-				scrollPosition: {
-					x: window.scrollX,
-					y: window.scrollY
+	useEffect(() => {
+		const onScroll = debounce(() => {
+			ctx.postMessage({
+				command: 'scroll',
+				args: {
+					scrollPosition: {
+						x: window.scrollX,
+						y: window.scrollY
+					}
 				}
-			}
-		});
-	}, 200);
-	ctx.postMessage({ command: 'ready' });
-	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
+			}).catch(rethrowUnlessDisposed);
+		}, 200);
+		window.addEventListener('scroll', onScroll);
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			onScroll.clear();
+		};
+	}, [ctx]);
+	ctx.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
+	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') }).catch(rethrowUnlessDisposed);
 	return pr ? children(pr) : preview ? <OverviewPreview {...preview} /> : <div className="loading-indicator">Loading...</div>;
 }
