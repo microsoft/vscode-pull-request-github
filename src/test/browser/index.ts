@@ -18,15 +18,13 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 
 	mocha.setup({
 		ui: 'bdd',
-		reporter: undefined
+		reporter: undefined,
+		failZero: true
 	});
 
-	try {
-		const importAll = (r: __WebpackModuleApi.RequireContext) => r.keys().forEach(r);
-		importAll(require.context('../', true, /^\.\/(?!scripts\/).*\.test$/));
-	} catch (e) {
-		console.log(e);
-	}
+	require('../globalHooks');
+	const tests = require.context('../', true, /^\.\/(?!(?:scripts|node)\/).*\.test$/);
+	tests.keys().forEach(tests);
 
 	if (process.env.TEST_JUNIT_XML_PATH) {
 		mocha.reporter('mocha-multi-reporters', {
@@ -43,5 +41,7 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 }
 
 export function run(testsRoot: string, clb: (error: Error | null, failures?: number) => void): void {
-	runAllExtensionTests(testsRoot, clb);
+	runAllExtensionTests(testsRoot, clb).catch(error => {
+		clb(error instanceof Error ? error : new Error(String(error)));
+	});
 }

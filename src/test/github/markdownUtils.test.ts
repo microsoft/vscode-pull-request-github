@@ -13,14 +13,14 @@ describe('escapeMarkdownText', () => {
 		const escaped = escapeMarkdownText(text);
 		assert.ok(escaped.includes(' for GitHub Enterprise'));
 		assert.ok(escaped.includes('\n\n'));
-		assert.doesNotMatch(escaped, /&nbsp;|\u00a0/);
+		assert.strictEqual(escaped.match(/&nbsp;|\u00a0/), null);
 		assert.strictEqual(marked.parse(escaped), '<p>Using ghe.io for GitHub Enterprise.</p>\n<p>Select an account for github.ghe.com.</p>\n');
 	});
 
 	it('renders links, HTML, and formatting from instance names as text', () => {
 		const text = 'host.example/[open](command:unexpected) *name* <script>alert(1)</script> &nbsp; `code`';
 		const rendered = marked.parse(escapeMarkdownText(text));
-		assert.doesNotMatch(rendered, /<a\b|<script\b|<em\b|<code\b/);
+		assert.strictEqual(rendered.match(/<a\b|<script\b|<em\b|<code\b/), null);
 		assert.ok(rendered.includes('[open](command:unexpected)'));
 		assert.ok(rendered.includes('&lt;script&gt;'));
 		assert.ok(rendered.includes('&amp;nbsp;'));

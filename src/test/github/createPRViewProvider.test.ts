@@ -147,11 +147,12 @@ describe('Create pull request stack', function () {
 		});
 
 		assert(create.notCalled);
-		assert.match(throwError.firstCall.args[1], /stack features are disabled/);
+		assert.ok(throwError.firstCall.args[1].match(/stack features are disabled/));
 		cancellation.dispose();
 	});
 
 	it('links to the parent PR webview from the stack option', async function () {
+		sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
 		sinon.stub(githubRepository, 'getStackCandidate').resolves({
 			parentPullRequestNumber: 795,
@@ -267,7 +268,7 @@ describe('Create pull request stack', function () {
 
 		assert.strictEqual(result, undefined);
 		assert(warn.calledOnce);
-		assert.match(warn.firstCall.args[0], /GraphQL unavailable/);
+		assert.ok(warn.firstCall.args[0].match(/GraphQL unavailable/));
 	});
 
 	for (const stackNumber of [undefined, 12]) {
@@ -334,7 +335,7 @@ describe('Create pull request stack', function () {
 
 		assert(create.notCalled);
 		assert(throwError.calledOnce);
-		assert.match(throwError.firstCall.args[1], /no longer at the top/);
+		assert.ok(throwError.firstCall.args[1].match(/no longer at the top/));
 		cancellation.dispose();
 	});
 
@@ -368,7 +369,7 @@ describe('Create pull request stack', function () {
 		assert(setDetails.calledOnce);
 		assert(getStack.notCalled);
 		assert(showError.calledOnce);
-		assert.match(showError.firstCall.args[0], /#796 was created but could not be added to its stack: Stack is locked/);
+		assert.ok(showError.firstCall.args[0].match(/#796 was created but could not be added to its stack: Stack is locked/));
 		cancellation.dispose();
 	});
 });
