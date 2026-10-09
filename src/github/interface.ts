@@ -49,6 +49,11 @@ export enum PullRequestMergeability {
 	Behind,
 }
 
+export interface PullRequestMergeabilityResult {
+	mergeability: PullRequestMergeability;
+	conflicts?: string[];
+}
+
 export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestStack['pullRequests'] | undefined {
 	if (stack.pullRequests.length !== stack.size) {
 		return;

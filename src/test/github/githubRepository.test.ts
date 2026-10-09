@@ -154,6 +154,44 @@ describe('GitHubRepository', function () {
 			assert.strictEqual(deletedAuthorPreview.head, '');
 		});
 
+		it('loads a read-only issue preview without populating the issue model cache', async function () {
+			const preview = {
+				number: 1347, title: 'Preview', titleHTML: '<strong>Preview</strong>',
+				body: 'Description', bodyHTML: '<p>Description</p>', url: 'https://github.com/owner/repo/issues/1347',
+				state: GithubItemStateEnum.Open, stateReason: null, createdAt: '2026-10-01T10:00:00Z',
+				author: { __typename: 'User', id: 'author', login: 'contributor', url: 'https://github.com/contributor', avatarUrl: '' },
+			};
+			const query = sinon.stub(repo, 'query').resolves({
+				data: { repository: { issue: preview } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+
+			const { author, ...content } = preview;
+			assert.deepStrictEqual(await repo.getIssuePreview(1347), {
+				...content,
+				author: parseAccount(author, repo),
+				isIssue: true,
+			});
+			assert.strictEqual(repo.getExistingIssueModel(1347), undefined);
+			sinon.assert.calledOnce(query);
+			assert.strictEqual(query.firstCall.args[0].query, repo.schema.IssuePreview);
+			assert.deepStrictEqual(query.firstCall.args[0].variables, { owner: 'owner', name: 'repo', number: 1347 });
+			const fields: string[] = [];
+			visit(repo.schema.IssuePreview, { Field(node) { fields.push(node.name.value); } });
+			assert.ok(fields.includes('titleHTML') && fields.includes('bodyHTML'));
+			for (const field of ['comments', 'labels', 'assignees', 'projectItems', 'reactionGroups', 'timelineItems']) {
+				assert.ok(!fields.includes(field), `Preview must not query ${field}`);
+			}
+			assert.ok(!fields.includes('email'), 'Preview must not require additional user scopes');
+
+			query.resolves({
+				data: { repository: { issue: { ...preview, author: null } } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			const deletedAuthorPreview = await repo.getIssuePreview(1347);
+			assert.deepStrictEqual(deletedAuthorPreview.author, parseAccount(null, repo));
+		});
+
 		it('rejects missing previews and invalid preview numbers', async function () {
 			const query = sinon.stub(repo, 'query').resolves({
 				data: { repository: { pullRequest: null } },
@@ -165,6 +203,19 @@ describe('GitHubRepository', function () {
 			sinon.assert.notCalled(query);
 			await assert.rejects(repo.getPullRequestPreview(1347), /Unable to load pull request preview/);
 			assert.strictEqual(repo.getExistingPullRequestModel(1347), undefined);
+		});
+
+		it('rejects missing issue previews and invalid issue preview numbers', async function () {
+			const query = sinon.stub(repo, 'query').resolves({
+				data: { repository: { issue: null } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			for (const number of [0, -1, NaN, Infinity, 1.5]) {
+				await assert.rejects(repo.getIssuePreview(number), /Invalid issue number/);
+			}
+			sinon.assert.notCalled(query);
+			await assert.rejects(repo.getIssuePreview(1347), /Unable to load issue preview/);
+			assert.strictEqual(repo.getExistingIssueModel(1347), undefined);
 		});
 
 		it('loads an overview with only the PR query and reuses its cached model', async function () {

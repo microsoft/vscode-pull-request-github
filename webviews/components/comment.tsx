@@ -12,7 +12,7 @@ import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest, PullRequestPreview, ReviewCommentContext, ReviewType } from '../../src/github/views';
+import { OverviewItemPreview, PullRequest, ReviewCommentContext, ReviewType } from '../../src/github/views';
 import { ariaAnnouncementForReview } from '../common/aria';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -182,14 +182,16 @@ export function CommentView(commentProps: Props) {
 	);
 }
 
-export const CommentPreview = (preview: PullRequestPreview) => (
+export const CommentPreview = (preview: OverviewItemPreview | PullRequest) => (
 	<CommentBox for={preview}>
-		<CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />
+		{preview.bodyHTML === undefined && preview.body
+			? <div className="comment-body" style={{ whiteSpace: 'pre-wrap' }}>{preview.body}</div>
+			: <CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />}
 	</CommentBox>
 );
 
 type CommentBoxProps = {
-	for: IComment | ReviewEvent | PullRequest | CommentEvent | PullRequestPreview;
+	for: IComment | ReviewEvent | PullRequest | CommentEvent | OverviewItemPreview;
 	header?: React.ReactChild;
 	onFocus?: React.FocusEventHandler;
 	onMouseEnter?: React.MouseEventHandler;

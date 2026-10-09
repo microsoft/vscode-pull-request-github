@@ -13,8 +13,10 @@ import { createSandbox, SinonSandbox } from 'sinon';
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
 import { createTestHost } from '../../../src/test/webviews/testHost';
+import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
+import { Root as EditorRoot } from '../app';
 import { Overview } from '../overview';
 
 describe('Overview', function () {
@@ -161,6 +163,45 @@ describe('Overview', function () {
 			}
 		} finally {
 			sharedStyles.remove();
+		}
+	});
+
+	it('opens a PR number link exactly once', function () {
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(createTestHost(pr));
+		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
+
+		// Stands in for the webview host, which opens any anchor with an href that a click
+		// reaches, and does not check defaultPrevented.
+		const hostOpenedLinks: string[] = [];
+		const hostLinkHandler = (event: Event) => {
+			const anchor = (event.target as HTMLElement).closest('a[href]');
+			if (anchor) {
+				hostOpenedLinks.push(anchor.getAttribute('href')!);
+			}
+		};
+		window.addEventListener('click', hostLinkHandler);
+
+		try {
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			const numberLinks = out.container.querySelectorAll('.overview-title a, .sticky-header-number');
+			assert.strictEqual(numberLinks.length, 2);
+			numberLinks.forEach(link => {
+				openOnGitHub.resetHistory();
+				hostOpenedLinks.length = 0;
+
+				fireEvent.click(link);
+
+				assert.strictEqual(openOnGitHub.callCount, 1);
+				assert.deepStrictEqual(hostOpenedLinks, []);
+			});
+		} finally {
+			window.removeEventListener('click', hostLinkHandler);
 		}
 	});
 
@@ -323,6 +364,56 @@ describe('Overview', function () {
 		assert.strictEqual(out.container.querySelector('#pull-request-stack'), null);
 		assert(out.getByText('Merge Pull Request'));
 	});
+
+	for (const [view, Root, Component] of [
+		['sidebar', ActivityBarRoot, ActivityBarOverview],
+		['editor', EditorRoot, Overview],
+	] as const) {
+		for (const mergeQueueMethod of [undefined, 'squash'] as const) {
+			it(`clears the ${view} stack after a serialized unstack update (${mergeQueueMethod ?? 'no queue'})`, async function () {
+				const pr = new PullRequestBuilder().number(1001).mergeQueueMethod(mergeQueueMethod).stack({
+					position: 3, size: 3, base: 'main',
+					pullRequests: [999, 1000, 1001].map((number, index) => ({
+						position: index + 1, number, title: `Change ${index + 1}`, head: `D${index + 1}`, url: '',
+						state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable,
+					})),
+				}).build();
+				const context = new PRContext(createTestHost(pr));
+				context.setPR(pr);
+				const out = render(
+					<PullRequestContext.Provider value={context}>
+						<Root>{current => <Component {...current} />}</Root>
+					</PullRequestContext.Provider>,
+				);
+				const stackAction = mergeQueueMethod ? 'Add stack to merge queue' : 'Merge stack (3 pull requests)';
+				assert(out.getByText(stackAction));
+				if (view === 'editor') {
+					assert(out.container.querySelector('#pull-request-stack'));
+					assert(out.container.querySelector('.stack-badge'));
+				}
+
+				context.handleMessage(JSON.parse(JSON.stringify({
+					command: 'pr.update',
+					pullrequest: { stack: null, stackLoaded: true, stackLoadError: false, mergeQueueMethod: null },
+				})));
+
+				await wait(() => {
+					assert.strictEqual(out.queryByText(stackAction), null);
+					assert.strictEqual(out.container.querySelector('#pull-request-stack'), null);
+					assert.strictEqual(out.container.querySelector('.stack-badge'), null);
+					assert.strictEqual(context.pr?.stack, null);
+					assert.strictEqual(context.pr?.mergeQueueMethod, null);
+					if (view === 'sidebar') {
+						assert.strictEqual(out.container.querySelector('.select-control input[type="submit"]')?.getAttribute('value'), 'Create Merge Commit');
+						assert(out.getByText('Comment'));
+						assert(out.getByText("Checkout 'main'"));
+					} else {
+						assert(out.getByText('Merge Pull Request'));
+					}
+				}, { timeout: 500 });
+			});
+		}
+	}
 
 	it('offers Unstack all for an eligible stack without showing it to users without write permission', function () {
 		const stack = {
@@ -870,7 +961,7 @@ describe('Overview', function () {
 	});
 
 	it('shows view changes in both headers', function () {
-		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).build();
+		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(createTestHost(pr));
 		const viewChanges = sinon.stub(context, 'viewChanges');
 
@@ -889,8 +980,8 @@ describe('Overview', function () {
 		assert.strictEqual(viewChanges.callCount, 2);
 	});
 
-	it('does not show view changes outside the agents window', function () {
-		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(false).build();
+	it('does not show view changes in either header for issues', function () {
+		const pr = new PullRequestBuilder().isIssue(true).build();
 		const context = new PRContext(createTestHost(pr));
 
 		const out = render(

@@ -707,6 +707,37 @@ query GetUser($login: String!) {
 	}
 }
 
+query IssuePreview($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			number
+			title
+			titleHTML
+			url
+			body
+			bodyHTML
+			createdAt
+			state
+			stateReason
+			author {
+				__typename
+				login
+				url
+				avatarUrl
+				... on Node {
+					id
+				}
+				... on User {
+					name
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query PullRequestPreview($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

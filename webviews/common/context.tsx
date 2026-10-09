@@ -9,8 +9,8 @@ import { WebviewHost } from './host';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, PullRequestPreview, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -33,8 +33,8 @@ const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 export class PRContext {
 	public pr: PullRequest | undefined;
 	public onchange: ((ctx: PullRequest | undefined) => void) | null = null;
-	public preview: PullRequestPreview | undefined;
-	public onPreviewChange: ((preview: PullRequestPreview | undefined) => void) | null = null;
+	public preview: OverviewItemPreview | undefined;
+	public onPreviewChange: ((preview: OverviewItemPreview | undefined) => void) | null = null;
 	private readonly _unsubscribe: () => void;
 
 	constructor(private readonly _host: WebviewHost) {
@@ -92,7 +92,8 @@ export class PRContext {
 		this.updatePR(this.pr);
 	};
 
-	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
+	public checkMergeability = (): Promise<PullRequestMergeabilityResult> =>
+		this.postMessage({ command: 'pr.checkMergeability' });
 
 	public changeEmail = async (current: string) => {
 		const newEmail = await this.postMessage({ command: 'pr.change-email', args: current });

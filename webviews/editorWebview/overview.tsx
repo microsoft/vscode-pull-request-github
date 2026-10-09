@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest, PullRequestPreview } from '../../src/github/views';
+import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { useMaxViewportWidth } from '../common/hooks';
 
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
@@ -40,7 +40,7 @@ export const Overview = (pr: PullRequest) => {
 	</>;
 };
 
-export const OverviewPreview = (preview: PullRequestPreview) => {
+export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
 	const isSingleColumnLayout = useMaxViewportWidth(768);
 	return <>
 		<div id="title" className="title">
@@ -48,13 +48,13 @@ export const OverviewPreview = (preview: PullRequestPreview) => {
 				<HeaderPreview {...preview} />
 			</div>
 		</div>
-		{isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout /> : null}
+		{isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout isIssue={preview.isIssue === true} /> : null}
 		<div id="main">
 			<div id="description">
 				<CommentPreview {...preview} />
 			</div>
 		</div>
-		{!isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout={false} /> : null}
+		{!isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout={false} isIssue={preview.isIssue === true} /> : null}
 	</>;
 };
 
