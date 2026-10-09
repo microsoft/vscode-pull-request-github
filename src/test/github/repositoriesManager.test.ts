@@ -156,7 +156,7 @@ describe('RepositoriesManager', function () {
 
 			await reposManager.selectEnterpriseAccount();
 
-			assert.match(error.firstCall.args[0], /Unable to select a GitHub Enterprise account: Provider unavailable/);
+			assert.ok(error.firstCall.args[0].match(/Unable to select a GitHub Enterprise account: Provider unavailable/));
 			assert.strictEqual(login.called || update.called || execute.called, false);
 		});
 
@@ -200,7 +200,7 @@ describe('RepositoriesManager', function () {
 			findRemotes.resolves({ dotComRemotes: [], enterpriseRemotes: [remote(hostB)], unknownRemotes: [] });
 			information.resolves('Yes');
 			assert.strictEqual(await reposManager.authenticate(true), true);
-			assert.match(information.firstCall.args[0], /github-enterprise\.uris/);
+			assert.ok(information.firstCall.args[0].match(/github-enterprise\.uris/));
 			assert.strictEqual(update.calledOnce, true);
 		});
 
@@ -228,7 +228,7 @@ describe('RepositoriesManager', function () {
 			configuration(hostA, [42]);
 			assert.strictEqual(await reposManager.authenticate(true), false);
 			assert.strictEqual(update.called || login.called || input.called, false);
-			assert.match(error.firstCall.args[0], /Invalid GitHub Enterprise/);
+			assert.ok(error.firstCall.args[0].match(/Invalid GitHub Enterprise/));
 		});
 
 		it('rejects invalid setup input without saving or starting authentication', async function () {
@@ -236,7 +236,7 @@ describe('RepositoriesManager', function () {
 			input.resolves('https://github.com');
 			assert.strictEqual(await reposManager.authenticate(true), false);
 			assert.strictEqual(update.called || login.called, false);
-			assert.match(error.firstCall.args[0], /Invalid GitHub Enterprise/);
+			assert.ok(error.firstCall.args[0].match(/Invalid GitHub Enterprise/));
 		});
 
 		it('surfaces write failures and offers settings without starting authentication', async function () {
@@ -245,7 +245,7 @@ describe('RepositoriesManager', function () {
 			update.rejects(new Error('Settings are read-only'));
 			error.resolves('Open Settings');
 			assert.strictEqual(await reposManager.authenticate(true), false);
-			assert.match(error.firstCall.args[0], /Settings are read-only/);
+			assert.ok(error.firstCall.args[0].match(/Settings are read-only/));
 			assert.deepStrictEqual(execute.lastCall.args, ['workbench.action.openSettings', 'github-enterprise.uris', undefined]);
 			assert.strictEqual(login.called, false);
 		});

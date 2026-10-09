@@ -24,10 +24,12 @@ async function go() {
 			extensionDevelopmentPath,
 			extensionTestsPath,
 			waitForDebugger: waitForDebugger ? Number(waitForDebugger.slice(attachArgName.length)) : undefined,
+			esm: true,
 			quality: 'stable'
 		});
 	} catch (e) {
-		console.log(e);
+		console.error(e);
+		process.exitCode = 1;
 	}
 }
 

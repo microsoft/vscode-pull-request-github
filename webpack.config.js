@@ -155,9 +155,10 @@ async function getWebviewConfig(mode, env, entry) {
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ esbuild?: boolean; }} env
+ * @param {boolean} browserTests
  * @returns { Promise<WebpackConfig> }
  */
-async function getExtensionConfig(target, mode, env) {
+async function getExtensionConfig(target, mode, env, browserTests = false) {
 	const basePath = path.join(__dirname, 'src');
 	const glob = require('glob');
 
@@ -221,16 +222,17 @@ async function getExtensionConfig(target, mode, env) {
 				'browser.js')
 		}));
 		plugins.push(new webpack.ProvidePlugin({
-			Buffer: ['buffer', 'Buffer']
+			Buffer: ['buffer', 'Buffer'],
+			...(browserTests ? { setImmediate: ['timers', 'setImmediate'] } : {})
 		}));
 	}
 
-	const entry = {
+	const entry = browserTests ? {} : {
 		extension: './src/extension.ts',
 	};
 
 	// Add test entry points
-	if (target === 'webworker') {
+	if (browserTests) {
 		entry['test/index'] = './src/test/browser/index.ts';
 	} else if (target === 'node') {
 		// Add main test runner
@@ -253,7 +255,7 @@ async function getExtensionConfig(target, mode, env) {
 	}
 
 	return {
-		name: `extension:${target}`,
+		name: browserTests ? 'test:webworker' : `extension:${target}`,
 		entry,
 		mode: mode,
 		target: target,
@@ -317,6 +319,8 @@ async function getExtensionConfig(target, mode, env) {
 									__dirname,
 									target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
 								),
+								// Keep module stubs effective without changing the production bundle.
+								...(browserTests ? { compilerOptions: { module: 'commonjs' } } : {}),
 								experimentalWatchApi: true,
 								transpileOnly: true,
 							},
@@ -345,6 +349,7 @@ async function getExtensionConfig(target, mode, env) {
 			alias:
 				target === 'webworker'
 					? {
+						...(browserTests ? { 'apollo-link-http$': require.resolve('apollo-link-http') } : {}),
 						'node-fetch': 'cross-fetch',
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
@@ -410,7 +415,7 @@ async function getExtensionConfig(target, mode, env) {
 
 module.exports =
 	/**
-	 * @param {{ esbuild?: boolean; } | undefined } env
+	 * @param {{ esbuild?: boolean; browserTests?: boolean; } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
 	 * @returns { Promise<WebpackConfig[]> }
 	 */
@@ -421,6 +426,10 @@ module.exports =
 			esbuild: false,
 			...env,
 		};
+
+		if (env.browserTests) {
+			return [await getExtensionConfig('webworker', mode, { esbuild: false }, true)];
+		}
 
 		return Promise.all([
 			getExtensionConfig('node', mode, env),
