@@ -29,7 +29,6 @@ export function Header({
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
-	isAgentSessionsWorkspace,
 	doneCheckoutBranch,
 	events,
 	owner,
@@ -54,7 +53,6 @@ export function Header({
 				setCurrentTitle={setCurrentTitle}
 				canEdit={canEdit}
 				isIssue={isIssue}
-				isAgentSessionsWorkspace={isAgentSessionsWorkspace}
 				owner={owner}
 				repo={repo}
 			/>
@@ -137,12 +135,11 @@ interface TitleProps {
 	setCurrentTitle: React.Dispatch<React.SetStateAction<string>>;
 	canEdit: boolean;
 	isIssue: boolean;
-	isAgentSessionsWorkspace: boolean;
 	owner: string;
 	repo: string;
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, isIssue, isAgentSessionsWorkspace, owner, repo }: TitleProps): JSX.Element {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, isIssue, owner, repo }: TitleProps): JSX.Element {
 	const { setTitle, copyPrLink, openOnGitHub } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -191,7 +188,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
 				{copyIcon}
 			</button>
-			{!isIssue && isAgentSessionsWorkspace ? <ViewChangesButton /> : null}
+			{!isIssue ? <ViewChangesButton /> : null}
 		</div>
 	);
 

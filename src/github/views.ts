@@ -93,7 +93,6 @@ export interface PullRequest extends Issue {
 	stackLoadError?: boolean;
 	stackMergeStatus?: 'pending' | 'enqueued';
 	isCopilotOnMyBehalf: boolean;
-	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
