@@ -23,6 +23,24 @@ export enum GithubItemStateEnum {
 	Closed = 'CLOSED',
 }
 
+export interface PullRequestStack {
+	position: number;
+	size: number;
+	base: string;
+	needsUpdate?: boolean;
+	pullRequests: {
+		position: number;
+		number: number;
+		title: string;
+		url: string;
+		head: string;
+		state: GithubItemStateEnum;
+		isDraft: boolean;
+		isQueued?: boolean;
+		mergeable: PullRequestMergeability;
+	}[];
+}
+
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
@@ -34,6 +52,37 @@ export enum PullRequestMergeability {
 export interface PullRequestMergeabilityResult {
 	mergeability: PullRequestMergeability;
 	conflicts?: string[];
+}
+
+export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestStack['pullRequests'] | undefined {
+	if (stack.pullRequests.length !== stack.size) {
+		return;
+	}
+	const firstClosed = stack.pullRequests.findIndex(entry => entry.state === GithubItemStateEnum.Closed);
+	const entries = firstClosed < 0 ? stack.pullRequests : stack.pullRequests.slice(0, firstClosed);
+	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued
+		|| entry.mergeable === PullRequestMergeability.Conflict || entry.mergeable === PullRequestMergeability.Unknown)
+		|| stack.pullRequests.slice(entries.length).some(entry => entry.state !== GithubItemStateEnum.Closed)) {
+		return;
+	}
+	return entries;
+}
+
+export function isStackUpdatable(stack: PullRequestStack): boolean {
+	return !!stack.needsUpdate && !!getUpdatableStackEntries(stack);
+}
+
+export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
+	const current = stack.pullRequests.find(entry => entry.number === number);
+	if (!current || current.position !== stack.position || current.state !== GithubItemStateEnum.Open
+		|| current.isDraft || current.mergeable !== PullRequestMergeability.Mergeable) {
+		return false;
+	}
+	return stack.pullRequests.every(entry =>
+		entry.position > stack.position ||
+		entry.state === GithubItemStateEnum.Merged ||
+		(entry.state === GithubItemStateEnum.Open && !entry.isDraft && entry.mergeable === PullRequestMergeability.Mergeable)
+	);
 }
 
 export enum MergeQueueState {

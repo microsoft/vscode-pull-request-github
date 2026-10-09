@@ -11,14 +11,16 @@ import { GitChangeType, SlimFileChange } from '../../common/file';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GithubItemStateEnum } from '../../github/interface';
+import { GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeQueueState, PullRequestMergeability, PullRequestStack } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { SinonSandbox, createSandbox } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { MockRepository } from '../mocks/mockRepository';
 import { NetworkStatus } from 'apollo-client';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
@@ -100,6 +102,865 @@ describe('PullRequestModel', function () {
 		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
+	});
+
+	it('emits specific changes when head commits or mergeability change', function () {
+		const pr = new PullRequestBuilder().number(794).build();
+		const model = repo.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(pr, repo));
+		const changes = sinon.spy();
+		repo.onDidChangePullRequests(changes);
+
+		model.update({ ...model.item, head: { ...model.item.head!, sha: 'updated-head' } });
+		assert.deepStrictEqual(changes.lastCall.args[0][0].event, { head: true });
+		model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable });
+		assert.deepStrictEqual(changes.lastCall.args[0][0].event, { mergeability: true });
+	});
+
+	it('emits a draft change separately from head and mergeability changes', function () {
+		const model = repo.createOrUpdatePullRequestModel(
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		const changes = sinon.spy();
+		repo.onDidChangePullRequests(changes);
+
+		model.update({ ...model.item, isDraft: !model.isDraft });
+
+		assert(changes.calledOnce);
+		assert.deepStrictEqual(changes.firstCall.args[0][0].event, { draft: true });
+	});
+
+	it('compares merge queue fields explicitly and preserves omitted queue entries', function () {
+		const model = repo.createOrUpdatePullRequestModel(
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		const changes = sinon.spy();
+		repo.onDidChangePullRequests(changes);
+		const entry = { position: 1, state: MergeQueueState.Queued, url: 'https://github.com/github/test/queue' };
+
+		model.update({ ...model.item, mergeQueueEntry: entry });
+		assert.deepStrictEqual(changes.lastCall.args[0][0].event, { mergeQueue: true });
+		changes.resetHistory();
+		model.update({ ...model.item, mergeQueueEntry: { url: entry.url, state: entry.state, position: entry.position } });
+		model.update({ ...model.item, mergeQueueEntry: undefined });
+		assert(changes.notCalled);
+		assert.deepStrictEqual(model.mergeQueueEntry, entry);
+
+		for (const updated of [
+			{ ...entry, position: 2 },
+			{ ...entry, position: 2, state: MergeQueueState.AwaitingChecks },
+			{ ...entry, position: 2, state: MergeQueueState.AwaitingChecks, url: `${entry.url}/updated` },
+			null,
+		]) {
+			changes.resetHistory();
+			model.update({ ...model.item, mergeQueueEntry: updated });
+			assert(changes.calledOnce);
+			assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeQueue: true });
+		}
+		assert.strictEqual(model.mergeQueueEntry, undefined);
+	});
+
+	it('emits a base change when the base branch or commit changes', function () {
+		const model = repo.createOrUpdatePullRequestModel(
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		const changes = sinon.spy();
+		repo.onDidChangePullRequests(changes);
+		const base = model.item.base;
+		assert(base);
+
+		model.update({ ...model.item, base: { ...base, ref: 'updated-base' } });
+		assert(changes.lastCall.args[0][0].event.base);
+	});
+
+	it('emits a mergeability change when fetching mergeability changes the model in place', async function () {
+		const model = repo.createOrUpdatePullRequestModel(
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		model.item.mergeable = PullRequestMergeability.Mergeable;
+		const changes = sinon.spy();
+		repo.onDidChangePullRequests(changes);
+		repo.queryProvider.expectGraphQLQuery({
+			query: queries.PullRequestMergeability,
+			variables: { owner: 'github', name: 'test', number: 794 },
+		}, {
+			data: { repository: { pullRequest: { mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED' } } },
+			loading: false, stale: false, networkStatus: NetworkStatus.ready,
+		});
+
+		const result = await model.getMergeability();
+
+		assert.strictEqual(result.mergeability, PullRequestMergeability.NotMergeable);
+		assert(changes.calledOnce);
+		assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+	});
+
+	describe('getStack', function () {
+		let compare: SinonStub;
+
+		beforeEach(function () {
+			compare = sinon.stub(repo, 'compareCommits').resolves({ behind_by: 0 } as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+		});
+
+		function createModel(number = 794) {
+			const pr = new PullRequestBuilder().number(number).build();
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		}
+
+		function createEnterpriseModel() {
+			const enterpriseRemote = new GitHubRemote('enterprise', 'https://enterprise.example.com/github/test', new Protocol('https://enterprise.example.com/github/test'), GitHubServerType.Enterprise);
+			const enterpriseRepo = new MockGitHubRepository(enterpriseRemote, credentials, telemetry, sinon);
+			sinon.stub(enterpriseRepo, 'compareCommits').resolves({ behind_by: 0 } as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			const pr = new PullRequestBuilder().number(794).build();
+			const model = new PullRequestModel(credentials, telemetry, enterpriseRepo, enterpriseRemote, convertRESTPullRequestToRawPullRequest(pr, enterpriseRepo));
+			return { enterpriseRepo, model };
+		}
+
+		function stackPage(entries: {
+			position: number;
+			number: number;
+			mergeable?: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+			mergeStateStatus?: 'CLEAN' | 'BLOCKED' | 'BEHIND' | 'DIRTY' | 'UNKNOWN';
+			queued?: boolean;
+			state?: GithubItemStateEnum;
+			baseOwner?: string;
+			headOwner?: string;
+		}[], endCursor: string | null, position = 2, size = 3) {
+			return {
+				data: {
+					repository: {
+						pullRequest: {
+							stackEntry: { position },
+							stack: {
+								size,
+								baseRefName: 'main',
+								entries: {
+									nodes: entries.map(entry => ({
+										position: entry.position,
+										pullRequest: {
+											number: entry.number,
+											title: `Change ${entry.number}`,
+											url: `https://github.com/github/test/pull/${entry.number}`,
+											state: entry.state ?? GithubItemStateEnum.Open,
+											isDraft: false,
+											baseRefName: entry.position === 1 ? 'main' : `D${entry.position - 1}`,
+											baseRepository: entry.state && entry.state !== GithubItemStateEnum.Open ? null : { owner: { login: entry.baseOwner ?? 'github' } },
+											headRefName: `D${entry.position}`,
+											headRepository: entry.state && entry.state !== GithubItemStateEnum.Open ? null : { owner: { login: entry.headOwner ?? 'github' } },
+											mergeable: entry.mergeable ?? 'MERGEABLE',
+											mergeStateStatus: entry.mergeStateStatus ?? 'CLEAN',
+											mergeQueueEntry: entry.queued ? { state: 'QUEUED' } : null,
+										},
+									})),
+									pageInfo: { hasNextPage: endCursor !== null, endCursor },
+								},
+							},
+						},
+					},
+				},
+				loading: false,
+				stale: false,
+				networkStatus: NetworkStatus.ready,
+			};
+		}
+
+		it('loads every page and orders entries by position', async function () {
+			const model = createModel();
+			const variables = { owner: 'github', name: 'test', number: 794 };
+			repo.queryProvider.expectGraphQLQuery({ query: queries.PullRequestStack, variables: { ...variables, after: null } }, stackPage([
+				{ position: 3, number: 795 },
+				{ position: 2, number: 794 },
+			], 'next'));
+			repo.queryProvider.expectGraphQLQuery({ query: queries.PullRequestStack, variables: { ...variables, after: 'next' } }, stackPage([
+				{ position: 1, number: 793 },
+			], null));
+
+			const stack = await model.getStack();
+			assert.strictEqual(stack?.position, 2);
+			assert.strictEqual(stack?.size, 3);
+			assert.strictEqual(stack?.base, 'main');
+			assert.strictEqual(stack?.needsUpdate, false);
+			assert.strictEqual(isStackUpdatable(stack!), false);
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.number), [793, 794, 795]);
+			assert.strictEqual(stack?.pullRequests[0].url, 'https://github.com/github/test/pull/793');
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+			]);
+		});
+
+		it('uses merge conflicts and merge requirements to classify stack readiness', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793, mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY' },
+				{ position: 2, number: 794, mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED' },
+				{ position: 3, number: 795, mergeable: 'MERGEABLE', mergeStateStatus: 'BEHIND' },
+			], null));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
+				PullRequestMergeability.Conflict,
+				PullRequestMergeability.NotMergeable,
+				PullRequestMergeability.Behind,
+			]);
+			assert.strictEqual(compare.callCount, 2);
+		});
+
+		it('marks a clean PR behind its stack base as waiting and blocks stack merge', async function () {
+			const model = createModel();
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual({
+				readiness: stack?.pullRequests.map(entry => entry.mergeable),
+				canMerge: isStackMergeable(stack!, 794),
+				canUpdate: isStackUpdatable(stack!),
+				needsUpdate: stack?.needsUpdate,
+				comparedSecond: compare.calledWithExactly('github:D1', 'github:D2'),
+			}, {
+				readiness: [PullRequestMergeability.Mergeable, PullRequestMergeability.Behind, PullRequestMergeability.Mergeable],
+				canMerge: false,
+				canUpdate: true,
+				needsUpdate: true,
+				comparedSecond: true,
+			});
+		});
+
+		it('offers an update when only the bottom branch is behind the stack base', async function () {
+			const model = createModel();
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D1' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null));
+
+			const stack = await model.getStack();
+			assert.strictEqual(stack?.needsUpdate, true);
+			assert.strictEqual(isStackUpdatable(stack!), true);
+			assert(compare.calledWithExactly('github:main', 'github:D1'));
+		});
+
+		it('offers an update when a changed middle PR has not been propagated to the top', async function () {
+			const model = createModel(795);
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D3' ? 1 : 0, ahead_by: head === 'github:D2' ? 2 : 1 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 795, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null, 3));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Behind,
+			]);
+			assert.strictEqual(stack?.needsUpdate, true);
+			assert.strictEqual(isStackUpdatable(stack!), true);
+			assert(compare.calledWithExactly('github:main', 'github:D1'));
+			assert(compare.calledWithExactly('github:D1', 'github:D2'));
+			assert(compare.calledWithExactly('github:D2', 'github:D3'));
+			assert.strictEqual(compare.callCount, 3);
+		});
+
+		it('blocks merging an up-to-date PR above a behind PR with a closed top', async function () {
+			const model = createModel(795);
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 795, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+				{ position: 4, number: 798, state: GithubItemStateEnum.Closed },
+			], null, 3, 4));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Behind,
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+			]);
+			assert.strictEqual(isStackMergeable(stack!, 795), false);
+			assert.strictEqual(isStackUpdatable(stack!), true);
+			assert(compare.calledWithExactly('github:D1', 'github:D2'));
+			assert.strictEqual(compare.callCount, 3);
+		});
+
+		it('does not report a stack merge-ready when the base comparison fails', async function () {
+			const model = createModel();
+			compare.resolves(undefined);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([{ position: 2, number: 794 }], null));
+
+			await assert.rejects(model.getStack(), /Unable to check whether pull request #794 is behind its stack base/);
+		});
+
+		it('compares fork branches by owner and skips closed entries without branch information', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793, state: GithubItemStateEnum.Merged },
+				{ position: 2, number: 794, baseOwner: 'base-owner', headOwner: 'fork-owner' },
+				{ position: 3, number: 795, state: GithubItemStateEnum.Closed },
+			], null));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.state), [
+				GithubItemStateEnum.Merged, GithubItemStateEnum.Open, GithubItemStateEnum.Closed,
+			]);
+			assert(compare.calledOnceWithExactly('base-owner:D1', 'fork-owner:D2'));
+		});
+
+		it('does not offer a stack update when a pull request is queued', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794, queued: true },
+				{ position: 3, number: 795 },
+			], null));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.isQueued), [false, true, false]);
+			assert.strictEqual(isStackUpdatable(stack!), false);
+		});
+
+		describe('mergeStack', function () {
+			const route = '/repos/{owner}/{repo}/pulls/{pull_number}/merge-async';
+			const stack: PullRequestStack = {
+				position: 2,
+				size: 2,
+				base: 'main',
+				pullRequests: [
+					{ position: 1, number: 793, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 794, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			};
+
+			function createModel(): PullRequestModel {
+				const pr = new PullRequestBuilder().number(794).build();
+				return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			}
+
+			function requestParams(model: PullRequestModel) {
+				return {
+					owner: 'github',
+					repo: 'test',
+					pull_number: 794,
+					headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+					sha: model.head?.sha,
+					merge_action: 'direct_merge',
+					merge_method: 'squash',
+				};
+			}
+
+			it('requests a direct stack merge with the selected method and head SHA', async function () {
+				const model = createModel();
+				const changed = sinon.spy();
+				repo.onDidChangeStack(changed);
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, requestParams(model)], {
+					status: 'merged',
+					details: { message: 'Merged', sha: 'merge-sha' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), stack, 'squash', 'direct_merge'), 'merged');
+				assert(changed.calledOnceWithExactly([793, 794]));
+			});
+
+			it('queues a stack without supplying a direct merge method', async function () {
+				const model = createModel();
+				const { merge_method, ...params } = requestParams(model);
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, { ...params, merge_action: 'merge_queue' }], {
+					status: 'enqueued',
+					details: { message: 'Added to merge queue' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), stack, 'squash', 'merge_queue'), 'enqueued');
+			});
+
+			it('polls an accepted merge request until it completes', async function () {
+				this.timeout(8000);
+				const model = createModel();
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, requestParams(model)], {
+					status: 'pending',
+					details: { message: 'Processing', uuid: 'request-uuid' },
+				});
+				repo.queryProvider.expectOctokitRequest(['request'], [`GET ${route}/{uuid}`, {
+					owner: 'github', repo: 'test', pull_number: 794,
+					headers: { 'X-GitHub-Api-Version': '2026-03-10' }, uuid: 'request-uuid',
+				}], {
+					status: 'merged',
+					details: { message: 'Merged', sha: 'merge-sha' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), stack, 'squash', 'direct_merge'), 'merged');
+			});
+
+			it('reports a merge that remains pending after the polling timeout', async function () {
+				const model = createModel();
+				const now = sinon.stub(Date, 'now');
+				now.onFirstCall().returns(0);
+				now.onSecondCall().returns(5 * 60 * 1000);
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, requestParams(model)], {
+					status: 'pending',
+					details: { message: 'Processing', uuid: 'request-uuid' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), stack, 'squash', 'direct_merge'), 'pending');
+				assert(now.calledTwice);
+			});
+
+			it('polls an already-running merge request returned by GitHub', async function () {
+				this.timeout(8000);
+				const model = createModel();
+				const parameters = requestParams(model);
+				repo.queryProvider.expectOctokitError(['request'], [`PUT ${route}`, parameters], Object.assign(new Error('Merge already requested'), {
+					status: 409,
+					response: { data: { status: 'pending', details: { message: 'Processing', uuid: 'existing-uuid' } } },
+				}));
+				repo.queryProvider.expectOctokitRequest(['request'], [`GET ${route}/{uuid}`, {
+					owner: 'github', repo: 'test', pull_number: 794,
+					headers: { 'X-GitHub-Api-Version': '2026-03-10' }, uuid: 'existing-uuid',
+				}], {
+					status: 'enqueued',
+					details: { message: 'Added to merge queue' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), stack, 'squash', 'direct_merge'), 'enqueued');
+			});
+
+			it('surfaces a failed background merge instead of reporting success', async function () {
+				const model = createModel();
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, requestParams(model)], {
+					status: 'failed',
+					details: { message: 'Required checks failed' },
+				});
+
+				await assert.rejects(model.mergeStack(new MockRepository(), stack, 'squash', 'direct_merge'), /Required checks failed/);
+			});
+
+			it('refuses to merge a pull request that is no longer open in the stack', async function () {
+				const model = createModel();
+				const invalidStack: PullRequestStack = { ...stack, pullRequests: [{ ...stack.pullRequests[1], state: GithubItemStateEnum.Merged }] };
+				await assert.rejects(model.mergeStack(new MockRepository(), invalidStack, 'squash', 'direct_merge'), /not open in this stack/);
+			});
+
+			it('does not submit a merge when the current or a downstack PR is blocked', async function () {
+				const model = createModel();
+				const blocked = [
+					{ ...stack, pullRequests: [stack.pullRequests[0], { ...stack.pullRequests[1], mergeable: PullRequestMergeability.NotMergeable }] },
+					...[
+						{ mergeable: PullRequestMergeability.Conflict },
+						{ mergeable: PullRequestMergeability.Behind },
+						{ mergeable: PullRequestMergeability.Unknown },
+						{ isDraft: true },
+						{ state: GithubItemStateEnum.Closed },
+					].map(change => ({
+						...stack,
+						pullRequests: [{ ...stack.pullRequests[0], ...change }, stack.pullRequests[1]],
+					})),
+				];
+
+				for (const candidate of blocked) {
+					await assert.rejects(model.mergeStack(new MockRepository(), candidate, 'squash', 'direct_merge'), /not ready to merge/);
+				}
+			});
+
+			it('permits merging when a downstack PR is already merged', async function () {
+				const model = createModel();
+				const withMergedBelow = {
+					...stack,
+					pullRequests: [{ ...stack.pullRequests[0], state: GithubItemStateEnum.Merged, mergeable: PullRequestMergeability.Unknown }, stack.pullRequests[1]],
+				};
+				repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, requestParams(model)], {
+					status: 'merged',
+					details: { message: 'Merged', sha: 'merge-sha' },
+				});
+
+				assert.strictEqual(await model.mergeStack(new MockRepository(), withMergedBelow, 'squash', 'direct_merge'), 'merged');
+			});
+		});
+
+		it('returns no stack when the pull request is not stacked', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, {
+				data: { repository: { pullRequest: { stack: null, stackEntry: null } } },
+				loading: false,
+				stale: false,
+				networkStatus: NetworkStatus.ready,
+			});
+
+			assert.strictEqual(await model.getStack(), undefined);
+		});
+
+		it('reports an incomplete stack page rather than showing a partial stack', async function () {
+			const model = createModel();
+			const response = stackPage([{ position: 2, number: 794 }], null);
+			response.data.repository.pullRequest.stack.entries.pageInfo.hasNextPage = true;
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, response);
+
+			await assert.rejects(model.getStack(), /Missing next page of stack/);
+		});
+
+		it('loads stacks from GitHub Enterprise when supported', async function () {
+			const { enterpriseRepo, model } = createEnterpriseModel();
+			try {
+				enterpriseRepo.queryProvider.expectGraphQLQuery({
+					query: queries.PullRequestStack,
+					variables: { owner: 'github', name: 'test', number: 794, after: null },
+				}, stackPage([{ position: 2, number: 794 }], null));
+
+				assert.strictEqual((await model.getStack())?.pullRequests[0].number, 794);
+			} finally {
+				enterpriseRepo.dispose();
+			}
+		});
+
+		it('uses the normal pull request flow on Enterprise without stack fields, then detects support on retry', async function () {
+			const { enterpriseRepo, model } = createEnterpriseModel();
+			try {
+				const query = sinon.stub(enterpriseRepo, 'query');
+				const unsupported = Object.assign(new Error("Field 'stack' doesn't exist on type 'PullRequest'"), {
+					graphQLErrors: [{
+						extensions: { code: 'undefinedField', typeName: 'PullRequest', fieldName: 'stack' },
+					}],
+				});
+				query.onFirstCall().rejects(unsupported);
+				query.onSecondCall().resolves(stackPage([{ position: 2, number: 794 }], null));
+
+				assert.strictEqual(await model.getStack(), undefined);
+				assert.strictEqual((await model.getStack())?.pullRequests[0].number, 794);
+				assert(query.calledTwice);
+			} finally {
+				enterpriseRepo.dispose();
+			}
+		});
+
+		it('does not hide other GraphQL errors while fetching the stack', async function () {
+			const { enterpriseRepo, model } = createEnterpriseModel();
+			try {
+				const error = Object.assign(new Error("Field 'mergeable' doesn't exist on type 'PullRequest'"), {
+					graphQLErrors: [{
+						extensions: { code: 'undefinedField', typeName: 'PullRequest', fieldName: 'mergeable' },
+					}],
+				});
+				sinon.stub(enterpriseRepo, 'query').rejects(error);
+
+				await assert.rejects(model.getStack(), error);
+			} finally {
+				enterpriseRepo.dispose();
+			}
+		});
+	});
+
+	describe('stack creation', function () {
+		function parentModel() {
+			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
+			pr.html_url = 'https://github.com/github/test/pull/795';
+			pr.head.repo.name = 'test';
+			pr.head.repo.owner.login = 'github';
+			pr.head.repo.clone_url = 'https://github.com/github/test.git';
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		}
+
+		const listRoute = 'GET /repos/{owner}/{repo}/stacks';
+		const listParams = {
+			owner: 'github',
+			repo: 'test',
+			pull_request: 795,
+			per_page: 1,
+			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+		};
+
+		it('detects an unstacked parent and creates a new stack with both PRs', async function () {
+			const changed = sinon.spy();
+			repo.onDidChangeStack(changed);
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], []);
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks', {
+				owner: 'github',
+				repo: 'test',
+				headers: listParams.headers,
+				pull_requests: [795, 796],
+			}], { pull_requests: [{ number: 795 }, { number: 796 }] });
+
+			const candidate = await repo.getStackCandidate('D3');
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+			assert(candidate);
+			assert.deepStrictEqual(await repo.addPullRequestToStack(candidate, 796), [795, 796]);
+			assert(changed.calledOnceWithExactly([795, 796]));
+		});
+
+		it('creates a stack from multiple existing pull requests in branch order', async function () {
+			const candidate = { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' };
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks', {
+				owner: 'github', repo: 'test', headers: listParams.headers, pull_requests: [795, 796, 797],
+			}], { pull_requests: [{ number: 795 }, { number: 796 }, { number: 797 }] });
+
+			assert.deepStrictEqual(await repo.addPullRequestsToStack(candidate, [796, 797]), [795, 796, 797]);
+		});
+
+		it('extends a stack with multiple existing pull requests in branch order', async function () {
+			const changed = sinon.spy();
+			repo.onDidChangeStack(changed);
+			const candidate = { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795' };
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+				owner: 'github', repo: 'test', headers: listParams.headers, stack_number: 12, pull_requests: [796, 797],
+			}], { pull_requests: [{ number: 793 }, { number: 795 }, { number: 796 }, { number: 797 }] });
+
+			assert.deepStrictEqual(await repo.addPullRequestsToStack(candidate, [796, 797]), [793, 795, 796, 797]);
+			assert(changed.calledOnceWithExactly([793, 795, 796, 797]));
+		});
+
+		it('rejects malformed stack mutation responses instead of returning incomplete membership', async function () {
+			const changed = sinon.spy();
+			repo.onDidChangeStack(changed);
+			const candidate = { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' };
+			for (const response of [null, {}, { pull_requests: [] }, { pull_requests: [{ number: 795 }, { number: '796' }] }]) {
+				repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks', {
+					owner: 'github', repo: 'test', headers: listParams.headers, pull_requests: [795, 796],
+				}], response);
+
+				await assert.rejects(repo.addPullRequestToStack(candidate, 796), /GitHub returned an invalid/);
+			}
+			assert(changed.notCalled);
+		});
+
+		it('finds the parent from its GraphQL head branch before offering a stack', async function () {
+			const parent = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
+			parent.number = 795;
+			parent.url = 'https://github.com/github/test/pull/795';
+			parent.headRefName = 'D3';
+			parent.headRef!.name = 'D3';
+			parent.headRef!.repository.owner.login = 'github';
+			parent.headRef!.repository.url = 'https://github.com/github/test';
+			parent.headRepository!.owner.login = 'github';
+			parent.headRepository!.url = 'https://github.com/github/test';
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestForHead,
+				variables: { owner: 'github', name: 'test', headRefName: 'D3' },
+			}, {
+				data: {
+					repository: {
+						openPullRequests: { nodes: [parent] },
+						pullRequests: { nodes: [] },
+					},
+				},
+				loading: false,
+				stale: false,
+				networkStatus: NetworkStatus.ready,
+			});
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], []);
+
+			assert.deepStrictEqual(await repo.getStackCandidate('D3'), { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+		});
+
+		it('surfaces a failed GraphQL parent lookup rather than treating the branch as unstackable', async function () {
+			const error = new Error('GraphQL unavailable');
+			sinon.stub(repo, 'query').rejects(error);
+
+			await assert.rejects(repo.getStackCandidate('D3'), candidate => candidate === error);
+		});
+
+		it('only offers an existing stack when the parent is at its top', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], [{
+				number: 12,
+				pull_requests: [{ number: 793 }, { number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+				owner: 'github',
+				repo: 'test',
+				headers: listParams.headers,
+				stack_number: 12,
+				pull_requests: [796],
+			}], { pull_requests: [{ number: 793 }, { number: 795 }, { number: 796 }] });
+
+			const candidate = await repo.getStackCandidate('D3');
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795' });
+			assert(candidate);
+			assert.deepStrictEqual(await repo.addPullRequestToStack(candidate, 796), [793, 795, 796]);
+		});
+
+		it('does not offer a stack when the matching PR is not the top', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], [{
+				number: 12,
+				pull_requests: [{ number: 795 }, { number: 797 }],
+			}]);
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('does not offer stack creation on servers without the Stacks API', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Not Found'), { status: 404 }));
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('does not offer stack creation when the requested API version is unsupported', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Bad Request'), {
+				status: 400,
+				response: {
+					data: {
+						message: 'Bad Request',
+						errors: 'The version you specified in the "X-GitHub-API-Version" request header, "2026-03-10", is not a supported version.',
+					},
+				},
+			}));
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('recognizes the Enterprise unsupported API version response', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Bad Request'), {
+				status: 400,
+				response: { data: { message: 'The requested API version is not supported' } },
+			}));
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+
+		it('does not hide unrelated validation errors as unsupported API versions', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Bad Request'), {
+				status: 400,
+				response: { data: { message: 'Validation failed', errors: 'pull_request must be an integer' } },
+			}));
+
+			await assert.rejects(repo.getStackCandidate('D3'), /Bad Request/);
+		});
+
+		it('reports failures other than unsupported Stacks API', async function () {
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
+			repo.queryProvider.expectOctokitError(['request'], [listRoute, listParams], Object.assign(new Error('Forbidden'), { status: 403 }));
+
+			await assert.rejects(repo.getStackCandidate('D3'), /Forbidden/);
+		});
+
+		it('does not mistake a pull request from another repository for the base head', async function () {
+			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
+			pr.head.repo.name = 'other';
+			pr.head.repo.owner.login = 'github';
+			pr.head.repo.clone_url = 'https://github.com/github/other.git';
+			const parent = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			sinon.stub(repo, 'getPullRequestForBranch').resolves(parent);
+
+			assert.strictEqual(await repo.getStackCandidate('D3'), undefined);
+		});
+	});
+
+	describe('unstackAll', function () {
+		const headers = { 'X-GitHub-Api-Version': '2026-03-10' };
+		const params = { owner: 'github', repo: 'test', headers };
+		const listRoute = 'GET /repos/{owner}/{repo}/stacks';
+		const unstackRoute = 'POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack';
+		const listArgs = [listRoute, { ...params, pull_request: 795, per_page: 1 }];
+		const unstackArgs = [unstackRoute, { ...params, stack_number: 12 }];
+
+		it('dissolves a stack when GitHub returns 204', async function () {
+			const changed = sinon.spy();
+			repo.onDidChangeStack(changed);
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 794 }, { number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, undefined, 204);
+
+			assert.deepStrictEqual(await repo.unstackAll(795, [794, 795]), []);
+			assert(changed.calledOnceWithExactly([794, 795]));
+		});
+
+		it('reports locked PRs remaining after unstacking', async function () {
+			const changed = sinon.spy();
+			repo.onDidChangeStack(changed);
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 794 }, { number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, {
+				number: 12, pull_requests: [{ number: 794 }],
+			}, 200);
+
+			assert.deepStrictEqual(await repo.unstackAll(795, [794, 795]), [794]);
+			assert(changed.calledOnceWithExactly([794, 795]));
+		});
+
+		it('does not unstack a different or missing stack', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 794 }],
+			}]);
+			await assert.rejects(repo.unstackAll(795, [794, 795]), /Could not find the stack/);
+		});
+
+		for (const { description, numbers } of [
+			{ description: 'a different stack', numbers: [796, 795] },
+			{ description: 'an added PR', numbers: [794, 795, 796] },
+			{ description: 'a removed PR', numbers: [795] },
+			{ description: 'reordered PRs', numbers: [795, 794] },
+		]) {
+			it(`rejects ${description} after confirmation before unstacking`, async function () {
+				repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+					number: 13, pull_requests: numbers.map(number => ({ number })),
+				}]);
+
+				await assert.rejects(repo.unstackAll(795, [794, 795]), /stack has changed/);
+			});
+		}
+
+		it('reports an invalid successful response rather than assuming the stack dissolved', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitRequest(['request'], unstackArgs, { pull_requests: null }, 200);
+			await assert.rejects(repo.unstackAll(795, [795]), /invalid result/);
+		});
+
+		it('surfaces an unstack failure rather than reporting success', async function () {
+			const changed = sinon.spy();
+			repo.onDidChangeStack(changed);
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{
+				number: 12, pull_requests: [{ number: 795 }],
+			}]);
+			repo.queryProvider.expectOctokitError(['request'], unstackArgs, new Error('Stack is locked'));
+
+			await assert.rejects(repo.unstackAll(795, [795]), /Stack is locked/);
+			assert(changed.notCalled);
+		});
 	});
 
 	describe('openReadonlyChanges', function () {

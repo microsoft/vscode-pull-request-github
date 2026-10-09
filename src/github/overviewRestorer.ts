@@ -43,7 +43,7 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 			}
 			return IssueOverviewPanel.createOrShow(this._telemetry, this._context.extensionUri, folderManager, identity, issueModel, undefined, true, webviewPanel);
 		} else {
-			const pullRequestModel = await folderManager.resolvePullRequest(state.owner, state.repo, state.number, true);
+			const pullRequestModel = await folderManager.resolvePullRequest(state.owner, state.repo, state.number, true, 'overview');
 			if (!pullRequestModel) {
 				webviewPanel.dispose();
 				return;

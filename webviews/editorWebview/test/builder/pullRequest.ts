@@ -29,6 +29,11 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isRemoteHeadDeleted: { default: false },
 	isLocalHeadDeleted: { default: false },
 	head: { default: 'my-fork:my-branch' },
+	stack: { default: undefined },
+	canUpdateStack: { default: false },
+	stackLoaded: { default: true },
+	stackLoadError: { default: false },
+	stackMergeStatus: { default: undefined },
 	labels: { default: [] },
 	isAuthor: { default: true },
 	commitsCount: { default: 10 },
@@ -66,6 +71,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	canAssignCopilot: { default: false },
 	canRequestCopilotReview: { default: false },
 	isCopilotOnMyBehalf: { default: false },
-	isAgentSessionsWorkspace: { default: false },
 	reactions: { default: [] },
 });

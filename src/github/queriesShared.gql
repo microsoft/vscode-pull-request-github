@@ -55,6 +55,7 @@ fragment Merged on MergedEvent {
 	mergeRef {
 		name
 	}
+	mergeRefName
 	commit {
 		oid
 		commitUrl
@@ -706,6 +707,80 @@ query GetUser($login: String!) {
 	}
 }
 
+query IssuePreview($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			number
+			title
+			titleHTML
+			url
+			body
+			bodyHTML
+			createdAt
+			state
+			stateReason
+			author {
+				__typename
+				login
+				url
+				avatarUrl
+				... on Node {
+					id
+				}
+				... on User {
+					name
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestPreview($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			number
+			title
+			titleHTML
+			url
+			body
+			bodyHTML
+			createdAt
+			state
+			isDraft
+			author {
+				__typename
+				login
+				url
+				avatarUrl
+				... on Node {
+					id
+				}
+				... on User {
+					name
+				}
+			}
+			baseRefName
+			headRefName
+			baseRepository {
+				owner {
+					login
+				}
+			}
+			headRepository {
+				owner {
+					login
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -715,6 +790,53 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	}
 	rateLimit {
 		...RateLimit
+	}
+}
+
+query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			stackEntry {
+				position
+			}
+			stack {
+				size
+				baseRefName
+				entries(first: 100, after: $after) {
+					nodes {
+						position
+						pullRequest {
+							number
+							title
+							url
+							state
+							isDraft
+							baseRefName
+							baseRepository {
+								owner {
+									login
+								}
+							}
+							headRefName
+							headRepository {
+								owner {
+									login
+								}
+							}
+							mergeable
+							mergeStateStatus
+							mergeQueueEntry {
+								state
+							}
+						}
+					}
+					pageInfo {
+						hasNextPage
+						endCursor
+					}
+				}
+			}
+		}
 	}
 }
 

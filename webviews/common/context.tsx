@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReadyForReviewReply, SubmitReviewArgs, SubmitReviewReply, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -32,6 +32,9 @@ function bytesToBase64(bytes: Uint8Array): string {
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 
 export class PRContext {
+	public preview: OverviewItemPreview | undefined;
+	public onPreviewChange: ((preview: OverviewItemPreview | undefined) => void) | null = null;
+
 	constructor(
 		public pr: PullRequest | undefined = getState(),
 		public onchange: ((ctx: PullRequest | undefined) => void) | null = null,
@@ -99,7 +102,19 @@ export class PRContext {
 		return result;
 	};
 
-	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
+	public mergeStack = (method: MergeMethod): Promise<StackMergeResult> =>
+		this.postMessage({ command: 'pr.merge-stack', args: { method } });
+
+	public unstackAll = (): Promise<UnstackAllResult> =>
+		this.postMessage({ command: 'pr.unstack-all' });
+
+	public updateStack = (): Promise<UpdateStackResult> =>
+		this.postMessage({ command: 'pr.update-stack' });
+
+	public openOnGitHub = () => this.postMessage({
+		command: 'pr.openOnGitHub',
+		args: this.preview ? { url: this.preview.url } : undefined,
+	});
 
 	public deleteBranch = async () => {
 		const result = await this.postMessage({ command: 'pr.deleteBranch' });
@@ -532,6 +547,8 @@ export class PRContext {
 	};
 
 	setPR = (pr: PullRequest | undefined) => {
+		this.preview = undefined;
+		this.onPreviewChange?.(undefined);
 		this.pr = pr;
 		setState(this.pr);
 		if (this.onchange) {
@@ -555,6 +572,12 @@ export class PRContext {
 
 	handleMessage = (message: any) => {
 		switch (message.command) {
+			case 'pr.preview':
+				if (!this.pr) {
+					this.preview = message.pullrequest;
+					this.onPreviewChange?.(this.preview);
+				}
+				return;
 			case 'pr.clear':
 				this.setPR(undefined);
 				return;
@@ -565,7 +588,10 @@ export class PRContext {
 			case 'update-state':
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':
-				return this.updatePR({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
+				return this.updatePR({
+					isCurrentlyCheckedOut: message.isCurrentlyCheckedOut,
+					canUpdateStack: message.canUpdateStack,
+				});
 			case 'pr.deleteBranch':
 				const stateChange: { isLocalHeadDeleted?: boolean, isRemoteHeadDeleted?: boolean } = {};
 				message.branchTypes && message.branchTypes.map((branchType: string) => {

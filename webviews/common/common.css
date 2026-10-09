@@ -376,6 +376,10 @@ body img.avatar {
 	margin-right: 0;
 }
 
+.status-check-link-placeholder {
+	visibility: hidden;
+}
+
 .automerge-section {
 	display: flex;
 }
@@ -385,12 +389,22 @@ body img.avatar {
 	flex-wrap: wrap;
 }
 
+.stack-merge-method {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 #status-checks .automerge-section {
 	align-items: center;
 	padding: 16px;
 	background: var(--vscode-panel-background);
 	border-bottom-left-radius: 6px;
 	border-bottom-right-radius: 6px;
+}
+
+#status-checks .stack-merge {
+	gap: 8px;
 }
 
 .automerge-section .merge-select-container {

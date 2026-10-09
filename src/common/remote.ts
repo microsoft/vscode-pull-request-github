@@ -3,11 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { AuthProvider, GitHubServerType } from './authentication';
 import Logger from './logger';
-import { Protocol } from './protocol';
+import { Protocol, ProtocolType } from './protocol';
 import { Repository } from '../api/api';
-import { getEnterpriseUri, isEnterprise } from '../github/utils';
+import { isEnterprise } from '../github/utils';
 
 export class Remote {
 	public get host(): string {
@@ -21,12 +22,18 @@ export class Remote {
 	}
 
 	public get normalizedHost(): string {
+		if (this.gitProtocol.type === ProtocolType.HTTP) {
+			const uri = this.gitProtocol.url;
+			const path = uri.path.replace(/\/$/, '');
+			const deploymentPath = path.slice(0, path.lastIndexOf('/', path.lastIndexOf('/') - 1));
+			return uri.with({ authority: uri.authority.replace(/^.*@/, ''), path: deploymentPath, query: '', fragment: '' }).toString().replace(/\/$/, '');
+		}
 		const normalizedUri = this.gitProtocol.normalizeUri();
 		return `${normalizedUri!.scheme}://${normalizedUri!.authority}`;
 	}
 
 	public get authProviderId(): AuthProvider {
-		return this.host === getEnterpriseUri()?.authority ? AuthProvider.githubEnterprise : AuthProvider.github;
+		return ['github.com', 'ssh.github.com'].includes(this.host.toLowerCase()) ? AuthProvider.github : AuthProvider.githubEnterprise;
 	}
 
 	public get isEnterprise(): boolean {
@@ -38,6 +45,19 @@ export class Remote {
 		public readonly url: string,
 		public readonly gitProtocol: Protocol,
 	) { }
+
+	public matchesServerUri(serverUri: vscode.Uri): boolean {
+		const server = new URL(serverUri.toString());
+		if (server.hostname.toLowerCase() === 'github.com') {
+			return ['github.com', 'ssh.github.com'].includes(this.host.toLowerCase());
+		}
+		if (this.gitProtocol.type !== ProtocolType.HTTP) {
+			return this.host.toLowerCase() === server.hostname.toLowerCase();
+		}
+		const remote = new URL(this.normalizedHost);
+		return remote.host.toLowerCase() === server.host.toLowerCase()
+			&& remote.pathname.replace(/\/$/, '') === server.pathname.replace(/\/$/, '');
+	}
 
 	equals(remote: Remote): boolean {
 		if (this.remoteName !== remote.remoteName) {

@@ -53,7 +53,7 @@ import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
+import { OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
@@ -1307,9 +1307,9 @@ export async function parseCombinedTimelineEvents(
 					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
-					author: commitEv.commit.author.user
+					author: commitEv.commit.author?.user
 						? parseAccount(commitEv.commit.author.user, githubRepository)
-						: { login: commitEv.commit.committer.name },
+						: { login: commitEv.commit.committer?.name ?? '' },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
@@ -1337,7 +1337,7 @@ export async function parseCombinedTimelineEvents(
 					event: type,
 					user: parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
-					mergeRef: mergeEv.mergeRef.name,
+					mergeRef: mergeEv.mergeRef?.name ?? mergeEv.mergeRefName,
 					sha: mergeEv.commit.oid,
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,
@@ -1793,25 +1793,6 @@ export function getStateFromQuery(query: string): GithubItemStateEnum | undefine
 
 export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
-}
-
-export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
-}
-
-export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
-	if (config) {
-		let uri = vscode.Uri.parse(config, true);
-		if (uri.scheme === 'http') {
-			uri = uri.with({ scheme: 'https' });
-		}
-		return uri;
-	}
-}
-
-export function hasEnterpriseUri(): boolean {
-	return !!getEnterpriseUri();
 }
 
 export function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {

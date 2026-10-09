@@ -9,11 +9,13 @@ import { CloseResult, OpenLocalFileArgs } from '../../common/views';
 import { openItemOnGitHub } from '../commands';
 import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
+import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
+import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, IssuePreview, OverviewItemPreview, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -42,6 +44,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected _identity: UnresolvedIdentity;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+	private _identityUpdateSequence = 0;
+	protected readonly previewLog = { label: 'Issue', id: IssueOverviewPanel.ID };
 
 	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
 		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
@@ -56,13 +60,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
-		issue?: IssueModel,
+		issue?: IssueModel | Promise<IssueModel>,
 		toTheSide: boolean = false,
 		_preserveFocus: boolean = true,
 		existingPanel?: vscode.WebviewPanel
 	) {
-		await ensureEmojis(folderRepositoryManager.context);
-
 		const key = panelKey(identity.owner, identity.repo, identity.number);
 		let panel = this._panels.get(key);
 		if (existingPanel && panel && panel._panel !== existingPanel) {
@@ -223,7 +225,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	protected onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		if (e.webviewPanel.visible) {
-			this.pollForUpdates(!!this._item, true);
+			this.pollForUpdates(true, true);
 		}
 	}
 
@@ -231,16 +233,31 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private lastRefreshTime: Date;
 	private pollForUpdates(isVisible: boolean, refreshImmediately: boolean = false): void {
 		clearTimeout(this.timeout);
+		if (this.isDisposed) {
+			return;
+		}
 		const refresh = async () => {
-			const previousRefreshTime = this.lastRefreshTime;
-			this.lastRefreshTime = await this._item.getLastUpdateTime(previousRefreshTime);
-			if (this.lastRefreshTime.getTime() > previousRefreshTime.getTime()) {
-				return this.refreshPanel();
+			const item = this._item;
+			if (!item || this.isDisposed) {
+				return;
+			}
+			try {
+				const previousRefreshTime = this.lastRefreshTime;
+				const lastRefreshTime = await item.getLastUpdateTime(previousRefreshTime);
+				if (this.isDisposed || item !== this._item) {
+					return;
+				}
+				this.lastRefreshTime = lastRefreshTime;
+				if (lastRefreshTime.getTime() > previousRefreshTime.getTime()) {
+					await this.refreshPanel();
+				}
+			} catch (error) {
+				Logger.error(`Failed to poll overview updates: ${formatError(error)}`, IssueOverviewPanel.ID);
 			}
 		};
 
 		if (refreshImmediately) {
-			refresh();
+			void refresh();
 		}
 		const webview = isVisible || vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
 		const timeoutDuration = 1000 * (webview ? this.getRefreshInterval() : (5 * 60));
@@ -307,6 +324,26 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	protected async updateItem(issueModel: TItem): Promise<void> {
 		try {
+			if (!this._item) {
+				this._postMessage({
+					command: 'pr.preview',
+					pullrequest: {
+						number: issueModel.number,
+						title: issueModel.title,
+						titleHTML: issueModel.titleHTML,
+						url: issueModel.html_url,
+						body: issueModel.body,
+						bodyHTML: issueModel.bodyHTML,
+						author: issueModel.author,
+						createdAt: issueModel.createdAt,
+						state: issueModel.state,
+						stateReason: issueModel.stateReason,
+						isIssue: true,
+					} satisfies IssuePreview,
+				});
+				Logger.debug('Issue overview preview loaded from model', IssueOverviewPanel.ID);
+			}
+
 			const [
 				issue,
 				timelineEvents,
@@ -325,6 +362,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
 				this._folderRepositoryManager.getCurrentUser(),
+				ensureEmojis(this._folderRepositoryManager.context),
 			]);
 
 			if (!issue) {
@@ -373,11 +411,18 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return 'issue';
 	}
 
+	protected getPreview(repository: GitHubRepository, number: number): Promise<OverviewItemPreview> {
+		return repository.getIssuePreview(number);
+	}
+
 	/**
 	 * Update the panel with an unresolved identity and optional model.
 	 * If no model is provided, it will be resolved from the identity.
 	 */
-	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem, progressLocation?: string): Promise<void> {
+	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem | undefined>, progressLocation?: string): Promise<void> {
+		const updateSequence = ++this._identityUpdateSequence;
+		let loading = true;
+		const isLoading = () => loading && !this.isDisposed && updateSequence === this._identityUpdateSequence;
 		this._identity = identity;
 		this._folderRepositoryManager = foldersManager;
 
@@ -393,21 +438,69 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 		}
 
-		// If no model provided, resolve it from the identity
-		if (!issueModel) {
-			const resolvedModel = await this.resolveModel(identity);
-			if (!resolvedModel) {
-				throw new Error(
-					`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`,
-				);
-			}
-			issueModel = resolvedModel;
+		if (isLoading() && (!issueModel || issueModel instanceof Promise)) {
+			void (async () => {
+				try {
+					const start = Date.now();
+					const repository = await foldersManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
+					if (!isLoading()) {
+						return;
+					}
+					if (!repository) {
+						throw new Error(`Unable to find repository for ${identity.owner}/${identity.repo}`);
+					}
+					const preview = await this.getPreview(repository, identity.number);
+					if (isLoading()) {
+						await this._postMessage({ command: 'pr.preview', pullrequest: preview });
+						Logger.debug(`${this.previewLog.label} overview preview loaded in ${Date.now() - start}ms`, this.previewLog.id);
+					}
+				} catch (error) {
+					Logger.error(`Unable to load ${this.previewLog.label} overview preview: ${formatError(error)}`, this.previewLog.id);
+				}
+			})();
 		}
 
-		if (progressLocation) {
-			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel!));
-		} else {
-			return this.updateItem(issueModel);
+		try {
+			if (issueModel instanceof Promise) {
+				try {
+					issueModel = await issueModel;
+				} catch (error) {
+					if (updateSequence === this._identityUpdateSequence && !this._item) {
+						this.dispose();
+					}
+					throw error;
+				}
+			}
+			if (this.isDisposed || updateSequence !== this._identityUpdateSequence) {
+				return;
+			}
+
+			// If no model provided, resolve it from the identity
+			if (!issueModel) {
+				const resolvedModel = await this.resolveModel(identity);
+				if (!resolvedModel) {
+					throw new Error(
+						`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`,
+					);
+				}
+				issueModel = resolvedModel;
+			}
+
+			if (this.isDisposed || updateSequence !== this._identityUpdateSequence) {
+				return;
+			}
+
+			if (issueModel instanceof Promise) {
+				throw new Error(`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`);
+			}
+			const resolvedIssueModel = issueModel;
+			if (progressLocation) {
+				return await vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(resolvedIssueModel));
+			} else {
+				return await this.updateItem(resolvedIssueModel);
+			}
+		} finally {
+			loading = false;
 		}
 	}
 
@@ -462,6 +555,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
+				if (!this._item && typeof message.args?.url === 'string') {
+					return openIssueOrPullRequestOnGitHub(vscode.Uri.parse(message.args.url), this.type === IssueOverviewPanel.viewType ? 'issue' : 'pullRequest', this._telemetry);
+				}
 				return openItemOnGitHub(this._item, this._telemetry);
 			case 'pr.open-local-file':
 				return this.openLocalFile(message);

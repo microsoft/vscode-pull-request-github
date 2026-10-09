@@ -6,11 +6,12 @@
 import React, { useContext, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
 import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, diffMultipleIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
+import { StackBadge } from './pullRequestStack';
 import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { GithubItemStateEnum, StateReason } from '../../src/github/interface';
-import { BaseContext, CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
+import { GithubItemStateEnum, PullRequestStack, StateReason } from '../../src/github/interface';
+import { BaseContext, CodingAgentContext, OverviewContext, OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
@@ -28,13 +29,13 @@ export function Header({
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
-	isAgentSessionsWorkspace,
 	doneCheckoutBranch,
 	events,
 	owner,
 	repo,
 	busy,
-	stateReason
+	stateReason,
+	stack,
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
@@ -52,11 +53,10 @@ export function Header({
 				setCurrentTitle={setCurrentTitle}
 				canEdit={canEdit}
 				isIssue={isIssue}
-				isAgentSessionsWorkspace={isAgentSessionsWorkspace}
 				owner={owner}
 				repo={repo}
 			/>
-			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} canEdit={canEdit} />
+			<Subtitle state={state} stateReason={stateReason} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} canEdit={canEdit} stack={stack} />
 			<div className="header-actions">
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
@@ -73,6 +73,58 @@ export function Header({
 	);
 }
 
+export function HeaderPreview(preview: OverviewItemPreview | PullRequest) {
+	const { openOnGitHub } = useContext(PullRequestContext);
+	const pullRequest = preview.isIssue === true ? undefined : preview;
+	return <>
+		<div className="overview-title">
+			<TitleText {...preview} onOpen={openOnGitHub} />
+		</div>
+		<Subtitle
+			state={preview.state}
+			stateReason={preview.stateReason}
+			author={preview.author}
+			isDraft={pullRequest?.isDraft}
+			base={pullRequest?.base}
+			head={pullRequest?.head}
+			isIssue={preview.isIssue === true}
+			canEdit={false}
+			codingAgentEvent={undefined}
+		/>
+		<div className="header-actions">
+			<div className="button-group overview-preview-actions" aria-hidden="true">
+				<span className="overview-placeholder" />
+				<span className="overview-placeholder" />
+			</div>
+			<span className="overview-preview-status" role="status">Loading...</span>
+		</div>
+	</>;
+}
+
+function TitleText({ titleHTML, number, url, context, onOpen }: Pick<PullRequest, 'titleHTML' | 'number' | 'url'> & {
+	context?: BaseContext;
+	onOpen?: () => void;
+}) {
+	return <h2>
+		<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
+		{' '}
+		<a
+			href={url}
+			title={url}
+			data-vscode-context={context ? JSON.stringify(context) : undefined}
+			onClick={onOpen ? event => {
+				// The webview host opens any anchor with an href and ignores defaultPrevented,
+				// so the click must not reach it or a second browser tab is opened.
+				event.preventDefault();
+				event.stopPropagation();
+				onOpen();
+			} : undefined}
+		>
+			#{number}
+		</a>
+	</h2>;
+}
+
 interface TitleProps {
 	title: string;
 	titleHTML: string;
@@ -83,12 +135,11 @@ interface TitleProps {
 	setCurrentTitle: React.Dispatch<React.SetStateAction<string>>;
 	canEdit: boolean;
 	isIssue: boolean;
-	isAgentSessionsWorkspace: boolean;
 	owner: string;
 	repo: string;
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, isIssue, isAgentSessionsWorkspace, owner, repo }: TitleProps): JSX.Element {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, isIssue, owner, repo }: TitleProps): JSX.Element {
 	const { setTitle, copyPrLink, openOnGitHub } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -128,21 +179,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 
 	const displayTitle = (
 		<div className="overview-title">
-			<h2>
-				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
-				{' '}
-				<a
-					href={url}
-					title={url}
-					data-vscode-context={JSON.stringify(context)}
-					onClick={event => {
-						event.preventDefault();
-						void openOnGitHub();
-					}}
-				>
-					#{number}
-				</a>
-			</h2>
+			<TitleText {...{ titleHTML, number, url, context }} onOpen={openOnGitHub} />
 			{canEdit ?
 				<button id={EDIT_TITLE_BUTTON_ID} title="Rename" onClick={() => setEditMode(true)} className="icon-button">
 					{editIcon}
@@ -151,7 +188,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
 				{copyIcon}
 			</button>
-			{!isIssue && isAgentSessionsWorkspace ? <ViewChangesButton /> : null}
+			{!isIssue ? <ViewChangesButton /> : null}
 		</div>
 	);
 
@@ -274,9 +311,10 @@ interface SubtitleProps {
 	head: string;
 	codingAgentEvent: TimelineEvent | undefined;
 	canEdit: boolean;
+	stack?: PullRequestStack;
 }
 
-function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent, canEdit }: SubtitleProps): JSX.Element {
+function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, codingAgentEvent, canEdit, stack }: SubtitleProps): JSX.Element {
 	const { changeBaseBranch } = useContext(PullRequestContext);
 	const { text, color, icon } = getStatus(state, !!isDraft, isIssue, stateReason);
 	const copilotStatus = copilotEventToStatus(codingAgentEvent);
@@ -295,6 +333,7 @@ function Subtitle({ state, stateReason, isDraft, isIssue, author, base, head, co
 				<span className='icon'>{icon}</span>
 				<span>{text}</span>
 			</div>
+			{!isIssue ? <StackBadge stack={stack} /> : null}
 			<div className="author">
 				{<Avatar for={author} substituteIcon={copilotStatusIcon} />}
 				<div className="merge-branches">
