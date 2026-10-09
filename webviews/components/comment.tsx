@@ -425,6 +425,7 @@ export interface Embodied {
 }
 
 export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty, specialDisplayBodyPostfix }: Embodied) => {
+	const { applyPatch } = useContext(PullRequestContext);
 	if (!body && !bodyHTML) {
 		if (allowEmpty) {
 			return null;
@@ -436,7 +437,6 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 		);
 	}
 
-	const { applyPatch } = useContext(PullRequestContext);
 	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
 
 	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
@@ -514,12 +514,18 @@ export function AddComment({
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
-	emitter.addListener('quoteReply', (message: string) => {
-		const quoted = message.replace(/\n/g, '\n> ');
-		updatePR({ pendingCommentText: `> ${quoted} \n\n` });
-		textareaRef.current?.scrollIntoView();
-		textareaRef.current?.focus();
-	});
+	useEffect(() => {
+		const quoteReply = (message: string) => {
+			const quoted = message.replace(/\n/g, '\n> ');
+			updatePR({ pendingCommentText: `> ${quoted} \n\n` });
+			textareaRef.current?.scrollIntoView();
+			textareaRef.current?.focus();
+		};
+		emitter.addListener('quoteReply', quoteReply);
+		return () => {
+			emitter.removeListener('quoteReply', quoteReply);
+		};
+	}, [updatePR]);
 
 	const closeButton: React.MouseEventHandler<HTMLButtonElement> = e => {
 		e.preventDefault();
@@ -583,7 +589,7 @@ export function AddComment({
 					id={COMMENT_TEXTAREA_ID}
 					name="body"
 					ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
-					onInput={({ target }) => updatePR({ pendingCommentText: (target as HTMLTextAreaElement).value })}
+					onChange={event => updatePR({ pendingCommentText: event.currentTarget.value })}
 					onKeyDown={onKeyDown}
 					onPaste={onPasteUploadFiles(uploadPastedFilesIntoPendingComment)}
 					value={pendingCommentText}

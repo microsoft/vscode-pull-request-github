@@ -50,6 +50,11 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 	const [error, setError] = React.useState<string | undefined>();
 	const [updating, setUpdating] = React.useState(false);
 	const [updateError, setUpdateError] = React.useState<string | undefined>();
+	const mounted = React.useRef(true);
+	React.useLayoutEffect(() => {
+		mounted.current = true;
+		return () => { mounted.current = false; };
+	}, []);
 	const { stack } = pr;
 	if (!stack) {
 		return null;
@@ -65,9 +70,13 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 			setUpdateError(undefined);
 			await unstackAll();
 		} catch (unstackError) {
-			setError(`Unable to unstack pull requests: ${unstackError instanceof Error ? unstackError.message || unstackError.name : String(unstackError)}`);
+			if (mounted.current) {
+				setError(`Unable to unstack pull requests: ${unstackError instanceof Error ? unstackError.message || unstackError.name : String(unstackError)}`);
+			}
 		} finally {
-			setBusy(false);
+			if (mounted.current) {
+				setBusy(false);
+			}
 		}
 	};
 
@@ -78,9 +87,13 @@ export const StackSection = ({ pr }: { pr: PullRequest }) => {
 			setError(undefined);
 			await updateStack();
 		} catch (updateFailure) {
-			setUpdateError(`Unable to update the stack: ${updateFailure instanceof Error ? updateFailure.message || updateFailure.name : String(updateFailure)}`);
+			if (mounted.current) {
+				setUpdateError(`Unable to update the stack: ${updateFailure instanceof Error ? updateFailure.message || updateFailure.name : String(updateFailure)}`);
+			}
 		} finally {
-			setUpdating(false);
+			if (mounted.current) {
+				setUpdating(false);
+			}
 		}
 	};
 

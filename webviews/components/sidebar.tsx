@@ -346,12 +346,12 @@ function CollapsedLabel(props: PullRequest) {
 		return () => window.removeEventListener('resize', checkViewportWidth);
 	}, []);
 
-	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
+	const AvatarStack = ({ users }: { users: { id: string; avatarUrl: string; name: string }[] }) => (
 		<span className="avatar-stack" style={{
 			width: `${Math.min(users.length, 10) * 10 + 10}px`
 		}}>
 			{users.slice(0, 10).map((u, i) => (
-				<span className='stacked-avatar' style={{
+				<span key={u.id} className='stacked-avatar' style={{
 					left: `${i * 10}px`,
 				}}>
 					<Avatar for={u} />
@@ -430,7 +430,7 @@ function CollapsedLabel(props: PullRequest) {
 	// Collect non-empty sections in order, with custom rendering
 	const sections: { label: string; value: React.ReactNode; count: number }[] = [];
 
-	const reviewersWithAvatar = reviewers?.filter((r): r is ReviewState & { reviewer: { avatarUrl: string } } => !!r.reviewer.avatarUrl).map(r => ({ avatarUrl: r.reviewer.avatarUrl, name: reviewerLabel(r.reviewer) }));
+	const reviewersWithAvatar = reviewers?.filter((r): r is ReviewState & { reviewer: { avatarUrl: string } } => !!r.reviewer.avatarUrl).map(r => ({ id: reviewerId(r.reviewer), avatarUrl: r.reviewer.avatarUrl, name: reviewerLabel(r.reviewer) }));
 	if (!isIssue && reviewersWithAvatar && reviewersWithAvatar.length) {
 		sections.push({
 			label: 'Reviewers',
@@ -439,7 +439,7 @@ function CollapsedLabel(props: PullRequest) {
 		});
 	}
 
-	const assigneesWithAvatar = assignees?.filter((a): a is IAccount & { avatarUrl: string; login: string } => !!a.avatarUrl).map(a => ({ avatarUrl: a.avatarUrl, name: reviewerLabel(a) }));
+	const assigneesWithAvatar = assignees?.filter((a): a is IAccount & { avatarUrl: string; login: string } => !!a.avatarUrl).map(a => ({ id: a.id, avatarUrl: a.avatarUrl, name: reviewerLabel(a) }));
 	if (assigneesWithAvatar && assigneesWithAvatar.length) {
 		sections.push({
 			label: 'Assignees',
