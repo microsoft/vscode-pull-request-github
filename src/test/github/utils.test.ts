@@ -46,6 +46,7 @@ describe('utils', () => {
 			} as any;
 
 			const result = await parseGraphQLIssue(issue, githubRepository);
+			assert.ok(result.bodyHTML !== undefined);
 			const bodyHTML = result.bodyHTML;
 
 			assert.strictEqual((bodyHTML.match(/href="/g) ?? []).length, 2);
