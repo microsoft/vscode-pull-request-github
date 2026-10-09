@@ -7,11 +7,12 @@ import { default as assert } from 'assert';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, wait } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
+import { createTestHost } from '../../../src/test/webviews/testHost';
 
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Root } from '../app';
 import { PullRequestBuilder } from './builder/pullRequest';
-import { vscode } from '../../common/message';
+import { vscodeTransport as vscode } from '../../common/host';
 import { Overview, OverviewPreview } from '../overview';
 import { AccountBuilder } from './builder/account';
 import { GithubItemStateEnum } from '../../../src/github/interface';
@@ -30,7 +31,7 @@ describe('Root', function () {
 	});
 
 	it('displays "loading" while the PR is loading', function () {
-		const context = new PRContext();
+		const context = new PRContext(createTestHost());
 		const children = sinon.stub();
 
 		assert(!context.pr);
@@ -46,7 +47,7 @@ describe('Root', function () {
 	});
 
 	it('renders preview HTML without exposing actions or persisting an incomplete PR', async function () {
-		const context = new PRContext();
+		const context = new PRContext(createTestHost());
 		const persist = sinon.stub(vscode, 'setState');
 		const postMessage = sinon.stub(context, 'postMessage').resolves();
 		const children = sinon.stub().returns(<div>Complete overview</div>);
@@ -99,7 +100,7 @@ describe('Root', function () {
 
 	it('uses the final title, subtitle and description markup in the preview', function () {
 		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const out = render(
 			<PullRequestContext.Provider value={context}>
 				<OverviewPreview {...pr} />
@@ -120,15 +121,24 @@ describe('Root', function () {
 	it('uses a collapsed metadata placeholder in a narrow preview', function () {
 		const media = window.matchMedia('(max-width: 768px)');
 		sinon.stub(window, 'matchMedia').returns({ ...media, matches: true, addEventListener() { }, removeEventListener() { } });
-		const out = render(<OverviewPreview {...new PullRequestBuilder().build()} />);
-		assert(out.container.querySelector('.collapsible-sidebar'));
-		assert.strictEqual(out.container.querySelector('#sidebar'), null);
-		assert.strictEqual(out.container.querySelector('[role="button"]'), null);
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(createTestHost(pr));
+		const out = render(<PullRequestContext.Provider value={context}>
+			<OverviewPreview {...pr} />
+		</PullRequestContext.Provider>);
+		try {
+			assert(out.container.querySelector('.collapsible-sidebar'));
+			assert.strictEqual(out.container.querySelector('#sidebar'), null);
+			assert.strictEqual(out.container.querySelector('[role="button"]'), null);
+		} finally {
+			out.unmount();
+			context.dispose();
+		}
 	});
 
 	it('renders its child prop with a pull request from the context', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const children = sinon.stub().returns(<div />);
 
 		render(

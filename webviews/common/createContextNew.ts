@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { getMessageHandler, MessageHandler, vscode } from './message';
+import { WebviewHost } from './host';
 import { RemoteInfo } from '../../common/types';
 import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, StackCandidate, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
@@ -39,6 +39,10 @@ const defaultCreateParams: CreateParamsNew = {
 	usingTemplate: false
 };
 
+function createDefaultParams(): CreateParamsNew {
+	return { ...defaultCreateParams, labels: [], assignees: [], reviewers: [] };
+}
+
 function remoteChanged(next: RemoteInfo | undefined, current: RemoteInfo | undefined): boolean {
 	return next !== undefined && (next.owner !== current?.owner || next.repositoryName !== current?.repositoryName);
 }
@@ -53,17 +57,19 @@ function stackCandidateChanged(next: Partial<CreateParamsNew>, current: StackCan
 
 export class CreatePRContextNew {
 	public createParams: CreateParamsNew;
+	public onchange: ((ctx: CreateParamsNew) => void) | null = null;
 	private _titleStack: string[] = [];
 	private _descriptionStack: string[] = [];
+	private readonly _unsubscribe: () => void;
 
-	constructor(
-		public onchange: ((ctx: CreateParamsNew) => void) | null = null,
-		private _handler: MessageHandler | null = null,
-	) {
-		this.createParams = vscode.getState() ?? defaultCreateParams;
-		if (!_handler) {
-			this._handler = getMessageHandler(this.handleMessage);
-		}
+	constructor(private readonly _host: WebviewHost) {
+		this.createParams = _host.getState<CreateParamsNew>() ?? createDefaultParams();
+		this._unsubscribe = _host.onCommand(this.handleMessage);
+	}
+
+	public dispose(): void {
+		this._unsubscribe();
+		this.onchange = null;
 	}
 
 	get isCreatable(): boolean {
@@ -116,7 +122,7 @@ export class CreatePRContextNew {
 		// dialog, or the message did not get a response) preserve the user's
 		// in-progress title/description.
 		if (result?.cancelled === true) {
-			vscode.setState(defaultCreateParams);
+			this._host.setState(createDefaultParams());
 		}
 	};
 
@@ -133,8 +139,8 @@ export class CreatePRContextNew {
 	}
 
 	public updateState = (params: Partial<CreateParamsNew>, reset: boolean = false): void => {
-		this.createParams = reset ? { ...defaultCreateParams, ...params } : { ...this.createParams, ...params };
-		vscode.setState(this.createParams);
+		this.createParams = reset ? { ...createDefaultParams(), ...params } : { ...this.createParams, ...params };
+		this._host.setState(this.createParams);
 		if (this.onchange) {
 			this.onchange(this.createParams);
 		}
@@ -324,14 +330,14 @@ export class CreatePRContextNew {
 			// awaiting would discard the user's title/description if the create fails
 			// (for example when the branch push fails and needs `--force`), causing
 			// the description to fall back to the template on the next webview load.
-			vscode.setState(defaultCreateParams);
+			this._host.setState(createDefaultParams());
 		} catch (e) {
 			this.updateState({ createError: (typeof e === 'string') ? e : (e.message ? e.message : 'An unknown error occurred.') });
 		}
 	};
 
 	postMessage = async (message: any): Promise<any> => {
-		return this._handler?.postMessage(message);
+		return this._host.postMessage(message);
 	};
 
 	handleMessage = async (message: { command: string, params?: Partial<CreateParamsNew>, scrollPosition?: ScrollPosition }): Promise<void> => {
@@ -396,7 +402,7 @@ export class CreatePRContextNew {
 
 			case 'reset':
 				if (!message.params) {
-					this.updateState(defaultCreateParams, true);
+					this.updateState(createDefaultParams(), true);
 					return;
 				}
 				message.params.creating = message.params.creating ?? false;
@@ -453,8 +459,8 @@ export class CreatePRContextNew {
 		}
 	};
 
-	public static instance = new CreatePRContextNew();
 }
 
-const PullRequestContextNew = createContext<CreatePRContextNew>(CreatePRContextNew.instance);
+// Every render entry point must supply a provider.
+const PullRequestContextNew = createContext<CreatePRContextNew>(undefined!);
 export default PullRequestContextNew;

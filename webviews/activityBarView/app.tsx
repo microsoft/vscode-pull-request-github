@@ -7,10 +7,19 @@ import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
-import PullRequestContext from '../common/context';
+import PullRequestContext, { PRContext } from '../common/context';
+import { createWebviewHost } from '../common/host';
+import { rethrowUnlessDisposed } from '../common/message';
 
 export function main() {
-	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
+	const host = createWebviewHost();
+	const context = new PRContext(host);
+	render(
+		<PullRequestContext.Provider value={context}>
+			<Root>{pr => <Overview {...pr} />}</Root>
+		</PullRequestContext.Provider>,
+		document.getElementById('app')
+	);
 }
 
 export function Root({ children }) {
@@ -19,8 +28,11 @@ export function Root({ children }) {
 	useEffect(() => {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
+		return () => {
+			ctx.onchange = null;
+		};
 	}, []);
-	ctx.postMessage({ command: 'ready' });
-	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
+	ctx.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
+	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') }).catch(rethrowUnlessDisposed);
 	return pr ? children(pr) : <div className="loading-indicator">Loading...</div>;
 }

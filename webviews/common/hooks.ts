@@ -3,7 +3,26 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { createContext, Dispatch, SetStateAction, useContext, useEffect, useState } from 'react';
+
+export const ViewportWidthContext = createContext<number | undefined>(undefined);
+
+export function useMaxViewportWidth(maxWidth: number): boolean {
+	const width = useContext(ViewportWidthContext);
+	const query = `(max-width: ${maxWidth}px)`;
+	const [matches, setMatches] = useState(() => width === undefined ? window.matchMedia(query).matches : width <= maxWidth);
+	useEffect(() => {
+		if (width !== undefined) {
+			return;
+		}
+		const media = window.matchMedia(query);
+		const update = () => setMatches(media.matches);
+		update();
+		media.addEventListener('change', update);
+		return () => media.removeEventListener('change', update);
+	}, [query, width]);
+	return width === undefined ? matches : width <= maxWidth;
+}
 
 /**
  * useState, but track the value of a prop.

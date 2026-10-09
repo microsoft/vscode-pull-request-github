@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { getState, setState, updateState } from './cache';
 import { COMMENT_TEXTAREA_ID } from './constants';
-import { getMessageHandler, MessageHandler } from './message';
+import { WebviewHost } from './host';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
@@ -32,17 +31,21 @@ function bytesToBase64(bytes: Uint8Array): string {
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 
 export class PRContext {
+	public pr: PullRequest | undefined;
+	public onchange: ((ctx: PullRequest | undefined) => void) | null = null;
 	public preview: PullRequestPreview | undefined;
 	public onPreviewChange: ((preview: PullRequestPreview | undefined) => void) | null = null;
+	private readonly _unsubscribe: () => void;
 
-	constructor(
-		public pr: PullRequest | undefined = getState(),
-		public onchange: ((ctx: PullRequest | undefined) => void) | null = null,
-		private _handler: MessageHandler | null = null,
-	) {
-		if (!_handler) {
-			this._handler = getMessageHandler(this.handleMessage);
-		}
+	constructor(private readonly _host: WebviewHost) {
+		this.pr = _host.getState<PullRequest>();
+		this._unsubscribe = _host.onCommand(this.handleMessage);
+	}
+
+	public dispose(): void {
+		this._unsubscribe();
+		this.onchange = null;
+		this.onPreviewChange = null;
 	}
 
 	public setTitle = async (title: string) => {
@@ -193,7 +196,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.cancel-generate-description' });
 
 	public updateDraft = (id: number, body: string) => {
-		const pullRequest = getState();
+		const pullRequest = this._host.getState<PullRequest>() ?? this.pr;
 		const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
 		if (body === pendingCommentDrafts[id]) {
 			return;
@@ -549,7 +552,14 @@ export class PRContext {
 		this.preview = undefined;
 		this.onPreviewChange?.(undefined);
 		this.pr = pr;
-		setState(this.pr);
+		const oldPullRequest = this._host.getState<PullRequest>();
+		if (oldPullRequest?.number && oldPullRequest.number === pr?.number) {
+			pr.pendingCommentText = oldPullRequest.pendingCommentText;
+			pr.pendingReviewSummaryText = oldPullRequest.pendingReviewSummaryText;
+		}
+		if (pr) {
+			this._host.setState(pr);
+		}
 		if (this.onchange) {
 			this.onchange(this.pr);
 		}
@@ -557,7 +567,8 @@ export class PRContext {
 	};
 
 	updatePR = (pr: Partial<PullRequest> | undefined) => {
-		updateState(pr);
+		const current = this._host.getState<PullRequest>() ?? this.pr;
+		this._host.setState(Object.assign(current ?? {}, pr));
 		this.pr = this.pr ? { ...this.pr, ...pr } : pr as PullRequest;
 		if (this.onchange) {
 			this.onchange(this.pr);
@@ -565,8 +576,8 @@ export class PRContext {
 		return this;
 	};
 
-	postMessage(message: any) {
-		return (this._handler?.postMessage(message) ?? Promise.resolve(undefined));
+	async postMessage(message: any): Promise<any> {
+		return this._host.postMessage(message);
 	}
 
 	handleMessage = (message: any) => {
@@ -626,8 +637,8 @@ export class PRContext {
 		}
 	};
 
-	public static instance = new PRContext();
 }
 
-const PullRequestContext = createContext<PRContext>(PRContext.instance);
+// Every render entry point must supply a provider.
+const PullRequestContext = createContext<PRContext>(undefined!);
 export default PullRequestContext;
