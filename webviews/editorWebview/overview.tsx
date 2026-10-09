@@ -5,7 +5,6 @@
 
 import * as React from 'react';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
-import { useMaxViewportWidth } from '../common/hooks';
 
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
@@ -14,8 +13,25 @@ import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sideb
 import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
 import { Timeline } from '../components/timeline';
 
+const useMediaQuery = (query: string) => {
+	const [matches, setMatches] = React.useState(window.matchMedia(query).matches);
+
+	React.useEffect(() => {
+		const mediaQueryList = window.matchMedia(query);
+		const documentChangeHandler = () => setMatches(mediaQueryList.matches);
+
+		mediaQueryList.addEventListener('change', documentChangeHandler);
+
+		return () => {
+			mediaQueryList.removeEventListener('change', documentChangeHandler);
+		};
+	}, [query]);
+
+	return matches;
+};
+
 export const Overview = (pr: PullRequest) => {
-	const isSingleColumnLayout = useMaxViewportWidth(768);
+	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	const titleRef = React.useRef<HTMLDivElement>(null);
 	const isStuck = useStickyHeader(titleRef);
 
@@ -41,7 +57,7 @@ export const Overview = (pr: PullRequest) => {
 };
 
 export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
-	const isSingleColumnLayout = useMaxViewportWidth(768);
+	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
 	return <>
 		<div id="title" className="title">
 			<div className="details">

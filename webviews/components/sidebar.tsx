@@ -11,7 +11,6 @@ import { gitHubLabelColor } from '../../src/common/utils';
 import { GithubItemStateEnum, IAccount, IMilestone, IProjectItem, isITeam, IssueReference, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
 import { ChangeReviewersReply, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
-import { useMaxViewportWidth } from '../common/hooks';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
 
@@ -335,7 +334,17 @@ export function CollapsibleSidebar(props: PullRequest) {
 
 function CollapsedLabel(props: PullRequest) {
 	const { reviewers, assignees, labels, projectItems, milestone, isIssue } = props;
-	const isNarrowViewport = useMaxViewportWidth(350);
+	const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+	useEffect(() => {
+		const checkViewportWidth = () => {
+			setIsNarrowViewport(window.innerWidth <= 350);
+		};
+
+		checkViewportWidth();
+		window.addEventListener('resize', checkViewportWidth);
+		return () => window.removeEventListener('resize', checkViewportWidth);
+	}, []);
 
 	const AvatarStack = ({ users }: { users: { avatarUrl: string; name: string }[] }) => (
 		<span className="avatar-stack" style={{
