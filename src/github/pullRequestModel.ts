@@ -64,6 +64,7 @@ import {
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
+	PullRequestMergeabilityResult,
 	PullRequestReviewRequirement,
 	PullRequestStack,
 	ReadyForReview,
@@ -2261,7 +2262,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the current mergeability of the pull request.
 	 */
-	async getMergeability(): Promise<{ mergeability: PullRequestMergeability, conflicts?: string[] }> {
+	async getMergeability(): Promise<PullRequestMergeabilityResult> {
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();

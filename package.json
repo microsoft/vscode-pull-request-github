@@ -3147,12 +3147,12 @@
 				},
 				{
 					"command": "pr.revealFileInOS",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:(ADD|DELETE))/) && !isSessionsWindow",
 					"group": "0_open@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:(MODIFY|DELETE)/) && !isSessionsWindow",
 					"group": "0_open@2"
 				},
 				{

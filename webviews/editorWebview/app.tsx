@@ -8,7 +8,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview, OverviewPreview } from './overview';
 import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
-import { PullRequest, PullRequestPreview } from '../../src/github/views';
+import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext, { PRContext } from '../common/context';
 import { createWebviewHost } from '../common/host';
@@ -28,7 +28,7 @@ export function main() {
 export function Root({ children }) {
 	const ctx = useContext(PullRequestContext);
 	const [pr, setPR] = useState<PullRequest | undefined>(ctx.pr);
-	const [preview, setPreview] = useState<PullRequestPreview | undefined>(ctx.preview);
+	const [preview, setPreview] = useState<OverviewItemPreview | undefined>(ctx.preview);
 	useEffect(() => {
 		ctx.onchange = setPR;
 		ctx.onPreviewChange = setPreview;

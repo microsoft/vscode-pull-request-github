@@ -266,7 +266,7 @@ class FixtureTransport implements WebviewTransport {
 export function defaultCommand(request: RequestMessage, pr: PullRequest): unknown {
 	switch (request.command) {
 		case 'pr.checkMergeability':
-			return pr.mergeable;
+			return { mergeability: pr.mergeable };
 		case 'pr.update-stack':
 			return { updatedPullRequests: pr.stack?.pullRequests.map(entry => entry.number) ?? [] };
 		case 'pr.unstack-all':

@@ -60,7 +60,7 @@ const sidebar = defineFixtureGroup({
 	Issue: sidebarFixture(() => ({ ...populatedSidebar(), isIssue: true })),
 	Collapsed: sidebarFixture(populatedSidebar, { collapsed: true }),
 	Expanded: defineThemeVariants(defaultTheme => sidebarFixture(populatedSidebar, { collapsed: true, expanded: true, defaultTheme })),
-	Loading: defineComponentFixture({ width: 400, render: () => <SidebarPreview isSingleColumnLayout={false} /> }),
+	Loading: defineComponentFixture({ width: 400, render: () => <SidebarPreview isSingleColumnLayout={false} isIssue={false} /> }),
 });
 
 const reviewers = defineFixtureGroup({

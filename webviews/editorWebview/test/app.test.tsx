@@ -7,16 +7,16 @@ import { default as assert } from 'assert';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, wait } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
-import { createTestHost } from '../../../src/test/webviews/testHost';
 
-import { PRContext, default as PullRequestContext } from '../../common/context';
-import { Root } from '../app';
-import { PullRequestBuilder } from './builder/pullRequest';
-import { vscodeTransport as vscode } from '../../common/host';
-import { Overview, OverviewPreview } from '../overview';
 import { AccountBuilder } from './builder/account';
+import { PullRequestBuilder } from './builder/pullRequest';
 import { GithubItemStateEnum } from '../../../src/github/interface';
-import { PullRequestPreview } from '../../../src/github/views';
+import { IssuePreview, PullRequestPreview } from '../../../src/github/views';
+import { createTestHost } from '../../../src/test/webviews/testHost';
+import { PRContext, default as PullRequestContext } from '../../common/context';
+import { vscodeTransport as vscode } from '../../common/host';
+import { Root } from '../app';
+import { Overview, OverviewPreview } from '../overview';
 
 describe('Root', function () {
 	let sinon: SinonSandbox;
@@ -98,6 +98,55 @@ describe('Root', function () {
 		sinon.assert.calledOnce(persist);
 	});
 
+	it('renders an issue preview without pull request fields', async function () {
+		const context = new PRContext(createTestHost());
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Root>{() => <div>Complete overview</div>}</Root>
+			</PullRequestContext.Provider>,
+		);
+		const preview: IssuePreview = {
+			number: 1347, title: 'Early issue title', titleHTML: 'Early issue title',
+			body: 'Early issue description', bodyHTML: '<p>Early issue description</p>', url: 'https://github.com/owner/repo/issues/1347',
+			author: new AccountBuilder().build(), createdAt: '2026-10-01T10:00:00Z',
+			state: GithubItemStateEnum.Open, isIssue: true,
+		};
+
+		act(() => context.handleMessage({ command: 'pr.preview', pullrequest: preview }));
+		await wait(() => assert(out.queryByText('Early issue title'), out.container.innerHTML));
+		assert(out.queryByText('Early issue description'));
+		assert(out.queryByText('Open'));
+		assert.strictEqual(out.container.querySelector('#preview-reviewers'), null);
+		assert(out.container.querySelector('#preview-assignees'));
+		assert.strictEqual(out.queryByText('owner/repo:main'), null);
+	});
+
+	it('renders cached issue preview text when HTML is unavailable without treating it as markup', async function () {
+		const context = new PRContext(createTestHost());
+		const persist = sinon.stub(vscode, 'setState');
+		const children = sinon.stub();
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Root>{children}</Root>
+			</PullRequestContext.Provider>,
+		);
+		const preview: IssuePreview = {
+			number: 1347, title: 'Cached issue', titleHTML: 'Cached issue',
+			body: 'Cached description\n<em>Not rendered as HTML</em>', url: 'https://github.com/owner/repo/issues/1347',
+			author: new AccountBuilder().build(), createdAt: '2026-10-01T10:00:00Z',
+			state: GithubItemStateEnum.Open, isIssue: true,
+		};
+
+		act(() => context.handleMessage({ command: 'pr.preview', pullrequest: preview }));
+		await wait(() => assert(out.queryByText('Cached issue'), out.container.innerHTML));
+		assert.strictEqual(out.container.querySelector('#description .comment-body')?.textContent, preview.body);
+		assert.strictEqual(out.container.querySelector('#description em'), null);
+		assert.strictEqual(out.container.querySelector('button'), null);
+		assert.strictEqual(context.pr, undefined);
+		sinon.assert.notCalled(children);
+		sinon.assert.notCalled(persist);
+	});
+
 	it('uses the final title, subtitle and description markup in the preview', function () {
 		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).build();
 		const context = new PRContext(createTestHost(pr));
@@ -148,5 +197,33 @@ describe('Root', function () {
 		);
 
 		assert(children.calledWith(pr));
+	});
+
+	it('updates the checkout button when the active pull request changes without clicking checkout', function () {
+		const pr = new PullRequestBuilder().build();
+		pr.isCurrentlyCheckedOut = true;
+		pr.doneCheckoutBranch = 'main';
+		const context = new PRContext(createTestHost(pr));
+		context.setPR(pr);
+		const checkout = sinon.spy(context, 'checkout');
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Root>{pullRequest => <Overview {...pullRequest} />}</Root>
+			</PullRequestContext.Provider>,
+		);
+
+		assert(out.getByText('Checkout \'main\''));
+		act(() => {
+			context.handleMessage({ command: 'pr.update-checkout-status', isCurrentlyCheckedOut: false });
+		});
+		assert(out.getByText('Checkout'));
+		assert.strictEqual(out.queryByText('Checkout \'main\''), null);
+
+		act(() => {
+			context.handleMessage({ command: 'pr.update-checkout-status', isCurrentlyCheckedOut: true });
+		});
+		assert(out.getByText('Checkout \'main\''));
+		assert.strictEqual(out.queryByText('Checkout'), null);
+		sinon.assert.notCalled(checkout);
 	});
 });
