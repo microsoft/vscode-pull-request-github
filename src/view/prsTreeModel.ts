@@ -370,6 +370,7 @@ export class PrsTreeModel extends Disposable {
 		return repo.getMaxPullRequest();
 	}
 
+	// Returns the cumulative query results, including all previously fetched pages.
 	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string, fetchOnePagePerRepo: boolean = false): Promise<ItemsResponseResult<PullRequestModel>> {
 		let release: () => void;
 		const lock = new Promise<void>(resolve => { release = resolve; });
@@ -416,6 +417,10 @@ export class PrsTreeModel extends Disposable {
 			this._getChecks(prs.items);
 			this.hasLoaded = true;
 			return prs;
+		} catch (error) {
+			// Restore all reached pages on retry, including any page whose request failed.
+			this.getFolderCache(folderRepoManager).delete(query);
+			throw error;
 		} finally {
 			release!();
 		}
@@ -565,30 +570,41 @@ export class PrsTreeModel extends Disposable {
 				}
 
 				const changes: CodingAgentPRAndStatus[] = [];
+				const pullRequests = new Map<string, PullRequestModel>();
 				for (const folderManager of this._reposManager.folderManagers) {
 					initialized++;
-					const items: PullRequestModel[] = [];
-					let hasMore = true;
+					let response: ItemsResponseResult<PullRequestModel>;
+					let previousResponse: ItemsResponseResult<PullRequestModel> | undefined;
+					let fetchNextPage = false;
 					do {
-						const prs = await this.getPullRequestsForQuery(folderManager, !this.copilotStateModel.isInitialized, copilotQuery, true);
-						items.push(...prs.items);
-						hasMore = prs.hasMorePages;
-					} while (hasMore);
+						response = await this.getPullRequestsForQuery(folderManager, fetchNextPage, copilotQuery, true);
+						if (previousResponse && (response.hasMorePages || response.hasUnsearchedRepositories)
+							&& (response === previousResponse
+								|| (response.paginationProgress !== undefined && previousResponse.paginationProgress !== undefined
+									&& response.paginationProgress <= previousResponse.paginationProgress))) {
+							throw new Error('Copilot pull request pagination did not advance.');
+						}
+						previousResponse = response;
+						fetchNextPage = true;
+					} while (response.hasMorePages || response.hasUnsearchedRepositories);
 
-					for (const pr of items) {
-						unseenKeys.delete(this.copilotStateModel.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
-						const copilotEvents = await pr.getCopilotTimelineEvents(false, !this.copilotStateModel.isInitialized);
-						let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
-						if (latestEvent === CopilotPRStatus.None) {
-							if (!COPILOT_ACCOUNTS[pr.author.login]) {
-								continue;
-							}
-							latestEvent = CopilotPRStatus.Started;
+					for (const pr of response.items) {
+						pullRequests.set(this.copilotStateModel.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number), pr);
+					}
+				}
+				for (const [key, pr] of pullRequests) {
+					unseenKeys.delete(key);
+					const copilotEvents = await pr.getCopilotTimelineEvents(false, !this.copilotStateModel.isInitialized);
+					let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
+					if (latestEvent === CopilotPRStatus.None) {
+						if (!COPILOT_ACCOUNTS[pr.author.login]) {
+							continue;
 						}
-						const lastStatus = this.copilotStateModel.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
-						if (latestEvent !== lastStatus) {
-							changes.push({ item: pr, status: latestEvent });
-						}
+						latestEvent = CopilotPRStatus.Started;
+					}
+					const lastStatus = this.copilotStateModel.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
+					if (latestEvent !== lastStatus) {
+						changes.push({ item: pr, status: latestEvent });
 					}
 				}
 				for (const key of unseenKeys) {

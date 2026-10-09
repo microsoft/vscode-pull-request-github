@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManagerResolver } from './folderRepositoryManagerResolver';
+import { IssueModel } from './issueModel';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { getGitHubIssueOrPullRequestUriOpenerPriority, openWithDefaultExternalOpener, parseGitHubIssueOrPullRequestUri } from '../common/externalUri';
@@ -45,19 +46,20 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 		}
 
 		const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
-		if (identity.kind === 'pullRequest') {
-			const pullRequest = folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true, 'overview').then(async (pullRequest) => {
-				if (token.isCancellationRequested) {
-					throw new vscode.CancellationError();
-				}
-				if (!pullRequest) {
-					await openWithDefaultExternalOpener(openContext.sourceUri);
-					throw new vscode.CancellationError();
-				}
-				return pullRequest;
-			});
-			// Start the webview while the first repository and PR requests are in flight.
-			try {
+		const requireModel = async <T extends IssueModel>(model: T | undefined): Promise<T> => {
+			if (token.isCancellationRequested) {
+				throw new vscode.CancellationError();
+			}
+			if (!model) {
+				await openWithDefaultExternalOpener(openContext.sourceUri);
+				throw new vscode.CancellationError();
+			}
+			return model;
+		};
+
+		try {
+			if (identity.kind === 'pullRequest') {
+				const pullRequest = folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true, 'overview').then(requireModel);
 				await PullRequestOverviewPanel.createOrShow(
 					this._telemetry,
 					this._context.extensionUri,
@@ -65,28 +67,22 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 					identity,
 					pullRequest,
 				);
-			} catch (error) {
-				if (!(error instanceof vscode.CancellationError)) {
-					Logger.error(`Failed to open pull request: ${formatError(error)}`, 'GitHubIssueOrPullRequestExternalUriOpener');
-					await vscode.window.showErrorMessage(formatError(error));
-				}
+			} else {
+				const issue = folderRepositoryManager.resolveIssue(identity.owner, identity.repo, identity.number, true, true).then(requireModel);
+				await IssueOverviewPanel.createOrShow(
+					this._telemetry,
+					this._context.extensionUri,
+					folderRepositoryManager,
+					identity,
+					issue,
+				);
 			}
-		} else {
-			const issue = await folderRepositoryManager.resolveIssue(identity.owner, identity.repo, identity.number, true, true);
-			if (token.isCancellationRequested) {
-				return;
+		} catch (error) {
+			if (!(error instanceof vscode.CancellationError)) {
+				const itemType = identity.kind === 'pullRequest' ? 'pull request' : 'issue';
+				Logger.error(`Failed to open ${itemType}: ${formatError(error)}`, 'GitHubIssueOrPullRequestExternalUriOpener');
+				await vscode.window.showErrorMessage(formatError(error));
 			}
-			if (!issue) {
-				await openWithDefaultExternalOpener(openContext.sourceUri);
-				return;
-			}
-			await IssueOverviewPanel.createOrShow(
-				this._telemetry,
-				this._context.extensionUri,
-				folderRepositoryManager,
-				identity,
-				issue,
-			);
 		}
 	}
 

@@ -13,6 +13,7 @@ import { addAttestationCommit, isAttestationCommitsEnabled } from './attestation
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 import {
 	getUpdatableStackEntries,
 	GithubItemStateEnum,
@@ -33,7 +34,7 @@ import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { supportsStackGitOperations, updateStackBranches } from './updateStackBranches';
 import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -56,6 +57,7 @@ import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProv
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
 	public static override readonly viewType = PULL_REQUEST_OVERVIEW_VIEW_TYPE;
+	protected override readonly previewLog = { label: 'PR', id: PullRequestOverviewPanel.ID };
 
 	/**
 	 * All open PR panels, keyed by "owner/repo#number".
@@ -80,7 +82,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _refreshing = false;
 	private _updateItemPromise: Promise<void> | undefined;
 	private _updateSequence = 0;
-	private _previewSequence = 0;
 	private _stackLoaded = false;
 	private _stackPullRequestNumbers = new Set<number>();
 	private _stackRefreshPending = false;
@@ -836,39 +837,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return 'Pull Request';
 	}
 
+	protected override getPreview(repository: GitHubRepository, number: number): Promise<PullRequestPreview> {
+		return repository.getPullRequestPreview(number);
+	}
+
 	public override async updateWithIdentity(
 		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
 		pullRequestModel?: PullRequestModel | Promise<PullRequestModel>,
 		progressLocation?: string
 	): Promise<void> {
-		const previewSequence = ++this._previewSequence;
-		let loading = true;
-		const isLoading = () => loading && !this.isDisposed && previewSequence === this._previewSequence;
-		const update = super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
-		if (isLoading() && (!pullRequestModel || pullRequestModel instanceof Promise)) {
-			void (async () => {
-				try {
-					const start = Date.now();
-					const repository = await folderRepositoryManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
-					if (!repository || !isLoading()) {
-						return;
-					}
-					const preview = await repository.getPullRequestPreview(identity.number);
-					if (isLoading()) {
-						await this._postMessage({ command: 'pr.preview', pullrequest: preview });
-						Logger.debug(`PR overview preview loaded in ${Date.now() - start}ms`, PullRequestOverviewPanel.ID);
-					}
-				} catch (error) {
-					Logger.error(`Unable to load PR overview preview: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-				}
-			})();
-		}
-		try {
-			await update;
-		} finally {
-			loading = false;
-		}
+		await super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
 
 		// Notify that this PR overview is now active
 		if (!this.isDisposed && this._item) {

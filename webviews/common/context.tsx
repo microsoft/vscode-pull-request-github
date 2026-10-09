@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, PullRequestPreview, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -32,8 +32,8 @@ function bytesToBase64(bytes: Uint8Array): string {
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 
 export class PRContext {
-	public preview: PullRequestPreview | undefined;
-	public onPreviewChange: ((preview: PullRequestPreview | undefined) => void) | null = null;
+	public preview: OverviewItemPreview | undefined;
+	public onPreviewChange: ((preview: OverviewItemPreview | undefined) => void) | null = null;
 
 	constructor(
 		public pr: PullRequest | undefined = getState(),
