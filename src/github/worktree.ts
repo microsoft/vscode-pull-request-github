@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
@@ -46,8 +47,7 @@ export async function checkoutPRInWorktree(
 	const parentDir = path.dirname(repoRootPath);
 	const repoFolderName = path.basename(repoRootPath);
 	const defaultWorktreePath = path.join(parentDir, `${repoFolderName}.worktrees`, `pr-${pullRequestModel.number}`);
-	const branchName = prHead.ref;
-	const remoteName = pullRequestModel.remote.remoteName;
+	const isFork = !prHead.repositoryCloneUrl.equals(pullRequestModel.remote.gitProtocol);
 
 	// Ask user for worktree location first (not in progress)
 	const worktreeUri = await vscode.window.showSaveDialog({
@@ -61,7 +61,6 @@ export async function checkoutPRInWorktree(
 	}
 
 	const worktreePath = worktreeUri.fsPath;
-	const trackedBranchName = `${remoteName}/${branchName}`;
 
 	try {
 		// Check if the createWorktree API is available
@@ -76,8 +75,16 @@ export async function checkoutPRInWorktree(
 				title: vscode.l10n.t('Creating worktree for Pull Request #{0}...', pullRequestModel.number),
 			},
 			async () => {
+				const remoteName = isFork
+					? await PullRequestGitHelper.createRemote(repositoryToUse, pullRequestModel.remote, prHead.repositoryCloneUrl)
+					: pullRequestModel.remote.remoteName;
+				const branchName = isFork
+					? await PullRequestGitHelper.calculateUniqueBranchNameForPR(repositoryToUse, pullRequestModel)
+					: prHead.ref;
+				const trackedBranchName = `${remoteName}/${prHead.ref}`;
+
 				// Fetch the PR branch first
-				await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
+				await repositoryToUse.fetch({ remote: remoteName, ref: prHead.ref });
 
 				// Check if the branch already exists locally
 				let branchExists = false;
@@ -122,7 +129,8 @@ export async function checkoutPRInWorktree(
 			await commands.openFolder(worktreeUri, { forceNewWindow: false });
 		}
 	} catch (e) {
-		const errorMessage = e instanceof Error ? e.message : String(e);
+		const stderr = e && typeof e === 'object' ? Reflect.get(e, 'stderr') : undefined;
+		const errorMessage = (typeof stderr === 'string' && stderr.trim()) || (e instanceof Error ? e.message : String(e));
 		Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
 		vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
 	}
