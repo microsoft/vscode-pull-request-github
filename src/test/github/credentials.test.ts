@@ -5,7 +5,7 @@
 
 import { strictEqual, deepStrictEqual } from 'assert';
 import { Octokit } from '@octokit/rest';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
 import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from '../../github/credentials';
@@ -163,6 +163,79 @@ describe('CredentialStore', function () {
 			strictEqual(hasAccountChanged('old-account', undefined), true);
 		});
 	});
+
+	for (const authProvider of [AuthProvider.github, AuthProvider.githubEnterprise]) {
+		describe(`handleAuthError (${authProvider})`, function () {
+			let credentialStore: CredentialStore;
+			let isAuthenticated: SinonStub;
+			let getSession: SinonStub;
+			let initialize: SinonStub;
+			let sendTelemetryEvent: SinonStub;
+			let session: vscode.AuthenticationSession;
+
+			beforeEach(function () {
+				const telemetry = new MockTelemetry();
+				sendTelemetryEvent = sinon.stub(telemetry, 'sendTelemetryEvent');
+				credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+				isAuthenticated = sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+				initialize = sinon.stub(credentialStore as any, 'initialize');
+				initialize.resolves({ canceled: false });
+				session = createSession('current-session', 'account', defaultScopes);
+				getSession = sinon.stub(vscode.authentication, 'getSession').resolves(session);
+			});
+
+			afterEach(function () {
+				credentialStore.dispose();
+			});
+
+			it('does not prompt when already signed out', async function () {
+				isAuthenticated.returns(false);
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
+				strictEqual(getSession.called, false);
+				strictEqual(initialize.called, false);
+			});
+
+			it('does not prompt after the session is removed but before cached authentication is cleared', async function () {
+				getSession.resolves(undefined);
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
+				strictEqual(initialize.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+				strictEqual(getSession.called, true);
+				for (const call of getSession.getCalls()) {
+					strictEqual(call.args[0], authProvider);
+					deepStrictEqual(call.args[2], { silent: true });
+				}
+			});
+
+			it('does not prompt if sign-out finishes during the session lookup', async function () {
+				getSession.callsFake(async () => {
+					isAuthenticated.returns(false);
+					return session;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
+				strictEqual(initialize.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('deduplicates re-authentication for an existing invalid session and preserves the cooldown', async function () {
+				const results = await Promise.all([
+					credentialStore.handleAuthError(authProvider),
+					credentialStore.handleAuthError(authProvider),
+				]);
+
+				deepStrictEqual(results, [{ canceled: false }, { canceled: false }]);
+				strictEqual(initialize.calledOnce, true);
+				strictEqual(initialize.firstCall.args[0], authProvider);
+				strictEqual(typeof initialize.firstCall.args[1].forceNewSession.detail, 'string');
+				strictEqual(sendTelemetryEvent.calledOnceWithExactly('auth.badCredentials'), true);
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
+				strictEqual(initialize.calledOnce, true);
+			});
+		});
+	}
 
 	it('retries the current user request after a failure', async function () {
 		const telemetry = new MockTelemetry();
