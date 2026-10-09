@@ -2,6 +2,13 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Component Explorer",
+			"type": "chrome",
+			"request": "launch",
+			"url": "http://localhost:5338/___explorer",
+			"preLaunchTask": "Component Explorer Server"
+		},
+		{
 			"name": "Launch Extension",
 			"type": "extensionHost",
 			"request": "launch",

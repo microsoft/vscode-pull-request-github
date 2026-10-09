@@ -281,4 +281,20 @@ export default defineConfig([
 			'rulesdir/public-methods-well-defined-types': 'error'
 		},
 	},
+	{
+		files: ['webviews/**/*.fixture.{ts,tsx}', 'webviews/fixtures/**/*.{ts,tsx}'],
+		languageOptions: {
+			parserOptions: {
+				project: 'tsconfig.explorer.json',
+			},
+		},
+		settings: {
+			'import/resolver': {
+				typescript: {
+					project: 'tsconfig.explorer.json',
+					alwaysTryTypes: true,
+				},
+			},
+		},
+	},
 ]);

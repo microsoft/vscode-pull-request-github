@@ -349,3 +349,5 @@ src/constants.insiders.ts
 
 .eslintcache
 *.tsbuildinfo
+.screenshots/
+.tmp/

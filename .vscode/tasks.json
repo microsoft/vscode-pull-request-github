@@ -4,6 +4,26 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "Component Explorer Server",
+			"type": "npm",
+			"script": "explorer:serve",
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "component-explorer",
+				"pattern": {
+					"regexp": "^\\s*at\\s+(.+?):(\\d+):(\\d+)\\s*$",
+					"file": 1,
+					"line": 2,
+					"column": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".*Setting up sessions.*",
+					"endsPattern": ".*Redirection server listening on.*"
+				}
+			}
+		},
+		{
 			"type": "npm",
 			"script": "build",
 			"group": "build",

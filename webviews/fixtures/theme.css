@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.fixture-root {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 24px 32px;
+	background: var(--vscode-editor-background);
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+	font-weight: var(--vscode-font-weight);
+}
+
+.fixture-root.fixture-view-component {
+	padding: 16px;
+}
+
+.fixture-root .loading {
+	animation: none;
+}
+
+.fixture-root .comment-body pre {
+	font-family: var(--vscode-editor-font-family);
+	line-height: 20px;
+}
+
+.fixture-root a {
+	color: var(--vscode-textLink-foreground);
+}
+
+.fixture-root a:hover {
+	color: var(--vscode-textLink-activeForeground);
+}

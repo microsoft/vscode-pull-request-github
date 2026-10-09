@@ -46,7 +46,7 @@ async function resolveTSConfig(configFile) {
  * @param { WebpackConfig['entry'] } entry
  * @returns { Promise<WebpackConfig> }
  */
-async function getWebviewConfig(mode, env, entry) {
+async function getWebviewConfig(mode, env, entry, tsconfig = 'tsconfig.webviews.json') {
 	const basePath = path.join(__dirname, 'webviews');
 
 	/**
@@ -60,7 +60,7 @@ async function getWebviewConfig(mode, env, entry) {
 			async: false,
 			formatter: 'basic',
 			typescript: {
-				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
+				configFile: path.join(__dirname, tsconfig),
 			},
 		}),
 	];
@@ -112,13 +112,13 @@ async function getWebviewConfig(mode, env, entry) {
 							loader: 'esbuild-loader',
 							options: {
 								target: 'es2019',
-								tsconfigRaw: await resolveTSConfig(path.join(__dirname, 'tsconfig.webviews.json')),
+								tsconfigRaw: await resolveTSConfig(path.join(__dirname, tsconfig)),
 							},
 						}
 						: {
 							loader: 'ts-loader',
 							options: {
-								configFile: path.join(__dirname, 'tsconfig.webviews.json'),
+								configFile: path.join(__dirname, tsconfig),
 								experimentalWatchApi: true,
 								transpileOnly: true,
 							},
@@ -432,3 +432,5 @@ module.exports =
 			}),
 		]);
 	};
+
+module.exports.getWebviewConfig = getWebviewConfig;
