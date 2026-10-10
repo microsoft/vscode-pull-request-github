@@ -1030,6 +1030,19 @@ ${suggestionInformation.suggestionContent}
 		});
 	}
 
+	/**
+	 * Returns true when a file-comment widget for this controller has unsaved draft text.
+	 * Used to warn before disposing the controller (e.g. when a PR is merged).
+	 */
+	public hasUnsavedCommentDrafts(): boolean {
+		const controllerId = this._commentController.id;
+		return vscode.workspace.textDocuments.some(document =>
+			document.uri.scheme === Schemes.Comment &&
+			document.uri.authority.startsWith(controllerId) &&
+			document.getText().trim().length > 0
+		);
+	}
+
 	public override dispose() {
 		super.dispose();
 		unregisterCommentHandler(this._commentHandlerId);
