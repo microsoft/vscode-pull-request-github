@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import { AccountType } from '../../github/interface';
-import { getPRFetchQuery, insertNewCommitsSinceReview, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, insertNewCommitsSinceReview, parseCombinedTimelineEvents, parseGraphQLComment, parseGraphQlIssueComment, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -13,6 +13,16 @@ import * as GraphQL from '../../github/graphql';
 import { GitHubRepository } from '../../github/githubRepository';
 
 describe('utils', () => {
+	const testRepository = { remote: { isEnterprise: false } } as GitHubRepository;
+	const commentAuthor: GraphQL.Account = {
+		__typename: 'User',
+		id: 'user-node-id',
+		login: 'octocat',
+		avatarUrl: 'https://github.com/images/octocat.png',
+		url: 'https://github.com/octocat',
+		name: 'Octocat',
+		email: 'octocat@example.com',
+	};
 
 	describe('getPRFetchQuery', () => {
 		it('replaces all instances of ${user}', () => {
@@ -83,6 +93,35 @@ describe('utils', () => {
 	});
 
 	describe('parseCombinedTimelineEvents', () => {
+		it('preserves minimized metadata on timeline issue comments', async () => {
+			const comment = {
+				__typename: 'IssueComment',
+				id: 'comment-node-id',
+				databaseId: 17,
+				url: 'https://github.com/octocat/repo/pull/1#issuecomment-17',
+				authorAssociation: 'NONE',
+				body: 'Hidden comment',
+				bodyHTML: '<p>Hidden comment</p>',
+				author: commentAuthor,
+				createdAt: '2024-01-01T12:00:00Z',
+				updatedAt: '2024-01-01T12:00:00Z',
+				viewerCanUpdate: false,
+				viewerCanReact: false,
+				viewerCanDelete: false,
+				reactions: { totalCount: 0 },
+				reactionGroups: [],
+				isMinimized: true,
+				minimizedReason: 'SPAM',
+			} as GraphQL.IssueComment;
+
+			const events = await parseCombinedTimelineEvents([comment], [], testRepository);
+
+			assert.strictEqual(events.length, 1);
+			assert.strictEqual(events[0].event, EventType.Commented);
+			assert.strictEqual(events[0].isMinimized, true);
+			assert.strictEqual(events[0].minimizedReason, 'SPAM');
+		});
+
 		it('handles commits without an author or committer', async () => {
 			const commit = {
 				__typename: 'PullRequestCommit',
@@ -124,6 +163,67 @@ describe('utils', () => {
 			assert.strictEqual(events.length, 1);
 			assert.strictEqual(events[0].event, EventType.Merged);
 			assert.strictEqual(events[0].mergeRef, 'main');
+		});
+	});
+
+	describe('comment minimized metadata parsing', () => {
+		it('preserves minimized metadata on issue comments returned from mutations', () => {
+			const comment = {
+				id: 'comment-node-id',
+				databaseId: 17,
+				url: 'https://github.com/octocat/repo/pull/1#issuecomment-17',
+				__typename: 'IssueComment',
+				authorAssociation: 'NONE',
+				body: 'Hidden comment',
+				bodyHTML: '<p>Hidden comment</p>',
+				author: commentAuthor,
+				createdAt: '2024-01-01T12:00:00Z',
+				updatedAt: '2024-01-01T12:00:00Z',
+				viewerCanUpdate: false,
+				viewerCanReact: false,
+				viewerCanDelete: false,
+				reactions: { totalCount: 0 },
+				reactionGroups: [],
+				isMinimized: true,
+				minimizedReason: 'SPAM',
+			} as GraphQL.IssueComment;
+
+			const parsed = parseGraphQlIssueComment(comment, testRepository);
+
+			assert.strictEqual(parsed.isMinimized, true);
+			assert.strictEqual(parsed.minimizedReason, 'SPAM');
+		});
+
+		it('preserves minimized metadata on review comments', () => {
+			const comment = {
+				__typename: 'PullRequestReviewComment',
+				id: 'review-comment-node-id',
+				databaseId: 18,
+				url: 'https://github.com/octocat/repo/pull/1#discussion_r18',
+				body: 'Hidden review comment',
+				bodyHTML: '<p>Hidden review comment</p>',
+				path: 'file.ts',
+				originalPosition: 1,
+				position: 1,
+				diffHunk: '',
+				state: 'SUBMITTED',
+				pullRequestReview: { databaseId: 3 },
+				commit: { oid: 'head-sha' },
+				originalCommit: { oid: 'head-sha' },
+				createdAt: '2024-01-01T12:00:00Z',
+				replyTo: { databaseId: 2 },
+				author: commentAuthor,
+				reactionGroups: [],
+				viewerCanUpdate: false,
+				viewerCanDelete: false,
+				isMinimized: true,
+				minimizedReason: 'OFF_TOPIC',
+			} as GraphQL.ReviewComment;
+
+			const parsed = parseGraphQLComment(comment, false, false, testRepository);
+
+			assert.strictEqual(parsed.isMinimized, true);
+			assert.strictEqual(parsed.minimizedReason, 'OFF_TOPIC');
 		});
 	});
 

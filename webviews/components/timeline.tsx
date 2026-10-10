@@ -227,6 +227,7 @@ const groupCommentsByThread = (comments: IComment[]) =>
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByThread(event.comments);
 	const reviewIsPending = event.state === 'PENDING';
+
 	return (
 		<CommentView comment={event} allowEmpty={true}>
 			{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}

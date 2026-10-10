@@ -2234,3 +2234,34 @@ svg.octicon path {
 	font-size: 13px;
 	cursor: pointer;
 }
+
+
+.minimized-comment-container {
+	position: relative;
+	margin: 0;
+	align-items: center;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.minimized-comment-toggle {
+	display: flex;
+	align-items: center;
+}
+
+.minimized-comment-container .minimized-comment-header {
+	background: var(--vscode-panel-background);
+	border-radius: 6px;
+	padding: 8px 16px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+}
+
+.minimized-comment-container .minimized-body {
+	border: none;
+	padding: 8px;
+}
+
+
