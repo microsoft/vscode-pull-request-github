@@ -5,7 +5,7 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { cloudUploadIcon, copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
+import { cloudUploadIcon, copyIcon, editIcon, foldIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon, unfoldIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -87,6 +87,8 @@ export function CommentView(commentProps: Props) {
 	const id = (comment as Partial<IComment | ReviewEvent | CommentEvent>).id ?? -1;
 	const canEdit: boolean = !!(comment as Partial<IComment | PullRequest | CommentEvent>).canEdit;
 	const canDelete: boolean = !!(comment as Partial<IComment | CommentEvent>).canDelete;
+	const isMinimized: boolean = (comment as Partial<CommentEvent>).isMinimized ?? false;
+	const minimizedReason: string | undefined = (comment as Partial<CommentEvent>).minimizedReason?.toLowerCase() ?? undefined;
 
 	const pullRequestReviewId = (comment as IComment).pullRequestReviewId;
 	const [bodyMd, setBodyMd] = useStateProp(body);
@@ -129,7 +131,7 @@ export function CommentView(commentProps: Props) {
 	const ariaAnnouncement = ((comment as CommentEvent | ReviewEvent).event === EventType.Commented || (comment as CommentEvent | ReviewEvent).event === EventType.Reviewed)
 		? ariaAnnouncementForReview(comment as (CommentEvent | ReviewEvent)) : undefined;
 
-	return (
+	const commentBox = (
 		<CommentBox
 			for={comment}
 			onMouseEnter={() => setShowActionBar(true)}
@@ -180,6 +182,12 @@ export function CommentView(commentProps: Props) {
 			{children}
 		</CommentBox>
 	);
+
+	return isMinimized ? (
+		<MinimizedComment isMinimized={isMinimized} minimizedReason={minimizedReason}>
+			{commentBox}
+		</MinimizedComment>
+	) : commentBox;
 }
 
 export const CommentPreview = (preview: OverviewItemPreview | PullRequest) => (
@@ -847,4 +855,32 @@ function joinWithAnd(arr: string[]): string {
 	if (arr.length === 1) return arr[0];
 	if (arr.length === 2) return `${arr[0]} and ${arr[1]}`;
 	return `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
+}
+
+type MinimizedCommentProps = {
+	isMinimized: boolean;
+	minimizedReason?: string;
+	children?: React.ReactNode;
+};
+
+function MinimizedComment({ isMinimized, minimizedReason, children }: MinimizedCommentProps) {
+	const [showContent, setShowContent] = useState(!isMinimized);
+
+	const toggleContent = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+		event.stopPropagation();
+		setShowContent((prev) => !prev);
+	};
+
+	return (
+		<div className="minimized-comment-container" onClick={toggleContent} aria-expanded={showContent}>
+			<div className="minimized-comment-header">
+				<em>This comment was marked as {minimizedReason}</em>
+				<div className="minimized-comment-toggle">
+					{showContent ? foldIcon : unfoldIcon}
+					{showContent ? <span>Hide comment</span> : <span>Show comment</span>}
+				</div>
+			</div>
+			{showContent ? <div className="minimized-body">{children}</div> : null}
+		</div>
+	);
 }

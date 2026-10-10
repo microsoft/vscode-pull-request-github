@@ -105,6 +105,8 @@ fragment Comment on IssueComment {
 	viewerCanReact
 	viewerCanDelete
 	...Reactable
+	isMinimized
+	minimizedReason
 }
 
 fragment Commit on PullRequestCommit {
@@ -532,6 +534,8 @@ fragment ReviewComment on PullRequestReviewComment {
 	...Reactable
 	viewerCanUpdate
 	viewerCanDelete
+	isMinimized
+	minimizedReason
 }
 
 query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: Int!) {
