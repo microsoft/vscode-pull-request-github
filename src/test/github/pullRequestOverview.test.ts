@@ -22,6 +22,8 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { Repository } from '../../api/api';
 import { GitApiImpl } from '../../api/api1';
+import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
+import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
 import { openDescription } from '../../commands';
 import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
@@ -39,6 +41,7 @@ import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import * as emoji from '../../common/emoji';
 import Logger from '../../common/logger';
 import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview } from '../../github/views';
+import { IRequestMessage } from '../../common/webview';
 
 const EXTENSION_URI = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 
@@ -53,6 +56,25 @@ class TestPullRequestOverviewPanel extends PullRequestOverviewPanel {
 
 	public override _postMessage(message: { command: string; isCurrentlyCheckedOut?: boolean; pullrequest?: Partial<PullRequest> }): Promise<void> {
 		return super._postMessage(message);
+	}
+
+	public setItem(item: PullRequestModel): void {
+		this._item = item;
+		this._identity = { owner: item.remote.owner, repo: item.remote.repositoryName, number: item.number };
+		TestPullRequestOverviewPanel._panels.set(panelKey(item.remote.owner, item.remote.repositoryName, item.number), this);
+		this.registerPrListeners();
+	}
+
+	public get folderRepositoryManager(): FolderRepositoryManager {
+		return this._folderRepositoryManager;
+	}
+
+	public override _onDidReceiveMessage(message: IRequestMessage<unknown>) {
+		return super._onDidReceiveMessage(message);
+	}
+
+	public override _replyMessage(message: IRequestMessage<unknown>, response: unknown): Promise<void> {
+		return super._replyMessage(message, response);
 	}
 }
 
@@ -344,6 +366,201 @@ describe('PullRequestOverview', function () {
 	}
 
 	describe('checkout status', function () {
+		describe('remote-only manager upgrades', function () {
+			let panel: TestPullRequestOverviewPanel;
+			let model: PullRequestModel;
+			let temporaryManager: FolderRepositoryManager;
+			let discovered: boolean;
+			let postMessage: SinonStub;
+
+			beforeEach(function () {
+				setStacksEnabled(false);
+				discovered = false;
+				sinon.stub(pullRequestManager, 'gitHubRepositories').get(() => discovered ? [repo] : []);
+				repositoriesManager.insertFolderManager(pullRequestManager);
+				PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, repositoriesManager);
+				const resolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
+				context.subscriptions.push(resolver);
+				temporaryManager = resolver.getRemoteOnlyManager();
+				model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+					convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+				panel = new TestPullRequestOverviewPanel(telemetry, temporaryManager);
+				panel.setItem(model);
+				context.subscriptions.push(panel);
+				postMessage = sinon.stub(panel, '_postMessage').resolves();
+			});
+
+			it('keeps the temporary manager when the repository has not been discovered', async function () {
+				const openChanges = sinon.stub(PullRequestModel, 'openChanges').resolves();
+
+				await panel._onDidReceiveMessage({ req: 'changes', command: 'pr.open-changes', args: undefined });
+
+				assert.strictEqual(panel.folderRepositoryManager, temporaryManager);
+				assert.ok(panel.folderRepositoryManager.repository instanceof RemoteOnlyRepository);
+				sinon.assert.calledWithExactly(openChanges, temporaryManager, model, false);
+			});
+
+			it('upgrades on an operation after discovery without needing a checkout event', async function () {
+				const openChanges = sinon.stub(PullRequestModel, 'openChanges').resolves();
+				discovered = true;
+
+				await panel._onDidReceiveMessage({ req: 'changes', command: 'pr.open-changes', args: { openToTheSide: true } });
+
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				sinon.assert.calledWithExactly(openChanges, pullRequestManager, model, true);
+			});
+
+			it('checks out main and cleans up through the upgraded local manager', async function () {
+				await pullRequestManager.repository.createBranch('pr-branch', true);
+				await pullRequestManager.repository.createBranch('main', false);
+				await pullRequestManager.repository.setBranchUpstream('main', 'refs/remotes/origin/main');
+				pullRequestManager.activePullRequest = model;
+				assert.strictEqual(panel.folderRepositoryManager, temporaryManager);
+				discovered = true;
+				const checkout = sinon.spy(pullRequestManager, 'checkoutDefaultBranch');
+				const cleanup = sinon.stub(pullRequestManager, 'cleanupAfterPullRequest').resolves();
+				const reply = sinon.stub(panel, '_replyMessage').resolves();
+				const message = { req: 'exit', command: 'pr.checkout-default-branch', args: 'main' };
+
+				await panel._onDidReceiveMessage(message);
+
+				assert.strictEqual(pullRequestManager.repository.state.HEAD?.name, 'main');
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				sinon.assert.calledWithExactly(checkout, 'main', model);
+				sinon.assert.calledWithExactly(cleanup, 'pr-branch', model);
+				sinon.assert.calledWithExactly(reply, message, {});
+			});
+
+			it('updates checkout status and moves listeners when the local repository becomes active', function () {
+				discovered = true;
+				pullRequestManager.activePullRequest = model;
+
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				sinon.assert.calledOnce(postMessage);
+				sinon.assert.calledWithMatch(postMessage, { command: 'pr.update-checkout-status', isCurrentlyCheckedOut: true });
+				postMessage.resetHistory();
+				temporaryManager.activePullRequest = model;
+				sinon.assert.notCalled(postMessage);
+				pullRequestManager.activePullRequest = undefined;
+				sinon.assert.calledOnce(postMessage);
+				sinon.assert.calledWithMatch(postMessage, { command: 'pr.update-checkout-status', isCurrentlyCheckedOut: false });
+			});
+
+			it('retains the upgraded local manager without looking it up again', function () {
+				discovered = true;
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				const lookup = sinon.spy(repositoriesManager, 'getManagerForRepository');
+				discovered = false;
+
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				sinon.assert.notCalled(lookup);
+			});
+
+			it('upgrades safely on the first access after the panel identity is set', function () {
+				panel.dispose();
+				discovered = true;
+				panel = new TestPullRequestOverviewPanel(telemetry, temporaryManager);
+				context.subscriptions.push(panel);
+				assert.strictEqual(panel.folderRepositoryManager, temporaryManager);
+				panel.setItem(model);
+				postMessage = sinon.stub(panel, '_postMessage').resolves();
+
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				pullRequestManager.activePullRequest = model;
+				sinon.assert.calledOnce(postMessage);
+			});
+		});
+
+		describe('repository ownership', function () {
+			let panel: TestPullRequestOverviewPanel;
+			let model: PullRequestModel;
+			let postMessage: SinonStub;
+
+			beforeEach(async function () {
+				setStacksEnabled(false);
+				await pullRequestManager.repository.addRemote('origin', remote.url);
+				repositoriesManager.insertFolderManager(pullRequestManager);
+				sinon.stub(pullRequestManager, 'gitHubRepositories').get(() => [repo]);
+				const resolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
+				context.subscriptions.push(resolver);
+				const manager = resolver.getManagerForRepository(remote.owner, remote.repositoryName);
+				assert.strictEqual(manager, pullRequestManager);
+				PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, repositoriesManager);
+				model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+					convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+				panel = new TestPullRequestOverviewPanel(telemetry, manager);
+				panel.setItem(model);
+				context.subscriptions.push(panel);
+				postMessage = sinon.stub(panel, '_postMessage').resolves();
+			});
+
+			it('checks out the default branch through the selected local manager', async function () {
+				await pullRequestManager.repository.createBranch('pr-branch', true);
+				await pullRequestManager.repository.createBranch('main', false);
+				await pullRequestManager.repository.setBranchUpstream('main', 'refs/remotes/origin/main');
+				pullRequestManager.activePullRequest = model;
+				const checkout = sinon.spy(pullRequestManager, 'checkoutDefaultBranch');
+				const cleanup = sinon.stub(pullRequestManager, 'cleanupAfterPullRequest').resolves();
+				const reply = sinon.stub(panel, '_replyMessage').resolves();
+				const message = { req: 'exit', command: 'pr.checkout-default-branch', args: 'main' };
+
+				await panel._onDidReceiveMessage(message);
+
+				assert.strictEqual(pullRequestManager.repository.state.HEAD?.name, 'main');
+				sinon.assert.calledWithExactly(checkout, 'main', model);
+				sinon.assert.calledWithExactly(cleanup, 'pr-branch', model);
+				sinon.assert.calledWithExactly(reply, message, {});
+			});
+
+			it('does not change ownership when the same PR becomes active in another local repository', function () {
+				const otherRepository = new MockRepository();
+				otherRepository.rootUri = vscode.Uri.file('/other');
+				const otherManager = new FolderRepositoryManager(2, context, otherRepository, telemetry,
+					new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+				repositoriesManager.insertFolderManager(otherManager);
+
+				otherManager.activePullRequest = model;
+
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+				sinon.assert.calledWithMatch(postMessage, { command: 'pr.update-checkout-status', isCurrentlyCheckedOut: false });
+				postMessage.resetHistory();
+				pullRequestManager.activePullRequest = model;
+				sinon.assert.calledOnce(postMessage);
+				sinon.assert.calledWithMatch(postMessage, { command: 'pr.update-checkout-status', isCurrentlyCheckedOut: true });
+			});
+
+			it('reports checkout in the local repository when the checkout command completes', async function () {
+				const executeCommand = sinon.stub(vscode.commands, 'executeCommand').callThrough();
+				executeCommand.withArgs('pr.pick', model).callsFake(async () => {
+					pullRequestManager.activePullRequest = model;
+				});
+				const reply = sinon.stub(panel, '_replyMessage').resolves();
+				const message = { req: 'checkout', command: 'pr.checkout', args: undefined };
+
+				await panel._onDidReceiveMessage(message);
+				await new Promise(resolve => setImmediate(resolve));
+
+				sinon.assert.calledWithExactly(reply, message, { isCurrentlyCheckedOut: true });
+				assert.strictEqual(panel.folderRepositoryManager, pullRequestManager);
+			});
+
+			it('retains its original manager when an existing panel is reopened with a different manager', async function () {
+				panel.dispose();
+				const opened = await createPanel();
+				const remoteRepository = new RemoteOnlyRepository();
+				const otherManager = new FolderRepositoryManager(1, context, remoteRepository, telemetry,
+					new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+				context.subscriptions.push(remoteRepository, otherManager);
+				opened.currentUser.resetHistory();
+				const identity = { owner: remote.owner, repo: remote.repositoryName, number: opened.model.number };
+
+				await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, otherManager, identity, opened.model);
+
+				assert.strictEqual(PullRequestOverviewPanel.findPanel(identity.owner, identity.repo, identity.number), opened.panel);
+				sinon.assert.calledOnce(opened.currentUser);
+			});
+		});
+
 		for (const initiallyCheckedOut of [false, true]) {
 			it(`initializes with the latest checkout state when ${initiallyCheckedOut ? 'leaving' : 'entering'} review mode during loading`, async function () {
 				setStacksEnabled(false);
@@ -368,7 +585,7 @@ describe('PullRequestOverview', function () {
 					return blockedBody;
 				});
 
-				const opening = panel.updateWithIdentity(pullRequestManager, identity, model);
+				const opening = panel.updateWithIdentity(identity, model);
 				await bodyStarted;
 				pullRequestManager.activePullRequest = initiallyCheckedOut ? undefined : model;
 				releaseBody!(model.bodyHTML);
@@ -1183,7 +1400,7 @@ describe('PullRequestOverview', function () {
 			viewerCanAutoMerge: false,
 		});
 		sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
-		sinon.stub(pullRequestManager, 'getCurrentUser').callsFake(async () => {
+		const currentUser = sinon.stub(pullRequestManager, 'getCurrentUser').callsFake(async () => {
 			const model = models.values().next().value;
 			assert(model);
 			return model.author;
@@ -1198,7 +1415,7 @@ describe('PullRequestOverview', function () {
 		const externalUri = sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		const query = sinon.spy(repo, 'query');
-		return { models, access, branch, queueMethod, externalUri, showError, query };
+		return { models, access, currentUser, branch, queueMethod, externalUri, showError, query };
 	}
 
 	async function createPanel(number = 1000) {
