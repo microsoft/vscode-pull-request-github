@@ -43,7 +43,7 @@ describe('CommentView', function () {
 
 	it('starts minimized comments collapsed and toggles their content on click', function () {
 		const view = renderComment(makeComment(true));
-		const container = view.container.querySelector('.minimized-comment-container') as HTMLDivElement;
+		const container = view.container.querySelector('.minimized-comment-header') as HTMLDivElement;
 
 		assert.strictEqual(container.getAttribute('aria-expanded'), 'false');
 		assert(view.getByText('This comment was marked as spam'));
@@ -61,7 +61,7 @@ describe('CommentView', function () {
 	it('renders non-minimized comments without the minimized wrapper', function () {
 		const view = renderComment(makeComment(false));
 
-		assert.strictEqual(view.container.querySelector('.minimized-comment-container'), null);
+		assert.strictEqual(view.container.querySelector('.minimized-comment-header'), null);
 		assert(view.getByText('Comment body text'));
 	});
 });
