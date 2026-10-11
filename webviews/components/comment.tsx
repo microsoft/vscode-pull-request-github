@@ -872,9 +872,21 @@ function MinimizedComment({ isMinimized, minimizedReason, children }: MinimizedC
 	};
 
 	return (
-		<div className="minimized-comment-container" onClick={toggleContent} aria-expanded={showContent}>
-			<div className="minimized-comment-header">
-				<em>This comment was marked as {minimizedReason}</em>
+		<div className="minimized-comment-container">
+			<div
+				className="minimized-comment-header"
+				role="button"
+				onClick={toggleContent}
+				aria-expanded={showContent}
+				tabIndex={0}
+				onKeyDown={e => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						setShowContent(value => !value);
+					}
+				}}
+			>
+				<em>{minimizedReason ? `This comment was marked as ${minimizedReason}` : 'This comment was minimized'}</em>
 				<div className="minimized-comment-toggle">
 					{showContent ? foldIcon : unfoldIcon}
 					{showContent ? <span>Hide comment</span> : <span>Show comment</span>}
