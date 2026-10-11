@@ -521,6 +521,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const updateStart = performance.now();
 
 		try {
+			// PR list models may contain Markdown without the rendered description.
+			// Resolve the overview before sending the initial webview context.
+			if (pullRequestModel.body?.trim() && !pullRequestModel.bodyHTML?.trim()) {
+				const resolvedModel = await this.resolveModel({
+					owner: pullRequestModel.remote.owner,
+					repo: pullRequestModel.remote.repositoryName,
+					number: pullRequestModel.number,
+				});
+				if (!resolvedModel) {
+					throw new Error(`Failed to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
+				}
+				pullRequestModel = resolvedModel;
+				this._item = resolvedModel;
+			}
 			const dataTimings = new Map<string, number>();
 			const measure = async <T>(name: string, promise: Promise<T>): Promise<T> => {
 				const start = performance.now();
