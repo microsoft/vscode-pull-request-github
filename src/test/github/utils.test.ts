@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
+import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType } from '../../github/interface';
 import { getPRFetchQuery, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
@@ -15,6 +17,17 @@ import { GitHubRepository } from '../../github/githubRepository';
 describe('utils', () => {
 
 	describe('transformHtmlUrlsToExtensionUrls', () => {
+		let sinon: SinonSandbox;
+
+		beforeEach(() => {
+			sinon = createSandbox();
+			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
+		});
+
+		afterEach(() => {
+			sinon.restore();
+		});
+
 		it('does not add an extra quote to issue links', async () => {
 			const githubRepository = {
 				remote: {
