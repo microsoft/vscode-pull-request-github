@@ -63,7 +63,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * All open PR panels, keyed by "owner/repo#number".
 	 */
 	protected static override _panels: Map<string, PullRequestOverviewPanel> = new Map();
-	private static _repositoriesManager: RepositoriesManager | undefined;
 	private static readonly _updatingStacks = new Set<string>();
 
 	/**
@@ -129,10 +128,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private postCheckoutStatus(): void {
 		if (this._item) {
-			const checkedOutPullRequestNumber = this.getCheckedOutPullRequestNumber(this._item);
 			this._postMessage({
 				command: 'pr.update-checkout-status',
-				isCurrentlyCheckedOut: checkedOutPullRequestNumber === this._item.number,
+				isCurrentlyCheckedOut: this._item.equals(this._folderRepositoryManager.activePullRequest),
 				canUpdateStack: this.canUpdateStack(this._item),
 			});
 		}
@@ -184,7 +182,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._panels.set(key, panel);
 		}
 
-		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
+		await panel.updateWithIdentity(identity, issue);
 		if (!panel.isDisposed && panel._item) {
 			/* __GDPR__
 				"pr.openDescription" : {
@@ -263,16 +261,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * and looks up the matching panel.
 	 */
 	public static registerGlobalCommands(context: vscode.ExtensionContext, telemetry: ITelemetry, repositoriesManager: RepositoriesManager): void {
-		this._repositoriesManager = repositoriesManager;
+		IssueOverviewPanel.registerRepositoriesManager(context, repositoriesManager);
 		context.subscriptions.push(
 			repositoriesManager.onDidChangeActivePullRequest(manager => {
 				for (const panel of this._panels.values()) {
-					if (panel._folderRepositoryManager !== manager) {
+					if ((panel._localFolderRepositoryManager ?? panel._initialFolderRepositoryManager) !== manager) {
 						panel.postCheckoutStatus();
 					}
 				}
 			}),
-			{ dispose: () => { this._repositoriesManager = undefined; } },
 			vscode.commands.registerCommand('pr.readyForReviewDescription', async (ctx: ReadyForReviewContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
@@ -343,7 +340,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	protected override registerPrListeners() {
 		disposeAll(this._prListeners);
-		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(() => this.postCheckoutStatus()));
+		// Avoid re-entering the upgrading accessor while rebinding its listeners.
+		const manager = this._localFolderRepositoryManager ?? this._initialFolderRepositoryManager;
+		this._prListeners.push(manager.onDidChangeActivePullRequest(() => this.postCheckoutStatus()));
 
 		if (this._item) {
 			const repository = this._item.githubRepository;
@@ -594,7 +593,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				...baseContext,
 				canUpdateStack: this.canUpdateStack(pullRequest),
 				canRequestCopilotReview: false,
-				isCurrentlyCheckedOut: this.getCheckedOutPullRequestNumber(pullRequestModel) === pullRequestModel.number,
+				isCurrentlyCheckedOut: pullRequestModel.equals(this._folderRepositoryManager.activePullRequest),
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 				base: `${pullRequest.base.owner}/${pullRequest.remote.repositoryName}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
@@ -841,12 +840,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	public override async updateWithIdentity(
-		folderRepositoryManager: FolderRepositoryManager,
 		identity: UnresolvedIdentity,
 		pullRequestModel?: PullRequestModel | Promise<PullRequestModel>,
 		progressLocation?: string
 	): Promise<void> {
-		await super.updateWithIdentity(folderRepositoryManager, identity, pullRequestModel, progressLocation);
+		await super.updateWithIdentity(identity, pullRequestModel, progressLocation);
 
 		// Notify that this PR overview is now active
 		if (!this.isDisposed && this._item) {

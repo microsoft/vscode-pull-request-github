@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
+import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
 import { openItemOnGitHub } from '../commands';
 import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -14,6 +15,7 @@ import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, Repo
 import { IssueModel } from './issueModel';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
+import type { RepositoriesManager } from './repositoriesManager';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
 import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, IssuePreview, OverviewItemPreview, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -36,16 +38,48 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * All open panels, keyed by "owner/repo#number".
 	 */
 	protected static _panels: Map<string, IssueOverviewPanel> = new Map();
+	protected static _repositoriesManager: RepositoriesManager | undefined;
 
 	public static readonly viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;
 	protected _identity: UnresolvedIdentity;
-	protected _folderRepositoryManager: FolderRepositoryManager;
+	protected readonly _initialFolderRepositoryManager: FolderRepositoryManager;
+	protected _localFolderRepositoryManager: FolderRepositoryManager | undefined;
 	protected _scrollPosition = { x: 0, y: 0 };
 	private _identityUpdateSequence = 0;
 	protected readonly previewLog = { label: 'Issue', id: IssueOverviewPanel.ID };
+
+	protected get _folderRepositoryManager(): FolderRepositoryManager {
+		if (this._localFolderRepositoryManager) {
+			return this._localFolderRepositoryManager;
+		}
+		const manager = this._initialFolderRepositoryManager;
+		if (!this.isDisposed && manager.repository instanceof RemoteOnlyRepository && this._identity) {
+			const localManager = IssueOverviewPanel._repositoriesManager?.getManagerForRepository(this._identity.owner, this._identity.repo);
+			if (localManager && !(localManager.repository instanceof RemoteOnlyRepository)) {
+				this._localFolderRepositoryManager = localManager;
+				this.registerPrListeners();
+				Logger.debug(`Upgraded remote-only manager for ${this._identity.owner}/${this._identity.repo} to ${localManager.repository.rootUri.toString()}`, this.previewLog.id);
+				return localManager;
+			}
+		}
+		return manager;
+	}
+
+	protected static registerRepositoriesManager(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager): void {
+		IssueOverviewPanel._repositoriesManager = repositoriesManager;
+		context.subscriptions.push(
+			{
+				dispose: () => {
+					if (IssueOverviewPanel._repositoriesManager === repositoriesManager) {
+						IssueOverviewPanel._repositoriesManager = undefined;
+					}
+				}
+			},
+		);
+	}
 
 	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
 		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
@@ -90,7 +124,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this._panels.set(key, panel);
 		}
 
-		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
+		await panel.updateWithIdentity(identity, issue);
 	}
 
 	public static refresh(owner: string, repo: string, number: number): void {
@@ -167,7 +201,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 	) {
 		super();
-		this._folderRepositoryManager = folderRepositoryManager;
+		this._initialFolderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
 		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
@@ -191,17 +225,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		// Listen for when the panel is disposed
 		// This happens when the user closes the panel or when the panel is closed programmatically
 		this._register(this._panel.onDidDispose(() => this.dispose()));
-
-		this._register(this._folderRepositoryManager.onDidChangeActiveIssue(
-			_ => {
-				if (this._folderRepositoryManager && this._item) {
-					const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activeIssue);
-					this._postMessage({
-						command: 'pr.update-checkout-status',
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					});
-				}
-			}));
 
 		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
 			this.updateItem(this._item);
@@ -418,13 +441,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	/**
 	 * Update the panel with an unresolved identity and optional model.
 	 * If no model is provided, it will be resolved from the identity.
+	 * Repository manager selection is handled by the panel, not by updates.
 	 */
-	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem | undefined>, progressLocation?: string): Promise<void> {
+	public async updateWithIdentity(identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem | undefined>, progressLocation?: string): Promise<void> {
 		const updateSequence = ++this._identityUpdateSequence;
 		let loading = true;
 		const isLoading = () => loading && !this.isDisposed && updateSequence === this._identityUpdateSequence;
 		this._identity = identity;
-		this._folderRepositoryManager = foldersManager;
 
 		this._postMessage({
 			command: 'set-scroll',
@@ -442,7 +465,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			void (async () => {
 				try {
 					const start = Date.now();
-					const repository = await foldersManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
+					const repository = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
 					if (!isLoading()) {
 						return;
 					}

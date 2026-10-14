@@ -48,7 +48,8 @@ describe('OverviewRestorer', function () {
 	});
 
 	it('restores a pull request with a remote-only manager', async function () {
-		const folderManager = folderRepositoryManagerResolver.getManagerForRepository('microsoft', 'vscode-pull-request-github');
+		const folderManager = folderRepositoryManagerResolver.getRemoteOnlyManager();
+		const lookup = sandbox.spy(folderRepositoryManagerResolver, 'getManagerForRepository');
 		const pullRequest = {} as PullRequestModel;
 		sandbox.stub(folderManager, 'resolvePullRequest').resolves(pullRequest);
 		const createOrShow = sandbox.stub(PullRequestOverviewPanel, 'createOrShow').resolves();
@@ -66,5 +67,6 @@ describe('OverviewRestorer', function () {
 		assert.strictEqual(createOrShow.firstCall.args[2], folderManager);
 		assert.strictEqual(createOrShow.firstCall.args[4], pullRequest);
 		assert.strictEqual(createOrShow.firstCall.args[7], webviewPanel);
+		sandbox.assert.notCalled(lookup);
 	});
 });
