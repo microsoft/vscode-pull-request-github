@@ -88,7 +88,7 @@ export function CommentView(commentProps: Props) {
 	const canEdit: boolean = !!(comment as Partial<IComment | PullRequest | CommentEvent>).canEdit;
 	const canDelete: boolean = !!(comment as Partial<IComment | CommentEvent>).canDelete;
 	const isMinimized: boolean = (comment as Partial<CommentEvent>).isMinimized ?? false;
-	const minimizedReason: string | undefined = (comment as Partial<CommentEvent>).minimizedReason?.toLowerCase() ?? undefined;
+	const minimizedReason: string | undefined = (comment as Partial<CommentEvent>).minimizedReason?.toLowerCase().replace(/_/g, ' ') ?? undefined;
 
 	const pullRequestReviewId = (comment as IComment).pullRequestReviewId;
 	const [bodyMd, setBodyMd] = useStateProp(body);
