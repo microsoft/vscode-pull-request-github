@@ -9,7 +9,7 @@ import * as path from 'path';
 import { getModifiedContentFromDiffHunk } from '../../common/diffHunk';
 
 describe('Real Diff Apply', function () {
-	createTestsFromFixtures(path.join(__dirname, './fixtures/gitdiff'), (original: string, diff: string, expected: string, messages: string[]) => {
+	createTestsFromFixtures(path.join(__dirname, '../common/fixtures/gitdiff'), (original: string, diff: string, expected: string, messages: string[]) => {
 		const actual = getModifiedContentFromDiffHunk(original, diff);
 		assert.deepStrictEqual(actual, expected);
 	});
