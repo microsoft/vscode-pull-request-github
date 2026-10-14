@@ -14,6 +14,7 @@ import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { isObject } from '../common/utils';
 
 interface RestResponse {
 	headers: {
@@ -35,13 +36,11 @@ export enum GraphQLErrorType {
 export interface GraphQLError {
 	extensions?: {
 		code: string;
+		typeName?: string;
+		fieldName?: string;
 	};
 	type?: GraphQLErrorType;
 	message?: string;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
 }
 
 /**

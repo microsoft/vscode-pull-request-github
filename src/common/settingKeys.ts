@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
+export const EXPERIMENTAL_STACKS = 'experimental.stacks';
 export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
 export const OPEN_PULL_LINKS = 'openPullLinks';
 export const BRANCH_PUBLISH = 'createOnPublishBranch';
@@ -94,6 +95,7 @@ export const BRANCH_RANDOM_NAME_DICTIONARY = 'branchRandomName.dictionary';
 // GitHub Enterprise
 export const GITHUB_ENTERPRISE = 'github-enterprise';
 export const URI = 'uri';
+export const URIS = 'uris';
 
 // Editor
 export const EDITOR = 'editor';

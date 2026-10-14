@@ -85,6 +85,7 @@ export interface RepositoryState {
 	readonly mergeChanges: Change[];
 	readonly indexChanges: Change[];
 	readonly workingTreeChanges: Change[];
+	readonly untrackedChanges?: Change[];
 
 	readonly onDidChange: Event<void>;
 }
@@ -211,6 +212,8 @@ export interface Repository {
 	fetch(remote?: string, ref?: string, depth?: number): Promise<void>;
 	pull(unshallow?: boolean): Promise<void>;
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
+	pushRefWithLease?(remote: string, branch: string, newSha: string, expectedSha: string): Promise<void>;
+	getRemoteRefs?(remote: string, opts?: { heads?: boolean; tags?: boolean }): Promise<Ref[]>;
 
 	blame(path: string): Promise<string>;
 	log(options?: LogOptions): Promise<Commit[]>;
@@ -219,6 +222,10 @@ export interface Repository {
 	add(paths: string[]): Promise<void>;
 	merge(ref: string): Promise<void>;
 	mergeAbort(): Promise<void>;
+	rebase?(upstream: string, options?: { onto?: string; rebaseMerges?: boolean }): Promise<void>;
+	rebaseAbort?(): Promise<void>;
+	updateRef?(ref: string, newSha: string, oldSha: string): Promise<void>;
+	resetKeep?(ref: string): Promise<void>;
 
 	createWorktree?(options?: { path?: string; commitish?: string; branch?: string }): Promise<string>;
 	deleteWorktree?(path: string, options?: { force?: boolean }): Promise<void>;
@@ -253,6 +260,7 @@ export interface IGit {
 
 	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
 	getRepositoryWorkspace?(uri: Uri): Promise<Uri[] | null>;
+	openWorktreeRepository?(uri: Uri): Promise<Repository | null>;
 	clone?(uri: Uri, options?: CloneOptions): Promise<Uri | null>;
 }
 

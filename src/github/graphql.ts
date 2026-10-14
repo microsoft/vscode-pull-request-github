@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ForkDetails } from './githubRepository';
+import { GithubItemStateEnum } from './interface';
 import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 
 interface PageInfo {
@@ -14,11 +15,12 @@ interface PageInfo {
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	actor: Actor;
+	actor: Actor | null;
 	createdAt: string;
 	mergeRef: {
 		name: string;
-	};
+	} | null;
+	mergeRefName: string;
 	commit: {
 		oid: string;
 		commitUrl: string;
@@ -193,12 +195,12 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
-			user: Account;
-		};
+			user: Account | null;
+		} | null;
 		committer: {
 			avatarUrl: string;
 			name: string;
-		};
+		} | null;
 		oid: string;
 		message: string;
 		committedDate: Date;
@@ -813,6 +815,38 @@ export interface PullRequestResponse {
 		pullRequest: PullRequest;
 	} | null;
 	rateLimit: RateLimit;
+}
+
+export interface PullRequestStackResponse {
+	repository: {
+		pullRequest: {
+			stackEntry: { position: number } | null;
+			stack: {
+				size: number;
+				baseRefName: string;
+				entries: {
+					nodes: {
+						position: number;
+						pullRequest: {
+							number: number;
+							title: string;
+							url: string;
+							state: GithubItemStateEnum;
+							isDraft: boolean;
+							baseRefName: string;
+							baseRepository: { owner: { login: string } } | null;
+							headRefName: string;
+							headRepository: { owner: { login: string } } | null;
+							mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+							mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+							mergeQueueEntry?: { state: string } | null;
+						};
+					}[];
+					pageInfo: { hasNextPage: boolean; endCursor: string | null };
+				};
+			} | null;
+		} | null;
+	} | null;
 }
 
 export interface IssueResponse {

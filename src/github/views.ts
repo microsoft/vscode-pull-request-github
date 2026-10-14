@@ -16,10 +16,12 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	PullRequestStack,
 	Reaction,
 	ReviewState,
 	StateReason,
 } from './interface';
+import type { StackMergeOutcome } from './pullRequestModel';
 import { IComment } from '../common/comment';
 import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
@@ -73,9 +75,24 @@ export interface Issue {
 	busy?: boolean;
 }
 
+/** Read-only content shown during a cold load; never persisted as a complete issue. */
+export type IssuePreview = Pick<Issue, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'stateReason'> & { isIssue: true };
+
+/** Read-only content shown during a cold load; never persisted as a complete PR. */
+export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head'> & { isIssue?: false; stateReason?: undefined };
+
+export type OverviewItemPreview = IssuePreview | PullRequestPreview;
+
 export interface PullRequest extends Issue {
+	/** Use null to clear a previous value in serialized webview updates. */
+	stack?: PullRequestStack | null;
+	canUpdateStack?: boolean;
+	stackLoaded?: boolean;
+	stackLoadError?: boolean;
+	stackMergeStatus?: 'pending' | 'enqueued';
 	isCopilotOnMyBehalf: boolean;
-	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
@@ -98,7 +115,8 @@ export interface PullRequest extends Issue {
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
-	mergeQueueMethod: MergeMethod | undefined;
+	/** Use null to clear a previous value in serialized webview updates. */
+	mergeQueueMethod: MergeMethod | undefined | null;
 	mergeQueueEntry?: {
 		url: string;
 		position: number;
@@ -172,6 +190,20 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface StackMergeResult {
+	status: StackMergeOutcome;
+	state?: GithubItemStateEnum;
+}
+
+export interface UnstackAllResult {
+	cancelled: boolean;
+	remainingPullRequests?: number[];
+}
+
+export interface UpdateStackResult {
+	updatedPullRequests: number[];
 }
 
 export interface DeleteReviewResult {

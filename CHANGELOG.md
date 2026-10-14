@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.170.0
+
+### Changes
+
+- Add an "Update stack" action to the pull request overview, which rebases the branches in a stacked pull request onto their updated bases and pushes them. Requires that one of the PRs in the stack be checked out, and is still limited only to stacks that don't contain merge conflicts.
+
+### Fixes
+
+- Copilot pull request state polling throws `RangeError: Invalid array length` while accumulating paginated results. https://github.com/microsoft/vscode-pull-request-github/issues/9023
+- Issue links in overview HTML are emitted with an extra quote in href. https://github.com/microsoft/vscode-pull-request-github/issues/9022
+- Issue links wait on redundant serial GraphQL queries. https://github.com/microsoft/vscode-pull-request-github/issues/8979
+- Clicking the pull request number opens two GitHub tabs since 0.166.0. https://github.com/microsoft/vscode-pull-request-github/issues/8955
+- Pull request overview remains stuck checking mergeability after an `UNKNOWN` response. https://github.com/microsoft/vscode-pull-request-github/issues/8953
+
+**_Thank You_**
+
+* [@L4XB (Lukas)](https://github.com/L4XB): Don't open two browser tabs when clicking the pull request number [PR #8962](https://github.com/microsoft/vscode-pull-request-github/pull/8962)
+* [@strawberry-little-bear](https://github.com/strawberry-little-bear): Fix malformed issue links in overview HTML [PR #9025](https://github.com/microsoft/vscode-pull-request-github/pull/9025)
+* [@vsharha (Viktor Sharha)](https://github.com/vsharha): Fix mergeability polling in pull request overview [PR #8954](https://github.com/microsoft/vscode-pull-request-github/pull/8954)
+
+## 0.168.0
+
+### Changes
+
+- Add support for stacked pull requests. Set `githubPullRequests.experimental.stacks` to `true` to enable this feature.
+
+![Add existing pull requests to stack](./documentation/changelog/0.168.0/add-prs-to-stack.png)
+
+![Stack shows in pull request webview](./documentation/changelog/0.168.0/show-pr-stack-in-webview.png)
+
+![Unstack all pull requests in a stack](./documentation/changelog/0.168.0/unstack-a-stack.png)
+
+- Show branch deletion options in a modal dialog after merging a pull request.
+- Support configuring and selecting between multiple GitHub Enterprise instances.
+
+### Fixes
+
+- Multiple accounts don't work for any but the first account added. https://github.com/microsoft/vscode-pull-request-github/issues/8789
+
 ## 0.166.1
 
 ### Fixes

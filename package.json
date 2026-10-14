@@ -45,11 +45,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.166.1",
+	"version": "0.170.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.140.0"
+		"vscode": "^1.141.0"
 	},
 	"categories": [
 		"Other",
@@ -359,7 +359,7 @@
 				},
 				"githubPullRequests.openPullLinks": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "application",
 					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
 					"tags": [
@@ -597,6 +597,12 @@
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": true
+				},
+				"githubPullRequests.experimental.stacks": {
+					"type": "boolean",
+					"description": "%githubPullRequests.experimental.stacks.description%",
+					"default": true,
+					"included": false
 				},
 				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
@@ -1135,6 +1141,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.addToStack",
+				"title": "%command.pr.addToStack.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openFileOnGitHub",
 				"title": "%command.pr.openFileOnGitHub.title%",
 				"category": "%command.pull.request.category%"
@@ -1273,6 +1284,11 @@
 			{
 				"command": "pr.signinenterprise",
 				"title": "%command.pr.signinenterprise.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.selectEnterpriseAccount",
+				"title": "%command.pr.selectEnterpriseAccount.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2004,7 +2020,7 @@
 			},
 			{
 				"view": "github:login",
-				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)) && !isSessionsWindow",
+				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || github:hasEnterpriseUris)) && !isSessionsWindow",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
@@ -2157,7 +2173,7 @@
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
+					"when": "(config.githubPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",
@@ -2250,6 +2266,10 @@
 				{
 					"command": "pr.openPullRequestOnGitHub",
 					"when": "(gitHubOpenRepositoryCount != 0 && github:inReviewMode) && !isSessionsWindow"
+				},
+				{
+					"command": "pr.addToStack",
+					"when": "false"
 				},
 				{
 					"command": "pr.openAllDiffs",
@@ -2430,6 +2450,10 @@
 				{
 					"command": "pr.signinenterprise",
 					"when": "(gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes) && !isSessionsWindow"
+				},
+				{
+					"command": "pr.selectEnterpriseAccount",
+					"when": "github:hasEnterpriseUris && !isSessionsWindow"
 				},
 				{
 					"command": "pr.signinAndRefreshList",
@@ -2978,6 +3002,11 @@
 			],
 			"view/item/context": [
 				{
+					"command": "pr.addToStack",
+					"when": "(view == pr:github && viewItem =~ /pullrequest.*:stackable/ && github:canAddToStack) && !isSessionsWindow",
+					"group": "0_stack@1"
+				},
+				{
 					"command": "pr.pick",
 					"when": "(view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/) && !isSessionsWindow",
 					"group": "1_pullrequest@1"
@@ -3118,12 +3147,12 @@
 				},
 				{
 					"command": "pr.revealFileInOS",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:(ADD|DELETE))/) && !isSessionsWindow",
 					"group": "0_open@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:(MODIFY|DELETE)/) && !isSessionsWindow",
 					"group": "0_open@2"
 				},
 				{
@@ -4279,8 +4308,9 @@
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
 		"lint": "eslint --fix --cache . --ext .ts,.tsx",
 		"package": "npx vsce package",
-		"test": "npm run test:preprocess && npm run test:scripts && node ./out/src/test/runTests.js",
+		"test": "npm run test:preprocess && npm run test:scripts && npm run test:webviews && node ./out/src/test/runTests.js",
 		"test:scripts": "mocha \"out/src/test/scripts/**/*.test.js\"",
+		"test:webviews": "node scripts/test-webviews.js",
 		"test:preprocess": "npm run compile:test && npm run test:preprocess-gql && npm run test:preprocess-svg && npm run test:preprocess-fixtures",
 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
 		"browsertest": "npm run browsertest:preprocess && node ./dist/browser/test/runTests.js",
@@ -4386,7 +4416,7 @@
 		"js-yaml": "^4.3.2",
 		"jsonc-parser": "^3.3.1",
 		"lru-cache": "6.0.0",
-		"markdown-it": "^14.2.0",
+		"markdown-it": "^14.3.1",
 		"marked": "^4.0.10",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",

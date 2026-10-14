@@ -17,7 +17,8 @@ import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { areStacksEnabled } from '../common/settingsUtils';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -28,14 +29,20 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	public override readonly viewType = 'github:activePullRequest';
 	private _existingReviewers: ReviewState[] = [];
 	private _updatingPromise: Promise<unknown> | undefined;
+	private _stackUpdateSequence = 0;
 
 	constructor(
 		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
-		private readonly _reviewManager: ReviewManager,
+		private readonly _reviewManager: Pick<ReviewManager, 'createPullRequest'>,
 		private _item: PullRequestModel,
 	) {
 		super(extensionUri);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
+				void this.updatePullRequest(this._item);
+			}
+		}));
 
 		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
 			return this.readyForReviewCommand();
@@ -89,6 +96,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.createComment(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.merge-stack':
+				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
 			case 'pr.open-create':
 				return this.create();
 			case 'pr.deleteBranch':
@@ -165,6 +174,49 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			}
 		}));
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.githubRepository.onDidChangeStack(numbers => {
+			if (numbers.includes(this._item.number)) {
+				void this.refreshStack();
+			}
+		}));
+	}
+
+	public override dispose(): void {
+		disposeAll(this._prDisposables ?? []);
+		this._updatePendingVisibility?.dispose();
+		super.dispose();
+	}
+
+	private async refreshStack(): Promise<void> {
+		const updateSequence = ++this._stackUpdateSequence;
+		const pullRequest = this._item;
+		if (this.isDisposed || !this._view || !areStacksEnabled()) {
+			return;
+		}
+		try {
+			const stack = await pullRequest.getStack();
+			if (this.isDisposed || updateSequence !== this._stackUpdateSequence || !areStacksEnabled()) {
+				return;
+			}
+			const mergeQueueMethod = await this._folderRepositoryManager.mergeQueueMethodForBranch(
+				stack?.base ?? pullRequest.base.ref, pullRequest.remote.owner, pullRequest.remote.repositoryName);
+			if (!this.isDisposed && updateSequence === this._stackUpdateSequence && areStacksEnabled()) {
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						stack: stack ?? null,
+						stackLoaded: true,
+						stackLoadError: false,
+						mergeQueueMethod: mergeQueueMethod ?? null,
+					} satisfies Partial<PullRequest>,
+				});
+			}
+		} catch (error) {
+			Logger.error(`Failed to load active pull request stack: ${formatError(error)}`, PullRequestViewProvider.name);
+			if (!this.isDisposed && updateSequence === this._stackUpdateSequence && areStacksEnabled()) {
+				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+			}
+		}
 	}
 
 	private _updatePendingVisibility: vscode.Disposable | undefined = undefined;
@@ -181,6 +233,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 
 		try {
+			this._stackUpdateSequence++;
 			if (this._view && !this._view.visible) {
 				this._updatePendingVisibility?.dispose();
 				this._updatePendingVisibility = this._view.onDidChangeVisibility(async () => {
@@ -189,7 +242,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				});
 			}
 
-			if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
+			if ((this._prDisposables === undefined) || !isSamePullRequest) {
 				this.registerPrSpecificListeners(pullRequestModel);
 			}
 			this._item = pullRequestModel;
@@ -300,6 +353,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				mergeMethodsAvailability,
 				defaultMergeMethod,
 				mergeQueueMethod,
+				stack: undefined,
+				stackLoaded: !areStacksEnabled(),
+				stackLoadError: false,
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch,
 				isIssue: false,
@@ -318,6 +374,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				command: 'pr.initialize',
 				pullrequest: context,
 			});
+			void this.refreshStack();
 
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating active pull request view: ${formatError(e)}`);

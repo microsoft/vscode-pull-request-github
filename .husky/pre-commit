@@ -10,7 +10,7 @@ lint_pid=''
 # Stream a NUL-delimited list directly to xargs -0 so paths with spaces/newlines
 # are handled safely (command substitution would strip NUL bytes).
 if git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' | grep -q .; then
-	git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' | xargs -0 node ./node_modules/eslint/bin/eslint.js --fix --cache &
+	git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' | xargs -0 node ./node_modules/eslint/bin/eslint.js --fix --cache --no-warn-ignored &
 	lint_pid=$!
 fi
 

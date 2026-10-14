@@ -76,6 +76,9 @@ export interface CreatePullRequestNew {
 	draft: boolean;
 	autoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
+	addToStack?: boolean;
+	stackParentPullRequest?: number;
+	stackNumber?: number;
 	labels: ILabel[];
 	projects: IProject[];
 	assignees: IAccount[];
@@ -131,6 +134,8 @@ export interface CreateParamsNew {
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
 	baseHasMergeQueue: boolean;
+	stackCandidate?: StackCandidate;
+	addToStack?: boolean;
 
 	creating: boolean;
 	reviewing: boolean;
@@ -151,6 +156,8 @@ export interface ChooseBaseRemoteAndBranchResult {
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	autoMergeDefault: boolean;
 	baseHasMergeQueue: boolean;
+	stackCandidate?: StackCandidate;
+	warning?: string;
 	defaultTitle: string;
 	defaultDescription: string;
 }
@@ -159,6 +166,15 @@ export interface ChooseCompareRemoteAndBranchResult {
 	compareRemote: RemoteInfo;
 	compareBranch: string;
 	defaultCompareBranch: string;
+	stackCandidate?: StackCandidate;
+	warning?: string;
+}
+
+export interface StackCandidate {
+	parentPullRequestNumber: number;
+	stackNumber?: number;
+	size: number;
+	url: string;
 }
 
 export interface TitleAndDescriptionArgs {

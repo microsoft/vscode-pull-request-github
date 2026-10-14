@@ -16,11 +16,12 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { IGit, Repository } from '../../api/api';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { LoggingOctokit } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { commands, env, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
+import { commands, env, EventEmitter, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -29,6 +30,8 @@ import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequest
 import { IRequestMessage } from '../../common/webview';
 import { PullRequestMergeability } from '../../github/interface';
 import { PullRequest } from '../../github/views';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { UserBuilder } from '../builders/rest/userBuilder';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -36,6 +39,7 @@ describe('PullRequestManager', function () {
 	let telemetry: MockTelemetry;
 	let mockThemeWatcher: MockThemeWatcher;
 	let repository: MockRepository;
+	let git: GitApiImpl;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -47,11 +51,141 @@ describe('PullRequestManager', function () {
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
 		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+		git = new GitApiImpl(repositoriesManager);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, git, credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
 	});
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('overview resolution', function () {
+		const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+
+		beforeEach(function () {
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('fetches the PR concurrently with cold repository metadata', async function () {
+			let resolveMetadata: (value: typeof metadata) => void;
+			const pendingMetadata = new Promise<typeof metadata>(resolve => resolveMetadata = resolve);
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').returns(pendingMetadata);
+			const getPullRequest = sinon.stub(GitHubRepository.prototype, 'getPullRequest').callsFake(async function (this: GitHubRepository) {
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), this);
+				return new PullRequestModel(manager.credentialStore, telemetry, this, this.remote, item);
+			});
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+			const opening = manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview');
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.calledOnce(getMetadata);
+				sinon.assert.calledOnce(getPullRequest);
+				sinon.assert.calledWithExactly(getPullRequest, 1347, 'FolderRepositoryManager.resolvePullRequest', false, false, 'overview');
+			} finally {
+				resolveMetadata!(metadata);
+			}
+			const pr = await opening;
+			assert.strictEqual(pr?.number, 1347);
+			sinon.assert.notCalled(updates);
+		});
+
+		it('shares repository creation between concurrent preview and full loads', async function () {
+			const [previewRepository, fullRepository] = await Promise.all([
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+			]);
+
+			assert.ok(previewRepository);
+			assert.strictEqual(previewRepository, fullRepository);
+			assert.deepStrictEqual(manager.gitHubRepositories, [previewRepository]);
+		});
+
+		it('still rejects and remembers inaccessible repositories', async function () {
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(GitHubRepository.prototype, 'getPullRequest').resolves(undefined);
+
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			sinon.assert.calledOnce(getMetadata);
+		});
+
+		for (const [name, error] of [
+			['network timeout', new Error('Temporary network timeout')],
+			['server error', Object.assign(new Error('Service unavailable'), { status: 503 })],
+			['rate limit', Object.assign(new Error('Rate limited'), { status: 429 })],
+			['SAML authorization', Object.assign(new Error('Resource protected by organization SAML enforcement.'), { status: 404 })],
+		] as const) {
+			it(`retries metadata after a ${name} failure without removing the repository`, async function () {
+				const repo = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+				assert.ok(repo);
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), repo);
+				const pr = new PullRequestModel(manager.credentialStore, telemetry, repo, repo.remote, item);
+				sinon.stub(repo, 'getPullRequest').resolves(pr);
+				const getMetadata = sinon.stub(repo, 'getMetadata');
+				getMetadata.onFirstCall().rejects(error);
+				getMetadata.onSecondCall().resolves(metadata);
+
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+				assert.deepStrictEqual(manager.gitHubRepositories, [repo]);
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), pr);
+				sinon.assert.calledTwice(getMetadata);
+			});
+		}
+	});
+
+	describe('openWorktreeRepository', function () {
+		it('opens temporary worktrees through the provider for the selected repository', async function () {
+			const events = new EventEmitter<Repository>();
+			const worktree = new MockRepository();
+			const openWorktreeRepository = sinon.stub().resolves(worktree);
+			const unrelated = new MockRepository();
+			unrelated.rootUri = Uri.file('/unrelated');
+			const unrelatedOpen = sinon.stub().resolves(unrelated);
+			git.registerGitProvider({
+				repositories: [unrelated],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+				openWorktreeRepository: unrelatedOpen,
+			});
+			const provider: IGit = {
+				repositories: [repository],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+				openWorktreeRepository,
+			};
+			git.registerGitProvider(provider);
+			const uri = Uri.file('/tmp/pr-stack-worktree');
+
+			assert.strictEqual(await manager.openWorktreeRepository(uri), worktree);
+			assert(openWorktreeRepository.calledOnceWithExactly(uri));
+			assert(unrelatedOpen.notCalled);
+			events.dispose();
+		});
+
+		it('reports a provider that cannot open temporary worktrees', async function () {
+			const events = new EventEmitter<Repository>();
+			git.registerGitProvider({
+				repositories: [repository],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+			});
+			await assert.rejects(manager.openWorktreeRepository(Uri.file('/tmp/pr-stack-worktree')),
+				/The Git provider cannot open a temporary worktree/);
+			events.dispose();
+		});
 	});
 
 	describe('updateRepositories', function () {

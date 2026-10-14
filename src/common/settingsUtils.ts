@@ -6,7 +6,17 @@
 'use strict';
 import * as vscode from 'vscode';
 import { commands } from './executeCommands';
-import { CHAT_SETTINGS_NAMESPACE, DISABLE_AI_FEATURES, PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
+import { CHAT_SETTINGS_NAMESPACE, DISABLE_AI_FEATURES, EXPERIMENTAL_STACKS, PR_SETTINGS_NAMESPACE, QUERIES, USE_REVIEW_MODE } from './settingKeys';
+
+export function areStacksEnabled(): boolean {
+	return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_STACKS, true);
+}
+
+export function assertStacksEnabled(): void {
+	if (!areStacksEnabled()) {
+		throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
+	}
+}
 
 export function getReviewMode(): { merged: boolean, closed: boolean } {
 	const desktopDefaults = { merged: false, closed: false };
