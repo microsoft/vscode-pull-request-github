@@ -1,0 +1,87 @@
+name: Webview screenshots
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm install --no-save
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run explorer:check
+      - run: npm run explorer:render -- --workers 1
+      - name: Require screenshots without fixture diagnostics
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          import { join } from 'node:path';
+          const directory = '.screenshots/current';
+          const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json')));
+          assert(manifest.fixtures.length > 0, 'No fixtures were captured');
+          for (const fixture of manifest.fixtures) {
+            assert(!fixture.hasError, `${fixture.fixtureId}: ${JSON.stringify(fixture.events)}`);
+            assert(fixture.imagePath, `${fixture.fixtureId}: missing screenshot`);
+            const image = readFileSync(join(directory, fixture.imagePath));
+            assert.equal(createHash('sha256').update(image).digest('hex'), fixture.imageHash, fixture.fixtureId);
+          }
+          JS
+      - name: Preserve screenshots and manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webview-screenshots
+          path: .screenshots/current/
+          if-no-files-found: error
+
+  publish:
+    needs: render
+    if: >-
+      github.repository == 'microsoft/vscode-pull-request-github' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SCREENSHOT_SERVICE_URL: https://hediet-screenshots.azurewebsites.net
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: webview-screenshots
+          path: screenshots
+      - name: Publish screenshots with GitHub OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd screenshots && zip -qr "$GITHUB_WORKSPACE/webview-screenshots.zip" .)
+          TOKEN=$(curl --fail-with-body --show-error --silent --get \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            --data-urlencode "audience=$SCREENSHOT_SERVICE_URL" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -er .value)
+          echo "::add-mask::$TOKEN"
+          curl --fail-with-body --show-error --silent --retry 3 \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/zip" \
+            --data-binary @"$GITHUB_WORKSPACE/webview-screenshots.zip" \
+            --output "$GITHUB_WORKSPACE/screenshot-upload-response.json" \
+            "${SCREENSHOT_SERVICE_URL%/}/upload"
+          cat "$GITHUB_WORKSPACE/screenshot-upload-response.json"
+          node -e 'const fs = require("node:fs"); const assert = require("node:assert/strict"); const result = JSON.parse(fs.readFileSync(process.argv[1])); const manifest = JSON.parse(fs.readFileSync("screenshots/manifest.json")); assert.equal(result.commitSha, manifest.commit.hash); assert.equal(result.fixtureCount, manifest.fixtures.length);' "$GITHUB_WORKSPACE/screenshot-upload-response.json"

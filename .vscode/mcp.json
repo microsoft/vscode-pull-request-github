@@ -1,0 +1,14 @@
+{
+	"servers": {
+		"component-explorer": {
+			"type": "stdio",
+			"command": "node",
+			"args": [
+				"${workspaceFolder}/node_modules/@vscode/component-explorer-cli/dist/index.js",
+				"mcp",
+				"-p",
+				"${workspaceFolder}/component-explorer.json"
+			]
+		}
+	}
+}

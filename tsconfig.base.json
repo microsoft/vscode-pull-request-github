@@ -23,5 +23,5 @@
 		"noImplicitOverride": true
 	},
 	"include": ["src", "webviews"],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules", "**/*.fixture.ts", "**/*.fixture.tsx", "webviews/fixtures"]
 }

@@ -1,0 +1,16 @@
+{
+	"extends": "./tsconfig.webviews.json",
+	"compilerOptions": {
+		"target": "es2022",
+		"lib": ["dom", "dom.iterable", "es2022"],
+		"moduleResolution": "bundler",
+		"tsBuildInfoFile": "out/component-explorer.tsbuildinfo"
+	},
+	"include": [
+		"src/@types",
+		"webviews/**/*.fixture.ts",
+		"webviews/**/*.fixture.tsx",
+		"webviews/fixtures"
+	],
+	"exclude": ["node_modules"]
+}

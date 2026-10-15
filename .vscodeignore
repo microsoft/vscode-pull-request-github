@@ -1,4 +1,7 @@
 .github
+component-explorer.json
+.screenshots/**
+.tmp/**
 .husky
 .readme/**
 .vscode/**
@@ -27,6 +30,7 @@ azure-pipeline.*
 **/tsconfig*.json
 *.tsbuildinfo
 **/webpack.config*.js
+**/webpack.config*.mjs
 npm-debug.log
 **/*.map
 **/*.svg

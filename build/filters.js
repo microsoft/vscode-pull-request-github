@@ -43,6 +43,7 @@ module.exports.indentationFilter = [
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
+	'!*.yml',
 	'!**/*.yml',
 	'!resources/emojis.json',
 
@@ -63,10 +64,12 @@ module.exports.copyrightFilter = [
 	'!.husky/**/*',
 	'!tsconfig.base.json',
 	'!tsconfig.browser.json',
+	'!tsconfig.explorer.json',
 	'!tsconfig.json',
 	'!tsconfig.test.json',
 	'!tsconfig.webviews.json',
 	'!tsconfig.scripts.json',
+	'!component-explorer.json',
 	'!tsfmt.json',
 	'!**/queries*.gql',
 	'!**/*.yml',
@@ -84,4 +87,3 @@ module.exports.tsFormattingFilter = [
 	'webviews/**/*.ts',
 	'**/fixtures/**/*'
 ];
-

@@ -1,0 +1,19 @@
+{
+	"$schema": "./node_modules/@vscode/component-explorer-cli/dist/component-explorer-config.schema.json",
+	"screenshotDir": ".screenshots",
+	"sessions": [
+		{ "name": "current" }
+	],
+	"server": {
+		"type": "http",
+		"cmd": "npm run explorer",
+		"cwd": ".",
+		"wait": {
+			"stdout": "Component Explorer listening at http://127.0.0.1:(?<port>\\d+)/"
+		},
+		"url": "http://127.0.0.1:${var:port}"
+	},
+	"redirection": {
+		"port": 5338
+	}
+}
