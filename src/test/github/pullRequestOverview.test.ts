@@ -39,6 +39,7 @@ import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import * as emoji from '../../common/emoji';
 import Logger from '../../common/logger';
 import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview } from '../../github/views';
+import * as stackGit from '../../github/updateStackBranches';
 
 const EXTENSION_URI = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 
@@ -1742,19 +1743,56 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual((panel as any).getStackRepository(model), undefined);
 		});
 
-		it('rejects a stack with conflicts before confirming or performing Git operations', async function () {
+		it('offers to update a stack with conflicts so they can be resolved while rebasing', async function () {
 			const { panel, stackQuery } = await openStackPanel();
 			stackQuery.resolves({
-				position: 1, size: 1, base: 'main',
-				pullRequests: [{ position: 1, number: 1000, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict }],
+				position: 2, size: 2, base: 'main', needsUpdate: true,
+				pullRequests: [
+					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict },
+					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+				],
 			});
-			const warning = sinon.stub(vscode.window, 'showWarningMessage');
-			const progress = sinon.stub(vscode.window, 'withProgress');
+			const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
-			await (panel as any).updateStack({ req: '1', command: 'pr.update-stack' });
-			assert(warning.notCalled);
-			assert(progress.notCalled);
-			assert.match(throwError.firstCall.args[1], /conflict-free chain/);
+			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+			await (panel as any).updateStack({ req: 'conflicts', command: 'pr.update-stack' });
+			assert(throwError.notCalled);
+			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /resolve them before anything is pushed/);
+			assert(reply.calledOnce);
+		});
+
+		it('passes conflicts to the guide and reports a cancelled resolution without an error', async function () {
+			const { panel } = await openStackPanel();
+			const cancellation = new vscode.CancellationTokenSource();
+			sinon.stub(vscode.window, 'showWarningMessage').resolves('Update stack' as never);
+			sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+			const info = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+			sinon.stub(panel as any, 'getStackRepository').returns({
+				manager: pullRequestManager, repository: pullRequestManager.repository, remote: { name: 'origin' },
+			});
+			const ref = (name: string) => ({ ref: name, owner: remote.owner, sha: `${name}-sha`, repositoryCloneUrl: { repositoryName: remote.repositoryName } });
+			sinon.stub(repo, 'getPullRequest').callsFake(async (number: number) => ({
+				state: GithubItemStateEnum.Open, mergeQueueEntry: undefined,
+				head: ref(number === 999 ? 'D1' : 'D2'), base: ref(number === 999 ? 'main' : 'D1'),
+			}) as unknown as PullRequestModel);
+			const update = sinon.stub(stackGit, 'updateStackBranches').callsFake(async (_repository, _open, _remote, branches) => {
+				throw new stackGit.StackUpdateCancelledError(branches[0]);
+			});
+			const throwError = sinon.stub(panel as any, '_throwError').resolves();
+			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+			const message = { req: 'cancelled', command: 'pr.update-stack' };
+
+			await (panel as any).updateStack(message);
+
+			assert.strictEqual(typeof update.firstCall.args[6], 'function', 'conflicts are resolved with the conflict guide');
+			sinon.assert.calledWithExactly(reply, message, { updatedPullRequests: [] });
+			assert(throwError.notCalled);
+			assert.match(info.firstCall.args[0], /cancelled\. No branches were pushed/);
+			assert.deepStrictEqual({
+				updating: (panel as any)._updatingStack,
+				locks: [...(PullRequestOverviewPanel as any)._updatingStacks],
+			}, { updating: false, locks: [] });
+			cancellation.dispose();
 		});
 
 		it('confirms only open PRs when trailing stack members are closed', async function () {
@@ -1792,7 +1830,7 @@ describe('PullRequestOverview', function () {
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
 			await (panel as any).updateStack({ req: 'closed-middle', command: 'pr.update-stack' });
 			assert(confirm.notCalled);
-			assert.match(throwError.firstCall.args[1], /open, conflict-free chain/);
+			assert.match(throwError.firstCall.args[1], /requires an open chain/);
 		});
 
 		it('rejects a direct update request when stacks are disabled', async function () {

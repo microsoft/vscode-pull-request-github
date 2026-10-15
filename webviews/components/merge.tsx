@@ -16,7 +16,7 @@ import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
-import { StackSection } from './pullRequestStack';
+import { canUpdatePullRequestStack, StackActions, StackSection, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -146,6 +146,7 @@ const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 };
 
 export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	const stackActions = useStackActions();
 	if (pr.isIssue) {
 		return null;
 	}
@@ -158,8 +159,8 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 					<RequiredReviewers pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
-					{!isSimple ? <StackSection pr={pr} /> : null}
-					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
+					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
+					<MergeStatusAndActions pr={pr} isSimple={isSimple} stackActions={stackActions} />
 					<DeleteOption pr={pr} />
 				</>
 			}
@@ -167,7 +168,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 	);
 };
 
-export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: PullRequest; isSimple: boolean; stackActions?: StackActions }) => {
 	const { create, checkMergeability } = useContext(PullRequestContext);
 
 	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
@@ -187,6 +188,11 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	const { mergeable: _mergeable } = pr;
 	const canUpdateWithMergeCommit = !pr.stack && pr.stackLoaded !== false && !pr.stackLoadError;
+	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
+	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? {
+		update: stackActions.update,
+		disabled: stackActions.updating || stackActions.unstacking || !!pr.stackMergeStatus,
+	} : undefined;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
 	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
@@ -206,7 +212,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	return (
 		<div>
 			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
-				canUpdateWithMergeCommit={canUpdateWithMergeCommit} />
+				canUpdateWithMergeCommit={canUpdateWithMergeCommit} stackUpdate={stackUpdate} />
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
 				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
@@ -216,11 +222,22 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean; canUpdateWithMergeCommit: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit, stackUpdate }: {
+	mergeable: PullRequestMergeability;
+	isSimple: boolean;
+	canUpdateBranch: boolean;
+	canUpdateWithMergeCommit: boolean;
+	/** Set when the branch belongs to a stack that can be updated; stacked branches never get merge commits. */
+	stackUpdate?: { update(): Promise<void>; disabled: boolean };
+}) => {
 	const { updateBranch } = useContext(PullRequestContext);
 	const [busy, setBusy] = useState(false);
 
 	const onClick = () => {
+		if (stackUpdate) {
+			stackUpdate.update();
+			return;
+		}
 		setBusy(true);
 		updateBranch().finally(() => setBusy(false));
 	};
@@ -234,7 +251,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	} else if (mergeable === PullRequestMergeability.Conflict) {
 		icon = closeIcon;
 		summary = 'This branch has conflicts that must be resolved.';
-		action = 'Resolve conflicts';
+		action = stackUpdate || canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
 	} else if (mergeable === PullRequestMergeability.NotMergeable) {
 		icon = closeIcon;
 		summary = 'Branch protection policy must be fulfilled before merging.';
@@ -257,9 +274,9 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 				<p>
 					{summary}
 				</p>
-				{(action && canUpdateBranch) ?
+				{(action && (stackUpdate || canUpdateBranch)) ?
 					<div className="button-container">
-						<button className="secondary" onClick={onClick} disabled={busy} >
+						<button className="secondary" onClick={onClick} disabled={stackUpdate ? stackUpdate.disabled : busy} >
 							{action}
 						</button>
 					</div>

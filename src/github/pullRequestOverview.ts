@@ -10,6 +10,7 @@ import { OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { Remote as GitRemote, Repository } from '../api/api';
 import { openItemOnGitHub } from '../commands';
 import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
+import { guideRebaseConflicts } from './conflictGuide';
 import { getCopilotApi } from './copilotApi';
 import { SessionIdForPr } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -32,7 +33,7 @@ import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
-import { supportsStackGitOperations, updateStackBranches } from './updateStackBranches';
+import { StackUpdateCancelledError, supportsStackGitOperations, updateStackBranches } from './updateStackBranches';
 import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
@@ -1234,7 +1235,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const stack = await this._item.getStack();
 			const openEntries = stack && getUpdatableStackEntries(stack);
 			if (!stack || !openEntries) {
-				throw new Error(vscode.l10n.t('Update stack requires an open, conflict-free chain of pull requests.'));
+				throw new Error(vscode.l10n.t('Update stack requires an open chain of pull requests.'));
 			}
 			const activeNumber = this.getCheckedOutPullRequestNumber(this._item);
 			if (activeNumber === undefined || !openEntries.some(entry => entry.number === activeNumber)) {
@@ -1253,7 +1254,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				{
 					modal: true, detail: stack.size > openEntries.length
 						? vscode.l10n.t('Closed pull requests at the top of the stack will be skipped. Open branches will be rebased and rewritten on GitHub.')
-						: vscode.l10n.t('This rewrites the stack branches on GitHub. The extension checks for conflicts before pushing and stops if a branch changes on GitHub.')
+						: vscode.l10n.t('This rewrites the stack branches on GitHub. If rebasing causes conflicts, you can resolve them before anything is pushed. The update stops if a branch changes on GitHub.')
 				},
 				action,
 			);
@@ -1299,7 +1300,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					}
 					return updateStackBranches(repository,
 						path => manager.openWorktreeRepository(vscode.Uri.file(path)),
-						remote.name, branches, activeNumber, step => progress.report({ message: step }));
+						remote.name, branches, activeNumber, step => progress.report({ message: step }),
+						worktree => guideRebaseConflicts(worktree));
 				},
 			);
 			await this._replyMessage(message, { updatedPullRequests });
@@ -1308,6 +1310,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				? vscode.l10n.t('Pull request stack updated.')
 				: vscode.l10n.t('Pull request stack is already up to date.'));
 		} catch (error) {
+			if (error instanceof StackUpdateCancelledError) {
+				await this._replyMessage(message, { updatedPullRequests: [] });
+				void vscode.window.showInformationMessage(vscode.l10n.t('Pull request stack update cancelled. No branches were pushed.'));
+				return;
+			}
 			Logger.error(`Failed to update pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to update pull request stack: {0}', formatError(error)));
 			await this._throwError(message, formatError(error));

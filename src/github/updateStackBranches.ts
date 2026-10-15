@@ -29,6 +29,51 @@ export function supportsStackGitOperations(repository: Repository): repository i
 		&& typeof repository.getRemoteRefs === 'function';
 }
 
+/**
+ * Guides the user through resolving the conflicts of the rebase stopped in `repository` and continuing it.
+ * Resolves to `true` once the rebase has moved past the conflicting commit, or `false` if the user cancelled.
+ */
+export type StackConflictResolver = (repository: Repository, branch: StackBranch) => Promise<boolean>;
+
+export class StackUpdateCancelledError extends Error {
+	constructor(branch: StackBranch) {
+		super(`Updating the stack was cancelled while rebasing #${branch.number} (${branch.head}). No branches were pushed.`);
+	}
+}
+
+async function isStoppedAtConflict(repository: StackGitRepository): Promise<boolean> {
+	if (typeof repository.rebaseContinue !== 'function') {
+		return false;
+	}
+	await repository.status();
+	return !!repository.state.rebaseCommit && repository.state.mergeChanges.length > 0;
+}
+
+async function resolveRebaseConflicts(repository: StackGitRepository, branch: StackBranch, newBase: string,
+	resolveConflicts: StackConflictResolver): Promise<void> {
+	for (; ;) {
+		await repository.status();
+		if (!repository.state.rebaseCommit) {
+			break;
+		}
+		if (!repository.state.mergeChanges.length) {
+			await repository.rebaseAbort();
+			throw new Error(`Rebasing #${branch.number} (${branch.head}) stopped without conflicts to resolve. No branches were pushed.`);
+		}
+		if (!await resolveConflicts(repository, branch)) {
+			await repository.status();
+			if (repository.state.rebaseCommit) {
+				await repository.rebaseAbort();
+			}
+			throw new StackUpdateCancelledError(branch);
+		}
+	}
+	// The rebase can also be aborted from the Source Control view, which leaves the branch on its old base.
+	if (await repository.getMergeBase(newBase, 'HEAD') !== newBase) {
+		throw new StackUpdateCancelledError(branch);
+	}
+}
+
 async function localBranches(repository: Repository): Promise<Map<string, string>> {
 	const branches = await repository.getBranches({ remote: false });
 	const result = new Map<string, string>();
@@ -70,6 +115,7 @@ export async function updateStackBranches(
 	branches: readonly StackBranch[],
 	activeNumber: number,
 	report: (message: string) => void,
+	resolveConflicts?: StackConflictResolver,
 ): Promise<number[]> {
 	if (!branches.length || new Set(branches.map(branch => branch.number)).size !== branches.length
 		|| new Set([branches[0].base, ...branches.map(branch => branch.head)]).size !== branches.length + 1
@@ -163,8 +209,12 @@ export async function updateStackBranches(
 			try {
 				await opened.rebase(forks[startIndex + index], { onto: newBase, rebaseMerges: true });
 			} catch (error) {
-				await opened.rebaseAbort();
-				throw new Error(`Rebasing #${branch.number} (${branch.head}) caused a conflict or failed: ${error}`);
+				if (!resolveConflicts || !await isStoppedAtConflict(opened)) {
+					await opened.rebaseAbort();
+					throw new Error(`Rebasing #${branch.number} (${branch.head}) caused a conflict or failed: ${error}`);
+				}
+				report(`Resolve the conflicts in #${branch.number} (${branch.head}) to continue`);
+				await resolveRebaseConflicts(opened, branch, newBase, resolveConflicts);
 			}
 			rebased.set(branch.head, (await opened.getCommit('HEAD')).hash);
 		}

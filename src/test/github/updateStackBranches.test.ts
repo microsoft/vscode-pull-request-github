@@ -7,7 +7,7 @@ import { strict as assert } from 'assert';
 import { Uri } from 'vscode';
 import { Branch, BranchQuery, Commit, FetchOptions, Ref, Repository, RepositoryState } from '../../api/api';
 import { RefType, Status } from '../../api/api1';
-import { StackBranch, StackGitRepository, updateStackBranches } from '../../github/updateStackBranches';
+import { StackBranch, StackConflictResolver, StackGitRepository, StackUpdateCancelledError, updateStackBranches } from '../../github/updateStackBranches';
 import { MockRepository } from '../mocks/mockRepository';
 
 class StackRepository extends MockRepository implements StackGitRepository {
@@ -16,6 +16,8 @@ class StackRepository extends MockRepository implements StackGitRepository {
 	readonly calls: string[] = [];
 	readonly upstream = new Map<string, string>();
 	failRebase = false;
+	/** Number of conflicting commits the next rebase of D1 stops at. */
+	conflictingStops = 0;
 	failPush?: string;
 	switchCheckoutOnPush?: string;
 	private head = 'd2-old';
@@ -50,7 +52,10 @@ class StackRepository extends MockRepository implements StackGitRepository {
 		return [...this.local].map(([name, commit]) => ({ type: RefType.Head, name, commit }));
 	}
 
-	override async getMergeBase(_base: string, head: string): Promise<string> {
+	override async getMergeBase(base: string, head: string): Promise<string> {
+		if (head === 'HEAD') {
+			return this.head.endsWith('-new') ? base : 'main-old';
+		}
 		return head === 'd1-old' || head === 'd1-new' ? 'main-old' : 'd1-old';
 	}
 
@@ -93,13 +98,38 @@ class StackRepository extends MockRepository implements StackGitRepository {
 		if (this.failRebase) {
 			throw new Error('Conflict');
 		}
+		if (this.conflictingStops && this.head === 'd1-old') {
+			this.stopAtConflict();
+			throw new Error('Conflict');
+		}
 		if (options.onto !== upstream) {
 			this.head = this.head === 'd1-old' ? 'd1-new' : 'd2-new';
 		}
 	}
 
+	private stopAtConflict(): void {
+		this.conflictingStops--;
+		const conflict = { uri: Uri.file('/worktree/file'), originalUri: Uri.file('/worktree/file'), renameUri: undefined, status: Status.BOTH_MODIFIED };
+		this.state = {
+			...this.state,
+			rebaseCommit: { hash: `stop-${this.conflictingStops}`, message: 'D1 commit', parents: [] },
+			mergeChanges: [conflict],
+		};
+	}
+
+	async rebaseContinue(): Promise<void> {
+		this.calls.push('continue rebase');
+		if (this.conflictingStops) {
+			this.stopAtConflict();
+			throw new Error('Conflict');
+		}
+		this.head = 'd1-new';
+		this.state = { ...this.state, rebaseCommit: undefined, mergeChanges: [] };
+	}
+
 	async rebaseAbort(): Promise<void> {
 		this.calls.push('abort rebase');
+		this.state = { ...this.state, rebaseCommit: undefined, mergeChanges: [] };
 	}
 
 	async pushRefWithLease(_remote: string, branch: string, newSha: string, expectedSha: string): Promise<void> {
@@ -216,6 +246,103 @@ describe('Update pull request stack branches', function () {
 		]);
 		assert(repository.calls.includes('delete worktree'));
 		assert.equal(repository.calls.some(call => call.startsWith('push')), false);
+	});
+
+	describe('conflict resolution', function () {
+		const resolved: number[] = [];
+		const continueRebase: StackConflictResolver = async (worktree, branch) => {
+			resolved.push(branch.number);
+			try {
+				await worktree.rebaseContinue!();
+			} catch {
+				// Continuing stopped at the next conflicting commit.
+			}
+			return true;
+		};
+		const updateResolving = (resolveConflicts: StackConflictResolver) =>
+			updateStackBranches(repository, open, 'origin', branches, 2, () => undefined, resolveConflicts);
+
+		beforeEach(function () {
+			resolved.length = 0;
+		});
+
+		it('pauses on a conflict, lets the user resolve it, and pushes only after the stack is rebased', async function () {
+			temporary.conflictingStops = 1;
+			let pushesWhileResolving: string[] | undefined;
+			const updated = await updateResolving(async (worktree, branch) => {
+				pushesWhileResolving = repository.calls.filter(call => call.startsWith('push'));
+				return continueRebase(worktree, branch);
+			});
+
+			assert.deepEqual({
+				updated, resolved, pushesWhileResolving,
+				local: [...repository.local], remote: [...repository.remote],
+				rebases: temporary.calls.filter(call => call.includes('rebase')),
+			}, {
+				updated: [1, 2], resolved: [1], pushesWhileResolving: [],
+				local: [['D1', 'd1-new'], ['D2', 'd2-new']],
+				remote: [['main', 'main-new'], ['D1', 'd1-new'], ['D2', 'd2-new']],
+				rebases: ['rebase main-old onto main-new preserving merges', 'continue rebase', 'rebase d1-old onto d1-new preserving merges'],
+			});
+		});
+
+		it('guides the user through every conflicting commit of a branch', async function () {
+			temporary.conflictingStops = 2;
+			const updated = await updateResolving(continueRebase);
+			assert.deepEqual({ updated, resolved }, { updated: [1, 2], resolved: [1, 1] });
+		});
+
+		it('aborts the rebase and pushes nothing when the user cancels', async function () {
+			temporary.conflictingStops = 1;
+			await assert.rejects(updateResolving(async () => false), StackUpdateCancelledError);
+			assert.deepEqual({
+				rebases: temporary.calls.filter(call => call.includes('rebase')),
+				removedWorktree: repository.calls.includes('delete worktree'),
+				pushed: repository.calls.some(call => call.startsWith('push')),
+				local: [...repository.local],
+			}, {
+				rebases: ['rebase main-old onto main-new preserving merges', 'abort rebase'],
+				removedWorktree: true, pushed: false,
+				local: [['D1', 'd1-old'], ['D2', 'd2-old']],
+			});
+		});
+
+		it('does not abort again when the guide already aborted the rebase', async function () {
+			temporary.conflictingStops = 1;
+			await assert.rejects(updateResolving(async worktree => {
+				await worktree.rebaseAbort!();
+				return false;
+			}), StackUpdateCancelledError);
+			assert.deepEqual(temporary.calls.filter(call => call === 'abort rebase'), ['abort rebase']);
+		});
+
+		it('treats a rebase aborted from Source Control as cancelled', async function () {
+			temporary.conflictingStops = 1;
+			await assert.rejects(updateResolving(async worktree => {
+				await worktree.rebaseAbort!();
+				return true;
+			}), StackUpdateCancelledError);
+			assert.equal(repository.calls.some(call => call.startsWith('push')), false);
+		});
+
+		it('aborts when the rebase stops without conflicts to resolve', async function () {
+			temporary.conflictingStops = 1;
+			await assert.rejects(updateResolving(async worktree => {
+				Object.assign(worktree.state, { mergeChanges: [], rebaseCommit: { hash: 'other-stop', message: '', parents: [] } });
+				return true;
+			}), /stopped without conflicts/);
+			assert.deepEqual(resolved, []);
+			assert(temporary.calls.includes('abort rebase'));
+			assert.equal(repository.calls.some(call => call.startsWith('push')), false);
+		});
+
+		it('aborts on conflict when the Git extension cannot continue a rebase', async function () {
+			temporary.conflictingStops = 1;
+			Object.assign(temporary, { rebaseContinue: undefined });
+			await assert.rejects(updateResolving(continueRebase), /caused a conflict/);
+			assert.deepEqual(resolved, []);
+			assert(temporary.calls.includes('abort rebase'));
+		});
 	});
 
 	it('cleans up when the Git extension cannot open the temporary worktree', async function () {
