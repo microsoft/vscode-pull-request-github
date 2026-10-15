@@ -6,11 +6,13 @@
 import { default as assert } from 'assert';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render } from 'react-testing-library';
+import { createSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { EventType, ReviewEvent } from '../../../src/common/timelineEvent';
+import { createTestHost } from '../../../src/test/webviews/testHost';
 import { PRContext, default as PullRequestContext } from '../../common/context';
-import { MessageHandler, vscode } from '../../common/message';
+import { vscodeTransport as vscode } from '../../common/host';
 import { Timeline } from '../../components/timeline';
 
 const ReviewSummaryView = ({ context }: { context: PRContext }) => {
@@ -55,7 +57,7 @@ describe('Review summary', function () {
 		};
 		pr.events = [pendingReview];
 
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		context.setPR(pr);
 		const view = render(<ReviewSummaryView context={context} />);
 		const summary = view.getByPlaceholderText('Leave a review summary comment') as HTMLTextAreaElement;
@@ -74,7 +76,7 @@ describe('Review summary', function () {
 		});
 		view.unmount();
 
-		const restoredContext = new PRContext();
+		const restoredContext = new PRContext(createTestHost());
 		const restoredView = render(<ReviewSummaryView context={restoredContext} />);
 		const restoredSummary = restoredView.getByPlaceholderText('Leave a review summary comment') as HTMLTextAreaElement;
 
@@ -109,13 +111,17 @@ describe('Review summary', function () {
 			state: 'PENDING',
 		};
 		pr.events = [pendingReview];
-		const context = new PRContext(pr, null, {
-			postMessage: async () => ({ deletedReviewId: pendingReview.id }),
-		} as unknown as MessageHandler);
-		context.setPR(pr);
-
-		await context.deleteReview();
-
-		assert.strictEqual(context.pr?.pendingReviewSummaryText, '');
+		const host = createTestHost(pr);
+		const sandbox = createSandbox();
+		sandbox.stub(host, 'postMessage').resolves({ deletedReviewId: pendingReview.id });
+		const context = new PRContext(host);
+		try {
+			context.setPR(pr);
+			await context.deleteReview();
+			assert.strictEqual(context.pr?.pendingReviewSummaryText, '');
+		} finally {
+			context.dispose();
+			sandbox.restore();
+		}
 	});
 });

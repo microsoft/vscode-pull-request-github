@@ -9,8 +9,9 @@ import { unmountComponentAtNode } from 'react-dom';
 import { act, cleanup, fireEvent, render } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { StackCandidate } from '../../../common/views';
+import { createTestHost } from '../../../src/test/webviews/testHost';
 import { CreatePRContextNew } from '../../common/createContextNew';
-import { MessageHandler, vscode } from '../../common/message';
+import { vscodeTransport as vscode } from '../../common/host';
 import { main, makeCreateMenuContext, StackOption } from '../app';
 
 describe('Create pull request stack', function () {
@@ -31,7 +32,6 @@ describe('Create pull request stack', function () {
 			unmountComponentAtNode(app);
 			app.remove();
 		}
-		CreatePRContextNew.instance.onchange = null;
 		vscode.setState(previousState);
 		sinon.restore();
 	});
@@ -63,7 +63,7 @@ describe('Create pull request stack', function () {
 	});
 
 	it('hides auto-merge menu choices only when adding to the stack', function () {
-		const context = new CreatePRContextNew();
+		const context = new CreatePRContextNew(createTestHost());
 		const params = {
 			...context.createParams,
 			allowAutoMerge: true,
@@ -81,7 +81,7 @@ describe('Create pull request stack', function () {
 		const app = document.createElement('div');
 		app.id = 'app';
 		document.body.appendChild(app);
-		const context = CreatePRContextNew.instance;
+		const context = new CreatePRContextNew(createTestHost());
 		context.updateState({
 			defaultBaseRemote: { owner: 'owner', repositoryName: 'repo' },
 			defaultBaseBranch: 'D3',
@@ -97,6 +97,7 @@ describe('Create pull request stack', function () {
 			autoMergeMethod: 'squash',
 			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
 		}, true);
+		context.dispose();
 		act(() => { main(); });
 
 		const checkbox = app.querySelector<HTMLInputElement>('.stack-option input');
@@ -118,9 +119,9 @@ describe('Create pull request stack', function () {
 	});
 
 	it('submits a stack request without auto-merge even when it was previously selected', async function () {
-		const handler = new MessageHandler(null);
+		const handler = createTestHost();
 		const postMessage = sinon.stub(handler, 'postMessage').resolves({});
-		const context = new CreatePRContextNew(null, handler);
+		const context = new CreatePRContextNew(handler);
 		context.updateState({
 			baseRemote: { owner: 'owner', repositoryName: 'repo' },
 			baseBranch: 'D3',
@@ -136,20 +137,25 @@ describe('Create pull request stack', function () {
 		await context.submit();
 
 		assert(postMessage.calledOnce);
-		assert.strictEqual(postMessage.firstCall.args[0].args.addToStack, true);
-		assert.strictEqual(postMessage.firstCall.args[0].args.stackParentPullRequest, 795);
-		assert.strictEqual(postMessage.firstCall.args[0].args.stackNumber, 12);
-		assert.strictEqual(postMessage.firstCall.args[0].args.autoMerge, false);
+		assert(postMessage.calledWithMatch({
+			command: 'pr.create',
+			args: {
+				addToStack: true,
+				stackParentPullRequest: 795,
+				stackNumber: 12,
+				autoMerge: false,
+			},
+		}));
 	});
 
 	it('clears a checked stack option when the base branch changes', async function () {
-		const handler = new MessageHandler(null);
+		const handler = createTestHost();
 		sinon.stub(handler, 'postMessage').resolves({
 			baseRemote: { owner: 'owner', repositoryName: 'repo' },
 			baseBranch: 'D2',
 			stackCandidate: { parentPullRequestNumber: 794, size: 1, url: 'https://github.com/owner/repo/pull/794' },
 		});
-		const context = new CreatePRContextNew(null, handler);
+		const context = new CreatePRContextNew(handler);
 		context.updateState({
 			baseRemote: { owner: 'owner', repositoryName: 'repo' },
 			baseBranch: 'D3',
@@ -174,7 +180,7 @@ describe('Create pull request stack', function () {
 			{ stackCandidate: { ...candidate, stackNumber: 13 } },
 		];
 		for (const params of cases) {
-			const context = new CreatePRContextNew();
+			const context = new CreatePRContextNew(createTestHost());
 			context.updateState({
 				baseRemote: { owner: 'owner', repositoryName: 'repo' },
 				compareRemote: { owner: 'owner', repositoryName: 'repo' },
@@ -187,7 +193,7 @@ describe('Create pull request stack', function () {
 			assert.strictEqual(context.createParams.addToStack, false);
 		}
 
-		const context = new CreatePRContextNew();
+		const context = new CreatePRContextNew(createTestHost());
 		context.updateState({ stackCandidate: candidate, addToStack: true });
 		await context.handleMessage({ command: 'pr.initialize', params: { pendingTitle: 'Fourth change' } });
 		assert.strictEqual(context.createParams.addToStack, true);
@@ -196,9 +202,9 @@ describe('Create pull request stack', function () {
 	});
 
 	it('keeps the selected branch and stack option when changing compare branches fails', async function () {
-		const handler = new MessageHandler(null);
+		const handler = createTestHost();
 		sinon.stub(handler, 'postMessage').rejects(new Error('Branch does not exist locally.'));
-		const context = new CreatePRContextNew(null, handler);
+		const context = new CreatePRContextNew(handler);
 		context.updateState({
 			compareRemote: { owner: 'owner', repositoryName: 'repo' },
 			compareBranch: 'D4',
@@ -214,14 +220,14 @@ describe('Create pull request stack', function () {
 	});
 
 	it('clears a stale branch warning after a successful selection of the same base branch', async function () {
-		const handler = new MessageHandler(null);
+		const handler = createTestHost();
 		sinon.stub(handler, 'postMessage').resolves({
 			baseRemote: { owner: 'owner', repositoryName: 'repo' },
 			baseBranch: 'D3',
 			stackCandidate: candidate,
 			warning: undefined,
 		});
-		const context = new CreatePRContextNew(null, handler);
+		const context = new CreatePRContextNew(handler);
 		context.updateState({
 			baseRemote: { owner: 'owner', repositoryName: 'repo' },
 			baseBranch: 'D3',
@@ -235,14 +241,14 @@ describe('Create pull request stack', function () {
 	});
 
 	it('replaces a stale compare-branch warning with the current server warning', async function () {
-		const handler = new MessageHandler(null);
+		const handler = createTestHost();
 		sinon.stub(handler, 'postMessage').resolves({
 			compareRemote: { owner: 'owner', repositoryName: 'repo' },
 			compareBranch: 'D4',
 			stackCandidate: candidate,
 			warning: 'A pull request already exists for this branch.',
 		});
-		const context = new CreatePRContextNew(null, handler);
+		const context = new CreatePRContextNew(handler);
 		context.updateState({
 			compareRemote: { owner: 'owner', repositoryName: 'repo' },
 			compareBranch: 'D4',

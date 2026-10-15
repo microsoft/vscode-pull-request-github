@@ -12,6 +12,7 @@ import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
+import { createTestHost } from '../../../src/test/webviews/testHost';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
@@ -32,7 +33,7 @@ describe('Overview', function () {
 
 	it('renders the PR header with title', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -46,7 +47,7 @@ describe('Overview', function () {
 
 	it('opens PR number links on GitHub', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
 
 		const out = render(
@@ -90,7 +91,7 @@ describe('Overview', function () {
 			isRequired: index % 2 === 0,
 		}));
 		const pr = new PullRequestBuilder().status(status => status.state(CheckState.Failure).statuses(statuses)).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const viewCheckLogs = sinon.stub(context, 'viewCheckLogs').resolves();
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -147,7 +148,7 @@ describe('Overview', function () {
 		try {
 			for (const Component of [Overview, ActivityBarOverview]) {
 				const out = render(
-					<PullRequestContext.Provider value={new PRContext(pr)}>
+					<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 						<Component {...pr} />
 					</PullRequestContext.Provider>,
 				);
@@ -167,7 +168,7 @@ describe('Overview', function () {
 
 	it('opens a PR number link exactly once', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
 
 		// Stands in for the webview host, which opens any anchor with an href that a click
@@ -215,7 +216,7 @@ describe('Overview', function () {
 				{ position: 3, number: 795, title: 'Third Change', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
 			],
 		}).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		context.setPR(pr);
 		const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'merged', state: GithubItemStateEnum.Merged });
 		const openOnGitHub = sinon.stub(context, 'openOnGitHub');
@@ -284,7 +285,7 @@ describe('Overview', function () {
 				],
 			}).build();
 			const out = render(
-				<PullRequestContext.Provider value={new PRContext(pr)}>
+				<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 					<Overview {...pr} />
 				</PullRequestContext.Provider>,
 			);
@@ -324,7 +325,7 @@ describe('Overview', function () {
 			})),
 		}).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -354,7 +355,7 @@ describe('Overview', function () {
 	it('does not show a stack badge or section for an unstacked pull request', function () {
 		const pr = new PullRequestBuilder().build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -377,7 +378,7 @@ describe('Overview', function () {
 						state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable,
 					})),
 				}).build();
-				const context = new PRContext(pr);
+				const context = new PRContext(createTestHost(pr));
 				context.setPR(pr);
 				const out = render(
 					<PullRequestContext.Provider value={context}>
@@ -423,7 +424,7 @@ describe('Overview', function () {
 			],
 		};
 		const pr = new PullRequestBuilder().number(795).stack(stack).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const unstackAll = sinon.stub(context, 'unstackAll').resolves({ cancelled: false, remainingPullRequests: [794] });
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -442,13 +443,13 @@ describe('Overview', function () {
 		assert(section.hasAttribute('open'));
 
 		out.rerender(
-			<PullRequestContext.Provider value={new PRContext({ ...pr, hasWritePermission: false })}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost({ ...pr, hasWritePermission: false }))}>
 				<Overview {...pr} hasWritePermission={false} />
 			</PullRequestContext.Provider>,
 		);
 		assert.strictEqual(out.queryByText('Unstack all'), null);
 		out.rerender(
-			<PullRequestContext.Provider value={new PRContext({ ...pr, stack: { ...stack, pullRequests: [stack.pullRequests[0]] } })}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost({ ...pr, stack: { ...stack, pullRequests: [stack.pullRequests[0]] } }))}>
 				<Overview {...pr} stack={{ ...stack, pullRequests: [stack.pullRequests[0]] }} />
 			</PullRequestContext.Provider>,
 		);
@@ -462,7 +463,7 @@ describe('Overview', function () {
 				{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 			],
 		}).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		sinon.stub(context, 'unstackAll').rejects(new Error('Stack is locked'));
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -485,7 +486,7 @@ describe('Overview', function () {
 				}],
 			}).build();
 			const out = render(
-				<PullRequestContext.Provider value={new PRContext(pr)}>
+				<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 					<Overview {...pr} />
 				</PullRequestContext.Provider>,
 			);
@@ -505,7 +506,7 @@ describe('Overview', function () {
 			],
 		};
 		const pr = new PullRequestBuilder().stack(stack).canUpdateStack(true).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1233, 1234] });
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -525,7 +526,7 @@ describe('Overview', function () {
 		const entry = { position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable };
 		const stack = { position: 1, size: 1, base: 'main', pullRequests: [entry] };
 		const pr = new PullRequestBuilder().stack(stack).canUpdateStack(true).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 		assert(out.getByText('Update stack'));
 		for (const change of [
@@ -544,7 +545,7 @@ describe('Overview', function () {
 			position: 1, size: 1, base: 'main',
 			pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable }],
 		}).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		sinon.stub(context, 'updateStack').rejects(new Error('Branch changed on GitHub'));
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 		fireEvent.click(out.getByText('Update stack'));
@@ -562,7 +563,7 @@ describe('Overview', function () {
 					state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind,
 				}],
 			}).build();
-			const context = new PRContext(pr);
+			const context = new PRContext(createTestHost(pr));
 			const failure = new Error('Previous action failed');
 			const update = sinon.stub(context, 'updateStack');
 			const unstack = sinon.stub(context, 'unstackAll');
@@ -610,7 +611,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -628,7 +629,7 @@ describe('Overview', function () {
 	it('keeps the original Delete Branch placement outside stacks', function () {
 		const pr = new PullRequestBuilder().state(GithubItemStateEnum.Closed).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -649,7 +650,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -673,7 +674,7 @@ describe('Overview', function () {
 		};
 		for (const mergeable of [PullRequestMergeability.Behind, PullRequestMergeability.Mergeable, PullRequestMergeability.NotMergeable]) {
 			const pr = new PullRequestBuilder().number(794).canUpdateBranch(true).mergeable(mergeable).stack(stack).build();
-			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			const out = render(<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert(out.container.querySelector('#pull-request-stack'));
 			if (mergeable === PullRequestMergeability.Behind) {
 				assert(out.getByText('This branch is out-of-date with the base branch.'));
@@ -693,7 +694,7 @@ describe('Overview', function () {
 		};
 		const pr = new PullRequestBuilder().number(794).canUpdateBranch(true).canUpdateStack(true)
 			.mergeable(PullRequestMergeability.Behind).stack(stack).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794] });
 		const updateBranch = sinon.stub(context, 'updateBranch');
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
@@ -721,7 +722,7 @@ describe('Overview', function () {
 		};
 		const pr = new PullRequestBuilder().number(794).canUpdateBranch(true).canUpdateStack(true)
 			.mergeable(PullRequestMergeability.Behind).stack(stack).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794, 795] });
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
@@ -741,7 +742,7 @@ describe('Overview', function () {
 				{ position: 3, number: 795, title: 'Third', head: 'D3', url: 'https://example.com/795', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 			],
 		}).build();
-		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		const out = render(<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}><Overview {...pr} /></PullRequestContext.Provider>);
 		assert.strictEqual(out.queryByText('Update stack'), null);
 	});
 
@@ -751,7 +752,7 @@ describe('Overview', function () {
 				position: 1, size: 1, base: 'main',
 				pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.NotMergeable }],
 			}).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1234] });
 		const updateBranch = sinon.stub(context, 'updateBranch');
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
@@ -767,7 +768,7 @@ describe('Overview', function () {
 	it('retains merge-commit updates for unstacked PRs and conflict resolution for stacked PRs', function () {
 		for (const mergeable of [PullRequestMergeability.Behind, PullRequestMergeability.Mergeable]) {
 			const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(mergeable).build();
-			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			const out = render(<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert(out.getByText(/Update with merge commit/i));
 			out.unmount();
 		}
@@ -775,7 +776,7 @@ describe('Overview', function () {
 			position: 1, size: 1, base: 'main',
 			pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict }],
 		}).build();
-		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		const out = render(<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}><Overview {...pr} /></PullRequestContext.Provider>);
 		assert(out.getByText('Resolve conflicts'));
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 	});
@@ -783,7 +784,7 @@ describe('Overview', function () {
 	it('does not offer merge-commit updates before stack membership is known or when loading fails', function () {
 		for (const change of [{ stackLoaded: false }, { stackLoadError: true }]) {
 			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Behind).build(), ...change };
-			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			const out = render(<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 			out.unmount();
 		}
@@ -816,7 +817,7 @@ describe('Overview', function () {
 		];
 		for (const pr of blocked) {
 			const out = render(
-				<PullRequestContext.Provider value={new PRContext(pr)}>
+				<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 					<Overview {...pr} />
 				</PullRequestContext.Provider>,
 			);
@@ -839,7 +840,7 @@ describe('Overview', function () {
 		};
 		const pr = new PullRequestBuilder().number(794).stack(stack).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -856,7 +857,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -876,7 +877,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -894,7 +895,7 @@ describe('Overview', function () {
 				{ position: 1, number: 1234, title: 'First Change', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 			],
 		}).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		context.setPR(pr);
 		const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'pending' });
 		const out = render(
@@ -922,7 +923,7 @@ describe('Overview', function () {
 				{ position: 1, number: 1234, title: 'First Change', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 			],
 		}).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const mergeStack = sinon.stub(context, 'mergeStack').rejects(new Error('Required checks failed'));
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -942,7 +943,7 @@ describe('Overview', function () {
 	it('does not offer a legacy merge while stack membership is loading or failed', function () {
 		const pr = new PullRequestBuilder().stackLoaded(false).build();
 		const out = render(
-			<PullRequestContext.Provider value={new PRContext(pr)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(pr))}>
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
@@ -951,7 +952,7 @@ describe('Overview', function () {
 
 		const failed = { ...pr, stackLoaded: true, stackLoadError: true };
 		out.rerender(
-			<PullRequestContext.Provider value={new PRContext(failed)}>
+			<PullRequestContext.Provider value={new PRContext(createTestHost(failed))}>
 				<Overview {...failed} />
 			</PullRequestContext.Provider>,
 		);
@@ -961,7 +962,7 @@ describe('Overview', function () {
 
 	it('shows view changes in both headers', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const viewChanges = sinon.stub(context, 'viewChanges');
 
 		const out = render(
@@ -981,7 +982,7 @@ describe('Overview', function () {
 
 	it('does not show view changes in either header for issues', function () {
 		const pr = new PullRequestBuilder().isIssue(true).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -994,7 +995,7 @@ describe('Overview', function () {
 
 	it('applies sticky class when scrolled', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -1016,7 +1017,7 @@ describe('Overview', function () {
 
 	it('applies deferred pull request updates', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		context.setPR(pr);
 
 		context.handleMessage({

@@ -12,8 +12,9 @@ import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
 import { GithubItemStateEnum } from '../../../src/github/interface';
 import { IssuePreview, PullRequestPreview } from '../../../src/github/views';
+import { createTestHost } from '../../../src/test/webviews/testHost';
 import { PRContext, default as PullRequestContext } from '../../common/context';
-import { vscode } from '../../common/message';
+import { vscodeTransport as vscode } from '../../common/host';
 import { Root } from '../app';
 import { Overview, OverviewPreview } from '../overview';
 
@@ -30,7 +31,7 @@ describe('Root', function () {
 	});
 
 	it('displays "loading" while the PR is loading', function () {
-		const context = new PRContext();
+		const context = new PRContext(createTestHost());
 		const children = sinon.stub();
 
 		assert(!context.pr);
@@ -46,7 +47,7 @@ describe('Root', function () {
 	});
 
 	it('renders preview HTML without exposing actions or persisting an incomplete PR', async function () {
-		const context = new PRContext();
+		const context = new PRContext(createTestHost());
 		const persist = sinon.stub(vscode, 'setState');
 		const postMessage = sinon.stub(context, 'postMessage').resolves();
 		const children = sinon.stub().returns(<div>Complete overview</div>);
@@ -98,7 +99,7 @@ describe('Root', function () {
 	});
 
 	it('renders an issue preview without pull request fields', async function () {
-		const context = new PRContext();
+		const context = new PRContext(createTestHost());
 		const out = render(
 			<PullRequestContext.Provider value={context}>
 				<Root>{() => <div>Complete overview</div>}</Root>
@@ -121,7 +122,7 @@ describe('Root', function () {
 	});
 
 	it('renders cached issue preview text when HTML is unavailable without treating it as markup', async function () {
-		const context = new PRContext();
+		const context = new PRContext(createTestHost());
 		const persist = sinon.stub(vscode, 'setState');
 		const children = sinon.stub();
 		const out = render(
@@ -148,7 +149,7 @@ describe('Root', function () {
 
 	it('uses the final title, subtitle and description markup in the preview', function () {
 		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const out = render(
 			<PullRequestContext.Provider value={context}>
 				<OverviewPreview {...pr} />
@@ -169,15 +170,24 @@ describe('Root', function () {
 	it('uses a collapsed metadata placeholder in a narrow preview', function () {
 		const media = window.matchMedia('(max-width: 768px)');
 		sinon.stub(window, 'matchMedia').returns({ ...media, matches: true, addEventListener() { }, removeEventListener() { } });
-		const out = render(<OverviewPreview {...new PullRequestBuilder().build()} />);
-		assert(out.container.querySelector('.collapsible-sidebar'));
-		assert.strictEqual(out.container.querySelector('#sidebar'), null);
-		assert.strictEqual(out.container.querySelector('[role="button"]'), null);
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(createTestHost(pr));
+		const out = render(<PullRequestContext.Provider value={context}>
+			<OverviewPreview {...pr} />
+		</PullRequestContext.Provider>);
+		try {
+			assert(out.container.querySelector('.collapsible-sidebar'));
+			assert.strictEqual(out.container.querySelector('#sidebar'), null);
+			assert.strictEqual(out.container.querySelector('[role="button"]'), null);
+		} finally {
+			out.unmount();
+			context.dispose();
+		}
 	});
 
 	it('renders its child prop with a pull request from the context', function () {
 		const pr = new PullRequestBuilder().build();
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		const children = sinon.stub().returns(<div />);
 
 		render(
@@ -193,7 +203,7 @@ describe('Root', function () {
 		const pr = new PullRequestBuilder().build();
 		pr.isCurrentlyCheckedOut = true;
 		pr.doneCheckoutBranch = 'main';
-		const context = new PRContext(pr);
+		const context = new PRContext(createTestHost(pr));
 		context.setPR(pr);
 		const checkout = sinon.spy(context, 'checkout');
 		const out = render(

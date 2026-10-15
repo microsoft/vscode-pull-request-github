@@ -10,10 +10,16 @@ import { Overview, OverviewPreview } from './overview';
 import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
-import PullRequestContext from '../common/context';
+import PullRequestContext, { PRContext } from '../common/context';
+import { WebviewProvider } from '../common/webviewProvider';
 
 export function main() {
-	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
+	render(
+		<WebviewProvider context={PullRequestContext} createContext={host => new PRContext(host)}>
+			<Root>{pr => <Overview {...pr} />}</Root>
+		</WebviewProvider>,
+		document.getElementById('app')
+	);
 }
 
 export function Root({ children }) {
@@ -29,7 +35,7 @@ export function Root({ children }) {
 			ctx.onchange = null;
 			ctx.onPreviewChange = null;
 		};
-	}, []);
+	}, [ctx]);
 
 	// Restore focus to comment textarea when window regains focus if user was typing
 	useEffect(() => {
@@ -74,18 +80,25 @@ export function Root({ children }) {
 		return () => document.removeEventListener('click', handleLinkClick, true);
 	}, [ctx]);
 
-	window.onscroll = debounce(() => {
-		ctx.postMessage({
-			command: 'scroll',
-			args: {
-				scrollPosition: {
-					x: window.scrollX,
-					y: window.scrollY
+	useEffect(() => {
+		const onScroll = debounce(() => {
+			ctx.notify({
+				command: 'scroll',
+				args: {
+					scrollPosition: {
+						x: window.scrollX,
+						y: window.scrollY
+					}
 				}
-			}
-		});
-	}, 200);
-	ctx.postMessage({ command: 'ready' });
-	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
+			});
+		}, 200);
+		window.addEventListener('scroll', onScroll);
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			onScroll.clear();
+		};
+	}, [ctx]);
+	ctx.notify({ command: 'ready' });
+	ctx.notify({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
 	return pr ? children(pr) : preview ? <OverviewPreview {...preview} /> : <div className="loading-indicator">Loading...</div>;
 }

@@ -3,15 +3,27 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 import { dateFromNow } from '../../src/common/utils';
 
+export interface TimestampFormat {
+	relative(date: Date | string): string;
+	title(date: Date | string): string;
+}
+
+export const TimestampFormatContext = createContext<TimestampFormat | undefined>(undefined);
+
 export const Timestamp = ({ date, href }: { date: Date | string; href?: string }) => {
-	const [timeString, setTimeString] = useState(dateFromNow(date));
-	const title = typeof date === 'string' ? new Date(date).toLocaleString() : date.toLocaleString();
+	const format = useContext(TimestampFormatContext);
+	const [timeString, setTimeString] = useState(() => format ? format.relative(date) : dateFromNow(date));
+	const title = format ? format.title(date) : (typeof date === 'string' ? new Date(date).toLocaleString() : date.toLocaleString());
 
 	useEffect(() => {
+		if (format) {
+			setTimeString(format.relative(date));
+			return;
+		}
 		// Update the time string immediately
 		setTimeString(dateFromNow(date));
 
@@ -86,7 +98,7 @@ export const Timestamp = ({ date, href }: { date: Date | string; href?: string }
 			}
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
-	}, [date]);
+	}, [date, format]);
 
 	return href ? (
 		<a href={href} className="timestamp" title={title}>

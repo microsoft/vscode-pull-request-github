@@ -7,10 +7,16 @@ import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
-import PullRequestContext from '../common/context';
+import PullRequestContext, { PRContext } from '../common/context';
+import { WebviewProvider } from '../common/webviewProvider';
 
 export function main() {
-	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
+	render(
+		<WebviewProvider context={PullRequestContext} createContext={host => new PRContext(host)}>
+			<Root>{pr => <Overview {...pr} />}</Root>
+		</WebviewProvider>,
+		document.getElementById('app')
+	);
 }
 
 export function Root({ children }) {
@@ -19,8 +25,11 @@ export function Root({ children }) {
 	useEffect(() => {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
-	}, []);
-	ctx.postMessage({ command: 'ready' });
-	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
+		return () => {
+			ctx.onchange = null;
+		};
+	}, [ctx]);
+	ctx.notify({ command: 'ready' });
+	ctx.notify({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
 	return pr ? children(pr) : <div className="loading-indicator">Loading...</div>;
 }
