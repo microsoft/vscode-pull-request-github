@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { COMMENT_TEXTAREA_ID } from './constants';
-import { WebviewHost } from './host';
+import { NotificationMessage, WebviewHost } from './host';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
@@ -576,6 +576,10 @@ export class PRContext {
 		}
 		return this;
 	};
+
+	notify(message: NotificationMessage): void {
+		this._host.notify(message);
+	}
 
 	async postMessage(message: any): Promise<any> {
 		return this._host.postMessage(message);

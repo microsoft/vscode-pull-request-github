@@ -45,7 +45,6 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 			return;
 		}
 
-		const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 		const requireModel = async <T extends IssueModel>(model: T | undefined): Promise<T> => {
 			if (token.isCancellationRequested) {
 				throw new vscode.CancellationError();
@@ -58,6 +57,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 		};
 
 		try {
+			const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 			if (identity.kind === 'pullRequest') {
 				const pullRequest = folderRepositoryManager.resolvePullRequest(identity.owner, identity.repo, identity.number, true, 'overview').then(requireModel);
 				await PullRequestOverviewPanel.createOrShow(

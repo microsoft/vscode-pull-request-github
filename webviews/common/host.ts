@@ -7,6 +7,7 @@ import { MessageHandler } from './message';
 
 export interface WebviewHost extends WebviewState {
 	postMessage(message: CommandMessage): Promise<unknown>;
+	notify(message: NotificationMessage): void;
 	onCommand(listener: (command: unknown) => void): () => void;
 	dispose(): void;
 }
@@ -24,6 +25,10 @@ export interface RequestMessage extends CommandMessage {
 	req: string;
 }
 
+export interface NotificationMessage extends CommandMessage {
+	req?: never;
+}
+
 export interface ReplyMessage {
 	seq?: string;
 	err?: string;
@@ -36,7 +41,7 @@ export interface WebviewState {
 }
 
 export interface WebviewTransport extends WebviewState {
-	postMessage(message: RequestMessage): void;
+	postMessage(message: RequestMessage | NotificationMessage): void;
 	onMessage(listener: (message: ReplyMessage) => void): () => void;
 }
 

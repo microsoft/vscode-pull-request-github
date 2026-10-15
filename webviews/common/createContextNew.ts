@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { WebviewHost } from './host';
+import { NotificationMessage, WebviewHost } from './host';
 import { RemoteInfo } from '../../common/types';
 import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, StackCandidate, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
@@ -107,7 +107,7 @@ export class CreatePRContextNew {
 	public initialize = async (): Promise<void> => {
 		if (!this._requestedInitialize) {
 			this._requestedInitialize = true;
-			this.postMessage({ command: 'pr.requestInitialize' });
+			this.notify({ command: 'pr.requestInitialize' });
 		}
 	};
 
@@ -335,6 +335,10 @@ export class CreatePRContextNew {
 			this.updateState({ createError: (typeof e === 'string') ? e : (e.message ? e.message : 'An unknown error occurred.') });
 		}
 	};
+
+	notify(message: NotificationMessage): void {
+		this._host.notify(message);
+	}
 
 	postMessage = async (message: any): Promise<any> => {
 		return this._host.postMessage(message);

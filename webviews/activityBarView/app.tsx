@@ -8,16 +8,13 @@ import { render } from 'react-dom';
 import { Overview } from './overview';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext, { PRContext } from '../common/context';
-import { createWebviewHost } from '../common/host';
-import { rethrowUnlessDisposed } from '../common/message';
+import { WebviewProvider } from '../common/webviewProvider';
 
 export function main() {
-	const host = createWebviewHost();
-	const context = new PRContext(host);
 	render(
-		<PullRequestContext.Provider value={context}>
+		<WebviewProvider context={PullRequestContext} createContext={host => new PRContext(host)}>
 			<Root>{pr => <Overview {...pr} />}</Root>
-		</PullRequestContext.Provider>,
+		</WebviewProvider>,
 		document.getElementById('app')
 	);
 }
@@ -31,8 +28,8 @@ export function Root({ children }) {
 		return () => {
 			ctx.onchange = null;
 		};
-	}, []);
-	ctx.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
-	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') }).catch(rethrowUnlessDisposed);
+	}, [ctx]);
+	ctx.notify({ command: 'ready' });
+	ctx.notify({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
 	return pr ? children(pr) : <div className="loading-indicator">Loading...</div>;
 }

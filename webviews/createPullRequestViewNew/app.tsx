@@ -11,9 +11,8 @@ import { isITeam, MergeMethod } from '../../src/github/interface';
 import { ChangeTemplateReply } from '../../src/github/views';
 import PullRequestContextNew, { CreatePRContextNew } from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
-import { createWebviewHost } from '../common/host';
 import { LabelCreate } from '../common/label';
-import { rethrowUnlessDisposed } from '../common/message';
+import { WebviewProvider } from '../common/webviewProvider';
 import { ContextDropdown } from '../components/contextDropdown';
 import { accountIcon, feedbackIcon, gitCompareIcon, layersIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
@@ -90,10 +89,8 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, i
 };
 
 export function main() {
-	const host = createWebviewHost();
-	const context = new CreatePRContextNew(host);
 	render(
-		<PullRequestContextNew.Provider value={context}>
+		<WebviewProvider context={PullRequestContextNew} createContext={host => new CreatePRContextNew(host)}>
 		<Root>
 			{(params: CreateParamsNew) => {
 				const ctx = useContext(PullRequestContextNew);
@@ -424,7 +421,7 @@ export function main() {
 				</div>;
 			}}
 		</Root>
-		</PullRequestContextNew.Provider>,
+		</WebviewProvider>,
 		document.getElementById('app'),
 	);
 }
@@ -440,7 +437,7 @@ export function Root({ children }: RootProps): JSX.Element {
 		return () => {
 			ctx.onchange = null;
 		};
-	}, []);
-	ctx.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
+	}, [ctx]);
+	ctx.notify({ command: 'ready' });
 	return <>{children(pr)}</>;
 }

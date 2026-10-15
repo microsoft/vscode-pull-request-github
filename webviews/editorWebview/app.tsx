@@ -11,16 +11,13 @@ import { extractCodeReferenceLinkMetadata } from '../../src/common/utils';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext, { PRContext } from '../common/context';
-import { createWebviewHost } from '../common/host';
-import { rethrowUnlessDisposed } from '../common/message';
+import { WebviewProvider } from '../common/webviewProvider';
 
 export function main() {
-	const host = createWebviewHost();
-	const context = new PRContext(host);
 	render(
-		<PullRequestContext.Provider value={context}>
+		<WebviewProvider context={PullRequestContext} createContext={host => new PRContext(host)}>
 			<Root>{pr => <Overview {...pr} />}</Root>
-		</PullRequestContext.Provider>,
+		</WebviewProvider>,
 		document.getElementById('app')
 	);
 }
@@ -38,7 +35,7 @@ export function Root({ children }) {
 			ctx.onchange = null;
 			ctx.onPreviewChange = null;
 		};
-	}, []);
+	}, [ctx]);
 
 	// Restore focus to comment textarea when window regains focus if user was typing
 	useEffect(() => {
@@ -85,7 +82,7 @@ export function Root({ children }) {
 
 	useEffect(() => {
 		const onScroll = debounce(() => {
-			ctx.postMessage({
+			ctx.notify({
 				command: 'scroll',
 				args: {
 					scrollPosition: {
@@ -93,7 +90,7 @@ export function Root({ children }) {
 						y: window.scrollY
 					}
 				}
-			}).catch(rethrowUnlessDisposed);
+			});
 		}, 200);
 		window.addEventListener('scroll', onScroll);
 		return () => {
@@ -101,7 +98,7 @@ export function Root({ children }) {
 			onScroll.clear();
 		};
 	}, [ctx]);
-	ctx.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
-	ctx.postMessage({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') }).catch(rethrowUnlessDisposed);
+	ctx.notify({ command: 'ready' });
+	ctx.notify({ command: 'pr.debug', args: 'initialized ' + (pr ? 'with PR' : 'without PR') });
 	return pr ? children(pr) : preview ? <OverviewPreview {...preview} /> : <div className="loading-indicator">Loading...</div>;
 }

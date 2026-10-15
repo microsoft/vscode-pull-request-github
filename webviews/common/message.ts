@@ -3,19 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { CommandMessage, ReplyMessage, WebviewHost, WebviewTransport } from './host';
+import type { CommandMessage, NotificationMessage, ReplyMessage, WebviewHost, WebviewTransport } from './host';
 
 let lastSentReq = 0;
 
 export class MessageHandlerDisposedError extends Error {
 	constructor() {
 		super('The webview message handler has been disposed.');
-	}
-}
-
-export function rethrowUnlessDisposed(error: unknown): void {
-	if (!(error instanceof MessageHandlerDisposedError)) {
-		throw error;
 	}
 }
 
@@ -59,6 +53,13 @@ export class MessageHandler implements WebviewHost {
 				reject(error);
 			}
 		});
+	}
+
+	public notify(message: NotificationMessage): void {
+		if (this._disposed) {
+			throw new MessageHandlerDisposedError();
+		}
+		this._transport.postMessage(message);
 	}
 
 	public dispose(): void {

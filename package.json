@@ -45,7 +45,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.168.0",
+	"version": "0.170.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -2173,7 +2173,7 @@
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
+					"when": "(config.githubPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",

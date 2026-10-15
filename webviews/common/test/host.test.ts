@@ -7,13 +7,14 @@ import assert from 'assert';
 import * as React from 'react';
 import { unmountComponentAtNode } from 'react-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { render, wait } from 'react-testing-library';
+import { act, render, wait } from 'react-testing-library';
 import { createSandbox } from 'sinon';
 import { CreateParamsNew } from '../../../common/views';
 import { PullRequest } from '../../../src/github/views';
 import { createTestHost } from '../../../src/test/webviews/testHost';
 import { PullRequestBuilder } from '../../editorWebview/test/builder/pullRequest';
-import { ReplyMessage, RequestMessage, vscodeTransport, WebviewTransport } from '../host';
+import { NotificationMessage, ReplyMessage, RequestMessage, vscodeTransport, WebviewHost, WebviewTransport } from '../host';
+import { WebviewProvider } from '../webviewProvider';
 
 function importContextsWithoutVsCodeApi() {
 	const sandbox = createSandbox();
@@ -34,11 +35,11 @@ function importContextsWithoutVsCodeApi() {
 const imported = importContextsWithoutVsCodeApi();
 const { PRContext, default: PullRequestContext } = imported.pr;
 const { CreatePRContextNew, default: PullRequestContextNew } = imported.create;
-const { MessageHandlerDisposedError, rethrowUnlessDisposed } = imported.message;
+const { MessageHandler, MessageHandlerDisposedError } = imported.message;
 
 class TestTransport implements WebviewTransport {
 	public state: unknown;
-	public readonly messages: RequestMessage[] = [];
+	public readonly messages: (RequestMessage | NotificationMessage)[] = [];
 	public readonly listeners = new Set<(message: ReplyMessage) => void>();
 
 	getState<T>(): T | undefined {
@@ -49,7 +50,7 @@ class TestTransport implements WebviewTransport {
 		this.state = state;
 	}
 
-	postMessage(message: RequestMessage): void {
+	postMessage(message: RequestMessage | NotificationMessage): void {
 		this.messages.push(message);
 	}
 
@@ -111,7 +112,7 @@ describe('Webview host isolation', () => {
 		}
 	});
 
-	it('creates independent contexts in all production entry points', () => {
+	it('owns and disposes contexts and hosts in all production entry points', () => {
 		const { main: editor } = require('../../editorWebview/app') as typeof import('../../editorWebview/app');
 		const { main: activity } = require('../../activityBarView/app') as typeof import('../../activityBarView/app');
 		const { main: create } = require('../../createPullRequestViewNew/app') as typeof import('../../createPullRequestViewNew/app');
@@ -122,27 +123,34 @@ describe('Webview host isolation', () => {
 		app.id = 'app';
 		document.body.appendChild(app);
 		try {
-			for (const main of [editor, activity, create]) {
+			for (const [main, Context] of [[editor, PRContext], [activity, PRContext], [create, CreatePRContextNew]] as const) {
 				const host = new TestTransport();
 				const state = sandbox.stub(vscodeTransport, 'getState').returns(undefined);
 				const persist = sandbox.stub(vscodeTransport, 'setState').callsFake(value => host.setState(value));
-				const send = sandbox.stub(vscodeTransport, 'postMessage').callsFake(message => {
-					host.postMessage(message);
-					host.reply(host.messages.length - 1, undefined);
-				});
+				const send = sandbox.stub(vscodeTransport, 'postMessage').callsFake(message => host.postMessage(message));
 				const listen = sandbox.stub(vscodeTransport, 'onMessage').callsFake(listener => host.onMessage(listener));
+				const disposeContext = sandbox.spy(Context.prototype, 'dispose');
+				const disposeHost = sandbox.spy(MessageHandler.prototype, 'dispose');
 				try {
 					for (let mount = 1; mount <= 2; mount++) {
-						main();
+						act(() => main());
 						assert(app.childElementCount > 0);
 						assert.strictEqual(listen.callCount, mount);
-						assert.strictEqual(host.messages.filter(message => message.command === 'ready').length, mount);
-						unmountComponentAtNode(app);
-						assert.strictEqual(host.listeners.size, mount);
+						assert.strictEqual(host.listeners.size, 1);
+						act(() => main());
+						assert.strictEqual(listen.callCount, mount);
+						act(() => { unmountComponentAtNode(app); });
+						assert.strictEqual(host.listeners.size, 0);
+						assert.strictEqual(disposeContext.callCount, mount);
+						assert.strictEqual(disposeHost.callCount, mount);
+						assert(disposeContext.lastCall.calledBefore(disposeHost.lastCall));
+						assert(host.messages.some(message => message.command === 'ready'));
+						assert(host.messages.every(message => message.req === undefined));
 					}
 				} finally {
-					unmountComponentAtNode(app);
-					host.listeners.clear();
+					act(() => { unmountComponentAtNode(app); });
+					disposeContext.restore();
+					disposeHost.restore();
 					state.restore();
 					persist.restore();
 					send.restore();
@@ -184,6 +192,94 @@ describe('Webview host isolation', () => {
 		createHost.dispose();
 		assert.strictEqual(prTransport.listeners.size, 0);
 		assert.strictEqual(createTransport.listeners.size, 0);
+	});
+
+	it('rejects outstanding requests when the owning provider unmounts', async () => {
+		let ownedHost: WebviewHost | undefined;
+		let ownedContext: InstanceType<typeof PRContext> | undefined;
+		const root = render(React.createElement(WebviewProvider<InstanceType<typeof PRContext>>, {
+			context: PullRequestContext,
+			createContext: host => {
+				ownedHost = host;
+				ownedContext = new PRContext(host);
+				return ownedContext;
+			},
+			children: React.createElement('div'),
+		}));
+		assert(ownedHost);
+		assert(ownedContext);
+		const pending = ownedContext.postMessage({ command: 'pending' });
+		const rejected = assert.rejects(pending, MessageHandlerDisposedError);
+		root.unmount();
+		await rejected;
+		assert.throws(() => ownedHost!.notify({ command: 'ready' }), MessageHandlerDisposedError);
+	});
+
+	it('rebinds editor and activity subscriptions when the supplied context changes', async () => {
+		const { Root: Editor } = require('../../editorWebview/app') as typeof import('../../editorWebview/app');
+		const { Root: Activity } = require('../../activityBarView/app') as typeof import('../../activityBarView/app');
+		for (const Root of [Editor, Activity]) {
+			const firstTransport = new TestTransport();
+			const secondTransport = new TestTransport();
+			const pr = new PullRequestBuilder().build();
+			const first = new PRContext(createTestHost({ ...pr, title: 'First' }, firstTransport));
+			const second = new PRContext(createTestHost({ ...pr, title: 'Second' }, secondTransport));
+			const view = (context: InstanceType<typeof PRContext>) => React.createElement(PullRequestContext.Provider, { value: context },
+				React.createElement(Root, { children: (value: PullRequest) => React.createElement('span', null, value.title) }));
+			const root = render(view(first));
+			try {
+				await wait(() => assert.strictEqual(root.container.textContent, 'First'));
+				root.rerender(view(second));
+				await wait(() => {
+					assert.strictEqual(root.container.textContent, 'Second');
+					assert.strictEqual(first.onchange, null);
+					assert.strictEqual(first.onPreviewChange, null);
+				});
+				act(() => firstTransport.emit({ res: { command: 'pr.update', pullrequest: { title: 'Stale' } } }));
+				assert.strictEqual(root.container.textContent, 'Second');
+				act(() => secondTransport.emit({ res: { command: 'pr.update', pullrequest: { title: 'Updated' } } }));
+				await wait(() => assert.strictEqual(root.container.textContent, 'Updated'));
+				if (Root === Editor) {
+					assert(second.onPreviewChange);
+				}
+				root.unmount();
+				await wait(() => assert.strictEqual(second.onchange, null));
+				assert.strictEqual(secondTransport.listeners.size, 1);
+			} finally {
+				root.unmount();
+				first.dispose();
+				second.dispose();
+			}
+		}
+	});
+
+	it('rebinds the create view subscription when the supplied context changes', async () => {
+		const { Root } = require('../../createPullRequestViewNew/app') as typeof import('../../createPullRequestViewNew/app');
+		const first = new CreatePRContextNew(createTestHost());
+		const second = new CreatePRContextNew(createTestHost());
+		first.updateState({ pendingTitle: 'First' });
+		second.updateState({ pendingTitle: 'Second' });
+		const view = (context: InstanceType<typeof CreatePRContextNew>) => React.createElement(PullRequestContextNew.Provider, { value: context },
+			React.createElement(Root, { children: (params: CreateParamsNew) => React.createElement('span', null, params.pendingTitle) }));
+		const root = render(view(first));
+		try {
+			await wait(() => assert.strictEqual(root.container.textContent, 'First'));
+			root.rerender(view(second));
+			await wait(() => {
+				assert.strictEqual(first.onchange, null);
+				assert.strictEqual(root.container.textContent, 'Second');
+			});
+			act(() => first.updateState({ pendingTitle: 'Stale' }));
+			assert.strictEqual(root.container.textContent, 'Second');
+			act(() => second.updateState({ pendingTitle: 'Updated' }));
+			await wait(() => assert.strictEqual(root.container.textContent, 'Updated'));
+			root.unmount();
+			await wait(() => assert.strictEqual(second.onchange, null));
+		} finally {
+			root.unmount();
+			first.dispose();
+			second.dispose();
+		}
 	});
 
 	it('routes simultaneous replies per handler, without mutating requests or treating replies as commands', async () => {
@@ -253,16 +349,6 @@ describe('Webview host isolation', () => {
 		const handler = createTestHost(undefined, host);
 		await assert.rejects(handler.postMessage({ command: 'unexpected' }), error => error === failure);
 		handler.dispose();
-	});
-
-	it('ignores only disposal errors for lifecycle notifications', async () => {
-		const host = new TestTransport();
-		const handler = createTestHost(undefined, host);
-		const ready = handler.postMessage({ command: 'ready' }).catch(rethrowUnlessDisposed);
-		handler.dispose();
-		await ready;
-		const failure = new Error('Unexpected host error');
-		await assert.rejects(Promise.reject(failure).catch(rethrowUnlessDisposed), error => error === failure);
 	});
 
 	it('persists PR changes and incoming commands only in the owning context', () => {
