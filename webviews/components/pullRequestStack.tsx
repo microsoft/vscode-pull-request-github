@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { chevronDownIcon, circleFilledIcon, gitMergeIcon, gitPullRequestDraftIcon, layersIcon, passIcon, skipIcon } from './icon';
+import { chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, gitPullRequestDraftIcon, layersIcon, passIcon, skipIcon } from './icon';
 import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack as Stack } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -27,7 +27,7 @@ function getReadiness(entry: Stack['pullRequests'][number], stack: Stack): { ico
 			}
 			return { icon: entry.position > stack.position ? circleFilledIcon : passIcon, label: 'Ready to merge', kind: 'ready' };
 		case PullRequestMergeability.Conflict:
-			return { icon: circleFilledIcon, label: 'Merge conflicts', kind: 'waiting' };
+			return { icon: closeIcon, label: 'Merge conflicts', kind: 'conflict' };
 		case PullRequestMergeability.NotMergeable:
 			return { icon: circleFilledIcon, label: 'Merge requirements not met', kind: 'waiting' };
 		case PullRequestMergeability.Behind:
@@ -46,6 +46,17 @@ export const StackBadge = ({ stack }: { stack?: Stack }) => stack ? (
 
 export function canUpdatePullRequestStack(pr: PullRequest): boolean {
 	return !!pr.stack && !!pr.canUpdateStack && pr.stackLoaded !== false && !pr.stackLoadError;
+}
+
+/** Whether any open pull request in the stack, including this one, has conflicts that updating the stack resolves. */
+export function stackHasConflicts(pr: PullRequest): boolean {
+	return pr.mergeable === PullRequestMergeability.Conflict || hasConflictingStackEntry(pr.stack);
+}
+
+/** Whether the stack lists an open pull request with conflicts. Closed pull requests are skipped when updating it. */
+export function hasConflictingStackEntry(stack: Stack | null | undefined): boolean {
+	return !!stack?.pullRequests.some(entry =>
+		entry.state === GithubItemStateEnum.Open && entry.mergeable === PullRequestMergeability.Conflict);
 }
 
 /** Stack actions share their progress and errors with every control that can trigger them. */
@@ -99,6 +110,8 @@ export const StackSection = ({ pr, actions }: { pr: PullRequest; actions: StackA
 	const openBelow = stack.pullRequests.filter(entry => entry.position < stack.position && entry.state === GithubItemStateEnum.Open).length;
 	const canUnstack = pr.hasWritePermission && stack.pullRequests.some(entry => entry.state !== GithubItemStateEnum.Merged);
 	const canUpdate = canUpdatePullRequestStack(pr);
+	// Updating the stack is also how its conflicts are resolved, so the same action is named for the user's goal.
+	const resolvesConflicts = stackHasConflicts(pr);
 
 	return (
 		<details className={`stack-section${canUnstack || canUpdate ? ' has-actions' : ''}`} id="pull-request-stack" open>
@@ -115,9 +128,11 @@ export const StackSection = ({ pr, actions }: { pr: PullRequest; actions: StackA
 				<span className="stack-chevron">{chevronDownIcon}</span>
 			</summary>
 			{canUnstack || canUpdate ? <div className="stack-actions">
-				{canUpdate ? <button className="secondary" type="button" title="Rebase and push all pull requests in this stack"
+				{canUpdate ? <button className="secondary" type="button" title={resolvesConflicts
+					? 'Rebase all pull requests in this stack, resolve their conflicts, and push them'
+					: 'Rebase and push all pull requests in this stack'}
 					disabled={unstacking || updating || !!pr.stackMergeStatus} onClick={update}>
-					{updating ? 'Updating...' : 'Update stack'}
+					{updating ? 'Updating...' : resolvesConflicts ? 'Resolve conflicts' : 'Update stack'}
 				</button> : null}
 				{canUnstack ? <button className="secondary" type="button" title="Unstack all eligible pull requests"
 					disabled={unstacking || updating || !!pr.stackMergeStatus} onClick={unstack}>

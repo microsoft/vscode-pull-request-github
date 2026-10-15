@@ -132,11 +132,7 @@ export async function updatePullRequestStack(ctx: StackUpdateContext, message: I
 		const action = vscode.l10n.t('Update stack');
 		const answer = await vscode.window.showWarningMessage(
 			vscode.l10n.t('Rebase and push {0} pull requests in this stack?', openEntries.length),
-			{
-				modal: true, detail: stack.size > openEntries.length
-					? vscode.l10n.t('Closed pull requests at the top of the stack will be skipped. Open branches will be rebased and rewritten on GitHub.')
-					: vscode.l10n.t('This rewrites the stack branches on GitHub. If rebasing causes conflicts, you can resolve them before anything is pushed. The update stops if a branch changes on GitHub.')
-			},
+			{ modal: true, detail: vscode.l10n.t('This rewrites the stack branches on GitHub.') },
 			action,
 		);
 		if (answer !== action) {

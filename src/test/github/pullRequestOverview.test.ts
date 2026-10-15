@@ -1758,7 +1758,10 @@ describe('PullRequestOverview', function () {
 			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
 			await (panel as any).updateStack({ req: 'conflicts', command: 'pr.update-stack' });
 			assert(throwError.notCalled);
-			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /resolve them before anything is pushed/);
+			assert.deepStrictEqual(confirm.firstCall.args.slice(0, 2), [
+				'Rebase and push 2 pull requests in this stack?',
+				{ modal: true, detail: 'This rewrites the stack branches on GitHub.' },
+			]);
 			assert(reply.calledOnce);
 		});
 
@@ -1808,7 +1811,6 @@ describe('PullRequestOverview', function () {
 			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
 			await (panel as any).updateStack({ req: 'closed-top', command: 'pr.update-stack' });
 			assert.match(confirm.firstCall.args[0], /3 pull requests/);
-			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Closed pull requests at the top/);
 			assert(progress.notCalled);
 			assert(reply.calledOnce);
 		});
