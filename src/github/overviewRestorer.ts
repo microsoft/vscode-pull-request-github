@@ -33,7 +33,7 @@ export class OverviewRestorer extends Disposable implements vscode.WebviewPanelS
 
 		await this.waitForAuth();
 
-		const folderManager = this._folderRepositoryManagerResolver.getManagerForRepository(state.owner, state.repo);
+		const folderManager = this._folderRepositoryManagerResolver.getRemoteOnlyManager();
 		const identity = { owner: state.owner, repo: state.repo, number: state.number };
 		if (state.isIssue) {
 			const issueModel = await folderManager.resolveIssue(state.owner, state.repo, state.number, true, true);

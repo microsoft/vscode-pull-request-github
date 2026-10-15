@@ -30,6 +30,10 @@ export class FolderRepositoryManagerResolver extends Disposable {
 		if (existingManager) {
 			return existingManager;
 		}
+		return this.getRemoteOnlyManager();
+	}
+
+	getRemoteOnlyManager(): FolderRepositoryManager {
 		if (this._remoteFolderRepositoryManager) {
 			return this._remoteFolderRepositoryManager;
 		}

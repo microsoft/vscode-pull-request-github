@@ -2173,7 +2173,7 @@
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
+					"when": "(config.githubPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",

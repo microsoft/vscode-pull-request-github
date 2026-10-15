@@ -543,6 +543,71 @@ describe('PullRequestManager', function () {
 			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
 		});
 
+		describe('after merge', function () {
+			let getMetadata: SinonStub;
+
+			beforeEach(function () {
+				getMetadata = sinon.stub(pr.githubRepository, 'getMetadata').resolves({ delete_branch_on_merge: true } as any);
+				const configuration = { ...workspace.getConfiguration('githubPullRequests') };
+				sinon.stub(configuration, 'get').callThrough().withArgs('deleteBranchAfterMerge', false).returns(false);
+				sinon.stub(workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
+			});
+
+			it('only deletes the local branch when GitHub deletes the remote branch', async function () {
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items[0]);
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+				const result = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+				assert.strictEqual((showWarningMessage.firstCall.args[1] as MessageOptions).detail, [
+					'Choose an action below to clean up the resources associated with this pull request.',
+					'',
+					'Local branch: local-feature',
+				].join('\n'));
+				assert.deepStrictEqual(result, { command: 'pr.deleteBranch', branchTypes: ['local'] });
+				sinon.assert.calledWithExactly(deleteLocalBranch, 'local-feature', true);
+				sinon.assert.notCalled(deleteRemoteBranch);
+			});
+
+			it('does not prompt when only the automatically deleted remote branch remains', async function () {
+				getBranchInfo.resolves(undefined);
+
+				const result = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.strictEqual(result, undefined);
+				sinon.assert.notCalled(showWarningMessage);
+				sinon.assert.notCalled(deleteRemoteBranch);
+			});
+
+			it('still offers remote branch deletion for a fork', async function () {
+				pr.head!.repositoryCloneUrl = new Protocol('https://github.com/contributor/fork');
+				getBranchInfo.resolves(undefined);
+
+				await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Remote Branch']);
+			});
+
+			it('preserves manual remote branch cleanup when automatic deletion is enabled', async function () {
+				await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+					['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
+			});
+
+			for (const deleteBranchOnMerge of [false, undefined]) {
+				it(`does not add a post-merge prompt when delete_branch_on_merge is ${deleteBranchOnMerge}`, async function () {
+					getMetadata.resolves({ delete_branch_on_merge: deleteBranchOnMerge });
+
+					await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+					sinon.assert.notCalled(showWarningMessage);
+					sinon.assert.notCalled(deleteRemoteBranch);
+				});
+			}
+		});
+
 		it('treats a local branch that no longer exists as deleted', async function () {
 			await repository.deleteBranch('local-feature', true);
 			showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items.find(item => item.title === 'Delete Local Branch'));
