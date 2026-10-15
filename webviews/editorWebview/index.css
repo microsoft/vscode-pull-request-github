@@ -913,11 +913,6 @@ body button .icon {
 	}
 }
 
-.stack-action-error {
-	padding: 8px 16px 0;
-	color: var(--vscode-errorForeground);
-}
-
 .subtitle .avatar,
 .subtitle .avatar-icon svg {
 	margin-top: 2px;

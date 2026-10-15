@@ -40,6 +40,7 @@ import * as emoji from '../../common/emoji';
 import Logger from '../../common/logger';
 import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview } from '../../github/views';
 import * as stackGit from '../../github/updateStackBranches';
+import { lockedStacks } from '../../github/pullRequestStackUpdate';
 
 const EXTENSION_URI = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 
@@ -1761,37 +1762,33 @@ describe('PullRequestOverview', function () {
 			assert(reply.calledOnce);
 		});
 
-		it('passes conflicts to the guide and reports a cancelled resolution without an error', async function () {
+		it('reports a cancelled conflict resolution without an error and releases the stack lock', async function () {
 			const { panel } = await openStackPanel();
 			const cancellation = new vscode.CancellationTokenSource();
 			sinon.stub(vscode.window, 'showWarningMessage').resolves('Update stack' as never);
 			sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
 			const info = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
-			sinon.stub(panel as any, 'getStackRepository').returns({
-				manager: pullRequestManager, repository: pullRequestManager.repository, remote: { name: 'origin' },
-			});
 			const ref = (name: string) => ({ ref: name, owner: remote.owner, sha: `${name}-sha`, repositoryCloneUrl: { repositoryName: remote.repositoryName } });
+			const branch = { number: 999, base: 'main', head: 'D1', sha: 'D1-sha' };
+			// The user cancelling the conflict guide surfaces from the stack Git operations as a cancellation.
+			const repository = new MockRepository();
+			provideStackGit(repository);
+			repository.fetch = async () => { throw new stackGit.StackUpdateCancelledError(branch); };
+			sinon.stub(panel as any, 'getStackRepository').returns({ manager: pullRequestManager, repository, remote: { name: 'origin' } });
 			sinon.stub(repo, 'getPullRequest').callsFake(async (number: number) => ({
 				state: GithubItemStateEnum.Open, mergeQueueEntry: undefined,
 				head: ref(number === 999 ? 'D1' : 'D2'), base: ref(number === 999 ? 'main' : 'D1'),
 			}) as unknown as PullRequestModel);
-			const update = sinon.stub(stackGit, 'updateStackBranches').callsFake(async (_repository, _open, _remote, branches) => {
-				throw new stackGit.StackUpdateCancelledError(branches[0]);
-			});
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
 			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
 			const message = { req: 'cancelled', command: 'pr.update-stack' };
 
 			await (panel as any).updateStack(message);
 
-			assert.strictEqual(typeof update.firstCall.args[6], 'function', 'conflicts are resolved with the conflict guide');
 			sinon.assert.calledWithExactly(reply, message, { updatedPullRequests: [] });
 			assert(throwError.notCalled);
 			assert.match(info.firstCall.args[0], /cancelled\. No branches were pushed/);
-			assert.deepStrictEqual({
-				updating: (panel as any)._updatingStack,
-				locks: [...(PullRequestOverviewPanel as any)._updatingStacks],
-			}, { updating: false, locks: [] });
+			assert.deepStrictEqual([...lockedStacks], []);
 			cancellation.dispose();
 		});
 
@@ -1901,17 +1898,16 @@ describe('PullRequestOverview', function () {
 	describe('unstackAll', function () {
 		it('rejects unstacking while another panel updates the stack', async function () {
 			const { panel } = await createPanel();
-			const lock = (PullRequestOverviewPanel as any)._updatingStacks as Set<string>;
-			lock.add(`${remote.owner}/${remote.repositoryName}#999`);
+			lockedStacks.add(`${remote.owner}/${remote.repositoryName}#999`);
 			const unstack = sinon.stub(repo, 'unstackAll');
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
 			try {
 				await (panel as any).unstackAll({ req: 'locked', command: 'pr.unstack-all' });
 				assert(unstack.notCalled);
 				assert.match(throwError.firstCall.args[1], /already being updated/);
-				assert(lock.has(`${remote.owner}/${remote.repositoryName}#999`));
+				assert(lockedStacks.has(`${remote.owner}/${remote.repositoryName}#999`));
 			} finally {
-				lock.delete(`${remote.owner}/${remote.repositoryName}#999`);
+				lockedStacks.delete(`${remote.owner}/${remote.repositoryName}#999`);
 			}
 		});
 
@@ -1926,7 +1922,6 @@ describe('PullRequestOverview', function () {
 				],
 			});
 			pullRequestManager.activePullRequest = model;
-			const locks = (PullRequestOverviewPanel as any)._updatingStacks as Set<string>;
 			const key = `${remote.owner}/${remote.repositoryName}#999`;
 			const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
 			sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
@@ -1937,7 +1932,7 @@ describe('PullRequestOverview', function () {
 			let started!: () => void;
 			const unstackStarted = new Promise<void>(resolve => { started = resolve; });
 			const unstack = sinon.stub(repo, 'unstackAll').callsFake(() => {
-				assert(locks.has(key));
+				assert(lockedStacks.has(key));
 				started();
 				return new Promise<number[]>(resolve => { finish = resolve; });
 			});
@@ -1946,46 +1941,44 @@ describe('PullRequestOverview', function () {
 				await unstackStarted;
 				await (other as any).updateStack({ req: 'update', command: 'pr.update-stack' });
 				assert.match(errors.lastCall.args[1], /already being updated/);
-				assert(locks.has(key));
+				assert(lockedStacks.has(key));
 				await (other as any).unstackAll({ req: 'unstack', command: 'pr.unstack-all' });
 				assert.match(errors.lastCall.args[1], /already being updated/);
-				assert(locks.has(key));
+				assert(lockedStacks.has(key));
 				assert(unstack.calledOnce);
 				assert(confirm.calledOnce);
 			} finally {
 				finish([]);
 				await pending;
 			}
-			assert.strictEqual(locks.has(key), false);
+			assert.strictEqual(lockedStacks.has(key), false);
 		});
 
 		it('rechecks the lock after confirmation without releasing another action lock', async function () {
 			const { panel } = await createPanel();
-			const locks = (PullRequestOverviewPanel as any)._updatingStacks as Set<string>;
 			const key = `${remote.owner}/${remote.repositoryName}#999`;
 			const unstack = sinon.stub(repo, 'unstackAll');
 			const errors = sinon.stub(panel as any, '_throwError').resolves();
 			sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, action) => {
-				locks.add(key);
+				lockedStacks.add(key);
 				return action;
 			});
 			try {
 				await (panel as any).unstackAll({ req: 'confirmation-race', command: 'pr.unstack-all' });
 				assert(unstack.notCalled);
 				assert.match(errors.firstCall.args[1], /already being updated/);
-				assert(locks.has(key));
+				assert(lockedStacks.has(key));
 			} finally {
-				locks.delete(key);
+				lockedStacks.delete(key);
 			}
 		});
 
 		it('releases its stack lock when the unstack operation fails', async function () {
 			const { panel } = await createPanel();
-			const locks = (PullRequestOverviewPanel as any)._updatingStacks as Set<string>;
 			const key = `${remote.owner}/${remote.repositoryName}#999`;
 			sinon.stub(vscode.window, 'showWarningMessage').resolves('Unstack all' as never);
 			sinon.stub(repo, 'unstackAll').callsFake(async () => {
-				assert(locks.has(key));
+				assert(lockedStacks.has(key));
 				throw new Error('Stack is locked on GitHub');
 			});
 			const errors = sinon.stub(panel as any, '_throwError').resolves();
@@ -1993,7 +1986,7 @@ describe('PullRequestOverview', function () {
 			await (panel as any).unstackAll({ req: 'failed', command: 'pr.unstack-all' });
 
 			assert.match(errors.firstCall.args[1], /Stack is locked on GitHub/);
-			assert.strictEqual(locks.has(key), false);
+			assert.strictEqual(lockedStacks.has(key), false);
 		});
 
 
@@ -2073,7 +2066,7 @@ describe('PullRequestOverview', function () {
 
 			assert(unstack.notCalled);
 			sinon.assert.calledWithExactly(reply, message, { cancelled: true });
-			assert.strictEqual((PullRequestOverviewPanel as any)._updatingStacks.has(`${remote.owner}/${remote.repositoryName}#999`), false);
+			assert.strictEqual(lockedStacks.has(`${remote.owner}/${remote.repositoryName}#999`), false);
 		});
 
 		it('rejects unstacking without write permission', async function () {

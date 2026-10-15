@@ -213,6 +213,8 @@ export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: Pull
 		<div>
 			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
 				canUpdateWithMergeCommit={canUpdateWithMergeCommit} stackUpdate={stackUpdate} />
+			{/* The simple view has no stack section, which is where stack action errors are otherwise shown. */}
+			{isSimple && stackActions?.error ? <div className="stack-action-error" role="alert">{stackActions.error}</div> : null}
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
 				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />

@@ -832,6 +832,28 @@ describe('Overview', function () {
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
 		});
+
+		it('resolves conflicts by updating the stack from the sidebar and shows failures there', async function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').rejects(new Error('Branch D1 changed on GitHub.'));
+			const updateBranch = sinon.stub(context, 'updateBranch');
+			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			assert(updateStack.calledOnce);
+			assert(updateBranch.notCalled);
+			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
+		});
+
+		it('does not offer a merge commit to resolve conflicts from the sidebar when the stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(false)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
 	});
 
 	it('does not offer merge-commit updates before stack membership is known or when loading fails', function () {

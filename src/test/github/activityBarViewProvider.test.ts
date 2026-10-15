@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import { GitApiImpl } from '../../api/api1';
 import { GitHubServerType } from '../../common/authentication';
+import { GitHubRef } from '../../common/githubRef';
 import Logger from '../../common/logger';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote } from '../../common/remote';
@@ -165,7 +166,7 @@ describe('Active pull request stack changes', function () {
 
 		assert(stackQuery.calledOnce);
 		assert.deepStrictEqual(latestStackUpdate(), {
-			stack: null, stackLoaded: true, stackLoadError: false, mergeQueueMethod: null,
+			stack: null, stackLoaded: true, stackLoadError: false, canUpdateStack: false, mergeQueueMethod: null,
 		});
 	});
 
@@ -292,5 +293,75 @@ describe('Active pull request stack changes', function () {
 
 		assert(stackQuery.calledOnce);
 		assert.strictEqual(provider.messages.length, 0);
+	});
+
+	describe('Update stack', function () {
+		const behind: PullRequestStack = { ...stack, needsUpdate: true };
+
+		/** Makes the sidebar's pull request checked out in a local repository that can rewrite its stack. */
+		async function checkOutWithStackGit(): Promise<void> {
+			const url = `https://github.com/${repo.remote.owner}/${repo.remote.repositoryName}.git`;
+			model.head = new GitHubRef('D2', `${repo.remote.owner}:D2`, 'a'.repeat(40), url, repo.remote.owner, repo.remote.repositoryName, false);
+			Object.assign(folderManager.repository, {
+				rebase: async () => undefined,
+				rebaseAbort: async () => undefined,
+				pushRefWithLease: async () => undefined,
+				getRemoteRefs: async () => [],
+				updateRef: async () => undefined,
+				resetKeep: async () => undefined,
+				createWorktree: async () => '',
+				deleteWorktree: async () => undefined,
+			});
+			await folderManager.repository.addRemote('origin', url);
+			folderManager.activePullRequest = model;
+		}
+
+		it('offers to update a checked-out stack that needs an update', async function () {
+			await checkOutWithStackGit();
+			stackQuery.resolves(behind);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('does not offer to update a stack that is current, not checked out, or not writable', async function () {
+			await checkOutWithStackGit();
+			const ineligible: [string, () => void][] = [
+				['up to date', () => stackQuery.resolves(stack)],
+				['not checked out', () => { folderManager.activePullRequest = undefined; }],
+				['read-only', () => {
+					(folderManager.getPullRequestRepositoryAccessAndMergeMethods as SinonStub).resolves({
+						hasWritePermission: false,
+						mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+						viewerCanAutoMerge: false,
+					});
+				}],
+			];
+			for (const [reason, makeIneligible] of ineligible) {
+				stackQuery.resolves(behind);
+				folderManager.activePullRequest = model;
+				makeIneligible();
+				await initialize();
+				repo.notifyStackChanged([1000]);
+				await settleUpdates();
+				assert.strictEqual(latestStackUpdate().canUpdateStack, false, reason);
+			}
+		});
+
+		it('updates the stack from the checked-out pull request when asked by the webview', async function () {
+			await checkOutWithStackGit();
+			stackQuery.resolves(behind);
+			await initialize();
+			const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const reply = sinon.stub(provider as any, '_replyMessage').resolves();
+			const message = { req: 'update', command: 'pr.update-stack' };
+
+			await (provider as any)._onDidReceiveMessage(message);
+
+			assert.match(confirm.firstCall.args[0], /Rebase and push 3 pull requests in this stack\?/);
+			assert(reply.calledOnceWithExactly(message, { updatedPullRequests: [] }));
+		});
 	});
 });
