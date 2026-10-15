@@ -11,7 +11,7 @@ import { GitChangeType, SlimFileChange } from '../../common/file';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeQueueState, PullRequestMergeability, PullRequestStack, PullRequestMergeability } from '../../github/interface';
+import { GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
