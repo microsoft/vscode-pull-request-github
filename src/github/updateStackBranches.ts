@@ -6,7 +6,53 @@
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { Repository } from '../api/api';
+import Logger from '../common/logger';
 import { generateUuid } from '../common/uuid';
+
+const STACK_WORKTREE_PREFIX = 'vscode-pr-stack-';
+// Worktree names record the owning process so another window's in-progress update is never removed.
+const STACK_WORKTREE_NAME = /^vscode-pr-stack-(?<pid>\d+)-[0-9a-f-]+$/i;
+// Temporary worktrees owned by updates running in this process.
+const activeStackWorktrees = new Set<string>();
+
+function normalizeWorktreePath(worktreePath: string): string {
+	const resolved = path.resolve(worktreePath);
+	return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function isProcessRunning(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		// EPERM means the process exists but belongs to someone else.
+		return error?.code === 'EPERM';
+	}
+}
+
+/**
+ * Removes temporary stack worktrees left behind when VS Code exited during an update, for example while the
+ * user was resolving conflicts. Worktrees still in use by an update in this or another running window are kept.
+ */
+export async function removeOrphanedStackWorktrees(repository: StackGitRepository,
+	isRunning: (pid: number) => boolean = isProcessRunning): Promise<void> {
+	const temporaryDirectory = normalizeWorktreePath(tmpdir());
+	const orphaned = (repository.state.worktrees ?? []).filter(worktree => {
+		const pid = STACK_WORKTREE_NAME.exec(path.basename(worktree.path))?.groups?.pid;
+		if (worktree.main || !pid || normalizeWorktreePath(path.dirname(worktree.path)) !== temporaryDirectory
+			|| activeStackWorktrees.has(normalizeWorktreePath(worktree.path))) {
+			return false;
+		}
+		return Number(pid) === process.pid || !isRunning(Number(pid));
+	});
+	for (const worktree of orphaned) {
+		try {
+			await repository.deleteWorktree(worktree.path, { force: true });
+		} catch (error) {
+			Logger.warn(`Could not remove orphaned stack worktree ${worktree.path}: ${error}`, 'UpdateStack');
+		}
+	}
+}
 
 export interface StackBranch {
 	number: number;
@@ -149,6 +195,7 @@ export async function updateStackBranches(
 		throw new Error(`Checked-out branch has local commits that differ from pull request #${activeNumber}.`);
 	}
 	await ensureClean(repository);
+	await removeOrphanedStackWorktrees(repository);
 	const heads = await localBranches(repository);
 	for (const branch of branches) {
 		const sha = heads.get(branch.head);
@@ -190,9 +237,12 @@ export async function updateStackBranches(
 	let worktreePath: string | undefined;
 	const updated: number[] = [];
 	let failure: Error | undefined;
+	// Registered before creation so a concurrent update in this process never treats it as orphaned.
+	const requestedWorktreePath = path.join(tmpdir(), `${STACK_WORKTREE_PREFIX}${process.pid}-${generateUuid()}`);
+	activeStackWorktrees.add(normalizeWorktreePath(requestedWorktreePath));
 	try {
 		worktreePath = await repository.createWorktree({
-			path: path.join(tmpdir(), `vscode-pr-stack-${generateUuid()}`),
+			path: requestedWorktreePath,
 			commitish: original.get(branchesToRebase[0].head)!,
 		});
 		const opened = await openWorktree(worktreePath);
@@ -288,6 +338,7 @@ export async function updateStackBranches(
 				failure = new Error(`${failure ? `${failure.message} ` : ''}Could not remove temporary stack worktree ${worktreePath}: ${error}`);
 			}
 		}
+		activeStackWorktrees.delete(normalizeWorktreePath(requestedWorktreePath));
 	}
 	if (failure) {
 		throw failure;

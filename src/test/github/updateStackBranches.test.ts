@@ -4,10 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { strict as assert } from 'assert';
+import { tmpdir } from 'os';
+import * as path from 'path';
 import { Uri } from 'vscode';
 import { Branch, BranchQuery, Commit, FetchOptions, Ref, Repository, RepositoryState } from '../../api/api';
 import { RefType, Status } from '../../api/api1';
-import { StackBranch, StackConflictResolver, StackGitRepository, StackUpdateCancelledError, updateStackBranches } from '../../github/updateStackBranches';
+import { removeOrphanedStackWorktrees, StackBranch, StackConflictResolver, StackGitRepository, StackUpdateCancelledError, updateStackBranches } from '../../github/updateStackBranches';
 import { MockRepository } from '../mocks/mockRepository';
 
 class StackRepository extends MockRepository implements StackGitRepository {
@@ -84,13 +86,18 @@ class StackRepository extends MockRepository implements StackGitRepository {
 		return [...this.remote].map(([name, commit]) => ({ type: RefType.Head, name, commit }));
 	}
 
-	async createWorktree(): Promise<string> {
+	readonly createdWorktrees: string[] = [];
+	readonly deletedWorktrees: string[] = [];
+
+	async createWorktree(options?: { path?: string }): Promise<string> {
 		this.calls.push('create worktree');
-		return 'temporary-worktree';
+		this.createdWorktrees.push(options!.path!);
+		return options!.path!;
 	}
 
-	async deleteWorktree(): Promise<void> {
+	async deleteWorktree(worktreePath: string): Promise<void> {
 		this.calls.push('delete worktree');
+		this.deletedWorktrees.push(worktreePath);
 	}
 
 	async rebase(upstream: string, options: { onto?: string; rebaseMerges?: boolean }): Promise<void> {
@@ -342,6 +349,61 @@ describe('Update pull request stack branches', function () {
 			await assert.rejects(updateResolving(continueRebase), /caused a conflict/);
 			assert.deepEqual(resolved, []);
 			assert(temporary.calls.includes('abort rebase'));
+		});
+	});
+
+	describe('orphaned temporary worktrees', function () {
+		const temporaryWorktree = (name: string, directory = tmpdir()) => ({
+			// Git reports worktree paths with forward slashes on Windows.
+			name, path: path.join(directory, name).replace(/\\/g, '/'), ref: '', main: false, detached: true,
+		});
+		const orphanFromThisProcess = temporaryWorktree(`vscode-pr-stack-${process.pid}-1d6c4b1e-8a64-4c1e-9d8e-2f6a0c7b3e51`);
+
+		it('removes leftovers from an earlier update before updating the stack', async function () {
+			repository.state.worktrees!.push(orphanFromThisProcess);
+			await update();
+			assert.deepEqual(repository.deletedWorktrees, [orphanFromThisProcess.path, repository.createdWorktrees[0]]);
+			assert.match(path.basename(repository.createdWorktrees[0]), new RegExp(`^vscode-pr-stack-${process.pid}-`));
+		});
+
+		it('only removes stack worktrees whose owning process has exited', async function () {
+			const exited = temporaryWorktree('vscode-pr-stack-111-0b9f2c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f');
+			repository.state.worktrees!.push(
+				{ ...temporaryWorktree('main-checkout'), main: true },
+				exited,
+				temporaryWorktree('vscode-pr-stack-222-5e4d3c2b-1a0f-4e9d-8c7b-6a5f4e3d2c1b'),
+				temporaryWorktree('vscode-pr-stack-333-7c6b5a4f-3e2d-4c1b-9a0f-8e7d6c5b4a3f', path.join(tmpdir(), 'nested')),
+				temporaryWorktree('vscode-pr-stack-legacy-without-owner'),
+				temporaryWorktree('my-feature-worktree'),
+			);
+			const running = new Set([222]);
+			await removeOrphanedStackWorktrees(repository, pid => running.has(pid));
+			assert.deepEqual(repository.deletedWorktrees, [exited.path]);
+		});
+
+		it('keeps the worktree of an update that is waiting for conflicts to be resolved', async function () {
+			temporary.conflictingStops = 1;
+			let deletedWhileResolving: string[] | undefined;
+			await updateStackBranches(repository, open, 'origin', branches, 2, () => undefined, async worktree => {
+				repository.state.worktrees!.push(temporaryWorktree(path.basename(repository.createdWorktrees[0])));
+				await removeOrphanedStackWorktrees(repository);
+				deletedWhileResolving = [...repository.deletedWorktrees];
+				await worktree.rebaseContinue!();
+				return true;
+			});
+			assert.deepEqual(deletedWhileResolving, []);
+		});
+
+		it('still updates the stack when a leftover cannot be removed', async function () {
+			repository.state.worktrees!.push(orphanFromThisProcess);
+			const deleteWorktree = repository.deleteWorktree.bind(repository);
+			repository.deleteWorktree = async worktreePath => {
+				if (worktreePath === orphanFromThisProcess.path) {
+					throw new Error('Permission denied');
+				}
+				return deleteWorktree(worktreePath);
+			};
+			assert.deepEqual(await update(), [1, 2]);
 		});
 	});
 
