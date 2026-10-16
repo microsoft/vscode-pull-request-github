@@ -11,6 +11,7 @@ import { Header, HeaderPreview } from '../components/header';
 import { StatusChecksSection } from '../components/merge';
 import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
 import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
+import { SubIssues } from '../components/subIssues';
 import { Timeline } from '../components/timeline';
 
 const useMediaQuery = (query: string) => {
@@ -79,6 +80,7 @@ const Main = (pr: PullRequest) => (
 		<div id="description">
 			<CommentView isPRDescription comment={pr} />
 		</div>
+		{pr.isIssue && pr.subIssues?.length ? <SubIssues subIssues={pr.subIssues} owner={pr.owner} repo={pr.repo} /> : null}
 		<Timeline events={pr.events} isIssue={pr.isIssue} />
 		<StatusChecksSection pr={pr} isSimple={false} />
 		<AddComment {...pr} />
