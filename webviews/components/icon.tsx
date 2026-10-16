@@ -59,3 +59,5 @@ export const skipIcon = <Icon src={require('../../resources/icons/codicons/skip.
 export const copilotErrorIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-error.svg')} />;
 export const copilotInProgressIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-in-progress.svg')} />;
 export const copilotSuccessIcon = <Icon className='copilot-icon' src={require('../../resources/icons/copilot-success.svg')} />;
+export const foldIcon = <Icon className='copilot-icon' src={require('../../resources/icons/fold.svg')} />;
+export const unfoldIcon = <Icon className='copilot-icon' src={require('../../resources/icons/unfold.svg')} />;

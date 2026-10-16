@@ -101,6 +101,8 @@ export interface IssueComment extends AbbreviatedIssueComment {
 	viewerCanUpdate: boolean;
 	viewerCanReact: boolean;
 	viewerCanDelete: boolean;
+	isMinimized?: boolean;
+	minimizedReason?: string;
 }
 
 export interface ReactionGroup {
@@ -188,6 +190,8 @@ export interface ReviewComment {
 	reactionGroups: ReactionGroup[];
 	viewerCanUpdate: boolean;
 	viewerCanDelete: boolean;
+	isMinimized?: boolean;
+	minimizedReason?: string;
 }
 
 export interface Commit {
