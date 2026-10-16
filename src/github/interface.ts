@@ -60,8 +60,7 @@ export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestSt
 	}
 	const firstClosed = stack.pullRequests.findIndex(entry => entry.state === GithubItemStateEnum.Closed);
 	const entries = firstClosed < 0 ? stack.pullRequests : stack.pullRequests.slice(0, firstClosed);
-	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued
-		|| entry.mergeable === PullRequestMergeability.Conflict || entry.mergeable === PullRequestMergeability.Unknown)
+	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued)
 		|| stack.pullRequests.slice(entries.length).some(entry => entry.state !== GithubItemStateEnum.Closed)) {
 		return;
 	}

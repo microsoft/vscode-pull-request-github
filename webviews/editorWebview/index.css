@@ -858,6 +858,14 @@ body button .icon {
 	fill: var(--vscode-list-warningForeground);
 }
 
+.stack-entry-readiness.conflict {
+	color: var(--vscode-errorForeground);
+}
+
+.stack-entry-readiness.conflict svg path {
+	fill: var(--vscode-errorForeground);
+}
+
 .stack-entry-details {
 	min-width: 0;
 	overflow-wrap: anywhere;
@@ -911,11 +919,6 @@ body button .icon {
 		justify-content: flex-end;
 		padding: 0 16px 8px;
 	}
-}
-
-.stack-action-error {
-	padding: 8px 16px 0;
-	color: var(--vscode-errorForeground);
 }
 
 .subtitle .avatar,

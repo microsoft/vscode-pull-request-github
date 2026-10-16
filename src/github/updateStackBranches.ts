@@ -6,7 +6,53 @@
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { Repository } from '../api/api';
+import Logger from '../common/logger';
 import { generateUuid } from '../common/uuid';
+
+const STACK_WORKTREE_PREFIX = 'vscode-pr-stack-';
+// Worktree names record the owning process so another window's in-progress update is never removed.
+const STACK_WORKTREE_NAME = /^vscode-pr-stack-(?<pid>\d+)-[0-9a-f-]+$/i;
+// Temporary worktrees owned by updates running in this process.
+const activeStackWorktrees = new Set<string>();
+
+function normalizeWorktreePath(worktreePath: string): string {
+	const resolved = path.resolve(worktreePath);
+	return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function isProcessRunning(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		// EPERM means the process exists but belongs to someone else.
+		return error?.code === 'EPERM';
+	}
+}
+
+/**
+ * Removes temporary stack worktrees left behind when VS Code exited during an update, for example while the
+ * user was resolving conflicts. Worktrees still in use by an update in this or another running window are kept.
+ */
+export async function removeOrphanedStackWorktrees(repository: StackGitRepository,
+	isRunning: (pid: number) => boolean = isProcessRunning): Promise<void> {
+	const temporaryDirectory = normalizeWorktreePath(tmpdir());
+	const orphaned = (repository.state.worktrees ?? []).filter(worktree => {
+		const pid = STACK_WORKTREE_NAME.exec(path.basename(worktree.path))?.groups?.pid;
+		if (worktree.main || !pid || normalizeWorktreePath(path.dirname(worktree.path)) !== temporaryDirectory
+			|| activeStackWorktrees.has(normalizeWorktreePath(worktree.path))) {
+			return false;
+		}
+		return Number(pid) === process.pid || !isRunning(Number(pid));
+	});
+	for (const worktree of orphaned) {
+		try {
+			await repository.deleteWorktree(worktree.path, { force: true });
+		} catch (error) {
+			Logger.warn(`Could not remove orphaned stack worktree ${worktree.path}: ${error}`, 'UpdateStack');
+		}
+	}
+}
 
 export interface StackBranch {
 	number: number;
@@ -27,6 +73,51 @@ export function supportsStackGitOperations(repository: Repository): repository i
 		&& typeof repository.updateRef === 'function'
 		&& typeof repository.pushRefWithLease === 'function'
 		&& typeof repository.getRemoteRefs === 'function';
+}
+
+/**
+ * Guides the user through resolving the conflicts of the rebase stopped in `repository` and continuing it.
+ * Resolves to `true` once the rebase has moved past the conflicting commit, or `false` if the user cancelled.
+ */
+export type StackConflictResolver = (repository: Repository, branch: StackBranch) => Promise<boolean>;
+
+export class StackUpdateCancelledError extends Error {
+	constructor(branch: StackBranch) {
+		super(`Updating the stack was cancelled while rebasing #${branch.number} (${branch.head}). No branches were pushed.`);
+	}
+}
+
+async function isStoppedAtConflict(repository: StackGitRepository): Promise<boolean> {
+	if (typeof repository.rebaseContinue !== 'function') {
+		return false;
+	}
+	await repository.status();
+	return !!repository.state.rebaseCommit && repository.state.mergeChanges.length > 0;
+}
+
+async function resolveRebaseConflicts(repository: StackGitRepository, branch: StackBranch, newBase: string,
+	resolveConflicts: StackConflictResolver): Promise<void> {
+	for (; ;) {
+		await repository.status();
+		if (!repository.state.rebaseCommit) {
+			break;
+		}
+		if (!repository.state.mergeChanges.length) {
+			await repository.rebaseAbort();
+			throw new Error(`Rebasing #${branch.number} (${branch.head}) stopped without conflicts to resolve. No branches were pushed.`);
+		}
+		if (!await resolveConflicts(repository, branch)) {
+			await repository.status();
+			if (repository.state.rebaseCommit) {
+				await repository.rebaseAbort();
+			}
+			throw new StackUpdateCancelledError(branch);
+		}
+	}
+	// The rebase can also be aborted from the Source Control view, which leaves the branch on its old base.
+	if (await repository.getMergeBase(newBase, 'HEAD') !== newBase) {
+		throw new StackUpdateCancelledError(branch);
+	}
 }
 
 async function localBranches(repository: Repository): Promise<Map<string, string>> {
@@ -63,6 +154,20 @@ async function verifyBases(repository: StackGitRepository, remote: string, branc
 	}
 }
 
+/**
+ * Deletes the temporary worktree. A worktree that cannot be deleted, for example because Windows briefly still has
+ * a handle on its folder, does not fail the update: by then the update has finished, been cancelled, or failed for
+ * another reason. The next update removes the worktree if Git still lists it; otherwise only an empty temporary
+ * folder remains.
+ */
+async function removeTemporaryWorktree(repository: StackGitRepository, worktreePath: string): Promise<void> {
+	try {
+		await repository.deleteWorktree(worktreePath, { force: true });
+	} catch (error) {
+		Logger.warn(`Could not remove temporary stack worktree ${worktreePath}: ${error}`, 'UpdateStack');
+	}
+}
+
 export async function updateStackBranches(
 	repository: StackGitRepository,
 	openWorktree: (worktreePath: string) => Promise<Repository | null>,
@@ -70,6 +175,7 @@ export async function updateStackBranches(
 	branches: readonly StackBranch[],
 	activeNumber: number,
 	report: (message: string) => void,
+	resolveConflicts?: StackConflictResolver,
 ): Promise<number[]> {
 	if (!branches.length || new Set(branches.map(branch => branch.number)).size !== branches.length
 		|| new Set([branches[0].base, ...branches.map(branch => branch.head)]).size !== branches.length + 1
@@ -103,6 +209,7 @@ export async function updateStackBranches(
 		throw new Error(`Checked-out branch has local commits that differ from pull request #${activeNumber}.`);
 	}
 	await ensureClean(repository);
+	await removeOrphanedStackWorktrees(repository);
 	const heads = await localBranches(repository);
 	for (const branch of branches) {
 		const sha = heads.get(branch.head);
@@ -144,9 +251,12 @@ export async function updateStackBranches(
 	let worktreePath: string | undefined;
 	const updated: number[] = [];
 	let failure: Error | undefined;
+	// Registered before creation so a concurrent update in this process never treats it as orphaned.
+	const requestedWorktreePath = path.join(tmpdir(), `${STACK_WORKTREE_PREFIX}${process.pid}-${generateUuid()}`);
+	activeStackWorktrees.add(normalizeWorktreePath(requestedWorktreePath));
 	try {
 		worktreePath = await repository.createWorktree({
-			path: path.join(tmpdir(), `vscode-pr-stack-${generateUuid()}`),
+			path: requestedWorktreePath,
 			commitish: original.get(branchesToRebase[0].head)!,
 		});
 		const opened = await openWorktree(worktreePath);
@@ -163,12 +273,16 @@ export async function updateStackBranches(
 			try {
 				await opened.rebase(forks[startIndex + index], { onto: newBase, rebaseMerges: true });
 			} catch (error) {
-				await opened.rebaseAbort();
-				throw new Error(`Rebasing #${branch.number} (${branch.head}) caused a conflict or failed: ${error}`);
+				if (!resolveConflicts || !await isStoppedAtConflict(opened)) {
+					await opened.rebaseAbort();
+					throw new Error(`Rebasing #${branch.number} (${branch.head}) caused a conflict or failed: ${error}`);
+				}
+				await resolveRebaseConflicts(opened, branch, newBase, resolveConflicts);
 			}
 			rebased.set(branch.head, (await opened.getCommit('HEAD')).hash);
 		}
 
+		report('Checking stack branches before pushing');
 		await verifyBases(repository, remote, branches, original, startIndex);
 		await ensureClean(repository);
 		if (repository.state.HEAD?.name !== activeName || (await repository.getBranch(activeName)).commit !== active.sha) {
@@ -232,12 +346,9 @@ export async function updateStackBranches(
 		failure = error instanceof Error ? error : new Error(String(error));
 	} finally {
 		if (worktreePath) {
-			try {
-				await repository.deleteWorktree(worktreePath, { force: true });
-			} catch (error) {
-				failure = new Error(`${failure ? `${failure.message} ` : ''}Could not remove temporary stack worktree ${worktreePath}: ${error}`);
-			}
+			await removeTemporaryWorktree(repository, worktreePath);
 		}
+		activeStackWorktrees.delete(normalizeWorktreePath(requestedWorktreePath));
 	}
 	if (failure) {
 		throw failure;

@@ -1805,8 +1805,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
 				const outdated = await Promise.all(stack.pullRequests.filter(entry =>
-					entry.state === GithubItemStateEnum.Open && entry.mergeable !== PullRequestMergeability.Conflict,
+					entry.state === GithubItemStateEnum.Open,
 				).map(async entry => {
+					// A conflict means the base has changes the head does not, so updating the stack is how it is resolved.
+					if (entry.mergeable === PullRequestMergeability.Conflict) {
+						return true;
+					}
 					const refs = comparisons.get(entry.number)!;
 					const comparison = await this.githubRepository.compareCommits(refs.base, refs.head);
 					if (comparison?.behind_by === undefined) {

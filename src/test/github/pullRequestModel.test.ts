@@ -306,6 +306,25 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(compare.callCount, 2);
 		});
 
+		it('offers to update a stack with conflicts so they can be resolved by rebasing', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794, mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY' },
+				{ position: 3, number: 795, mergeable: 'UNKNOWN', mergeStateStatus: 'UNKNOWN' },
+			], null));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual({
+				needsUpdate: stack?.needsUpdate,
+				canUpdate: isStackUpdatable(stack!),
+				comparedConflict: compare.calledWith('github:D1', 'github:D2'),
+			}, { needsUpdate: true, canUpdate: true, comparedConflict: false });
+		});
+
 		it('marks a clean PR behind its stack base as waiting and blocks stack merge', async function () {
 			const model = createModel();
 			compare.callsFake(async (_base: string, head: string) =>
