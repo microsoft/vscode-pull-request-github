@@ -97,6 +97,12 @@
 				"displayName": "GitHub Issues"
 			}
 		],
+		"mcpServerDefinitionProviders": [
+			{
+				"id": "github-pull-requests-mcp",
+				"label": "GitHub Pull Requests"
+			}
+		],
 		"configuration": {
 			"type": "object",
 			"title": "GitHub Pull Requests",
@@ -596,6 +602,18 @@
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": true
+				},
+				"githubPullRequests.experimental.mcpServer": {
+					"type": "boolean",
+					"default": false,
+					"scope": "application",
+					"markdownDescription": "%githubPullRequests.experimental.mcpServer.description%"
+				},
+				"githubPullRequests.experimental.stacks": {
+					"type": "boolean",
+					"description": "%githubPullRequests.experimental.stacks.description%",
+					"default": true,
+					"included": false
 				},
 				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
@@ -1713,6 +1731,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "pr.copyMcpServerConfig",
+				"title": "%command.pr.copyMcpServerConfig.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.refreshComments",
 				"title": "%command.pr.refreshComments.title%",
 				"category": "%command.pull.request.category%",
@@ -2136,6 +2159,10 @@
 		],
 		"menus": {
 			"commandPalette": [
+				{
+					"command": "pr.copyMcpServerConfig",
+					"when": "config.githubPullRequests.experimental.mcpServer"
+				},
 				{
 					"command": "pr.deleteLocalBranchesNRemotes",
 					"when": "!isSessionsWindow"
