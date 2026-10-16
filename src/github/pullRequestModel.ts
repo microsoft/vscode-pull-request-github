@@ -2339,6 +2339,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
 				allowAutoMerge: pullRequest.viewerCanEnableAutoMerge || pullRequest.viewerCanDisableAutoMerge
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this.item.allowAutoMerge = result.allowAutoMerge;
@@ -2383,6 +2384,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				isDraft: pullRequest.isDraft,
 				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this._onDidChange.fire({ draft: true });
