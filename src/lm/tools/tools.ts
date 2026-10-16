@@ -17,22 +17,22 @@ import { SearchTool } from './searchTools';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 
+export function createTools(credentialStore: CredentialStore, repositoriesManager: RepositoriesManager): Map<string, vscode.LanguageModelTool<unknown>> {
+	const tools = new Map<string, vscode.LanguageModelTool<unknown>>();
+	tools.set(FetchIssueTool.toolId, new FetchIssueTool(credentialStore, repositoriesManager));
+	tools.set(FetchLabelsTool.toolId, new FetchLabelsTool(credentialStore, repositoriesManager));
+	tools.set(FetchNotificationTool.toolId, new FetchNotificationTool(credentialStore, repositoriesManager));
+	tools.set(SearchTool.toolId, new SearchTool(credentialStore, repositoriesManager));
+	tools.set(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager));
+	tools.set(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager));
+	tools.set(PullRequestStatusChecksTool.toolId, new PullRequestStatusChecksTool(credentialStore, repositoriesManager));
+	tools.set(CreatePullRequestTool.toolId, new CreatePullRequestTool(credentialStore, repositoriesManager));
+	tools.set(ResolveReviewThreadTool.toolId, new ResolveReviewThreadTool(repositoriesManager));
+	return tools;
+}
+
 export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
-	registerFetchingTools(context, credentialStore, repositoriesManager);
-	registerSearchTools(context, credentialStore, repositoriesManager);
-	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
-	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager)));
-	context.subscriptions.push(vscode.lm.registerTool(PullRequestStatusChecksTool.toolId, new PullRequestStatusChecksTool(credentialStore, repositoriesManager)));
-	context.subscriptions.push(vscode.lm.registerTool(CreatePullRequestTool.toolId, new CreatePullRequestTool(credentialStore, repositoriesManager)));
-	context.subscriptions.push(vscode.lm.registerTool(ResolveReviewThreadTool.toolId, new ResolveReviewThreadTool(repositoriesManager)));
-}
-
-function registerFetchingTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool(FetchIssueTool.toolId, new FetchIssueTool(credentialStore, repositoriesManager)));
-	context.subscriptions.push(vscode.lm.registerTool(FetchLabelsTool.toolId, new FetchLabelsTool(credentialStore, repositoriesManager)));
-	context.subscriptions.push(vscode.lm.registerTool(FetchNotificationTool.toolId, new FetchNotificationTool(credentialStore, repositoriesManager)));
-}
-
-function registerSearchTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool(SearchTool.toolId, new SearchTool(credentialStore, repositoriesManager)));
+	for (const [toolId, tool] of createTools(credentialStore, repositoriesManager)) {
+		context.subscriptions.push(vscode.lm.registerTool(toolId, tool));
+	}
 }
