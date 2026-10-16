@@ -37,6 +37,7 @@ import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { StateManager } from './issues/stateManager';
 import { IssueContextProvider } from './lm/issueContextProvider';
+import { McpServerManager } from './lm/mcp/mcpServerManager';
 import { PullRequestContextProvider } from './lm/pullRequestContextProvider';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
@@ -320,6 +321,7 @@ async function init(
 	await resumePendingCheckout(reviewsManager, context, reposManager);
 
 	initChat(context, credentialStore, reposManager);
+	context.subscriptions.push(new McpServerManager(context, credentialStore, reposManager));
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git, folderRepositoryManagerResolver)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
