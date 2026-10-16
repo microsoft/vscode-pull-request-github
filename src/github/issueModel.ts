@@ -16,8 +16,8 @@ import {
 	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason } from './interface';
-import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
+import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue, StateReason, SubIssueReference } from './interface';
+import { convertRESTIssueToRawPullRequest, convertRESTSubIssue, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -660,6 +660,26 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			issue_number: this.number,
 			assignees,
 		});
+	}
+
+	async getSubIssues(): Promise<SubIssueReference[]> {
+		try {
+			const { octokit, remote } = await this.githubRepository.ensure();
+			const { data } = await octokit.call(octokit.api.issues.listSubIssues, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				issue_number: this.number,
+				per_page: 100,
+			});
+			return data.map(issue => convertRESTSubIssue(issue, this.githubRepository));
+		} catch (e) {
+			if (e.status === 404 || e.status === 410) {
+				Logger.debug(`Sub-issues unavailable for issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
+			} else {
+				Logger.error(`Error fetching sub-issues of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
+			}
+			return [];
+		}
 	}
 
 	async close(): Promise<{ item: Issue, closedEvent: ClosedEvent }> {
