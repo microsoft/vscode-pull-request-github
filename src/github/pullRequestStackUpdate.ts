@@ -13,6 +13,7 @@ import { UpdateStackResult } from './views';
 import { Remote as GitRemote, Repository } from '../api/api';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
+import { PausableProgressNotification } from '../common/progress';
 import { parseRemote } from '../common/remote';
 import { areStacksEnabled } from '../common/settingsUtils';
 import { formatError } from '../common/utils';
@@ -139,48 +140,53 @@ export async function updatePullRequestStack(ctx: StackUpdateContext, message: I
 			await ctx.replyMessage(message, { updatedPullRequests: [] });
 			return;
 		}
-		const updatedPullRequests = await vscode.window.withProgress(
-			{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Updating pull request stack') },
-			async progress => {
-				progress.report({ message: vscode.l10n.t('Checking stack branches') });
-				const current = await item.getStack();
-				const currentOpenEntries = current && getUpdatableStackEntries(current);
-				if (!current || !currentOpenEntries || currentOpenEntries.length !== openEntries.length
-					|| ctx.getCheckedOutPullRequestNumber() !== activeNumber
-					|| current.size !== stack.size || current.pullRequests.some((entry, index) =>
-						entry.number !== stack.pullRequests[index].number || entry.head !== stack.pullRequests[index].head)) {
-					throw new Error(vscode.l10n.t('The pull request stack changed. Refresh and try again.'));
+		const progress = new PausableProgressNotification(vscode.l10n.t('Updating pull request stack'));
+		let updatedPullRequests: number[];
+		try {
+			progress.report(vscode.l10n.t('Checking stack branches'));
+			const current = await item.getStack();
+			const currentOpenEntries = current && getUpdatableStackEntries(current);
+			if (!current || !currentOpenEntries || currentOpenEntries.length !== openEntries.length
+				|| ctx.getCheckedOutPullRequestNumber() !== activeNumber
+				|| current.size !== stack.size || current.pullRequests.some((entry, index) =>
+					entry.number !== stack.pullRequests[index].number || entry.head !== stack.pullRequests[index].head)) {
+				throw new Error(vscode.l10n.t('The pull request stack changed. Refresh and try again.'));
+			}
+			const target = ctx.getStackRepository();
+			if (!target) {
+				throw new Error(vscode.l10n.t('A writable Git remote for this stack is not available locally.'));
+			}
+			const { manager, repository, remote } = target;
+			if (!supportsStackGitOperations(repository)) {
+				throw new Error(vscode.l10n.t('A newer built-in Git extension is required to update this stack.'));
+			}
+			const branches = await Promise.all(currentOpenEntries.map(async (entry, index) => {
+				const pr = await item.githubRepository.getPullRequest(entry.number, 'updateStack');
+				const base = index === 0 ? current.base : current.pullRequests[index - 1].head;
+				if (!pr || pr.state !== GithubItemStateEnum.Open || !pr.head || !pr.base
+					|| pr.mergeQueueEntry || pr.head.ref !== entry.head || pr.base.ref !== base
+					|| pr.head.owner.toLowerCase() !== item.remote.owner.toLowerCase()
+					|| pr.base.owner.toLowerCase() !== item.remote.owner.toLowerCase()
+					|| pr.head.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()
+					|| pr.base.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()) {
+					throw new Error(vscode.l10n.t('Pull request #{0} is no longer part of a supported, open branch chain.', entry.number));
 				}
-				const target = ctx.getStackRepository();
-				if (!target) {
-					throw new Error(vscode.l10n.t('A writable Git remote for this stack is not available locally.'));
-				}
-				const { manager, repository, remote } = target;
-				if (!supportsStackGitOperations(repository)) {
-					throw new Error(vscode.l10n.t('A newer built-in Git extension is required to update this stack.'));
-				}
-				const branches = await Promise.all(currentOpenEntries.map(async (entry, index) => {
-					const pr = await item.githubRepository.getPullRequest(entry.number, 'updateStack');
-					const base = index === 0 ? current.base : current.pullRequests[index - 1].head;
-					if (!pr || pr.state !== GithubItemStateEnum.Open || !pr.head || !pr.base
-						|| pr.mergeQueueEntry || pr.head.ref !== entry.head || pr.base.ref !== base
-						|| pr.head.owner.toLowerCase() !== item.remote.owner.toLowerCase()
-						|| pr.base.owner.toLowerCase() !== item.remote.owner.toLowerCase()
-						|| pr.head.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()
-						|| pr.base.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()) {
-						throw new Error(vscode.l10n.t('Pull request #{0} is no longer part of a supported, open branch chain.', entry.number));
-					}
-					return { number: entry.number, base, head: entry.head, sha: pr.head.sha };
-				}));
-				if (!areStacksEnabled()) {
-					throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-				}
-				return updateStackBranches(repository,
-					path => manager.openWorktreeRepository(vscode.Uri.file(path)),
-					remote.name, branches, activeNumber, step => progress.report({ message: step }),
-					worktree => guideRebaseConflicts(worktree));
-			},
-		);
+				return { number: entry.number, base, head: entry.head, sha: pr.head.sha };
+			}));
+			if (!areStacksEnabled()) {
+				throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
+			}
+			updatedPullRequests = await updateStackBranches(repository,
+				path => manager.openWorktreeRepository(vscode.Uri.file(path)),
+				remote.name, branches, activeNumber, step => progress.report(step),
+				(worktree, branch) => {
+					// The conflict guide shows its own notifications while the user resolves conflicts.
+					progress.close();
+					return guideRebaseConflicts(worktree, `#${branch.number} (${branch.head})`);
+				});
+		} finally {
+			progress.close();
+		}
 		await ctx.replyMessage(message, { updatedPullRequests });
 		item.githubRepository.notifyStackChanged(stackNumbers);
 		void vscode.window.showInformationMessage(updatedPullRequests.length

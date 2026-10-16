@@ -154,6 +154,20 @@ async function verifyBases(repository: StackGitRepository, remote: string, branc
 	}
 }
 
+/**
+ * Deletes the temporary worktree. A worktree that cannot be deleted, for example because Windows briefly still has
+ * a handle on its folder, does not fail the update: by then the update has finished, been cancelled, or failed for
+ * another reason. The next update removes the worktree if Git still lists it; otherwise only an empty temporary
+ * folder remains.
+ */
+async function removeTemporaryWorktree(repository: StackGitRepository, worktreePath: string): Promise<void> {
+	try {
+		await repository.deleteWorktree(worktreePath, { force: true });
+	} catch (error) {
+		Logger.warn(`Could not remove temporary stack worktree ${worktreePath}: ${error}`, 'UpdateStack');
+	}
+}
+
 export async function updateStackBranches(
 	repository: StackGitRepository,
 	openWorktree: (worktreePath: string) => Promise<Repository | null>,
@@ -263,12 +277,12 @@ export async function updateStackBranches(
 					await opened.rebaseAbort();
 					throw new Error(`Rebasing #${branch.number} (${branch.head}) caused a conflict or failed: ${error}`);
 				}
-				report(`Resolve the conflicts in #${branch.number} (${branch.head}) to continue`);
 				await resolveRebaseConflicts(opened, branch, newBase, resolveConflicts);
 			}
 			rebased.set(branch.head, (await opened.getCommit('HEAD')).hash);
 		}
 
+		report('Checking stack branches before pushing');
 		await verifyBases(repository, remote, branches, original, startIndex);
 		await ensureClean(repository);
 		if (repository.state.HEAD?.name !== activeName || (await repository.getBranch(activeName)).commit !== active.sha) {
@@ -332,11 +346,7 @@ export async function updateStackBranches(
 		failure = error instanceof Error ? error : new Error(String(error));
 	} finally {
 		if (worktreePath) {
-			try {
-				await repository.deleteWorktree(worktreePath, { force: true });
-			} catch (error) {
-				failure = new Error(`${failure ? `${failure.message} ` : ''}Could not remove temporary stack worktree ${worktreePath}: ${error}`);
-			}
+			await removeTemporaryWorktree(repository, worktreePath);
 		}
 		activeStackWorktrees.delete(normalizeWorktreePath(requestedWorktreePath));
 	}

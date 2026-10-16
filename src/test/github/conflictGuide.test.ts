@@ -71,12 +71,15 @@ describe('Conflict guide', function () {
 	let showInformationMessage: SinonStub;
 	let showErrorMessage: SinonStub;
 	let executeCommand: SinonStub;
+	let progressMessages: (string | undefined)[];
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		repository = new ConflictedRepository();
 		cancellation = new vscode.CancellationTokenSource();
-		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		progressMessages = [];
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) =>
+			task({ report: ({ message }: { message?: string }) => progressMessages.push(message) }, cancellation.token));
 		showInformationMessage = sinon.stub(vscode.window, 'showInformationMessage');
 		showErrorMessage = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves(undefined);
@@ -102,6 +105,24 @@ describe('Conflict guide', function () {
 			assert.deepEqual(repository.calls, ['continue rebase']);
 			assert(executeCommand.calledWith('git.openMergeEditor', conflict.uri));
 			assert.equal(repository.inputBox.value, '', 'the rebase keeps the commit message chosen by Git');
+		});
+
+		it('names what the rebase is updating in its notifications', async function () {
+			showInformationMessage.resolves('Continue Rebase');
+			const finished = guideRebaseConflicts(repository.api, '#793 (alexr00/D1)');
+			resolveAllConflicts();
+
+			assert.equal(await finished, true);
+			assert.deepEqual({
+				progress: progressMessages,
+				prompt: showInformationMessage.firstCall.args,
+			}, {
+				progress: [
+					'Resolve the conflicts in #793 (alexr00/D1) using the Source Control view, 1 of 1 remaining',
+					'Resolve the conflicts in #793 (alexr00/D1) using the Source Control view, 0 of 1 remaining',
+				],
+				prompt: ['All conflicts in #793 (alexr00/D1) resolved. Continue the rebase to proceed.', 'Continue Rebase', 'Abort Rebase'],
+			});
 		});
 
 		it('hands off to the next stop without reporting an error when continuing hits another conflict', async function () {

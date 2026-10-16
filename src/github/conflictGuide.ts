@@ -11,7 +11,8 @@ import { asPromise, formatError } from '../common/utils';
 
 type ConflictOperation =
 	| { readonly kind: 'merge'; readonly message: string; readonly push: boolean }
-	| { readonly kind: 'rebase' };
+	/** `subject` names what the rebase is updating, such as a pull request, so the user knows what they are resolving. */
+	| { readonly kind: 'rebase'; readonly subject?: string };
 
 export class ConflictModel extends Disposable {
 	public readonly startingConflictsCount: number;
@@ -177,8 +178,8 @@ export class ConflictModel extends Disposable {
 	 * Guides the user through the conflicts of a rebase that stopped at a conflicting commit.
 	 * The repository must support `rebaseContinue` and `rebaseAbort`.
 	 */
-	public static async beginRebase(repository: Repository): Promise<ConflictModel | undefined> {
-		return ConflictModel._begin(repository, { kind: 'rebase' });
+	public static async beginRebase(repository: Repository, subject?: string): Promise<ConflictModel | undefined> {
+		return ConflictModel._begin(repository, { kind: 'rebase', subject });
 	}
 
 	private static async _begin(repository: Repository, operation: ConflictOperation): Promise<ConflictModel | undefined> {
@@ -206,10 +207,11 @@ export class ConflictModel extends Disposable {
 
 /**
  * Guides the user through the conflicts at the current stop of a rebase and waits for the rebase to move past it.
+ * `subject` names what the rebase is updating in the guide's notifications.
  * Resolves to `false` if the user aborted the rebase from the guide.
  */
-export async function guideRebaseConflicts(repository: Repository): Promise<boolean> {
-	const model = await ConflictModel.beginRebase(repository);
+export async function guideRebaseConflicts(repository: Repository, subject?: string): Promise<boolean> {
+	const model = await ConflictModel.beginRebase(repository, subject);
 	if (!model) {
 		return true;
 	}
@@ -225,8 +227,16 @@ class ConflictNotification extends Disposable {
 	constructor(private readonly _conflictModel: ConflictModel) {
 		super();
 		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
+			const { operation } = this._conflictModel;
 			const report = (increment: number) => {
-				progress.report({ message: vscode.l10n.t('Use the Source Control view to resolve conflicts, {0} of {1} remaining', this._conflictModel.remainingConflicts.length, this._conflictModel.startingConflictsCount), increment });
+				const remaining = this._conflictModel.remainingConflicts.length;
+				const total = this._conflictModel.startingConflictsCount;
+				progress.report({
+					message: operation.kind === 'rebase' && operation.subject
+						? vscode.l10n.t('Resolve the conflicts in {0} using the Source Control view, {1} of {2} remaining', operation.subject, remaining, total)
+						: vscode.l10n.t('Use the Source Control view to resolve conflicts, {0} of {1} remaining', remaining, total),
+					increment,
+				});
 			};
 			report(0);
 			return new Promise<boolean>((resolve) => {
@@ -252,7 +262,9 @@ class ConflictNotification extends Disposable {
 			let conclude: string;
 			let cancel: string;
 			if (operation.kind === 'rebase') {
-				message = vscode.l10n.t('All conflicts resolved. Continue the rebase to proceed.');
+				message = operation.subject
+					? vscode.l10n.t('All conflicts in {0} resolved. Continue the rebase to proceed.', operation.subject)
+					: vscode.l10n.t('All conflicts resolved. Continue the rebase to proceed.');
 				conclude = vscode.l10n.t('Continue Rebase');
 				cancel = vscode.l10n.t('Abort Rebase');
 			} else {

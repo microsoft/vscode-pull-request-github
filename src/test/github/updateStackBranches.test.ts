@@ -416,6 +416,29 @@ describe('Update pull request stack branches', function () {
 		assert.equal(repository.calls.some(call => call.startsWith('push')), false);
 	});
 
+	describe('when the temporary worktree cannot be deleted', function () {
+		beforeEach(function () {
+			repository.deleteWorktree = async () => { throw new Error('Permission denied'); };
+		});
+
+		it('does not fail a finished update', async function () {
+			assert.deepEqual(await update(), [1, 2]);
+		});
+
+		it('still reports a cancelled update as cancelled', async function () {
+			temporary.conflictingStops = 1;
+			await assert.rejects(
+				updateStackBranches(repository, open, 'origin', branches, 2, () => undefined, async () => false),
+				error => error instanceof StackUpdateCancelledError && !error.message.includes('Permission denied'),
+			);
+		});
+
+		it('reports only the original failure of a failed update', async function () {
+			repository.failPush = 'D1';
+			await assert.rejects(update(), (error: Error) => /Could not push #1/.test(error.message) && !error.message.includes('Permission denied'));
+		});
+	});
+
 	it('refuses to rewrite a branch checked out in a different worktree', async function () {
 		repository.state.worktrees?.push({ name: 'other', path: '/another', ref: 'refs/heads/D1', main: false, detached: false });
 		await assert.rejects(update(), /another worktree/);
