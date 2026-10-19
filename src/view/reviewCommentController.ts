@@ -597,13 +597,18 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	async getMarkdownPreviewCommentInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo> {
 		const commentingRanges = await this.getCommentingRanges(document);
 		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
-		const reviewQuery = document.uri.scheme === Schemes.Review ? fromReviewUri(document.uri.query) : undefined;
-		// The base side of a renamed file has the previous file name, but threads are stored by the current file name.
-		const fileName = reviewQuery
-			? (this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri)?.fileName ?? reviewQuery.path)
-			: this._folderRepoManager.gitRelativeRootPath(document.uri.path);
-		const threadMap = reviewQuery?.base ? this._reviewSchemeFileChangeCommentThreads : this._workspaceFileChangeCommentThreads;
-		const threads = (threadMap[fileName] ?? []).filter(thread => thread.range);
+		let threads: GHPRCommentThread[];
+		if (document.uri.scheme === Schemes.Review) {
+			// Review documents can show other versions of a file, such as the version an outdated comment was made on.
+			// The thread maps only apply to the documents of the current file changes.
+			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri);
+			// The base side of a renamed file has the previous file name, but threads are stored by the current file name.
+			const threadMap = fromReviewUri(document.uri.query).base ? this._reviewSchemeFileChangeCommentThreads : this._workspaceFileChangeCommentThreads;
+			threads = matchedFile ? (threadMap[matchedFile.fileName] ?? []) : [];
+		} else {
+			threads = this._workspaceFileChangeCommentThreads[this._folderRepoManager.gitRelativeRootPath(document.uri.path)] ?? [];
+		}
+		threads = threads.filter(thread => thread.range);
 		return {
 			commentingRanges: ranges.map(range => ({ start: range.start.line, end: range.end.line })),
 			threads: threads.map(thread => ({
@@ -618,8 +623,9 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	// #endregion
 
 	private async getContentDiff(uri: vscode.Uri, fileName: string, retry: boolean = true): Promise<string> {
-		const matchedEditor = vscode.window.visibleTextEditors.find(
-			editor => editor.document.uri.toString() === uri.toString(),
+		// The document can have unsaved changes without being visible, for example when its markdown preview is shown instead.
+		const matchedDocument = vscode.workspace.textDocuments.find(
+			document => document.uri.toString() === uri.toString(),
 		);
 		if (!this._folderRepoManager.activePullRequest?.head) {
 			Logger.error('Failed to get content diff. Cannot get content diff without an active pull request head.', ReviewCommentController.ID);
@@ -627,8 +633,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 
 		try {
-			if (matchedEditor && matchedEditor.document.isDirty && vscode.workspace.getConfiguration('files', matchedEditor.document.uri).get('autoSave') !== 'afterDelay') {
-				const documentText = matchedEditor.document.getText();
+			if (matchedDocument && matchedDocument.isDirty && vscode.workspace.getConfiguration('files', matchedDocument.uri).get('autoSave') !== 'afterDelay') {
+				const documentText = matchedDocument.getText();
 				const details = await this._repository.getObjectDetails(
 					this._folderRepoManager.activePullRequest.head.sha,
 					fileName,

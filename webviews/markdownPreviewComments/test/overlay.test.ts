@@ -118,5 +118,31 @@ describe('markdown preview comments overlay', () => {
 		link.blur();
 		assert.ok(!link.classList.contains('visible'));
 	});
+
+	it('adds comment links to the text of list items that contain other lists', () => {
+		// A tight nested list renders the parent's text directly in its list item, without a paragraph.
+		setUpPreview(`
+<ul data-line="0" data-pr-end-line="1" class="code-line">
+	<li data-line="0" data-pr-end-line="1" class="code-line">parent
+		<ul data-line="1" data-pr-end-line="1" class="code-line">
+			<li data-line="1" data-pr-end-line="1" class="code-line">child</li>
+		</ul>
+	</li>
+</ul>`, {
+			[SOURCE]: {
+				commentingRanges: [{ start: 0, end: 1 }],
+				threads: [{ start: 0, end: 0, commentCount: 1, resolved: false }],
+				commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1',
+			},
+		});
+
+		render();
+
+		assert.deepStrictEqual(links('add').map(link => link.getAttribute('href')), [
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=0&end=0',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=1&end=1',
+		]);
+		assert.deepStrictEqual(links('threads').map(link => link.textContent), ['1']);
+	});
 });
 

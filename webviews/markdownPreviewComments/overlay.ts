@@ -99,20 +99,28 @@ function intersects(a: LineRange, b: LineRange): boolean {
 }
 
 /**
- * Gets the innermost rendered blocks, such as paragraphs, headings, table rows and code blocks,
- * so that a list or a table doesn't get a single button for all of its content.
+ * Gets the blocks that can be commented on: the innermost rendered blocks, such as paragraphs, headings,
+ * table rows and code blocks, so that a list or a table doesn't get a single button for all of its content.
+ * A block that contains other blocks only gets its own lines before them, such as the text of a list item
+ * in a tight list, which isn't rendered in a paragraph.
  */
-function getLeafBlocks(): Block[] {
+function getBlocks(): Block[] {
 	const blocks: Block[] = [];
 	for (const element of document.querySelectorAll(BLOCK_SELECTOR)) {
-		if (element.querySelector(BLOCK_SELECTOR)) {
+		const start = Number(element.getAttribute('data-line'));
+		let end = Number(element.getAttribute(END_LINE_ATTRIBUTE));
+		if (!Number.isInteger(start) || !Number.isInteger(end)) {
 			continue;
 		}
-		const start = Number(element.getAttribute('data-line'));
-		const end = Number(element.getAttribute(END_LINE_ATTRIBUTE));
-		if (Number.isInteger(start) && Number.isInteger(end)) {
-			blocks.push({ element, start, end });
+		const firstInnerBlock = element.querySelector(BLOCK_SELECTOR);
+		if (firstInnerBlock) {
+			const innerStart = Number(firstInnerBlock.getAttribute('data-line'));
+			if (!(innerStart > start)) {
+				continue;
+			}
+			end = Math.min(end, innerStart - 1);
 		}
+		blocks.push({ element, start, end });
 	}
 	return blocks;
 }
@@ -154,7 +162,7 @@ export function render(): void {
 	const addLeft = 4 - origin.left;
 	const threadsLeft = document.documentElement.clientWidth - 24 - origin.left;
 
-	for (const block of getLeafBlocks()) {
+	for (const block of getBlocks()) {
 		const top = block.element.getBoundingClientRect().top - origin.top;
 
 		if (state.commentingRanges.some(range => intersects(range, block))) {
@@ -201,9 +209,12 @@ export function onMouseMove(event: MouseEvent): void {
 		return;
 	}
 	// Find the block on the same line as the pointer, which also works when hovering in the margin.
-	const element = [...addLinks.keys()].find(block => {
-		const rect = block.getBoundingClientRect();
-		return event.clientY >= rect.top && event.clientY <= rect.bottom;
-	});
+	// Blocks can contain other blocks, such as nested list items, so prefer the innermost one.
+	const element = [...addLinks.keys()]
+		.filter(block => {
+			const rect = block.getBoundingClientRect();
+			return event.clientY >= rect.top && event.clientY <= rect.bottom;
+		})
+		.sort((a, b) => a.getBoundingClientRect().height - b.getBoundingClientRect().height)[0];
 	setHoverTarget(element);
 }

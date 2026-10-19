@@ -492,5 +492,41 @@ describe('ReviewCommentController', function () {
 				threads: [{ start: 21, end: 21, commentCount: 0, resolved: false }],
 			});
 		});
+
+		it('does not show the current threads on other versions of a file', async function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			// For example, the version of the file that an outdated comment was made on.
+			const historicalUri = toReviewUri(uri, 'docs/guide.md', undefined, 'old-commit', true, { base: true }, repository.rootUri);
+			sinon.stub(reviewCommentController, 'getCommentingRanges').resolves(undefined);
+			sinon.stub(reviewCommentController as any, 'findMatchedFileChangeForReviewDiffView').returns(undefined);
+			reviewCommentController.seedReviewSchemeThreads('docs/guide.md', [createGHPRCommentThread('thread-A', historicalUri)]);
+
+			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri: historicalUri } as vscode.TextDocument);
+
+			assert.deepStrictEqual(info, { commentingRanges: [], threads: [] });
+		});
+	});
+
+	describe('getContentDiff', function () {
+		it('diffs the unsaved changes of a document that is not visible', async function () {
+			// For example, a document whose markdown preview is shown instead of its text editor.
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			sinon.stub(vscode.window, 'visibleTextEditors').get(() => []);
+			sinon.stub(vscode.workspace, 'textDocuments').get(() => [{ uri, isDirty: true, getText: () => 'unsaved text' }]);
+			sinon.stub(repository, 'getObjectDetails').resolves({ mode: '100644', object: 'committed-blob', size: 0 });
+			const hashObject = sinon.stub(repository, 'hashObject').resolves('unsaved-blob');
+			const diffBlobs = sinon.stub(repository, 'diffBlobs').resolves('unsaved diff');
+
+			const diff = await (reviewCommentController as any).getContentDiff(uri, 'docs/guide.md');
+
+			assert.strictEqual(diff, 'unsaved diff');
+			assert.ok(hashObject.calledOnceWithExactly('unsaved text'));
+			assert.ok(diffBlobs.calledOnceWithExactly('committed-blob', 'unsaved-blob'));
+		});
 	});
 });
+
