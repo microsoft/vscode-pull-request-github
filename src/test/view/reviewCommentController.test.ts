@@ -59,6 +59,9 @@ class TestReviewCommentController extends ReviewCommentController {
 	public seedWorkspaceThreads(path: string, threads: GHPRCommentThread[]) {
 		this._workspaceFileChangeCommentThreads[path] = threads;
 	}
+	public seedReviewSchemeThreads(path: string, threads: GHPRCommentThread[]) {
+		this._reviewSchemeFileChangeCommentThreads[path] = threads;
+	}
 	public seedObsoleteThreads(path: string, threads: GHPRCommentThread[]) {
 		this._obsoleteFileChangeCommentThreads[path] = threads;
 	}
@@ -468,6 +471,26 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(obsolete[fileName].length, 2);
 			assert.strictEqual(obsolete[fileName][0], existingObsolete);
 			assert.strictEqual(obsolete[fileName][1], threadB);
+		});
+	});
+
+	describe('getMarkdownPreviewCommentInfo', function () {
+		it('gets the threads of the base side of a renamed file by its current file name', async function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/new.md`);
+			// The base side of a renamed file uses the previous file name.
+			const baseUri = toReviewUri(uri, 'docs/old.md', undefined, '1', false, { base: true }, repository.rootUri);
+			sinon.stub(reviewCommentController, 'provideCommentingRanges').resolves({ ranges: [new vscode.Range(0, 0, 30, 0)], enableFileComments: true });
+			sinon.stub(reviewCommentController as any, 'findMatchedFileChangeForReviewDiffView').returns({ fileName: 'docs/new.md' });
+			reviewCommentController.seedReviewSchemeThreads('docs/new.md', [createGHPRCommentThread('thread-A', baseUri)]);
+
+			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri: baseUri } as vscode.TextDocument);
+
+			assert.deepStrictEqual(info, {
+				commentingRanges: [{ start: 0, end: 30 }],
+				threads: [{ start: 21, end: 21, commentCount: 0, resolved: false }],
+			});
 		});
 	});
 });

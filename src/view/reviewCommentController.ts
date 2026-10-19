@@ -587,7 +587,10 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		const commentingRanges = await this.provideCommentingRanges(document, new vscode.CancellationTokenSource().token);
 		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
 		const reviewQuery = document.uri.scheme === Schemes.Review ? fromReviewUri(document.uri.query) : undefined;
-		const fileName = reviewQuery ? reviewQuery.path : this._folderRepoManager.gitRelativeRootPath(document.uri.path);
+		// The base side of a renamed file has the previous file name, but threads are stored by the current file name.
+		const fileName = reviewQuery
+			? (this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri)?.fileName ?? reviewQuery.path)
+			: this._folderRepoManager.gitRelativeRootPath(document.uri.path);
 		const threadMap = reviewQuery?.base ? this._reviewSchemeFileChangeCommentThreads : this._workspaceFileChangeCommentThreads;
 		const threads = (threadMap[fileName] ?? []).filter(thread => thread.range);
 		return {

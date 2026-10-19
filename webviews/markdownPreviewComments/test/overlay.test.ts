@@ -81,4 +81,42 @@ describe('markdown preview comments overlay', () => {
 
 		assert.strictEqual(document.getElementById(OVERLAY_ID), null);
 	});
+
+	it('gives each thread of a block its own badge', () => {
+		setUpPreview('<pre data-line="0" data-pr-end-line="20" class="code-line"><code>code</code></pre>', {
+			[SOURCE]: {
+				commentingRanges: [],
+				// Threads in two different diff hunks of the same code block.
+				threads: [{ start: 2, end: 3, commentCount: 1, resolved: false }, { start: 15, end: 16, commentCount: 3, resolved: false }],
+				commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1',
+			},
+		});
+
+		render();
+
+		const threads = links('threads');
+		assert.deepStrictEqual(threads.map(link => link.textContent), ['1', '3']);
+		assert.deepStrictEqual(threads.map(link => link.getAttribute('href')), [
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=15&end=16',
+		]);
+		assert.notStrictEqual(threads[0].style.left, threads[1].style.left);
+	});
+
+	it('keeps comment links reachable with the keyboard', () => {
+		setUpPreview(BODY, {
+			[SOURCE]: { commentingRanges: [{ start: 2, end: 3 }], threads: [], commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1' },
+		});
+
+		render();
+		const [link] = links('add');
+		link.focus();
+
+		assert.strictEqual(document.activeElement, link);
+		assert.ok(link.classList.contains('visible'));
+		assert.ok(document.querySelector('p[data-line="2"]')!.classList.contains('github-pr-commentable-hover'));
+		link.blur();
+		assert.ok(!link.classList.contains('visible'));
+	});
 });
+

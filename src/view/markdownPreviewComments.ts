@@ -11,10 +11,10 @@ import { DiffSide, SubjectType } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { fromPRUri, fromReviewUri, Schemes, UriHandlerPaths } from '../common/uri';
-import { isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { isFileInRepo } from '../github/utils';
 
 /**
  * Must match the id used by the markdown preview script in webviews/markdownPreviewComments.
@@ -96,11 +96,17 @@ export class MarkdownPreviewComments extends Disposable {
 			}
 		});
 		this._register(this._reviewsManager.onDidChangeCommentThreads(() => this.updateAll()));
+		this._register(vscode.workspace.onDidCloseTextDocument(document => this._info.delete(document.uri.toString())));
 	}
 
+	/**
+	 * Updates the comment information of the open documents that have been rendered in a preview.
+	 */
 	private updateAll(): void {
-		for (const document of this._info.keys()) {
-			this.scheduleUpdate(vscode.Uri.parse(document));
+		for (const document of vscode.workspace.textDocuments) {
+			if (this._info.has(document.uri.toString())) {
+				this.scheduleUpdate(document.uri);
+			}
 		}
 	}
 
@@ -205,9 +211,10 @@ export class MarkdownPreviewComments extends Disposable {
 			const { rootPath } = fromReviewUri(resource.query);
 			return this._reviewsManager.reviewManagers.find(reviewManager => reviewManager.repository.rootUri.path === rootPath);
 		}
-		return this._reviewsManager.reviewManagers.find(reviewManager =>
-			reviewManager.repository.rootUri.scheme === resource.scheme
-			&& isDescendant(reviewManager.repository.rootUri.fsPath, resource.fsPath));
+		// Prefer the deepest repository, for nested repositories and submodules.
+		return this._reviewsManager.reviewManagers
+			.filter(reviewManager => reviewManager.repository.rootUri.scheme === resource.scheme && isFileInRepo(reviewManager.repository, resource))
+			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length)[0];
 	}
 
 	private async getPullRequestInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo | undefined> {
@@ -215,9 +222,12 @@ export class MarkdownPreviewComments extends Disposable {
 		if (!params) {
 			return undefined;
 		}
-		const githubRepository = this._reposManager.folderManagers
-			.flatMap(folderManager => folderManager.gitHubRepositories)
-			.find(repository => repository.remote.remoteName === params.remoteName && repository.getExistingPullRequestModel(params.prNumber));
+		// The path of a `pr` URI is the path of the file in its repository. Remote names and pull request numbers
+		// aren't unique across repositories, so find the deepest repository that contains the file first.
+		const folderManager = this._reposManager.folderManagers
+			.filter(manager => isFileInRepo(manager.repository, document.uri))
+			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length)[0];
+		const githubRepository = folderManager?.gitHubRepositories.find(repository => repository.remote.remoteName === params.remoteName);
 		const pullRequest = githubRepository?.getExistingPullRequestModel(params.prNumber);
 		if (!githubRepository?.commentsHandler || !pullRequest) {
 			Logger.debug(`No pull request for ${document.uri.toString()}: repository ${!!githubRepository}, comments handler ${!!githubRepository?.commentsHandler}, model ${!!pullRequest}`, MarkdownPreviewComments.ID);

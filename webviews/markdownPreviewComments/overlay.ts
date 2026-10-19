@@ -10,6 +10,7 @@
 const PREVIEW_DATA_ELEMENT_ID = 'github-pr-markdown-preview-comments';
 const END_LINE_ATTRIBUTE = 'data-pr-end-line';
 const BLOCK_SELECTOR = `[data-line][${END_LINE_ATTRIBUTE}]`;
+const THREAD_BADGE_SPACING = 22;
 export const OVERLAY_ID = 'github-pr-markdown-preview-comments-overlay';
 
 interface LineRange {
@@ -54,12 +55,13 @@ export function installStyles(): void {
 	user-select: none;
 }
 #${OVERLAY_ID} a.add {
-	visibility: hidden;
+	opacity: 0;
 	color: var(--vscode-button-foreground);
 	background-color: var(--vscode-button-background);
 }
-#${OVERLAY_ID} a.add.visible {
-	visibility: visible;
+#${OVERLAY_ID} a.add.visible,
+#${OVERLAY_ID} a.add:focus-visible {
+	opacity: 1;
 }
 #${OVERLAY_ID} a.threads {
 	color: var(--vscode-badge-foreground);
@@ -156,20 +158,22 @@ export function render(): void {
 		const top = block.element.getBoundingClientRect().top - origin.top;
 
 		if (state.commentingRanges.some(range => intersects(range, block))) {
+			// The links stay in the tab order, and show the block they comment on when focused with the keyboard.
 			const link = createLink('add', commentLink(state, block), '+', 'Add a pull request comment', top, addLeft);
+			link.addEventListener('focus', () => setHoverTarget(block.element));
+			link.addEventListener('blur', () => setHoverTarget(undefined));
 			overlay.appendChild(link);
 			addLinks.set(block.element, link);
 		}
 
-		// GitHub anchors a comment thread on its last line.
+		// GitHub anchors a comment thread on its last line. Each thread gets its own badge, since the threads
+		// of a block can be in different diff hunks.
 		const threads = state.threads.filter(thread => thread.end >= block.start && thread.end <= block.end);
-		if (threads.length) {
-			const commentCount = threads.reduce((count, thread) => count + thread.commentCount, 0);
-			const range = { start: Math.min(...threads.map(thread => thread.start)), end: Math.max(...threads.map(thread => thread.end)) };
-			const resolved = threads.every(thread => thread.resolved);
-			const title = commentCount === 1 ? 'Show 1 comment' : `Show ${commentCount} comments`;
-			overlay.appendChild(createLink(`threads${resolved ? ' resolved' : ''}`, commentLink(state, range), String(commentCount), title, top, threadsLeft));
-		}
+		threads.forEach((thread, index) => {
+			const title = thread.commentCount === 1 ? 'Show 1 comment' : `Show ${thread.commentCount} comments`;
+			const left = threadsLeft - index * THREAD_BADGE_SPACING;
+			overlay.appendChild(createLink(`threads${thread.resolved ? ' resolved' : ''}`, commentLink(state, thread), String(thread.commentCount), title, top, left));
+		});
 	}
 }
 

@@ -57,33 +57,48 @@ describe('MarkdownPreviewComments', function () {
 		sandbox.restore();
 	});
 
-	function createPreviewComments(options: { workspaceInfo?: MarkdownPreviewCommentInfo, pullRequestRanges?: unknown, pullRequestThreads?: IReviewThread[] } = {}): MarkdownPreviewComments {
+	interface RepositoryFixture {
+		root: string;
+		workspaceInfo?: MarkdownPreviewCommentInfo;
+		pullRequestRanges?: unknown;
+		pullRequestThreads?: IReviewThread[];
+	}
+
+	let fireCommentThreadsChanged: () => void;
+
+	function createPreviewComments(...repositories: RepositoryFixture[]): MarkdownPreviewComments {
 		const reviewsManager = {
-			reviewManagers: options.workspaceInfo ? [{
-				repository: { rootUri: vscode.Uri.file('/repo') },
-				reviewCommentController: { getMarkdownPreviewCommentInfo: async () => options.workspaceInfo },
-			}] : [],
-			onDidChangeCommentThreads: () => ({ dispose: () => { } }),
+			reviewManagers: repositories.filter(repository => repository.workspaceInfo).map(repository => ({
+				repository: { rootUri: vscode.Uri.file(repository.root) },
+				reviewCommentController: { getMarkdownPreviewCommentInfo: async () => repository.workspaceInfo },
+			})),
+			onDidChangeCommentThreads: (listener: () => void) => {
+				fireCommentThreadsChanged = listener;
+				return { dispose: () => { } };
+			},
 		} as unknown as ReviewsManager;
-		const pullRequest = {
-			reviewThreadsCache: options.pullRequestThreads ?? [],
-			onDidChangeReviewThreads: () => ({ dispose: () => { } }),
-		};
 		const reposManager = {
-			folderManagers: [{
-				gitHubRepositories: [{
-					remote: { remoteName: 'origin' },
-					getExistingPullRequestModel: (prNumber: number) => prNumber === 7 ? pullRequest : undefined,
-					commentsHandler: { provideCommentingRanges: async () => options.pullRequestRanges },
-				}],
-			}],
+			folderManagers: repositories.map(repository => {
+				const pullRequest = {
+					reviewThreadsCache: repository.pullRequestThreads ?? [],
+					onDidChangeReviewThreads: () => ({ dispose: () => { } }),
+				};
+				return {
+					repository: { rootUri: vscode.Uri.file(repository.root) },
+					gitHubRepositories: [{
+						remote: { remoteName: 'origin' },
+						getExistingPullRequestModel: (prNumber: number) => prNumber === 7 ? pullRequest : undefined,
+						commentsHandler: { provideCommentingRanges: async () => repository.pullRequestRanges },
+					}],
+				};
+			}),
 		} as unknown as RepositoriesManager;
 		previewComments = new MarkdownPreviewComments(reviewsManager, reposManager);
 		return previewComments;
 	}
 
-	function prUri(isBase: boolean): vscode.Uri {
-		return toPRUri(vscode.Uri.file('/repo/docs/guide.md'), { number: 7, githubRepository: { remote: { remoteName: 'origin' } } } as unknown as PullRequestModel, 'base', 'head', 'docs/guide.md', isBase, GitChangeType.MODIFY);
+	function prUri(isBase: boolean, root: string = '/repo'): vscode.Uri {
+		return toPRUri(vscode.Uri.file(`${root}/docs/guide.md`), { number: 7, githubRepository: { remote: { remoteName: 'origin' } } } as unknown as PullRequestModel, 'base', 'head', 'docs/guide.md', isBase, GitChangeType.MODIFY);
 	}
 
 	it('marks the last line of each block', function () {
@@ -96,7 +111,7 @@ describe('MarkdownPreviewComments', function () {
 	});
 
 	it('does not add comment information for documents outside of a pull request', async function () {
-		const previewComments = createPreviewComments();
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 0, end: 1 }], threads: [] } });
 		const document = vscode.Uri.file('/elsewhere/README.md');
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves({ uri: document } as vscode.TextDocument);
 		const md = extendMarkdownIt(new MarkdownIt());
@@ -109,7 +124,7 @@ describe('MarkdownPreviewComments', function () {
 
 	it('adds the comment information of a checked out pull request file after it is computed', async function () {
 		const info = { commentingRanges: [{ start: 2, end: 5 }], threads: [{ start: 3, end: 4, commentCount: 2, resolved: false }] };
-		const previewComments = createPreviewComments({ workspaceInfo: info });
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: info });
 		const document = vscode.Uri.file('/repo/docs/guide.md');
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves({ uri: document } as vscode.TextDocument);
 		const md = extendMarkdownIt(new MarkdownIt());
@@ -126,6 +141,7 @@ describe('MarkdownPreviewComments', function () {
 
 	it('gets commenting ranges and threads of each side of a pull request that is not checked out', async function () {
 		const previewComments = createPreviewComments({
+			root: '/repo',
 			// The registered commenting range providers return an object with the ranges.
 			pullRequestRanges: { ranges: [new vscode.Range(1, 0, 6, 0)], enableFileComments: true },
 			pullRequestThreads: [
@@ -149,7 +165,7 @@ describe('MarkdownPreviewComments', function () {
 	it('adds the comment information of open documents when the rendered document is not known', async function () {
 		// The rendered diff renders a copy of the text when it highlights changes within lines.
 		const info = { commentingRanges: [{ start: 0, end: 1 }], threads: [] };
-		const previewComments = createPreviewComments({ workspaceInfo: info });
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: info });
 		const document = vscode.Uri.file('/repo/docs/guide.md');
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves({ uri: document } as vscode.TextDocument);
 		sandbox.stub(vscode.workspace, 'textDocuments').get(() => [
@@ -166,7 +182,7 @@ describe('MarkdownPreviewComments', function () {
 	});
 
 	it('opens the comment widget on the lines of a block, clamped to the diff hunk', async function () {
-		const previewComments = createPreviewComments({ workspaceInfo: { commentingRanges: [{ start: 4, end: 10 }], threads: [] } });
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 4, end: 10 }], threads: [] } });
 		const document = vscode.Uri.file('/repo/docs/guide.md');
 		const textDocument = {
 			uri: document,
@@ -187,7 +203,7 @@ describe('MarkdownPreviewComments', function () {
 	});
 
 	it('does not open the comment widget for lines outside of the diff', async function () {
-		const previewComments = createPreviewComments({ workspaceInfo: { commentingRanges: [{ start: 4, end: 10 }], threads: [] } });
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 4, end: 10 }], threads: [] } });
 		const document = vscode.Uri.file('/repo/docs/guide.md');
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves({ uri: document, lineCount: 20 } as vscode.TextDocument);
 		const showWarningMessage = sandbox.stub(vscode.window, 'showWarningMessage').resolves();
@@ -197,5 +213,47 @@ describe('MarkdownPreviewComments', function () {
 
 		assert.strictEqual(showWarningMessage.callCount, 1);
 		assert.ok(!(vscode.commands.executeCommand as SinonStub).calledWith('workbench.action.addComment'));
+	});
+
+	it('uses the repository that contains a pull request file when repositories have the same remote name and pull request number', async function () {
+		const thread = createThread({ startLine: 5, endLine: 5 });
+		const previewComments = createPreviewComments(
+			{ root: '/repo-a', pullRequestRanges: [new vscode.Range(0, 0, 1, 0)], pullRequestThreads: [] },
+			{ root: '/repo-b', pullRequestRanges: [new vscode.Range(2, 0, 9, 0)], pullRequestThreads: [thread] },
+		);
+
+		const info = await previewComments['getInfo']({ uri: prUri(false, '/repo-b') } as vscode.TextDocument);
+
+		assert.deepStrictEqual(info, {
+			commentingRanges: [{ start: 2, end: 9 }],
+			threads: [{ start: 4, end: 4, commentCount: 1, resolved: false }],
+		});
+	});
+
+	it('uses the deepest repository for files of nested repositories', async function () {
+		const nestedInfo = { commentingRanges: [{ start: 3, end: 3 }], threads: [] };
+		const previewComments = createPreviewComments(
+			{ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 0, end: 0 }], threads: [] } },
+			{ root: '/repo/nested', workspaceInfo: nestedInfo },
+		);
+
+		const info = await previewComments['getInfo']({ uri: vscode.Uri.file('/repo/nested/README.md') } as vscode.TextDocument);
+
+		assert.deepStrictEqual(info, nestedInfo);
+	});
+
+	it('only updates open documents when comment threads change', async function () {
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [], threads: [] } });
+		const open = vscode.Uri.file('/repo/docs/open.md');
+		const closed = vscode.Uri.file('/repo/docs/closed.md');
+		const md = extendMarkdownIt(new MarkdownIt());
+		md.render('text\n', { currentDocument: open });
+		md.render('text\n', { currentDocument: closed });
+		sandbox.stub(vscode.workspace, 'textDocuments').get(() => [{ uri: open, languageId: 'markdown' }]);
+		const scheduleUpdate = sandbox.spy(previewComments as any, 'scheduleUpdate');
+
+		fireCommentThreadsChanged();
+
+		assert.deepStrictEqual(scheduleUpdate.getCalls().map(call => call.args[0].toString()), [open.toString()]);
 	});
 });
