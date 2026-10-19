@@ -47,6 +47,13 @@ export interface SuggestionInformation {
 	suggestionContent: string;
 }
 
+export interface MarkdownPreviewCommentInfo {
+	/** Zero-based, inclusive line ranges that can be commented on. */
+	commentingRanges: { start: number; end: number }[];
+	/** Zero-based, inclusive line ranges of the existing comment threads. */
+	threads: { start: number; end: number; commentCount: number; resolved: boolean }[];
+}
+
 export class ReviewCommentController extends CommentControllerBase implements CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
 	static readonly PREFIX = 'github-review';
@@ -61,6 +68,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private readonly _context: vscode.ExtensionContext;
+	private readonly _onDidChangeCommentThreads = this._register(new vscode.EventEmitter<void>());
+	public readonly onDidChangeCommentThreads = this._onDidChangeCommentThreads.event;
 	public readonly resourceHints = { schemes: [Schemes.Review] };
 
 	constructor(
@@ -224,6 +233,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			}
 		}));
 		this.updateResourcesWithCommentingRanges();
+		this._onDidChangeCommentThreads.fire();
 	}
 
 	/**
@@ -354,6 +364,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				}
 
 				this.updateResourcesWithCommentingRanges();
+				this._onDidChangeCommentThreads.fire();
 			}),
 		);
 	}
@@ -566,6 +577,28 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 
 		return;
+	}
+
+	/**
+	 * Gets the commenting ranges and comment threads of a workspace file, or of the base side of
+	 * a review diff, for use by views other than the text editor, such as the markdown preview.
+	 */
+	async getMarkdownPreviewCommentInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo> {
+		const commentingRanges = await this.provideCommentingRanges(document, new vscode.CancellationTokenSource().token);
+		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
+		const reviewQuery = document.uri.scheme === Schemes.Review ? fromReviewUri(document.uri.query) : undefined;
+		const fileName = reviewQuery ? reviewQuery.path : this._folderRepoManager.gitRelativeRootPath(document.uri.path);
+		const threadMap = reviewQuery?.base ? this._reviewSchemeFileChangeCommentThreads : this._workspaceFileChangeCommentThreads;
+		const threads = (threadMap[fileName] ?? []).filter(thread => thread.range);
+		return {
+			commentingRanges: ranges.map(range => ({ start: range.start.line, end: range.end.line })),
+			threads: threads.map(thread => ({
+				start: thread.range!.start.line,
+				end: thread.range!.end.line,
+				commentCount: thread.comments.length,
+				resolved: thread.state?.resolved === vscode.CommentThreadState.Resolved,
+			})),
+		};
 	}
 
 	// #endregion
