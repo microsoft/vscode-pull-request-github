@@ -203,6 +203,7 @@ describe('MarkdownPreviewComments', function () {
 		const revealRange = sandbox.spy();
 		const showTextDocument = sandbox.stub(vscode.window, 'showTextDocument').resolves({ revealRange } as unknown as vscode.TextEditor);
 		sandbox.stub(vscode.window, 'visibleTextEditors').get(() => [{ document: textDocument, viewColumn: vscode.ViewColumn.Two }]);
+		sandbox.stub(vscode.window, 'activeTextEditor').get(() => ({ document: textDocument }));
 		previewComments['getCommentUri'](document);
 
 		await previewComments.commentOnLines('1', 2, 6);
@@ -279,6 +280,7 @@ describe('MarkdownPreviewComments', function () {
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves(textDocument);
 		sandbox.stub(vscode.window, 'showTextDocument').resolves({ revealRange: () => { } } as unknown as vscode.TextEditor);
 		sandbox.stub(vscode.window, 'visibleTextEditors').get(() => []);
+		sandbox.stub(vscode.window, 'activeTextEditor').get(() => ({ document: textDocument }));
 		const executeCommand = vscode.commands.executeCommand as SinonStub;
 		previewComments['getCommentUri'](document);
 
@@ -331,6 +333,48 @@ describe('MarkdownPreviewComments', function () {
 		await new Promise(resolve => setTimeout(resolve, 400));
 
 		assert.strictEqual(openTextDocument.callCount, 0);
+	});
+
+	function stubOpenedEditor(document: vscode.Uri, activeDocument: vscode.Uri = document): { textDocument: vscode.TextDocument; showTextDocument: SinonStub } {
+		const textDocument = {
+			uri: document,
+			lineCount: 20,
+			lineAt: (line: number) => ({ range: new vscode.Range(line, 0, line, 12) }),
+		} as unknown as vscode.TextDocument;
+		sandbox.stub(vscode.workspace, 'openTextDocument').resolves(textDocument);
+		const showTextDocument = sandbox.stub(vscode.window, 'showTextDocument').resolves({ revealRange: () => { } } as unknown as vscode.TextEditor);
+		sandbox.stub(vscode.window, 'visibleTextEditors').get(() => [{ document: textDocument, viewColumn: vscode.ViewColumn.Two }]);
+		sandbox.stub(vscode.window, 'activeTextEditor').get(() => ({ document: { uri: activeDocument } }));
+		return { textDocument, showTextDocument };
+	}
+
+	it('does not open the comment widget when the active editor changed while opening the document', async function () {
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 0, end: 10 }], threads: [] } });
+		const document = vscode.Uri.file('/repo/docs/guide.md');
+		stubOpenedEditor(document, vscode.Uri.file('/repo/docs/other.md'));
+		previewComments['getCommentUri'](document);
+
+		await previewComments.commentOnLines('1', 2, 3);
+
+		assert.ok(!(vscode.commands.executeCommand as SinonStub).calledWith('workbench.action.addComment'));
+	});
+
+	it('reveals an existing thread, even outside of the commenting ranges', async function () {
+		// For example, when viewing the changes since the last review, the commenting ranges only cover newer changes.
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 15, end: 18 }], threads: [] } });
+		const document = vscode.Uri.file('/repo/docs/guide.md');
+		const { showTextDocument } = stubOpenedEditor(document);
+		const showWarningMessage = sandbox.stub(vscode.window, 'showWarningMessage').resolves();
+		previewComments['getCommentUri'](document);
+
+		await previewComments.commentOnLines('1', 2, 3, true);
+
+		assert.strictEqual(showWarningMessage.callCount, 0);
+		// Threads are anchored on their last line.
+		assert.deepStrictEqual(showTextDocument.firstCall.args[1].selection, new vscode.Range(3, 0, 3, 0));
+		const executeCommand = vscode.commands.executeCommand as SinonStub;
+		assert.ok(executeCommand.calledWith('workbench.action.focusCommentOnCurrentLine'));
+		assert.ok(!executeCommand.calledWith('workbench.action.addComment'));
 	});
 });
 

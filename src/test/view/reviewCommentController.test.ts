@@ -493,6 +493,22 @@ describe('ReviewCommentController', function () {
 			});
 		});
 
+		it('places the threads of a workspace file by its current text, including unsaved changes', async function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			sinon.stub(reviewCommentController, 'getCommentingRanges').resolves([]);
+			// The thread was created on line 22 of the pull request, which `createGHPRCommentThread` maps to line 21.
+			reviewCommentController.seedWorkspaceThreads('docs/guide.md', [createGHPRCommentThread('thread-A', uri)]);
+			sinon.stub(activePullRequest, 'reviewThreadsCache').get(() => [{ id: 'thread-A', startLine: 22, endLine: 22 }]);
+			// Two unsaved lines were added at the start of the file.
+			sinon.stub(reviewCommentController as any, 'getContentDiff').callsFake(async () => '@@ -1,1 +1,3 @@\n first\n+unsaved\n+unsaved\n');
+
+			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri } as vscode.TextDocument);
+
+			assert.deepStrictEqual(info.threads, [{ start: 23, end: 23, commentCount: 0, resolved: false }]);
+		});
+
 		it('does not show the current threads on other versions of a file', async function () {
 			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
 			context.subscriptions.push(reviewCommentController);

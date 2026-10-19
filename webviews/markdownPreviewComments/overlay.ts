@@ -125,8 +125,8 @@ function getBlocks(): Block[] {
 	return blocks;
 }
 
-function commentLink(state: PreviewCommentState, range: LineRange): string {
-	return `${state.commentUri}&start=${range.start}&end=${range.end}`;
+function commentLink(state: PreviewCommentState, range: LineRange, revealThread: boolean = false): string {
+	return `${state.commentUri}&start=${range.start}&end=${range.end}${revealThread ? '&thread=1' : ''}`;
 }
 
 function createLink(className: string, href: string, text: string, title: string, top: number, left: number): HTMLAnchorElement {
@@ -188,7 +188,7 @@ export function render(): void {
 		threads.forEach((thread, index) => {
 			const title = thread.commentCount === 1 ? 'Show 1 comment' : `Show ${thread.commentCount} comments`;
 			const left = threadsLeft - index * THREAD_BADGE_SPACING;
-			overlay.appendChild(createLink(`threads${thread.resolved ? ' resolved' : ''}`, commentLink(state, thread), String(thread.commentCount), title, top, left));
+			overlay.appendChild(createLink(`threads${thread.resolved ? ' resolved' : ''}`, commentLink(state, thread, true), String(thread.commentCount), title, top, left));
 		});
 	}
 }

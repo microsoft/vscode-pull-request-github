@@ -598,6 +598,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		const commentingRanges = await this.getCommentingRanges(document);
 		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
 		let threads: GHPRCommentThread[];
+		// Gets the zero-based lines of a thread in the document, when they differ from the thread's range.
+		let getThreadLines: (thread: GHPRCommentThread) => { start: number; end: number } | undefined = () => undefined;
 		if (document.uri.scheme === Schemes.Review) {
 			// Review documents can show other versions of a file, such as the version an outdated comment was made on.
 			// The thread maps only apply to the documents of the current file changes.
@@ -606,14 +608,26 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			const threadMap = fromReviewUri(document.uri.query).base ? this._reviewSchemeFileChangeCommentThreads : this._workspaceFileChangeCommentThreads;
 			threads = matchedFile ? (threadMap[matchedFile.fileName] ?? []) : [];
 		} else {
-			threads = this._workspaceFileChangeCommentThreads[this._folderRepoManager.gitRelativeRootPath(document.uri.path)] ?? [];
+			const fileName = this._folderRepoManager.gitRelativeRootPath(document.uri.path);
+			threads = this._workspaceFileChangeCommentThreads[fileName] ?? [];
+			// The ranges of workspace threads are mapped from the saved file when the threads are created, but the preview
+			// shows the current text, which can have unsaved changes. Map the threads' pull request lines to the current text.
+			const contentDiff = threads.length ? await this.getContentDiff(document.uri, fileName).catch(() => undefined) : undefined;
+			if (contentDiff !== undefined) {
+				const reviewThreads = new Map((this._folderRepoManager.activePullRequest?.reviewThreadsCache ?? []).map(thread => [thread.id, thread]));
+				getThreadLines = thread => {
+					const reviewThread = reviewThreads.get(thread.gitHubThreadId);
+					return reviewThread && {
+						start: mapOldPositionToNew(contentDiff, reviewThread.startLine) - 1,
+						end: mapOldPositionToNew(contentDiff, reviewThread.endLine) - 1,
+					};
+				};
+			}
 		}
-		threads = threads.filter(thread => thread.range);
 		return {
 			commentingRanges: ranges.map(range => ({ start: range.start.line, end: range.end.line })),
-			threads: threads.map(thread => ({
-				start: thread.range!.start.line,
-				end: thread.range!.end.line,
+			threads: threads.filter(thread => thread.range).map(thread => ({
+				...(getThreadLines(thread) ?? { start: thread.range!.start.line, end: thread.range!.end.line }),
 				commentCount: thread.comments.length,
 				resolved: thread.state?.resolved === vscode.CommentThreadState.Resolved,
 			})),

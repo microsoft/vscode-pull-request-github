@@ -174,32 +174,50 @@ export class MarkdownPreviewComments extends Disposable {
 	/**
 	 * Opens the commenting UI in the text editor for the given zero-based, inclusive lines.
 	 * @param documentId The id of the document, from the link in the markdown preview.
+	 * @param revealThread Whether to reveal the existing thread on the lines instead of adding a comment.
 	 */
-	public async commentOnLines(documentId: string, start: number, end: number): Promise<void> {
+	public async commentOnLines(documentId: string, start: number, end: number, revealThread: boolean = false): Promise<void> {
 		const resource = this._documentsById.get(documentId);
 		if (!resource) {
 			Logger.error(`Unknown markdown preview document: ${documentId}`, MarkdownPreviewComments.ID);
 			return;
 		}
 		const document = await vscode.workspace.openTextDocument(resource);
-		const info = await this.getInfo(document);
-		// A comment must be within a single diff hunk, so clamp the block to the hunk it overlaps.
-		const commentingRange = info?.commentingRanges.find(range => range.start <= end && range.end >= start);
-		if (!commentingRange) {
-			vscode.window.showWarningMessage(vscode.l10n.t('These lines are not part of the pull request\'s changes and cannot be commented on.'));
-			return;
+		if (revealThread) {
+			// Existing threads can be outside of the commenting ranges, such as when viewing the changes since the last review.
+			end = Math.min(end, document.lineCount - 1);
+			start = Math.min(start, end);
+		} else {
+			const info = await this.getInfo(document);
+			// A comment must be within a single diff hunk, so clamp the block to the hunk it overlaps.
+			const commentingRange = info?.commentingRanges.find(range => range.start <= end && range.end >= start);
+			if (!commentingRange) {
+				vscode.window.showWarningMessage(vscode.l10n.t('These lines are not part of the pull request\'s changes and cannot be commented on.'));
+				return;
+			}
+			start = Math.max(start, commentingRange.start);
+			end = Math.min(end, commentingRange.end, document.lineCount - 1);
 		}
-		start = Math.max(start, commentingRange.start);
-		end = Math.min(end, commentingRange.end, document.lineCount - 1);
 
 		const visibleEditor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === resource.toString());
 		const commentingRanges = visibleEditor ? undefined : this.waitForCommentingRanges(resource);
+		// Threads are anchored on their last line, which is where revealing a thread looks for it.
+		const cursorLine = revealThread ? end : start;
 		const editor = await vscode.window.showTextDocument(document, {
 			viewColumn: visibleEditor?.viewColumn ?? vscode.ViewColumn.Beside,
-			selection: new vscode.Range(start, 0, start, 0),
+			selection: new vscode.Range(cursorLine, 0, cursorLine, 0),
 		});
 		editor.revealRange(new vscode.Range(start, 0, end, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
 		await commentingRanges;
+		// The comment commands act on the active editor, which can change while waiting for the commenting ranges.
+		if (vscode.window.activeTextEditor?.document.uri.toString() !== resource.toString()) {
+			Logger.debug(`Not commenting on ${resource.toString()}, since it's no longer the active editor.`, MarkdownPreviewComments.ID);
+			return;
+		}
+		if (revealThread) {
+			await vscode.commands.executeCommand('workbench.action.focusCommentOnCurrentLine');
+			return;
+		}
 		await vscode.commands.executeCommand('workbench.action.addComment', {
 			range: {
 				startLineNumber: start + 1,

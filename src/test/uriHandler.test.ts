@@ -108,8 +108,10 @@ describe('UriHandler', function () {
 		await handler.handleUri(vscode.Uri.parse(`${link}&start=2`));
 		await handler.handleUri(vscode.Uri.parse(`${link}&start=3&end=2`));
 		await handler.handleUri(vscode.Uri.parse(`${link}&start=2&end=3`));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=4&end=5&thread=1`));
 
-		assert.deepStrictEqual(commentOnLines.args, [['1', 2, 3]]);
+		// Thread badges reveal their thread instead of adding a comment.
+		assert.deepStrictEqual(commentOnLines.args, [['1', 2, 3, false], ['1', 4, 5, true]]);
 	});
 });
 

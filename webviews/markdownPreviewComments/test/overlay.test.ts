@@ -70,7 +70,7 @@ describe('markdown preview comments overlay', () => {
 		const threads = links('threads');
 		assert.deepStrictEqual(threads.map(link => link.textContent), ['2', '1']);
 		assert.deepStrictEqual(threads.map(link => link.classList.contains('resolved')), [false, true]);
-		assert.strictEqual(threads[0].getAttribute('href'), 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3');
+		assert.strictEqual(threads[0].getAttribute('href'), 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=1');
 	});
 
 	it('adds nothing when there is no comment information for the shown document', () => {
@@ -98,8 +98,8 @@ describe('markdown preview comments overlay', () => {
 		const threads = links('threads');
 		assert.deepStrictEqual(threads.map(link => link.textContent), ['1', '3']);
 		assert.deepStrictEqual(threads.map(link => link.getAttribute('href')), [
-			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3',
-			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=15&end=16',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=1',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=15&end=16&thread=1',
 		]);
 		assert.notStrictEqual(threads[0].style.left, threads[1].style.left);
 	});
