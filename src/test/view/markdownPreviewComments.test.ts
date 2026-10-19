@@ -63,6 +63,7 @@ describe('MarkdownPreviewComments', function () {
 	interface RepositoryFixture {
 		root: string;
 		workspaceInfo?: MarkdownPreviewCommentInfo;
+		commentThreads?: { [id: string]: { reveal: SinonStub } };
 		pullRequestRanges?: unknown;
 		pullRequestThreads?: IReviewThread[];
 	}
@@ -76,6 +77,7 @@ describe('MarkdownPreviewComments', function () {
 				repository: { rootUri: vscode.Uri.file(repository.root) },
 				reviewCommentController: {
 					getMarkdownPreviewCommentInfo: async () => repository.workspaceInfo,
+					getCommentThread: (id: string) => repository.commentThreads?.[id],
 					onDidProvideCommentingRanges: commentingRangesProvided.event,
 				},
 			})),
@@ -133,7 +135,7 @@ describe('MarkdownPreviewComments', function () {
 	});
 
 	it('adds the comment information of a checked out pull request file after it is computed', async function () {
-		const info = { commentingRanges: [{ start: 2, end: 5 }], threads: [{ start: 3, end: 4, commentCount: 2, resolved: false }] };
+		const info = { commentingRanges: [{ start: 2, end: 5 }], threads: [{ id: 'thread-1', start: 3, end: 4, commentCount: 2, resolved: false }] };
 		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: info });
 		const document = vscode.Uri.file('/repo/docs/guide.md');
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves({ uri: document } as vscode.TextDocument);
@@ -167,9 +169,9 @@ describe('MarkdownPreviewComments', function () {
 
 		assert.deepStrictEqual(modified, {
 			commentingRanges: [{ start: 1, end: 6 }],
-			threads: [{ start: 2, end: 3, commentCount: 2, resolved: false }],
+			threads: [{ id: 'right', start: 2, end: 3, commentCount: 2, resolved: false }],
 		});
-		assert.deepStrictEqual(original?.threads, [{ start: 1, end: 1, commentCount: 1, resolved: true }]);
+		assert.deepStrictEqual(original?.threads, [{ id: 'left', start: 1, end: 1, commentCount: 1, resolved: true }]);
 	});
 
 	it('adds the comment information of open documents when the rendered document is not known', async function () {
@@ -238,7 +240,7 @@ describe('MarkdownPreviewComments', function () {
 
 		assert.deepStrictEqual(info, {
 			commentingRanges: [{ start: 2, end: 9 }],
-			threads: [{ start: 4, end: 4, commentCount: 1, resolved: false }],
+			threads: [{ id: 'thread', start: 4, end: 4, commentCount: 1, resolved: false }],
 		});
 	});
 
@@ -361,20 +363,27 @@ describe('MarkdownPreviewComments', function () {
 
 	it('reveals an existing thread, even outside of the commenting ranges', async function () {
 		// For example, when viewing the changes since the last review, the commenting ranges only cover newer changes.
-		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 15, end: 18 }], threads: [] } });
+		// Several threads can also end on the same line, so the thread is revealed by its id.
+		const threadA = { reveal: sandbox.stub().resolves() };
+		const threadB = { reveal: sandbox.stub().resolves() };
+		const previewComments = createPreviewComments({
+			root: '/repo',
+			workspaceInfo: { commentingRanges: [{ start: 15, end: 18 }], threads: [] },
+			commentThreads: { 'thread-A': threadA, 'thread-B': threadB },
+		});
 		const document = vscode.Uri.file('/repo/docs/guide.md');
 		const { showTextDocument } = stubOpenedEditor(document);
 		const showWarningMessage = sandbox.stub(vscode.window, 'showWarningMessage').resolves();
 		previewComments['getCommentUri'](document);
 
-		await previewComments.commentOnLines('1', 2, 3, true);
+		await previewComments.commentOnLines('1', 2, 3, 'thread-B');
 
 		assert.strictEqual(showWarningMessage.callCount, 0);
 		// Threads are anchored on their last line.
 		assert.deepStrictEqual(showTextDocument.firstCall.args[1].selection, new vscode.Range(3, 0, 3, 0));
-		const executeCommand = vscode.commands.executeCommand as SinonStub;
-		assert.ok(executeCommand.calledWith('workbench.action.focusCommentOnCurrentLine'));
-		assert.ok(!executeCommand.calledWith('workbench.action.addComment'));
+		assert.strictEqual(threadA.reveal.callCount, 0);
+		assert.deepStrictEqual(threadB.reveal.firstCall.args, [undefined, { focus: vscode.CommentThreadFocus.Comment }]);
+		assert.ok(!(vscode.commands.executeCommand as SinonStub).calledWith('workbench.action.addComment'));
 	});
 });
 

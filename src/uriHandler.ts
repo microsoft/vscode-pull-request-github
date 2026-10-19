@@ -191,7 +191,7 @@ export class UriHandler implements vscode.UriHandler {
 			Logger.error(`Invalid markdown preview comment URI: ${uri.toString()}`, UriHandler.ID);
 			return;
 		}
-		return this._markdownPreviewComments.commentOnLines(documentId, start, end, query.get('thread') === '1');
+		return this._markdownPreviewComments.commentOnLines(documentId, start, end, query.get('thread') ?? undefined);
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {

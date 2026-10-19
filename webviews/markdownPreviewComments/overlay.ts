@@ -20,7 +20,7 @@ interface LineRange {
 
 interface PreviewCommentState {
 	commentingRanges: LineRange[];
-	threads: (LineRange & { commentCount: number; resolved: boolean })[];
+	threads: (LineRange & { id: string; commentCount: number; resolved: boolean })[];
 	commentUri: string;
 }
 
@@ -125,8 +125,11 @@ function getBlocks(): Block[] {
 	return blocks;
 }
 
-function commentLink(state: PreviewCommentState, range: LineRange, revealThread: boolean = false): string {
-	return `${state.commentUri}&start=${range.start}&end=${range.end}${revealThread ? '&thread=1' : ''}`;
+/**
+ * @param threadId The GitHub id of an existing thread to reveal, instead of adding a comment.
+ */
+function commentLink(state: PreviewCommentState, range: LineRange, threadId?: string): string {
+	return `${state.commentUri}&start=${range.start}&end=${range.end}${threadId ? `&thread=${encodeURIComponent(threadId)}` : ''}`;
 }
 
 function createLink(className: string, href: string, text: string, title: string, top: number, left: number): HTMLAnchorElement {
@@ -188,7 +191,7 @@ export function render(): void {
 		threads.forEach((thread, index) => {
 			const title = thread.commentCount === 1 ? 'Show 1 comment' : `Show ${thread.commentCount} comments`;
 			const left = threadsLeft - index * THREAD_BADGE_SPACING;
-			overlay.appendChild(createLink(`threads${thread.resolved ? ' resolved' : ''}`, commentLink(state, thread, true), String(thread.commentCount), title, top, left));
+			overlay.appendChild(createLink(`threads${thread.resolved ? ' resolved' : ''}`, commentLink(state, thread, thread.id), String(thread.commentCount), title, top, left));
 		});
 	}
 }

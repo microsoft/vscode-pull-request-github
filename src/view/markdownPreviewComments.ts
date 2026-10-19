@@ -14,6 +14,7 @@ import Logger from '../common/logger';
 import { fromPRUri, fromReviewUri, Schemes, UriHandlerPaths } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
 import { GitHubRepository } from '../github/githubRepository';
+import { GHPRCommentThread } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { isFileInRepo } from '../github/utils';
@@ -174,16 +175,16 @@ export class MarkdownPreviewComments extends Disposable {
 	/**
 	 * Opens the commenting UI in the text editor for the given zero-based, inclusive lines.
 	 * @param documentId The id of the document, from the link in the markdown preview.
-	 * @param revealThread Whether to reveal the existing thread on the lines instead of adding a comment.
+	 * @param threadId The GitHub id of an existing thread on the lines to reveal, instead of adding a comment.
 	 */
-	public async commentOnLines(documentId: string, start: number, end: number, revealThread: boolean = false): Promise<void> {
+	public async commentOnLines(documentId: string, start: number, end: number, threadId?: string): Promise<void> {
 		const resource = this._documentsById.get(documentId);
 		if (!resource) {
 			Logger.error(`Unknown markdown preview document: ${documentId}`, MarkdownPreviewComments.ID);
 			return;
 		}
 		const document = await vscode.workspace.openTextDocument(resource);
-		if (revealThread) {
+		if (threadId) {
 			// Existing threads can be outside of the commenting ranges, such as when viewing the changes since the last review.
 			end = Math.min(end, document.lineCount - 1);
 			start = Math.min(start, end);
@@ -202,7 +203,7 @@ export class MarkdownPreviewComments extends Disposable {
 		const visibleEditor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === resource.toString());
 		const commentingRanges = visibleEditor ? undefined : this.waitForCommentingRanges(resource);
 		// Threads are anchored on their last line, which is where revealing a thread looks for it.
-		const cursorLine = revealThread ? end : start;
+		const cursorLine = threadId ? end : start;
 		const editor = await vscode.window.showTextDocument(document, {
 			viewColumn: visibleEditor?.viewColumn ?? vscode.ViewColumn.Beside,
 			selection: new vscode.Range(cursorLine, 0, cursorLine, 0),
@@ -214,8 +215,14 @@ export class MarkdownPreviewComments extends Disposable {
 			Logger.debug(`Not commenting on ${resource.toString()}, since it's no longer the active editor.`, MarkdownPreviewComments.ID);
 			return;
 		}
-		if (revealThread) {
-			await vscode.commands.executeCommand('workbench.action.focusCommentOnCurrentLine');
+		if (threadId) {
+			// Several threads can end on the same line, so reveal the thread itself when it can be found.
+			const thread = this.getCommentThread(resource, threadId);
+			if (thread) {
+				await thread.reveal(undefined, { focus: vscode.CommentThreadFocus.Comment });
+			} else {
+				await vscode.commands.executeCommand('workbench.action.focusCommentOnCurrentLine');
+			}
 			return;
 		}
 		await vscode.commands.executeCommand('workbench.action.addComment', {
@@ -226,6 +233,14 @@ export class MarkdownPreviewComments extends Disposable {
 				endColumn: document.lineAt(end).range.end.character + 1,
 			},
 		});
+	}
+
+	private getCommentThread(resource: vscode.Uri, threadId: string): GHPRCommentThread | undefined {
+		if (resource.scheme === Schemes.Pr) {
+			const params = fromPRUri(resource);
+			return params && this.getPullRequestRepository(resource)?.commentsHandler?.getCommentThread(params.prNumber, threadId);
+		}
+		return this.getReviewManager(resource)?.reviewCommentController?.getCommentThread(threadId);
 	}
 
 	/**
@@ -324,6 +339,7 @@ export class MarkdownPreviewComments extends Disposable {
 		return {
 			commentingRanges: ranges.map(range => ({ start: range.start.line, end: range.end.line })),
 			threads: threads.map(thread => ({
+				id: thread.id,
 				start: thread.startLine - 1,
 				end: thread.endLine - 1,
 				commentCount: thread.comments.length,

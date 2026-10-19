@@ -10,7 +10,7 @@ import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { GHPRComment } from '../github/prComment';
+import { GHPRComment, GHPRCommentThread } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CommentReactionHandler } from '../github/utils';
 
@@ -125,6 +125,13 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 		};
 
 		return this._prCommentHandlers[prNumber];
+	}
+
+	/**
+	 * Gets the comment thread of a GitHub review thread of a pull request, once it has been created for an open editor.
+	 */
+	public getCommentThread(prNumber: number, gitHubThreadId: string): GHPRCommentThread | undefined {
+		return this._prCommentHandlers[prNumber]?.handler.getCommentThread(gitHubThreadId);
 	}
 
 	public registerCommentingRangeProvider(prNumber: number, provider: vscode.CommentingRangeProvider2): vscode.Disposable {

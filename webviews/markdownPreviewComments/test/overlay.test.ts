@@ -60,7 +60,7 @@ describe('markdown preview comments overlay', () => {
 		setUpPreview(BODY, {
 			[SOURCE]: {
 				commentingRanges: [],
-				threads: [{ start: 2, end: 3, commentCount: 2, resolved: false }, { start: 6, end: 6, commentCount: 1, resolved: true }],
+				threads: [{ id: 'PRRT_a', start: 2, end: 3, commentCount: 2, resolved: false }, { id: 'PRRT_b', start: 6, end: 6, commentCount: 1, resolved: true }],
 				commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1',
 			},
 		});
@@ -70,7 +70,7 @@ describe('markdown preview comments overlay', () => {
 		const threads = links('threads');
 		assert.deepStrictEqual(threads.map(link => link.textContent), ['2', '1']);
 		assert.deepStrictEqual(threads.map(link => link.classList.contains('resolved')), [false, true]);
-		assert.strictEqual(threads[0].getAttribute('href'), 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=1');
+		assert.strictEqual(threads[0].getAttribute('href'), 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=PRRT_a');
 	});
 
 	it('adds nothing when there is no comment information for the shown document', () => {
@@ -88,7 +88,7 @@ describe('markdown preview comments overlay', () => {
 			[SOURCE]: {
 				commentingRanges: [],
 				// Threads in two different diff hunks of the same code block.
-				threads: [{ start: 2, end: 3, commentCount: 1, resolved: false }, { start: 15, end: 16, commentCount: 3, resolved: false }],
+				threads: [{ id: 'PRRT_a', start: 2, end: 3, commentCount: 1, resolved: false }, { id: 'PRRT_b', start: 15, end: 16, commentCount: 3, resolved: false }],
 				commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1',
 			},
 		});
@@ -98,8 +98,8 @@ describe('markdown preview comments overlay', () => {
 		const threads = links('threads');
 		assert.deepStrictEqual(threads.map(link => link.textContent), ['1', '3']);
 		assert.deepStrictEqual(threads.map(link => link.getAttribute('href')), [
-			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=1',
-			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=15&end=16&thread=1',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=PRRT_a',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=15&end=16&thread=PRRT_b',
 		]);
 		assert.notStrictEqual(threads[0].style.left, threads[1].style.left);
 	});
@@ -132,7 +132,7 @@ describe('markdown preview comments overlay', () => {
 </ul>`, {
 			[SOURCE]: {
 				commentingRanges: [{ start: 0, end: 1 }],
-				threads: [{ start: 0, end: 0, commentCount: 1, resolved: false }],
+				threads: [{ id: 'PRRT_a', start: 0, end: 0, commentCount: 1, resolved: false }],
 				commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1',
 			},
 		});
@@ -164,6 +164,23 @@ describe('markdown preview comments overlay', () => {
 		assert.strictEqual(getBoundingClientRect.callCount, 0);
 		assert.ok(paragraph.classList.contains('github-pr-commentable-hover'));
 		assert.ok(links('add')[0].classList.contains('visible'));
+	});
+
+	it('links each badge to its own thread when threads end on the same line', () => {
+		setUpPreview(BODY, {
+			[SOURCE]: {
+				commentingRanges: [],
+				threads: [{ id: 'PRRT_a', start: 3, end: 3, commentCount: 1, resolved: false }, { id: 'PRRT_b', start: 2, end: 3, commentCount: 2, resolved: false }],
+				commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1',
+			},
+		});
+
+		render();
+
+		assert.deepStrictEqual(links('threads').map(link => link.getAttribute('href')), [
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=3&end=3&thread=PRRT_a',
+			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=2&end=3&thread=PRRT_b',
+		]);
 	});
 });
 

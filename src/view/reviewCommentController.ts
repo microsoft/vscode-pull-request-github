@@ -51,7 +51,7 @@ export interface MarkdownPreviewCommentInfo {
 	/** Zero-based, inclusive line ranges that can be commented on. */
 	commentingRanges: { start: number; end: number }[];
 	/** Zero-based, inclusive line ranges of the existing comment threads. */
-	threads: { start: number; end: number; commentCount: number; resolved: boolean }[];
+	threads: { id: string; start: number; end: number; commentCount: number; resolved: boolean }[];
 }
 
 export class ReviewCommentController extends CommentControllerBase implements CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
@@ -627,6 +627,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		return {
 			commentingRanges: ranges.map(range => ({ start: range.start.line, end: range.end.line })),
 			threads: threads.filter(thread => thread.range).map(thread => ({
+				id: thread.gitHubThreadId,
 				...(getThreadLines(thread) ?? { start: thread.range!.start.line, end: thread.range!.end.line }),
 				commentCount: thread.comments.length,
 				resolved: thread.state?.resolved === vscode.CommentThreadState.Resolved,
@@ -744,6 +745,21 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 
 		return DiffSide.RIGHT;
+	}
+
+	/**
+	 * Gets the comment thread of a GitHub review thread, once it has been created.
+	 */
+	public getCommentThread(gitHubThreadId: string): GHPRCommentThread | undefined {
+		for (const threadMap of [this._workspaceFileChangeCommentThreads, this._reviewSchemeFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads]) {
+			for (const path in threadMap) {
+				const thread = threadMap[path].find(candidate => candidate.gitHubThreadId === gitHubThreadId);
+				if (thread) {
+					return thread;
+				}
+			}
+		}
+		return undefined;
 	}
 
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {

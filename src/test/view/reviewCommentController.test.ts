@@ -489,7 +489,7 @@ describe('ReviewCommentController', function () {
 
 			assert.deepStrictEqual(info, {
 				commentingRanges: [{ start: 0, end: 30 }],
-				threads: [{ start: 21, end: 21, commentCount: 0, resolved: false }],
+				threads: [{ id: 'thread-A', start: 21, end: 21, commentCount: 0, resolved: false }],
 			});
 		});
 
@@ -506,7 +506,20 @@ describe('ReviewCommentController', function () {
 
 			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri } as vscode.TextDocument);
 
-			assert.deepStrictEqual(info.threads, [{ start: 23, end: 23, commentCount: 0, resolved: false }]);
+			assert.deepStrictEqual(info.threads, [{ id: 'thread-A', start: 23, end: 23, commentCount: 0, resolved: false }]);
+		});
+
+		it('finds a comment thread by its GitHub thread id', function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			const threadA = createGHPRCommentThread('thread-A', uri);
+			const threadB = createGHPRCommentThread('thread-B', uri);
+			reviewCommentController.seedWorkspaceThreads('docs/guide.md', [threadA]);
+			reviewCommentController.seedReviewSchemeThreads('docs/guide.md', [threadB]);
+
+			assert.strictEqual(reviewCommentController.getCommentThread('thread-B'), threadB);
+			assert.strictEqual(reviewCommentController.getCommentThread('thread-C'), undefined);
 		});
 
 		it('does not show the current threads on other versions of a file', async function () {
