@@ -85,7 +85,7 @@ export class IssueContextProvider implements vscode.ChatAttachContextProvider<Is
 			tooltip: new vscode.MarkdownString(`#${issue.number} ${issue.title}`),
 			issue,
 			command: {
-				command: 'issue.openDescription',
+				command: 'azdo.issue.openDescription',
 				title: vscode.l10n.t('Open Issue')
 			}
 		};

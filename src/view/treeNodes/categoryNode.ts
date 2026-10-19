@@ -51,7 +51,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = vscode.l10n.t('Load more');
 				this.command = {
 					title: vscode.l10n.t('Load more'),
-					command: 'pr.loadMore',
+					command: 'azdo.pr.loadMore',
 					arguments: [node],
 				};
 				break;
@@ -59,7 +59,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = vscode.l10n.t('Continue fetching from other remotes');
 				this.command = {
 					title: vscode.l10n.t('Load more'),
-					command: 'pr.loadMore',
+					command: 'azdo.pr.loadMore',
 					arguments: [node],
 				};
 				break;
@@ -67,7 +67,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = vscode.l10n.t('Sign in');
 				this.command = {
 					title: vscode.l10n.t('Sign in'),
-					command: 'pr.signinAndRefreshList',
+					command: 'azdo.pr.signinAndRefreshList',
 					arguments: [],
 				};
 				break;
@@ -75,7 +75,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = vscode.l10n.t('Sign in with GitHub Enterprise...');
 				this.command = {
 					title: vscode.l10n.t('Sign in'),
-					command: 'pr.signinenterprise',
+					command: 'azdo.pr.signinenterprise',
 					arguments: [],
 				};
 				break;
@@ -89,7 +89,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = vscode.l10n.t('Configure remotes...');
 				this.command = {
 					title: vscode.l10n.t('Configure remotes'),
-					command: 'pr.configureRemotes',
+					command: 'azdo.pr.configureRemotes',
 					arguments: [],
 				};
 				break;

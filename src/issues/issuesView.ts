@@ -100,8 +100,8 @@ export class IssuesTreeData
 
 		if (avatarDisplaySetting === 'state') {
 			treeItem.iconPath = element.isOpen
-				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('azdo.issues.open'))
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('azdo.issues.closed'));
 		} else if (avatarDisplaySetting === 'generic') {
 			treeItem.iconPath = new vscode.ThemeIcon('issues');
 		} else {
@@ -119,8 +119,8 @@ export class IssuesTreeData
 				} else {
 					treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
 						(element.isOpen
-							? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-							: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
+							? new vscode.ThemeIcon('issues', new vscode.ThemeColor('azdo.issues.open'))
+							: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('azdo.github.issues.closed')));
 				}
 			} else {
 				// Use GitHub codicon when assignee setting is selected but no assignees exist
@@ -129,7 +129,7 @@ export class IssuesTreeData
 		}
 
 		treeItem.command = {
-			command: 'issue.openDescription',
+			command: 'azdo.issue.openDescription',
 			title: vscode.l10n.t('View Issue Description'),
 			arguments: [element]
 		};

@@ -316,7 +316,7 @@ describe('Package quarantine check', () => {
 		'https://registry.npmjs.org/attacker/-/attacker-1.0.0.tgz',
 		'git+https://example.invalid/alpha.git',
 		'owner/repository',
-		'github:owner/repository',
+		'azureDevOps:owner/repository',
 		'file:../alpha',
 		'../alpha',
 		'replacement.tgz',

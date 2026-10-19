@@ -63,10 +63,10 @@ describe('parseRepositoryRemotesAsync', () => {
 	it('resolves a remote URL using a global "url.<base>.insteadOf" alias', async () => {
 		const repository = new MockRepository();
 		// Simulate `git config url."https://github.abc.com/".insteadOf github:`
-		await repository.setConfig('url.https://github.abc.com/.insteadof', 'github:');
+		await repository.setConfig('url.https://github.abc.com/.insteadof', 'azureDevOps:');
 		// And a remote stored as `github:org/repo` (as returned by `git config --get remote.origin.url`
 		// when the user clones with `git clone github:org/repo`).
-		await repository.addRemote('origin', 'github:org/repo');
+		await repository.addRemote('origin', 'azureDevOps:org/repo');
 
 		const remotes = await parseRepositoryRemotesAsync(repository);
 
@@ -92,7 +92,7 @@ describe('parseRepositoryRemotesAsync', () => {
 
 	it('leaves URLs unchanged when no insteadOf alias matches', async () => {
 		const repository = new MockRepository();
-		await repository.setConfig('url.https://github.abc.com/.insteadof', 'github:');
+		await repository.setConfig('url.https://github.abc.com/.insteadof', 'azureDevOps:');
 		await repository.addRemote('origin', 'https://github.com/owner/repo');
 
 		const remotes = await parseRepositoryRemotesAsync(repository);

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
+export const PR_SETTINGS_NAMESPACE = 'azureDevOpsPullRequests';
 export const EXPERIMENTAL_STACKS = 'experimental.stacks';
 export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
 export const OPEN_PULL_LINKS = 'openPullLinks';
@@ -51,7 +51,7 @@ export const CREATE_BASE_BRANCH = 'createDefaultBaseBranch';
 export const AUTO_REPO_DETECTION = 'autoRepositoryDetection';
 export type AutoRepoDetectionVariants = 'workspace' | true;
 
-export const ISSUES_SETTINGS_NAMESPACE = 'githubIssues';
+export const ISSUES_SETTINGS_NAMESPACE = 'azureDevOpsWorkItems';
 export const ASSIGN_WHEN_WORKING = 'assignWhenWorking';
 export const ISSUE_COMPLETIONS = 'issueCompletions';
 export const USER_COMPLETIONS = 'userCompletions';

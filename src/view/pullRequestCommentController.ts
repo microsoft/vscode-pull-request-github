@@ -512,7 +512,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		/* __GDPR__
 			"pr.openDescription" : {}
 		*/
-		this._folderRepoManager.telemetry.sendTelemetryEvent('pr.openDescription');
+		this._folderRepoManager.telemetry.sendTelemetryEvent('azdo.pr.openDescription');
 	}
 
 	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {

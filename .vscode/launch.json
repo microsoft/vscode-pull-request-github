@@ -8,7 +8,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+				"--enable-proposed-api=jhare96.vscode-pull-request-azdo"
 			],
 			"skipFiles": [
 				"<node_internals>/**/*.js",
@@ -20,17 +20,19 @@
 				"${workspaceFolder}/dist/*.js",
 				"${workspaceFolder}"
 			],
-			"debugWebviews": true
+			"debugWebviews": true,
+			"preLaunchTask": "npm: compile"
 		},
 		{
 			"name": "Launch Extension in Webworker",
 			"type": "extensionHost",
 			"request": "launch",
+			"preLaunchTask": "npm: compile",
 			"debugWebWorkerHost": true,
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+				"--enable-proposed-api=jhare96.vscode-pull-request-azdo"
 			],
 			"skipFiles": [
 				"<node_internals>/**/*.js",
@@ -49,7 +51,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+				"--enable-proposed-api=jhare96.vscode-pull-request-azdo"
 			],
 			"skipFiles": [
 				"<node_internals>/**/*.js",
@@ -70,7 +72,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+				"--enable-proposed-api=jhare96.vscode-pull-request-azdo"
 			],
 			"skipFiles": [
 				"<node_internals>/**/*.js",

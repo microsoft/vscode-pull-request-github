@@ -62,7 +62,7 @@ export class ReviewsManager extends Disposable {
 
 	private registerListeners(): void {
 		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
+			if (e.affectsConfiguration('azureDevOpsPullRequests.showInSCM')) {
 				if (this._prFileChangesProvider) {
 					this._prFileChangesProvider.dispose();
 					this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._gitApi, this._reposManager);

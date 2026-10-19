@@ -13,7 +13,7 @@ interface ResolveReviewThreadToolParameters {
 }
 
 export class ResolveReviewThreadTool implements vscode.LanguageModelTool<ResolveReviewThreadToolParameters> {
-	public static readonly toolId = 'github-pull-request_resolveReviewThread';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_resolveReviewThread';
 
 	constructor(private readonly folderManagers: RepositoriesManager) { }
 

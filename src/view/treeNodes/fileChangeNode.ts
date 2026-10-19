@@ -249,7 +249,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 		super(parent, folderRepositoryManager, pullRequest, changeModel);
 		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl!), changeModel.pullRequest.number, changeModel.fileName, changeModel.status, changeModel.previousFileName);
 		this.command = {
-			command: 'pr.openFileOnGitHub',
+			command: 'azdo.pr.openFileOnGitHub',
 			title: 'Open File on GitHub',
 			arguments: [this],
 		};

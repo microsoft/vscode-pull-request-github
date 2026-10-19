@@ -18,7 +18,7 @@ Read the active pull request, identify unresolved review comments and feedback, 
 
 ### 1. Read the Active PR
 
-Call the `github-pull-request_currentActivePullRequest` tool.
+Call the `azure-devops-pull-request_currentActivePullRequest` tool.
 
 **Refresh logic**: Check whether a refresh is needed before reading:
 - Call the tool once *without* `refresh` to get the cached state
@@ -60,7 +60,7 @@ After all changes are made:
 ### 6. Resolve Threads
 
 For each thread that was addressed (either by a code change or by a deliberate decision not to change):
-- Call `github-pull-request_resolveReviewThread` with the `id` from the `reviewThreads` array.
+- Call `azure-devops-pull-request_azdo_resolveReviewThread` with the `id` from the `reviewThreads` array.
 - Only resolve threads where `canResolve` is `true`.
 - Skip threads that are already resolved (`isResolved: true`) or where `canResolve` is `false`.
 

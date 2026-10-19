@@ -26,7 +26,7 @@ import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
-	public override readonly viewType = 'github:activePullRequest';
+	public override readonly viewType = 'azureDevOps:activePullRequest';
 	private _existingReviewers: ReviewState[] = [];
 	private _updatingPromise: Promise<unknown> | undefined;
 	private _stackUpdateSequence = 0;
@@ -44,19 +44,19 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			}
 		}));
 
-		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
+		this._register(vscode.commands.registerCommand('azdo.pr.readyForReview', async () => {
 			return this.readyForReviewCommand();
 		}));
-		this._register(vscode.commands.registerCommand('pr.readyForReviewAndMerge', async (context: { mergeMethod: MergeMethod }) => {
+		this._register(vscode.commands.registerCommand('azdo.pr.readyForReviewAndMerge', async (context: { mergeMethod: MergeMethod }) => {
 			return this.readyForReviewAndMergeCommand(context);
 		}));
-		this._register(vscode.commands.registerCommand('review.approve', (e: SubmitReviewArgs) => this.approvePullRequestCommand(e)));
-		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
-		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
-		this._register(vscode.commands.registerCommand('review.approveOnDotCom', () => {
+		this._register(vscode.commands.registerCommand('azdo.review.approve', (e: SubmitReviewArgs) => this.approvePullRequestCommand(e)));
+		this._register(vscode.commands.registerCommand('azdo.review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
+		this._register(vscode.commands.registerCommand('azdo.review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
+		this._register(vscode.commands.registerCommand('azdo.review.approveOnDotCom', () => {
 			return openItemOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 		}));
-		this._register(vscode.commands.registerCommand('review.requestChangesOnDotCom', () => {
+		this._register(vscode.commands.registerCommand('azdo.review.requestChangesOnDotCom', () => {
 			return openItemOnGitHub(this._item, this._folderRepositoryManager.telemetry);
 		}));
 	}
@@ -94,15 +94,15 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.close(message);
 			case 'pr.comment':
 				return this.createComment(message);
-			case 'pr.merge':
+			case 'azdo.pr.merge':
 				return this.mergePullRequest(message);
-			case 'pr.merge-stack':
+			case 'azdo.pr.merge-stack':
 				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
 			case 'pr.open-create':
 				return this.create();
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
-			case 'pr.readyForReview':
+			case 'azdo.pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.approve':
 				return this.approvePullRequestMessage(message);
@@ -137,7 +137,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	public async refresh(): Promise<void> {
-		return vscode.window.withProgress({ location: { viewId: 'github:activePullRequest' } }, async () => {
+		return vscode.window.withProgress({ location: { viewId: 'azureDevOps:activePullRequest' } }, async () => {
 			await this._item.initializeReviewThreadCache();
 			await this.updatePullRequest(this._item);
 		});

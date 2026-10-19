@@ -25,7 +25,7 @@ export interface FetchLabelsResult {
 }
 
 export class FetchLabelsTool extends RepoToolBase<FetchLabelsToolParameters> {
-	public static readonly toolId = 'github-pull-request_labels_fetch';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_labels_fetch';
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchLabelsToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });

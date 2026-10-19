@@ -51,7 +51,7 @@ export interface SearchToolResult {
 }
 
 export class SearchTool extends RepoToolBase<SearchToolParameters> {
-	public static readonly toolId = 'github-pull-request_doSearch';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_doSearch';
 	static ID = 'SearchTool';
 
 

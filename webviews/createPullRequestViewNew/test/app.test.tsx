@@ -70,11 +70,11 @@ describe('Create pull request stack', function () {
 			baseHasMergeQueue: false,
 			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
 		};
-		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, addToStack: false }))['github:createPrMenuSquash'], true);
+		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, addToStack: false }))['azureDevOps:createPrMenuSquash'], true);
 		const stacked = JSON.parse(makeCreateMenuContext({ ...params, addToStack: true }));
-		assert.strictEqual(stacked['github:createPrMenuDraft'], true);
-		assert.strictEqual(stacked['github:createPrMenuSquash'], undefined);
-		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, baseHasMergeQueue: true, addToStack: true }))['github:createPrMenuMergeWhenReady'], undefined);
+		assert.strictEqual(stacked['azureDevOps:createPrMenuDraft'], true);
+		assert.strictEqual(stacked['azureDevOps:createPrMenuSquash'], undefined);
+		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, baseHasMergeQueue: true, addToStack: true }))['azureDevOps:createPrMenuMergeWhenReady'], undefined);
 	});
 
 	it('updates the create button and menu when stacking is checked', function () {
@@ -104,17 +104,17 @@ describe('Create pull request stack', function () {
 		const primary = app.querySelector('.group-actions .split-left');
 		const menu = app.querySelector('.group-actions .split-right');
 		assert.strictEqual(primary?.textContent, 'Create + Auto-Squash');
-		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['github:createPrMenuSquash'], true);
+		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['azureDevOps:createPrMenuSquash'], true);
 
 		act(() => { fireEvent.click(checkbox); });
 
 		assert.strictEqual(checkbox.checked, true);
 		assert.strictEqual(primary?.textContent, 'Create');
-		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['github:createPrMenuSquash'], undefined);
+		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['azureDevOps:createPrMenuSquash'], undefined);
 
 		act(() => { fireEvent.click(checkbox); });
 		assert.strictEqual(checkbox.checked, false);
-		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['github:createPrMenuSquash'], true);
+		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['azureDevOps:createPrMenuSquash'], true);
 	});
 
 	it('submits a stack request without auto-merge even when it was previously selected', async function () {

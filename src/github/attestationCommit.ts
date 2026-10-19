@@ -116,7 +116,7 @@ export async function addAttestationCommit(
 
 	const message = getAttestationCommitSetting();
 	if (message === false) {
-		vscode.window.showWarningMessage(vscode.l10n.t('Attestation commits are not enabled. Enable them via the `githubPullRequests.enableAttestationCommits` setting.'));
+		vscode.window.showWarningMessage(vscode.l10n.t('Attestation commits are not enabled. Enable them via the `azureDevOpsPullRequests.enableAttestationCommits` setting.'));
 		return undefined;
 	}
 

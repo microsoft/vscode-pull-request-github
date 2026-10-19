@@ -34,7 +34,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 
 	constructor(private _git: GitApiImpl, private _reposManager: RepositoriesManager) {
 		super();
-		this._view = this._register(vscode.window.createTreeView('prStatus:github', {
+		this._view = this._register(vscode.window.createTreeView('prStatus:azureDevOps', {
 			treeDataProvider: this,
 			showCollapseAll: true,
 			canSelectMany: true,

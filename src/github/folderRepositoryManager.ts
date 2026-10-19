@@ -450,10 +450,10 @@ export class FolderRepositoryManager extends Disposable {
 		const activeRemotes = this.getActiveGitHubRemotes();
 
 		if (activeRemotes.length) {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
+			await vscode.commands.executeCommand('setContext', 'azureDevOps:hasGitHubRemotes', true);
 			Logger.appendLine(`Found GitHub remote for folder ${this.repository.rootUri.fsPath}`, this.id);
 			if (this._allGitHubRemotes.length > 1) {
-				await vscode.commands.executeCommand('setContext', 'github:hasMultipleGitHubRemotes', true);
+				await vscode.commands.executeCommand('setContext', 'azureDevOps:hasMultipleGitHubRemotes', true);
 			}
 		} else {
 			Logger.appendLine(`No GitHub remotes found for folder ${this.repository.rootUri.fsPath}`, this.id);
@@ -492,7 +492,7 @@ export class FolderRepositoryManager extends Disposable {
 			// Not good. We have a mismatch between auth type and server type.
 			isAuthenticated = false;
 		}
-		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
+		vscode.commands.executeCommand('setContext', 'azureDevOps:authenticated', isAuthenticated);
 		return isAuthenticated;
 	}
 
@@ -687,7 +687,7 @@ export class FolderRepositoryManager extends Disposable {
 						if (this._addedUpstreamCount > 1) {
 							// We've already added this remote, which means the user likely removed it. Let the user know they can disable this feature.
 							const neverOption = vscode.l10n.t('Set to `never`');
-							vscode.window.showInformationMessage(vscode.l10n.t('An `upstream` remote has been added for this repository. You can disable this feature by setting `githubPullRequests.upstreamRemote` to `never`.'), neverOption)
+							vscode.window.showInformationMessage(vscode.l10n.t('An `upstream` remote has been added for this repository. You can disable this feature by setting `azureDevOpsPullRequests.upstreamRemote` to `never`.'), neverOption)
 								.then(choice => {
 									if (choice === neverOption) {
 										configuration.update(UPSTREAM_REMOTE, 'never', vscode.ConfigurationTarget.Global);
@@ -1836,7 +1836,7 @@ export class FolderRepositoryManager extends Disposable {
 					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			this.telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
+			this.telemetry.sendTelemetryEvent('azdo.pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
 			if (e.message.indexOf('No commits between ') > -1) {
@@ -1883,7 +1883,7 @@ export class FolderRepositoryManager extends Disposable {
 					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			this.telemetry.sendTelemetryErrorEvent('pr.create.failure', {
+			this.telemetry.sendTelemetryErrorEvent('azdo.pr.create.failure', {
 				isDraft: (params.draft || '').toString(),
 			});
 

@@ -805,23 +805,23 @@ export function fromQueryUri(uri: vscode.Uri): { remote: RemoteInfo | undefined,
 
 export enum Schemes {
 	File = 'file',
-	Review = 'review', // File content for a checked out PR
-	Pr = 'pr', // File content from GitHub for non-checkout PR
-	PRNode = 'prnode',
-	FileChange = 'filechange', // Tree items, for decorations
-	GithubPr = 'githubpr', // File content from GitHub in create flow
-	GitPr = 'gitpr', // File content from git in create flow
+	Review = 'azdo-review', // File content for a checked out PR
+	Pr = 'azdo-pr', // File content from GitHub for non-checkout PR
+	PRNode = 'azdoprnode',
+	FileChange = 'azdofilechange', // Tree items, for decorations
+	GithubPr = 'azdopr', // File content from GitHub in create flow
+	GitPr = 'azdogitpr', // File content from git in create flow
 	VscodeVfs = 'vscode-vfs', // Remote Repository
 	Comment = 'comment', // Comments from the VS Code comment widget
 	MergeOutput = 'merge-output', // Merge output
-	Notification = 'notification', // Notification tree items in the notification view
-	NewIssue = 'newissue', // New issue file
-	Repo = 'repo', // New issue file for passing data
+	Notification = 'azdonotification', // Notification tree items in the notification view
+	NewIssue = 'azdo-newissue', // New issue file
+	Repo = 'azdorepo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
-	PRQuery = 'prquery', // PR query tree item
-	GitHubCommit = 'githubcommit', // file content from GitHub for a commit
-	CommitsNode = 'commitsnode', // Commits tree node, for decorations
-	CheckRunLog = 'checkrunlog' // Check run log content
+	PRQuery = 'azdoprquery', // PR query tree item
+	GitHubCommit = 'azdocommit', // file content from GitHub for a commit
+	CommitsNode = 'azdocommitsnode', // Commits tree node, for decorations
+	CheckRunLog = 'azdocheckrunlog' // Check run log content
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

@@ -299,11 +299,11 @@ async function init(
 
 	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, context);
 	context.subscriptions.push(pullRequestContextProvider);
-	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('githubpr', pullRequestContextProvider));
-	context.subscriptions.push(vscode.chat.registerChatTabContextProvider({ uri: { scheme: 'webview-panel', pattern: '**/webview-PullRequestOverview**' } }, 'githubpr', pullRequestContextProvider));
+	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('azdopr', pullRequestContextProvider));
+	context.subscriptions.push(vscode.chat.registerChatTabContextProvider({ uri: { scheme: 'webview-panel', pattern: '**/webview-AzureDevOpsPullRequestOverview**' } }, 'azdopr', pullRequestContextProvider));
 	const issueContextProvider = new IssueContextProvider(issueStateManager, reposManager, context);
-	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('githubissue', issueContextProvider));
-	context.subscriptions.push(vscode.chat.registerChatTabContextProvider({ uri: { scheme: 'webview-panel', pattern: '**/webview-IssueOverview**' } }, 'githubissue', issueContextProvider));
+	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('azdoworkitem', issueContextProvider));
+	context.subscriptions.push(vscode.chat.registerChatTabContextProvider({ uri: { scheme: 'webview-panel', pattern: '**/webview-AzureDevOpsIssueOverview**' } }, 'azdoworkitem', issueContextProvider));
 
 	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, notificationsManager);
 	context.subscriptions.push(notificationsFeatures);
@@ -312,7 +312,7 @@ async function init(
 
 	context.subscriptions.push(new OverviewRestorer(telemetry, context, credentialStore, folderRepositoryManagerResolver));
 
-	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
+	await vscode.commands.executeCommand('setContext', 'azureDevOps:initialized', true);
 
 	registerPostCommitCommandsProvider(context, reposManager, git);
 
@@ -343,8 +343,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	Logger.appendLine(`Extension version: ${vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version}`, 'Activation');
 
 	// @ts-ignore
-	if (EXTENSION_ID === 'GitHub.vscode-pull-request-github-insiders') {
-		const stable = vscode.extensions.getExtension('github.vscode-pull-request-github');
+	if (EXTENSION_ID === 'jhare96.vscode-pull-request-azdo-insiders') {
+		const stable = vscode.extensions.getExtension('jhare96.vscode-pull-request-azdo');
 		if (stable !== undefined) {
 			throw new Error(
 				'GitHub Pull Requests and Issues Nightly cannot be used while GitHub Pull Requests and Issues is also installed. Please ensure that only one version of the extension is installed.',
@@ -353,9 +353,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	}
 
 	const showPRController = new ShowPullRequest();
-	vscode.commands.registerCommand('github.api.preloadPullRequest', async (shouldShow: boolean) => {
+	vscode.commands.registerCommand('azdo.github.api.preloadPullRequest', async (shouldShow: boolean) => {
 		await vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
-		await commands.focusView('github:activePullRequest:welcome');
+		await commands.focusView('azureDevOps:activePullRequest:welcome');
 		showPRController.shouldShow = shouldShow;
 	});
 	await setGitSettingContexts(context);
@@ -410,7 +410,7 @@ function registerPostCommitCommandsProvider(context: vscode.ExtensionContext, re
 			}));
 			Logger.appendLine(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
 			return found ? [{
-				command: 'pr.pushAndCreate',
+				command: 'azdo.pr.pushAndCreate',
 				title: vscode.l10n.t('{0} Commit & Create Pull Request', '$(git-pull-request-create)'),
 				tooltip: vscode.l10n.t('Commit & Create Pull Request')
 			}] : [];
@@ -510,8 +510,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	}
 
 	const inMemPRFileSystemProvider = getInMemPRFileSystemProvider({ reposManager, gitAPI: apiImpl, credentialStore })!;
-	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
-	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
+	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:azdo.pr.checkoutFromReadonlyFile) this pull request to edit.'));
+	readOnlyMessage.isTrusted = { enabledCommands: ['azdo.pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 	const githubFilesystemProvider = getGitHubCommitFileSystemProvider({ reposManager, gitAPI: apiImpl, credentialStore })!;
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.GitHubCommit, githubFilesystemProvider, { isReadonly: new vscode.MarkdownString(vscode.l10n.t('GitHub commits cannot be edited')) }));

@@ -6,23 +6,23 @@
 import * as vscode from 'vscode';
 
 export namespace contexts {
-	export const VIEWED_FILES = 'github:viewedFiles'; // Array of file paths for viewed files
-	export const UNVIEWED_FILES = 'github:unviewedFiles'; // Array of file paths for unviewed files
-	export const IN_REVIEW_MODE = 'github:inReviewMode'; // Boolean indicating if the extension is currently in "review mode" (has a non-ignored PR checked out)
-	export const REPOS_NOT_IN_REVIEW_MODE = 'github:reposNotInReviewMode'; // Array of URIs for repos that are not in review mode
-	export const REPOS_IN_REVIEW_MODE = 'github:reposInReviewMode'; // Array of URIs for repos that are in review mode
-	export const ACTIVE_PR_COUNT = 'github:activePRCount'; // Number of PRs that are currently checked out
-	export const LOADING_PRS_TREE = 'github:loadingPrsTree';
-	export const LOADING_ISSUES_TREE = 'github:loadingIssuesTree';
-	export const HAS_ENTERPRISE_URIS = 'github:hasEnterpriseUris';
-	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
-	export const CAN_ADD_TO_STACK = 'github:canAddToStack';
-	export const RESOLVING_CONFLICTS = 'github:resolvingConflicts';
-	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible'; // Boolean indicating if the pull request description is visible
-	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion'; // Boolean indicating if the active comment has a suggestion
+	export const VIEWED_FILES = 'azureDevOps:viewedFiles'; // Array of file paths for viewed files
+	export const UNVIEWED_FILES = 'azureDevOps:unviewedFiles'; // Array of file paths for unviewed files
+	export const IN_REVIEW_MODE = 'azureDevOps:inReviewMode'; // Boolean indicating if the extension is currently in "review mode" (has a non-ignored PR checked out)
+	export const REPOS_NOT_IN_REVIEW_MODE = 'azureDevOps:reposNotInReviewMode'; // Array of URIs for repos that are not in review mode
+	export const REPOS_IN_REVIEW_MODE = 'azureDevOps:reposInReviewMode'; // Array of URIs for repos that are in review mode
+	export const ACTIVE_PR_COUNT = 'azureDevOps:activePRCount'; // Number of PRs that are currently checked out
+	export const LOADING_PRS_TREE = 'azureDevOps:loadingPrsTree';
+	export const LOADING_ISSUES_TREE = 'azureDevOps:loadingIssuesTree';
+	export const HAS_ENTERPRISE_URIS = 'azureDevOps:hasEnterpriseUris';
+	export const CREATE_PR_PERMISSIONS = 'azureDevOps:createPrPermissions';
+	export const CAN_ADD_TO_STACK = 'azureDevOps:canAddToStack';
+	export const RESOLVING_CONFLICTS = 'azureDevOps:resolvingConflicts';
+	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'azureDevOps:pullRequestDescriptionVisible'; // Boolean indicating if the pull request description is visible
+	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'azureDevOps:activeCommentHasSuggestion'; // Boolean indicating if the active comment has a suggestion
 	export const CREATING = 'pr:creating';
-	export const NOTIFICATION_COUNT = 'github:notificationCount'; // Number of notifications in the notifications view
-	export const ACTIVATED = 'github.vscode-pull-request-github.activated'; // Boolean indicating if the extension has been activated
+	export const NOTIFICATION_COUNT = 'azureDevOps:notificationCount'; // Number of notifications in the notifications view
+	export const ACTIVATED = 'jhare96.vscode-pull-request-azdo.activated'; // Boolean indicating if the extension has been activated
 }
 
 export namespace commands {

@@ -351,7 +351,7 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 						}
 						let ctx: ReadyForReviewContext | ReadyForReviewAndMergeContext = {
 							'preventDefaultContextMenuItems': true,
-							'github:readyForReviewMenu': true,
+							'azureDevOps:readyForReviewMenu': true,
 							owner: pr.owner,
 							repo: pr.repo,
 							number: pr.number,
@@ -359,7 +359,7 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 						if (isCopilotOnMyBehalf) {
 							ctx = {
 								...ctx,
-								'github:readyForReviewMenuWithMerge': true,
+								'azureDevOps:readyForReviewMenuWithMerge': true,
 								mergeMethod,
 							};
 						}

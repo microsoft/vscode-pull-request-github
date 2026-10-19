@@ -98,12 +98,12 @@ export class PRContext {
 	};
 
 	public merge = async (args: MergeArguments): Promise<MergeResult> => {
-		const result: MergeResult = await this.postMessage({ command: 'pr.merge', args });
+		const result: MergeResult = await this.postMessage({ command: 'azdo.pr.merge', args });
 		return result;
 	};
 
 	public mergeStack = (method: MergeMethod): Promise<StackMergeResult> =>
-		this.postMessage({ command: 'pr.merge-stack', args: { method } });
+		this.postMessage({ command: 'azdo.pr.merge-stack', args: { method } });
 
 	public unstackAll = (): Promise<UnstackAllResult> =>
 		this.postMessage({ command: 'pr.unstack-all' });
@@ -130,9 +130,9 @@ export class PRContext {
 		this.updatePR({ busy: false, ...revertResult });
 	};
 
-	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReview' });
+	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'azdo.pr.readyForReview' });
 
-	public readyForReviewAndMerge = (args: { mergeMethod: MergeMethod }): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReviewAndMerge', args });
+	public readyForReviewAndMerge = (args: { mergeMethod: MergeMethod }): Promise<ReadyForReview> => this.postMessage({ command: 'azdo.pr.readyForReviewAndMerge', args });
 
 	public convertToDraft = (): Promise<ConvertToDraftReply> => this.postMessage({ command: 'pr.convertToDraft' });
 

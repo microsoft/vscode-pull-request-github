@@ -225,7 +225,7 @@ export class CreatePRContextNew {
 			useCopilot
 		};
 		const response: TitleAndDescriptionResult = await this.postMessage({
-			command: 'pr.generateTitleAndDescription',
+			command: 'azdo.pr.generateTitleAndDescription',
 			args
 		});
 		const updateValues: { pendingTitle?: string, pendingDescription?: string, showTitleValidationError?: boolean } = {};
@@ -265,7 +265,7 @@ export class CreatePRContextNew {
 
 	public preReview = async (): Promise<void> => {
 		this.updateState({ reviewing: true });
-		const result: PreReviewState = await this.postMessage({ command: 'pr.preReview' });
+		const result: PreReviewState = await this.postMessage({ command: 'azdo.pr.preReview' });
 		this.updateState({ preReviewState: result, reviewing: false });
 	};
 
@@ -317,7 +317,7 @@ export class CreatePRContextNew {
 			}
 			const args: CreatePullRequestNew = this.copyParams();
 			await this.postMessage({
-				command: 'pr.create',
+				command: 'azdo.pr.create',
 				args,
 			});
 			// Only clear persisted state after the create succeeds. Resetting before

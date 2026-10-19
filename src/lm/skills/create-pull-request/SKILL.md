@@ -40,7 +40,7 @@ Before creating the PR, inspect the working tree state. If you need to run git c
 	 - Ask the user if they want to push before opening the PR, or let them know the tool will attempt to push automatically if needed.
 	 - If pushing manually is preferred, run `git push` (or `git push --set-upstream origin <branch>` if no upstream is set yet) before calling the tool.
 
-3. **Confirm the branch is on the remote**: The `create_pull_request` tool requires the head branch to be present on the remote. If it is not, push it first.
+3. **Confirm the branch is on the remote**: The `azdo_create_pull_request` tool requires the head branch to be present on the remote. If it is not, push it first.
 
 If all changes are already committed and pushed, proceed directly to the next step.
 
@@ -57,10 +57,10 @@ Write a good title and description if the user has not provided them:
 
 ### 4. Call the Tool
 
-Use the `github-pull-request_create_pull_request` tool with the gathered parameters:
+Use the `azure-devops-pull-request_azdo_create_pull_request` tool with the gathered parameters:
 
 ```
-github-pull-request_create_pull_request({
+azure-devops-pull-request_azdo_create_pull_request({
 	title: '<descriptive title>',
 	head: '<branch-name>',        // branch name only, not owner:branch
 	body: '<description>',        // optional but recommended

@@ -57,7 +57,7 @@ export interface BasePullRequestDataModel {
 
 export abstract class BaseCreatePullRequestViewProvider<T extends BasePullRequestDataModel = BasePullRequestDataModel> extends WebviewViewBase implements vscode.WebviewViewProvider {
 	protected static readonly ID = 'CreatePullRequestViewProvider';
-	public override readonly viewType = 'github:createPullRequestWebview';
+	public override readonly viewType = 'azureDevOps:createPullRequestWebview';
 
 	protected _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
@@ -97,7 +97,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	public static withProgress<R>(task: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Thenable<R>) {
-		return vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, task);
+		return vscode.window.withProgress({ location: { viewId: 'azureDevOps:createPullRequestWebview' } }, task);
 	}
 
 	protected async getPullRequestDefaultLabels(defaultBaseRemote: RemoteInfo): Promise<ILabel[]> {
@@ -598,7 +598,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	}
 
 	private async openDescriptionSettings(): Promise<void> {
-		return vscode.commands.executeCommand('workbench.action.openSettings', 'githubPullRequests.pullRequestDescription');
+		return vscode.commands.executeCommand('workbench.action.openSettings', 'azureDevOpsPullRequests.pullRequestDescription');
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -614,7 +614,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			case 'pr.cancelCreate':
 				return this.cancel(message);
 
-			case 'pr.create':
+			case 'azdo.pr.create':
 				return this.create(message);
 
 			case 'pr.changeLabels':
@@ -635,7 +635,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
 
-			case 'pr.openDescriptionSettings':
+			case 'azdo.pr.openDescriptionSettings':
 				return this.openDescriptionSettings();
 
 			default:
@@ -675,7 +675,7 @@ function serializeRemoteInfo(remote: { owner: string, repositoryName: string }) 
 }
 
 export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider {
-	public override readonly viewType = 'github:createPullRequestWebview';
+	public override readonly viewType = 'azureDevOps:createPullRequestWebview';
 	private _stackCandidateSequence = 0;
 
 	constructor(
@@ -892,7 +892,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				/* __GDPR__
 					"pr.create.getCommitTimeout" : {}
 				*/
-				this.telemetry.sendTelemetryEvent('pr.create.getCommitTimeout');
+				this.telemetry.sendTelemetryEvent('azdo.pr.create.getCommitTimeout');
 			}
 			// Set title
 			if (useBranchName && name) {
@@ -1235,13 +1235,13 @@ Don't forget to commit your template file to the repository so that it can be us
 				/* __GDPR__
 				"pr.create.changedBaseRemote" : {}
 				*/
-				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseRemote');
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('azdo.pr.create.changedBaseRemote');
 			}
 			if (baseBranchChanged) {
 				/* __GDPR__
 				"pr.create.changedBaseBranch" : {}
 				*/
-				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('azdo.pr.create.changedBaseBranch');
 			}
 		} else {
 			const compareBranch = await this._folderRepositoryManager.repository.getBranch(result.branch);
@@ -1272,7 +1272,7 @@ Don't forget to commit your template file to the repository so that it can be us
 			/* __GDPR__
 			"pr.create.changedCompare" : {}
 			*/
-			this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedCompare');
+			this._folderRepositoryManager.telemetry.sendTelemetryEvent('azdo.pr.create.changedCompare');
 		}
 		return chooseResult;
 	}
@@ -1659,7 +1659,7 @@ Don't forget to commit your template file to the repository so that it can be us
 					}
 
 					if (!headRepo) {
-						throw new Error(vscode.l10n.t('Unable to find GitHub repository matching \'{0}\'. You can add \'{0}\' to the setting "githubPullRequests.remotes" to ensure \'{0}\' is found.', existingCompareUpstream.remoteName));
+						throw new Error(vscode.l10n.t('Unable to find GitHub repository matching \'{0}\'. You can add \'{0}\' to the setting "azureDevOpsPullRequests.remotes" to ensure \'{0}\' is found.', existingCompareUpstream.remoteName));
 					}
 
 					progress.report({ message: vscode.l10n.t('Creating pull request'), increment: 70 - totalIncrement });
@@ -1760,7 +1760,7 @@ Don't forget to commit your template file to the repository so that it can be us
 			case 'pr.changeCompareRemoteAndBranch':
 				return this.changeRemoteAndBranch(message, false);
 
-			case 'pr.generateTitleAndDescription':
+			case 'azdo.pr.generateTitleAndDescription':
 				return this.generateTitleAndDescription(message);
 
 			case 'pr.cancelGenerateTitleAndDescription':
@@ -1769,7 +1769,7 @@ Don't forget to commit your template file to the repository so that it can be us
 			case 'pr.changeTemplate':
 				return this.changeTemplate(message);
 
-			case 'pr.preReview':
+			case 'azdo.pr.preReview':
 				return this.preReview(message);
 
 			case 'pr.cancelPreReview':

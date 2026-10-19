@@ -638,7 +638,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				}
 			}
 
-			if (fileChange.filePath.scheme !== 'review') {
+			if (fileChange.filePath.scheme !== Schemes.Review) {
 				// local file
 
 				if (fileChange.sha === query.commit) {

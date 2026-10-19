@@ -38,7 +38,7 @@ class ConfigureIssueQueriesCompletionItem extends vscode.CompletionItem {
 		this.command = {
 			command: 'workbench.action.openSettings',
 			title: vscode.l10n.t('Open Settings'),
-			arguments: [`@ext:${EXTENSION_ID} githubIssues.queries`]
+			arguments: [`@ext:${EXTENSION_ID} azureDevOpsWorkItems.queries`]
 		};
 		this.sortText = '~'; // Sort to bottom of list
 	}

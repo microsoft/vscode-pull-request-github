@@ -19,9 +19,9 @@ export class ConflictResolutionTreeView extends Disposable implements vscode.Tre
 
 	constructor(private readonly _conflictResolutionModel: ConflictResolutionModel) {
 		super();
-		this._treeView = this._register(vscode.window.createTreeView('github:conflictResolution', { treeDataProvider: this }));
+		this._treeView = this._register(vscode.window.createTreeView('azureDevOps:conflictResolution', { treeDataProvider: this }));
 		this._register(this._conflictResolutionModel.onAddedResolution(() => this._onDidChangeTreeData.fire()));
-		commands.focusView('github:conflictResolution');
+		commands.focusView('azureDevOps:conflictResolution');
 	}
 
 	async getTreeItem(element: ConflictNode): Promise<vscode.TreeItem> {
@@ -40,7 +40,7 @@ export class ConflictResolutionTreeView extends Disposable implements vscode.Tre
 			};
 		} else {
 			item.command = {
-				command: 'pr.resolveConflict',
+				command: 'azdo.pr.resolveConflict',
 				title: vscode.l10n.t('Resolve Conflict'),
 				arguments: [element.conflict]
 			};
@@ -55,16 +55,16 @@ export class ConflictResolutionTreeView extends Disposable implements vscode.Tre
 		}
 		const exit = new vscode.MarkdownString();
 		exit.isTrusted = {
-			enabledCommands: ['pr.exitConflictResolutionMode', 'pr.completeMerge']
+			enabledCommands: ['azdo.pr.exitConflictResolutionMode', 'azdo.pr.completeMerge']
 		};
 		let children: ConflictNode[] = [];
 		if (!this._conflictResolutionModel.isResolvable()) {
-			exit.appendMarkdown(vscode.l10n.t('Not all conflicts can be resolved here. Check out the pull request to manually resolve conflicts.\n\n[Exit conflict resolution mode](command:pr.exitConflictResolutionMode)'));
+			exit.appendMarkdown(vscode.l10n.t('Not all conflicts can be resolved here. Check out the pull request to manually resolve conflicts.\n\n[Exit conflict resolution mode](command:azdo.pr.exitConflictResolutionMode)'));
 		} else {
 			if (this._conflictResolutionModel.areAllConflictsResolved) {
-				exit.appendMarkdown(vscode.l10n.t('All conflicts have been resolved.\n\n[Complete merge](command:pr.completeMerge)\n\n[Exit without merging](command:pr.exitConflictResolutionMode)'));
+				exit.appendMarkdown(vscode.l10n.t('All conflicts have been resolved.\n\n[Complete merge](command:azdo.pr.completeMerge)\n\n[Exit without merging](command:azdo.pr.exitConflictResolutionMode)'));
 			} else {
-				exit.appendMarkdown(vscode.l10n.t('Resolve all conflicts or [exit conflict resolution mode](command:pr.exitConflictResolutionMode)'));
+				exit.appendMarkdown(vscode.l10n.t('Resolve all conflicts or [exit conflict resolution mode](command:azdo.pr.exitConflictResolutionMode)'));
 			}
 			children = Array.from(this._conflictResolutionModel.startingConflicts.values()).map(conflict => ({ conflict }));
 		}

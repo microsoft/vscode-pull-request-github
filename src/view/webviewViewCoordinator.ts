@@ -40,7 +40,7 @@ export class WebviewViewCoordinator extends Disposable {
 			this._webviewViewProvider.viewType,
 			this._webviewViewProvider,
 		), this._currentDisposables);
-		addDisposable(vscode.commands.registerCommand('pr.refreshActivePullRequest', _ => {
+		addDisposable(vscode.commands.registerCommand('azdo.pr.refreshActivePullRequest', _ => {
 			this._webviewViewProvider?.refresh();
 		}), this._currentDisposables);
 	}

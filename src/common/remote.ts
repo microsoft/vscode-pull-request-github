@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProvider, GitHubServerType } from './authentication';
+import { resolveGitUrlAlias } from './gitUrl';
 import Logger from './logger';
 import { Protocol, ProtocolType } from './protocol';
 import { Repository } from '../api/api';
@@ -111,29 +112,10 @@ async function resolveGitUrl(url: string, repository: Repository): Promise<strin
 		// Get all git config entries
 		const configs = await repository.getConfigs();
 
-		// Find all url.*.insteadOf entries
-		const urlSubstitutions: { prefix: string; replacement: string }[] = [];
-
-		for (const config of configs) {
-			// Match patterns like "url.https://github.com/.insteadOf" or "url.git@github.com:.insteadOf"
-			const match = config.key.match(/^url\.(.+)\.insteadof$/i);
-			if (match) {
-				const replacement = match[1];
-				const prefix = config.value;
-				urlSubstitutions.push({ prefix, replacement });
-			}
-		}
-
-		// Sort by prefix length (longest first) to handle overlapping prefixes correctly
-		urlSubstitutions.sort((a, b) => b.prefix.length - a.prefix.length);
-
-		// Apply the first matching substitution
-		for (const { prefix, replacement } of urlSubstitutions) {
-			if (url.startsWith(prefix)) {
-				const resolvedUrl = replacement + url.substring(prefix.length);
-				Logger.appendLine(`Resolved git URL alias: "${url}" -> "${resolvedUrl}"`, 'Remote');
-				return resolvedUrl;
-			}
+		const resolvedUrl = resolveGitUrlAlias(url, configs);
+		if (resolvedUrl !== url) {
+			Logger.appendLine('Resolved a Git URL alias.', 'Remote');
+			return resolvedUrl;
 		}
 	} catch (error) {
 		Logger.error(`Failed to resolve git URL aliases for "${url}": ${error}`, 'Remote');

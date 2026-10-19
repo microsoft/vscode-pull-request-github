@@ -1,4 +1,55 @@
-[![Build Status](https://dev.azure.com/vscode/vscode-pull-request-github/_apis/build/status/vscode-pull-request-github%20%28pr%29?branchName=main)](https://dev.azure.com/vscode/vscode-pull-request-github/_build?definitionId=44&branchName=main)
+# Azure DevOps Pull Requests & Work Items
+
+This standalone fork is being rebuilt from the original GitHub Pull Requests application.
+The goal is to retain its existing tree, React overview, creation form, diff viewers,
+comment controllers, and review workflows, replacing repository operations with an Azure
+DevOps provider rather than building a separate Azure interface.
+
+## Restart status
+
+The `feat/azure-provider-shared-ui` branch starts from upstream commit `b7b9342b`.
+The previous implementation, including the unfinished overview experiment, is preserved
+on `backup/azure-parallel-ui-20261019` at `ccf1fe3a`. No history was rewritten.
+
+This branch is a **development foundation, not an Azure-ready release**:
+
+- The original UI and workflow controllers are retained.
+- Extension-owned commands, settings, views, chat tools, and document schemes have
+  independent identifiers. The extension ID remains `jhare96.vscode-pull-request-azdo`.
+- The tested Azure authentication, REST transport, trusted remote parsing, and persistent
+  pending-review implementation have been carried across.
+- A typed [provider contract](src/providers/pullRequestProvider.ts) and
+  [Azure implementation](src/azure/pullRequestProvider.ts) expose existing application
+  models, not HTML or GitHub REST/GraphQL emulation.
+- The Azure provider covers PR loading/creation/editing, discussion ownership, reviews,
+  policies, and source-commit-checked completion. Unsupported capabilities are explicit.
+
+**The existing controllers have not yet been switched to the Azure provider.** F5 builds
+and launches the restored application, which still uses its original GitHub backend.
+Do not use this branch to test Azure sign-in or expect Azure PR browsing yet.
+The old native Azure implementation is available on the recovery branch.
+
+The next integration step is to route the existing repository/model controllers through
+the provider contract, then validate browsing, overview, diffs/comments, reviews,
+creation, and completion against Azure. Provider-specific features must be gated in the
+existing components; a second overview, tree, or creation UI must not be introduced.
+
+## Development
+
+- F5 runs `npm run compile` before launching.
+- `npm run compile` builds the desktop, browser, and original React webview bundles.
+- `npm run compile:test` type-checks and emits extension-host tests.
+- `npm run test:webviews` runs the original shared UI regression suite.
+- `npm run check:commands`, `npm run lint`, and `npm run hygiene` validate contributions
+  and repository conventions.
+
+The original project documentation below is retained as **upstream reference**. Its
+GitHub setup instructions describe the current upstream backend, not completed Azure
+functionality.
+
+---
+
+## Upstream documentation
 
 > Review and manage your GitHub pull requests and issues directly in VS Code
 

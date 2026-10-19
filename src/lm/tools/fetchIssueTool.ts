@@ -39,7 +39,7 @@ export interface FetchIssueResult {
 }
 
 export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
-	public static readonly toolId = 'github-pull-request_issue_fetch';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_issue_fetch';
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const issueNumber = options.input.issueNumber;

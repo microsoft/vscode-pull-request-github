@@ -20,12 +20,12 @@ type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'cre
 
 interface CreateMenuContext {
 	'preventDefaultContextMenuItems': true;
-	'github:createPrMenu': true;
-	'github:createPrMenuDraft': true;
-	'github:createPrMenuMergeWhenReady'?: true;
-	'github:createPrMenuMerge'?: true;
-	'github:createPrMenuSquash'?: true;
-	'github:createPrMenuRebase'?: true;
+	'azureDevOps:createPrMenu': true;
+	'azureDevOps:createPrMenuDraft': true;
+	'azureDevOps:createPrMenuMergeWhenReady'?: true;
+	'azureDevOps:createPrMenuMerge'?: true;
+	'azureDevOps:createPrMenuSquash'?: true;
+	'azureDevOps:createPrMenuRebase'?: true;
 }
 
 export const StackOption = ({ candidate, checked, disabled, onChange }: { candidate: StackCandidate; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) => (
@@ -49,21 +49,21 @@ export const StackOption = ({ candidate, checked, disabled, onChange }: { candid
 export function makeCreateMenuContext(createParams: CreateParamsNew): string {
 	const createMenuContexts: CreateMenuContext = {
 		'preventDefaultContextMenuItems': true,
-		'github:createPrMenu': true,
-		'github:createPrMenuDraft': true
+		'azureDevOps:createPrMenu': true,
+		'azureDevOps:createPrMenuDraft': true
 	};
 	if (!createParams.addToStack) {
 		if (createParams.baseHasMergeQueue) {
-			createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
+			createMenuContexts['azureDevOps:createPrMenuMergeWhenReady'] = true;
 		} else {
 			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.merge) {
-				createMenuContexts['github:createPrMenuMerge'] = true;
+				createMenuContexts['azureDevOps:createPrMenuMerge'] = true;
 			}
 			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.squash) {
-				createMenuContexts['github:createPrMenuSquash'] = true;
+				createMenuContexts['azureDevOps:createPrMenuSquash'] = true;
 			}
 			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.rebase) {
-				createMenuContexts['github:createPrMenuRebase'] = true;
+				createMenuContexts['azureDevOps:createPrMenuRebase'] = true;
 			}
 		}
 	}
@@ -203,7 +203,7 @@ export function main() {
 				}
 
 				function openDescriptionSettings(_event: React.MouseEvent | React.KeyboardEvent): void {
-					ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+					ctx.postMessage({ command: 'azdo.pr.openDescriptionSettings' });
 				}
 
 				async function generateTitle(useCopilot?: boolean) {

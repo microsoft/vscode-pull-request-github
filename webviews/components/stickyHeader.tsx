@@ -62,7 +62,7 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 						owner: pr.owner,
 						repo: pr.repo,
 						number: pr.number,
-						'github:copyMenu': true,
+						'azureDevOps:copyMenu': true,
 					})}
 					onClick={event => {
 						// The webview host opens any anchor with an href and ignores defaultPrevented,

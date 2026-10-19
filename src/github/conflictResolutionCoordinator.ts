@@ -126,20 +126,20 @@ export class ConflictResolutionCoordinator extends Disposable {
 	private register(): void {
 		this._register(vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, new GitHubContentProvider(this._githubRepositories), { isReadonly: true }));
 		this._register(vscode.workspace.registerFileSystemProvider(this._conflictResolutionModel.mergeScheme, this._mergeOutputProvider));
-		this._register(vscode.commands.registerCommand('pr.resolveConflict', (conflict: Conflict) => {
+		this._register(vscode.commands.registerCommand('azdo.pr.resolveConflict', (conflict: Conflict) => {
 			return this.openConflict(conflict);
 		}));
-		this._register(vscode.commands.registerCommand('pr.acceptMerge', async (uri: vscode.Uri | unknown) => {
+		this._register(vscode.commands.registerCommand('azdo.pr.acceptMerge', async (uri: vscode.Uri | unknown) => {
 			return this.acceptMerge(uri);
 		}));
-		this._register(vscode.commands.registerCommand('pr.exitConflictResolutionMode', async () => {
+		this._register(vscode.commands.registerCommand('azdo.pr.exitConflictResolutionMode', async () => {
 			const exit = vscode.l10n.t('Exit and lose changes');
 			const result = await vscode.window.showWarningMessage(vscode.l10n.t('Are you sure you want to exit conflict resolution mode? All changes will be lost.'), { modal: true }, exit);
 			if (result === exit) {
 				return this.exitConflictResolutionMode(false);
 			}
 		}));
-		this._register(vscode.commands.registerCommand('pr.completeMerge', async () => {
+		this._register(vscode.commands.registerCommand('azdo.pr.completeMerge', async () => {
 			return this.exitConflictResolutionMode(true);
 		}));
 		this._register(new ConflictResolutionTreeView(this._conflictResolutionModel));

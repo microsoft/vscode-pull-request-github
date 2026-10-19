@@ -681,7 +681,7 @@ const COMMENT_METHODS = {
 const makeCommentMenuContext = (owner: string, repo: string, number: number, availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined, shouldDisableNonApproveButtons: boolean, addAttestation: boolean) => {
 	const createMenuContexts: ReviewCommentContext = {
 		'preventDefaultContextMenuItems': true,
-		'github:reviewCommentMenu': true,
+		'azureDevOps:reviewCommentMenu': true,
 		owner,
 		repo,
 		number,
@@ -690,25 +690,25 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 	};
 	if (availableActions.approve) {
 		if (availableActions.approve === COMMENT_METHODS.approve) {
-			createMenuContexts['github:reviewCommentApprove'] = true;
+			createMenuContexts['azureDevOps:reviewCommentApprove'] = true;
 		} else {
-			createMenuContexts['github:reviewCommentApproveOnDotCom'] = true;
+			createMenuContexts['azureDevOps:reviewCommentApproveOnDotCom'] = true;
 		}
 	}
 	if (availableActions.comment) {
-		createMenuContexts['github:reviewCommentComment'] = true;
+		createMenuContexts['azureDevOps:reviewCommentComment'] = true;
 		if (!shouldDisableNonApproveButtons) {
-			createMenuContexts['github:reviewCommentCommentEnabled'] = true;
+			createMenuContexts['azureDevOps:reviewCommentCommentEnabled'] = true;
 		}
 	}
 	if (availableActions.requestChanges) {
 		if (availableActions.requestChanges === COMMENT_METHODS.requestChanges) {
-			createMenuContexts['github:reviewCommentRequestChanges'] = true;
+			createMenuContexts['azureDevOps:reviewCommentRequestChanges'] = true;
 			if (!shouldDisableNonApproveButtons) {
-				createMenuContexts['github:reviewRequestChangesEnabled'] = true;
+				createMenuContexts['azureDevOps:reviewRequestChangesEnabled'] = true;
 			}
 		} else {
-			createMenuContexts['github:reviewCommentRequestChangesOnDotCom'] = true;
+			createMenuContexts['azureDevOps:reviewCommentRequestChangesOnDotCom'] = true;
 		}
 	}
 	createMenuContexts['body'] = pendingCommentText ?? '';

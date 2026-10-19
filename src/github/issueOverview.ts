@@ -33,14 +33,14 @@ export function panelKey(owner: string, repo: string, number: number): string {
 }
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
-	public static ID: string = 'IssueOverviewPanel';
+	public static ID: string = 'AzureDevOpsIssueOverviewPanel';
 	/**
 	 * All open panels, keyed by "owner/repo#number".
 	 */
 	protected static _panels: Map<string, IssueOverviewPanel> = new Map();
 	protected static _repositoriesManager: RepositoriesManager | undefined;
 
-	public static readonly viewType: string = 'IssueOverview';
+	public static readonly viewType: string = 'AzureDevOpsIssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;

@@ -123,7 +123,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		if (this._prsTreeModel.hasCopilotNotification(protocol.owner, protocol.repositoryName, idParts.prNumber)) {
 			return {
 				badge: new vscode.ThemeIcon('copilot') as unknown as string,
-				color: new vscode.ThemeColor('pullRequests.notification')
+				color: new vscode.ThemeColor('azdo.pullRequests.notification')
 			};
 		}
 	}
@@ -141,7 +141,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		return {
 			tooltip: vscode.l10n.t('Coding agent has made changes'),
 			badge: new vscode.ThemeIcon('copilot') as unknown as string,
-			color: new vscode.ThemeColor('pullRequests.notification'),
+			color: new vscode.ThemeColor('azdo.pullRequests.notification'),
 		};
 	}
 
@@ -157,7 +157,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		if (this._notificationProvider.hasNotification({ owner: protocol.owner, repo: protocol.repositoryName, number: idParts.prNumber })) {
 			return {
 				propagate: false,
-				color: new vscode.ThemeColor('pullRequests.notification'),
+				color: new vscode.ThemeColor('azdo.pullRequests.notification'),
 				badge: '●',
 				tooltip: 'unread notification'
 			};

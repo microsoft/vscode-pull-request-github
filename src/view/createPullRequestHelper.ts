@@ -44,7 +44,7 @@ export class CreatePullRequestHelper extends Disposable {
 		);
 
 		addDisposable(
-			vscode.commands.registerCommand('pr.addAssigneesToNewPr', _ => {
+			vscode.commands.registerCommand('azdo.pr.addAssigneesToNewPr', _ => {
 				return this._createPRViewProvider?.addAssignees();
 
 			}),
@@ -52,21 +52,21 @@ export class CreatePullRequestHelper extends Disposable {
 		);
 
 		addDisposable(
-			vscode.commands.registerCommand('pr.addReviewersToNewPr', _ => {
+			vscode.commands.registerCommand('azdo.pr.addReviewersToNewPr', _ => {
 				return this._createPRViewProvider?.addReviewers();
 			}),
 			this._currentDisposables
 		);
 
 		addDisposable(
-			vscode.commands.registerCommand('pr.addLabelsToNewPr', _ => {
+			vscode.commands.registerCommand('azdo.pr.addLabelsToNewPr', _ => {
 				return this._createPRViewProvider?.addLabels();
 			}),
 			this._currentDisposables
 		);
 
 		addDisposable(
-			vscode.commands.registerCommand('pr.addMilestoneToNewPr', _ => {
+			vscode.commands.registerCommand('azdo.pr.addMilestoneToNewPr', _ => {
 				return this._createPRViewProvider?.addMilestone();
 
 			}),
@@ -74,7 +74,7 @@ export class CreatePullRequestHelper extends Disposable {
 		);
 
 		addDisposable(
-			vscode.commands.registerCommand('pr.addProjectsToNewPr', _ => {
+			vscode.commands.registerCommand('azdo.pr.addProjectsToNewPr', _ => {
 				return this._createPRViewProvider?.addProjects();
 
 			}),
@@ -82,47 +82,47 @@ export class CreatePullRequestHelper extends Disposable {
 		);
 
 		addDisposable(
-			vscode.commands.registerCommand('pr.createPrMenuCreate', () => {
+			vscode.commands.registerCommand('azdo.pr.createPrMenuCreate', () => {
 				this._createPRViewProvider?.createFromCommand(false, false, undefined);
 
 			}),
 			this._currentDisposables
 		);
 		addDisposable(
-			vscode.commands.registerCommand('pr.createPrMenuDraft', () => {
+			vscode.commands.registerCommand('azdo.pr.createPrMenuDraft', () => {
 				this._createPRViewProvider?.createFromCommand(true, false, undefined);
 
 			}),
 			this._currentDisposables
 		);
 		addDisposable(
-			vscode.commands.registerCommand('pr.createPrMenuMergeWhenReady', () => {
+			vscode.commands.registerCommand('azdo.pr.createPrMenuMergeWhenReady', () => {
 				this._createPRViewProvider?.createFromCommand(false, true, undefined, true);
 
 			}),
 			this._currentDisposables
 		);
 		addDisposable(
-			vscode.commands.registerCommand('pr.createPrMenuMerge', () => {
+			vscode.commands.registerCommand('azdo.pr.createPrMenuMerge', () => {
 				this._createPRViewProvider?.createFromCommand(false, true, 'merge');
 
 			}),
 			this._currentDisposables
 		);
 		addDisposable(
-			vscode.commands.registerCommand('pr.createPrMenuSquash', () => {
+			vscode.commands.registerCommand('azdo.pr.createPrMenuSquash', () => {
 				this._createPRViewProvider?.createFromCommand(false, true, 'squash');
 			}),
 			this._currentDisposables
 		);
 		addDisposable(
-			vscode.commands.registerCommand('pr.createPrMenuRebase', () => {
+			vscode.commands.registerCommand('azdo.pr.createPrMenuRebase', () => {
 				this._createPRViewProvider?.createFromCommand(false, true, 'rebase');
 			}),
 			this._currentDisposables
 		);
 		addDisposable(
-			vscode.commands.registerCommand('pr.preReview', () => {
+			vscode.commands.registerCommand('azdo.pr.preReview', () => {
 				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
 					this._createPRViewProvider.review();
 				}
@@ -182,7 +182,7 @@ export class CreatePullRequestHelper extends Disposable {
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
-		this._activeContext = 'github:revertPullRequest';
+		this._activeContext = 'azureDevOps:revertPullRequest';
 		this.setActiveContext(true);
 
 		if (recreate) {
@@ -228,7 +228,7 @@ export class CreatePullRequestHelper extends Disposable {
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
-		this._activeContext = 'github:createPullRequest';
+		this._activeContext = 'azureDevOps:createPullRequest';
 		this.setActiveContext(true);
 
 		const branch =

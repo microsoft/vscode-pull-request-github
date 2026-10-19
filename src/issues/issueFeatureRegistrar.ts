@@ -110,7 +110,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				',',
 			),
 		);
-		const view = vscode.window.createTreeView('issues:github', {
+		const view = vscode.window.createTreeView('issues:azureDevOps', {
 			showCollapseAll: true,
 			treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context),
 		});
@@ -119,12 +119,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.createIssueFromSelection',
+				'azdo.issue.createIssueFromSelection',
 				(newIssue?: NewIssue, issueBody?: string) => {
 					/* __GDPR__
 				"issue.createIssueFromSelection" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssueFromSelection');
+					this.telemetry.sendTelemetryEvent('azdo.issue.createIssueFromSelection');
 					return this.createTodoIssue(newIssue, issueBody);
 				},
 				this,
@@ -132,12 +132,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.createIssueFromClipboard',
+				'azdo.issue.createIssueFromClipboard',
 				() => {
 					/* __GDPR__
 				"issue.createIssueFromClipboard" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
+					this.telemetry.sendTelemetryEvent('azdo.issue.createIssueFromClipboard');
 					return this.createTodoIssueClipboard();
 				},
 				this,
@@ -145,12 +145,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.assignToCodingAgent',
+				'azdo.issue.assignToCodingAgent',
 				(issueModel: any) => {
 					/* __GDPR__
 				"issue.assignToCodingAgent" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.assignToCodingAgent');
+					this.telemetry.sendTelemetryEvent('azdo.issue.assignToCodingAgent');
 					return this.assignToCodingAgent(issueModel);
 				},
 				this,
@@ -158,12 +158,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubPermalink',
+				'azdo.issue.copyGithubPermalink',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubPermalink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubPermalink');
 					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context]);
 				},
 				this,
@@ -171,12 +171,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubHeadLink',
+				'azdo.issue.copyGithubHeadLink',
 				(fileUri: vscode.Uri, additional: vscode.Uri[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubHeadLink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLink');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubHeadLink');
 					return this.copyHeadLink(additional && additional.length > 0 ? additional : [fileUri]);
 				},
 				this,
@@ -184,12 +184,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubPermalinkWithoutRange',
+				'azdo.issue.copyGithubPermalinkWithoutRange',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubPermalinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalinkWithoutRange');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubPermalinkWithoutRange');
 					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false);
 				},
 				this,
@@ -197,12 +197,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubHeadLinkWithoutRange',
+				'azdo.issue.copyGithubHeadLinkWithoutRange',
 				(fileUri: vscode.Uri, additional: vscode.Uri[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubHeadLinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLinkWithoutRange');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubHeadLinkWithoutRange');
 					return this.copyHeadLink(additional && additional.length > 0 ? additional : [fileUri], false);
 				},
 				this,
@@ -210,12 +210,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubDevLinkWithoutRange',
+				'azdo.issue.copyGithubDevLinkWithoutRange',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubDevLinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLinkWithoutRange');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubDevLinkWithoutRange');
 					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false, true, true);
 				},
 				this,
@@ -223,12 +223,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubDevLink',
+				'azdo.issue.copyGithubDevLink',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubDevLink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLink');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubDevLink');
 					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], true, true, true);
 				},
 				this,
@@ -236,12 +236,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyGithubDevLinkFile',
+				'azdo.issue.copyGithubDevLinkFile',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubDevLinkFile" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLinkFile');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyGithubDevLinkFile');
 					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false, true, true);
 				},
 				this,
@@ -249,12 +249,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyMarkdownGithubPermalink',
+				'azdo.issue.copyMarkdownGithubPermalink',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalink');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyMarkdownGithubPermalink');
 					return this.copyMarkdownPermalink(this.manager, additional && additional.length > 0 ? additional : [context]);
 				},
 				this,
@@ -262,12 +262,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.copyMarkdownGithubPermalinkWithoutRange',
+				'azdo.issue.copyMarkdownGithubPermalinkWithoutRange',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalinkWithoutRange" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalinkWithoutRange');
+					this.telemetry.sendTelemetryEvent('azdo.issue.copyMarkdownGithubPermalinkWithoutRange');
 					return this.copyMarkdownPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false);
 				},
 				this,
@@ -275,12 +275,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.openGithubPermalink',
+				'azdo.issue.openGithubPermalink',
 				() => {
 					/* __GDPR__
 				"issue.openGithubPermalink" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.openGithubPermalink');
+					this.telemetry.sendTelemetryEvent('azdo.issue.openGithubPermalink');
 					return this.openPermalink(this.manager);
 				},
 				this,
@@ -288,16 +288,16 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(new ShareProviderManager(this.manager, this.gitAPI));
 		this._register(
-			vscode.commands.registerCommand('issue.openIssue', (issueModel: any) => {
+			vscode.commands.registerCommand('azdo.issue.openIssue', (issueModel: any) => {
 				/* __GDPR__
 				"issue.openIssue" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.openIssue');
+				this.telemetry.sendTelemetryEvent('azdo.issue.openIssue');
 				return this.openIssue(issueModel);
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.openIssueOnGitHub', async () => {
+			vscode.commands.registerCommand('azdo.issue.openIssueOnGitHub', async () => {
 				const editor = vscode.window.activeTextEditor;
 				if (!editor) {
 					vscode.window.showWarningMessage(vscode.l10n.t('No active editor. Open a file and place the cursor on an issue reference.'));
@@ -339,12 +339,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.startWorking',
+				'azdo.issue.startWorking',
 				(issue: any) => {
 					/* __GDPR__
 				"issue.startWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startWorking');
+					this.telemetry.sendTelemetryEvent('azdo.issue.startWorking');
 					return this.startWorking(issue);
 				},
 				this,
@@ -352,12 +352,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.startWorkingBranchDescriptiveTitle',
+				'azdo.issue.startWorkingBranchDescriptiveTitle',
 				(issue: any) => {
 					/* __GDPR__
 				"issue.startWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startWorking');
+					this.telemetry.sendTelemetryEvent('azdo.issue.startWorking');
 					return this.startWorking(issue);
 				},
 				this,
@@ -365,12 +365,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.continueWorking',
+				'azdo.issue.continueWorking',
 				(issue: any) => {
 					/* __GDPR__
 				"issue.continueWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.continueWorking');
+					this.telemetry.sendTelemetryEvent('azdo.issue.continueWorking');
 					return this.startWorking(issue);
 				},
 				this,
@@ -378,12 +378,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.startWorkingBranchPrompt',
+				'azdo.issue.startWorkingBranchPrompt',
 				(issueModel: any) => {
 					/* __GDPR__
 				"issue.startWorkingBranchPrompt" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.startWorkingBranchPrompt');
+					this.telemetry.sendTelemetryEvent('azdo.issue.startWorkingBranchPrompt');
 					return this.startWorkingBranchPrompt(issueModel);
 				},
 				this,
@@ -391,12 +391,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.stopWorking',
+				'azdo.issue.stopWorking',
 				(issueModel: any) => {
 					/* __GDPR__
 				"issue.stopWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.stopWorking');
+					this.telemetry.sendTelemetryEvent('azdo.issue.stopWorking');
 					return this.stopWorking(issueModel);
 				},
 				this,
@@ -404,12 +404,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.stopWorkingBranchDescriptiveTitle',
+				'azdo.issue.stopWorkingBranchDescriptiveTitle',
 				(issueModel: any) => {
 					/* __GDPR__
 				"issue.stopWorking" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.stopWorking');
+					this.telemetry.sendTelemetryEvent('azdo.issue.stopWorking');
 					return this.stopWorking(issueModel);
 				},
 				this,
@@ -417,43 +417,43 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.statusBar',
+				'azdo.issue.statusBar',
 				() => {
 					/* __GDPR__
 				"issue.statusBar" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.statusBar');
+					this.telemetry.sendTelemetryEvent('azdo.issue.statusBar');
 					return this.statusBar();
 				},
 				this,
 			),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.copyIssueNumber', (issueModel: any) => {
+			vscode.commands.registerCommand('azdo.issue.copyIssueNumber', (issueModel: any) => {
 				/* __GDPR__
 				"issue.copyIssueNumber" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.copyIssueNumber');
+				this.telemetry.sendTelemetryEvent('azdo.issue.copyIssueNumber');
 				return this.copyIssueNumber(issueModel);
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.copyIssueUrl', (issueModel: any) => {
+			vscode.commands.registerCommand('azdo.issue.copyIssueUrl', (issueModel: any) => {
 				/* __GDPR__
 				"issue.copyIssueUrl" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.copyIssueUrl');
+				this.telemetry.sendTelemetryEvent('azdo.issue.copyIssueUrl');
 				return this.copyIssueUrl(issueModel);
 			}),
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.refresh',
+				'azdo.issue.refresh',
 				() => {
 					/* __GDPR__
 				"issue.refresh" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.refresh');
+					this.telemetry.sendTelemetryEvent('azdo.issue.refresh');
 					return this.refreshView();
 				},
 				this,
@@ -461,12 +461,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.suggestRefresh',
+				'azdo.issue.suggestRefresh',
 				() => {
 					/* __GDPR__
 				"issue.suggestRefresh" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.suggestRefresh');
+					this.telemetry.sendTelemetryEvent('azdo.issue.suggestRefresh');
 					return this.suggestRefresh();
 				},
 				this,
@@ -474,12 +474,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.getCurrent',
+				'azdo.issue.getCurrent',
 				() => {
 					/* __GDPR__
 				"issue.getCurrent" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.getCurrent');
+					this.telemetry.sendTelemetryEvent('azdo.issue.getCurrent');
 					return this.getCurrent();
 				},
 				this,
@@ -487,12 +487,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.editQuery',
+				'azdo.issue.editQuery',
 				(query: QueryNode) => {
 					/* __GDPR__
 				"issue.editQuery" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.editQuery');
+					this.telemetry.sendTelemetryEvent('azdo.issue.editQuery');
 					return editQuery(ISSUES_SETTINGS_NAMESPACE, query.queryLabel);
 				},
 				this,
@@ -500,12 +500,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.createIssue',
+				'azdo.issue.createIssue',
 				() => {
 					/* __GDPR__
 				"issue.createIssue" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssue');
+					this.telemetry.sendTelemetryEvent('azdo.issue.createIssue');
 					return this.createIssue();
 				},
 				this,
@@ -513,12 +513,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'issue.createIssueFromFile',
+				'azdo.issue.createIssueFromFile',
 				async () => {
 					/* __GDPR__
 				"issue.createIssueFromFile" : {}
 			*/
-					this.telemetry.sendTelemetryEvent('issue.createIssueFromFile');
+					this.telemetry.sendTelemetryEvent('azdo.issue.createIssueFromFile');
 					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, true);
 					await this.createIssueFromFile();
 					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, false);
@@ -527,40 +527,40 @@ export class IssueFeatureRegistrar extends Disposable {
 			),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.issueCompletion', () => {
+			vscode.commands.registerCommand('azdo.issue.issueCompletion', () => {
 				/* __GDPR__
 				"issue.issueCompletion" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.issueCompletion');
+				this.telemetry.sendTelemetryEvent('azdo.issue.issueCompletion');
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.userCompletion', () => {
+			vscode.commands.registerCommand('azdo.issue.userCompletion', () => {
 				/* __GDPR__
 				"issue.userCompletion" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.userCompletion');
+				this.telemetry.sendTelemetryEvent('azdo.issue.userCompletion');
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.signinAndRefreshList', async () => {
+			vscode.commands.registerCommand('azdo.issue.signinAndRefreshList', async () => {
 				return this.manager.authenticate();
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.goToLinkedCode', async (issueModel: any) => {
+			vscode.commands.registerCommand('azdo.issue.goToLinkedCode', async (issueModel: any) => {
 				return openCodeLink(issueModel, this.manager);
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.chatSummarizeIssue', (issue: any) => {
+			vscode.commands.registerCommand('azdo.issue.chatSummarizeIssue', (issue: any) => {
 				if (!(issue instanceof IssueModel || issue instanceof PRNode)) {
 					return;
 				}
 				/* __GDPR__
 				"issue.chatSummarizeIssue" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
+				this.telemetry.sendTelemetryEvent('azdo.issue.chatSummarizeIssue');
 				if (issue instanceof IssueModel) {
 					commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
 					commands.executeCommand(commands.SHOW_CHAT);
@@ -573,19 +573,19 @@ export class IssueFeatureRegistrar extends Disposable {
 			}),
 		);
 		this._register(
-			vscode.commands.registerCommand('issue.chatSuggestFix', (issue: any) => {
+			vscode.commands.registerCommand('azdo.issue.chatSuggestFix', (issue: any) => {
 				if (!(issue instanceof IssueModel)) {
 					return;
 				}
 				/* __GDPR__
 				"issue.chatSuggestFix" : {}
 			*/
-				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
+				this.telemetry.sendTelemetryEvent('azdo.issue.chatSuggestFix');
 				commands.executeCommand(commands.NEW_CHAT, { inputValue: vscode.l10n.t('Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number) });
 				commands.executeCommand(commands.SHOW_CHAT);
 			}),
 		);
-		this._register(vscode.commands.registerCommand('issues.configureIssuesViewlet', async () => {
+		this._register(vscode.commands.registerCommand('azdo.issues.configureIssuesViewlet', async () => {
 			/* __GDPR__
 				"issues.configureIssuesViewlet" : {}
 			*/
@@ -1170,21 +1170,21 @@ ${options?.body ?? ''}\n
 			after: {
 				contentText: vscode.l10n.t(' Comma-separated usernames, either @username or just username.'),
 				fontStyle: 'italic',
-				color: new vscode.ThemeColor('issues.newIssueDecoration'),
+				color: new vscode.ThemeColor('azdo.issues.newIssueDecoration'),
 			},
 		});
 		const labelsDecoration = vscode.window.createTextEditorDecorationType({
 			after: {
 				contentText: vscode.l10n.t(' Comma-separated labels.'),
 				fontStyle: 'italic',
-				color: new vscode.ThemeColor('issues.newIssueDecoration'),
+				color: new vscode.ThemeColor('azdo.issues.newIssueDecoration'),
 			},
 		});
 		const projectsDecoration = vscode.window.createTextEditorDecorationType({
 			after: {
 				contentText: vscode.l10n.t(' Comma-separated projects.'),
 				fontStyle: 'italic',
-				color: new vscode.ThemeColor('issues.newIssueDecoration'),
+				color: new vscode.ThemeColor('azdo.issues.newIssueDecoration'),
 			},
 		});
 		const editorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(textEditor => {

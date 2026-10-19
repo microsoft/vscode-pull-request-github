@@ -127,32 +127,32 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 		if (notification.subject.type === NotificationSubjectType.Issue && model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
-				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('azdo.issues.open'))
 				: (model.stateReason && model.stateReason !== 'COMPLETED'
-					? new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('pullRequests.draft'))
-					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('github.issues.closed')));
+					? new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('azdo.pullRequests.draft'))
+					: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('azdo.github.issues.closed')));
 		}
 		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
 			item.iconPath = model.isOpen
 				? (model.isDraft
-					? new vscode.ThemeIcon('git-pull-request-draft', new vscode.ThemeColor('pullRequests.draft'))
-					: new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.open')))
+					? new vscode.ThemeIcon('git-pull-request-draft', new vscode.ThemeColor('azdo.pullRequests.draft'))
+					: new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('azdo.pullRequests.open')))
 				: (model.isMerged
-					? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.merged'))
-					: new vscode.ThemeIcon('git-pull-request-closed', new vscode.ThemeColor('pullRequests.closed')));
+					? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('azdo.pullRequests.merged'))
+					: new vscode.ThemeIcon('git-pull-request-closed', new vscode.ThemeColor('azdo.pullRequests.closed')));
 		}
 		item.description = `${notification.owner}/${notification.name}`;
 		item.contextValue = notification.subject.type;
 		item.resourceUri = toNotificationUri({ key: element.notification.key });
 		if (element.model instanceof PullRequestModel) {
 			item.command = {
-				command: 'pr.openDescription',
+				command: 'azdo.pr.openDescription',
 				title: vscode.l10n.t('Open Pull Request Description'),
 				arguments: [element.model]
 			};
 		} else {
 			item.command = {
-				command: 'issue.openDescription',
+				command: 'azdo.issue.openDescription',
 				title: vscode.l10n.t('Open Issue Description'),
 				arguments: [element.model]
 			};
@@ -185,7 +185,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		const item = new vscode.TreeItem(vscode.l10n.t('Load More Notifications...'), vscode.TreeItemCollapsibleState.None);
 		item.command = {
 			title: 'Load More Notifications',
-			command: 'notifications.loadMore'
+			command: 'azdo.notifications.loadMore'
 		};
 		item.contextValue = 'loadMoreNotifications';
 		return item;

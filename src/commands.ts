@@ -100,7 +100,7 @@ export async function openDescription(
 		/* __GDPR__
 			"issue.openDescription" : {}
 		*/
-		telemetry.sendTelemetryEvent('issue.openDescription');
+		telemetry.sendTelemetryEvent('azdo.issue.openDescription');
 	}
 }
 
@@ -197,13 +197,13 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openPullRequestOnGitHub',
+			'azdo.pr.openPullRequestOnGitHub',
 			(e: PRNode | RepositoryChangesNode | PullRequestModel | vscode.Uri | undefined) => openPullRequestOnGitHubCommand(e, reposManager, telemetry),
 		),
 	);
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'notification.openOnGitHub',
+			'azdo.notification.openOnGitHub',
 			async (e: NotificationTreeItem | undefined) => {
 				if (e) {
 					openItemOnGitHub(e, telemetry);
@@ -214,7 +214,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openAllDiffs',
+			'azdo.pr.openAllDiffs',
 			async () => {
 				const activePullRequestsWithFolderManager = reposManager.folderManagers
 					.filter(folderManager => folderManager.activePullRequest)
@@ -250,7 +250,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.addAttestationCommit',
+			'azdo.pr.addAttestationCommit',
 			async (target?: PullRequestModel | PRNode | RepositoryChangesNode) => {
 				let pr: PullRequestModel | undefined;
 				let folderManager: FolderRepositoryManager | undefined;
@@ -294,7 +294,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openFileOnGitHub', async (e: GitFileChangeNode | RemoteFileChangeNode) => {
+		vscode.commands.registerCommand('azdo.pr.openFileOnGitHub', async (e: GitFileChangeNode | RemoteFileChangeNode) => {
 			if (e instanceof RemoteFileChangeNode) {
 				const choice = await vscode.window.showInformationMessage(
 					vscode.l10n.t('{0} can\'t be opened locally. Do you want to open it on GitHub?', e.changeModel.fileName),
@@ -311,13 +311,13 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyCommitHash', (e: CommitNode) => {
+		vscode.commands.registerCommand('azdo.pr.copyCommitHash', (e: CommitNode) => {
 			vscode.env.clipboard.writeText(e.sha);
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.revealFileInOS', (e: GitFileChangeNode | InMemFileChangeNode | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.revealFileInOS', (e: GitFileChangeNode | InMemFileChangeNode | undefined) => {
 			let fileChangeNode: FileChangeNode | undefined = e;
 			// When invoked from a keybinding, get the selected item from the tree view
 			if (!fileChangeNode) {
@@ -351,7 +351,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
+		vscode.commands.registerCommand('azdo.pr.openOriginalFile', async (e: GitFileChangeNode) => {
 			// if this is an image, encode it as a base64 data URI
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
 			if (folderManager) {
@@ -362,7 +362,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.openModifiedFile', (e: GitFileChangeNode | undefined) => {
 			let uri: vscode.Uri | undefined;
 			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
 
@@ -409,7 +409,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openDiffView',
+			'azdo.pr.openDiffView',
 			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | undefined) => {
 				return openDiffView(fileChangeNode);
 			},
@@ -418,7 +418,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openDiffViewFromEditor',
+			'azdo.pr.openDiffViewFromEditor',
 			(uri: vscode.Uri) => {
 				return openDiffView(uri);
 			},
@@ -426,7 +426,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
+		vscode.commands.registerCommand('azdo.pr.deleteLocalBranch', async (e: PRNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequestModel);
 			if (!folderManager) {
 				return;
@@ -495,7 +495,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.create',
+			'azdo.pr.create',
 			async (args?: { repoPath: string; compareBranch: string } | Repository) => {
 				// The arguments this is called with are either from the SCM view, or manually passed.
 				if (isSourceControl(args)) {
@@ -509,7 +509,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.pushAndCreate',
+			'azdo.pr.pushAndCreate',
 			async (args?: any | Repository) => {
 				if (isSourceControl(args)) {
 					const reviewManager = await chooseReviewManager(args.rootUri.fsPath);
@@ -537,7 +537,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
+		vscode.commands.registerCommand('azdo.pr.pick', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -710,7 +710,7 @@ export function registerCommands(
 		return { folderManager, pullRequest, prNumber };
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.checkoutFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
 		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
@@ -724,7 +724,7 @@ export function registerCommands(
 		return reviewsManager.switchToPr(resolved.folderManager, resolved.pullRequest, resolved.folderManager.repository, true);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromDescription', async (ctx: BaseContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.checkoutFromDescription', async (ctx: BaseContext | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -736,7 +736,7 @@ export function registerCommands(
 		return reviewsManager.switchToPr(resolved.folderManager, resolved.pr, resolved.folderManager.repository, true);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.applyChangesFromChat', async (ctxOrArgs: ChatCommandArgs, metadataArg?: SessionMetadata) => {
 		const { ctx, metadata } = parseChatCommandArgs(ctxOrArgs, metadataArg);
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
@@ -759,7 +759,7 @@ export function registerCommands(
 			});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.applyChangesFromDescription', async (ctx: BaseContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.applyChangesFromDescription', async (ctx: BaseContext | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for applying changes.'));
 		}
@@ -783,7 +783,7 @@ export function registerCommands(
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | CrossChatSessionWithPR | { path: string } | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | CrossChatSessionWithPR | { path: string } | undefined) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -836,7 +836,7 @@ export function registerCommands(
 	);
 
 	let isCheckingOutFromReadonlyFile = false;
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromReadonlyFile', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.checkoutFromReadonlyFile', async () => {
 		const uri = vscode.window.activeTextEditor?.document.uri;
 		if (uri?.scheme !== Schemes.Pr) {
 			return;
@@ -888,19 +888,19 @@ export function registerCommands(
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
+		vscode.commands.registerCommand('azdo.pr.pickOnVscodeDev', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
 			pickPullRequest(pr, vscodeDevPrLink)
 		),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickOnCodespaces', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
+		vscode.commands.registerCommand('azdo.pr.pickOnCodespaces', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) =>
 			pickPullRequest(pr, codespacesPrLink, true)
 		),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickInWorktree', async (pr: PRNode | PullRequestModel | unknown) => {
+		vscode.commands.registerCommand('azdo.pr.pickInWorktree', async (pr: PRNode | PullRequestModel | unknown) => {
 			if (pr === undefined) {
 				Logger.error('Unexpectedly received undefined when picking a PR for worktree checkout.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
@@ -929,7 +929,7 @@ export function registerCommands(
 		}),
 	);
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pickInWorktreeFromDescription', async (ctx: BaseContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.pickInWorktreeFromDescription', async (ctx: BaseContext | undefined) => {
 		if (!ctx) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -940,7 +940,7 @@ export function registerCommands(
 		return checkoutPRInWorktree(telemetry, resolved.folderManager, resolved.pr, undefined);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -951,7 +951,7 @@ export function registerCommands(
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnCodespacesFromDescription', async (context: BaseContext | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.checkoutOnCodespacesFromDescription', async (context: BaseContext | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -965,7 +965,7 @@ export function registerCommands(
 		return vscode.env.openExternal(vscode.Uri.parse(codespacesPrLink(resolved.pr)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openSessionLogFromDescription', async (context: SessionLinkInfo | undefined) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.openSessionLogFromDescription', async (context: SessionLinkInfo | undefined) => {
 		if (!context) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
 		}
@@ -974,7 +974,7 @@ export function registerCommands(
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.exit', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.exit', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
 			let pullRequestModel: PullRequestModel | undefined;
 
 			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
@@ -999,7 +999,7 @@ export function registerCommands(
 				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-			telemetry.sendTelemetryEvent('pr.exit', { fromDescription: fromDescriptionPage.toString() });
+			telemetry.sendTelemetryEvent('azdo.pr.exit', { fromDescription: fromDescriptionPage.toString() });
 
 			return vscode.window.withProgress(
 				{
@@ -1022,7 +1022,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.merge', async (pr?: PRNode) => {
+		vscode.commands.registerCommand('azdo.pr.merge', async (pr?: PRNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
 			if (!folderManager) {
 				return;
@@ -1063,7 +1063,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.dismissNotification', node => {
+		vscode.commands.registerCommand('azdo.pr.dismissNotification', node => {
 			if (node instanceof PRNode) {
 				notificationManager.markPrNotificationsAsRead(node.pullRequestModel);
 				prsTreeModel.clearCopilotNotification(node.pullRequestModel.remote.owner, node.pullRequestModel.remote.repositoryName, node.pullRequestModel.number);
@@ -1072,7 +1072,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markAllCopilotNotificationsAsRead', node => {
+		vscode.commands.registerCommand('azdo.pr.markAllCopilotNotificationsAsRead', node => {
 			if (node instanceof CategoryTreeNode && node.isCopilot && node.repo) {
 				prsTreeModel.clearAllCopilotNotifications(node.repo.owner, node.repo.repositoryName);
 			}
@@ -1163,27 +1163,27 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.checkoutChatSessionPullRequest',
+			'azdo.pr.checkoutChatSessionPullRequest',
 			checkoutChatSessionPullRequest
 		)
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openDescription',
+			'azdo.pr.openDescription',
 			openDescriptionCommand
 		)
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'issue.openDescription',
+			'azdo.issue.openDescription',
 			openDescriptionCommand
 		)
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.refreshDescription', async () => {
+		vscode.commands.registerCommand('azdo.pr.refreshDescription', async () => {
 			const panel = PullRequestOverviewPanel.getActivePanel();
 			if (panel) {
 				panel.refreshPanel();
@@ -1191,7 +1191,7 @@ export function registerCommands(
 		}),
 	);
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.focusDescriptionInput',
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.focusDescriptionInput',
 		async () => {
 			const panel = PullRequestOverviewPanel.getActivePanel();
 			if (panel) {
@@ -1201,7 +1201,7 @@ export function registerCommands(
 	));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: RepositoryChangesNode) => {
+		vscode.commands.registerCommand('azdo.pr.openDescriptionToTheSide', async (descriptionNode: RepositoryChangesNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
 			if (!folderManager) {
 				return;
@@ -1220,46 +1220,46 @@ export function registerCommands(
 			/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.openDescriptionToTheSide');
+			telemetry.sendTelemetryEvent('azdo.pr.openDescriptionToTheSide');
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: RepositoryChangesNode) => {
+		vscode.commands.registerCommand('azdo.pr.showDiffSinceLastReview', async (descriptionNode: RepositoryChangesNode) => {
 			descriptionNode.pullRequestModel.showChangesSinceReview = true;
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: RepositoryChangesNode) => {
+		vscode.commands.registerCommand('azdo.pr.showDiffAll', async (descriptionNode: RepositoryChangesNode) => {
 			descriptionNode.pullRequestModel.showChangesSinceReview = false;
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.signin', async () => {
+		vscode.commands.registerCommand('azdo.pr.signin', async () => {
 			await reposManager.authenticate();
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.signinNoEnterprise', async () => {
+		vscode.commands.registerCommand('azdo.pr.signinNoEnterprise', async () => {
 			await reposManager.authenticate(false);
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.signinenterprise', async () => {
+		vscode.commands.registerCommand('azdo.pr.signinenterprise', async () => {
 			await reposManager.authenticate(true);
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.selectEnterpriseAccount', () => reposManager.selectEnterpriseAccount()),
+		vscode.commands.registerCommand('azdo.pr.selectEnterpriseAccount', () => reposManager.selectEnterpriseAccount()),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
+		vscode.commands.registerCommand('azdo.pr.deleteLocalBranchesNRemotes', async () => {
 			for (const folderManager of reposManager.folderManagers) {
 				await folderManager.deleteLocalBranchesNRemotes();
 			}
@@ -1267,25 +1267,25 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
+		vscode.commands.registerCommand('azdo.pr.signinAndRefreshList', async () => {
 			if (await reposManager.authenticate()) {
-				vscode.commands.executeCommand('pr.refreshList');
+				vscode.commands.executeCommand('azdo.pr.refreshList');
 			}
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.configureRemotes', async () => {
+		vscode.commands.registerCommand('azdo.pr.configureRemotes', async () => {
 			return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} remotes`);
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.startReview', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('azdo.pr.startReview', async (reply: CommentReply) => {
 			/* __GDPR__
 			"pr.startReview" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.startReview');
+			telemetry.sendTelemetryEvent('azdo.pr.startReview');
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
@@ -1295,11 +1295,11 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openReview', async (thread: GHPRCommentThread) => {
+		vscode.commands.registerCommand('azdo.pr.openReview', async (thread: GHPRCommentThread) => {
 			/* __GDPR__
 				"pr.openReview" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.openReview');
+			telemetry.sendTelemetryEvent('azdo.pr.openReview');
 			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
@@ -1328,12 +1328,12 @@ export function registerCommands(
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.resolveReviewThread');
+			telemetry.sendTelemetryEvent('azdo.pr.resolveReviewThread');
 		} else {
 			/* __GDPR__
 			"pr.unresolveReviewThread" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
+			telemetry.sendTelemetryEvent('azdo.pr.unresolveReviewThread');
 		}
 
 		if (!commentLike) {
@@ -1362,15 +1362,15 @@ export function registerCommands(
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, true))
+		vscode.commands.registerCommand('azdo.pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, true))
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThread', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, false, false))
+		vscode.commands.registerCommand('azdo.pr.unresolveReviewThread', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, false, false))
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThreadFromView', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, false, true))
+		vscode.commands.registerCommand('azdo.pr.unresolveReviewThreadFromView', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, false, true))
 	);
 
 	const localUriFromReviewUri = (reviewUri: vscode.Uri) => {
@@ -1380,11 +1380,11 @@ export function registerCommands(
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.diffOutdatedCommentWithHead', async (commentThread: GHPRCommentThread) => {
+		vscode.commands.registerCommand('azdo.pr.diffOutdatedCommentWithHead', async (commentThread: GHPRCommentThread) => {
 			/* __GDPR__
 			"pr.diffOutdatedCommentWithHead" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.diffOutdatedCommentWithHead');
+			telemetry.sendTelemetryEvent('azdo.pr.diffOutdatedCommentWithHead');
 			const options: vscode.TextDocumentShowOptions = {};
 			options.selection = commentThread.range;
 			const fileName = pathLib.basename(commentThread.uri.fsPath);
@@ -1400,11 +1400,11 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.createComment', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('azdo.pr.createComment', async (reply: CommentReply) => {
 			/* __GDPR__
 			"pr.createComment" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.createComment');
+			telemetry.sendTelemetryEvent('azdo.pr.createComment');
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
@@ -1414,11 +1414,11 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.createSingleComment', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('azdo.pr.createSingleComment', async (reply: CommentReply) => {
 			/* __GDPR__
 			"pr.createSingleComment" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.createSingleComment');
+			telemetry.sendTelemetryEvent('azdo.pr.createSingleComment');
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
@@ -1428,7 +1428,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.makeSuggestion', async (reply: CommentReply | GHPRComment | undefined) => {
 			let potentialThread: GHPRCommentThread | undefined;
 			if (reply === undefined) {
 				potentialThread = findActiveHandler()?.commentController.activeCommentThread as vscode.CommentThread2 as GHPRCommentThread | undefined;
@@ -1460,11 +1460,11 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.uploadFile', async (reply: CommentReply | GHPRComment | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.uploadFile', async (reply: CommentReply | GHPRComment | undefined) => {
 			/* __GDPR__
 			"pr.uploadFile" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.uploadFile');
+			telemetry.sendTelemetryEvent('azdo.pr.uploadFile');
 
 			let potentialThread: GHPRCommentThread | undefined;
 			if (reply === undefined) {
@@ -1621,21 +1621,21 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
+		vscode.commands.registerCommand('azdo.pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.editComment" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.editComment');
+			telemetry.sendTelemetryEvent('azdo.pr.editComment');
 			comment.startEdit();
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.editQuery', (query: CategoryTreeNode) => {
+		vscode.commands.registerCommand('azdo.pr.editQuery', (query: CategoryTreeNode) => {
 			/* __GDPR__
 			"pr.editQuery" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.editQuery');
+			telemetry.sendTelemetryEvent('azdo.pr.editQuery');
 			if (query.label === undefined) {
 				return;
 			}
@@ -1644,21 +1644,21 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
+		vscode.commands.registerCommand('azdo.pr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.cancelEditComment" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.cancelEditComment');
+			telemetry.sendTelemetryEvent('azdo.pr.cancelEditComment');
 			comment.cancelEdit();
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment | TemporaryComment) => {
+		vscode.commands.registerCommand('azdo.pr.saveComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.saveComment" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.saveComment');
+			telemetry.sendTelemetryEvent('azdo.pr.saveComment');
 			const handler = resolveCommentHandler(comment.parent);
 
 			if (handler) {
@@ -1668,11 +1668,11 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment | TemporaryComment) => {
+		vscode.commands.registerCommand('azdo.pr.deleteComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.deleteComment" : {}
 		*/
-			telemetry.sendTelemetryEvent('pr.deleteComment');
+			telemetry.sendTelemetryEvent('azdo.pr.deleteComment');
 			const deleteOption = vscode.l10n.t('Delete');
 			const shouldDelete = await vscode.window.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, deleteOption);
 
@@ -1687,14 +1687,14 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
+		vscode.commands.registerCommand('azdo.review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
 			const command = value instanceof GitFileChangeNode ? value.openFileCommand() : openFileCommand(value);
 			vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('review.openLocalFile', (_value: vscode.Uri) => {
+		vscode.commands.registerCommand('azdo.review.openLocalFile', (_value: vscode.Uri) => {
 			const value = _value ?? vscode.window.activeTextEditor?.document.uri;
 			if (!value) {
 				return;
@@ -1712,7 +1712,7 @@ ${contents}
 	interface SCMResourceUri {
 		resourceUri: vscode.Uri;
 	}
-	context.subscriptions.push(vscode.commands.registerCommand('review.createSuggestionsFromChanges', async (value: SCMResourceStates | SCMResourceUri, ...additionalSelected: SCMResourceUri[]) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.review.createSuggestionsFromChanges', async (value: SCMResourceStates | SCMResourceUri, ...additionalSelected: SCMResourceUri[]) => {
 		let resources: vscode.Uri[];
 		const asResourceStates = value as Partial<SCMResourceStates>;
 		if (asResourceStates.resourceStates) {
@@ -1735,7 +1735,7 @@ ${contents}
 		return reviewManager?.createSuggestionsFromChanges(resources);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerDiffInformationCommand('review.createSuggestionFromChange', async (diffLines: vscode.LineChange[]) => {
+	context.subscriptions.push(vscode.commands.registerDiffInformationCommand('azdo.review.createSuggestionFromChange', async (diffLines: vscode.LineChange[]) => {
 		const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
 		const input = tab?.input;
 		if (!(input instanceof vscode.TabInputTextDiff)) {
@@ -1769,9 +1769,9 @@ ${contents}
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.refreshChanges', _ => {
+		vscode.commands.registerCommand('azdo.pr.refreshChanges', _ => {
 			reviewsManager.reviewManagers.forEach(reviewManager => {
-				vscode.window.withProgress({ location: { viewId: 'prStatus:github' } }, async () => {
+				vscode.window.withProgress({ location: { viewId: 'prStatus:azureDevOps' } }, async () => {
 					await Promise.all([
 						reviewManager.repository.pull(false),
 						reviewManager.updateComments()
@@ -1782,19 +1782,19 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.setFileListLayoutAsTree', _ => {
+		vscode.commands.registerCommand('azdo.pr.setFileListLayoutAsTree', _ => {
 			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'tree', true);
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
+		vscode.commands.registerCommand('azdo.pr.setFileListLayoutAsFlat', _ => {
 			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'flat', true);
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.toggleHideViewedFiles', _ => {
+		vscode.commands.registerCommand('azdo.pr.toggleHideViewedFiles', _ => {
 			const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 			const currentValue = config.get<boolean>(HIDE_VIEWED_FILES, false);
 			config.update(HIDE_VIEWED_FILES, !currentValue, vscode.ConfigurationTarget.Global);
@@ -1802,7 +1802,7 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
+		vscode.commands.registerCommand('azdo.pr.refreshPullRequest', (prNode: PRNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(prNode.pullRequestModel);
 			if (folderManager && prNode.pullRequestModel.equals(folderManager?.activePullRequest)) {
 				ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.updateComments();
@@ -1831,7 +1831,7 @@ ${contents}
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
 			try {
 				if (treeNode === undefined) {
 					// Use the active editor to enable keybindings
@@ -1868,7 +1868,7 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
 			try {
 				if (treeNode === undefined) {
 					// Use the active editor to enable keybindings
@@ -1890,7 +1890,7 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resetViewedFiles', async () => {
+		vscode.commands.registerCommand('azdo.pr.resetViewedFiles', async () => {
 			try {
 				return reposManager.folderManagers.map(async (manager) => {
 					await manager.activePullRequest?.unmarkAllFilesAsViewed();
@@ -1903,19 +1903,19 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.collapseAllComments', () => {
+		vscode.commands.registerCommand('azdo.pr.collapseAllComments', () => {
 			return vscode.commands.executeCommand('workbench.action.collapseAllComments');
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyCommentLink', (comment) => {
+		vscode.commands.registerCommand('azdo.pr.copyCommentLink', (comment) => {
 			if (comment instanceof GHPRComment) {
 				return vscode.env.clipboard.writeText(comment.rawComment.htmlUrl);
 			}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: BaseContext | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.copyVscodeDevPrLink', async (params: BaseContext | undefined) => {
 			if (params?.url) {
 				return vscode.env.clipboard.writeText(vscodeDevPrLinkFromUrl(params.url));
 			}
@@ -1938,7 +1938,7 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyPrLink', async (params: BaseContext | undefined) => {
+		vscode.commands.registerCommand('azdo.pr.copyPrLink', async (params: BaseContext | undefined) => {
 			if (params?.url) {
 				return vscode.env.clipboard.writeText(params.url);
 			}
@@ -1981,7 +1981,7 @@ ${contents}
 	}
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.checkoutByNumber', async () => {
+		vscode.commands.registerCommand('azdo.pr.checkoutByNumber', async () => {
 
 			const githubRepositories: { manager: FolderRepositoryManager, repo: GitHubRepository }[] = [];
 			for (const manager of reposManager.folderManagers) {
@@ -2108,7 +2108,7 @@ ${contents}
 		);
 	}
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openPullsWebsite', async () => {
+		vscode.commands.registerCommand('azdo.pr.openPullsWebsite', async () => {
 			const githubRepo = await chooseRepoToOpen();
 			if (githubRepo) {
 				vscode.env.openExternal(getPullsUrl(githubRepo));
@@ -2116,7 +2116,7 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
+		vscode.commands.registerCommand('azdo.issues.openIssuesWebsite', async () => {
 			const githubRepo = await chooseRepoToOpen();
 			if (githubRepo) {
 				vscode.env.openExternal(getIssuesUrl(githubRepo));
@@ -2124,11 +2124,11 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.applySuggestion', async (comment: GHPRComment) => {
+		vscode.commands.registerCommand('azdo.pr.applySuggestion', async (comment: GHPRComment) => {
 			/* __GDPR__
 				"pr.applySuggestion" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.applySuggestion');
+			telemetry.sendTelemetryEvent('azdo.pr.applySuggestion');
 
 			const handler = resolveCommentHandler(comment.parent);
 
@@ -2137,11 +2137,11 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment | GHPRCommentThread) => {
+		vscode.commands.registerCommand('azdo.pr.applySuggestionWithCopilot', async (comment: GHPRComment | GHPRCommentThread) => {
 			/* __GDPR__
 				"pr.applySuggestionWithCopilot" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.applySuggestionWithCopilot');
+			telemetry.sendTelemetryEvent('azdo.pr.applySuggestionWithCopilot');
 
 			const isThread = GHPRCommentThread.is(comment);
 			const commentThread = isThread ? comment : comment.parent;
@@ -2186,21 +2186,21 @@ ${contents}
 		})
 	);
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.addFileComment', async () => {
+		vscode.commands.registerCommand('azdo.pr.addFileComment', async () => {
 			return vscode.commands.executeCommand('workbench.action.addComment', { fileComment: true });
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.toggleEditorCommentingOn', async () => {
+		vscode.commands.registerCommand('azdo.pr.toggleEditorCommentingOn', async () => {
 			commands.executeCommand('workbench.action.toggleCommenting');
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.toggleEditorCommentingOff', async () => {
+		vscode.commands.registerCommand('azdo.pr.toggleEditorCommentingOff', async () => {
 			commands.executeCommand('workbench.action.toggleCommenting');
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('review.diffWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
+		vscode.commands.registerCommand('azdo.review.diffWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
 			let parentURI = toPRUri(
 				fileChangeNode.resourceUri,
@@ -2222,7 +2222,7 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('review.diffLocalWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
+		vscode.commands.registerCommand('azdo.review.diffLocalWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
 			let headURI = toPRUri(
 				fileChangeNode.resourceUri,
@@ -2324,15 +2324,15 @@ ${contents}
 	}
 
 	context.subscriptions.push(
-		vscode.commands.registerDiffInformationCommand('pr.goToNextDiffInPr', async (diffs: vscode.LineChange[]) => {
+		vscode.commands.registerDiffInformationCommand('azdo.pr.goToNextDiffInPr', async (diffs: vscode.LineChange[]) => {
 			goToNextPrevDiff(diffs, true);
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerDiffInformationCommand('pr.goToPreviousDiffInPr', async (diffs: vscode.LineChange[]) => {
+		vscode.commands.registerDiffInformationCommand('azdo.pr.goToPreviousDiffInPr', async (diffs: vscode.LineChange[]) => {
 			goToNextPrevDiff(diffs, false);
 		}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshComments', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdo.pr.refreshComments', async () => {
 		for (const folderManager of reposManager.folderManagers) {
 			for (const githubRepository of folderManager.gitHubRepositories) {
 				for (const pullRequest of githubRepository.pullRequestModels) {
@@ -2345,11 +2345,11 @@ ${contents}
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.closeRelatedEditors', closeAllPrAndReviewEditors)
+		vscode.commands.registerCommand('azdo.pr.closeRelatedEditors', closeAllPrAndReviewEditors)
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('review.copyPrLink', async () => {
+		vscode.commands.registerCommand('azdo.review.copyPrLink', async () => {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 				.map(folderManager => folderManager.activePullRequest!)
 				.filter(activePR => !!activePR);
@@ -2366,9 +2366,9 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.generateTitleAndDescription', async (args: { rootUri: vscode.Uri; baseBranch: string; compareBranch: string }) => {
+		vscode.commands.registerCommand('azdo.pr.generateTitleAndDescription', async (args: { rootUri: vscode.Uri; baseBranch: string; compareBranch: string }) => {
 			if (!args?.rootUri || !args?.baseBranch || !args?.compareBranch) {
-				Logger.error('Missing required arguments for pr.generateTitleAndDescription', logId);
+				Logger.error('Missing required arguments for azdo.pr.generateTitleAndDescription', logId);
 				return undefined;
 			}
 

@@ -500,7 +500,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				/* __GDPR__
 					"pr.merge.success" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('pr.merge.success');
+				this._telemetry.sendTelemetryEvent('azdo.pr.merge.success');
 				this._onDidChange.fire({ state: true });
 				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await this.getCopilotTimelineEvents(), this.githubRepository) };
 			})
@@ -508,7 +508,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				/* __GDPR__
 					"pr.merge.failure" : {}
 				*/
-				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure');
+				this._telemetry.sendTelemetryErrorEvent('azdo.pr.merge.failure');
 				const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
 				if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
 					return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
@@ -1837,7 +1837,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		/* __GDPR__
 			"pr.openChanges" : {}
 		*/
-		folderManager.telemetry.sendTelemetryEvent('pr.openChanges');
+		folderManager.telemetry.sendTelemetryEvent('azdo.pr.openChanges');
 
 		if (openToTheSide) {
 			if (vscode.window.tabGroups.all.length < 2) {
@@ -2327,7 +2327,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			/* __GDPR__
 				"pr.readyForReview.success" : {}
 			*/
-			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
+			this._telemetry.sendTelemetryEvent('azdo.pr.readyForReview.success');
 
 			const result: ReadyForReview = {
 				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
@@ -2343,7 +2343,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			/* __GDPR__
 				"pr.readyForReview.failure" : {}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure');
+			this._telemetry.sendTelemetryErrorEvent('azdo.pr.readyForReview.failure');
 			throw e;
 		}
 	}

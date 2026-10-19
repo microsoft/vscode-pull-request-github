@@ -5,7 +5,7 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "build",
+			"script": "compile",
 			"group": "build",
 			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
 		},

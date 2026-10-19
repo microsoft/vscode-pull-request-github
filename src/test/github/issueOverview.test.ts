@@ -55,7 +55,7 @@ class TestIssueOverviewPanel extends IssueOverviewPanel {
 	}
 }
 
-describe('IssueOverview remote-only manager upgrades', function () {
+describe('AzureDevOpsIssueOverview remote-only manager upgrades', function () {
 	let sandbox: SinonSandbox;
 	let context: MockExtensionContext;
 	let repositoriesManager: RepositoriesManager;

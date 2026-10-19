@@ -58,7 +58,7 @@ describe('UriHandler', function () {
 			git,
 			folderRepositoryManagerResolver,
 		);
-		const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-pull-request-webview?uri=https://github.com/microsoft/vscode/pull/1');
+		const uri = vscode.Uri.parse('vscode://jhare96.vscode-pull-request-azdo/open-pull-request-webview?uri=https://github.com/microsoft/vscode/pull/1');
 
 		await handler.handleUri(uri);
 

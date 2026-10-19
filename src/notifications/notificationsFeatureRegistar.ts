@@ -30,7 +30,7 @@ export class NotificationsFeatureRegister extends Disposable {
 		this._register(vscode.window.registerFileDecorationProvider(decorationsProvider));
 
 		// View
-		this._register(vscode.window.createTreeView<any>('notifications:github', {
+		this._register(vscode.window.createTreeView<any>('notifications:azureDevOps', {
 			treeDataProvider: notificationsManager
 		}));
 		notificationsManager.refresh();
@@ -38,12 +38,12 @@ export class NotificationsFeatureRegister extends Disposable {
 		// Commands
 		this._register(
 			vscode.commands.registerCommand(
-				'notifications.sortByTimestamp',
+				'azdo.notifications.sortByTimestamp',
 				async () => {
 					/* __GDPR__
 						"notifications.sortByTimestamp" : {}
 					*/
-					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
+					this._telemetry.sendTelemetryEvent('azdo.notifications.sortByTimestamp');
 					notificationsManager.sortNotifications(NotificationsSortMethod.Timestamp);
 				},
 				this,
@@ -51,12 +51,12 @@ export class NotificationsFeatureRegister extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'notifications.sortByPriority',
+				'azdo.notifications.sortByPriority',
 				async () => {
 					/* __GDPR__
 						"notifications.sortByTimestamp" : {}
 					*/
-					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
+					this._telemetry.sendTelemetryEvent('azdo.notifications.sortByTimestamp');
 					notificationsManager.sortNotifications(NotificationsSortMethod.Priority);
 				},
 				this,
@@ -64,84 +64,84 @@ export class NotificationsFeatureRegister extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
-				'notifications.refresh',
+				'azdo.notifications.refresh',
 				() => {
 					/* __GDPR__
 						"notifications.refresh" : {}
 					*/
-					this._telemetry.sendTelemetryEvent('notifications.refresh');
+					this._telemetry.sendTelemetryEvent('azdo.notifications.refresh');
 					notificationsManager.refresh();
 				},
 				this,
 			),
 		);
 		this._register(
-			vscode.commands.registerCommand('notifications.loadMore', () => {
+			vscode.commands.registerCommand('azdo.notifications.loadMore', () => {
 				/* __GDPR__
 					"notifications.loadMore" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notifications.loadMore');
+				this._telemetry.sendTelemetryEvent('azdo.notifications.loadMore');
 				notificationsManager.loadMore();
 			})
 		);
 		this._register(
-			vscode.commands.registerCommand('notification.chatSummarizeNotification', (notification: NotificationTreeDataItem) => {
+			vscode.commands.registerCommand('azdo.notification.chatSummarizeNotification', (notification: NotificationTreeDataItem) => {
 				if (!isNotificationTreeItem(notification)) {
 					return;
 				}
 				/* __GDPR__
 					"notification.chatSummarizeNotification" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notification.chatSummarizeNotification');
+				this._telemetry.sendTelemetryEvent('azdo.notification.chatSummarizeNotification');
 				vscode.commands.executeCommand(chatCommand(), vscode.l10n.t('Summarize notification with thread ID #{0}', notification.notification.id));
 			})
 		);
 		this._register(
-			vscode.commands.registerCommand('notification.markAsRead', (options: NotificationTreeDataItem) => {
+			vscode.commands.registerCommand('azdo.notification.markAsRead', (options: NotificationTreeDataItem) => {
 				const { threadId, notificationKey } = this._extractMarkAsCommandOptions(options);
 				/* __GDPR__
 					"notification.markAsRead" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notification.markAsRead');
+				this._telemetry.sendTelemetryEvent('azdo.notification.markAsRead');
 				notificationsManager.markAsRead({ threadId, notificationKey });
 			})
 		);
 		this._register(
-			vscode.commands.registerCommand('notification.markAsDone', (options: NotificationTreeDataItem) => {
+			vscode.commands.registerCommand('azdo.notification.markAsDone', (options: NotificationTreeDataItem) => {
 				const { threadId, notificationKey } = this._extractMarkAsCommandOptions(options);
 				/* __GDPR__
 					"notification.markAsDone" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notification.markAsDone');
+				this._telemetry.sendTelemetryEvent('azdo.notification.markAsDone');
 				notificationsManager.markAsDone({ threadId, notificationKey });
 			})
 		);
 
 		this._register(
-			vscode.commands.registerCommand('notifications.markPullRequestsAsRead', () => {
+			vscode.commands.registerCommand('azdo.notifications.markPullRequestsAsRead', () => {
 				/* __GDPR__
 					"notifications.markPullRequestsAsRead" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notifications.markPullRequestsAsRead');
+				this._telemetry.sendTelemetryEvent('azdo.notifications.markPullRequestsAsRead');
 				return notificationsManager.markPullRequests();
 			})
 		);
 
 		this._register(
-			vscode.commands.registerCommand('notifications.markPullRequestsAsDone', () => {
+			vscode.commands.registerCommand('azdo.notifications.markPullRequestsAsDone', () => {
 				/* __GDPR__
 					"notifications.markPullRequestsAsDone" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notifications.markPullRequestsAsDone');
+				this._telemetry.sendTelemetryEvent('azdo.notifications.markPullRequestsAsDone');
 				return notificationsManager.markPullRequests(true);
 			})
 		);
 		this._register(
-			vscode.commands.registerCommand('notifications.configureNotificationsViewlet', () => {
+			vscode.commands.registerCommand('azdo.notifications.configureNotificationsViewlet', () => {
 				/* __GDPR__
 					"notifications.configureNotificationsViewlet" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notifications.configureNotificationsViewlet');
+				this._telemetry.sendTelemetryEvent('azdo.notifications.configureNotificationsViewlet');
 				return vscode.commands.executeCommand(
 					'workbench.action.openSettings',
 					`@ext:${EXTENSION_ID} notifications`,
@@ -166,7 +166,7 @@ export class NotificationsFeatureRegister extends Disposable {
 			threadId = asID.threadId;
 			notificationKey = asID.notificationKey;
 		} else {
-			throw new Error(`Invalid arguments for command notification.markAsRead : ${JSON.stringify(options)}`);
+			throw new Error(`Invalid arguments for command azdo.notification.markAsRead : ${JSON.stringify(options)}`);
 		}
 		return { threadId, notificationKey };
 	}

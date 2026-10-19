@@ -278,10 +278,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 						: isDraft ? 'git-pull-request-draft'
 							: 'git-pull-request',
 				new vscode.ThemeColor(
-					state === GithubItemStateEnum.Closed ? 'pullRequests.closed'
-						: state === GithubItemStateEnum.Merged ? 'pullRequests.merged'
-							: isDraft ? 'pullRequests.draft'
-								: 'pullRequests.open'
+					state === GithubItemStateEnum.Closed ? 'azdo.pullRequests.closed'
+						: state === GithubItemStateEnum.Merged ? 'azdo.pullRequests.merged'
+							: isDraft ? 'azdo.pullRequests.draft'
+								: 'azdo.pullRequests.open'
 				)
 			);
 		} else if (iconMode === 'generic') {
@@ -361,7 +361,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const description = `by @${login}`;
 		const command = {
 			title: vscode.l10n.t('View Pull Request Description'),
-			command: 'pr.openDescription',
+			command: 'azdo.pr.openDescription',
 			arguments: [this],
 		};
 

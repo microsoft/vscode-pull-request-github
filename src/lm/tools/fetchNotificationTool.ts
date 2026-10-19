@@ -39,7 +39,7 @@ export interface FetchNotificationResult {
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
-	public static readonly toolId = 'github-pull-request_notification_fetch';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_notification_fetch';
 
 	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {

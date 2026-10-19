@@ -175,7 +175,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		number,
 		url,
 	};
-	context['github:copyMenu'] = true;
+	context['azureDevOps:copyMenu'] = true;
 
 	const displayTitle = (
 		<div className="overview-title">
@@ -258,7 +258,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 
 	const context: CodingAgentContext = {
 		'preventDefaultContextMenuItems': true,
-		'github:codingAgentMenu': true,
+		'azureDevOps:codingAgentMenu': true,
 		...sessionLink
 	};
 
@@ -400,7 +400,7 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 
 	const context: OverviewContext = {
 		'preventDefaultContextMenuItems': true,
-		'github:checkoutMenu': true,
+		'azureDevOps:checkoutMenu': true,
 		owner,
 		repo,
 		number

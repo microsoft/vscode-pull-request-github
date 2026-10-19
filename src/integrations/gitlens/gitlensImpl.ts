@@ -31,7 +31,7 @@ export class GitLensIntegration extends Disposable {
 						return;
 					}
 
-					vscode.commands.executeCommand('pr.create', {
+					vscode.commands.executeCommand('azdo.pr.create', {
 						repoPath: context.repoPath,
 						compareBranch: context.branch.name,
 					});

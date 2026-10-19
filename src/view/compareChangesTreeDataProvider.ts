@@ -264,7 +264,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 			markdown.appendMarkdown('\n\n');
 		}
 		markdown.supportThemeIcons = true;
-		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) {0} Code Review', preReviewer.title)}](command:pr.preReview)`);
+		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) {0} Code Review', preReviewer.title)}](command:azdo.pr.preReview)`);
 		return markdown;
 	}
 
@@ -346,12 +346,12 @@ export class CompareChanges extends Disposable {
 	) {
 		super();
 		this._filesDataProvider = this._register(new CompareChangesFilesTreeProvider(model, folderRepoManager));
-		this._filesView = this._register(vscode.window.createTreeView('github:compareChangesFiles', {
+		this._filesView = this._register(vscode.window.createTreeView('azureDevOps:compareChangesFiles', {
 			treeDataProvider: this._filesDataProvider
 		}));
 		this._filesDataProvider.view = this._filesView;
 		this._commitsDataProvider = this._register(new CompareChangesCommitsTreeProvider(model, folderRepoManager));
-		this._commitsView = this._register(vscode.window.createTreeView('github:compareChangesCommits', {
+		this._commitsView = this._register(vscode.window.createTreeView('azureDevOps:compareChangesCommits', {
 			treeDataProvider: this._commitsDataProvider
 		}));
 		this._commitsDataProvider.view = this._commitsView;

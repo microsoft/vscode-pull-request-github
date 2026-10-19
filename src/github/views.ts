@@ -257,39 +257,39 @@ export interface BaseContext {
 }
 
 export interface OverviewContext extends BaseContext {
-	'github:checkoutMenu': true;
+	'azureDevOps:checkoutMenu': true;
 }
 
 export interface ReadyForReviewContext extends BaseContext {
-	'github:readyForReviewMenu': true;
+	'azureDevOps:readyForReviewMenu': true;
 }
 
 export interface ReadyForReviewAndMergeContext extends ReadyForReviewContext {
-	'github:readyForReviewMenuWithMerge': true;
+	'azureDevOps:readyForReviewMenuWithMerge': true;
 	mergeMethod: MergeMethod;
 }
 
 export interface CodingAgentContext extends SessionLinkInfo {
 	'preventDefaultContextMenuItems': true;
-	'github:codingAgentMenu': true;
+	'azureDevOps:codingAgentMenu': true;
 	[key: string]: boolean | string | number | undefined;
 }
 
 export interface ReviewCommentContext {
 	'preventDefaultContextMenuItems': true;
-	'github:reviewCommentMenu': true,
+	'azureDevOps:reviewCommentMenu': true,
 	owner: string;
 	repo: string;
 	number: number;
 	body: string;
 	addAttestation?: boolean;
-	'github:reviewCommentApprove'?: boolean;
-	'github:reviewCommentApproveOnDotCom'?: boolean;
-	'github:reviewCommentComment'?: boolean;
-	'github:reviewCommentCommentEnabled'?: boolean;
-	'github:reviewCommentRequestChanges'?: boolean;
-	'github:reviewRequestChangesEnabled'?: boolean;
-	'github:reviewCommentRequestChangesOnDotCom'?: boolean;
+	'azureDevOps:reviewCommentApprove'?: boolean;
+	'azureDevOps:reviewCommentApproveOnDotCom'?: boolean;
+	'azureDevOps:reviewCommentComment'?: boolean;
+	'azureDevOps:reviewCommentCommentEnabled'?: boolean;
+	'azureDevOps:reviewCommentRequestChanges'?: boolean;
+	'azureDevOps:reviewRequestChangesEnabled'?: boolean;
+	'azureDevOps:reviewCommentRequestChangesOnDotCom'?: boolean;
 }
 
 export interface ChangeBaseReply {

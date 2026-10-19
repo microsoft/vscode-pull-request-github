@@ -503,7 +503,7 @@ export class StateManager {
 			.map(issue => getIssueNumberLabel(issue.issue, issue.repoDefaults))
 			.join(', '));
 		statusBarItem.tooltip = currentIssues.map(issue => issue.issue.title).join(', ');
-		statusBarItem.command = 'issue.statusBar';
+		statusBarItem.command = 'azdo.issue.statusBar';
 		statusBarItem.show();
 	}
 

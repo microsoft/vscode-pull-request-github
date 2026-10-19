@@ -78,7 +78,7 @@ class TestPullRequestOverviewPanel extends PullRequestOverviewPanel {
 	}
 }
 
-describe('PullRequestOverview', function () {
+describe('AzureDevOpsPullRequestOverview', function () {
 	let sinon: SinonSandbox;
 	let pullRequestManager: FolderRepositoryManager;
 	let context: MockExtensionContext;
@@ -531,7 +531,7 @@ describe('PullRequestOverview', function () {
 
 			it('reports checkout in the local repository when the checkout command completes', async function () {
 				const executeCommand = sinon.stub(vscode.commands, 'executeCommand').callThrough();
-				executeCommand.withArgs('pr.pick', model).callsFake(async () => {
+				executeCommand.withArgs('azdo.pr.pick', model).callsFake(async () => {
 					pullRequestManager.activePullRequest = model;
 				});
 				const reply = sinon.stub(panel, '_replyMessage').resolves();
@@ -922,7 +922,7 @@ describe('PullRequestOverview', function () {
 			webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, '#1000', vscode.ViewColumn.One, {});
 			onDidReceiveMessage = new vscode.EventEmitter();
 			onDidChangeViewState = new vscode.EventEmitter();
-			pollInterval = 1000 * (vscode.workspace.getConfiguration().get<number>('githubPullRequests.webviewRefreshInterval') || 60);
+			pollInterval = 1000 * (vscode.workspace.getConfiguration().get<number>('azureDevOpsPullRequests.webviewRefreshInterval') || 60);
 			context.subscriptions.push(webviewPanel, onDidReceiveMessage, onDidChangeViewState);
 			sinon.stub(webviewPanel.webview, 'onDidReceiveMessage').callsFake(onDidReceiveMessage.event);
 			sinon.stub(webviewPanel, 'onDidChangeViewState').callsFake(onDidChangeViewState.event);
@@ -1307,7 +1307,7 @@ describe('PullRequestOverview', function () {
 			const replyMessage = sinon.stub(panel as any, '_replyMessage');
 
 			await (panel as any).mergePullRequest({
-				command: 'pr.merge',
+				command: 'azdo.pr.merge',
 				args: { title: '', description: '', method: 'squash' },
 			});
 
@@ -1352,7 +1352,7 @@ describe('PullRequestOverview', function () {
 			const queue = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves('squash');
 			const merge = sinon.stub(ctx.item, 'mergeStack').resolves('enqueued');
 			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
-			const message = { req: '1', command: 'pr.merge-stack', args: { method: 'squash' as const } };
+			const message = { req: '1', command: 'azdo.pr.merge-stack', args: { method: 'squash' as const } };
 
 			await PullRequestReviewCommon.mergeStack(ctx, message);
 
@@ -1367,7 +1367,7 @@ describe('PullRequestOverview', function () {
 			const ctx = createMergeContext();
 			sinon.stub(ctx.item, 'mergeStack').rejects(new Error('Required checks failed'));
 			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
-			const message = { req: '2', command: 'pr.merge-stack', args: { method: 'merge' as const } };
+			const message = { req: '2', command: 'azdo.pr.merge-stack', args: { method: 'merge' as const } };
 
 			await PullRequestReviewCommon.mergeStack(ctx, message);
 
@@ -1381,7 +1381,7 @@ describe('PullRequestOverview', function () {
 			const ctx = createMergeContext();
 			const getStack = ctx.item.getStack as ReturnType<SinonSandbox['stub']>;
 			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
-			const message = { req: '3', command: 'pr.merge-stack', args: { method: 'merge' as const } };
+			const message = { req: '3', command: 'azdo.pr.merge-stack', args: { method: 'merge' as const } };
 
 			await PullRequestReviewCommon.mergeStack(ctx, message);
 

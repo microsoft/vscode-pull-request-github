@@ -10,7 +10,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 
 export class OpenPullRequestTool extends PullRequestTool {
-	public static readonly toolId = 'github-pull-request_pullRequestInViewport';
+	public static readonly toolId = 'azure-devops-pull-request_pullRequestInViewport';
 
 	protected _findActivePullRequest(): PullRequestModel | undefined {
 		// First check if there's an active PR overview panel

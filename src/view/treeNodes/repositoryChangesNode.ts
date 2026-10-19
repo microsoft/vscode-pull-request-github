@@ -42,7 +42,7 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: vscode.l10n.t('View Pull Request Description'),
-			command: 'pr.openDescription',
+			command: 'azdo.pr.openDescription',
 			arguments: [this],
 		};
 		this.tooltip = vscode.l10n.t('Description of pull request #{0}', pullRequestModel.number);

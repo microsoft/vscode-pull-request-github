@@ -355,7 +355,7 @@ export function getStatusDecoration(status: UnsatisfiedChecks): vscode.FileDecor
 	} else if (status === UnsatisfiedChecks.None) {
 		return {
 			propagate: false,
-			badge: new vscode.ThemeIcon('check-all', new vscode.ThemeColor('issues.open')),
+			badge: new vscode.ThemeIcon('check-all', new vscode.ThemeColor('azdo.issues.open')),
 			tooltip: 'All checks passed'
 		};
 	}

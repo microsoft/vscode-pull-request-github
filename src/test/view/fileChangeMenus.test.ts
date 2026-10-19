@@ -18,7 +18,7 @@ describe('File change context menus', function () {
 		{ status: 'UNMERGED', openOriginal: false, reveal: true },
 	];
 
-	for (const command of ['pr.openOriginalFile', 'pr.revealFileInOS']) {
+	for (const command of ['azdo.pr.openOriginalFile', 'azdo.pr.revealFileInOS']) {
 		it(`shows ${command} only for applicable file changes`, function () {
 			const menu = packageJson.contributes.menus['view/item/context'].find(item => item.command === command);
 			assert.ok(menu);
@@ -31,7 +31,7 @@ describe('File change context menus', function () {
 					const contextValue = `filechange:${testCase.status}:${viewed}`;
 					assert.strictEqual(
 						pattern.test(contextValue),
-						command === 'pr.openOriginalFile' ? testCase.openOriginal : testCase.reveal,
+						command === 'azdo.pr.openOriginalFile' ? testCase.openOriginal : testCase.reveal,
 						contextValue,
 					);
 				}

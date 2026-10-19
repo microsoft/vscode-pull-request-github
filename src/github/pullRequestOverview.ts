@@ -55,7 +55,7 @@ import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
 import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
-	public static override ID: string = 'PullRequestOverviewPanel';
+	public static override ID: string = 'AzureDevOpsPullRequestOverviewPanel';
 	public static override readonly viewType = PULL_REQUEST_OVERVIEW_VIEW_TYPE;
 	protected override readonly previewLog = { label: 'PR', id: PullRequestOverviewPanel.ID };
 
@@ -189,7 +189,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					"isCopilot" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			telemetry.sendTelemetryEvent('pr.openDescription', { isCopilot: (panel._item?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
+			telemetry.sendTelemetryEvent('azdo.pr.openDescription', { isCopilot: (panel._item?.author.login === COPILOT_SWE_AGENT) ? 'true' : 'false' });
 		}
 	}
 
@@ -270,43 +270,43 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					}
 				}
 			}),
-			vscode.commands.registerCommand('pr.readyForReviewDescription', async (ctx: ReadyForReviewContext) => {
+			vscode.commands.registerCommand('azdo.pr.readyForReviewDescription', async (ctx: ReadyForReviewContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return panel.readyForReviewCommand();
 				}
 			}),
-			vscode.commands.registerCommand('pr.readyForReviewAndMergeDescription', async (ctx: ReadyForReviewAndMergeContext) => {
+			vscode.commands.registerCommand('azdo.pr.readyForReviewAndMergeDescription', async (ctx: ReadyForReviewAndMergeContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return panel.readyForReviewAndMergeCommand(ctx);
 				}
 			}),
-			vscode.commands.registerCommand('review.approveDescription', (ctx: ReviewCommentContext) => {
+			vscode.commands.registerCommand('azdo.review.approveDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return panel.approvePullRequestCommand(ctx);
 				}
 			}),
-			vscode.commands.registerCommand('review.commentDescription', (ctx: ReviewCommentContext) => {
+			vscode.commands.registerCommand('azdo.review.commentDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return panel.submitReviewCommand(ctx);
 				}
 			}),
-			vscode.commands.registerCommand('review.requestChangesDescription', (ctx: ReviewCommentContext) => {
+			vscode.commands.registerCommand('azdo.review.requestChangesDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return panel.requestChangesCommand(ctx);
 				}
 			}),
-			vscode.commands.registerCommand('review.approveOnDotComDescription', (ctx: ReviewCommentContext) => {
+			vscode.commands.registerCommand('azdo.review.approveOnDotComDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return openItemOnGitHub(panel._item, telemetry);
 				}
 			}),
-			vscode.commands.registerCommand('review.requestChangesOnDotComDescription', (ctx: ReviewCommentContext) => {
+			vscode.commands.registerCommand('azdo.review.requestChangesOnDotComDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
 				if (panel) {
 					return openItemOnGitHub(panel._item, telemetry);
@@ -860,9 +860,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		switch (message.command) {
 			case 'pr.checkout':
 				return this.checkoutPullRequest(message);
-			case 'pr.merge':
+			case 'azdo.pr.merge':
 				return this.mergePullRequest(message);
-			case 'pr.merge-stack':
+			case 'azdo.pr.merge-stack':
 				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
 			case 'pr.unstack-all':
 				return this.unstackAll(message);
@@ -872,9 +872,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.changeEmail(message);
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
-			case 'pr.readyForReview':
+			case 'azdo.pr.readyForReview':
 				return this.setReadyForReview(message);
-			case 'pr.readyForReviewAndMerge':
+			case 'azdo.pr.readyForReviewAndMerge':
 				return this.setReadyForReviewAndMerge(message);
 			case 'pr.convertToDraft':
 				return this.setConvertToDraft(message);
@@ -1200,7 +1200,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
-		vscode.commands.executeCommand('pr.pick', this._item).then(
+		vscode.commands.executeCommand('azdo.pr.pick', this._item).then(
 			() => {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });

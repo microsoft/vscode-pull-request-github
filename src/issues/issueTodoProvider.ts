@@ -69,7 +69,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 				createIssueAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
 				createIssueAction.command = {
 					title: vscode.l10n.t('Create GitHub Issue'),
-					command: 'issue.createIssueFromSelection',
+					command: 'azdo.issue.createIssueFromSelection',
 					arguments: [{ document, lineNumber, line, insertIndex, range }],
 				};
 				codeActions.push(createIssueAction);

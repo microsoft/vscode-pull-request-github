@@ -19,7 +19,7 @@ interface StatusChecksToolParameters {
 }
 
 export class PullRequestStatusChecksTool extends RepoToolBase<StatusChecksToolParameters> {
-	public static readonly toolId = 'github-pull-request_pullRequestStatusChecks';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_pullRequestStatusChecks';
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<StatusChecksToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.input.pullRequestNumber) {

@@ -429,7 +429,7 @@ export class ReviewManager extends Disposable {
 				};
 				if (!this._stateValidated) {
 					this._stateValidated = true;
-					commands.setContext('github:stateValidated', true).then(done);
+					commands.setContext('azureDevOps:stateValidated', true).then(done);
 				} else {
 					done();
 				}
@@ -820,7 +820,7 @@ export class ReviewManager extends Disposable {
 
 		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = {
-			command: 'pr.openDescription',
+			command: 'azdo.pr.openDescription',
 			title: vscode.l10n.t('View Pull Request Description'),
 			arguments: [pr],
 		};
@@ -1477,7 +1477,7 @@ export class ReviewManager extends Disposable {
 					if (postCreate === 'checkoutDefaultBranch') {
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch, undefined);
 					} if (postCreate === 'checkoutDefaultBranchAndShow') {
-						await commands.executeCommand('pr:github.focus');
+						await commands.executeCommand('pr:azureDevOps.focus');
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch, undefined);
 						await this._pullRequestsTree.expandPullRequest(createdPR);
 					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {

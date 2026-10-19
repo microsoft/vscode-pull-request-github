@@ -32,7 +32,7 @@ interface ResolvedPullRequestParams {
 }
 
 export class CreatePullRequestTool extends RepoToolBase<CreatePullRequestToolParameters> {
-	public static readonly toolId = 'github-pull-request_create_pull_request';
+	public static readonly toolId = 'azure-devops-pull-request_azdo_create_pull_request';
 
 	constructor(credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
 		super(credentialStore, repositoriesManager);

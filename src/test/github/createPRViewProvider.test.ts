@@ -137,7 +137,7 @@ describe('Create pull request stack', function () {
 		sinon.stub(provider, '_replyMessage').resolves();
 
 		await provider.createForTest({
-			command: 'pr.create', req: '1',
+			command: 'azdo.pr.create', req: '1',
 			args: {
 				title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
 				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
@@ -291,7 +291,7 @@ describe('Create pull request stack', function () {
 			const done = asPromise(provider.onDone);
 
 			await provider.createForTest({
-				command: 'pr.create', req: '1',
+				command: 'azdo.pr.create', req: '1',
 				args: {
 					title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
 					compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
@@ -322,7 +322,7 @@ describe('Create pull request stack', function () {
 		sinon.stub(provider, '_replyMessage').callsFake(async () => { finish(); });
 
 		await provider.createForTest({
-			command: 'pr.create', req: '2',
+			command: 'azdo.pr.create', req: '2',
 			args: {
 				title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
 				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
@@ -356,7 +356,7 @@ describe('Create pull request stack', function () {
 		const done = asPromise(provider.onDone);
 
 		await provider.createForTest({
-			command: 'pr.create', req: '3',
+			command: 'azdo.pr.create', req: '3',
 			args: {
 				title: 'Fourth change', body: '', owner: 'github', repo: 'test', base: 'D3',
 				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',

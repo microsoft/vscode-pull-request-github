@@ -145,7 +145,7 @@ describe('GitHub Pull Requests view', function () {
 	});
 
 	it('allows selecting multiple pull requests to create a stack', function () {
-		const tree = createTreeView.getCalls().find(call => call.args[0] === 'pr:github');
+		const tree = createTreeView.getCalls().find(call => call.args[0] === 'pr:azureDevOps');
 		assert(tree);
 		const options = tree.args[1] as { canSelectMany?: boolean };
 		assert.strictEqual(options.canSelectMany, true);
@@ -156,7 +156,7 @@ describe('GitHub Pull Requests view', function () {
 		provider.dispose();
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 
-		const tree = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').pop();
+		const tree = createTreeView.getCalls().filter(call => call.args[0] === 'pr:azureDevOps').pop();
 		assert(tree);
 		const options = tree.args[1] as { canSelectMany?: boolean };
 		assert.strictEqual(options.canSelectMany, false);
@@ -169,20 +169,20 @@ describe('GitHub Pull Requests view', function () {
 		provider.dispose();
 		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		const event = {
-			affectsConfiguration: (section: string) => section === 'githubPullRequests.experimental.stacks',
+			affectsConfiguration: (section: string) => section === 'azureDevOpsPullRequests.experimental.stacks',
 		};
 
 		for (const enabled of [false, true, false]) {
 			const view = provider.view;
-			const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length;
+			const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:azureDevOps').length;
 			setStacksEnabled(enabled);
 			configurationChanged.fire(event);
 			assert.strictEqual(provider.view, view);
-			assert.strictEqual(createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length, treeCount);
+			assert.strictEqual(createTreeView.getCalls().filter(call => call.args[0] === 'pr:azureDevOps').length, treeCount);
 
 			provider.dispose();
 			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
-			const tree = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').pop();
+			const tree = createTreeView.getCalls().filter(call => call.args[0] === 'pr:azureDevOps').pop();
 			assert(tree);
 			const options = tree.args[1] as { canSelectMany?: boolean };
 			assert.strictEqual(options.canSelectMany, enabled);
@@ -204,19 +204,19 @@ describe('GitHub Pull Requests view', function () {
 			stackablePullRequest(discoveredRepository, 2, 'D1', 'D2'),
 		].map(model => Object.assign(Object.create(PRNode.prototype), { pullRequestModel: model }) as PRNode);
 		sinon.stub(provider.view, 'selection').get(() => selected);
-		const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length;
+		const treeCount = createTreeView.getCalls().filter(call => call.args[0] === 'pr:azureDevOps').length;
 		const event = {
-			affectsConfiguration: (section: string) => section === 'githubPullRequests.experimental.stacks',
+			affectsConfiguration: (section: string) => section === 'azureDevOpsPullRequests.experimental.stacks',
 		};
 
 		for (const enabled of [true, false, true]) {
 			setStacksEnabled(enabled);
 			executeCommand.resetHistory();
 			configurationChanged.fire(event);
-			assert(executeCommand.calledOnceWithExactly('setContext', 'github:canAddToStack', enabled));
+			assert(executeCommand.calledOnceWithExactly('setContext', 'azureDevOps:canAddToStack', enabled));
 		}
 
-		assert.strictEqual(createTreeView.getCalls().filter(call => call.args[0] === 'pr:github').length, treeCount);
+		assert.strictEqual(createTreeView.getCalls().filter(call => call.args[0] === 'pr:azureDevOps').length, treeCount);
 	});
 
 	it('does not offer or execute Add to Stack when stacks are disabled', async function () {
@@ -226,7 +226,7 @@ describe('GitHub Pull Requests view', function () {
 		(provider as any).updateCanAddToStack();
 		await (provider as any).addSelectedPullRequestsToStack(undefined, undefined);
 
-		assert(executeCommand.calledWith('setContext', 'github:canAddToStack', false));
+		assert(executeCommand.calledWith('setContext', 'azureDevOps:canAddToStack', false));
 		assert.match(showError.firstCall.args[0], /stack features are disabled/);
 	});
 
@@ -330,7 +330,7 @@ describe('GitHub Pull Requests view', function () {
 			assert.ok(message instanceof vscode.MarkdownString);
 			assert.ok(message.value.includes(escapeMarkdownText('host-b.example:8443/deployment')));
 			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|https?:\/\/|Accounts.*Preferences/);
-			assert.match(message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.match(message.value, /\[Select Account\]\(command:azdo\.pr\.selectEnterpriseAccount\)/);
 			assert.doesNotMatch(message.value, /command:workbench\.action\.openSettings/);
 
 			getHub.returns({ ...hub, serverUri: hostB });
@@ -351,14 +351,14 @@ describe('GitHub Pull Requests view', function () {
 				graphql: new LoggingApolloClient(new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() }), new RateLogger(telemetry, false)),
 			});
 			await folderManager.updateRepositories();
-			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
 			assert.ok(loginView);
 
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
-			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:azdo\.pr\.selectEnterpriseAccount\)/);
 			assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-b.example')));
-			assert.doesNotMatch(loginView.returnValue.message.value, /\]\(command:pr\.signinenterprise\)/);
+			assert.doesNotMatch(loginView.returnValue.message.value, /\]\(command:azdo\.pr\.signinenterprise\)/);
 			assert.doesNotMatch(loginView.returnValue.message.value, /&nbsp;|\u00a0|command:workbench\.action\.openSettings/);
 			assert.strictEqual(loginView.returnValue.message, provider.view.message);
 		});
@@ -370,16 +370,16 @@ describe('GitHub Pull Requests view', function () {
 			sinon.stub(folderManager, 'computeAllGitHubRemotes').resolves([enterpriseRemote]);
 			sinon.stub(configuration, 'getEnterpriseUris').returns([hostB]);
 			await folderManager.updateRepositories();
-			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
 			assert.ok(loginView);
 
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
 			assert.ok(loginView.returnValue.message.value.startsWith('Select a GitHub Enterprise account to view repositories on '));
-			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:azdo\.pr\.selectEnterpriseAccount\)/);
 			assert.doesNotMatch(loginView.returnValue.message.value, /&nbsp;|\u00a0|command:workbench\.action\.openSettings/);
 			assert.deepStrictEqual(loginView.returnValue.message.isTrusted, {
-				enabledCommands: ['pr.signinNoEnterprise', 'pr.selectEnterpriseAccount', 'workbench.action.openSettings'],
+				enabledCommands: ['azdo.pr.signinNoEnterprise', 'azdo.pr.selectEnterpriseAccount', 'workbench.action.openSettings'],
 			});
 		});
 
@@ -398,13 +398,13 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(reposManager.state, ReposManagerState.NeedsAuthentication);
 			assert.strictEqual(credentialStore.isAnyAuthenticated(), false);
 
-			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
 			assert.ok(loginView);
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			const message = loginView.returnValue.message;
 			assert.ok(message instanceof vscode.MarkdownString);
-			assert.match(message.value, /\]\(command:pr\.signinNoEnterprise\)/);
-			assert.match(message.value, /\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.match(message.value, /\]\(command:azdo\.pr\.signinNoEnterprise\)/);
+			assert.match(message.value, /\]\(command:azdo\.pr\.selectEnterpriseAccount\)/);
 		});
 
 		it('preserves public sign-in when Enterprise configuration is invalid', async function () {
@@ -417,15 +417,15 @@ describe('GitHub Pull Requests view', function () {
 			await folderManager.updateRepositories();
 			assert.strictEqual(reposManager.state, ReposManagerState.NeedsAuthentication);
 
-			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
 			assert.ok(loginView);
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			const message = loginView.returnValue.message;
 			assert.ok(message instanceof vscode.MarkdownString);
 			assert.ok(message.value.includes('Invalid instance list'));
-			assert.match(message.value, /\]\(command:pr\.signinNoEnterprise\)/);
+			assert.match(message.value, /\]\(command:azdo\.pr\.signinNoEnterprise\)/);
 			assert.match(message.value, /command:workbench\.action\.openSettings/);
-			assert.doesNotMatch(message.value, /\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.doesNotMatch(message.value, /\]\(command:azdo\.pr\.selectEnterpriseAccount\)/);
 		});
 
 		it('renders known repositories and guidance while discovery of an excluded remote is pending', async function () {
@@ -462,7 +462,7 @@ describe('GitHub Pull Requests view', function () {
 
 			try {
 				assert.ok((await provider.getChildren()).length > 0);
-				const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+				const loginView = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
 				assert.ok(loginView);
 				assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 				assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
@@ -498,7 +498,7 @@ describe('GitHub Pull Requests view', function () {
 
 			assert.strictEqual(reposManager.state, ReposManagerState.NeedsAuthentication);
 			assert.strictEqual(onDidChangeTreeData.called, true);
-			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'github:login');
+			const loginView = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
 			assert.ok(loginView);
 			await loginView.args[1].treeDataProvider.getChildren();
 			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
@@ -521,7 +521,7 @@ describe('GitHub Pull Requests view', function () {
 			assert.ok(message.value.includes('Invalid instance list'));
 			assert.ok(message.value.includes('GitHub Enterprise instances in Settings'));
 			assert.match(message.value, /command:workbench\.action\.openSettings/);
-			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:azdo\.pr\.selectEnterpriseAccount\)/);
 		});
 	});
 
@@ -828,7 +828,7 @@ describe('GitHub Pull Requests view', function () {
 			it('refreshes once when the manual Refresh command clears the cache', async function () {
 				const forceClearCache = sinon.spy(prsTreeModel, 'forceClearCache');
 				const refreshCommand = (vscode.commands.registerCommand as SinonStub).getCalls()
-					.filter(call => call.args[0] === 'pr.refreshList').pop();
+					.filter(call => call.args[0] === 'azdo.pr.refreshList').pop();
 				assert(refreshCommand);
 				getPullRequests.resetHistory();
 
@@ -859,7 +859,7 @@ describe('GitHub Pull Requests view', function () {
 				const first = prsTreeModel.getAllPullRequests(folderManager, false, true);
 				await started;
 				const refreshCommand = (vscode.commands.registerCommand as SinonStub).getCalls()
-					.filter(call => call.args[0] === 'pr.refreshList').pop();
+					.filter(call => call.args[0] === 'azdo.pr.refreshList').pop();
 				assert(refreshCommand);
 
 				refreshCommand.args[1]();
@@ -882,7 +882,7 @@ describe('GitHub Pull Requests view', function () {
 				assert.strictEqual(prsTreeModel.hasPullRequest(nextPullRequest), true);
 			});
 
-			for (const setting of ['githubPullRequests.showPullRequestNumberInTree', 'githubPullRequests.pullRequestAvatarDisplay']) {
+			for (const setting of ['azureDevOpsPullRequests.showPullRequestNumberInTree', 'azureDevOpsPullRequests.pullRequestAvatarDisplay']) {
 				it(`refreshes once for ${setting}, regardless of the number of PR nodes`, function () {
 					const clearCache = sinon.spy(prsTreeModel, 'clearCache');
 

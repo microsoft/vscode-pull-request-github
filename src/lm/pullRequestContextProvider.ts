@@ -69,7 +69,7 @@ export class PullRequestContextProvider extends Disposable implements vscode.Cha
 			tooltip: new vscode.MarkdownString(`#${pr.number} ${pr.title}`),
 			pr,
 			command: {
-				command: 'pr.openDescription',
+				command: 'azdo.pr.openDescription',
 				title: vscode.l10n.t('Open Pull Request')
 			}
 		};

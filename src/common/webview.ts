@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { commands } from './executeCommands';
 import { Disposable } from './lifecycle';
 
-export const PULL_REQUEST_OVERVIEW_VIEW_TYPE = 'PullRequestOverview';
+export const PULL_REQUEST_OVERVIEW_VIEW_TYPE = 'AzureDevOpsPullRequestOverview';
 
 export interface IRequestMessage<T> {
 	req: string;

@@ -308,7 +308,7 @@ describe('PullRequestModel', function () {
 		it('marks a clean PR behind its stack base as waiting and blocks stack merge', async function () {
 			const model = createModel();
 			compare.callsFake(async (_base: string, head: string) =>
-				({ behind_by: head === 'github:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+				({ behind_by: head === 'azureDevOps:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
 			repo.queryProvider.expectGraphQLQuery({
 				query: queries.PullRequestStack,
 				variables: { owner: 'github', name: 'test', number: 794, after: null },
@@ -324,7 +324,7 @@ describe('PullRequestModel', function () {
 				canMerge: isStackMergeable(stack!, 794),
 				canUpdate: isStackUpdatable(stack!),
 				needsUpdate: stack?.needsUpdate,
-				comparedSecond: compare.calledWithExactly('github:D1', 'github:D2'),
+				comparedSecond: compare.calledWithExactly('azureDevOps:D1', 'azureDevOps:D2'),
 			}, {
 				readiness: [PullRequestMergeability.Mergeable, PullRequestMergeability.Behind, PullRequestMergeability.Mergeable],
 				canMerge: false,
@@ -337,7 +337,7 @@ describe('PullRequestModel', function () {
 		it('offers an update when only the bottom branch is behind the stack base', async function () {
 			const model = createModel();
 			compare.callsFake(async (_base: string, head: string) =>
-				({ behind_by: head === 'github:D1' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+				({ behind_by: head === 'azureDevOps:D1' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
 			repo.queryProvider.expectGraphQLQuery({
 				query: queries.PullRequestStack,
 				variables: { owner: 'github', name: 'test', number: 794, after: null },
@@ -350,13 +350,13 @@ describe('PullRequestModel', function () {
 			const stack = await model.getStack();
 			assert.strictEqual(stack?.needsUpdate, true);
 			assert.strictEqual(isStackUpdatable(stack!), true);
-			assert(compare.calledWithExactly('github:main', 'github:D1'));
+			assert(compare.calledWithExactly('azureDevOps:main', 'azureDevOps:D1'));
 		});
 
 		it('offers an update when a changed middle PR has not been propagated to the top', async function () {
 			const model = createModel(795);
 			compare.callsFake(async (_base: string, head: string) =>
-				({ behind_by: head === 'github:D3' ? 1 : 0, ahead_by: head === 'github:D2' ? 2 : 1 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+				({ behind_by: head === 'azureDevOps:D3' ? 1 : 0, ahead_by: head === 'azureDevOps:D2' ? 2 : 1 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
 			repo.queryProvider.expectGraphQLQuery({
 				query: queries.PullRequestStack,
 				variables: { owner: 'github', name: 'test', number: 795, after: null },
@@ -374,16 +374,16 @@ describe('PullRequestModel', function () {
 			]);
 			assert.strictEqual(stack?.needsUpdate, true);
 			assert.strictEqual(isStackUpdatable(stack!), true);
-			assert(compare.calledWithExactly('github:main', 'github:D1'));
-			assert(compare.calledWithExactly('github:D1', 'github:D2'));
-			assert(compare.calledWithExactly('github:D2', 'github:D3'));
+			assert(compare.calledWithExactly('azureDevOps:main', 'azureDevOps:D1'));
+			assert(compare.calledWithExactly('azureDevOps:D1', 'azureDevOps:D2'));
+			assert(compare.calledWithExactly('azureDevOps:D2', 'azureDevOps:D3'));
 			assert.strictEqual(compare.callCount, 3);
 		});
 
 		it('blocks merging an up-to-date PR above a behind PR with a closed top', async function () {
 			const model = createModel(795);
 			compare.callsFake(async (_base: string, head: string) =>
-				({ behind_by: head === 'github:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+				({ behind_by: head === 'azureDevOps:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
 			repo.queryProvider.expectGraphQLQuery({
 				query: queries.PullRequestStack,
 				variables: { owner: 'github', name: 'test', number: 795, after: null },
@@ -403,7 +403,7 @@ describe('PullRequestModel', function () {
 			]);
 			assert.strictEqual(isStackMergeable(stack!, 795), false);
 			assert.strictEqual(isStackUpdatable(stack!), true);
-			assert(compare.calledWithExactly('github:D1', 'github:D2'));
+			assert(compare.calledWithExactly('azureDevOps:D1', 'azureDevOps:D2'));
 			assert.strictEqual(compare.callCount, 3);
 		});
 
@@ -1027,9 +1027,9 @@ describe('PullRequestModel', function () {
 			assert(getAllFileChangesInfo.calledOnce);
 			const [, , entries] = executeCommand.firstCall.args;
 			const [resourceUri, originalUri, modifiedUri] = entries[0];
-			assert.strictEqual(resourceUri.scheme, 'githubcommit');
-			assert.strictEqual(originalUri.scheme, 'githubcommit');
-			assert.strictEqual(modifiedUri.scheme, 'githubcommit');
+			assert.strictEqual(resourceUri.scheme, 'azdocommit');
+			assert.strictEqual(originalUri.scheme, 'azdocommit');
+			assert.strictEqual(modifiedUri.scheme, 'azdocommit');
 			assert.deepStrictEqual(JSON.parse(originalUri.query), {
 				commit: mergeBase,
 				owner: repo.remote.owner,
