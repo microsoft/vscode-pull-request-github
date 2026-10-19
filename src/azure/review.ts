@@ -26,6 +26,7 @@ export interface DraftComment {
 	context?: ThreadContext;
 	iteration?: number;
 	changeTrackingId?: number;
+	createdAt?: string;
 }
 
 export interface PendingReview {
@@ -36,6 +37,49 @@ export interface PendingReview {
 	comments: DraftComment[];
 	summary?: string;
 	decision?: 10 | -10 | 0;
+}
+
+/** Session-only storage for callers that do not persist state. */
+export function memoryStorage(): Storage {
+	const values = new Map<string, unknown>();
+	return {
+		get<T>(key: string, defaultValue: T): T { return values.has(key) ? values.get(key) as T : defaultValue; },
+		async update(key: string, value: unknown) { values.set(key, value); },
+	};
+}
+
+/** Viewed state for changed files, keyed by the source blob that was viewed. */
+export class ViewedFiles {
+	private readonly storageKey = 'azureDevOps.viewedFiles.v1';
+	private operations: Promise<unknown> = Promise.resolve();
+
+	constructor(private readonly storage: Storage) { }
+
+	get(key: string): Record<string, string> {
+		return this.storage.get<Record<string, Record<string, string>>>(this.storageKey, {})[key] ?? {};
+	}
+
+	set(key: string, update: Record<string, string | undefined>): Promise<void> {
+		const result = this.operations.then(async () => {
+			const all = { ...this.storage.get<Record<string, Record<string, string>>>(this.storageKey, {}) };
+			const files = { ...(all[key] ?? {}) };
+			for (const [path, blob] of Object.entries(update)) {
+				if (blob === undefined) {
+					delete files[path];
+				} else {
+					files[path] = blob;
+				}
+			}
+			if (Object.keys(files).length) {
+				all[key] = files;
+			} else {
+				delete all[key];
+			}
+			await this.storage.update(this.storageKey, all);
+		});
+		this.operations = result.then(() => undefined, () => undefined);
+		return result;
+	}
 }
 
 /** Keep acknowledged posts out of the persisted queue so a failed submission can be resumed. */

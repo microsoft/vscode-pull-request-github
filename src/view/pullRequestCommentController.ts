@@ -460,7 +460,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 	public async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
-			await this.pullRequestModel.deleteReviewComment(comment.commentId);
+			await this.pullRequestModel.deleteReviewComment(comment.commentId, comment.rawComment.graphNodeId);
 		} else {
 			thread.comments = thread.comments.filter(c => !(c instanceof TemporaryComment && c.id === comment.id));
 		}

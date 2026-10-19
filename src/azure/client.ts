@@ -19,6 +19,14 @@ export interface Identity {
 export interface Commit {
 	commitId: string;
 	comment?: string;
+	author?: { name?: string; email?: string; date?: string };
+}
+
+export class AzureBinaryFileError extends Error {
+	constructor() {
+		super('This Azure DevOps file is binary. Open the pull request in your browser to view it.');
+		this.name = 'AzureBinaryFileError';
+	}
 }
 
 export interface PullRequest {
@@ -36,6 +44,8 @@ export interface PullRequest {
 	lastMergeCommit?: Commit;
 	mergeStatus?: string;
 	autoCompleteSetBy?: Identity;
+	labels?: { id: string; name: string; active?: boolean }[];
+	completionOptions?: { mergeStrategy?: string; deleteSourceBranch?: boolean };
 	creationDate?: string;
 	closedDate?: string;
 	forkSource?: { name?: string; repository: { id: string; name: string; project: { id: string; name: string } } };
@@ -52,7 +62,7 @@ export interface PullRequestIteration {
 export interface FileChange {
 	changeTrackingId: number;
 	changeType: string;
-	item: { path: string; isFolder?: boolean };
+	item: { path: string; isFolder?: boolean; objectId?: string };
 	originalPath?: string;
 }
 
@@ -268,15 +278,15 @@ export class AzureClient {
 		});
 	}
 
-	async updatePullRequest(id: number, update: { title?: string; description?: string; targetRefName?: string; isDraft?: boolean; status?: PullRequest['status']; autoCompleteSetBy?: { id: string } | null; lastMergeSourceCommit?: Commit; completionOptions?: { mergeStrategy: string; deleteSourceBranch: boolean; transitionWorkItems: boolean } }): Promise<PullRequest> {
+	async updatePullRequest(id: number, update: { title?: string; description?: string; targetRefName?: string; isDraft?: boolean; status?: PullRequest['status']; autoCompleteSetBy?: { id: string } | null; lastMergeSourceCommit?: Commit; completionOptions?: { mergeStrategy: string; deleteSourceBranch: boolean; transitionWorkItems: boolean; mergeCommitMessage?: string } }): Promise<PullRequest> {
 		return this.json(`${this.repositoryPath}/pullrequests/${id}`, 'PATCH', update);
 	}
 
-	async completePullRequest(pr: PullRequest, mergeStrategy: string, deleteSourceBranch: boolean, autoComplete = false): Promise<PullRequest> {
+	async completePullRequest(pr: PullRequest, mergeStrategy: string, deleteSourceBranch: boolean, autoComplete = false, mergeCommitMessage?: string): Promise<PullRequest> {
 		if (!pr.lastMergeSourceCommit?.commitId) {
 			throw new Error('The pull request source commit is not available. Refresh before completing the pull request.');
 		}
-		const completionOptions = { mergeStrategy, deleteSourceBranch, transitionWorkItems: false };
+		const completionOptions = { mergeStrategy, deleteSourceBranch, transitionWorkItems: false, mergeCommitMessage };
 		return this.updatePullRequest(pr.pullRequestId, autoComplete
 			? { autoCompleteSetBy: { id: (await this.currentUser()).id }, completionOptions }
 			: { status: 'completed', lastMergeSourceCommit: pr.lastMergeSourceCommit, completionOptions });
@@ -305,18 +315,31 @@ export class AzureClient {
 		return result;
 	}
 
-	async file(path: string, commit: string): Promise<string> {
+	async file(path: string, version: string, versionType: 'commit' | 'branch' = 'commit'): Promise<string> {
 		const item = await this.json<{ content?: string; contentMetadata?: { isBinary?: boolean } }>(`${this.repositoryPath}/items`, 'GET', undefined, {
-			path, 'versionDescriptor.version': commit, 'versionDescriptor.versionType': 'commit',
+			path, 'versionDescriptor.version': version, 'versionDescriptor.versionType': versionType,
 			includeContent: true, includeContentMetadata: true, '$format': 'json',
 		});
 		if (item.contentMetadata?.isBinary) {
-			throw new Error('This Azure DevOps file is binary. Open the pull request in your browser to view it.');
+			throw new AzureBinaryFileError();
 		}
 		if (typeof item.content !== 'string') {
 			throw new Error('Azure DevOps did not return file content.');
 		}
 		return item.content;
+	}
+
+	async commitChanges(commitId: string): Promise<{ changeType: string; item: { path: string; isFolder?: boolean }; sourceServerItem?: string }[]> {
+		type Change = { changeType: string; item: { path: string; isFolder?: boolean }; sourceServerItem?: string };
+		const result: Change[] = [];
+		const top = 1000;
+		let page: Change[];
+		do {
+			page = (await this.json<{ changes: Change[] }>(`${this.repositoryPath}/commits/${encodeURIComponent(commitId)}/changes`, 'GET', undefined,
+				{ top, skip: result.length })).changes;
+			result.push(...page);
+		} while (page.length === top);
+		return result;
 	}
 
 	async commits(id: number): Promise<Commit[]> {
@@ -387,6 +410,52 @@ export class AzureClient {
 			}
 		}
 		return [...users.values()];
+	}
+
+	/** Deletes a branch only if it still points to `expectedObjectId`. */
+	async deleteBranch(branch: string, expectedObjectId: string): Promise<void> {
+		const result = await this.json<{ value?: { success?: boolean; updateStatus?: string }[] }>(`${this.repositoryPath}/refs`, 'POST', [{
+			name: `refs/heads/${branch.replace(/^refs\/heads\//, '')}`, oldObjectId: expectedObjectId, newObjectId: '0000000000000000000000000000000000000000',
+		}]);
+		const update = result.value?.[0];
+		if (!update?.success) {
+			throw new Error(`Azure DevOps did not delete the branch (${update?.updateStatus ?? 'unknown status'}). It may have new commits.`);
+		}
+	}
+
+	async teams(): Promise<{ id: string; name: string }[]> {
+		const path = `${this.remote.organizationUrl}/_apis/projects/${encodeURIComponent(this.remote.project)}/teams`;
+		const teams: { id: string; name: string }[] = [];
+		let page: { id: string; name: string }[];
+		do {
+			page = await this.list<{ id: string; name: string }>(path, { '$top': 100, '$skip': teams.length });
+			teams.push(...page);
+		} while (page.length === 100);
+		return teams;
+	}
+
+	/** Checks Git repository security bits (for example PullRequestContribute = 16384) for the signed-in identity. */
+	async hasRepositoryPermission(projectId: string, repositoryId: string, permission: number): Promise<boolean> {
+		const gitNamespace = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87';
+		const result = await this.json<{ value?: unknown[] }>(`${this.remote.organizationUrl}/_apis/permissions/${gitNamespace}/${permission}`, 'GET', undefined, {
+			tokens: `repoV2/${projectId}/${repositoryId}`,
+		});
+		const value = result.value?.[0];
+		if (typeof value !== 'boolean') {
+			throw new Error('Azure DevOps did not return repository permissions.');
+		}
+		return value;
+	}
+
+	/** Returns how far `head` is ahead of and behind `base`. */
+	async compareBranches(base: string, head: string): Promise<{ aheadCount: number; behindCount: number }> {
+		const result = await this.json<{ aheadCount?: number; behindCount?: number }>(`${this.repositoryPath}/diffs/commits`, 'GET', undefined, {
+			baseVersion: base, baseVersionType: 'branch', targetVersion: head, targetVersionType: 'branch', '$top': 1,
+		});
+		if (!Number.isSafeInteger(result.aheadCount) || !Number.isSafeInteger(result.behindCount)) {
+			throw new Error('Azure DevOps did not return a branch comparison.');
+		}
+		return { aheadCount: result.aheadCount!, behindCount: result.behindCount! };
 	}
 
 	async labels(id: number): Promise<PullRequestLabel[]> {

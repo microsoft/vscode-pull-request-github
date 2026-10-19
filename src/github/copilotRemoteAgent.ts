@@ -48,6 +48,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	) {
 		super();
 
-		this._register(new CopilotPRWatcher(this.repositoriesManager, this.prsTreeModel));
+		if (!credentialStore.azure) {
+			this._register(new CopilotPRWatcher(this.repositoriesManager, this.prsTreeModel));
+		}
 	}
 }

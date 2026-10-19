@@ -46,6 +46,7 @@ import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '.
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+import { ProviderUnsupportedError } from '../providers/pullRequestProvider';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -1664,6 +1665,13 @@ Don't forget to commit your template file to the repository so that it can be us
 
 					progress.report({ message: vscode.l10n.t('Creating pull request'), increment: 70 - totalIncrement });
 					totalIncrement += 70 - totalIncrement;
+					if (headRepo.provider) {
+						const baseRepo = this._folderRepositoryManager.gitHubRepositories.find(repo =>
+							repo.remote.owner === message.args.owner && repo.remote.repositoryName === message.args.repo);
+						if (!baseRepo || !baseRepo.remote.gitProtocol.equals(headRepo.remote.gitProtocol)) {
+							throw new ProviderUnsupportedError('Creating a pull request from a fork');
+						}
+					}
 					const head = `${headRepo.remote.owner}:${compareBranchName}`;
 					this.checkGeneratedTitleAndDescription(message.args.title, message.args.body);
 					createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });

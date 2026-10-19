@@ -1818,6 +1818,10 @@ export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string
 }
 
 export function getPullsUrl(repo: GitHubRepository) {
+	const azure = repo.remote.gitProtocol.normalizeUri();
+	if (repo.remote.gitProtocol.azureRemote && azure) {
+		return vscode.Uri.joinPath(azure, 'pullrequests');
+	}
 	return vscode.Uri.parse(`https://${repo.remote.host}/${repo.remote.owner}/${repo.remote.repositoryName}/pulls`);
 }
 

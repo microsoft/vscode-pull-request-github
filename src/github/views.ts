@@ -91,6 +91,9 @@ export interface PullRequest extends Issue {
 	canUpdateStack?: boolean;
 	stackLoaded?: boolean;
 	stackLoadError?: boolean;
+	/** Optional sections that failed to load from Azure DevOps. Use null to clear a previous error. */
+	checksError?: string | null;
+	discussionsError?: string | null;
 	stackMergeStatus?: 'pending' | 'enqueued';
 	isCopilotOnMyBehalf: boolean;
 	isCurrentlyCheckedOut: boolean;

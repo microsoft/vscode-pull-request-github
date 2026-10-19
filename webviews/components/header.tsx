@@ -221,7 +221,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner
 	return (
 		<div className="button-group">
 			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }} />
-			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
+			<button title="Refresh with the latest data from Azure DevOps" onClick={refresh} className="secondary">
 				Refresh
 			</button>
 			{busy ? (

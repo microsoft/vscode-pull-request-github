@@ -545,7 +545,7 @@ describe('GitHub Pull Requests view', function () {
 		assert(treeItems[treeItems.length - 1].collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
-			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+			['Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 		);
 	});
 
@@ -984,7 +984,7 @@ describe('GitHub Pull Requests view', function () {
 		const treeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
-			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+			['Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 			'Tree should display categories after GitHub repositories are discovered',
 		);
 	});

@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
 import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
+import { AzureSessions } from './azure/sessions';
 import { registerCommands } from './commands';
 import { AuthProvider } from './common/authentication';
 import { commands, contexts } from './common/executeCommands';
@@ -22,25 +23,19 @@ import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
 import { isDescendant } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
-import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
+import { ExperimentationTelemetry } from './experimentationService';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { FolderRepositoryManagerResolver } from './github/folderRepositoryManagerResolver';
-import { IssueOverviewPanel } from './github/issueOverview';
 import { OverviewRestorer } from './github/overviewRestorer';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
-import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
-import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
-import { StateManager } from './issues/stateManager';
-import { IssueContextProvider } from './lm/issueContextProvider';
 import { PullRequestContextProvider } from './lm/pullRequestContextProvider';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
-import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
 import { NotificationsManager } from './notifications/notificationsManager';
 import { NotificationsProvider } from './notifications/notificationsProvider';
 import { ThemeWatcher } from './themeWatcher';
@@ -159,8 +154,7 @@ async function init(
 
 	liveshareApiPromise.then(api => {
 		if (api) {
-			// register the pull request provider to suggest PR contacts
-			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
+			Logger.debug('Live Share contact suggestions use GitHub accounts and are unavailable for Azure DevOps.', ACTIVATION);
 		}
 	});
 
@@ -269,44 +263,29 @@ async function init(
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
-	const issueStateManager = new StateManager(git, reposManager, context);
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry, issueStateManager);
-	context.subscriptions.push(issuesFeatures);
-	await issuesFeatures.initialize();
-
+	// Work items (the original issue features) and GitHub notifications are deferred for Azure DevOps.
 	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
-		if (e.provider.id !== AuthProvider.github && e.provider.id !== AuthProvider.githubEnterprise) {
+		if (e.provider.id !== AuthProvider.azureDevOps) {
 			return;
 		}
 		const clearAuthState = e.accountChanged || e.serverChanged;
 		if (clearAuthState) {
-			IssueOverviewPanel.clearAll();
 			PullRequestOverviewPanel.clearAll();
 			activePrViewCoordinator.clearForAuthChange();
 			createPrHelper.clearForAuthChange();
 			const reviewsCleanup = reviewsManager.clearForAuthChange();
-			issueStateManager.clearForAuthChange();
-			notificationsManager.clear();
 			reposManager.clearForAuthChange();
 			await reviewsCleanup;
 		}
 		await reposManager.refreshRepositories();
 		await Promise.all(reviewsManager.reviewManagers.map(reviewManager => reviewManager.updateState(true)));
 		reviewsManager.refreshPullRequestsTree(!clearAuthState);
-		await issueStateManager.refreshAfterAuthChange();
-		notificationsManager.refresh();
 	}));
 
 	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, context);
 	context.subscriptions.push(pullRequestContextProvider);
 	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('azdopr', pullRequestContextProvider));
 	context.subscriptions.push(vscode.chat.registerChatTabContextProvider({ uri: { scheme: 'webview-panel', pattern: '**/webview-AzureDevOpsPullRequestOverview**' } }, 'azdopr', pullRequestContextProvider));
-	const issueContextProvider = new IssueContextProvider(issueStateManager, reposManager, context);
-	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('azdoworkitem', issueContextProvider));
-	context.subscriptions.push(vscode.chat.registerChatTabContextProvider({ uri: { scheme: 'webview-panel', pattern: '**/webview-AzureDevOpsIssueOverview**' } }, 'azdoworkitem', issueContextProvider));
-
-	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry, notificationsManager);
-	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());
 
@@ -456,12 +435,9 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	PersistentState.init(context);
 	await migrate(context);
 	TemporaryState.init(context);
-	Logger.debug('Creating credential store.', 'Activation');
-	const credentialStore = new CredentialStore(telemetry, context);
+	Logger.debug('Creating Azure DevOps credential store.', 'Activation');
+	const credentialStore = new CredentialStore(telemetry, context, new AzureSessions(context));
 	context.subscriptions.push(credentialStore);
-	const experimentationService = await createExperimentationService(context, telemetry);
-	await experimentationService.initializePromise;
-	await experimentationService.isCachedFlightEnabled('githubaa');
 	await credentialStore.create();
 
 	const reposManager = new RepositoriesManager(credentialStore, telemetry);

@@ -26,6 +26,7 @@ import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { compareIgnoreCase, formatError } from '../common/utils';
+import { ProviderCommentReference } from '../providers/pullRequestProvider';
 
 export interface IssueChangeEvent {
 	title?: true;
@@ -234,7 +235,22 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		return schema.UpdateIssue;
 	}
 
+	/** Azure comment IDs are local to a thread; the composite graph node ID identifies the comment. */
+	protected providerCommentReference(graphNodeId: string | undefined): ProviderCommentReference {
+		const match = /^(?<threadId>[1-9]\d*):(?<commentId>[1-9]\d*)$/.exec(graphNodeId ?? '');
+		if (!match?.groups) {
+			throw new Error(vscode.l10n.t('This Azure DevOps comment reference is incomplete. Refresh the pull request and try again.'));
+		}
+		return { threadId: match.groups.threadId, commentId: match.groups.commentId };
+	}
+
 	async edit(toEdit: IIssueEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
+		const provider = this.githubRepository.provider;
+		if (provider) {
+			const updated = await provider.edit(this.number, toEdit);
+			this.update({ ...this.item, title: updated.title, titleHTML: updated.titleHTML, body: updated.body, bodyHTML: updated.bodyHTML, updatedAt: updated.updatedAt });
+			return { body: updated.body, bodyHTML: updated.bodyHTML ?? '', title: updated.title, titleHTML: updated.titleHTML };
+		}
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -274,6 +290,11 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	}
 
 	async createIssueComment(text: string): Promise<IComment> {
+		if (this.githubRepository.provider) {
+			const comment = await this.githubRepository.provider.addComment(this.number, text);
+			this._onDidChange.fire({ timeline: true });
+			return comment;
+		}
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddIssueCommentResponse>({
 			mutation: schema.AddIssueComment,
@@ -290,6 +311,11 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	}
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
+		if (this.githubRepository.provider) {
+			const updated = await this.githubRepository.provider.editComment(this.number, this.providerCommentReference(comment.graphNodeId), text);
+			this._onDidChange.fire({ timeline: true });
+			return updated;
+		}
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -310,7 +336,12 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		}
 	}
 
-	async deleteIssueComment(commentId: string): Promise<void> {
+	async deleteIssueComment(commentId: string, graphNodeId?: string): Promise<void> {
+		if (this.githubRepository.provider) {
+			await this.githubRepository.provider.deleteComment(this.number, this.providerCommentReference(graphNodeId));
+			this._onDidChange.fire({ timeline: true });
+			return;
+		}
 		try {
 			const { octokit, remote } = await this.githubRepository.ensure();
 
@@ -326,6 +357,12 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	}
 
 	async setLabels(labels: string[]): Promise<void> {
+		if (this.githubRepository.provider) {
+			await this.githubRepository.provider.setLabels(this.number, labels);
+			this.item.labels = (await this.githubRepository.provider.labels(this.number));
+			this._onDidChange.fire({ labels: true });
+			return;
+		}
 		const { octokit, remote } = await this.githubRepository.ensure();
 		try {
 			const result = await octokit.call(octokit.api.issues.setLabels, {
@@ -349,6 +386,9 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	}
 
 	async removeLabel(label: string): Promise<void> {
+		if (this.githubRepository.provider) {
+			return this.setLabels(this.item.labels.map(existing => existing.name).filter(name => name !== label));
+		}
 		const { octokit, remote } = await this.githubRepository.ensure();
 		const result = await octokit.call(octokit.api.issues.removeLabel, {
 			owner: remote.owner,
@@ -665,6 +705,9 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	}
 
 	async close(): Promise<{ item: Issue, closedEvent: ClosedEvent }> {
+		if (this.githubRepository.provider) {
+			throw new Error(vscode.l10n.t('Use the pull request abandon action for Azure DevOps.'));
+		}
 		const { octokit, remote } = await this.githubRepository.ensure();
 		const ret = await octokit.call(octokit.api.issues.update, {
 			owner: remote.owner,

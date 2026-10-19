@@ -8,7 +8,7 @@ import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
-import { StatusChecksSection } from '../components/merge';
+import { SectionError, StatusChecksSection } from '../components/merge';
 import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
 import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
 import { Timeline } from '../components/timeline';
@@ -79,6 +79,7 @@ const Main = (pr: PullRequest) => (
 		<div id="description">
 			<CommentView isPRDescription comment={pr} />
 		</div>
+		{pr.discussionsError ? <SectionError message={`Unable to load discussions: ${pr.discussionsError}`} /> : null}
 		<Timeline events={pr.events} isIssue={pr.isIssue} />
 		<StatusChecksSection pr={pr} isSimple={false} />
 		<AddComment {...pr} />

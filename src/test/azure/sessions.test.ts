@@ -188,7 +188,7 @@ describe('Azure-only repository sessions', () => {
 		assert.strictEqual(repository.remote.githubServerType, GitHubServerType.AzureDevOps);
 		assert.strictEqual(await repository.getDefaultBranch(), 'main');
 		assert.strictEqual((await repository.getAuthenticatedUser()).id, 'First');
-		assert.throws(() => repository.hub, /GitHub transport is unavailable/);
+		assert.throws(() => repository.hub, /GitHub transport is not supported/);
 		await manager.updateRepositories();
 		assert.strictEqual(manager.gitHubRepositories[0], repository);
 		assert.strictEqual(legacyTransport.callCount, 0);

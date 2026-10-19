@@ -89,13 +89,8 @@
 		"chatContext": [
 			{
 				"id": "azdopr",
-				"icon": "$(github)",
-				"displayName": "GitHub Pull Requests"
-			},
-			{
-				"id": "azdoworkitem",
-				"icon": "$(issues)",
-				"displayName": "GitHub Issues"
+				"icon": "$(git-pull-request)",
+				"displayName": "Azure DevOps Pull Requests"
 			}
 		],
 		"configuration": {
@@ -241,28 +236,24 @@
 							}
 						},
 						"default": {
-							"label": "%azureDevOpsPullRequests.queries.assignedToMe%",
-							"query": "repo:${owner}/${repository} is:open assignee:${user}"
+							"label": "%azureDevOpsPullRequests.queries.waitingForMyReview%",
+							"query": "is:open review-requested:${user}"
 						}
 					},
 					"scope": "resource",
 					"markdownDescription": "%azureDevOpsPullRequests.queries.markdownDescription%",
 					"default": [
 						{
-							"label": "%azureDevOpsPullRequests.queries.copilotOnMyBehalf%",
-							"query": "repo:${owner}/${repository} is:open author:copilot assignee:${user}"
-						},
-						{
 							"label": "Local Pull Request Branches",
 							"query": "default"
 						},
 						{
 							"label": "%azureDevOpsPullRequests.queries.waitingForMyReview%",
-							"query": "repo:${owner}/${repository} is:open review-requested:${user}"
+							"query": "is:open review-requested:${user}"
 						},
 						{
 							"label": "%azureDevOpsPullRequests.queries.createdByMe%",
-							"query": "repo:${owner}/${repository} is:open author:${user}"
+							"query": "is:open author:${user}"
 						},
 						{
 							"label": "All Open",
@@ -941,7 +932,7 @@
 				{
 					"id": "azure-devops-pull-requests",
 					"title": "%view.github.pull.requests.name%",
-					"icon": "$(github)"
+					"icon": "$(azure-devops)"
 				},
 				{
 					"id": "azure-devops-pull-request",
@@ -968,14 +959,14 @@
 				{
 					"id": "issues:azureDevOps",
 					"name": "%view.issues.github.name%",
-					"when": "(ReposManagerStateContext != NeedsAuthentication && !azureDevOps:resolvingConflicts) && !isSessionsWindow",
+					"when": "false",
 					"icon": "$(issues)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
 					"id": "notifications:azureDevOps",
 					"name": "%view.notifications.github.name%",
-					"when": "(ReposManagerStateContext != NeedsAuthentication && !azureDevOps:resolvingConflicts && (remoteName != codespaces || !isWeb)) && !isSessionsWindow",
+					"when": "false",
 					"icon": "$(bell)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%",
 					"visibility": "collapsed"
@@ -1283,6 +1274,11 @@
 			{
 				"command": "azdo.pr.signin",
 				"title": "%command.azdo.pr.signin.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "azdo.pr.signout",
+				"title": "%command.azdo.pr.signout.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2025,12 +2021,7 @@
 			{
 				"view": "azureDevOps:login",
 				"when": "(ReposManagerStateContext == NeedsAuthentication && !azureDevOps:hasGitHubRemotes && gitOpenRepositoryCount) && !isSessionsWindow",
-				"contents": "%welcome.github.loginNoEnterprise.contents%"
-			},
-			{
-				"view": "azureDevOps:login",
-				"when": "((ReposManagerStateContext == NeedsAuthentication) && ((!azureDevOps:hasGitHubRemotes && gitOpenRepositoryCount) || azureDevOps:hasEnterpriseUris)) && !isSessionsWindow",
-				"contents": "%welcome.github.loginWithEnterprise.contents%"
+				"contents": "%welcome.github.login.contents%"
 			},
 			{
 				"view": "pr:azureDevOps",
@@ -2063,54 +2054,9 @@
 				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
-				"view": "issues:azureDevOps",
-				"when": "(git.state != initialized && !azureDevOps:initialized && workspaceFolderCount > 0) && !isSessionsWindow",
-				"contents": "%welcome.issues.github.uninitialized.contents%"
-			},
-			{
-				"view": "issues:azureDevOps",
-				"when": "(workspaceFolderCount > 0 && azureDevOps:loadingPrsTree) && !isSessionsWindow",
-				"contents": "%welcome.issues.github.uninitialized.contents%"
-			},
-			{
-				"view": "issues:azureDevOps",
-				"when": "(workspaceFolderCount == 0) && !isSessionsWindow",
-				"contents": "%welcome.issues.github.noFolder.contents%"
-			},
-			{
-				"view": "issues:azureDevOps",
-				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0) && !isSessionsWindow",
-				"contents": "%welcome.issues.github.noRepo.contents%"
-			},
-			{
-				"view": "issues:azureDevOps",
-				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1) && !isSessionsWindow",
-				"contents": "%welcome.pr.github.parentRepo.contents%"
-			},
-			{
-				"view": "issues:azureDevOps",
-				"when": "(git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1) && !isSessionsWindow",
-				"contents": "%welcome.pr.github.parentRepo.contents%"
-			},
-			{
 				"view": "azureDevOps:activePullRequest:welcome",
 				"when": "(!azureDevOps:stateValidated) && !isSessionsWindow",
 				"contents": "%welcome.github.azdo_activePullRequest.contents%"
-			},
-			{
-				"view": "notifications:azureDevOps",
-				"when": "(!azureDevOps:notificationCount && workspaceFolderCount > 0) && !isSessionsWindow",
-				"contents": "%welcome.github.notificationsLoading.contents%"
-			},
-			{
-				"view": "notifications:azureDevOps",
-				"when": "(workspaceFolderCount == 0) && !isSessionsWindow",
-				"contents": "%welcome.issues.github.noFolder.contents%"
-			},
-			{
-				"view": "notifications:azureDevOps",
-				"when": "(ReposManagerStateContext == RepositoriesLoaded && azureDevOps:notificationCount == -1) && !isSessionsWindow",
-				"contents": "%welcome.github.notifications.contents%"
 			}
 		],
 		"keybindings": [
@@ -2162,19 +2108,19 @@
 				},
 				{
 					"command": "azdo.pr.checkoutOnCodespacesFromDescription",
-					"when": "!isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.openIssueOnGitHub",
-					"when": "!isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.createIssueFromSelection",
-					"when": "!isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.createIssueFromClipboard",
-					"when": "!isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.github.api.preloadPullRequest",
@@ -2182,7 +2128,7 @@
 				},
 				{
 					"command": "azdo.pr.addAttestationCommit",
-					"when": "(config.azureDevOpsPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.configureRemotes",
@@ -2458,11 +2404,11 @@
 				},
 				{
 					"command": "azdo.pr.signinenterprise",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.selectEnterpriseAccount",
-					"when": "azureDevOps:hasEnterpriseUris && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.signinAndRefreshList",
@@ -2546,7 +2492,7 @@
 				},
 				{
 					"command": "azdo.pr.copyVscodeDevPrLink",
-					"when": "(azureDevOps:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.copyPrLink",
@@ -2650,19 +2596,19 @@
 				},
 				{
 					"command": "azdo.issue.copyGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.openGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.openIssue",
@@ -2726,7 +2672,7 @@
 				},
 				{
 					"command": "azdo.issue.createIssue",
-					"when": "(azureDevOps:hasGitHubRemotes && azureDevOps:authenticated) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.createIssueFromFile",
@@ -2794,7 +2740,7 @@
 				},
 				{
 					"command": "azdo.issues.openIssuesWebsite",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.chatSummarizeIssue",
@@ -2915,22 +2861,22 @@
 				},
 				{
 					"command": "azdo.issue.createIssue",
-					"when": "(view == issues:azureDevOps && azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@1"
 				},
 				{
 					"command": "azdo.issue.refresh",
-					"when": "(view == issues:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@2"
 				},
 				{
 					"command": "azdo.issues.openIssuesWebsite",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == issues:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "overflow@1"
 				},
 				{
 					"command": "azdo.issues.configureIssuesViewlet",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == issues:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "overflow@2"
 				},
 				{
@@ -2950,7 +2896,7 @@
 				},
 				{
 					"command": "azdo.pr.addAssigneesToNewPr",
-					"when": "(view == azureDevOps:createPullRequestWebview && azureDevOps:createPrPermissions != READ && azureDevOps:createPrPermissions) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@1"
 				},
 				{
@@ -2965,12 +2911,12 @@
 				},
 				{
 					"command": "azdo.pr.addMilestoneToNewPr",
-					"when": "(view == azureDevOps:createPullRequestWebview && azureDevOps:createPrPermissions != READ && azureDevOps:createPrPermissions) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@4"
 				},
 				{
 					"command": "azdo.pr.addProjectsToNewPr",
-					"when": "(view == azureDevOps:createPullRequestWebview && azureDevOps:createPrPermissions != READ && azureDevOps:createPrPermissions) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@5"
 				},
 				{
@@ -2980,39 +2926,39 @@
 				},
 				{
 					"command": "azdo.notifications.sortByTimestamp",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == notifications:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "sortNotifications@1"
 				},
 				{
 					"command": "azdo.notifications.sortByPriority",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == notifications:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "sortNotifications@2"
 				},
 				{
 					"command": "azdo.notifications.configureNotificationsViewlet",
-					"when": "(view == notifications:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "sortNotifications@3"
 				},
 				{
 					"command": "azdo.notifications.markPullRequestsAsRead",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == notifications:azureDevOps && config.azureDevOpsPullRequests.experimental.notificationsMarkPullRequests == markAsRead) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@0"
 				},
 				{
 					"command": "azdo.notifications.markPullRequestsAsDone",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == notifications:azureDevOps && config.azureDevOpsPullRequests.experimental.notificationsMarkPullRequests == markAsDone) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@0"
 				},
 				{
 					"command": "azdo.notifications.refresh",
-					"when": "(gitHubOpenRepositoryCount != 0 && azureDevOps:initialized && view == notifications:azureDevOps) && !isSessionsWindow",
+					"when": "false",
 					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [
 				{
 					"command": "azdo.pr.addToStack",
-					"when": "(view == pr:azureDevOps && viewItem =~ /pullrequest.*:stackable/ && azureDevOps:canAddToStack) && !isSessionsWindow",
+					"when": "false",
 					"group": "0_stack@1"
 				},
 				{
@@ -3027,12 +2973,12 @@
 				},
 				{
 					"command": "azdo.pr.pickOnVscodeDev",
-					"when": "(view == pr:azureDevOps && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_pullrequest@2"
 				},
 				{
 					"command": "azdo.pr.pickOnCodespaces",
-					"when": "(view == pr:azureDevOps && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_pullrequest@3"
 				},
 				{
@@ -3067,17 +3013,17 @@
 				},
 				{
 					"command": "azdo.pr.dismissNotification",
-					"when": "(view == pr:azureDevOps && viewItem =~ /pullrequest(.*):notification/) && !isSessionsWindow",
+					"when": "false",
 					"group": "4_pullrequest@5"
 				},
 				{
 					"command": "azdo.pr.markAllCopilotNotificationsAsRead",
-					"when": "(view == pr:azureDevOps && viewItem =~ /copilot-query/) && !isSessionsWindow",
+					"when": "false",
 					"group": "0_category@1"
 				},
 				{
 					"command": "azdo.issue.chatSummarizeIssue",
-					"when": "(view == pr:azureDevOps && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.azureDevOpsPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow",
+					"when": "false",
 					"group": "5_pullrequest@2"
 				},
 				{
@@ -3103,32 +3049,32 @@
 				{
 					"command": "azdo.notification.chatSummarizeNotification",
 					"group": "issues_0@0",
-					"when": "(view == notifications:azureDevOps && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.azureDevOpsPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.notification.openOnGitHub",
 					"group": "issues_0@1",
-					"when": "(view == notifications:azureDevOps && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.notification.markAsRead",
 					"group": "inline@3",
-					"when": "(view == notifications:azureDevOps && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.notification.markAsRead",
 					"group": "issues_0@2",
-					"when": "(view == notifications:azureDevOps && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.notification.markAsDone",
 					"group": "inline@4",
-					"when": "(view == notifications:azureDevOps && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.notification.markAsDone",
 					"group": "issues_0@3",
-					"when": "(view == notifications:azureDevOps && (viewItem == 'Issue' || viewItem == 'PullRequest')) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.openPullRequestOnGitHub",
@@ -3190,43 +3136,43 @@
 				},
 				{
 					"command": "azdo.issue.openIssue",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?(current|continue)?issue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_0@1"
 				},
 				{
 					"command": "azdo.issue.goToLinkedCode",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^link(current|continue)?issue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_0@0"
 				},
 				{
 					"command": "azdo.issue.startWorking",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?issue/ && config.azureDevOpsWorkItems.useBranchForIssues != on) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline@2"
 				},
 				{
 					"command": "azdo.issue.startWorkingBranchDescriptiveTitle",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?issue/ && config.azureDevOpsWorkItems.useBranchForIssues == on) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline@2"
 				},
 				{
 					"command": "azdo.issue.startWorking",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?continueissue/ && config.azureDevOpsWorkItems.useBranchForIssues != on) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline@2"
 				},
 				{
 					"command": "azdo.issue.startWorkingBranchDescriptiveTitle",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?continueissue/ && config.azureDevOpsWorkItems.useBranchForIssues == on) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline@2"
 				},
 				{
 					"command": "azdo.issue.startWorking",
 					"alt": "azdo.issue.startWorkingBranchPrompt",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?issue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_0@2"
 				},
 				{
 					"command": "azdo.issue.continueWorking",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?continueissue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_0@2"
 				},
 				{
@@ -3236,52 +3182,52 @@
 				},
 				{
 					"command": "azdo.issue.stopWorking",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?currentissue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_0@3"
 				},
 				{
 					"command": "azdo.issue.stopWorking",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?currentissue/ && config.azureDevOpsWorkItems.useBranchForIssues != on) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline@1"
 				},
 				{
 					"command": "azdo.issue.stopWorkingBranchDescriptiveTitle",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?currentissue/ && config.azureDevOpsWorkItems.useBranchForIssues == on) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline@1"
 				},
 				{
 					"command": "azdo.issue.chatSummarizeIssue",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.azureDevOpsPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_1@0"
 				},
 				{
 					"command": "azdo.issue.chatSuggestFix",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.azureDevOpsPullRequests.experimental.chat && !config.chat.disableAIFeatures) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_1@1"
 				},
 				{
 					"command": "azdo.issue.assignToCodingAgent",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?(current|continue)?issue/ && config.azureDevOpsPullRequests.codingAgent.enabled && !config.chat.disableAIFeatures) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_1@2"
 				},
 				{
 					"command": "azdo.issue.copyIssueNumber",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?(current|continue)?issue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_2@1"
 				},
 				{
 					"command": "azdo.issue.copyIssueUrl",
-					"when": "(view == issues:azureDevOps && viewItem =~ /^(link)?(current|continue)?issue/) && !isSessionsWindow",
+					"when": "false",
 					"group": "issues_2@2"
 				},
 				{
 					"command": "azdo.issue.editQuery",
-					"when": "(view == issues:azureDevOps && viewItem == query) && !isSessionsWindow",
+					"when": "false",
 					"group": "inline"
 				},
 				{
 					"command": "azdo.issue.editQuery",
-					"when": "(view == issues:azureDevOps && viewItem == query) && !isSessionsWindow"
+					"when": "false"
 				}
 			],
 			"commentsView/commentThread/context": [
@@ -3340,7 +3286,7 @@
 				{
 					"command": "azdo.issue.createIssueFromFile",
 					"group": "navigation",
-					"when": "(resourceFilename == NewIssue.md) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.markFileAsViewed",
@@ -3438,7 +3384,7 @@
 				{
 					"command": "azdo.pr.uploadFile",
 					"group": "inline@4",
-					"when": "commentController =~ /^github-(browse|review)/"
+					"when": "false"
 				}
 			],
 			"comments/commentThread/additionalActions": [
@@ -3542,39 +3488,39 @@
 			"editor/context/copy": [
 				{
 					"command": "azdo.issue.copyGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "3_azureDevOpsPullRequests@0"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "3_azureDevOpsPullRequests@1"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "3_azureDevOpsPullRequests@2"
 				}
 			],
 			"editor/context/share": [
 				{
 					"command": "azdo.issue.copyGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@0"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@1"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@2"
 				},
 				{
 					"command": "azdo.issue.copyGithubDevLink",
-					"when": "(azureDevOps:hasGitHubRemotes && remoteName == codespaces && isWeb || azureDevOps:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
+					"when": "false",
 					"group": "0_vscode@0"
 				}
 			],
@@ -3588,49 +3534,49 @@
 			"file/share": [
 				{
 					"command": "azdo.issue.copyGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@0"
 				},
 				{
 					"command": "azdo.pr.copyVscodeDevPrLink",
-					"when": "(azureDevOps:hasGitHubRemotes && azureDevOps:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@1"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@2"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@3"
 				},
 				{
 					"command": "azdo.issue.copyGithubDevLinkFile",
-					"when": "(azureDevOps:hasGitHubRemotes && remoteName == codespaces && isWeb || azureDevOps:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
+					"when": "false",
 					"group": "0_vscode@0"
 				}
 			],
 			"editor/lineNumber/context": [
 				{
 					"command": "azdo.issue.copyGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_cutcopypaste@3"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_cutcopypaste@4"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLink",
-					"when": "(azureDevOps:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_cutcopypaste@5"
 				},
 				{
 					"command": "azdo.issue.copyGithubDevLink",
-					"when": "(azureDevOps:hasGitHubRemotes && remoteName == codespaces && isWeb || azureDevOps:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_cutcopypaste@0"
 				}
 			],
@@ -3644,55 +3590,55 @@
 			"editor/title/context/share": [
 				{
 					"command": "azdo.issue.copyGithubPermalinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@10"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@11"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "1_azureDevOpsPullRequests@12"
 				},
 				{
 					"command": "azdo.issue.copyGithubDevLinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes && remoteName == codespaces && isWeb || azureDevOps:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
+					"when": "false",
 					"group": "0_vscode@0"
 				}
 			],
 			"explorer/context/share": [
 				{
 					"command": "azdo.issue.copyGithubPermalinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "5_githubPulLRequests@10"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "5_githubPulLRequests@11"
 				},
 				{
 					"command": "azdo.issue.copyGithubHeadLinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow",
+					"when": "false",
 					"group": "5_githubPulLRequests@12"
 				},
 				{
 					"command": "azdo.issue.copyGithubDevLinkWithoutRange",
-					"when": "(azureDevOps:hasGitHubRemotes && remoteName == codespaces && isWeb || azureDevOps:hasGitHubRemotes && embedderIdentifier == github.dev) && !isSessionsWindow",
+					"when": "false",
 					"group": "0_vscode@0"
 				}
 			],
 			"menuBar/edit/copy": [
 				{
 					"command": "azdo.issue.copyGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.issue.copyMarkdownGithubPermalink",
-					"when": "(azureDevOps:hasGitHubRemotes) && !isSessionsWindow"
+					"when": "false"
 				}
 			],
 			"remoteHub/pullRequest": [
@@ -3750,11 +3696,11 @@
 				},
 				{
 					"command": "azdo.review.approveOnDotCom",
-					"when": "(webviewId == 'azureDevOps:activePullRequest' && azureDevOps:reviewCommentMenu && azureDevOps:reviewCommentApproveOnDotCom) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.review.requestChangesOnDotCom",
-					"when": "(webviewId == 'azureDevOps:activePullRequest' && azureDevOps:reviewCommentMenu && azureDevOps:reviewCommentRequestChangesOnDotCom) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.review.commentDescription",
@@ -3773,11 +3719,11 @@
 				},
 				{
 					"command": "azdo.review.approveOnDotComDescription",
-					"when": "webviewId == AzureDevOpsPullRequestOverview && azureDevOps:reviewCommentMenu && azureDevOps:reviewCommentApproveOnDotCom"
+					"when": "false"
 				},
 				{
 					"command": "azdo.review.requestChangesOnDotComDescription",
-					"when": "webviewId == AzureDevOpsPullRequestOverview && azureDevOps:reviewCommentMenu && azureDevOps:reviewCommentRequestChangesOnDotCom"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.copyPrLink",
@@ -3785,7 +3731,7 @@
 				},
 				{
 					"command": "azdo.pr.copyVscodeDevPrLink",
-					"when": "webviewId == AzureDevOpsPullRequestOverview && azureDevOps:copyMenu"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.readyForReviewDescription",
@@ -3816,16 +3762,16 @@
 				{
 					"command": "azdo.pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@2",
-					"when": "(webviewId == AzureDevOpsPullRequestOverview && azureDevOps:checkoutMenu) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.checkoutOnCodespacesFromDescription",
 					"group": "checkout@3",
-					"when": "(webviewId == AzureDevOpsPullRequestOverview && azureDevOps:checkoutMenu) && !isSessionsWindow"
+					"when": "false"
 				},
 				{
 					"command": "azdo.pr.openSessionLogFromDescription",
-					"when": "webviewId == AzureDevOpsPullRequestOverview && azureDevOps:codingAgentMenu"
+					"when": "false"
 				}
 			],
 			"chat/chatSessions": [
@@ -3836,7 +3782,7 @@
 				},
 				{
 					"command": "azdo.pr.checkoutChatSessionPullRequest",
-					"when": "chatSessionType == copilot-cloud-agent && !config.chat.disableAIFeatures",
+					"when": "false",
 					"group": "context"
 				}
 			],

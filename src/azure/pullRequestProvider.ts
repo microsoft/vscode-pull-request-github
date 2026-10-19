@@ -3,14 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AzureClient, PullRequest as AzurePullRequest, Identity, PolicyEvaluation, PullRequestStatus, ReviewThread, ThreadComment } from './client';
+import { AzureApiError, AzureBinaryFileError, AzureClient, PullRequest as AzurePullRequest, Identity, PolicyEvaluation, PullRequestStatus, ReviewThread, ThreadComment, ThreadContext } from './client';
+import { escapeHtml, renderAzureMarkdown } from './markdown';
+import { unifiedPatch } from './patch';
 import { azureRepositoryUrl } from './remote';
-import { PendingReviews } from './review';
-import { DiffSide, IComment, IReviewThread, SubjectType } from '../common/comment';
+import { DraftComment, memoryStorage, PendingReviews, ViewedFiles } from './review';
+import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
 import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
-import { AccountType, CheckState, IAccount, IIssueEditData, ILabel, MergeMethod, PullRequest, PullRequestChecks, PullRequestMergeability, ReviewEventEnum } from '../github/interface';
-import { PROVIDER_PAGE_SIZE, ProviderCommentReference, ProviderDiscussions, ProviderFileChange, ProviderListOptions, ProviderPage, ProviderRepositoryInfo, ProviderRevision, ProviderSection, ProviderSnapshot, PullRequestProvider } from '../providers/pullRequestProvider';
+import { AccountType, CheckState, IAccount, IIssueEditData, ILabel, IRawFileChange, ITeam, MergeMethod, PullRequest, PullRequestChecks, PullRequestMergeability, ReviewEventEnum } from '../github/interface';
+import { PROVIDER_PAGE_SIZE, ProviderCommentLocation, ProviderCommentReference, ProviderCommit, ProviderDiscussions, ProviderDraftTarget, ProviderFileChange, ProviderListOptions, ProviderPage, ProviderRepositoryInfo, ProviderRevision, ProviderSection, ProviderSnapshot, PullRequestProvider } from '../providers/pullRequestProvider';
 
 const mergeStrategies: Record<MergeMethod, string> = { merge: 'noFastForward', squash: 'squash', rebase: 'rebase' };
 
@@ -45,6 +47,27 @@ function mergeability(status: string | undefined): PullRequestMergeability {
 		default:
 			return PullRequestMergeability.Unknown;
 	}
+}
+
+/** Git mergeability alone ignores branch policies; completion requires both to allow it. */
+function combinedMergeability(status: string | undefined, checks: PullRequestChecks | undefined): PullRequestMergeability {
+	const base = mergeability(status);
+	if (base !== PullRequestMergeability.Mergeable) {
+		return base;
+	}
+	if (!checks) {
+		return PullRequestMergeability.Unknown;
+	}
+	const blocked = checks.statuses.some(check => check.isRequired && check.state !== CheckState.Success && check.state !== CheckState.Neutral);
+	return blocked ? PullRequestMergeability.NotMergeable : PullRequestMergeability.Mergeable;
+}
+
+function changeType(value: string): GitChangeType {
+	if (/\brename\b/i.test(value)) { return GitChangeType.RENAME; }
+	if (/\badd\b/i.test(value)) { return GitChangeType.ADD; }
+	if (/\bdelete\b/i.test(value)) { return GitChangeType.DELETE; }
+	if (/\bedit\b/i.test(value)) { return GitChangeType.MODIFY; }
+	throw new Error(`Azure DevOps returned an unsupported file change type: ${value}`);
 }
 
 function checkState(state: string): CheckState {
@@ -91,13 +114,18 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		mergeQueue: false, stacks: false, autoMerge: true,
 	});
 
-	constructor(private readonly client: AzureClient, private readonly reviews: PendingReviews) { }
+	constructor(
+		private readonly client: AzureClient,
+		private readonly reviews: PendingReviews,
+		private readonly viewed: ViewedFiles = new ViewedFiles(memoryStorage()),
+	) { }
 
 	private account(identity: Identity): IAccount {
 		return {
 			id: identity.id,
 			login: identity.id,
 			name: identity.displayName,
+			specialDisplayName: identity.displayName,
 			email: identity.uniqueName,
 			avatarUrl: identity.imageUrl,
 			url: azureRepositoryUrl(this.client.remote),
@@ -137,8 +165,9 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			number: pr.pullRequestId,
 			url: this.client.pullRequestUrl(pr.pullRequestId),
 			title: pr.title,
-			titleHTML: '',
+			titleHTML: escapeHtml(pr.title),
 			body: pr.description ?? '',
+			bodyHTML: renderAzureMarkdown(pr.description),
 			state: pr.status === 'active' ? 'open' : 'closed',
 			isDraft: pr.isDraft,
 			merged: pr.status === 'completed',
@@ -156,6 +185,9 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			viewerCanUpdate: false,
 			mergeable: mergeability(pr.mergeStatus),
 			autoMerge: !!pr.autoCompleteSetBy,
+			autoMergeMethod: pr.autoCompleteSetBy
+				? (Object.entries(mergeStrategies) as [MergeMethod, string][]).find(([, strategy]) => strategy === pr.completionOptions?.mergeStrategy)?.[0]
+				: undefined,
 			allowAutoMerge: true,
 		};
 	}
@@ -168,6 +200,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			threadId: String(thread.id),
 			pullRequestReviewId: thread.id,
 			body: comment.content ?? '',
+			bodyHTML: renderAzureMarkdown(comment.content),
 			user: this.account(comment.author),
 			createdAt: timestamp(comment.publishedDate),
 			url,
@@ -267,7 +300,31 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			name: this.client.remote.repository,
 			url: azureRepositoryUrl(this.client.remote),
 			defaultBranch: repository.defaultBranch?.replace(/^refs\/heads\//, ''),
+			parent: repository.parentRepository && {
+				project: repository.parentRepository.project.name, name: repository.parentRepository.name,
+				url: azureRepositoryUrl({ ...this.client.remote, project: repository.parentRepository.project.name, repository: repository.parentRepository.name }),
+			},
 		};
+	}
+
+	async canContribute(): Promise<boolean> {
+		const repository = await this.client.repository();
+		return this.client.hasRepositoryPermission(repository.project.id, repository.id, 16384);
+	}
+
+	async reviewerCandidates(): Promise<{ users: IAccount[]; teams: ITeam[] }> {
+		const [users, teams] = await Promise.all([this.client.users(), this.client.teams()]);
+		return {
+			users: users.map(user => this.account(user)),
+			teams: teams.map(team => ({
+				id: team.id, name: team.name, slug: team.name, org: this.client.remote.project,
+				url: `${this.client.remote.organizationUrl}/${encodeURIComponent(this.client.remote.project)}/_settings/teams`,
+			})),
+		};
+	}
+
+	compareBranches(base: string, head: string): Promise<{ aheadCount: number; behindCount: number }> {
+		return this.client.compareBranches(base, head);
 	}
 
 	async currentUser(): Promise<IAccount> {
@@ -305,6 +362,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		if (commits.state === 'loaded') {
 			pullRequest.commits = commits.value.map(commit => ({ message: commit.message }));
 		}
+		pullRequest.mergeable = combinedMergeability(pr.mergeStatus, checks.state === 'loaded' ? checks.value : undefined);
 		if (discussions.state === 'loaded') {
 			pullRequest.commentCount = discussions.value.events.reduce((count, event) =>
 				count + (event.event === EventType.Reviewed ? event.comments.length : event.event === EventType.Commented ? 1 : 0), 0);
@@ -366,6 +424,17 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			const date = (event: TimelineEvent) => event.event === EventType.Reviewed ? event.submittedAt : event.event === EventType.Commented ? event.createdAt : '';
 			return Date.parse(date(left)) - Date.parse(date(right));
 		});
+		const review = this.reviews.get(this.reviewKey(number));
+		if (review?.author === viewer.id) {
+			for (const draft of review.comments) {
+				const comment = this.draftComment(number, draft, viewer);
+				if (draft.threadId !== undefined) {
+					inline.find(thread => thread.id === String(draft.threadId))?.comments.push(comment);
+				} else if (draft.context) {
+					inline.push(this.draftThread(comment, draft.context));
+				}
+			}
+		}
 		return { threads: inline, events };
 	}
 
@@ -382,8 +451,23 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		return (await this.client.labels(number)).map(label => ({ name: label.name, color: '' }));
 	}
 
-	async commits(number: number): Promise<{ sha: string; message: string }[]> {
-		return (await this.client.commits(number)).map(commit => ({ sha: commit.commitId, message: commit.comment ?? '' }));
+	async labelCandidates(): Promise<ILabel[]> {
+		const names = new Set<string>();
+		for (const pr of await this.client.pullRequestPage('all', 0, 100)) {
+			for (const label of pr.labels ?? []) {
+				if (label.active !== false) {
+					names.add(label.name);
+				}
+			}
+		}
+		return [...names].sort((left, right) => left.localeCompare(right)).map(name => ({ name, color: '' }));
+	}
+
+	async commits(number: number): Promise<ProviderCommit[]> {
+		// Azure lists pull request commits newest first; the original views expect oldest first.
+		return (await this.client.commits(number)).reverse().map(commit => ({
+			sha: commit.commitId, message: commit.comment ?? '', authorName: commit.author?.name, authorEmail: commit.author?.email, authorDate: commit.author?.date,
+		}));
 	}
 
 	async revision(number: number): Promise<ProviderRevision> {
@@ -397,17 +481,53 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		};
 	}
 
-	async changes(number: number, revision: ProviderRevision): Promise<ProviderFileChange[]> {
-		const changeType = (value: string): GitChangeType => {
-			if (/\brename\b/i.test(value)) { return GitChangeType.RENAME; }
-			if (/\badd\b/i.test(value)) { return GitChangeType.ADD; }
-			if (/\bdelete\b/i.test(value)) { return GitChangeType.DELETE; }
-			if (/\bedit\b/i.test(value)) { return GitChangeType.MODIFY; }
-			throw new Error(`Azure DevOps returned an unsupported file change type: ${value}`);
+	async commitChanges(sha: string): Promise<Omit<ProviderFileChange, 'trackingId'>[]> {
+		return (await this.client.commitChanges(sha)).filter(change => !change.item.isFolder).map(change => ({
+			path: change.item.path.replace(/^\//, ''), previousPath: change.sourceServerItem?.replace(/^\//, ''), type: changeType(change.changeType),
+		}));
+	}
+
+	async rawChanges(number: number, revision: ProviderRevision): Promise<IRawFileChange[]> {
+		const changes = await this.changes(number, revision);
+		const status: Record<GitChangeType, IRawFileChange['status']> = {
+			[GitChangeType.ADD]: 'added', [GitChangeType.DELETE]: 'removed', [GitChangeType.MODIFY]: 'modified', [GitChangeType.RENAME]: 'renamed',
+			[GitChangeType.COPY]: 'copied', [GitChangeType.TYPE]: 'changed', [GitChangeType.UNKNOWN]: 'changed', [GitChangeType.UNMERGED]: 'changed',
 		};
+		const content = (path: string, commit: string) => this.client.file(path, commit);
+		const result: IRawFileChange[] = new Array(changes.length);
+		let next = 0;
+		const worker = async () => {
+			while (next < changes.length) {
+				const index = next++;
+				const change = changes[index];
+				const url = `${azureRepositoryUrl(this.client.remote)}?path=${encodeURIComponent(`/${change.path}`)}&version=GC${revision.source}`;
+				let patch: ReturnType<typeof unifiedPatch> | undefined;
+				try {
+					const [base, head] = await Promise.all([
+						change.type === GitChangeType.ADD ? '' : content(change.previousPath ?? change.path, revision.mergeBase),
+						change.type === GitChangeType.DELETE ? '' : content(change.path, revision.source),
+					]);
+					patch = unifiedPatch(base, head);
+				} catch (error) {
+					if (!(error instanceof AzureBinaryFileError)) {
+						throw error;
+					}
+				}
+				result[index] = {
+					sha: '', filename: change.path, previous_filename: change.previousPath, status: status[change.type],
+					additions: patch?.additions ?? 0, deletions: patch?.deletions ?? 0, changes: (patch?.additions ?? 0) + (patch?.deletions ?? 0),
+					raw_url: url, blob_url: url, contents_url: url, patch: patch?.patch,
+				};
+			}
+		};
+		await Promise.all(Array.from({ length: Math.min(6, changes.length) }, worker));
+		return result;
+	}
+
+	async changes(number: number, revision: ProviderRevision): Promise<ProviderFileChange[]> {
 		return (await this.client.changes(number, revision.iteration)).filter(change => !change.item.isFolder).map(change => ({
 			path: change.item.path.replace(/^\//, ''), previousPath: change.originalPath?.replace(/^\//, ''),
-			trackingId: change.changeTrackingId, type: changeType(change.changeType),
+			trackingId: change.changeTrackingId, type: changeType(change.changeType), objectId: change.item.objectId,
 		}));
 	}
 
@@ -417,6 +537,51 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 
 	branches(): Promise<string[]> {
 		return this.client.branches();
+	}
+
+	/** Default templates in the locations Azure DevOps uses, read from the default branch. */
+	async pullRequestTemplates(): Promise<string[]> {
+		const branch = (await this.repository()).defaultBranch;
+		if (!branch) {
+			return [];
+		}
+		const templates: string[] = [];
+		for (const folder of ['.azuredevops', '.vsts', 'docs', '']) {
+			try {
+				templates.push(await this.client.file(`${folder}/pull_request_template.md`, branch, 'branch'));
+			} catch (error) {
+				if (!(error instanceof AzureApiError && error.status === 404)) {
+					throw error;
+				}
+			}
+		}
+		return templates;
+	}
+
+	async viewedFiles(number: number): Promise<Record<string, ViewedState>> {
+		const stored = this.viewed.get(this.reviewKey(number));
+		const result: Record<string, ViewedState> = {};
+		for (const change of await this.changes(number, await this.revision(number))) {
+			const blob = stored[change.path];
+			result[change.path] = blob === undefined ? ViewedState.UNVIEWED : blob === (change.objectId ?? 'deleted') ? ViewedState.VIEWED : ViewedState.DISMISSED;
+		}
+		return result;
+	}
+
+	async setViewed(number: number, paths: string[], viewed: boolean): Promise<void> {
+		const changes = new Map((await this.changes(number, await this.revision(number))).map(change => [change.path, change.objectId ?? 'deleted']));
+		const update: Record<string, string | undefined> = {};
+		for (const path of paths) {
+			if (!changes.has(path)) {
+				throw new Error(`"${path}" is not changed in this pull request.`);
+			}
+			update[path] = viewed ? changes.get(path) : undefined;
+		}
+		await this.viewed.set(this.reviewKey(number), update);
+	}
+
+	deleteBranch(branch: string, expectedCommit: string): Promise<void> {
+		return this.client.deleteBranch(branch, expectedCommit);
 	}
 
 	async create(title: string, body: string, source: string, target: string, draft: boolean): Promise<PullRequest> {
@@ -448,13 +613,21 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		return pr;
 	}
 
-	async merge(number: number, method: MergeMethod, expectedHead: string, deleteSourceBranch: boolean): Promise<PullRequest> {
+	async merge(number: number, method: MergeMethod, expectedHead: string, deleteSourceBranch: boolean, mergeCommitMessage?: string): Promise<PullRequest> {
 		const pr = await this.reviewedPullRequest(number, expectedHead);
-		return this.model(await this.client.completePullRequest(pr, mergeStrategies[method], deleteSourceBranch));
+		return this.model(await this.client.completePullRequest(pr, mergeStrategies[method], deleteSourceBranch, false, mergeCommitMessage));
 	}
 
 	async mergeability(number: number): Promise<PullRequestMergeability> {
-		return mergeability((await this.client.pullRequest(number)).mergeStatus);
+		const pr = await this.client.pullRequest(number);
+		if (mergeability(pr.mergeStatus) !== PullRequestMergeability.Mergeable) {
+			return mergeability(pr.mergeStatus);
+		}
+		try {
+			return combinedMergeability(pr.mergeStatus, await this.checksFor(pr));
+		} catch {
+			return PullRequestMergeability.Unknown;
+		}
 	}
 
 	async setAutoMerge(number: number, method: MergeMethod | undefined, expectedHead: string, deleteSourceBranch: boolean): Promise<PullRequest> {
@@ -465,7 +638,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		return this.model(await this.client.completePullRequest(pr, mergeStrategies[method], deleteSourceBranch, true));
 	}
 
-	async setReviewers(number: number, reviewers: IAccount[]): Promise<void> {
+	async setReviewers(number: number, reviewers: (IAccount | ITeam)[]): Promise<void> {
 		const existing = (await this.client.pullRequest(number)).reviewers;
 		const selected = new Set(reviewers.map(reviewer => reviewer.id));
 		for (const reviewer of existing.filter(reviewer => !selected.has(reviewer.id))) {
@@ -473,6 +646,20 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		}
 		for (const reviewer of reviewers.filter(reviewer => !existing.some(current => current.id === reviewer.id))) {
 			await this.client.vote(number, 0, reviewer.id);
+		}
+	}
+
+	async addReviewers(number: number, reviewers: (IAccount | ITeam)[]): Promise<void> {
+		const existing = new Set((await this.client.pullRequest(number)).reviewers.map(reviewer => reviewer.id));
+		for (const reviewer of reviewers.filter(reviewer => !existing.has(reviewer.id))) {
+			await this.client.vote(number, 0, reviewer.id);
+		}
+	}
+
+	async removeReviewers(number: number, reviewers: (IAccount | ITeam)[]): Promise<void> {
+		const existing = new Set((await this.client.pullRequest(number)).reviewers.map(reviewer => reviewer.id));
+		for (const reviewer of reviewers.filter(reviewer => existing.has(reviewer.id))) {
+			await this.client.removeReviewer(number, reviewer.id);
 		}
 	}
 
@@ -546,10 +733,129 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		await this.client.resolveThread(number, id, resolved);
 	}
 
+	private reviewKey(number: number): string {
+		return `${azureRepositoryUrl(this.client.remote)}/pullrequest/${number}`;
+	}
+
+	private draftComment(number: number, draft: DraftComment, viewer: Identity): IComment {
+		const url = this.client.pullRequestUrl(number);
+		return {
+			id: draft.id, graphNodeId: `draft:${draft.id}`, threadId: draft.threadId === undefined ? `draft:${draft.id}` : String(draft.threadId),
+			body: draft.content, bodyHTML: renderAzureMarkdown(draft.content), user: this.account(viewer),
+			createdAt: draft.createdAt ?? new Date().toISOString(), url, htmlUrl: url, diffHunk: '',
+			path: draft.context?.filePath.replace(/^\//, ''), isDraft: true, canEdit: true, canDelete: true,
+		};
+	}
+
+	private draftThread(comment: IComment, context: ThreadContext): IReviewThread {
+		const left = !!context.leftFileStart;
+		const start = left ? context.leftFileStart?.line : context.rightFileStart?.line;
+		const end = left ? context.leftFileEnd?.line : context.rightFileEnd?.line;
+		return {
+			id: comment.graphNodeId, prReviewDatabaseId: undefined, path: comment.path ?? '', diffSide: left ? DiffSide.LEFT : DiffSide.RIGHT,
+			startLine: start ?? 0, endLine: end ?? start ?? 0, originalStartLine: start ?? 0, originalEndLine: end ?? start ?? 0,
+			isResolved: false, viewerCanResolve: false, viewerCanUnresolve: false, isOutdated: false,
+			subjectType: start === undefined ? SubjectType.FILE : SubjectType.LINE, comments: [comment],
+		};
+	}
+
+	/** Validates that a new inline comment targets a file in the latest iteration and builds its Azure context. */
+	private async threadLocation(number: number, location: ProviderCommentLocation, expectedSource?: string): Promise<{ context: ThreadContext; iteration: number; changeTrackingId: number }> {
+		const revision = await this.revision(number);
+		if (expectedSource && revision.source !== expectedSource) {
+			throw new Error('The pull request source changed. Refresh and review the latest changes before commenting.');
+		}
+		const change = (await this.changes(number, revision)).find(change => change.path === location.path);
+		if (!change) {
+			throw new Error('Comments can only be added to files changed in this pull request.');
+		}
+		const context: ThreadContext = { filePath: `/${location.path}` };
+		if (location.startLine !== undefined || location.endLine !== undefined) {
+			const start = location.startLine ?? location.endLine!;
+			const end = location.endLine ?? start;
+			if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) {
+				throw new Error('The comment range is invalid.');
+			}
+			if (location.side === DiffSide.LEFT) {
+				context.leftFileStart = { line: start, offset: 1 };
+				context.leftFileEnd = { line: end, offset: 1 };
+			} else {
+				context.rightFileStart = { line: start, offset: 1 };
+				context.rightFileEnd = { line: end, offset: 1 };
+			}
+		}
+		return { context, iteration: revision.iteration, changeTrackingId: change.trackingId };
+	}
+
+	async createThread(number: number, content: string, location: ProviderCommentLocation): Promise<IReviewThread> {
+		const [{ context, iteration, changeTrackingId }, viewer] = await Promise.all([this.threadLocation(number, location), this.client.currentUser()]);
+		return this.thread(number, await this.client.createThread(number, content, context, iteration, changeTrackingId), viewer, iteration);
+	}
+
+	async pendingReview(number: number): Promise<{ commit: string } | undefined> {
+		const review = this.reviews.get(this.reviewKey(number));
+		if (!review) {
+			return undefined;
+		}
+		return review.author === (await this.client.currentUser()).id ? { commit: review.commit } : undefined;
+	}
+
+	async startReview(number: number, commit: string): Promise<void> {
+		await this.reviews.start(this.reviewKey(number), (await this.client.currentUser()).id, commit);
+	}
+
+	async addDraft(number: number, content: string, target: ProviderDraftTarget): Promise<IComment> {
+		const key = this.reviewKey(number);
+		const viewer = await this.client.currentUser();
+		const review = this.reviews.get(key);
+		if (!review || review.author !== viewer.id) {
+			throw new Error('Start a review before adding draft comments.');
+		}
+		const createdAt = new Date().toISOString();
+		let draft: DraftComment;
+		if (target.location) {
+			const { context, iteration, changeTrackingId } = await this.threadLocation(number, target.location, review.commit);
+			draft = await this.reviews.add(key, { content, context, iteration, changeTrackingId, createdAt });
+		} else {
+			const threadId = positiveId(target.threadId!);
+			const parent = (await this.client.threads(number)).find(thread => thread.id === threadId && !thread.isDeleted)?.comments.find(comment => !comment.isDeleted);
+			if (!parent) {
+				throw new Error('The discussion thread no longer exists.');
+			}
+			draft = await this.reviews.add(key, { content, threadId, parentCommentId: parent.id, createdAt });
+		}
+		return this.draftComment(number, draft, viewer);
+	}
+
+	async editDraft(number: number, id: number, content: string): Promise<IComment> {
+		const key = this.reviewKey(number);
+		await this.reviews.edit(key, id, content);
+		const draft = this.reviews.get(key)?.comments.find(comment => comment.id === id);
+		if (!draft) {
+			throw new Error('The draft comment no longer exists.');
+		}
+		return this.draftComment(number, draft, await this.client.currentUser());
+	}
+
+	async deleteDraft(number: number, id: number): Promise<void> {
+		await this.reviews.edit(this.reviewKey(number), id);
+	}
+
+	async discardReview(number: number): Promise<IComment[]> {
+		const key = this.reviewKey(number);
+		const review = this.reviews.get(key);
+		const viewer = await this.client.currentUser();
+		if (!review || review.author !== viewer.id) {
+			throw new Error('There is no pending review to discard.');
+		}
+		await this.reviews.discard(key);
+		return review.comments.map(draft => this.draftComment(number, draft, viewer));
+	}
+
 	async submitReview(number: number, event: ReviewEventEnum, body: string, expectedHead: string): Promise<void> {
 		await this.reviewedPullRequest(number, expectedHead);
 		const viewer = await this.client.currentUser();
-		const key = `${azureRepositoryUrl(this.client.remote)}/pullrequest/${number}`;
+		const key = this.reviewKey(number);
 		await this.reviews.start(key, viewer.id, expectedHead);
 		const votes: Record<ReviewEventEnum, 10 | -10 | 0> = {
 			[ReviewEventEnum.Approve]: 10, [ReviewEventEnum.RequestChanges]: -10, [ReviewEventEnum.Comment]: 0,

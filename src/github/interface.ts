@@ -333,6 +333,13 @@ export interface Notification {
 	lastReadAt: Date | undefined;
 }
 
+/** The commit fields used by the original commit views; GitHub REST commits satisfy this shape. */
+export interface PullRequestCommit {
+	sha: string;
+	commit: { message: string; author?: { name?: string; email?: string; date?: string } | null };
+	author?: { login?: string; node_id?: string; url?: string; avatar_url?: string; type?: string } | null;
+}
+
 export interface IRawFileChange {
 	sha: string;
 	filename: string;

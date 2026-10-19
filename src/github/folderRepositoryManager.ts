@@ -31,6 +31,7 @@ import {
 import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
+import { azureListOptions } from '../azure/queries';
 import { AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
@@ -1074,6 +1075,9 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {
+		if (repository.provider) {
+			return repository.getOrgTeamsCount();
+		}
 		if ((await repository.getMetadata()).organization) {
 			return repository.getOrgTeamsCount();
 		}
@@ -1287,6 +1291,13 @@ export class FolderRepositoryManager extends Disposable {
 			);
 		if (!repo) {
 			throw new Error(`No matching repository found for getting labels.`);
+		}
+		if (repo.provider) {
+			const labels = new Map((await repo.provider.labelCandidates()).map(label => [label.name, label]));
+			for (const label of issue?.item.labels ?? []) {
+				labels.set(label.name, label);
+			}
+			return [...labels.values()].sort((left, right) => left.name.localeCompare(right.name));
 		}
 
 		const { remote, octokit } = await repo.ensure();
@@ -1517,6 +1528,11 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getPullRequestsForCategory(githubRepository: GitHubRepository, categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
+		if (githubRepository.provider) {
+			const user = await githubRepository.getAuthenticatedUser();
+			const options = azureListOptions(categoryQuery, user.id, { project: githubRepository.remote.owner, repository: githubRepository.remote.repositoryName });
+			return githubRepository.getProviderPullRequests(options, page);
+		}
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
 			const { octokit } = await githubRepository.ensure();
@@ -1724,7 +1740,7 @@ export class FolderRepositoryManager extends Disposable {
 				return undefined;
 			}
 			const templates = await repository.getPullRequestTemplates();
-			if (templates && templates.length > 0) {
+			if ((templates && templates.length > 0) || repository.provider) {
 				return templates;
 			}
 
@@ -1765,6 +1781,10 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private async getOwnerPullRequestTemplate(owner: string): Promise<string | undefined> {
+		if (this.gitHubRepositories.some(repo => repo.provider)) {
+			// Azure DevOps has no owner-wide template repository.
+			return undefined;
+		}
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, '.github');
 		if (!githubRepository) {
 			return undefined;
@@ -2903,6 +2923,13 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async isHeadUpToDateWithBase(pullRequestModel: PullRequestModel): Promise<boolean> {
+		if (pullRequestModel.githubRepository.provider) {
+			if (!pullRequestModel.head) {
+				return false;
+			}
+			const comparison = await pullRequestModel.githubRepository.provider.compareBranches(pullRequestModel.base.ref, pullRequestModel.head.ref);
+			return comparison.behindCount === 0;
+		}
 		if (!pullRequestModel.head) {
 			return false;
 		}
@@ -3440,6 +3467,10 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async getPreferredEmail(pullRequest: PullRequestModel): Promise<string | undefined> {
+		if (pullRequest.githubRepository.provider) {
+			// Azure DevOps completes with the signed-in identity; there is no commit-email selection.
+			return undefined;
+		}
 		const isEmu = await this.credentialStore.getIsEmu(pullRequest.remote.authProviderId);
 		if (isEmu) {
 			return undefined;

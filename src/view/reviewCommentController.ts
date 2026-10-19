@@ -949,7 +949,7 @@ ${suggestionInformation.suggestionContent}
 			}
 
 			if (comment instanceof GHPRComment) {
-				await this._folderRepoManager.activePullRequest.deleteReviewComment(comment.commentId);
+				await this._folderRepoManager.activePullRequest.deleteReviewComment(comment.commentId, comment.rawComment.graphNodeId);
 			} else {
 				thread.comments = thread.comments.filter(c => !(c instanceof TemporaryComment && c.id === comment.id));
 			}

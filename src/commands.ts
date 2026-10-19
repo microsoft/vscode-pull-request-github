@@ -1243,6 +1243,17 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('azdo.pr.signout', async () => {
+			const azure = reposManager.credentialStore.azure;
+			if (!azure) {
+				throw new Error(vscode.l10n.t('Azure DevOps sign-in is not configured.'));
+			}
+			await Promise.all(reposManager.folderManagers.map(manager => manager.computeAllGitHubRemotes()));
+			await azure.signOut();
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('azdo.pr.signinNoEnterprise', async () => {
 			await reposManager.authenticate(false);
 		}),

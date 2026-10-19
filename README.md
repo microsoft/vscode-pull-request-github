@@ -1,53 +1,66 @@
-# Azure DevOps Pull Requests & Work Items
+# Azure DevOps Pull Requests
 
-This standalone fork is being rebuilt from the original GitHub Pull Requests application.
-The goal is to retain its existing tree, React overview, creation form, diff viewers,
-comment controllers, and review workflows, replacing repository operations with an Azure
-DevOps provider rather than building a separate Azure interface.
+A standalone fork of the GitHub Pull Requests extension that keeps its original UI and
+workflows (pull request tree, React overview, creation form, diff viewers, inline comment
+controllers, and review mode) and runs them against Azure DevOps through a provider
+boundary instead of GitHub. It installs alongside GitHub Pull Requests: the extension ID is
+`jhare96.vscode-pull-request-azdo`, and all commands, settings, views, and document schemes
+are independently namespaced (`azdo.*`, `azureDevOpsPullRequests.*`).
 
-## Restart status
+## Getting started
 
-The `feat/azure-provider-shared-ui` branch starts from upstream commit `b7b9342b`.
-The previous implementation, including the unfinished overview experiment, is preserved
-on `backup/azure-parallel-ui-20261019` at `ccf1fe3a`. No history was rewritten.
+1. Open a folder whose Git remote is an Azure DevOps repository, for example
+   `https://dev.azure.com/<org>/<project>/_git/<repo>`, a legacy `*.visualstudio.com` URL,
+   or an `ssh.dev.azure.com` SSH remote.
+2. Open the **Azure DevOps** view and choose **Sign in**. Azure DevOps Services supports a
+   Microsoft account or a personal access token; Azure DevOps Server uses a personal access
+   token. Tokens need **Code (read & write)** and **Project and Team (read)**, and are kept in
+   VS Code Secret Storage. **Azure DevOps Pull Requests: Sign out of Azure DevOps** removes them.
+3. For Azure DevOps Server, first trust the collection in the user-level
+   `azureDevOpsPullRequests.serverCollections` setting, for example
+   `https://devops.example.com/tfs/DefaultCollection`. Workspace settings cannot grant this
+   trust, and credentials are only sent to trusted collections.
 
-This branch is a **development foundation, not an Azure-ready release**:
+## Supported workflows
 
-- The original UI and workflow controllers are retained.
-- Extension-owned commands, settings, views, chat tools, and document schemes have
-  independent identifiers. The extension ID remains `jhare96.vscode-pull-request-azdo`.
-- The tested Azure authentication, REST transport, trusted remote parsing, and persistent
-  pending-review implementation have been carried across.
-- A typed [provider contract](src/providers/pullRequestProvider.ts) and
-  [Azure implementation](src/azure/pullRequestProvider.ts) expose existing application
-  models, not HTML or GitHub REST/GraphQL emulation.
-- The Azure provider covers PR loading/creation/editing, discussion ownership, reviews,
-  policies, and source-commit-checked completion. Unsupported capabilities are explicit.
-- Provider snapshots now update the original cached PR model and its timeline/thread
-  events. Optional sections report individual failures without fabricating empty
-  successful results, and core loading does not request work items.
-- Azure-only sessions and discovery are implemented and tested through the original
-  folder/repository managers, without GitHub authentication or transport. Activation
-  has not enabled this composition yet.
-- Shared Git references preserve Azure organization, project, collection, repository
-  names (including `.git`), and SSH identity instead of reconstructing GitHub URLs.
+- **Pull request tree:** Local Pull Request Branches, Waiting For My Review, Created By Me,
+  and All Open, with paging. Custom categories in `azureDevOpsPullRequests.queries` support
+  `is:open|closed|merged`, `author:`, `review-requested:`, `base:`, `head:`, and the
+  current repository's `repo:`. Unsupported qualifiers show an error on the category.
+- **Overview:** title/description editing, Markdown rendering, general and inline
+  discussions, reviewers and votes, labels, branch policies and status checks, draft and
+  ready states, retargeting, abandon, and copy/open-in-browser links. If checks or
+  discussions fail to load, the rest of the page still loads and that section shows an
+  error with Retry.
+- **Changes and checkout:** changed files and diffs between the PR's merge base and its latest
+  iteration, commits, viewed-file state (stored locally per source blob), and the original
+  checkout, return-to-default-branch, and dirty-working-tree safeguards.
+- **Comments and reviews:** single comments, replies, edit/delete, resolve/reactivate, and
+  review mode with private drafts kept locally until you submit. Approve maps to
+  vote 10, Request Changes to −10, and comment-only submissions do not change your vote.
+  Submission is resumable without duplicate comments. Nothing is published or voted if the
+  pull request source changed since the review began.
+- **Creation:** the original form with Azure branches, draft creation, Azure pull request templates
+  (`.azuredevops`, `.vsts`, `docs`, or the repository root), reviewers, labels used in the
+  repository, and auto-complete.
+- **Completion:** merge, squash, or rebase completion against the reviewed source commit,
+  and auto-complete. Complete is only offered when Azure reports the merge is possible and
+  blocking policies have passed; if policies cannot be loaded, completion is withheld.
+  Remote source branches are deleted only if they still point to the reviewed commit.
 
-**The existing controllers have not yet been switched to the Azure provider.** F5 builds
-and launches the restored application, which still uses its original GitHub backend.
-Do not use this branch to test Azure sign-in or expect Azure PR browsing yet.
-The old native Azure implementation is available on the recovery branch.
+## Not supported
 
-The next integration step is to finish routing the controller-consumed model operations
-through the provider contract, enable Azure-only activation, then validate browsing,
-overview, diffs/comments, reviews,
-creation, and completion against Azure. Provider-specific features must be gated in the
-existing components; a second overview, tree, or creation UI must not be introduced.
+Work items (browsing, linking, automatic transitions on completion) are deferred, and
+their views are hidden. GitHub-only features are hidden or report an explicit
+"not supported for Azure DevOps repositories" error: GitHub issues and notifications,
+Copilot coding agent, Codespaces/vscode.dev, merge queues, pull request stacks, projects,
+milestones, assignees, file uploads, reactions, attestation commits, reverting merged pull
+requests, and creating pull requests from forks.
 
-Azure DevOps Server collections must be explicitly trusted in the application-level
-`azureDevOpsPullRequests.serverCollections` user setting. Repository/workspace settings
-cannot grant this trust. Previously saved user-level `azureDevOps.serverCollections`
-values remain readable until the new setting is explicitly configured. Revoking trust
-also prevents previously created providers from sending credentials to that collection.
+## Branches
+
+`feat/azure-provider-shared-ui` starts from upstream `b7b9342b`. The earlier separate Azure UI
+is preserved on `backup/azure-parallel-ui-20261019` (`ccf1fe3a`). No history was rewritten.
 
 ## Development
 
@@ -58,9 +71,8 @@ also prevents previously created providers from sending credentials to that coll
 - `npm run check:commands`, `npm run lint`, and `npm run hygiene` validate contributions
   and repository conventions.
 
-The original project documentation below is retained as **upstream reference**. Its
-GitHub setup instructions describe the current upstream backend, not completed Azure
-functionality.
+The original project documentation below is retained as **upstream reference** only.
+Its GitHub setup instructions do not apply to this extension.
 
 ---
 

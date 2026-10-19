@@ -13,13 +13,13 @@ import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType, SubmitReviewArgs } from './views';
-import { IComment } from '../common/comment';
+import { CloseResult } from '../../common/views';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { areStacksEnabled } from '../common/settingsUtils';
-import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
@@ -253,7 +253,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					pullRequestModel.number,
 				),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-				pullRequestModel.getTimelineEvents(),
+				pullRequestModel.getTimelineEvents().catch(error => {
+					// The active pull request view does not render the timeline; reviewers still come from review requests.
+					Logger.warn(`Unable to load discussions for the active pull request view: ${formatError(error)}`, 'ActivePullRequestView');
+					return [];
+				}),
 				pullRequestModel.getReviewRequests(),
 				this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
@@ -367,7 +371,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				hasReviewDraft,
 				currentUserReviewState: reviewState,
 				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors),
-				attestationCommitsEnabled: isAttestationCommitsEnabled()
+				attestationCommitsEnabled: isAttestationCommitsEnabled(),
+				checksError: pullRequest.providerSnapshot?.checks.state === 'error' ? pullRequest.providerSnapshot.checks.message : null,
 			};
 
 			this._postMessage({
@@ -381,14 +386,20 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IComment>('pr.close', this._item, message.args).then(comment => {
-			if (comment) {
-				this._replyMessage(message, {
-					value: comment,
-				});
-			}
-		});
+	private async close(message: IRequestMessage<string>): Promise<void> {
+		try {
+			const comment = message.args ? await this._item.createIssueComment(message.args) : undefined;
+			const closeUpdate = await this._item.close();
+			const result: CloseResult = {
+				state: closeUpdate.item.state.toUpperCase() as GithubItemStateEnum,
+				commentEvent: comment ? { ...comment, event: EventType.Commented } : undefined,
+				closeEvent: closeUpdate.closedEvent,
+			};
+			this._replyMessage(message, result);
+		} catch (error) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Closing the pull request failed: {0}', formatError(error)));
+			this._throwError(message, formatError(error));
+		}
 	}
 
 	private create() {

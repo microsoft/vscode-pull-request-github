@@ -467,8 +467,13 @@ export class PullRequestGitHelper {
 		remotes: Remote[],
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 	): Remote | undefined {
+		const head = pullRequest.head.repositoryCloneUrl;
+		if (head.azureRemote) {
+			// Azure project/repository names are only unique within an organization or collection.
+			return remotes.find(remote => remote.gitProtocol?.azureRemote && remote.gitProtocol.equals(head));
+		}
 		return remotes.find(
-			remote => remote.gitProtocol && (remote.gitProtocol.owner.toLowerCase() === pullRequest.head.repositoryCloneUrl.owner.toLowerCase()) && (remote.gitProtocol.repositoryName.toLowerCase() === pullRequest.head.repositoryCloneUrl.repositoryName.toLowerCase())
+			remote => remote.gitProtocol && (remote.gitProtocol.owner.toLowerCase() === head.owner.toLowerCase()) && (remote.gitProtocol.repositoryName.toLowerCase() === head.repositoryName.toLowerCase())
 		);
 	}
 

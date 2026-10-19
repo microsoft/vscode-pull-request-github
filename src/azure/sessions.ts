@@ -9,7 +9,7 @@ import { AzureApiError, AzureClient } from './client';
 import { trustedServerCollections } from './configuration';
 import { AzurePullRequestProvider } from './pullRequestProvider';
 import { AzureRemote, azureRepositoryUrl, parseAzureRemote } from './remote';
-import { PendingReviews } from './review';
+import { PendingReviews, ViewedFiles } from './review';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
@@ -18,6 +18,7 @@ import { IAccount } from '../github/interface';
 export class AzureSessions extends Disposable {
 	private readonly authentication: AzureAuthentication;
 	private readonly reviews: PendingReviews;
+	private readonly viewed: ViewedFiles;
 	private readonly providers = new Map<string, AzurePullRequestProvider>();
 	private readonly remotes = new Map<string, AzureRemote>();
 	private readonly accounts = new Map<string, IAccount>();
@@ -34,6 +35,7 @@ export class AzureSessions extends Disposable {
 		super();
 		this.authentication = new AzureAuthentication(context);
 		this.reviews = new PendingReviews(context.globalState);
+		this.viewed = new ViewedFiles(context.globalState);
 		this._register(vscode.authentication.onDidChangeSessions(event => {
 			if (event.provider.id === 'microsoft') {
 				this.invalidate();
@@ -70,7 +72,7 @@ export class AzureSessions extends Disposable {
 			provider = new AzurePullRequestProvider(this.createClient(azure, () => {
 				this.identity(remote);
 				return this.authentication.authorization(azure);
-			}), this.reviews);
+			}), this.reviews, this.viewed);
 			this.providers.set(key, provider);
 		}
 		this.remotes.set(key, azure);

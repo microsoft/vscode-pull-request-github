@@ -72,8 +72,8 @@ describe('Azure provider for the original application models', () => {
 		assert.strictEqual(snapshot.pullRequest.commentCount, 2);
 		assert.strictEqual(snapshot.pullRequest.closingIssues, undefined);
 		assert.ok(calls.every(call => !call.path.includes('workitems')));
-		assert.strictEqual(snapshot.pullRequest.titleHTML, '');
-		assert.strictEqual(snapshot.pullRequest.bodyHTML, undefined);
+		assert.strictEqual(snapshot.pullRequest.titleHTML, 'Shared interface');
+		assert.strictEqual(snapshot.pullRequest.bodyHTML, '<p>Description</p>\n');
 		assert.deepStrictEqual(snapshot.reviewers.map(reviewer => reviewer.state), ['APPROVED', 'CHANGES_REQUESTED']);
 		assert.ok(snapshot.discussions.state === 'loaded');
 		assert.ok(snapshot.checks.state === 'loaded');
@@ -234,13 +234,13 @@ describe('Azure provider for the original application models', () => {
 					return { value: [{ id: 3, sourceRefCommit: { commitId: 'source' }, targetRefCommit: { commitId: 'target' }, commonRefCommit: { commitId: 'ancestor' } }] };
 				}
 				if (path.endsWith('/changes')) {
-					return { changeEntries: [{ changeTrackingId: 7, changeType: 'rename, edit', item: { path: '/new.ts' }, originalPath: '/old.ts' }] };
+					return { changeEntries: [{ changeTrackingId: 7, changeType: 'rename, edit', item: { path: '/new.ts', objectId: 'blob' }, originalPath: '/old.ts' }] };
 				}
 				throw new Error(`Unexpected request: ${path}`);
 			});
 			const revision = await provider.revision(42);
 			assert.deepStrictEqual(revision, { iteration: 3, source: 'source', target: 'target', mergeBase: 'ancestor' });
-			assert.deepStrictEqual(await provider.changes(42, revision), [{ path: 'new.ts', previousPath: 'old.ts', trackingId: 7, type: GitChangeType.RENAME }]);
+			assert.deepStrictEqual(await provider.changes(42, revision), [{ path: 'new.ts', previousPath: 'old.ts', trackingId: 7, type: GitChangeType.RENAME, objectId: 'blob' }]);
 		});
 
 		it('updates the original shared model and timeline without GitHub authentication or transport', async () => {
@@ -272,7 +272,7 @@ describe('Azure provider for the original application models', () => {
 				assert.strictEqual(reads, 2);
 				assert.strictEqual(model.author.id, viewer.id);
 				assert.strictEqual(model.providerSnapshot?.discussions.state, 'loaded');
-				assert.throws(() => repository.hub, /GitHub transport is unavailable/);
+				assert.throws(() => repository.hub, /GitHub transport is not supported/);
 				let changed = 0;
 				const listener = model.onDidChange(event => { if (event.timeline) { changed++; } });
 				text = 'Edited without adding events';

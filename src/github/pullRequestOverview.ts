@@ -138,7 +138,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private canUpdateStack(item: PullRequestModel): boolean {
 		const checkedOutPullRequestNumber = this.getCheckedOutPullRequestNumber(item);
-		return areStacksEnabled() && this._canUpdateStackAccess
+		return !item.githubRepository.provider && areStacksEnabled() && this._canUpdateStackAccess
 			&& checkedOutPullRequestNumber !== undefined && !!this._updatableStackPullRequestNumbers?.has(checkedOutPullRequestNumber)
 			&& !!this.getStackRepository(item);
 	}
@@ -620,7 +620,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isIssue: false,
 				emailForCommit: undefined,
 				currentUserReviewState: reviewState,
-				revertable: pullRequest.state === GithubItemStateEnum.Merged,
+				revertable: pullRequest.state === GithubItemStateEnum.Merged && !pullRequest.githubRepository.provider,
 				isCopilotOnMyBehalf: false,
 				stack: undefined,
 				stackLoaded: !areStacksEnabled(),
@@ -629,6 +629,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
+				checksError: pullRequestModel.providerSnapshot?.checks.state === 'error' ? pullRequestModel.providerSnapshot.checks.message : null,
+				discussionsError: pullRequestModel.providerSnapshot?.discussions.state === 'error' ? pullRequestModel.providerSnapshot.discussions.message : null,
 			};
 			this._postMessage({
 				command: 'pr.initialize',
@@ -669,11 +671,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				Logger.error(`Failed to update deferred assignable users: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
 			const deferredDataPromise = Promise.all([
-				measureDeferred('statusChecks', pullRequestModel.getStatusChecks()),
+				measureDeferred('statusChecks', pullRequestModel.getStatusChecks().then(
+					result => ({ result, error: null as string | null }),
+					error => ({ result: [null, null] as Awaited<ReturnType<PullRequestModel['getStatusChecks']>>, error: formatError(error) }))),
 				reviewRequestsPromise,
 				measureDeferred('branchName', this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel)),
 				measureDeferred('mergeQueueMethod', this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)),
-				measureDeferred('headUpToDate', this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel)),
+				measureDeferred('headUpToDate', this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel).catch(error => {
+					// Only the update-branch prompt depends on this; keep checks and reviewers updating.
+					Logger.warn(`Unable to compare the pull request branch with its base: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+					return undefined;
+				})),
 				measureDeferred('mergeability', pullRequestModel.getMergeability()),
 				measureDeferred('preferredEmail', this._folderRepositoryManager.getPreferredEmail(pullRequestModel)),
 				measureDeferred('coAuthors', COPILOT_ACCOUNTS[pullRequestModel.author.login] ? pullRequestModel.getCoAuthors() : Promise.resolve([])),
@@ -700,10 +708,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
-						status: status[0],
-						reviewRequirement: status[1],
+						status: status.result[0],
+						reviewRequirement: status.result[1],
+						checksError: status.error,
 						isLocalHeadDeleted: !branchInfo,
-						canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && this.isUpdateBranchWithGitHubEnabled(),
+						canUpdateBranch: pullRequest.item.viewerCanUpdate && isBranchUpToDateWithBase === false && this.isUpdateBranchWithGitHubEnabled(),
 						mergeable: mergeability.mergeability,
 						reviewers,
 						hasReviewDraft,
@@ -739,11 +748,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						events: processedEvents,
 						reviewers,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
+						discussionsError: null,
 					} satisfies Partial<PullRequest>,
 				});
 				Logger.debug(`Deferred timeline loaded in ${Math.round(performance.now() - timelineStart)}ms`, PullRequestOverviewPanel.ID);
 			}, error => {
 				Logger.error(`Failed to update deferred timeline: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+				if (updateSequence === this._updateSequence) {
+					void this._postMessage({ command: 'pr.update', pullrequest: { discussionsError: formatError(error) } satisfies Partial<PullRequest> });
+				}
 			});
 			if (pullRequest.isResolved()) {
 				this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
@@ -1388,7 +1401,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			const mergeResult: MergeResult = {
 				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-				revertable: result.merged,
+				revertable: result.merged && !this._item.githubRepository.provider,
 				events: result.timeline
 			};
 			this._replyMessage(message, mergeResult);
@@ -1634,7 +1647,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override deleteCommentPromise(comment: IComment): Promise<void> {
-		return this._item.deleteReviewComment(comment.id.toString());
+		return this._item.deleteReviewComment(comment.id.toString(), comment.graphNodeId);
 	}
 
 	private async deleteReview(message: IRequestMessage<void>) {

@@ -327,7 +327,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			state: issue.state,
 			stateReason: issue.stateReason,
 			events,
-			continueOnGitHub: this.continueOnGitHub(),
+			continueOnGitHub: this.continueOnGitHub() && !issue.githubRepository.provider,
 			canEdit,
 			hasWritePermission,
 			isIssue: true,
@@ -989,7 +989,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
-		return this._item.deleteIssueComment(comment.id.toString());
+		return this._item.deleteIssueComment(comment.id.toString(), comment.graphNodeId);
 	}
 
 	private deleteComment(message: IRequestMessage<IComment>) {
