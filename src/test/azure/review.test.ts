@@ -88,4 +88,20 @@ describe('Azure DevOps pending reviews', () => {
 		await reviews.submit('key', 'author', 'commit', async () => assert.fail('must not repost'), async () => { });
 		assert.strictEqual(reviews.get('key'), undefined);
 	});
+
+	it('persists the review decision and summary so retries cannot change a partly published review', async () => {
+		await reviews.start('key', 'author', 'commit');
+		await reviews.add('key', { content: 'Draft' });
+		await reviews.setSummary('key', 'Summary', 10);
+		const restored = new PendingReviews(storage);
+		assert.strictEqual(restored.get('key')?.decision, 10);
+		await restored.setSummary('key', 'Summary', 10);
+		assert.deepStrictEqual(restored.get('key')?.comments.map(comment => comment.content), ['Draft', 'Summary']);
+		await assert.rejects(restored.setSummary('key', 'Summary', -10), /decision changed/);
+		await assert.rejects(restored.setSummary('key', 'Different', 10), /summary changed/);
+		await assert.rejects(restored.add('key', { content: 'More' }), /pending submission/);
+		await assert.rejects(restored.edit('key', -1, 'Changed'), /pending submission/);
+		await restored.discard('key');
+		assert.strictEqual(restored.get('key'), undefined);
+	});
 });

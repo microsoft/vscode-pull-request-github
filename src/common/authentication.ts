@@ -8,12 +8,14 @@ import * as vscode from 'vscode';
 export enum GitHubServerType {
 	None,
 	GitHubDotCom,
-	Enterprise
+	Enterprise,
+	AzureDevOps
 }
 
 export enum AuthProvider {
 	github = 'github',
-	githubEnterprise = 'github-enterprise'
+	githubEnterprise = 'github-enterprise',
+	azureDevOps = 'azure-devops'
 }
 
 export class AuthenticationError extends Error {

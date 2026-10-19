@@ -38,6 +38,7 @@ export interface Committer {
 
 export interface CommentEvent {
 	id: number;
+	threadId?: string;
 	graphNodeId: string;
 	htmlUrl: string;
 	body: string;

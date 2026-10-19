@@ -7,8 +7,15 @@ import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { AzureClient } from './client';
 import { AzureRemote } from './remote';
+import { AuthenticationError } from '../common/authentication';
 
 const scopes = ['499b84ac-1321-427f-aa17-267ca6975798/.default'];
+
+export class AzureSignInRequired extends AuthenticationError {
+	constructor() {
+		super(vscode.l10n.t('Sign in to Azure DevOps using the Azure DevOps: Sign In command.'));
+	}
+}
 
 export class AzureAuthentication {
 	constructor(private readonly context: Pick<vscode.ExtensionContext, 'globalState' | 'secrets'>) { }
@@ -19,7 +26,7 @@ export class AzureAuthentication {
 
 	async authorization(remote: AzureRemote): Promise<string> {
 		if (this.context.globalState.get<boolean>(`${this.key(remote)}:signedOut`, false)) {
-			throw new Error(vscode.l10n.t('Sign in to Azure DevOps using the Azure DevOps: Sign In command.'));
+			throw new AzureSignInRequired();
 		}
 		const pat = await this.context.secrets.get(this.key(remote));
 		if (pat) {
@@ -31,7 +38,7 @@ export class AzureAuthentication {
 				return `Bearer ${session.accessToken}`;
 			}
 		}
-		throw new Error(vscode.l10n.t('Sign in to Azure DevOps using the Azure DevOps: Sign In command.'));
+		throw new AzureSignInRequired();
 	}
 
 	async signIn(remote: AzureRemote): Promise<boolean> {
@@ -45,7 +52,7 @@ export class AzureAuthentication {
 		if (choice.label === vscode.l10n.t('Personal access token')) {
 			const pat = await vscode.window.showInputBox({
 				title: vscode.l10n.t('Azure DevOps personal access token'),
-				prompt: vscode.l10n.t('Requires Code (read & write), Work Items (read & write), and Project and Team (read) permissions. Stored in VS Code Secret Storage.'),
+				prompt: vscode.l10n.t('Requires Code (read & write) and Project and Team (read) permissions. Stored in VS Code Secret Storage. Work Items permissions are not required.'),
 				password: true,
 				ignoreFocusOut: true,
 				validateInput: value => value.trim() ? undefined : vscode.l10n.t('Enter a token.'),

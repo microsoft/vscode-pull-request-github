@@ -104,6 +104,7 @@ import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant, isObject } from '../common/utils';
+import { ProviderDiscussions, ProviderSnapshot } from '../providers/pullRequestProvider';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
 interface IPullRequestModel {
@@ -163,6 +164,76 @@ function parseAsyncMergeResponse(value: unknown): AsyncMergeResponse {
 
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static override ID = 'PullRequestModel';
+	public providerSnapshot?: ProviderSnapshot;
+
+	private async refreshProviderSnapshot(): Promise<ProviderSnapshot> {
+		const model = await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.refreshProviderSnapshot');
+		if (model !== this || !model.providerSnapshot) {
+			throw new Error('Azure DevOps did not update the existing pull request model.');
+		}
+		return model.providerSnapshot;
+	}
+
+	private async refreshProviderDiscussions(): Promise<ProviderDiscussions> {
+		const snapshot = await this.refreshProviderSnapshot();
+		if (snapshot.discussions.state === 'error') {
+			throw new Error(snapshot.discussions.message);
+		}
+		return snapshot.discussions.value;
+	}
+
+	public applyProviderSnapshot(snapshot: ProviderSnapshot): void {
+		if (this.isDisposed) {
+			throw new Error('The pull request model belongs to a closed repository session.');
+		}
+		if (snapshot.pullRequest.url !== this.html_url) {
+			throw new Error('The provider snapshot belongs to another pull request.');
+		}
+		const previousSnapshot = this.providerSnapshot;
+		this.providerSnapshot = snapshot;
+		const changedRevision = this.head?.sha !== snapshot.pullRequest.head?.sha || this.base?.sha !== snapshot.pullRequest.base?.sha;
+		this.update({
+			...snapshot.pullRequest,
+			labels: snapshot.labels.state === 'loaded' ? snapshot.labels.value : this.item.labels,
+			commits: snapshot.commits.state === 'loaded' ? snapshot.pullRequest.commits : this.item.commits,
+			commentCount: snapshot.discussions.state === 'loaded' ? snapshot.pullRequest.commentCount : this.item.commentCount,
+		});
+		if (changedRevision && snapshot.discussions.state === 'error') {
+			this.clear();
+			this.timelineEvents = [];
+		}
+		if (snapshot.discussions.state === 'loaded') {
+			const previous = this._reviewThreadsCache ?? [];
+			const current = snapshot.discussions.value.threads;
+			this._reviewThreadsCache = current;
+			this._reviewThreadsCacheInitialized = true;
+			const comments = current.flatMap(thread => thread.comments);
+			if (!equals(this.comments, comments)) {
+				this.comments = comments;
+			}
+			this.timelineEvents = snapshot.discussions.value.events;
+			const changes = {
+				added: current.filter(thread => !previous.some(old => old.id === thread.id)),
+				removed: previous.filter(thread => !current.some(next => next.id === thread.id)),
+				changed: current.filter(thread => previous.some(old => old.id === thread.id && !equals(old, thread))),
+			};
+			if (changes.added.length || changes.removed.length || changes.changed.length) {
+				this._onDidChangeReviewThreads.fire(changes);
+			}
+		}
+		const changes: IssueChangeEvent = {};
+		if (!equals(previousSnapshot?.reviewers, snapshot.reviewers)) {
+			this.reviewers = snapshot.reviewers.map(review => review.reviewer);
+			changes.reviewers = true;
+		}
+		if (!equals(previousSnapshot?.discussions, snapshot.discussions) || !equals(previousSnapshot?.checks, snapshot.checks)
+			|| !equals(previousSnapshot?.labels, snapshot.labels) || !equals(previousSnapshot?.commits, snapshot.commits)) {
+			changes.providerSections = true;
+		}
+		if (Object.keys(changes).length) {
+			this._onDidChange.fire(changes);
+		}
+	}
 
 	public isDraft?: boolean;
 	public reviewers?: (IAccount | ITeam)[];
@@ -997,6 +1068,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
 	 */
 	async getTimelineEvents(): Promise<TimelineEvent[] | undefined> {
+		if (this.githubRepository.provider) {
+			return (await this.refreshProviderDiscussions()).events;
+		}
 		const getTimelineEvents = async () => {
 			Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
@@ -1041,6 +1115,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async getActivityTimelineEvents(): Promise<TimelineEvent[]> {
+		if (this.githubRepository.provider) {
+			return (await this.refreshProviderDiscussions()).events;
+		}
 		Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
 		try {
@@ -1460,6 +1537,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get existing requests to review.
 	 */
 	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
+		if (this.githubRepository.provider) {
+			return (await this.refreshProviderSnapshot()).reviewers.map(review => review.reviewer);
+		}
 		Logger.debug('Get Review Requests - enter', PullRequestModel.ID);
 
 		const githubRepository = this.githubRepository;
@@ -1581,6 +1661,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async initializeReviewThreadCacheAndReviewComments(): Promise<void> {
+		if (this.githubRepository.provider) {
+			await this.getReviewThreads();
+			return;
+		}
 		const threads = await this.initializeReviewThreadCache();
 
 		this.comments = threads.map(node => node.comments)
@@ -1652,6 +1736,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async getReviewThreads(): Promise<IReviewThread[]> {
+		if (this.githubRepository.provider) {
+			return (await this.refreshProviderDiscussions()).threads;
+		}
 		const raw = await this.getRawReviewComments();
 		return this.setReviewThreadCacheFromRaw(raw);
 	}
@@ -2263,6 +2350,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the current mergeability of the pull request.
 	 */
 	async getMergeability(): Promise<PullRequestMergeabilityResult> {
+		if (this.githubRepository.provider) {
+			const mergeability = await this.githubRepository.provider.mergeability(this.number);
+			if (this.item.mergeable !== mergeability) {
+				this.item.mergeable = mergeability;
+				this._onDidChange.fire({ mergeability: true });
+			}
+			return { mergeability };
+		}
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();

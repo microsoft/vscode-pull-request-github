@@ -37,6 +37,7 @@ export interface PullRequest {
 	mergeStatus?: string;
 	autoCompleteSetBy?: Identity;
 	creationDate?: string;
+	closedDate?: string;
 	forkSource?: { name?: string; repository: { id: string; name: string; project: { id: string; name: string } } };
 	repository: { id: string; name: string; project: { id: string; name: string } };
 }
@@ -64,6 +65,7 @@ export interface ThreadComment {
 	commentType?: string | number;
 	usersLiked?: Identity[];
 	publishedDate?: string;
+	lastUpdatedDate?: string;
 }
 
 export interface ThreadContext {
@@ -83,6 +85,15 @@ export interface ReviewThread {
 	pullRequestThreadContext?: {
 		changeTrackingId?: number;
 		iterationContext?: { firstComparingIteration: number; secondComparingIteration: number };
+		trackingCriteria?: {
+			firstComparingIteration: number;
+			secondComparingIteration: number;
+			origFilePath?: string;
+			origLeftFileStart?: { line: number; offset: number };
+			origLeftFileEnd?: { line: number; offset: number };
+			origRightFileStart?: { line: number; offset: number };
+			origRightFileEnd?: { line: number; offset: number };
+		};
 	};
 }
 
@@ -216,6 +227,17 @@ export class AzureClient {
 		return result;
 	}
 
+	async pullRequestPage(status: PullRequest['status'] | 'all', skip: number, top: number, filter: Query = {}): Promise<PullRequest[]> {
+		return this.list(`${this.repositoryPath}/pullrequests`, {
+			...filter, 'searchCriteria.status': status, '$skip': skip, '$top': top,
+		});
+	}
+
+	async branches(): Promise<string[]> {
+		const refs = await this.list<{ name: string }>(`${this.repositoryPath}/refs`, { filter: 'heads/' });
+		return refs.map(ref => ref.name.replace(/^refs\/heads\//, ''));
+	}
+
 	async pullRequest(id: number): Promise<PullRequest> {
 		return this.json(`${this.repositoryPath}/pullrequests/${id}`);
 	}
@@ -254,7 +276,7 @@ export class AzureClient {
 		if (!pr.lastMergeSourceCommit?.commitId) {
 			throw new Error('The pull request source commit is not available. Refresh before completing the pull request.');
 		}
-		const completionOptions = { mergeStrategy, deleteSourceBranch, transitionWorkItems: true };
+		const completionOptions = { mergeStrategy, deleteSourceBranch, transitionWorkItems: false };
 		return this.updatePullRequest(pr.pullRequestId, autoComplete
 			? { autoCompleteSetBy: { id: (await this.currentUser()).id }, completionOptions }
 			: { status: 'completed', lastMergeSourceCommit: pr.lastMergeSourceCommit, completionOptions });

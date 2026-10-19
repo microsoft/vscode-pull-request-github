@@ -23,16 +23,31 @@ This branch is a **development foundation, not an Azure-ready release**:
   models, not HTML or GitHub REST/GraphQL emulation.
 - The Azure provider covers PR loading/creation/editing, discussion ownership, reviews,
   policies, and source-commit-checked completion. Unsupported capabilities are explicit.
+- Provider snapshots now update the original cached PR model and its timeline/thread
+  events. Optional sections report individual failures without fabricating empty
+  successful results, and core loading does not request work items.
+- Azure-only sessions and discovery are implemented and tested through the original
+  folder/repository managers, without GitHub authentication or transport. Activation
+  has not enabled this composition yet.
+- Shared Git references preserve Azure organization, project, collection, repository
+  names (including `.git`), and SSH identity instead of reconstructing GitHub URLs.
 
 **The existing controllers have not yet been switched to the Azure provider.** F5 builds
 and launches the restored application, which still uses its original GitHub backend.
 Do not use this branch to test Azure sign-in or expect Azure PR browsing yet.
 The old native Azure implementation is available on the recovery branch.
 
-The next integration step is to route the existing repository/model controllers through
-the provider contract, then validate browsing, overview, diffs/comments, reviews,
+The next integration step is to finish routing the controller-consumed model operations
+through the provider contract, enable Azure-only activation, then validate browsing,
+overview, diffs/comments, reviews,
 creation, and completion against Azure. Provider-specific features must be gated in the
 existing components; a second overview, tree, or creation UI must not be introduced.
+
+Azure DevOps Server collections must be explicitly trusted in the application-level
+`azureDevOpsPullRequests.serverCollections` user setting. Repository/workspace settings
+cannot grant this trust. Previously saved user-level `azureDevOps.serverCollections`
+values remain readable until the new setting is explicitly configured. Revoking trust
+also prevents previously created providers from sending credentials to that collection.
 
 ## Development
 

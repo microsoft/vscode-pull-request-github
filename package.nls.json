@@ -1,6 +1,7 @@
 {
 	"displayName": "Azure DevOps Pull Requests & Work Items",
 	"description": "Azure DevOps provider fork of GitHub Pull Requests.",
+	"azureDevOpsPullRequests.serverCollections.description": "Trusted HTTPS collection URLs for Azure DevOps Server, for example `https://devops.example.com/tfs/DefaultCollection`. Configure these in user settings, never repository settings. Credentials are sent only to explicitly trusted collections. Azure DevOps Services organizations do not need this setting.",
 	"azureDevOpsPullRequests.pullRequestDescription.description": "The description used when creating pull requests.",
 	"azureDevOpsPullRequests.experimental.stacks.description": "Enable experimental pull request stack features. Reload the window to apply changes to multi-selection in the Pull Requests view.",
 	"azureDevOpsPullRequests.pullRequestDescription.template": "Use a pull request template and commit description, or just use the commit description if no templates were found.",

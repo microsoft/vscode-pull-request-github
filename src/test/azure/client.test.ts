@@ -222,7 +222,7 @@ describe('Azure DevOps REST client', () => {
 		await client.completePullRequest(pr, 'squash', false);
 		assert.deepStrictEqual(body(), {
 			status: 'completed', lastMergeSourceCommit: { commitId: 'source' },
-			completionOptions: { mergeStrategy: 'squash', deleteSourceBranch: false, transitionWorkItems: true },
+			completionOptions: { mergeStrategy: 'squash', deleteSourceBranch: false, transitionWorkItems: false },
 		});
 	});
 
@@ -231,7 +231,7 @@ describe('Azure DevOps REST client', () => {
 		await client.completePullRequest(pr, 'noFastForward', true, true);
 		assert.deepStrictEqual(body(1), {
 			autoCompleteSetBy: { id: identity.id },
-			completionOptions: { mergeStrategy: 'noFastForward', deleteSourceBranch: true, transitionWorkItems: true },
+			completionOptions: { mergeStrategy: 'noFastForward', deleteSourceBranch: true, transitionWorkItems: false },
 		});
 	});
 

@@ -80,6 +80,10 @@ export class RepositoriesManager extends Disposable {
 	}
 
 	private updateEnterpriseConfigurationContext(): void {
+		if (this._credentialStore.azure) {
+			commands.setContext(contexts.HAS_ENTERPRISE_URIS, false);
+			return;
+		}
 		let hasEnterpriseUris = false;
 		try {
 			hasEnterpriseUris = getEnterpriseUris().length > 0;
@@ -122,7 +126,10 @@ export class RepositoriesManager extends Disposable {
 			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository)),
 			folderManager.onDidChangeAnyPullRequests(e => this._onDidChangeAnyPullRequests.fire(e)),
 			folderManager.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)),
-			folderManager.onDidChangeGithubRepositories(() => this._onDidAddAnyGitHubRepository.fire(folderManager)),
+			folderManager.onDidChangeGithubRepositories(() => {
+				this.updateState();
+				this._onDidAddAnyGitHubRepository.fire(folderManager);
+			}),
 			folderManager.repository.state.onDidChange(() => this.checkWorktreeChanges(folderManager.repository)),
 		];
 		this._subs.set(folderManager, disposables);
@@ -199,7 +206,8 @@ export class RepositoriesManager extends Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		return this.getManagerForRepository(issueModel.remote.owner, issueModel.remote.repositoryName);
+		return this._folderManagers.find(manager => manager.gitHubRepositories.includes(issueModel.githubRepository))
+			?? this.getManagerForRepository(issueModel.remote.owner, issueModel.remote.repositoryName, issueModel.remote.normalizedHost);
 	}
 
 	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
@@ -234,11 +242,12 @@ export class RepositoriesManager extends Disposable {
 		return undefined;
 	}
 
-	getManagerForRepository(owner: string, repo: string) {
+	getManagerForRepository(owner: string, repo: string, normalizedHost?: string) {
 		const issueRemoteUrl = `${owner.toLowerCase()}/${repo.toLowerCase()}`;
 		for (const folderManager of this._folderManagers) {
 			if (
 				folderManager.gitHubRepositories
+					.filter(repository => !normalizedHost || repository.remote.normalizedHost.toLowerCase() === normalizedHost.toLowerCase())
 					.map(repo =>
 						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
 					)
@@ -254,6 +263,13 @@ export class RepositoriesManager extends Disposable {
 	}
 
 	private updateState(state?: ReposManagerState) {
+		const azure = this._credentialStore.azure;
+		if (azure) {
+			const remotes = this.activeGitHubRemotes;
+			commands.setContext('azureDevOps:hasGitHubRemotes', remotes.length > 0);
+			commands.setContext('azureDevOps:hasMultipleGitHubRemotes', remotes.length > 1);
+			commands.setContext('azureDevOps:authenticated', remotes.some(remote => azure.isAuthenticated(remote)));
+		}
 		let maxState = ReposManagerState.Initializing;
 		if (state) {
 			maxState = state;
@@ -310,6 +326,10 @@ export class RepositoriesManager extends Disposable {
 	}
 
 	async authenticate(enterprise?: boolean): Promise<boolean> {
+		if (this._credentialStore.azure) {
+			await Promise.all(this._folderManagers.map(manager => manager.computeAllGitHubRemotes()));
+			return this._credentialStore.azure.signIn();
+		}
 		if (enterprise === false) {
 			return !!(await this._credentialStore.login(AuthProvider.github));
 		}

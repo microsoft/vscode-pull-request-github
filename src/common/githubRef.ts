@@ -27,6 +27,10 @@ export function findLocalRepoRemoteFromGitHubRef(repository: Repository, gitHubR
 		const parsedOwner = parsedRemote?.owner.toLowerCase();
 		const parsedRepo = parsedRemote?.repositoryName.toLowerCase();
 		if (parsedOwner === targetOwner && parsedRepo === targetRepo) {
+			if ((parsedRemote?.gitProtocol.azureRemote || gitHubRef.repositoryCloneUrl.azureRemote)
+				&& !parsedRemote?.gitProtocol.equals(gitHubRef.repositoryCloneUrl)) {
+				continue;
+			}
 			return remote;
 		}
 	}

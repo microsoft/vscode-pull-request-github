@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
 import { OctokitCommon } from './common';
 import { CopilotWorkingStatus, GitHubRepository } from './githubRepository';
@@ -45,6 +46,7 @@ export interface IssueChangeEvent {
 	head?: true;
 	mergeability?: true;
 	mergeQueue?: true;
+	providerSections?: true;
 }
 
 export class IssueModel<TItem extends Issue = Issue> extends Disposable {
@@ -94,7 +96,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	}
 
 	protected set timelineEvents(timelineEvents: readonly TimelineEvent[]) {
-		if (!this._timelineEvents || this._timelineEvents.length !== timelineEvents.length) {
+		if (!this._timelineEvents || !equals(this._timelineEvents, timelineEvents)) {
 			this._timelineEvents = timelineEvents;
 			this._onDidChange.fire({ timeline: true });
 		}

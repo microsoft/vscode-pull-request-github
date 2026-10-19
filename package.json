@@ -102,6 +102,15 @@
 			"type": "object",
 			"title": "GitHub Pull Requests",
 			"properties": {
+				"azureDevOpsPullRequests.serverCollections": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [],
+					"scope": "application",
+					"markdownDescription": "%azureDevOpsPullRequests.serverCollections.description%"
+				},
 				"azureDevOpsPullRequests.pullRequestTitle": {
 					"deprecationMessage": "The pull request title now uses the same defaults as GitHub, and can be edited before create.",
 					"type": "string",

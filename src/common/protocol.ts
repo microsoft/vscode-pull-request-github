@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import Logger from './logger';
+import { trustedServerCollections } from '../azure/configuration';
+import { AzureRemote, azureRepositoryUrl, parseAzureRemote } from '../azure/remote';
 import { resolve } from '../env/node/ssh';
 
 
@@ -30,7 +32,31 @@ export class Protocol {
 	}
 
 	public readonly url: vscode.Uri;
+	public readonly azureRemote?: AzureRemote;
+
 	constructor(uriString: string) {
+		try {
+			const ssh = resolve(uriString);
+			const explicitSsh = /^ssh:\/\/(?:[^@/]+@)?[^:/]+(?::\d+)?\//i.test(uriString) ? new URL(uriString) : undefined;
+			const port = explicitSsh?.port || ssh?.Port;
+			const sshUri = ssh ? vscode.Uri.from({
+				scheme: 'ssh', authority: `${ssh.User || 'git'}@${ssh.HostName || ssh.Hostname}${port ? `:${port}` : ''}`,
+				path: explicitSsh ? vscode.Uri.parse(uriString).path : `/${decodeURIComponent(ssh.path.replace(/^\//, ''))}`,
+			}) : undefined;
+			const azure = parseAzureRemote(sshUri?.toString() ?? uriString, trustedServerCollections());
+			if (azure) {
+				this.azureRemote = azure;
+				this.owner = azure.project;
+				this.repositoryName = azure.repository;
+				this.type = /^https:\/\//i.test(uriString) ? ProtocolType.HTTP : ProtocolType.SSH;
+				this.url = sshUri ?? vscode.Uri.parse(uriString);
+				this.host = this.getHostName(this.url.authority);
+				return;
+			}
+		} catch (error) {
+			Logger.error(`Unable to resolve Azure DevOps repository identity: ${error}`, Protocol.ID);
+			throw error;
+		}
 		if (this.parseSshProtocol(uriString)) {
 			this.url = vscode.Uri.from({ scheme: 'ssh', authority: this.host, path: `/${this.nameWithOwner}` });
 			return;
@@ -124,6 +150,9 @@ export class Protocol {
 	}
 
 	normalizeUri(): vscode.Uri | undefined {
+		if (this.azureRemote) {
+			return vscode.Uri.parse(azureRepositoryUrl(this.azureRemote));
+		}
 		if (this.type === ProtocolType.OTHER && !this.url) {
 			return;
 		}
@@ -147,6 +176,9 @@ export class Protocol {
 	}
 
 	toString(): string | undefined {
+		if (this.azureRemote) {
+			return this.type === ProtocolType.SSH ? this.url.toString() : azureRepositoryUrl(this.azureRemote);
+		}
 		// based on Uri scheme for SSH https://tools.ietf.org/id/draft-salowey-secsh-uri-00.html#anchor1 and heuristics of how GitHub handles ssh url
 		// sshUri        = `ssh:`
 		//    - omitted
@@ -175,6 +207,10 @@ export class Protocol {
 	}
 
 	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string }): Protocol {
+		if (this.azureRemote && ((change.host && change.host !== this.host)
+			|| (change.owner && change.owner !== this.owner) || (change.repositoryName && change.repositoryName !== this.repositoryName))) {
+			throw new Error('Azure DevOps repository identities are immutable. Parse the destination repository URL instead.');
+		}
 		if (change.type) {
 			this.type = change.type;
 		}

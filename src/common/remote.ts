@@ -23,6 +23,9 @@ export class Remote {
 	}
 
 	public get normalizedHost(): string {
+		if (this.gitProtocol.azureRemote) {
+			return this.gitProtocol.azureRemote.organizationUrl;
+		}
 		if (this.gitProtocol.type === ProtocolType.HTTP) {
 			const uri = this.gitProtocol.url;
 			const path = uri.path.replace(/\/$/, '');
@@ -34,6 +37,9 @@ export class Remote {
 	}
 
 	public get authProviderId(): AuthProvider {
+		if (this.gitProtocol.azureRemote) {
+			return AuthProvider.azureDevOps;
+		}
 		return ['github.com', 'ssh.github.com'].includes(this.host.toLowerCase()) ? AuthProvider.github : AuthProvider.githubEnterprise;
 	}
 
@@ -49,6 +55,9 @@ export class Remote {
 
 	public matchesServerUri(serverUri: vscode.Uri): boolean {
 		const server = new URL(serverUri.toString());
+		if (this.gitProtocol.azureRemote) {
+			return this.normalizedHost.toLowerCase() === server.href.replace(/\/$/, '').toLowerCase();
+		}
 		if (server.hostname.toLowerCase() === 'github.com') {
 			return ['github.com', 'ssh.github.com'].includes(this.host.toLowerCase());
 		}
@@ -63,6 +72,9 @@ export class Remote {
 	equals(remote: Remote): boolean {
 		if (this.remoteName !== remote.remoteName) {
 			return false;
+		}
+		if (this.gitProtocol.azureRemote || remote.gitProtocol.azureRemote) {
+			return !!this.gitProtocol.azureRemote && !!remote.gitProtocol.azureRemote && this.gitProtocol.equals(remote.gitProtocol);
 		}
 		if (!this.host.includes(remote.host) && !remote.host.includes(this.host)) {
 			return false;
@@ -185,6 +197,9 @@ export class GitHubRemote extends Remote {
 	}
 
 	public override get authProviderId(): AuthProvider {
+		if (this.githubServerType === GitHubServerType.AzureDevOps) {
+			return AuthProvider.azureDevOps;
+		}
 		if (this.githubServerType === GitHubServerType.Enterprise) {
 			return AuthProvider.githubEnterprise;
 		}

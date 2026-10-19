@@ -35,6 +35,7 @@ export interface PendingReview {
 	nextId: number;
 	comments: DraftComment[];
 	summary?: string;
+	decision?: 10 | -10 | 0;
 }
 
 /** Keep acknowledged posts out of the persisted queue so a failed submission can be resumed. */
@@ -83,6 +84,9 @@ export class PendingReviews {
 			if (!review) {
 				throw new Error('Start a review before adding draft comments.');
 			}
+			if (review.summary !== undefined) {
+				throw new Error('Finish or discard the pending submission before adding more draft comments.');
+			}
 			const draft = { ...comment, id: review.nextId };
 			await this.save(key, { ...review, nextId: review.nextId - 1, comments: [...review.comments, draft] });
 			return draft;
@@ -94,6 +98,9 @@ export class PendingReviews {
 			const review = this.get(key);
 			if (!review?.comments.some(comment => comment.id === id)) {
 				throw new Error('The draft comment no longer exists.');
+			}
+			if (review.summary !== undefined) {
+				throw new Error('Finish or discard the pending submission before changing draft comments.');
 			}
 
 			await this.save(key, {
@@ -108,21 +115,28 @@ export class PendingReviews {
 		return this.serialize(() => this.save(key, undefined));
 	}
 
-	async setSummary(key: string, content: string): Promise<void> {
+	async setSummary(key: string, content: string, decision?: 10 | -10 | 0): Promise<void> {
 		return this.serialize(async () => {
 			const review = this.get(key);
 			if (!review) {
 				throw new Error('Start a review before adding a summary.');
 			}
+			if (review.decision !== undefined && review.decision !== decision) {
+				throw new Error('The review decision changed during a retry. Finish or discard the pending review first.');
+			}
 			if (review.summary !== undefined) {
 				if (review.summary !== content) {
 					throw new Error('The review summary changed during a retry. Finish or discard the pending review first.');
+				}
+				if (review.decision === undefined && decision !== undefined) {
+					await this.save(key, { ...review, decision });
 				}
 				return;
 			}
 			await this.save(key, {
 				...review,
 				summary: content,
+				decision,
 				nextId: content.trim() ? review.nextId - 1 : review.nextId,
 				comments: content.trim() ? [...review.comments, { id: review.nextId, content }] : review.comments,
 			});

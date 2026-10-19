@@ -12,6 +12,7 @@ import * as vscode from 'vscode';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
 import { convertRESTUserToAccount, isEnterprise } from './utils';
+import { AzureSessions } from '../azure/sessions';
 import { AuthenticationError, AuthProvider, getSessionGitHubUri } from '../common/authentication';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -155,8 +156,17 @@ export class CredentialStore extends Disposable {
 	private _onDidUpgradeSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
+	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext, public readonly azure?: AzureSessions) {
 		super();
+		if (azure) {
+			this._register(azure);
+			this._register(azure.onDidChange(() => {
+				this._onDidChangeSessions.fire({
+					provider: { id: AuthProvider.azureDevOps, label: 'Azure DevOps' }, accountChanged: true, serverChanged: false,
+				});
+			}));
+			return;
+		}
 		this.setScopesFromState();
 
 		this._register(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
@@ -234,6 +244,9 @@ export class CredentialStore extends Disposable {
 	}
 
 	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
+		if (this.azure || authProviderId === AuthProvider.azureDevOps) {
+			throw new AuthenticationError(vscode.l10n.t('GitHub authentication is unavailable in the Azure DevOps runtime. Use Azure DevOps: Sign In.'));
+		}
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
 		const envResult = await this.tryInitializeFromEnvironmentToken(authProviderId);
 		if (envResult) {
@@ -367,10 +380,20 @@ export class CredentialStore extends Disposable {
 	}
 
 	public async create(options: vscode.AuthenticationGetSessionOptions = {}, additionalScopes: boolean = false) {
+		if (this.azure) {
+			if (!this._isInitialized) {
+				this._isInitialized = true;
+				this._onDidInitialize.fire();
+			}
+			return { canceled: false };
+		}
 		return this.doCreate(options, additionalScopes);
 	}
 
 	public async recreate(reason?: string): Promise<AuthResult> {
+		if (this.azure) {
+			return { canceled: !await this.azure.signIn() };
+		}
 		return this.doCreate({ forceNewSession: reason ? { detail: reason } : true });
 	}
 
@@ -426,10 +449,16 @@ export class CredentialStore extends Disposable {
 	}
 
 	public isAnyAuthenticated() {
+		if (this.azure) {
+			return this.azure.isAuthenticated();
+		}
 		return this.isAuthenticated(AuthProvider.github) || this.isAuthenticated(AuthProvider.githubEnterprise);
 	}
 
 	public isAuthenticated(authProviderId: AuthProvider): boolean {
+		if (authProviderId === AuthProvider.azureDevOps || this.azure) {
+			return authProviderId === AuthProvider.azureDevOps && !!this.azure?.isAuthenticated();
+		}
 		if (!isEnterprise(authProviderId)) {
 			return !!this._githubAPI;
 		}
@@ -437,6 +466,9 @@ export class CredentialStore extends Disposable {
 	}
 
 	public isAuthenticatedWithAdditionalScopes(authProviderId: AuthProvider): boolean {
+		if (this.azure || authProviderId === AuthProvider.azureDevOps) {
+			return false;
+		}
 		if (!isEnterprise(authProviderId)) {
 			return !!this._githubAPI && this.allScopesIncluded(this._scopes, SCOPES_WITH_ADDITIONAL);
 		}
@@ -444,6 +476,9 @@ export class CredentialStore extends Disposable {
 	}
 
 	public getHub(authProviderId: AuthProvider): GitHub | undefined {
+		if (this.azure || authProviderId === AuthProvider.azureDevOps) {
+			return undefined;
+		}
 		if (!isEnterprise(authProviderId)) {
 			return this._githubAPI;
 		}
@@ -455,6 +490,9 @@ export class CredentialStore extends Disposable {
 	}
 
 	public areScopesOld(authProviderId: AuthProvider): boolean {
+		if (this.azure || authProviderId === AuthProvider.azureDevOps) {
+			return false;
+		}
 		if (!isEnterprise(authProviderId)) {
 			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
@@ -537,6 +575,9 @@ export class CredentialStore extends Disposable {
 	}
 
 	public async login(authProviderId: AuthProvider): Promise<GitHub | undefined> {
+		if (this.azure || authProviderId === AuthProvider.azureDevOps) {
+			throw new AuthenticationError(vscode.l10n.t('GitHub authentication is unavailable in the Azure DevOps runtime. Use Azure DevOps: Sign In.'));
+		}
 		/* __GDPR__
 			"auth.start" : {}
 		*/
@@ -605,6 +646,9 @@ export class CredentialStore extends Disposable {
 	}
 
 	public async getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
+		if (this.azure || authProviderId === AuthProvider.azureDevOps) {
+			throw new AuthenticationError(vscode.l10n.t('Resolve the Azure DevOps account through the current repository, not a global GitHub session.'));
+		}
 		const github = this.getHub(authProviderId);
 		await this.ensureCurrentUser(github);
 		return github?.currentUser!;

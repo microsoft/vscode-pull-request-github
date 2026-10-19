@@ -205,7 +205,15 @@ export class FolderRepositoryManager extends Disposable {
 	private _fetchTeamReviewersPromise?: Promise<{ [key: string]: ITeam[] }>;
 	private _accountCacheToken = {};
 	private _gitBlameCache: { [key: string]: string } = {};
-	private _githubManager: GitHubManager;
+	private _githubManager?: GitHubManager;
+	private _azureRepositoryVersion = 0;
+
+	private get githubManager(): GitHubManager {
+		if (!this._githubManager) {
+			throw new Error('GitHub discovery is unavailable in the Azure DevOps runtime.');
+		}
+		return this._githubManager;
+	}
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	private _addedUpstreamCount: number = 0;
 
@@ -250,11 +258,13 @@ export class FolderRepositoryManager extends Disposable {
 	) {
 		super();
 		this._githubRepositories = [];
-		this._githubManager = new GitHubManager(this._credentialStore, this.telemetry);
+		this._githubManager = _credentialStore.azure ? undefined : new GitHubManager(this._credentialStore, this.telemetry);
 
 		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)
+					|| (this._credentialStore.azure && (e.affectsConfiguration('azureDevOpsPullRequests.serverCollections')
+						|| e.affectsConfiguration('azureDevOps.serverCollections')))
 					|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URIS}`)
 					|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
 					await this.updateRepositories();
@@ -297,9 +307,12 @@ export class FolderRepositoryManager extends Disposable {
 
 	public async computeAllUnknownRemotes(): Promise<Remote[]> {
 		const remotes = await parseRepositoryRemotesAsync(this.repository);
+		if (this._credentialStore.azure) {
+			return remotes.filter(remote => !remote.gitProtocol.azureRemote);
+		}
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
-			potentialRemotes.map(remote => this._githubManager.isGitHub(remote)),
+			potentialRemotes.map(remote => this.githubManager.isGitHub(remote)),
 		).catch(e => {
 			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
@@ -318,9 +331,17 @@ export class FolderRepositoryManager extends Disposable {
 
 	public async computeAllGitHubRemotes(): Promise<GitHubRemote[]> {
 		const remotes = await parseRepositoryRemotesAsync(this.repository);
+		if (this._credentialStore.azure) {
+			const azureRemotes = remotes.filter(remote => !!remote.gitProtocol.azureRemote)
+				.map(remote => GitHubRemote.remoteAsGitHub(remote, GitHubServerType.AzureDevOps));
+			for (const remote of azureRemotes) {
+				this._credentialStore.azure.provider(remote);
+			}
+			return azureRemotes;
+		}
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		const serverTypes = await Promise.all(
-			potentialRemotes.map(remote => this._githubManager.isGitHub(remote)),
+			potentialRemotes.map(remote => this.githubManager.isGitHub(remote)),
 		).catch(e => {
 			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
@@ -433,6 +454,13 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public async loginAndUpdate() {
+		if (this._credentialStore.azure) {
+			await this.computeAllGitHubRemotes();
+			if (await this._credentialStore.azure.signIn()) {
+				await this.updateRepositories();
+			}
+			return;
+		}
 		if (!this._credentialStore.isAnyAuthenticated()) {
 			const waitForRepos = new Promise<void>(c => {
 				const onReposChange = this.onDidChangeRepositories(() => {
@@ -506,6 +534,16 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	clearForAuthChange(): void {
+		if (this._credentialStore.azure) {
+			this._azureRepositoryVersion++;
+			disposeAll(this._onDidChangePullRequestsEvents);
+			for (const repository of this._githubRepositories) {
+				repository.dispose();
+			}
+			this._githubRepositories = [];
+			this.state = ReposManagerState.Initializing;
+			this._onDidChangeGithubRepositories.fire([]);
+		}
 		this._sessionIgnoredRemoteNames.clear();
 		this._inaccessibleRepos.clear();
 		this._repositoryPageInformation.clear();
@@ -527,11 +565,64 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
+	private async updateAzureRepositories(silent: boolean): Promise<boolean> {
+		const sessions = this._credentialStore.azure;
+		if (!sessions) {
+			throw new Error('Azure DevOps repository discovery requires an Azure session.');
+		}
+		const version = this._azureRepositoryVersion;
+		const previous = [...this._githubRepositories];
+		const remotes = await this.getActiveRemotes();
+		const repositories: GitHubRepository[] = [];
+		let failed = false;
+		for (const remote of remotes) {
+			try {
+				if (await sessions.refresh(remote)) {
+					const repository = await this.createGitHubRepository(remote, this._credentialStore, silent);
+					await repository.resolveRemote();
+					repositories.push(repository);
+				}
+			} catch (error) {
+				if (version !== this._azureRepositoryVersion) {
+					Logger.debug('Discarding repository discovery for a previous Azure DevOps session.', this.id);
+					return false;
+				}
+				failed = true;
+				Logger.error(`Unable to load Azure DevOps remote ${remote.remoteName}: ${formatError(error)}`, this.id);
+				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to load Azure DevOps remote {0}: {1}', remote.remoteName, formatError(error)));
+			}
+		}
+		if (version !== this._azureRepositoryVersion) {
+			Logger.debug('Discarding repository discovery for a previous Azure DevOps session.', this.id);
+			return false;
+		}
+		const stale = new Set([...previous, ...this._githubRepositories].filter(repository => !repositories.includes(repository)));
+		disposeAll(this._onDidChangePullRequestsEvents);
+		this._githubRepositories = repositories;
+		for (const repository of repositories) {
+			this._onDidChangePullRequestsEvents.push(repository.onDidChangePullRequests(event => this._onDidChangeAnyPullRequests.fire(event)));
+			this._onDidChangePullRequestsEvents.push(repository.onDidAddPullRequest(model => this._onDidAddPullRequest.fire(model)));
+		}
+		for (const repository of stale) {
+			repository.dispose();
+		}
+		const changed = previous.length !== repositories.length || previous.some((repository, index) => repository !== repositories[index]);
+		if (changed) {
+			this._onDidChangeGithubRepositories.fire(repositories);
+		}
+		this.state = remotes.length > 0 && !remotes.some(remote => sessions.isAuthenticated(remote))
+			? ReposManagerState.NeedsAuthentication : ReposManagerState.RepositoriesLoaded;
+		return !failed && this.state === ReposManagerState.RepositoriesLoaded;
+	}
+
 	private async doUpdateRepositories(silent: boolean, clearUserCache: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
 
 			return false;
+		}
+		if (this._credentialStore.azure) {
+			return this.updateAzureRepositories(silent);
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
@@ -1002,6 +1093,9 @@ export class FolderRepositoryManager extends Disposable {
 	 */
 	async getGitHubRemotes(): Promise<GitHubRemote[]> {
 		const githubRepositories = this._githubRepositories;
+		if (this._credentialStore.azure) {
+			return githubRepositories.map(repository => repository.remote);
+		}
 
 		if (!githubRepositories || !githubRepositories.length) {
 			return [];
@@ -1010,7 +1104,7 @@ export class FolderRepositoryManager extends Disposable {
 		const remotes = githubRepositories.map(repo => repo.remote).flat();
 
 		const serverTypes = await Promise.all(
-			remotes.map(remote => this._githubManager.isGitHub(remote)),
+			remotes.map(remote => this.githubManager.isGitHub(remote)),
 		).catch(e => {
 			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
@@ -1973,7 +2067,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (!githubRepository) {
 			githubRepository = this.gitHubRepositories[0];
 		}
-		return this._credentialStore.getCurrentUser(githubRepository.remote.authProviderId);
+		return githubRepository.getAuthenticatedUser();
 	}
 
 	async deleteBranch(pullRequest: PullRequestModel) {
@@ -3059,13 +3153,15 @@ export class FolderRepositoryManager extends Disposable {
 				(r.remote.owner.toLowerCase() === remote.owner.toLowerCase())
 				&& (r.remote.repositoryName.toLowerCase() === remote.repositoryName.toLowerCase())
 				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName))
-				&& (!remote.normalizedHost || r.remote.normalizedHost === remote.normalizedHost),
+				&& (!remote.normalizedHost || r.remote.normalizedHost.toLowerCase() === remote.normalizedHost.toLowerCase()),
 		);
 	}
 
 	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
 		const repoId = this._id + (this._githubRepositories.length * 0.1);
-		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote)), this.repository.rootUri, credentialStore, this.telemetry, silent);
+		const provider = credentialStore.azure?.provider(remote);
+		const serverType = provider ? GitHubServerType.AzureDevOps : await this.githubManager.isGitHub(remote);
+		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, serverType), this.repository.rootUri, credentialStore, this.telemetry, silent, provider);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
@@ -3099,6 +3195,9 @@ export class FolderRepositoryManager extends Disposable {
 		const existing = this.findExistingGitHubRepository({ owner, repositoryName });
 		if (existing) {
 			return existing;
+		}
+		if (this._credentialStore.azure) {
+			throw new Error(vscode.l10n.t('Open the Azure DevOps repository remote before opening its pull requests. A project and repository name alone do not identify an organization or collection.'));
 		}
 		const repoKey = `${owner.toLowerCase()}/${repositoryName.toLowerCase()}`;
 		if (this._inaccessibleRepos.has(repoKey)) {
