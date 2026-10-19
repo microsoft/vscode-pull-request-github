@@ -8,11 +8,13 @@ import MarkdownIt from 'markdown-it';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { DiffSide, IReviewThread, SubjectType } from '../../common/comment';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 import { GitChangeType } from '../../common/file';
 import { toPRUri } from '../../common/uri';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { extendMarkdownIt, MarkdownPreviewComments } from '../../view/markdownPreviewComments';
+import { PRCommentControllerRegistry } from '../../view/pullRequestCommentControllerRegistry';
 import { MarkdownPreviewCommentInfo } from '../../view/reviewCommentController';
 import { ReviewsManager } from '../../view/reviewsManager';
 
@@ -289,6 +291,27 @@ describe('MarkdownPreviewComments', function () {
 		await commented;
 
 		assert.ok(executeCommand.calledWith('workbench.action.addComment'));
+	});
+
+	it('updates open documents when the commenting ranges of a pull request become available', async function () {
+		// A preview can be rendered before the pull request's commenting range provider is registered.
+		const previewComments = createPreviewComments({ root: '/repo', pullRequestRanges: [] });
+		const document = prUri(false);
+		const md = extendMarkdownIt(new MarkdownIt());
+		md.render('text\n', { currentDocument: document });
+		sandbox.stub(vscode.workspace, 'textDocuments').get(() => [{ uri: document, languageId: 'markdown' }]);
+		const scheduleUpdate = sandbox.spy(previewComments as any, 'scheduleUpdate');
+		const commentController = vscode.comments.createCommentController('markdown-preview-comments-test', 'Test');
+		const registry = new PRCommentControllerRegistry(commentController, new MockTelemetry());
+
+		try {
+			registry.registerCommentingRangeProvider(7, { provideCommentingRanges: () => [] });
+
+			assert.deepStrictEqual(scheduleUpdate.getCalls().map(call => call.args[0].toString()), [document.toString()]);
+		} finally {
+			registry.dispose();
+			commentController.dispose();
+		}
 	});
 });
 

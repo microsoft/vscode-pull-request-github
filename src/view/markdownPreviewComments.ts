@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PRCommentControllerRegistry } from './pullRequestCommentControllerRegistry';
 import { MarkdownPreviewCommentInfo } from './reviewCommentController';
 import { ReviewManager } from './reviewManager';
 import { ReviewsManager } from './reviewsManager';
@@ -100,6 +101,8 @@ export class MarkdownPreviewComments extends Disposable {
 		});
 		this._register(this._reviewsManager.onDidChangeCommentThreads(() => this.updateAll()));
 		this._register(vscode.workspace.onDidCloseTextDocument(document => this._info.delete(document.uri.toString())));
+		// A preview can be rendered before the commenting ranges of its pull request are available.
+		this._register(PRCommentControllerRegistry.onDidChangeCommentingRangeProviders(() => this.updateAll()));
 	}
 
 	/**

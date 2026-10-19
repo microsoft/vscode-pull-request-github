@@ -25,6 +25,11 @@ interface PRCommentingRangeProviderInfo extends vscode.Disposable {
 }
 
 export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
+	private static _onDidChangeCommentingRangeProviders = new vscode.EventEmitter<void>();
+	/**
+	 * Fires when a commenting range provider of a pull request is registered or removed, in any repository.
+	 */
+	public static readonly onDidChangeCommentingRangeProviders = PRCommentControllerRegistry._onDidChangeCommentingRangeProviders.event;
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
 	private _prCommentingRangeProviders: { [key: number]: PRCommentingRangeProviderInfo } = {};
 	private readonly _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
@@ -140,9 +145,11 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 				this._prCommentingRangeProviders[prNumber].refCount -= 1;
 				if (this._prCommentingRangeProviders[prNumber].refCount === 0) {
 					delete this._prCommentingRangeProviders[prNumber];
+					PRCommentControllerRegistry._onDidChangeCommentingRangeProviders.fire();
 				}
 			}
 		};
+		PRCommentControllerRegistry._onDidChangeCommentingRangeProviders.fire();
 
 		return this._prCommentingRangeProviders[prNumber];
 	}
