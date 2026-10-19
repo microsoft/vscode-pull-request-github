@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { OVERLAY_ID, render } from '../overlay';
+import { spy } from 'sinon';
+import { onMouseMove, OVERLAY_ID, render } from '../overlay';
 
 const SOURCE = 'pr:/repo/docs/guide.md?%7B%22isBase%22%3Afalse%7D';
 const OTHER_SOURCE = 'pr:/repo/docs/guide.md?%7B%22isBase%22%3Atrue%7D';
@@ -143,6 +144,26 @@ describe('markdown preview comments overlay', () => {
 			'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1&start=1&end=1',
 		]);
 		assert.deepStrictEqual(links('threads').map(link => link.textContent), ['1']);
+	});
+
+	it('finds the hovered block without measuring the layout on every pointer move', () => {
+		setUpPreview(BODY, {
+			[SOURCE]: { commentingRanges: [{ start: 2, end: 3 }], threads: [], commentUri: 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1' },
+		});
+		render();
+		const paragraph = document.querySelector('p[data-line="2"]')!;
+		paragraph.addEventListener('mousemove', onMouseMove);
+		const getBoundingClientRect = spy(Element.prototype, 'getBoundingClientRect');
+
+		try {
+			paragraph.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY: 0 }));
+		} finally {
+			getBoundingClientRect.restore();
+		}
+
+		assert.strictEqual(getBoundingClientRect.callCount, 0);
+		assert.ok(paragraph.classList.contains('github-pr-commentable-hover'));
+		assert.ok(links('add')[0].classList.contains('visible'));
 	});
 });
 

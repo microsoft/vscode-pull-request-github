@@ -100,9 +100,20 @@ export class MarkdownPreviewComments extends Disposable {
 			}
 		});
 		this._register(this._reviewsManager.onDidChangeCommentThreads(() => this.updateAll()));
-		this._register(vscode.workspace.onDidCloseTextDocument(document => this._info.delete(document.uri.toString())));
+		this._register(vscode.workspace.onDidCloseTextDocument(document => this.forgetDocument(document.uri)));
 		// A preview can be rendered before the commenting ranges of its pull request are available.
 		this._register(PRCommentControllerRegistry.onDidChangeCommentingRangeProviders(() => this.updateAll()));
+	}
+
+	/**
+	 * Forgets the comment information of a closed document. Its id is kept, because VS Code can close
+	 * a document while its preview is still shown, and the comment links in that preview use the id.
+	 */
+	private forgetDocument(document: vscode.Uri): void {
+		const key = document.toString();
+		this._info.delete(key);
+		clearTimeout(this._updateTimers.get(key));
+		this._updateTimers.delete(key);
 	}
 
 	/**
@@ -281,7 +292,13 @@ export class MarkdownPreviewComments extends Disposable {
 			this._register(pullRequest.onDidChangeReviewThreads(() => this.updateAll()));
 		}
 
-		const commentingRanges = await githubRepository.commentsHandler.getCommentingRanges(document, new vscode.CancellationTokenSource().token);
+		const tokenSource = new vscode.CancellationTokenSource();
+		let commentingRanges: vscode.Range[] | vscode.CommentingRanges | undefined;
+		try {
+			commentingRanges = await githubRepository.commentsHandler.getCommentingRanges(document, tokenSource.token);
+		} finally {
+			tokenSource.dispose();
+		}
 		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
 		const side = params.isBase ? DiffSide.LEFT : DiffSide.RIGHT;
 		const threads = pullRequest.reviewThreadsCache.filter(thread =>

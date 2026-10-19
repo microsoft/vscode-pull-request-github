@@ -24,7 +24,7 @@ interface PRCommentingRangeProviderInfo extends vscode.Disposable {
 	refCount: number;
 }
 
-export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
+export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider2, CommentReactionHandler {
 	private static _onDidChangeCommentingRangeProviders = new vscode.EventEmitter<void>();
 	/**
 	 * Fires when a commenting range provider of a pull request is registered or removed, in any repository.
@@ -42,15 +42,14 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 
 	constructor(public readonly commentsController: vscode.CommentController, private readonly _telemetry: ITelemetry) {
 		super();
-		this.commentsController.commentingRangeProvider = this;
+		this.commentsController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | vscode.CommentingRanges | undefined> {
 		const ranges = await this.getCommentingRanges(document, token);
 		this._onDidProvideCommentingRanges.fire(document.uri);
-		// The registered providers are `CommentingRangeProvider2`s, which can also return an object with the ranges.
-		return ranges as vscode.Range[] | undefined;
+		return ranges;
 	}
 
 	async getCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | vscode.CommentingRanges | undefined> {

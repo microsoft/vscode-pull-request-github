@@ -90,4 +90,26 @@ describe('UriHandler', function () {
 		assert.notStrictEqual(resolvedManager, existingManager);
 		assert.ok(resolvedManager.repository instanceof RemoteOnlyRepository);
 	});
+
+	it('only comments from a markdown preview link that has the lines to comment on', async function () {
+		const commentOnLines = sandbox.stub().resolves();
+		const handler = new UriHandler(
+			repositoriesManager,
+			{} as ReviewsManager,
+			telemetry,
+			context,
+			git,
+			folderRepositoryManagerResolver,
+			{ commentOnLines } as unknown as MarkdownPreviewComments,
+		);
+		const link = 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1';
+
+		await handler.handleUri(vscode.Uri.parse(link));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=2`));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=3&end=2`));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=2&end=3`));
+
+		assert.deepStrictEqual(commentOnLines.args, [['1', 2, 3]]);
+	});
 });
+

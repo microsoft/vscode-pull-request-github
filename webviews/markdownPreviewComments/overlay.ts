@@ -143,11 +143,17 @@ function createLink(className: string, href: string, text: string, title: string
 
 let hoverTarget: Element | undefined;
 let addLinks = new Map<Element, HTMLAnchorElement>();
+/**
+ * The vertical bounds of the blocks with comment links, in document coordinates. They're measured when rendering,
+ * which happens again when the layout changes, so that moving the pointer doesn't force a layout.
+ */
+let hoverAreas: { element: Element; top: number; bottom: number }[] = [];
 
 export function render(): void {
 	setHoverTarget(undefined);
 	document.getElementById(OVERLAY_ID)?.remove();
 	addLinks = new Map();
+	hoverAreas = [];
 
 	const state = readState();
 	if (!state) {
@@ -163,7 +169,8 @@ export function render(): void {
 	const threadsLeft = document.documentElement.clientWidth - 24 - origin.left;
 
 	for (const block of getBlocks()) {
-		const top = block.element.getBoundingClientRect().top - origin.top;
+		const rect = block.element.getBoundingClientRect();
+		const top = rect.top - origin.top;
 
 		if (state.commentingRanges.some(range => intersects(range, block))) {
 			// The links stay in the tab order, and show the block they comment on when focused with the keyboard.
@@ -172,6 +179,7 @@ export function render(): void {
 			link.addEventListener('blur', () => setHoverTarget(undefined));
 			overlay.appendChild(link);
 			addLinks.set(block.element, link);
+			hoverAreas.push({ element: block.element, top: rect.top + window.scrollY, bottom: rect.bottom + window.scrollY });
 		}
 
 		// GitHub anchors a comment thread on its last line. Each thread gets its own badge, since the threads
@@ -210,11 +218,12 @@ export function onMouseMove(event: MouseEvent): void {
 	}
 	// Find the block on the same line as the pointer, which also works when hovering in the margin.
 	// Blocks can contain other blocks, such as nested list items, so prefer the innermost one.
-	const element = [...addLinks.keys()]
-		.filter(block => {
-			const rect = block.getBoundingClientRect();
-			return event.clientY >= rect.top && event.clientY <= rect.bottom;
-		})
-		.sort((a, b) => a.getBoundingClientRect().height - b.getBoundingClientRect().height)[0];
-	setHoverTarget(element);
+	const y = event.clientY + window.scrollY;
+	let match: { element: Element; top: number; bottom: number } | undefined;
+	for (const area of hoverAreas) {
+		if (y >= area.top && y <= area.bottom && (!match || area.bottom - area.top < match.bottom - match.top)) {
+			match = area;
+		}
+	}
+	setHoverTarget(match?.element);
 }

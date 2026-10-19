@@ -313,5 +313,24 @@ describe('MarkdownPreviewComments', function () {
 			commentController.dispose();
 		}
 	});
+
+	it('does not update a document after it is closed', async function () {
+		let closeDocument!: (document: vscode.TextDocument) => void;
+		sandbox.stub(vscode.workspace, 'onDidCloseTextDocument').callsFake(listener => {
+			closeDocument = listener;
+			return { dispose: () => { } };
+		});
+		createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [], threads: [] } });
+		const openTextDocument = sandbox.stub(vscode.workspace, 'openTextDocument');
+		const document = vscode.Uri.file('/repo/docs/guide.md');
+		const md = extendMarkdownIt(new MarkdownIt());
+
+		// Rendering schedules an update of the document's comment information.
+		md.render('text\n', { currentDocument: document });
+		closeDocument({ uri: document } as vscode.TextDocument);
+		await new Promise(resolve => setTimeout(resolve, 400));
+
+		assert.strictEqual(openTextDocument.callCount, 0);
+	});
 });
 

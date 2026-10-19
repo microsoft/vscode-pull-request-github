@@ -184,8 +184,9 @@ export class UriHandler implements vscode.UriHandler {
 	private async _commentOnMarkdownPreview(uri: vscode.Uri): Promise<void> {
 		const query = new URLSearchParams(uri.query);
 		const documentId = query.get('document');
-		const start = Number(query.get('start'));
-		const end = Number(query.get('end'));
+		// `Number(null)` is 0, so check that the lines are present before parsing them.
+		const start = query.has('start') ? Number(query.get('start')) : NaN;
+		const end = query.has('end') ? Number(query.get('end')) : NaN;
 		if (!documentId || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) {
 			Logger.error(`Invalid markdown preview comment URI: ${uri.toString()}`, UriHandler.ID);
 			return;
