@@ -12,6 +12,7 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { fromPRUri, fromReviewUri, Schemes, UriHandlerPaths } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
+import { GitHubRepository } from '../github/githubRepository';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { isFileInRepo } from '../github/utils';
@@ -22,6 +23,8 @@ import { isFileInRepo } from '../github/utils';
 const PREVIEW_DATA_ELEMENT_ID = 'github-pr-markdown-preview-comments';
 const END_LINE_ATTRIBUTE = 'data-pr-end-line';
 const UPDATE_DELAY_MS = 300;
+const COMMENTING_RANGES_TIMEOUT_MS = 3000;
+const COMMENTING_RANGES_APPLIED_DELAY_MS = 100;
 
 let instance: MarkdownPreviewComments | undefined;
 
@@ -176,11 +179,13 @@ export class MarkdownPreviewComments extends Disposable {
 		end = Math.min(end, commentingRange.end, document.lineCount - 1);
 
 		const visibleEditor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === resource.toString());
+		const commentingRanges = visibleEditor ? undefined : this.waitForCommentingRanges(resource);
 		const editor = await vscode.window.showTextDocument(document, {
 			viewColumn: visibleEditor?.viewColumn ?? vscode.ViewColumn.Beside,
 			selection: new vscode.Range(start, 0, start, 0),
 		});
 		editor.revealRange(new vscode.Range(start, 0, end, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+		await commentingRanges;
 		await vscode.commands.executeCommand('workbench.action.addComment', {
 			range: {
 				startLineNumber: start + 1,
@@ -217,17 +222,52 @@ export class MarkdownPreviewComments extends Disposable {
 			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length)[0];
 	}
 
-	private async getPullRequestInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo | undefined> {
-		const params = fromPRUri(document.uri);
+	private getPullRequestRepository(resource: vscode.Uri): GitHubRepository | undefined {
+		const params = fromPRUri(resource);
 		if (!params) {
 			return undefined;
 		}
 		// The path of a `pr` URI is the path of the file in its repository. Remote names and pull request numbers
 		// aren't unique across repositories, so find the deepest repository that contains the file first.
 		const folderManager = this._reposManager.folderManagers
-			.filter(manager => isFileInRepo(manager.repository, document.uri))
+			.filter(manager => isFileInRepo(manager.repository, resource))
 			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length)[0];
-		const githubRepository = folderManager?.gitHubRepositories.find(repository => repository.remote.remoteName === params.remoteName);
+		return folderManager?.gitHubRepositories.find(repository => repository.remote.remoteName === params.remoteName);
+	}
+
+	/**
+	 * Waits until VS Code has been given the commenting ranges of a newly opened document, since adding a comment
+	 * to an editor fails until then.
+	 */
+	private waitForCommentingRanges(resource: vscode.Uri): Promise<void> {
+		const onDidProvideCommentingRanges = resource.scheme === Schemes.Pr
+			? this.getPullRequestRepository(resource)?.commentsHandler?.onDidProvideCommentingRanges
+			: this.getReviewManager(resource)?.reviewCommentController?.onDidProvideCommentingRanges;
+		if (!onDidProvideCommentingRanges) {
+			return Promise.resolve();
+		}
+		return new Promise(resolve => {
+			const done = () => {
+				listener.dispose();
+				clearTimeout(timeout);
+				resolve();
+			};
+			const timeout = setTimeout(done, COMMENTING_RANGES_TIMEOUT_MS);
+			const listener = onDidProvideCommentingRanges(uri => {
+				if (uri.toString() === resource.toString()) {
+					// The ranges reach the editor after the provider returns them.
+					setTimeout(done, COMMENTING_RANGES_APPLIED_DELAY_MS);
+				}
+			});
+		});
+	}
+
+	private async getPullRequestInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo | undefined> {
+		const params = fromPRUri(document.uri);
+		if (!params) {
+			return undefined;
+		}
+		const githubRepository = this.getPullRequestRepository(document.uri);
 		const pullRequest = githubRepository?.getExistingPullRequestModel(params.prNumber);
 		if (!githubRepository?.commentsHandler || !pullRequest) {
 			Logger.debug(`No pull request for ${document.uri.toString()}: repository ${!!githubRepository}, comments handler ${!!githubRepository?.commentsHandler}, model ${!!pullRequest}`, MarkdownPreviewComments.ID);
@@ -238,8 +278,7 @@ export class MarkdownPreviewComments extends Disposable {
 			this._register(pullRequest.onDidChangeReviewThreads(() => this.updateAll()));
 		}
 
-		// The registered providers are `CommentingRangeProvider2`s, which can also return an object with the ranges.
-		const commentingRanges = await githubRepository.commentsHandler.provideCommentingRanges(document, new vscode.CancellationTokenSource().token) as vscode.Range[] | { ranges?: vscode.Range[] } | undefined;
+		const commentingRanges = await githubRepository.commentsHandler.getCommentingRanges(document, new vscode.CancellationTokenSource().token);
 		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
 		const side = params.isBase ? DiffSide.LEFT : DiffSide.RIGHT;
 		const threads = pullRequest.reviewThreadsCache.filter(thread =>

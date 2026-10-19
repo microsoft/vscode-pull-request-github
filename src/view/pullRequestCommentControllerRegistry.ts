@@ -29,6 +29,11 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 	private _prCommentingRangeProviders: { [key: number]: PRCommentingRangeProviderInfo } = {};
 	private readonly _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 	public readonly resourceHints = { schemes: [Schemes.Pr] };
+	private readonly _onDidProvideCommentingRanges = this._register(new vscode.EventEmitter<vscode.Uri>());
+	/**
+	 * Fires when VS Code has been given the commenting ranges of a document.
+	 */
+	public readonly onDidProvideCommentingRanges = this._onDidProvideCommentingRanges.event;
 
 	constructor(public readonly commentsController: vscode.CommentController, private readonly _telemetry: ITelemetry) {
 		super();
@@ -37,6 +42,13 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
+		const ranges = await this.getCommentingRanges(document, token);
+		this._onDidProvideCommentingRanges.fire(document.uri);
+		// The registered providers are `CommentingRangeProvider2`s, which can also return an object with the ranges.
+		return ranges as vscode.Range[] | undefined;
+	}
+
+	async getCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | vscode.CommentingRanges | undefined> {
 		const uri = document.uri;
 		const params = fromPRUri(uri);
 

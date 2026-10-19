@@ -70,6 +70,11 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	private readonly _context: vscode.ExtensionContext;
 	private readonly _onDidChangeCommentThreads = this._register(new vscode.EventEmitter<void>());
 	public readonly onDidChangeCommentThreads = this._onDidChangeCommentThreads.event;
+	private readonly _onDidProvideCommentingRanges = this._register(new vscode.EventEmitter<vscode.Uri>());
+	/**
+	 * Fires when VS Code has been given the commenting ranges of a document.
+	 */
+	public readonly onDidProvideCommentingRanges = this._onDidProvideCommentingRanges.event;
 	public readonly resourceHints = { schemes: [Schemes.Review] };
 
 	constructor(
@@ -513,6 +518,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
+		const ranges = await this.getCommentingRanges(document);
+		this._onDidProvideCommentingRanges.fire(document.uri);
+		return ranges;
+	}
+
+	async getCommentingRanges(document: vscode.TextDocument): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		let query: ReviewUriParams | undefined =
 			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
@@ -584,7 +595,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	 * a review diff, for use by views other than the text editor, such as the markdown preview.
 	 */
 	async getMarkdownPreviewCommentInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo> {
-		const commentingRanges = await this.provideCommentingRanges(document, new vscode.CancellationTokenSource().token);
+		const commentingRanges = await this.getCommentingRanges(document);
 		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
 		const reviewQuery = document.uri.scheme === Schemes.Review ? fromReviewUri(document.uri.query) : undefined;
 		// The base side of a renamed file has the previous file name, but threads are stored by the current file name.

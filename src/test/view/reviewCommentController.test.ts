@@ -481,7 +481,7 @@ describe('ReviewCommentController', function () {
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/new.md`);
 			// The base side of a renamed file uses the previous file name.
 			const baseUri = toReviewUri(uri, 'docs/old.md', undefined, '1', false, { base: true }, repository.rootUri);
-			sinon.stub(reviewCommentController, 'provideCommentingRanges').resolves({ ranges: [new vscode.Range(0, 0, 30, 0)], enableFileComments: true });
+			sinon.stub(reviewCommentController, 'getCommentingRanges').resolves({ ranges: [new vscode.Range(0, 0, 30, 0)], enableFileComments: true });
 			sinon.stub(reviewCommentController as any, 'findMatchedFileChangeForReviewDiffView').returns({ fileName: 'docs/new.md' });
 			reviewCommentController.seedReviewSchemeThreads('docs/new.md', [createGHPRCommentThread('thread-A', baseUri)]);
 

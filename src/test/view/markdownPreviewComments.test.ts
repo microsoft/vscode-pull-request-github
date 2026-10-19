@@ -49,6 +49,7 @@ describe('MarkdownPreviewComments', function () {
 	beforeEach(function () {
 		sandbox = createSandbox();
 		sandbox.stub(vscode.commands, 'executeCommand').resolves();
+		commentingRangesProvided = new vscode.EventEmitter<vscode.Uri>();
 	});
 
 	afterEach(function () {
@@ -65,12 +66,16 @@ describe('MarkdownPreviewComments', function () {
 	}
 
 	let fireCommentThreadsChanged: () => void;
+	let commentingRangesProvided: vscode.EventEmitter<vscode.Uri>;
 
 	function createPreviewComments(...repositories: RepositoryFixture[]): MarkdownPreviewComments {
 		const reviewsManager = {
 			reviewManagers: repositories.filter(repository => repository.workspaceInfo).map(repository => ({
 				repository: { rootUri: vscode.Uri.file(repository.root) },
-				reviewCommentController: { getMarkdownPreviewCommentInfo: async () => repository.workspaceInfo },
+				reviewCommentController: {
+					getMarkdownPreviewCommentInfo: async () => repository.workspaceInfo,
+					onDidProvideCommentingRanges: commentingRangesProvided.event,
+				},
 			})),
 			onDidChangeCommentThreads: (listener: () => void) => {
 				fireCommentThreadsChanged = listener;
@@ -88,7 +93,10 @@ describe('MarkdownPreviewComments', function () {
 					gitHubRepositories: [{
 						remote: { remoteName: 'origin' },
 						getExistingPullRequestModel: (prNumber: number) => prNumber === 7 ? pullRequest : undefined,
-						commentsHandler: { provideCommentingRanges: async () => repository.pullRequestRanges },
+						commentsHandler: {
+							getCommentingRanges: async () => repository.pullRequestRanges,
+							onDidProvideCommentingRanges: commentingRangesProvided.event,
+						},
 					}],
 				};
 			}),
@@ -192,6 +200,7 @@ describe('MarkdownPreviewComments', function () {
 		sandbox.stub(vscode.workspace, 'openTextDocument').resolves(textDocument);
 		const revealRange = sandbox.spy();
 		const showTextDocument = sandbox.stub(vscode.window, 'showTextDocument').resolves({ revealRange } as unknown as vscode.TextEditor);
+		sandbox.stub(vscode.window, 'visibleTextEditors').get(() => [{ document: textDocument, viewColumn: vscode.ViewColumn.Two }]);
 		previewComments['getCommentUri'](document);
 
 		await previewComments.commentOnLines('1', 2, 6);
@@ -256,4 +265,30 @@ describe('MarkdownPreviewComments', function () {
 
 		assert.deepStrictEqual(scheduleUpdate.getCalls().map(call => call.args[0].toString()), [open.toString()]);
 	});
+
+	it('waits for the commenting ranges of a newly opened editor before opening the comment widget', async function () {
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 0, end: 10 }], threads: [] } });
+		const document = vscode.Uri.file('/repo/docs/guide.md');
+		const textDocument = {
+			uri: document,
+			lineCount: 20,
+			lineAt: (line: number) => ({ range: new vscode.Range(line, 0, line, 12) }),
+		} as unknown as vscode.TextDocument;
+		sandbox.stub(vscode.workspace, 'openTextDocument').resolves(textDocument);
+		sandbox.stub(vscode.window, 'showTextDocument').resolves({ revealRange: () => { } } as unknown as vscode.TextEditor);
+		sandbox.stub(vscode.window, 'visibleTextEditors').get(() => []);
+		const executeCommand = vscode.commands.executeCommand as SinonStub;
+		previewComments['getCommentUri'](document);
+
+		const commented = previewComments.commentOnLines('1', 2, 3);
+		await new Promise(resolve => setTimeout(resolve, 50));
+		assert.ok(!executeCommand.calledWith('workbench.action.addComment'), 'adding a comment fails until the editor has its commenting ranges');
+
+		commentingRangesProvided.fire(vscode.Uri.file('/repo/docs/other.md'));
+		commentingRangesProvided.fire(document);
+		await commented;
+
+		assert.ok(executeCommand.calledWith('workbench.action.addComment'));
+	});
 });
+
