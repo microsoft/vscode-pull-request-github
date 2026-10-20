@@ -184,6 +184,12 @@ export class MarkdownPreviewComments extends Disposable {
 			return;
 		}
 		const document = await vscode.workspace.openTextDocument(resource);
+		// VS Code can close a document while its preview is still shown, which stops its comment information from being
+		// updated. Track the document again, since it was reopened.
+		if (!this._info.has(resource.toString())) {
+			this._info.set(resource.toString(), undefined);
+			this.scheduleUpdate(resource);
+		}
 		if (threadId) {
 			// Existing threads can be outside of the commenting ranges, such as when viewing the changes since the last review.
 			end = Math.min(end, document.lineCount - 1);

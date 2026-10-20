@@ -385,5 +385,28 @@ describe('MarkdownPreviewComments', function () {
 		assert.deepStrictEqual(threadB.reveal.firstCall.args, [undefined, { focus: vscode.CommentThreadFocus.Comment }]);
 		assert.ok(!(vscode.commands.executeCommand as SinonStub).calledWith('workbench.action.addComment'));
 	});
+
+	it('tracks a closed document again when a link in its preview reopens it', async function () {
+		let closeDocument!: (document: vscode.TextDocument) => void;
+		sandbox.stub(vscode.workspace, 'onDidCloseTextDocument').callsFake(listener => {
+			closeDocument = listener;
+			return { dispose: () => { } };
+		});
+		const previewComments = createPreviewComments({ root: '/repo', workspaceInfo: { commentingRanges: [{ start: 0, end: 10 }], threads: [] } });
+		const document = vscode.Uri.file('/repo/docs/guide.md');
+		stubOpenedEditor(document);
+		sandbox.stub(vscode.workspace, 'textDocuments').get(() => [{ uri: document, languageId: 'markdown' }]);
+		const md = extendMarkdownIt(new MarkdownIt());
+		md.render('text\n', { currentDocument: document });
+		previewComments['getCommentUri'](document);
+		// VS Code closes the document while its preview is still shown.
+		closeDocument({ uri: document } as vscode.TextDocument);
+
+		await previewComments.commentOnLines('1', 2, 3);
+		const scheduleUpdate = sandbox.spy(previewComments as any, 'scheduleUpdate');
+		fireCommentThreadsChanged();
+
+		assert.deepStrictEqual(scheduleUpdate.getCalls().map(call => call.args[0].toString()), [document.toString()]);
+	});
 });
 
