@@ -86,13 +86,13 @@ export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHT
 export type OverviewItemPreview = IssuePreview | PullRequestPreview;
 
 export interface PullRequest extends Issue {
-	stack?: PullRequestStack;
+	/** Use null to clear a previous value in serialized webview updates. */
+	stack?: PullRequestStack | null;
 	canUpdateStack?: boolean;
 	stackLoaded?: boolean;
 	stackLoadError?: boolean;
 	stackMergeStatus?: 'pending' | 'enqueued';
 	isCopilotOnMyBehalf: boolean;
-	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
@@ -115,7 +115,8 @@ export interface PullRequest extends Issue {
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
-	mergeQueueMethod: MergeMethod | undefined;
+	/** Use null to clear a previous value in serialized webview updates. */
+	mergeQueueMethod: MergeMethod | undefined | null;
 	mergeQueueEntry?: {
 		url: string;
 		position: number;

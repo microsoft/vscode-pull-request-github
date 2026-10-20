@@ -77,7 +77,7 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 				<button title="Copy Link" onClick={copyPrLink} className="icon-button sticky-header-copy" aria-label="Copy Pull Request Link">
 					{copyIcon}
 				</button>
-				{!pr.isIssue && pr.isAgentSessionsWorkspace ? <ViewChangesButton /> : null}
+				{!pr.isIssue ? <ViewChangesButton /> : null}
 			</div>
 		</div>
 	);

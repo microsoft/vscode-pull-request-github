@@ -26,6 +26,12 @@
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
+			"label": "Build web tests",
+			"dependsOn": ["npm: compile:web", "npm: browsertest:preprocess"],
+			"dependsOrder": "sequence",
+			"problemMatcher": []
+		},
+		{
 			"label": "Serve local web extension",
 			"dependsOn": ["serve web", "tunnel web"],
 			"isBackground": true,

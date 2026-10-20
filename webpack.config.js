@@ -233,6 +233,8 @@ async function getExtensionConfig(target, mode, env, browserTests = false) {
 
 	// Add test entry points
 	if (browserTests) {
+		// The browser process shim needs a stable owner for desktop worktree fixtures.
+		plugins.push(new webpack.DefinePlugin({ 'process.pid': '1' }));
 		entry['test/index'] = './src/test/browser/index.ts';
 	} else if (target === 'node') {
 		// Add main test runner

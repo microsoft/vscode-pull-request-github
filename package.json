@@ -13,7 +13,6 @@
 	"enabledApiProposals": [
 		"activeComment",
 		"agentSessionsWorkspace",
-		"agentsWindowActivation",
 		"authIssuers",
 		"chatContextProvider",
 		"chatParticipantAdditions",
@@ -45,11 +44,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.168.0",
+	"version": "0.170.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.141.0"
+		"vscode": "^1.143.0"
 	},
 	"categories": [
 		"Other",
@@ -2173,7 +2172,7 @@
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
+					"when": "(config.githubPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",
@@ -3147,12 +3146,12 @@
 				},
 				{
 					"command": "pr.revealFileInOS",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:(ADD|DELETE))/) && !isSessionsWindow",
 					"group": "0_open@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:(MODIFY|DELETE)/) && !isSessionsWindow",
 					"group": "0_open@2"
 				},
 				{

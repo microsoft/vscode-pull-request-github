@@ -12,8 +12,10 @@ import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
+import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
+import { Root as EditorRoot } from '../app';
 import { Overview } from '../overview';
 
 describe('Overview', function () {
@@ -339,7 +341,7 @@ describe('Overview', function () {
 			['Mergeability is being checked', 'waiting', dot],
 			['Branch is behind its base', 'waiting', dot],
 			['Merge requirements not met', 'waiting', dot],
-			['Merge conflicts', 'waiting', dot],
+			['Merge conflicts', 'conflict', iconPath(require('../../../resources/icons/codicons/close.svg'))],
 			['Draft pull request cannot be merged', 'draft', iconPath(require('../../../resources/icons/codicons/git-pull-request-draft.svg'))],
 			['Ready to merge', 'ready', dot],
 			['Ready to merge', 'ready', pass],
@@ -361,6 +363,56 @@ describe('Overview', function () {
 		assert.strictEqual(out.container.querySelector('#pull-request-stack'), null);
 		assert(out.getByText('Merge Pull Request'));
 	});
+
+	for (const [view, Root, Component] of [
+		['sidebar', ActivityBarRoot, ActivityBarOverview],
+		['editor', EditorRoot, Overview],
+	] as const) {
+		for (const mergeQueueMethod of [undefined, 'squash'] as const) {
+			it(`clears the ${view} stack after a serialized unstack update (${mergeQueueMethod ?? 'no queue'})`, async function () {
+				const pr = new PullRequestBuilder().number(1001).mergeQueueMethod(mergeQueueMethod).stack({
+					position: 3, size: 3, base: 'main',
+					pullRequests: [999, 1000, 1001].map((number, index) => ({
+						position: index + 1, number, title: `Change ${index + 1}`, head: `D${index + 1}`, url: '',
+						state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable,
+					})),
+				}).build();
+				const context = new PRContext(pr);
+				context.setPR(pr);
+				const out = render(
+					<PullRequestContext.Provider value={context}>
+						<Root>{current => <Component {...current} />}</Root>
+					</PullRequestContext.Provider>,
+				);
+				const stackAction = mergeQueueMethod ? 'Add stack to merge queue' : 'Merge stack (3 pull requests)';
+				assert(out.getByText(stackAction));
+				if (view === 'editor') {
+					assert(out.container.querySelector('#pull-request-stack'));
+					assert(out.container.querySelector('.stack-badge'));
+				}
+
+				context.handleMessage(JSON.parse(JSON.stringify({
+					command: 'pr.update',
+					pullrequest: { stack: null, stackLoaded: true, stackLoadError: false, mergeQueueMethod: null },
+				})));
+
+				await wait(() => {
+					assert.strictEqual(out.queryByText(stackAction), null);
+					assert.strictEqual(out.container.querySelector('#pull-request-stack'), null);
+					assert.strictEqual(out.container.querySelector('.stack-badge'), null);
+					assert.strictEqual(context.pr?.stack, null);
+					assert.strictEqual(context.pr?.mergeQueueMethod, null);
+					if (view === 'sidebar') {
+						assert.strictEqual(out.container.querySelector('.select-control input[type="submit"]')?.getAttribute('value'), 'Create Merge Commit');
+						assert(out.getByText('Comment'));
+						assert(out.getByText("Checkout 'main'"));
+					} else {
+						assert(out.getByText('Merge Pull Request'));
+					}
+				}, { timeout: 500 });
+			});
+		}
+	}
 
 	it('offers Unstack all for an eligible stack without showing it to users without write permission', function () {
 		const stack = {
@@ -712,20 +764,157 @@ describe('Overview', function () {
 		assert(updateBranch.notCalled);
 	});
 
-	it('retains merge-commit updates for unstacked PRs and conflict resolution for stacked PRs', function () {
+	it('retains merge-commit updates and conflict resolution for unstacked PRs', function () {
 		for (const mergeable of [PullRequestMergeability.Behind, PullRequestMergeability.Mergeable]) {
 			const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(mergeable).build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert(out.getByText(/Update with merge commit/i));
 			out.unmount();
 		}
-		const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).stack({
+		const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).build();
+		const context = new PRContext(pr);
+		const updateBranch = sinon.stub(context, 'updateBranch').resolves();
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+		fireEvent.click(out.getByText('Resolve conflicts'));
+		assert(updateBranch.calledOnce);
+	});
+
+	describe('stacked PR conflicts', function () {
+		const conflictingStack = {
 			position: 1, size: 1, base: 'main',
 			pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict }],
-		}).build();
-		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-		assert(out.getByText('Resolve conflicts'));
-		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+		};
+		const stackWithConflictBelow = {
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				conflictingStack.pullRequests[0],
+				{ position: 2, number: 1235, title: 'Second', head: 'D2', url: 'https://example.com/1235', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		};
+
+		it('resolves conflicts from the stack header instead of creating a merge commit', async function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			let finishUpdate!: () => void;
+			const updateStack = sinon.stub(context, 'updateStack').returns(new Promise(resolve => {
+				finishUpdate = () => resolve({ updatedPullRequests: [1234] });
+			}));
+			const updateBranch = sinon.stub(context, 'updateBranch');
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByText('This branch has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
+			assert(out.getByText('Resolve conflicts').closest('.stack-section'));
+			assert.strictEqual(out.queryByText('Update stack'), null);
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			assert(updateStack.calledOnce);
+			assert(updateBranch.notCalled);
+			await wait(() => assert.strictEqual(out.getByText('Updating...').closest('button')!.disabled, true));
+			assert.strictEqual(out.getByText('Unstack all').closest('button')!.disabled, true, 'stack actions share progress');
+			finishUpdate();
+			await wait(() => assert.strictEqual(out.getByText('Resolve conflicts').closest('button')!.disabled, false));
+		});
+
+		it('offers to resolve conflicts when another pull request in the stack has conflicts', function () {
+			const pr = new PullRequestBuilder().number(1235).canUpdateStack(true).mergeable(PullRequestMergeability.Mergeable).stack(stackWithConflictBelow).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1234, 1235] });
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryByText('This branch has no conflicts with the base branch.'), null);
+			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
+			assert(out.getByText('Resolve conflicts').closest('.stack-section'));
+			assert.strictEqual(out.queryByText('Update stack'), null);
+			fireEvent.click(out.getByText('Resolve conflicts'));
+			assert(updateStack.calledOnce);
+		});
+
+		it('resolves conflicts in another pull request in the stack from the sidebar', function () {
+			const pr = new PullRequestBuilder().number(1235).canUpdateStack(true).mergeable(PullRequestMergeability.Mergeable).stack(stackWithConflictBelow).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1234, 1235] });
+			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
+			fireEvent.click(out.getByText('Resolve conflicts'));
+			assert(updateStack.calledOnce);
+		});
+
+		it('reports conflicts elsewhere in the stack even when this stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().number(1235).canUpdateStack(false).mergeable(PullRequestMergeability.Mergeable).stack(stackWithConflictBelow).build();
+			for (const Component of [Overview, ActivityBarOverview]) {
+				const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Component {...pr} /></PullRequestContext.Provider>);
+				assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
+				assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+				out.unmount();
+			}
+		});
+
+		it('ignores conflicts in closed pull requests at the top of the stack', function () {
+			const pr = new PullRequestBuilder().number(1234).canUpdateStack(true).mergeable(PullRequestMergeability.Behind).stack({
+				position: 1, size: 2, base: 'main',
+				pullRequests: [
+					{ ...conflictingStack.pullRequests[0], mergeable: PullRequestMergeability.Behind },
+					{ position: 2, number: 1235, title: 'Closed', head: 'D2', url: 'https://example.com/1235', state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Conflict },
+				],
+			}).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert(out.getByText('Update stack'));
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+			assert.strictEqual(out.queryByText('A pull request in this stack has conflicts that must be resolved.'), null);
+		});
+
+		it('shows a failed conflict resolution with the other stack action errors', async function () {
+			const pr = new PullRequestBuilder().canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			sinon.stub(context, 'updateStack').rejects(new Error('Branch D1 changed on GitHub.'));
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
+			assert(out.getByRole('alert').closest('.stack-section'));
+		});
+
+		it('does not offer a merge commit to resolve conflicts when the stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(false)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert(out.getByText('This branch has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
+
+		it('does not offer conflict resolution before stack membership is known', function () {
+			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).build(), stackLoaded: false };
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
+
+		it('resolves conflicts by updating the stack from the sidebar and shows failures there', async function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').rejects(new Error('Branch D1 changed on GitHub.'));
+			const updateBranch = sinon.stub(context, 'updateBranch');
+			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			assert(updateStack.calledOnce);
+			assert(updateBranch.notCalled);
+			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
+		});
+
+		it('does not offer a merge commit to resolve conflicts from the sidebar when the stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(false)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
 	});
 
 	it('does not offer merge-commit updates before stack membership is known or when loading fails', function () {
@@ -908,7 +1097,7 @@ describe('Overview', function () {
 	});
 
 	it('shows view changes in both headers', function () {
-		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).build();
+		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
 		const viewChanges = sinon.stub(context, 'viewChanges');
 
@@ -927,8 +1116,8 @@ describe('Overview', function () {
 		assert.strictEqual(viewChanges.callCount, 2);
 	});
 
-	it('does not show view changes outside the agents window', function () {
-		const pr = new PullRequestBuilder().isAgentSessionsWorkspace(false).build();
+	it('does not show view changes in either header for issues', function () {
+		const pr = new PullRequestBuilder().isIssue(true).build();
 		const context = new PRContext(pr);
 
 		const out = render(

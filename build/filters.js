@@ -44,6 +44,7 @@ module.exports.indentationFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
 	'!**/*.yml',
+	'!.github/**/*.yml',
 	'!resources/emojis.json',
 
 	// except multiple specific files
@@ -66,6 +67,7 @@ module.exports.copyrightFilter = [
 	'!tsconfig.json',
 	'!tsconfig.test.json',
 	'!tsconfig.webviews.json',
+	'!webviews/tsconfig.json',
 	'!tsconfig.scripts.json',
 	'!tsfmt.json',
 	'!**/queries*.gql',

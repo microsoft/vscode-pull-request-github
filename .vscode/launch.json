@@ -103,10 +103,12 @@
 			"request": "launch",
 			"name": "Attach Web Test",
 			"program": "${workspaceFolder}/node_modules/@vscode/test-web/out/server/index.js",
+			"preLaunchTask": "Build web tests",
 			"args": [
 				"--extensionTestsPath=dist/browser/test/index.js",
 				"--extensionDevelopmentPath=.",
 				"--browserType=chromium",
+				"--esm",
 			],
 			"cascadeTerminateToConfigurations": [
 				"Launch Web Test"

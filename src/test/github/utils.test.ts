@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
+import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType } from '../../github/interface';
-import { getPRFetchQuery, insertNewCommitsSinceReview, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -13,6 +15,57 @@ import * as GraphQL from '../../github/graphql';
 import { GitHubRepository } from '../../github/githubRepository';
 
 describe('utils', () => {
+
+	describe('transformHtmlUrlsToExtensionUrls', () => {
+		let sinon: SinonSandbox;
+
+		beforeEach(() => {
+			sinon = createSandbox();
+			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
+		});
+
+		afterEach(() => {
+			sinon.restore();
+		});
+
+		it('does not add an extra quote to issue links', async () => {
+			const githubRepository = {
+				remote: {
+					gitProtocol: { url: { authority: 'github.com' } },
+					owner: 'owner',
+					repositoryName: 'repo',
+					isEnterprise: false,
+				}
+			} as any;
+
+			const issue = {
+				databaseId: 1,
+				id: 'issue-id',
+				number: 42,
+				url: 'https://github.com/owner/repo/issues/42',
+				state: 'OPEN',
+				body: 'issue body',
+				bodyHTML: '<p><a href="https://github.com/owner/repo/issues/42">issue</a> <a href="https://github.com/owner/repo/pull/7">pull request</a></p>',
+				title: 'Issue',
+				titleHTML: 'Issue',
+				author: null,
+				comments: { nodes: [], totalCount: 0 },
+				createdAt: '2026-01-01T00:00:00Z',
+				updatedAt: '2026-01-01T00:00:00Z',
+				labels: { nodes: [] },
+				viewerCanUpdate: false,
+				reactions: { totalCount: 0 },
+				reactionGroups: [],
+			} as any;
+
+			const result = await parseGraphQLIssue(issue, githubRepository);
+			assert.ok(result.bodyHTML !== undefined);
+			const bodyHTML = result.bodyHTML;
+
+			assert.strictEqual((bodyHTML.match(/href="/g) ?? []).length, 2);
+			assert.ok(!bodyHTML.includes('""'));
+		});
+	});
 
 	describe('getPRFetchQuery', () => {
 		it('replaces all instances of ${user}', () => {
