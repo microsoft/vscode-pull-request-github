@@ -224,6 +224,8 @@ export interface Repository {
 	mergeAbort(): Promise<void>;
 	rebase?(upstream: string, options?: { onto?: string; rebaseMerges?: boolean }): Promise<void>;
 	rebaseAbort?(): Promise<void>;
+	/** Continues an in-progress rebase after its conflicts have been resolved and staged. */
+	rebaseContinue?(): Promise<void>;
 	updateRef?(ref: string, newSha: string, oldSha: string): Promise<void>;
 	resetKeep?(ref: string): Promise<void>;
 

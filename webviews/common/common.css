@@ -380,6 +380,11 @@ body img.avatar {
 	visibility: hidden;
 }
 
+.stack-action-error {
+	padding: 8px 16px 0;
+	color: var(--vscode-errorForeground);
+}
+
 .automerge-section {
 	display: flex;
 }
