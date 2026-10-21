@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.172.0
+
+### Changes
+
+- The "Update stack" action now handles merge conflicts in stacked pull requests. When a rebase hits a conflict, you're guided to resolve it in the Source Control view, then continue or abort the rebase.
+
+### Fixes
+
+- Asked to delete remote branch manually after merging a pull request. https://github.com/microsoft/vscode-pull-request-github/issues/8966
+- Webview message reply callbacks are retained for the lifetime of the webview instead of being released when each request completes.
+
 ## 0.170.0
 
 ### Changes
