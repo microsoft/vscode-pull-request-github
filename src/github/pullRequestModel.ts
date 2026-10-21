@@ -1804,6 +1804,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const pageInfo = pullRequest.stack.entries.pageInfo;
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
+				// GitHub merges a stack onto its base, so being behind that base does not block merging when the lowest open
+				// pull request has no conflicts. Updating the stack is still offered. Only staleness inside the stack blocks.
+				const bottom = stack.pullRequests.find(entry => entry.state === GithubItemStateEnum.Open);
+				if (bottom?.mergeable === PullRequestMergeability.Behind) {
+					bottom.mergeable = PullRequestMergeability.Mergeable;
+				}
 				const outdated = await Promise.all(stack.pullRequests.filter(entry =>
 					entry.state === GithubItemStateEnum.Open,
 				).map(async entry => {
@@ -1816,7 +1822,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					if (comparison?.behind_by === undefined) {
 						throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
 					}
-					if (comparison.behind_by > 0) {
+					// Being behind is shown as having no conflicts, so only a pull request GitHub reports as mergeable is marked
+					// behind; conflicts that are not checked yet and unmet merge requirements stay visible.
+					if (comparison.behind_by > 0 && entry !== bottom && entry.mergeable === PullRequestMergeability.Mergeable) {
 						entry.mergeable = PullRequestMergeability.Behind;
 					}
 					return comparison.behind_by > 0;

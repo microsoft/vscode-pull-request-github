@@ -16,7 +16,7 @@ import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
-import { canUpdatePullRequestStack, hasConflictingStackEntry, StackActions, StackSection, useStackActions } from './pullRequestStack';
+import { canUpdatePullRequestStack, StackActions, StackSection, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -24,6 +24,7 @@ import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
 	GithubItemStateEnum,
+	hasConflictingStackEntry,
 	isStackMergeable,
 	MergeMethod,
 	PullRequestCheckStatus,
@@ -458,7 +459,10 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		return <div className="status-item">Pull request stack added to the merge queue.</div>;
 	}
 	if (pr.stack) {
-		return hasWritePermission && !pr.mergeQueueEntry && mergeable === PullRequestMergeability.Mergeable
+		// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
+		const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
+		return hasWritePermission && !pr.mergeQueueEntry
+			&& (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
 			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
 	}
 

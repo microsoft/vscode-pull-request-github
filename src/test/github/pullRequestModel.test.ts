@@ -325,7 +325,7 @@ describe('PullRequestModel', function () {
 			}, { needsUpdate: true, canUpdate: true, comparedConflict: false });
 		});
 
-		it('marks a clean PR behind its stack base as waiting and blocks stack merge', async function () {
+		it('marks a PR without conflicts that is behind the PR below it as behind and blocks stack merge', async function () {
 			const model = createModel();
 			compare.callsFake(async (_base: string, head: string) =>
 				({ behind_by: head === 'github:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
@@ -354,7 +354,7 @@ describe('PullRequestModel', function () {
 			});
 		});
 
-		it('offers an update when only the bottom branch is behind the stack base', async function () {
+		it('offers an update but allows merging when only the bottom branch is behind the stack base', async function () {
 			const model = createModel();
 			compare.callsFake(async (_base: string, head: string) =>
 				({ behind_by: head === 'github:D1' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
@@ -368,9 +368,70 @@ describe('PullRequestModel', function () {
 			], null));
 
 			const stack = await model.getStack();
-			assert.strictEqual(stack?.needsUpdate, true);
-			assert.strictEqual(isStackUpdatable(stack!), true);
+			assert.deepStrictEqual({
+				readiness: stack?.pullRequests.map(entry => entry.mergeable),
+				canMerge: isStackMergeable(stack!, 794),
+				canUpdate: isStackUpdatable(stack!),
+			}, {
+				readiness: [PullRequestMergeability.Mergeable, PullRequestMergeability.Mergeable, PullRequestMergeability.Mergeable],
+				canMerge: true,
+				canUpdate: true,
+			});
 			assert(compare.calledWithExactly('github:main', 'github:D1'));
+		});
+
+		it('allows merging when GitHub reports only the bottom PR as behind its target branch', async function () {
+			const model = createModel(795);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 795, after: null },
+			}, stackPage([
+				{ position: 1, number: 793, mergeable: 'MERGEABLE', mergeStateStatus: 'BEHIND' },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null, 3));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual(stack?.pullRequests.map(entry => entry.mergeable), [
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+				PullRequestMergeability.Mergeable,
+			]);
+			assert.strictEqual(isStackMergeable(stack!, 795), true);
+		});
+
+		it('treats the lowest open PR above merged PRs as the bottom of the stack', async function () {
+			const model = createModel(795);
+			compare.callsFake(async (_base: string, head: string) =>
+				({ behind_by: head === 'github:D2' ? 1 : 0 }) as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 795, after: null },
+			}, stackPage([
+				{ position: 1, number: 793, state: GithubItemStateEnum.Merged },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null, 3));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual({ second: stack?.pullRequests[1].mergeable, canMerge: isStackMergeable(stack!, 795), needsUpdate: stack?.needsUpdate },
+				{ second: PullRequestMergeability.Mergeable, canMerge: true, needsUpdate: true });
+		});
+
+		it('still blocks stack merging when the bottom PR conflicts with the target branch', async function () {
+			const model = createModel(795);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 795, after: null },
+			}, stackPage([
+				{ position: 1, number: 793, mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY' },
+				{ position: 2, number: 794 },
+				{ position: 3, number: 795 },
+			], null, 3));
+
+			const stack = await model.getStack();
+			assert.strictEqual(stack?.pullRequests[0].mergeable, PullRequestMergeability.Conflict);
+			assert.strictEqual(isStackMergeable(stack!, 795), false);
 		});
 
 		it('offers an update when a changed middle PR has not been propagated to the top', async function () {
@@ -398,6 +459,28 @@ describe('PullRequestModel', function () {
 			assert(compare.calledWithExactly('github:D1', 'github:D2'));
 			assert(compare.calledWithExactly('github:D2', 'github:D3'));
 			assert.strictEqual(compare.callCount, 3);
+		});
+
+		it('keeps unknown mergeability and unmet requirements visible for a PR behind its base', async function () {
+			const model = createModel();
+			compare.resolves({ behind_by: 1 } as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStack,
+				variables: { owner: 'github', name: 'test', number: 794, after: null },
+			}, stackPage([
+				{ position: 1, number: 793 },
+				{ position: 2, number: 794, mergeable: 'UNKNOWN', mergeStateStatus: 'UNKNOWN' },
+				{ position: 3, number: 795, mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED' },
+			], null));
+
+			const stack = await model.getStack();
+			assert.deepStrictEqual({
+				readiness: stack?.pullRequests.map(entry => entry.mergeable),
+				needsUpdate: stack?.needsUpdate,
+			}, {
+				readiness: [PullRequestMergeability.Mergeable, PullRequestMergeability.Unknown, PullRequestMergeability.NotMergeable],
+				needsUpdate: true,
+			});
 		});
 
 		it('blocks merging an up-to-date PR above a behind PR with a closed top', async function () {
@@ -1075,6 +1158,116 @@ describe('PullRequestModel', function () {
 		});
 	}
 
+	describe('rebaseStack', function () {
+		const headers = { 'X-GitHub-Api-Version': '2026-03-10' };
+		const listArgs = ['GET /repos/{owner}/{repo}/stacks', { owner: 'github', repo: 'test', headers, pull_request: 795, per_page: 1 }];
+		const route = '/repositories/{repository_id}/stacks/{stack_number}/rebase';
+		const rebaseParams = { repository_id: 4242, stack_number: 12, headers };
+		const putArgs = [`PUT ${route}`, { ...rebaseParams, expected_head_oid_by_pr_number: { 794: 'd1-old', 795: 'd2-old' } }];
+		const getArgs = [`GET ${route}`, rebaseParams];
+		const stacks = [{
+			number: 12,
+			pull_requests: [{ number: 794, head: { ref: 'D1', sha: 'd1-old' } }, { number: 795, head: { ref: 'D2', sha: 'd2-old' } }],
+		}];
+		const before = [{ number: 794, ref: 'D1', sha: 'd1-old' }, { number: 795, ref: 'D2', sha: 'd2-old' }];
+		// The responses GitHub returned when rebasing a stack.
+		const accepted = { status: 'pending', status_url: 'https://api.github.com/repos/github/test/stacks/12/rebase' };
+		const done = (...results: { number: number; status: string; before: string; after: string }[]) => ({
+			job_state: 'done',
+			pull_requests: results.map(({ number, ...result }) => ({ pull_request_number: number, ...result })),
+		});
+		const rebasedBoth = done(
+			{ number: 794, status: 'succeeded', before: 'd1-old', after: 'd1-new' },
+			{ number: 795, status: 'succeeded', before: 'd2-old', after: 'd2-new' },
+		);
+
+		beforeEach(function () {
+			repo.buildMetadata(repository => repository.id(4242));
+		});
+
+		/** Starts a rebase, then lets it poll once. */
+		async function rebaseAfterOnePoll() {
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+			const rebasing = repo.rebaseStack(795, [794, 795]);
+			// Let the request settle so the poll is scheduled, then run it.
+			await new Promise(resolve => setImmediate(resolve));
+			clock.tick(3000);
+			return rebasing;
+		}
+
+		it('starts a rebase, polls until it is done, and reports the rebased pull requests', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitRequest(['request'], putArgs, accepted, 202);
+			repo.queryProvider.expectOctokitRequest(['request'], getArgs, rebasedBoth, 200);
+
+			assert.deepStrictEqual(await rebaseAfterOnePoll(), { status: 'rebased', before, rebasedPullRequests: [794, 795] });
+		});
+
+		it('does not report a pull request whose head GitHub did not change', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitRequest(['request'], putArgs, accepted, 202);
+			repo.queryProvider.expectOctokitRequest(['request'], getArgs, done(
+				{ number: 794, status: 'succeeded', before: 'd1-old', after: 'd1-old' },
+				{ number: 795, status: 'succeeded', before: 'd2-old', after: 'd2-new' },
+			), 200);
+
+			assert.deepStrictEqual((await rebaseAfterOnePoll()).rebasedPullRequests, [795]);
+		});
+
+		it('polls a rebase that is already running on GitHub', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitError(['request'], putArgs, Object.assign(new Error('Rebase already requested'), {
+				status: 409,
+				response: { data: accepted },
+			}));
+			repo.queryProvider.expectOctokitRequest(['request'], getArgs, rebasedBoth, 200);
+
+			assert.deepStrictEqual(await rebaseAfterOnePoll(), { status: 'rebased', before, rebasedPullRequests: [794, 795] });
+		});
+
+		it('reports a rebase that is still running after the polling timeout', async function () {
+			const now = sinon.stub(Date, 'now');
+			now.onFirstCall().returns(0);
+			now.onSecondCall().returns(5 * 60 * 1000);
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitRequest(['request'], putArgs, accepted, 202);
+
+			assert.deepStrictEqual(await repo.rebaseStack(795, [794, 795]), { status: 'pending', before });
+		});
+
+		it('reports the pull requests GitHub could not rebase instead of reporting success', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitRequest(['request'], putArgs, accepted, 202);
+			repo.queryProvider.expectOctokitRequest(['request'], getArgs, done(
+				{ number: 794, status: 'succeeded', before: 'd1-old', after: 'd1-new' },
+				{ number: 795, status: 'conflict', before: 'd2-old', after: 'd2-old' },
+			), 200);
+
+			await assert.rejects(rebaseAfterOnePoll(), /could not rebase every pull request in the stack: #795 \(conflict\)\./);
+		});
+
+		it('reports an unknown job state instead of assuming the rebase succeeded', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitRequest(['request'], putArgs, accepted, 202);
+			repo.queryProvider.expectOctokitRequest(['request'], getArgs, { job_state: 'paused', pull_requests: [] }, 200);
+
+			await assert.rejects(rebaseAfterOnePoll(), /unknown stack rebase state: paused/);
+		});
+
+		it('reports a finished job without pull request results instead of assuming the rebase succeeded', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, stacks);
+			repo.queryProvider.expectOctokitRequest(['request'], putArgs, accepted, 202);
+			repo.queryProvider.expectOctokitRequest(['request'], getArgs, { job_state: 'done' }, 200);
+
+			await assert.rejects(rebaseAfterOnePoll(), /invalid stack rebase result/);
+		});
+
+		it('does not rebase a stack that changed after the user confirmed', async function () {
+			repo.queryProvider.expectOctokitRequest(['request'], listArgs, [{ ...stacks[0], pull_requests: [...stacks[0].pull_requests, { number: 796, head: { ref: 'D3', sha: 'd3' } }] }]);
+
+			await assert.rejects(repo.rebaseStack(795, [794, 795]), /stack has changed/);
+		});
+	});
 	describe('openReadonlyChanges', function () {
 		const baseCommit = '1111111111111111111111111111111111111111';
 		const mergeBase = '2222222222222222222222222222222222222222';
