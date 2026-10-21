@@ -420,6 +420,7 @@ export class PRContext {
 		state.pendingCommentText = '';
 		state.pendingReviewSummaryText = '';
 		state.pendingReviewType = undefined;
+		state.pendingAttestation = false;
 		this.updatePR(state);
 	}
 

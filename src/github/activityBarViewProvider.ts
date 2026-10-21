@@ -465,7 +465,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
 		const result = context.addAttestation
-			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			? await PullRequestReviewCommon.addAttestationForReviewCommand(this.getReviewContext(), ReviewType.Approve)
 			: undefined;
 		if (context.addAttestation && !result) {
 			return;
