@@ -9,7 +9,6 @@ import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
-import { parseRepositoryRemotesAsync } from '../common/remote';
 import {
 	DEFAULT,
 	DEV_MODE,
@@ -341,10 +340,10 @@ export class StateManager {
 		}
 		const issueCollection = singleRepoState.issueCollection;
 		issueCollection.clear();
-		const enterpriseRemotes = (await parseRepositoryRemotesAsync(folderManager.repository)).filter(
-			remote => remote.isEnterprise
-		);
-		const user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
+		// Use the remotes that were resolved as GitHub servers (and that respect the remotes setting)
+		// so that non-GitHub remotes, such as a private SSH server, are not mistaken for Enterprise.
+		const hasEnterpriseRemote = folderManager.getActiveGitHubRemotes().some(remote => remote.isEnterprise);
+		const user = await this.getCurrentUser(hasEnterpriseRemote ? AuthProvider.githubEnterprise : AuthProvider.github);
 
 		for (let query of this._queries) {
 			let items: Promise<IssueQueryResult> | undefined;
