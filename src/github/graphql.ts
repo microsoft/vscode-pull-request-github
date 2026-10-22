@@ -849,6 +849,38 @@ export interface PullRequestStackResponse {
 	} | null;
 }
 
+export interface StackablePullRequestBranchesNode {
+	number: number;
+	baseRefName: string;
+	baseRepository: { name: string; owner: { login: string } } | null;
+	headRefName: string;
+	headRepository: { name: string; owner: { login: string } } | null;
+}
+
+export interface StackablePullRequestNode extends StackablePullRequestBranchesNode {
+	title: string;
+	url: string;
+	isDraft: boolean;
+	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+	mergeQueueEntry?: { state: string } | null;
+	stackEntry: { position: number } | null;
+	stack: { size: number } | null;
+}
+
+export interface StackablePullRequestConnection<T extends StackablePullRequestBranchesNode = StackablePullRequestNode> {
+	nodes: T[];
+	pageInfo: { hasNextPage: boolean };
+}
+
+export interface StackablePullRequestsResponse {
+	repository: {
+		below?: StackablePullRequestConnection;
+		targetingBase?: StackablePullRequestConnection<StackablePullRequestBranchesNode>;
+		above?: StackablePullRequestConnection;
+	} | null;
+}
+
 export interface IssueResponse {
 	repository: {
 		issue: PullRequest;

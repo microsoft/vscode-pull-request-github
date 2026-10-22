@@ -12,9 +12,11 @@ import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
+import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
+import { STACKS_DOCUMENTATION_URL } from '../../components/stackRecommendation';
 import { Root as EditorRoot } from '../app';
 import { Overview } from '../overview';
 
@@ -1190,5 +1192,204 @@ describe('Overview', function () {
 		assert.deepStrictEqual(context.pr?.events, []);
 		assert.strictEqual(context.pr?.currentUserReviewState, 'APPROVED');
 		assert.strictEqual(context.pr?.title, pr.title);
+	});
+
+	describe('stack recommendation', function () {
+		function recommendedPullRequest(existingStackSize?: number): PullRequest {
+			const pr = new PullRequestBuilder().number(794).build();
+			const entries = [
+				{ number: 792, title: 'Existing Change', head: 'D0' },
+				{ number: 793, title: 'First Change', head: 'D1' },
+				{ number: 794, title: 'Second Change', head: 'D2' },
+				{ number: 795, title: 'Third Change', head: 'D3' },
+			].slice(existingStackSize === undefined ? 1 : 0);
+			return {
+				...pr,
+				stackRecommendation: {
+					stack: {
+						position: entries.findIndex(entry => entry.number === 794) + 1,
+						size: entries.length,
+						base: 'main',
+						pullRequests: entries.map((entry, index) => ({
+							...entry,
+							position: index + 1,
+							url: `https://example.com/${entry.number}`,
+							state: GithubItemStateEnum.Open,
+							isDraft: false,
+							mergeable: entry.number === 795 ? PullRequestMergeability.Conflict : PullRequestMergeability.Mergeable,
+						})),
+					},
+					existingStackSize,
+				},
+			};
+		}
+
+		function renderOverview(pr: PullRequest, context = new PRContext(pr)) {
+			return render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+		}
+
+		it('recommends stacking above the title and previews the stack like the stack section', function () {
+			const pr = recommendedPullRequest();
+			const out = renderOverview(pr);
+
+			const banner = out.container.querySelector('.stack-recommendation');
+			assert(banner);
+			assert.strictEqual(banner.nextElementSibling?.id, 'title');
+			assert(banner.textContent?.includes('This pull request can be stacked with other pull requests.'));
+			assert.strictEqual(out.getByText('Learn more about stacks').getAttribute('href'), STACKS_DOCUMENTATION_URL);
+			const region = banner.querySelector('.stack-recommendation-preview');
+			assert(region);
+			assert(region.hasAttribute('hidden'), 'the preview starts collapsed');
+
+			const preview = out.getByText('Preview stack');
+			assert.strictEqual(preview.getAttribute('aria-controls'), region.id, 'the button always controls the preview');
+			fireEvent.click(preview);
+
+			assert.strictEqual(preview.getAttribute('aria-expanded'), 'true');
+			assert.strictEqual(region.hasAttribute('hidden'), false);
+			const list = region.querySelector('.stack-entries');
+			assert(list);
+			assert.strictEqual(list.getAttribute('aria-label'), 'Pull requests merging down into main');
+			assert.deepStrictEqual([...list.querySelectorAll('.stack-entry')].map(entry => entry.querySelector('.stack-entry-details')?.textContent), [
+				'Third Change#795 - D3',
+				'Second Change#794 - D2',
+				'First Change#793 - D1',
+			]);
+			assert.deepStrictEqual([...list.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')), [
+				'Merge conflicts',
+				'Ready to merge',
+				'Ready to merge',
+			]);
+			assert.strictEqual(list.querySelector('.stack-entry.current')?.getAttribute('aria-current'), 'step');
+			assert.strictEqual(list.querySelector('a[href="https://example.com/793"]')?.textContent, 'First Change');
+			assert.strictEqual(list.querySelector('.stack-base')?.textContent, 'main');
+			assert(banner.textContent?.includes('3 pull requests will be stacked, merging down into main.'));
+			assert.strictEqual(preview.textContent, 'Hide stack', 'the same button hides the preview');
+			assert.strictEqual(out.queryByText('Preview stack'), null);
+			assert.strictEqual(out.queryByText('Cancel'), null);
+
+			fireEvent.click(preview);
+			assert(region.hasAttribute('hidden'));
+			assert.strictEqual(preview.getAttribute('aria-expanded'), 'false');
+			assert.strictEqual(preview.getAttribute('aria-controls'), region.id);
+			assert.strictEqual(preview.textContent, 'Preview stack');
+		});
+
+		it('describes adding the pull requests to the top of an existing stack', function () {
+			const out = renderOverview(recommendedPullRequest(1));
+			fireEvent.click(out.getByText('Preview stack'));
+
+			assert(out.container.textContent?.includes('3 pull requests will be added to the top of an existing stack of 1 pull request.'));
+			assert(out.getByText('Add to stack', { selector: 'button' }));
+			assert.strictEqual(out.container.querySelectorAll('.stack-recommendation .stack-entry').length, 4);
+		});
+
+		it('stacks the previewed pull requests', async function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			const create = sinon.stub(context, 'createRecommendedStack').resolves();
+			const out = renderOverview(pr, context);
+			fireEvent.click(out.getByText('Preview stack'));
+
+			fireEvent.click(out.getByText('Create stack'));
+
+			assert(create.calledOnceWithExactly([793, 794, 795]));
+			await wait(() => assert.strictEqual((out.getByText('Create stack') as HTMLButtonElement).disabled, false));
+		});
+
+		it('shows an inline error when stacking fails', async function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			sinon.stub(context, 'createRecommendedStack').rejects(new Error('The pull requests that can be stacked have changed.'));
+			const out = renderOverview(pr, context);
+			fireEvent.click(out.getByText('Preview stack'));
+
+			fireEvent.click(out.getByText('Create stack'));
+
+			const alert = await waitForElement(() => out.container.querySelector('.stack-recommendation .stack-action-error[role="alert"]'));
+			assert.strictEqual(alert?.textContent, 'Unable to stack pull requests: The pull requests that can be stacked have changed.');
+			assert.strictEqual((out.getByText('Create stack') as HTMLButtonElement).disabled, false);
+		});
+
+		it('dismisses the recommendation', function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			const dismiss = sinon.stub(context, 'dismissStackRecommendation').resolves();
+			const out = renderOverview(pr, context);
+
+			fireEvent.click(out.getByLabelText('Dismiss stack recommendation'));
+
+			assert(dismiss.calledOnce);
+		});
+
+		it('shows no recommendation when there is none', function () {
+			for (const stackRecommendation of [undefined, null]) {
+				const out = renderOverview({ ...new PullRequestBuilder().build(), stackRecommendation });
+				assert.strictEqual(out.container.querySelector('.stack-recommendation'), null);
+				cleanup();
+			}
+		});
+
+		it('starts collapsed when the recommendation comes back after the pull requests were stacked and unstacked', async function () {
+			const pr = recommendedPullRequest();
+			// The context saves the pull request as webview state and updates it in place.
+			const recommendation = pr.stackRecommendation;
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			const postMessage = sinon.stub(context, 'postMessage').resolves();
+			const consoleError = sinon.spy(console, 'error');
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			fireEvent.click(out.getByText('Preview stack'));
+			assert.strictEqual(out.container.querySelector('.stack-recommendation-preview')?.hasAttribute('hidden'), false);
+
+			fireEvent.click(out.getByText('Create stack'));
+			await wait(() => assert.strictEqual(out.container.querySelector('.stack-recommendation'), null));
+			assert(postMessage.calledWithExactly({ command: 'pr.create-recommended-stack', args: { pullRequests: [793, 794, 795] } }));
+
+			context.handleMessage({ command: 'pr.update', pullrequest: { stackRecommendation: recommendation } });
+
+			const banner = await waitForElement(() => out.container.querySelector('.stack-recommendation'));
+			assert.strictEqual(banner?.querySelector('.stack-recommendation-preview')?.hasAttribute('hidden'), true);
+			assert.strictEqual(out.getByText('Preview stack').getAttribute('aria-expanded'), 'false');
+			assert(consoleError.getCalls().every(call => !String(call.args[0]).includes('unmounted component')));
+		});
+
+		it('hides the recommendation as soon as it is dismissed or stacked', async function () {
+			for (const act of [
+				(context: PRContext) => context.dismissStackRecommendation(),
+				(context: PRContext) => context.createRecommendedStack([793, 794, 795]),
+			]) {
+				const pr = recommendedPullRequest();
+				const context = new PRContext(pr);
+				context.setPR(pr);
+				const postMessage = sinon.stub(context, 'postMessage').resolves();
+
+				await act(context);
+
+				assert.strictEqual(context.pr?.stackRecommendation, null);
+				assert(postMessage.calledOnce);
+				postMessage.restore();
+			}
+		});
+
+		it('keeps the recommendation when stacking fails', async function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			const postMessage = sinon.stub(context, 'postMessage').rejects(new Error('Failed'));
+
+			await assert.rejects(context.createRecommendedStack([793, 794, 795]), /Failed/);
+
+			assert(postMessage.calledOnceWithExactly({ command: 'pr.create-recommended-stack', args: { pullRequests: [793, 794, 795] } }));
+			assert(context.pr?.stackRecommendation);
+		});
 	});
 });

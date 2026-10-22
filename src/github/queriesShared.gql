@@ -840,6 +840,73 @@ query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: S
 	}
 }
 
+# Finds the open pull requests below and above a chain of branches, so they can be recommended as a stack.
+query StackablePullRequests($owner: String!, $name: String!, $base: String!, $head: String!, $includeBelow: Boolean!, $includeAbove: Boolean!) {
+	repository(owner: $owner, name: $name) {
+		below: pullRequests(headRefName: $base, states: [OPEN], first: 10) @include(if: $includeBelow) {
+			nodes {
+				...StackablePullRequestFields
+			}
+			pageInfo {
+				hasNextPage
+			}
+		}
+		targetingBase: pullRequests(baseRefName: $base, states: [OPEN], first: 10) @include(if: $includeBelow) {
+			nodes {
+				...StackablePullRequestBranches
+			}
+			pageInfo {
+				hasNextPage
+			}
+		}
+		above: pullRequests(baseRefName: $head, states: [OPEN], first: 10) @include(if: $includeAbove) {
+			nodes {
+				...StackablePullRequestFields
+			}
+			pageInfo {
+				hasNextPage
+			}
+		}
+	}
+}
+
+# Only what is needed to tell whether pull requests line up, since the base branch may have many pull requests.
+fragment StackablePullRequestBranches on PullRequest {
+	number
+	baseRefName
+	baseRepository {
+		name
+		owner {
+			login
+		}
+	}
+	headRefName
+	headRepository {
+		name
+		owner {
+			login
+		}
+	}
+}
+
+fragment StackablePullRequestFields on PullRequest {
+	...StackablePullRequestBranches
+	title
+	url
+	isDraft
+	mergeable
+	mergeStateStatus
+	mergeQueueEntry {
+		state
+	}
+	stackEntry {
+		position
+	}
+	stack {
+		size
+	}
+}
+
 query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

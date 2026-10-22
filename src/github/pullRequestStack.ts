@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GithubItemStateEnum } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import type { GitHubRepository } from './githubRepository';
+import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack } from './interface';
+import type { PullRequestModel } from './pullRequestModel';
 import { StackCandidate } from '../../common/views';
 import { assertStacksEnabled } from '../common/settingsUtils';
 import { compareIgnoreCase } from '../common/utils';
@@ -55,6 +56,50 @@ export function orderStackablePullRequests(pullRequests: readonly PullRequestMod
 	return ordered.length === pullRequests.length && !current ? ordered : undefined;
 }
 
+/**
+ * Marks the open pull requests in a stack that are behind their base.
+ * @param branches The `owner:branch` base and head of each open pull request, by number.
+ * @param startsAtBottom Whether the first open pull request is the bottom of the stack.
+ * @returns Whether updating the stack would change any of the pull requests.
+ */
+export async function markOutdatedStackEntries(repository: GitHubRepository, entries: PullRequestStack['pullRequests'],
+	branches: ReadonlyMap<number, { base: string; head: string }>, startsAtBottom: boolean): Promise<boolean> {
+	// GitHub merges a stack onto its base, so being behind that base does not block merging when the lowest open
+	// pull request has no conflicts. Updating the stack is still offered. Only staleness inside the stack blocks.
+	const bottom = startsAtBottom ? entries.find(entry => entry.state === GithubItemStateEnum.Open) : undefined;
+	if (bottom?.mergeable === PullRequestMergeability.Behind) {
+		bottom.mergeable = PullRequestMergeability.Mergeable;
+	}
+	const outdated = await Promise.all(entries.filter(entry => entry.state === GithubItemStateEnum.Open).map(async entry => {
+		// A conflict means the base has changes the head does not, so updating the stack is how it is resolved.
+		if (entry.mergeable === PullRequestMergeability.Conflict) {
+			return true;
+		}
+		const refs = branches.get(entry.number);
+		const comparison = refs && await repository.compareCommits(refs.base, refs.head);
+		if (comparison?.behind_by === undefined) {
+			throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
+		}
+		// Being behind is shown as having no conflicts, so only a pull request GitHub reports as mergeable is marked
+		// behind; conflicts that are not checked yet and unmet merge requirements stay visible.
+		if (comparison.behind_by > 0 && entry !== bottom && entry.mergeable === PullRequestMergeability.Mergeable) {
+			entry.mergeable = PullRequestMergeability.Behind;
+		}
+		return comparison.behind_by > 0;
+	}));
+	return outdated.some(Boolean);
+}
+
+/** Gets the stack that the bottom of the ordered pull requests would start, or extend if it is the top of one. */
+export async function getStackCandidateForPullRequests(ordered: readonly PullRequestModel[]): Promise<StackCandidate> {
+	const bottom = ordered[0];
+	const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
+	if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
+		throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
+	}
+	return candidate;
+}
+
 export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[], confirmedCandidate: StackCandidate): Promise<number[]> {
 	assertStacksEnabled();
 
@@ -78,11 +123,7 @@ export async function addPullRequestsToStack(pullRequests: readonly PullRequestM
 		|| pr.head?.ref !== selectedBranches[index].head)) {
 		throw new Error('The selected pull request branches have changed. Refresh the view and try again.');
 	}
-	const bottom = ordered[0];
-	const candidate = await repository.getStackCandidate(bottom.head!.ref);
-	if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
-		throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
-	}
+	const candidate = await getStackCandidateForPullRequests(ordered);
 	if (candidate.parentPullRequestNumber !== confirmedCandidate.parentPullRequestNumber
 		|| candidate.stackNumber !== confirmedCandidate.stackNumber) {
 		throw new Error('The selected pull request stack has changed. Refresh the view and try again.');

@@ -41,6 +41,28 @@ export interface PullRequestStack {
 	}[];
 }
 
+/** Open pull requests that could form a stack with a pull request that is not in one yet. */
+export interface PullRequestStackRecommendation {
+	/** The stack the pull requests would form, in the same shape as an existing stack. */
+	stack: PullRequestStack;
+	/** The size of the existing stack that the pull requests would be added to, if they extend one. */
+	existingStackSize?: number;
+}
+
+/** An open pull request whose branches line up with another pull request, so they could be stacked. */
+export interface StackablePullRequest {
+	number: number;
+	title: string;
+	url: string;
+	base: string;
+	head: string;
+	isDraft: boolean;
+	isQueued: boolean;
+	mergeable: PullRequestMergeability;
+	/** Where the pull request is in its stack, if it is already in one. */
+	stackEntry?: { position: number; size: number };
+}
+
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,

@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -110,6 +110,17 @@ export class PRContext {
 
 	public updateStack = (): Promise<UpdateStackResult> =>
 		this.postMessage({ command: 'pr.update-stack' });
+
+	public createRecommendedStack = async (pullRequests: number[]): Promise<void> => {
+		await this.postMessage({ command: 'pr.create-recommended-stack', args: { pullRequests } satisfies CreateRecommendedStackArgs });
+		// The stack replaces the recommendation once the extension reloads it.
+		this.updatePR({ stackRecommendation: null });
+	};
+
+	public dismissStackRecommendation = async (): Promise<void> => {
+		this.updatePR({ stackRecommendation: null });
+		await this.postMessage({ command: 'pr.dismiss-stack-recommendation' });
+	};
 
 	public openOnGitHub = () => this.postMessage({
 		command: 'pr.openOnGitHub',

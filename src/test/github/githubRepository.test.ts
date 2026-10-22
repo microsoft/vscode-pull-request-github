@@ -16,13 +16,14 @@ import { Uri } from 'vscode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
-import { CheckState, GithubItemStateEnum, PullRequestCheckStatus } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../github/interface';
+import { StackablePullRequestNode } from '../../github/graphql';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import Logger from '../../common/logger';
 import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { visit } from 'graphql';
+import { DocumentNode, visit } from 'graphql';
 import { parseAccount } from '../../github/utils';
 
 describe('GitHubRepository', function () {
@@ -472,6 +473,142 @@ describe('GitHubRepository', function () {
 
 			assert.strictEqual(await repo.getPullRequestForBranch('feature', 'some'), undefined);
 			await assert.rejects(repo.getPullRequestForBranch('feature', 'some', true), candidate => candidate === error);
+		});
+	});
+
+	describe('getStackablePullRequests', function () {
+		let repo: MockGitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		});
+
+		afterEach(function () {
+			repo.dispose();
+		});
+
+		function node(number: number, base: string, head: string, options: { headOwner?: string; stack?: { position: number; size: number } } = {}): StackablePullRequestNode {
+			return {
+				number,
+				title: `Change ${number}`,
+				url: `https://github.com/owner/repo/pull/${number}`,
+				isDraft: false,
+				baseRefName: base,
+				baseRepository: { name: 'repo', owner: { login: 'owner' } },
+				headRefName: head,
+				headRepository: { name: 'repo', owner: { login: options.headOwner ?? 'owner' } },
+				mergeable: 'MERGEABLE',
+				mergeStateStatus: 'CLEAN',
+				mergeQueueEntry: null,
+				stackEntry: options.stack ? { position: options.stack.position } : null,
+				stack: options.stack ? { size: options.stack.size } : null,
+			};
+		}
+
+		function response(below: StackablePullRequestNode[] | undefined, above: StackablePullRequestNode[] | undefined, hasNextPage = false,
+			targetingBase: StackablePullRequestNode[] | undefined = below && [node(12, 'D1', 'D2')]) {
+			return {
+				data: {
+					repository: {
+						...(below ? { below: { nodes: below, pageInfo: { hasNextPage } } } : {}),
+						...(targetingBase ? { targetingBase: { nodes: targetingBase, pageInfo: { hasNextPage } } } : {}),
+						...(above ? { above: { nodes: above, pageInfo: { hasNextPage } } } : {}),
+					},
+				},
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			};
+		}
+
+		it('finds the only pull request from this repository below and above a chain', async function () {
+			const query = sinon.stub(repo, 'query').resolves(response(
+				[node(10, 'main', 'D1', { headOwner: 'fork' }), node(11, 'main', 'D1', { stack: { position: 2, size: 2 } })],
+				[node(13, 'D2', 'D3')],
+				false,
+				[node(12, 'D1', 'D2'), node(14, 'D1', 'D4', { headOwner: 'fork' })],
+			));
+
+			assert.deepStrictEqual(await repo.getStackablePullRequests('D1', 'D2'), {
+				below: {
+					number: 11, title: 'Change 11', url: 'https://github.com/owner/repo/pull/11', base: 'main', head: 'D1',
+					isDraft: false, isQueued: false, mergeable: PullRequestMergeability.Mergeable, stackEntry: { position: 2, size: 2 },
+				},
+				targetingBase: 12,
+				above: {
+					number: 13, title: 'Change 13', url: 'https://github.com/owner/repo/pull/13', base: 'D2', head: 'D3',
+					isDraft: false, isQueued: false, mergeable: PullRequestMergeability.Mergeable, stackEntry: undefined,
+				},
+			});
+			assert.strictEqual(query.firstCall.args[0].query, repo.schema.StackablePullRequests);
+			assert.deepStrictEqual(query.firstCall.args[0].variables, {
+				owner: 'owner', name: 'repo', base: 'D1', head: 'D2', includeBelow: true, includeAbove: true,
+			});
+			// Every open pull request into the base branch may be listed, so only what is needed to tell whether they line up is fetched.
+			const document = repo.schema.StackablePullRequests as DocumentNode;
+			const targetingBaseFragments: string[] = [];
+			visit(document, {
+				Field(field) {
+					if (field.alias?.value === 'targetingBase') {
+						visit(field, { FragmentSpread(spread) { targetingBaseFragments.push(spread.name.value); } });
+					}
+				},
+			});
+			assert.deepStrictEqual(targetingBaseFragments, ['StackablePullRequestBranches']);
+			assert(document.definitions.some(definition => definition.kind === 'FragmentDefinition' && definition.name.value === 'StackablePullRequestBranches'),
+				'the nested fragment is included in the query');
+		});
+
+		it('only looks in the requested direction', async function () {
+			const query = sinon.stub(repo, 'query').resolves(response(undefined, [node(13, 'D2', 'D3')]));
+
+			const found = await repo.getStackablePullRequests(undefined, 'D2');
+
+			assert.strictEqual(found?.below, undefined);
+			assert.strictEqual(found?.above?.number, 13);
+			assert.deepStrictEqual(query.firstCall.args[0].variables, {
+				owner: 'owner', name: 'repo', base: '', head: 'D2', includeBelow: false, includeAbove: true,
+			});
+		});
+
+		it('finds nothing where more than one pull request could line up', async function () {
+			const query = sinon.stub(repo, 'query');
+			query.onFirstCall().resolves(response([node(10, 'main', 'D1'), node(11, 'other', 'D1')], [node(13, 'D2', 'D3'), node(14, 'D2', 'D4')], false,
+				[node(12, 'D1', 'D2'), node(15, 'D1', 'D5')]));
+			query.onSecondCall().resolves(response([node(11, 'main', 'D1')], [node(13, 'D2', 'D3')], true));
+
+			const none = { below: undefined, targetingBase: undefined, above: undefined };
+			assert.deepStrictEqual(await repo.getStackablePullRequests('D1', 'D2'), none);
+			assert.deepStrictEqual(await repo.getStackablePullRequests('D1', 'D2'), none, 'another page could have more');
+		});
+
+		it('finds nothing on a GitHub server without pull request stacks, without switching to the limited schema', async function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const realRepo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry, true);
+			const graphql = sinon.createStubInstance(LoggingApolloClient);
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(realRepo, 'hub').get(() => ({ graphql, octokit: sinon.createStubInstance(LoggingOctokit) }));
+			sinon.stub(realRepo, 'ensure').resolves(realRepo);
+			graphql.query.rejects(Object.assign(new Error("Field 'stackEntry' doesn't exist on type 'PullRequest'"), {
+				graphQLErrors: [{ extensions: { code: 'undefinedField', typeName: 'PullRequest', fieldName: 'stackEntry' } }],
+			}));
+
+			try {
+				assert.strictEqual(await realRepo.getStackablePullRequests('D1', 'D2'), undefined);
+				// The limited schema has no stack fields, so it would not help.
+				assert.strictEqual(realRepo.areQueriesLimited, false);
+				assert.strictEqual(graphql.query.callCount, 1);
+			} finally {
+				realRepo.dispose();
+			}
+		});
+
+		it('surfaces other errors', async function () {
+			const error = new Error('GraphQL unavailable');
+			sinon.stub(repo, 'query').rejects(error);
+
+			await assert.rejects(repo.getStackablePullRequests('D1', 'D2'), candidate => candidate === error);
 		});
 	});
 
