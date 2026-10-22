@@ -144,6 +144,50 @@ function checkedOutElsewhere(repository: Repository, name: string, activeName: s
 		!worktree.detached && worktree.ref === `refs/heads/${name}`) ?? false);
 }
 
+/**
+ * Brings local stack branches up to date after the stack was rebased on GitHub. A branch is only moved if it still
+ * points at the commit the pull request had before the rebase, so local commits are never discarded. The checked-out
+ * branch is moved with `reset --keep`, which keeps uncommitted changes and refuses if it would overwrite them.
+ * Resolves to the local branches that were left as they were because they diverged or could not be moved.
+ */
+export async function syncLocalStackBranches(repository: StackGitRepository, remote: string,
+	branches: readonly { head: string; previousSha: string }[]): Promise<string[]> {
+	await repository.status();
+	const activeName = repository.state.HEAD?.name;
+	const local = await localBranches(repository);
+	const notUpdated: string[] = [];
+	for (const { head, previousSha } of branches) {
+		const localSha = local.get(head);
+		if (!localSha) {
+			Logger.appendLine(`Local branch ${head} does not exist, so there is nothing to update`, 'UpdateStack');
+			continue;
+		}
+		try {
+			await repository.fetch(remote, `+refs/heads/${head}:refs/remotes/${remote}/${head}`);
+			const rebasedSha = (await repository.getBranch(`refs/remotes/${remote}/${head}`)).commit;
+			const state = `local ${localSha}, before the rebase ${previousSha}, on GitHub now ${rebasedSha}`;
+			if (!rebasedSha || rebasedSha === localSha) {
+				Logger.appendLine(`Local branch ${head} is already up to date (${state})`, 'UpdateStack');
+				continue;
+			}
+			if (localSha !== previousSha || checkedOutElsewhere(repository, head, activeName ?? '')) {
+				Logger.appendLine(`Left local branch ${head} as it is, because ${localSha !== previousSha ? 'it has other commits' : 'another worktree has it checked out'} (${state})`, 'UpdateStack');
+				notUpdated.push(head);
+			} else if (head === activeName) {
+				await repository.resetKeep(rebasedSha);
+				Logger.appendLine(`Moved the checked-out branch ${head} to the rebased commit (${state})`, 'UpdateStack');
+			} else {
+				await repository.updateRef(`refs/heads/${head}`, rebasedSha, previousSha);
+				Logger.appendLine(`Moved local branch ${head} to the rebased commit (${state})`, 'UpdateStack');
+			}
+		} catch (error) {
+			Logger.warn(`Could not update local branch ${head} after rebasing the stack on GitHub: ${error}`, 'UpdateStack');
+			notUpdated.push(head);
+		}
+	}
+	return notUpdated;
+}
+
 async function verifyBases(repository: StackGitRepository, remote: string, branches: readonly StackBranch[],
 	original: Map<string, string>, skipped: number): Promise<void> {
 	const remoteRefs = await repository.getRemoteRefs(remote, { heads: true });

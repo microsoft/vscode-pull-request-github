@@ -11,7 +11,7 @@ import { GithubItemStateEnum, IAccount, MergeMethod, PullRequestStack, ReviewEve
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
-import { canUpdateStack, findStackRepository, getCheckedOutPullRequestNumber, getUpdatableStackPullRequestNumbers, updatePullRequestStack } from './pullRequestStackUpdate';
+import { canUpdateStack, findStackRepository, getCheckedOutPullRequestNumber, getStackUpdateEligibility, updatePullRequestStack } from './pullRequestStackUpdate';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType, SubmitReviewArgs } from './views';
 import { IComment } from '../common/comment';
@@ -95,7 +95,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private canUpdateStack(stack: PullRequestStack | undefined): boolean {
 		const managers = [this._folderRepositoryManager];
-		return canUpdateStack(getUpdatableStackPullRequestNumbers(stack), getCheckedOutPullRequestNumber(managers, this._item),
+		return canUpdateStack(getStackUpdateEligibility(stack), getCheckedOutPullRequestNumber(managers, this._item),
 			this._hasWritePermission, () => !!findStackRepository(managers, this._folderRepositoryManager, this._item));
 	}
 
@@ -488,7 +488,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
 		const result = context.addAttestation
-			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			? await PullRequestReviewCommon.addAttestationForReviewCommand(this.getReviewContext(), ReviewType.Approve)
 			: undefined;
 		if (context.addAttestation && !result) {
 			return;

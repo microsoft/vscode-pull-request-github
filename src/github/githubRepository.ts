@@ -187,6 +187,79 @@ export interface PullRequestChangeEvent {
 	event: IssueChangeEvent;
 }
 
+/** A pull request in a stack, with the branch and commit GitHub reported for it. */
+export interface StackMemberHead {
+	number: number;
+	ref: string;
+	sha: string;
+}
+
+export type StackRebaseOutcome = {
+	status: 'rebased' | 'pending';
+	/** The stack's pull requests as they were before the rebase. */
+	before: StackMemberHead[];
+	/** The pull requests whose head GitHub changed, when GitHub reported them. */
+	rebasedPullRequests?: number[];
+};
+
+const STACK_API_HEADERS = { 'X-GitHub-Api-Version': '2026-03-10' };
+const STACK_REBASE_POLL_INTERVAL_MS = 3000;
+const STACK_REBASE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** GitHub's result for one pull request of a finished stack rebase. */
+interface StackRebasePullRequestResult {
+	number: number;
+	status: string;
+	before?: string;
+	after?: string;
+}
+
+type StackRebaseStatus =
+	| { state: 'pending' }
+	| { state: 'rebased'; pullRequests: StackRebasePullRequestResult[] }
+	| { state: 'failed'; message: string };
+
+/** The states, other than `done`, of a stack rebase job that is still running. Only `pending` has been observed. */
+const PENDING_STACK_REBASE_STATES = new Set(['pending', 'queued', 'running', 'in_progress']);
+
+/**
+ * Parses the status of a stack rebase job. Starting a rebase returns `{ status: 'pending', status_url }`. Polling
+ * returns `{ job_state, pull_requests: [{ pull_request_number, status, before, after }] }`; a finished job has the
+ * state `done`, and each rebased pull request has the status `succeeded`. Other values are not documented yet, so a
+ * value that is not recognized is reported rather than treated as success.
+ */
+function parseStackRebaseStatus(value: unknown): StackRebaseStatus {
+	const state = isObject(value) ? value.job_state ?? value.status : undefined;
+	if (!isObject(value) || typeof state !== 'string') {
+		throw new Error('GitHub returned an invalid stack rebase status.');
+	}
+	if (PENDING_STACK_REBASE_STATES.has(state)) {
+		return { state: 'pending' };
+	}
+	if (state !== 'done') {
+		const message = typeof value.message === 'string' ? ` (${value.message})` : '';
+		throw new Error(`GitHub returned an unknown stack rebase state: ${state}${message}`);
+	}
+	if (!Array.isArray(value.pull_requests) || !value.pull_requests.every((pr: unknown) =>
+		isObject(pr) && typeof pr.pull_request_number === 'number' && typeof pr.status === 'string')) {
+		throw new Error('GitHub returned an invalid stack rebase result.');
+	}
+	const pullRequests: StackRebasePullRequestResult[] = value.pull_requests.map((pr: Record<string, unknown>) => ({
+		number: pr.pull_request_number as number,
+		status: pr.status as string,
+		before: typeof pr.before === 'string' ? pr.before : undefined,
+		after: typeof pr.after === 'string' ? pr.after : undefined,
+	}));
+	const unsuccessful = pullRequests.filter(pr => pr.status !== 'succeeded');
+	if (unsuccessful.length) {
+		return {
+			state: 'failed',
+			message: `GitHub could not rebase every pull request in the stack: ${unsuccessful.map(pr => `#${pr.number} (${pr.status})`).join(', ')}.`,
+		};
+	}
+	return { state: 'rebased', pullRequests };
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	private static _allRepoIds: Set<number> = new Set();
@@ -1001,15 +1074,17 @@ export class GitHubRepository extends Disposable {
 		return members;
 	}
 
-	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
+	/**
+	 * Finds the stack containing `pullRequestNumber`, and checks it still has exactly the pull requests the user acted
+	 * on, in order, so a change on GitHub since then is reported instead of acted on.
+	 */
+	private async getExpectedStack(pullRequestNumber: number, expectedPullRequests: readonly number[]):
+		Promise<{ number: number; pullRequests: { number: number; head?: { ref: string; sha: string } }[] }> {
 		const { octokit, remote } = await this.ensure();
-		const params = {
+		const { data: stacks } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
-		};
-		const { data: stacks } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
-			...params,
+			headers: STACK_API_HEADERS,
 			pull_request: pullRequestNumber,
 			per_page: 1,
 		}));
@@ -1018,13 +1093,107 @@ export class GitHubRepository extends Disposable {
 			|| !stacks[0].pull_requests.some((pr: unknown) => isObject(pr) && pr.number === pullRequestNumber)) {
 			throw new Error(`Could not find the stack containing pull request #${pullRequestNumber}.`);
 		}
-		if (stacks[0].pull_requests.length !== expectedPullRequests.length
-			|| stacks[0].pull_requests.some((pr: unknown, index: number) => !isObject(pr) || pr.number !== expectedPullRequests[index])) {
+		const pullRequests: unknown[] = stacks[0].pull_requests;
+		if (pullRequests.length !== expectedPullRequests.length
+			|| pullRequests.some((pr, index) => !isObject(pr) || pr.number !== expectedPullRequests[index])) {
 			throw new Error('The pull request stack has changed. Refresh the view and try again.');
 		}
+		return {
+			number: stacks[0].number,
+			pullRequests: pullRequests.map(pr => {
+				const { number, head } = pr as { number: number; head?: unknown };
+				return isObject(head) && typeof head.ref === 'string' && typeof head.sha === 'string'
+					? { number, head: { ref: head.ref, sha: head.sha } }
+					: { number };
+			}),
+		};
+	}
+
+	/**
+	 * Asks GitHub to rebase every pull request in the stack onto its base, and waits for the job to finish. The stack
+	 * must still have exactly `expectedPullRequests`. Resolves to `pending` if the job is still running after a few minutes.
+	 */
+	async rebaseStack(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<StackRebaseOutcome> {
+		const stack = await this.getExpectedStack(pullRequestNumber, expectedPullRequests);
+		const before = stack.pullRequests.map(pr => {
+			if (!pr.head) {
+				throw new Error(`GitHub did not return the branch of pull request #${pr.number} in this stack.`);
+			}
+			return { number: pr.number, ref: pr.head.ref, sha: pr.head.sha };
+		});
+		const { octokit } = await this.ensure();
+		const { id: repositoryId } = await this.getMetadata();
+		const route = '/repositories/{repository_id}/stacks/{stack_number}/rebase';
+		const parameters = {
+			repository_id: repositoryId,
+			stack_number: stack.number,
+			headers: STACK_API_HEADERS,
+		};
+		const label = `stack ${stack.number} in repository ${repositoryId}`;
+		Logger.appendLine(`Requesting a rebase of ${label}: ${before.map(pr => `#${pr.number} ${pr.ref}@${pr.sha}`).join(', ')}`, this.id);
+		// The rebase API's responses are logged in full so its status values can be checked against what is parsed.
+		const parse = (request: string, httpStatus: unknown, body: unknown): StackRebaseStatus => {
+			let parsed: StackRebaseStatus | undefined;
+			try {
+				parsed = parseStackRebaseStatus(body);
+				return parsed;
+			} finally {
+				Logger.appendLine(`${request} for ${label} returned HTTP ${httpStatus ?? 'unknown'}, interpreted as ${parsed?.state ?? 'unrecognized'}: ${JSON.stringify(body)}`, this.id);
+			}
+		};
+		let status: StackRebaseStatus;
+		try {
+			// GitHub only rebases the stack if every pull request still has the head it had when the stack was checked.
+			const response = await octokit.call(() => octokit.api.request(`PUT ${route}`, {
+				...parameters,
+				expected_head_oid_by_pr_number: Object.fromEntries(before.map(pr => [pr.number, pr.sha])),
+			}));
+			if (response.headers?.location) {
+				Logger.appendLine(`PUT for ${label} returned the Location header ${response.headers.location}`, this.id);
+			}
+			status = parse('PUT', response.status, response.data);
+		} catch (error) {
+			// Like the async merge API, a rebase that is already running is reported as a conflict, which is then polled.
+			if (!isObject(error) || error.status !== 409 || !isObject(error.response)) {
+				if (isObject(error) && isObject(error.response)) {
+					Logger.appendLine(`PUT for ${label} failed with HTTP ${error.status}: ${JSON.stringify(error.response.data)}`, this.id);
+				}
+				throw error;
+			}
+			status = parse('PUT', error.status, error.response.data);
+			if (status.state !== 'pending') {
+				throw error;
+			}
+		}
+
+		const deadline = Date.now() + STACK_REBASE_TIMEOUT_MS;
+		while (status.state === 'pending') {
+			if (Date.now() >= deadline) {
+				Logger.appendLine(`Stopped waiting for the rebase of ${label} after ${STACK_REBASE_TIMEOUT_MS / 1000} seconds`, this.id);
+				return { status: 'pending', before };
+			}
+			await new Promise<void>(resolve => setTimeout(resolve, STACK_REBASE_POLL_INTERVAL_MS));
+			const response = await octokit.call(() => octokit.api.request(`GET ${route}`, parameters));
+			status = parse('GET', response.status, response.data);
+		}
+		if (status.state === 'failed') {
+			throw new Error(status.message);
+		}
+		return {
+			status: 'rebased',
+			before,
+			rebasedPullRequests: status.pullRequests.filter(pr => !pr.before || !pr.after || pr.before !== pr.after).map(pr => pr.number),
+		};
+	}
+
+	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
+		const { octokit, remote } = await this.ensure();
+		const stack = await this.getExpectedStack(pullRequestNumber, expectedPullRequests);
 		const result = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack', {
-			...params,
-			stack_number: stacks[0].number,
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: STACK_API_HEADERS,
+			stack_number: stack.number,
 		}));
 		if (result.status === 204) {
 			this.notifyStackChanged(expectedPullRequests);

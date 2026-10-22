@@ -34,10 +34,11 @@ import {
 	canUpdateStack,
 	findStackRepository,
 	getCheckedOutPullRequestNumber,
-	getUpdatableStackPullRequestNumbers,
+	getStackUpdateEligibility,
 	lockedStacks,
 	stackLockKey,
 	StackRepositoryTarget,
+	StackUpdateEligibility,
 	updatePullRequestStack,
 } from './pullRequestStackUpdate';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
@@ -93,7 +94,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _stackRefreshPending = false;
 	private _stackRefreshPromise: Promise<void> | undefined;
 	private _canUpdateStackAccess = false;
-	private _updatableStackPullRequestNumbers: Set<number> | undefined;
+	private _stackUpdateEligibility: StackUpdateEligibility | undefined;
 	private _stackRecommendation: StackRecommendation | undefined;
 	/** Pull requests whose stack recommendation was dismissed, until this panel is closed. */
 	private readonly _dismissedStackRecommendations = new Set<string>();
@@ -118,7 +119,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private canUpdateStack(item: PullRequestModel): boolean {
-		return canUpdateStack(this._updatableStackPullRequestNumbers, this.getCheckedOutPullRequestNumber(item),
+		return canUpdateStack(this._stackUpdateEligibility, this.getCheckedOutPullRequestNumber(item),
 			this._canUpdateStackAccess, () => !!this.getStackRepository(item));
 	}
 
@@ -535,7 +536,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				.join(', ');
 			Logger.debug(`Data timings: ${dataTimingSummary}`, PullRequestOverviewPanel.ID);
 
-			this._updatableStackPullRequestNumbers = undefined;
+			this._stackUpdateEligibility = undefined;
 			this._stackRecommendation = undefined;
 			this._item = pullRequest;
 			this.registerPrListeners();
@@ -756,7 +757,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
 				// The recommendation may have been dismissed while it was being found.
 				const shownRecommendation = this.isStackRecommendationDismissed(pullRequestModel) ? undefined : recommendation;
-				this._updatableStackPullRequestNumbers = getUpdatableStackPullRequestNumbers(stack);
+				this._stackUpdateEligibility = getStackUpdateEligibility(stack);
 				this._stackLoaded = true;
 				this._stackRecommendation = shownRecommendation;
 				this._stackPullRequestNumbers = new Set([...(stack?.pullRequests ?? []), ...(shownRecommendation?.preview.stack.pullRequests ?? [])]
@@ -776,7 +777,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (error) {
 			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
-				this._updatableStackPullRequestNumbers = undefined;
+				this._stackUpdateEligibility = undefined;
 				this._stackRecommendation = undefined;
 				void this._postMessage({
 					command: 'pr.update',
@@ -1196,7 +1197,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			throw new Error('GitHub commit file system provider is not initialized.');
 		}
 		fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
-		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item);
+		// Match the overview tab title; the changes editor adds its own icon and file count.
+		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item, this.getCurrentTitle());
 		await this._replyMessage(message, {});
 	}
 
@@ -1492,7 +1494,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
 		const result = context.addAttestation
-			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			? await PullRequestReviewCommon.addAttestationForReviewCommand(this.getReviewContext(), ReviewType.Approve)
 			: undefined;
 		if (context.addAttestation && !result) {
 			return;

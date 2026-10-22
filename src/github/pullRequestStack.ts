@@ -59,10 +59,17 @@ export function orderStackablePullRequests(pullRequests: readonly PullRequestMod
 /**
  * Marks the open pull requests in a stack that are behind their base.
  * @param branches The `owner:branch` base and head of each open pull request, by number.
+ * @param startsAtBottom Whether the first open pull request is the bottom of the stack.
  * @returns Whether updating the stack would change any of the pull requests.
  */
 export async function markOutdatedStackEntries(repository: GitHubRepository, entries: PullRequestStack['pullRequests'],
-	branches: ReadonlyMap<number, { base: string; head: string }>): Promise<boolean> {
+	branches: ReadonlyMap<number, { base: string; head: string }>, startsAtBottom: boolean): Promise<boolean> {
+	// GitHub merges a stack onto its base, so being behind that base does not block merging when the lowest open
+	// pull request has no conflicts. Updating the stack is still offered. Only staleness inside the stack blocks.
+	const bottom = startsAtBottom ? entries.find(entry => entry.state === GithubItemStateEnum.Open) : undefined;
+	if (bottom?.mergeable === PullRequestMergeability.Behind) {
+		bottom.mergeable = PullRequestMergeability.Mergeable;
+	}
 	const outdated = await Promise.all(entries.filter(entry => entry.state === GithubItemStateEnum.Open).map(async entry => {
 		// A conflict means the base has changes the head does not, so updating the stack is how it is resolved.
 		if (entry.mergeable === PullRequestMergeability.Conflict) {
@@ -73,7 +80,9 @@ export async function markOutdatedStackEntries(repository: GitHubRepository, ent
 		if (comparison?.behind_by === undefined) {
 			throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
 		}
-		if (comparison.behind_by > 0) {
+		// Being behind is shown as having no conflicts, so only a pull request GitHub reports as mergeable is marked
+		// behind; conflicts that are not checked yet and unmet merge requirements stay visible.
+		if (comparison.behind_by > 0 && entry !== bottom && entry.mergeable === PullRequestMergeability.Mergeable) {
 			entry.mergeable = PullRequestMergeability.Behind;
 		}
 		return comparison.behind_by > 0;

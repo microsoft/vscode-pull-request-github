@@ -97,8 +97,9 @@ export async function getStackRecommendation(pullRequest: PullRequestModel): Pro
 		mergeable: pr.mergeable,
 	}));
 	const owner = pullRequest.remote.owner;
+	// When the pull requests extend a stack, the bottom of the stack is in the part that is already stacked.
 	const outdated = await markOutdatedStackEntries(repository, added,
-		new Map(chain.map(pr => [pr.number, { base: `${owner}:${pr.base}`, head: `${owner}:${pr.head}` }])));
+		new Map(chain.map(pr => [pr.number, { base: `${owner}:${pr.base}`, head: `${owner}:${pr.head}` }])), !existing);
 	const pullRequests = [...(existing?.pullRequests ?? []), ...added].map((entry, index) => ({ ...entry, position: index + 1 }));
 	return {
 		preview: {

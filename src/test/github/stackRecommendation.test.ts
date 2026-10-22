@@ -163,6 +163,32 @@ describe('getStackRecommendation', function () {
 		assert.deepStrictEqual(compare.args.map(args => args.join('...')).sort(), ['owner:D1...owner:D2', 'owner:D2...owner:D3']);
 	});
 
+	it('does not mark the bottom of a new stack as behind its base, like the stack section', async function () {
+		openPullRequests([stackable(3, 'D2', 'D3')]);
+		compare.withArgs('owner:D1', 'owner:D2').resolves({ behind_by: 2 });
+
+		const recommendation = await getStackRecommendation(pullRequest(2, 'D1', 'D2'));
+
+		assert.deepStrictEqual(recommendation?.preview.stack.pullRequests.map(pr => pr.mergeable),
+			[PullRequestMergeability.Mergeable, PullRequestMergeability.Mergeable]);
+		assert.strictEqual(recommendation?.preview.stack.needsUpdate, true, 'updating the stack is still offered');
+	});
+
+	it('marks pull requests added to an existing stack as behind, since the bottom of the stack is below them', async function () {
+		openPullRequests([stackable(5, 'D4', 'D5', { position: 2, size: 2 })]);
+		stackTop(5, 'D4', 'D5', {
+			position: 2, size: 2, base: 'main', needsUpdate: false,
+			pullRequests: [entry(1, 4, 'D4'), entry(2, 5, 'D5')],
+		});
+		compare.withArgs('owner:D5', 'owner:D6').resolves({ behind_by: 1 });
+
+		const recommendation = await getStackRecommendation(pullRequest(6, 'D5', 'D6'));
+
+		assert.deepStrictEqual(recommendation?.preview.stack.pullRequests.map(pr => pr.mergeable),
+			[PullRequestMergeability.Mergeable, PullRequestMergeability.Mergeable, PullRequestMergeability.Behind]);
+		assert.strictEqual(recommendation?.preview.stack.needsUpdate, true);
+	});
+
 	it('extends the stack whose top is below the chain', async function () {
 		openPullRequests([stackable(5, 'D4', 'D5', { position: 2, size: 2 }), stackable(7, 'D6', 'D7')]);
 		const existing: PullRequestStack = {
