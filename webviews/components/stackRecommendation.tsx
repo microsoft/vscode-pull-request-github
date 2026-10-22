@@ -52,7 +52,7 @@ const StackRecommendationContent = ({ recommendation, currentNumber }: { recomme
 				<span className="stack-recommendation-message">
 					This pull request can be stacked with other pull requests. <a href={STACKS_DOCUMENTATION_URL}>Learn more about stacks</a>
 				</span>
-				<button className="secondary" type="button" aria-expanded={previewing} aria-controls={previewing ? 'stack-recommendation-preview' : undefined}
+				<button className="secondary" type="button" aria-expanded={previewing} aria-controls="stack-recommendation-preview"
 					disabled={creating} onClick={() => setPreviewing(open => !open)}>
 					{previewing ? 'Hide stack' : 'Preview stack'}
 				</button>
@@ -61,7 +61,8 @@ const StackRecommendationContent = ({ recommendation, currentNumber }: { recomme
 					{closeIcon}
 				</button>
 			</div>
-			{previewing ? <div className="stack-recommendation-preview" id="stack-recommendation-preview">
+			{/* Kept in the DOM while collapsed, so the button always has a region to control. */}
+			<div className="stack-recommendation-preview" id="stack-recommendation-preview" hidden={!previewing}>
 				<div className="stack-recommendation-preview-header">
 					<strong>{extending ? 'Add to stack' : 'New stack'}</strong>
 					<span className="stack-description">
@@ -77,7 +78,7 @@ const StackRecommendationContent = ({ recommendation, currentNumber }: { recomme
 						{creating ? (extending ? 'Adding...' : 'Creating...') : (extending ? 'Add to stack' : 'Create stack')}
 					</button>
 				</div>
-			</div> : null}
+			</div>
 		</section>
 	);
 };

@@ -1241,13 +1241,17 @@ describe('Overview', function () {
 			assert.strictEqual(banner.nextElementSibling?.id, 'title');
 			assert(banner.textContent?.includes('This pull request can be stacked with other pull requests.'));
 			assert.strictEqual(out.getByText('Learn more about stacks').getAttribute('href'), STACKS_DOCUMENTATION_URL);
-			assert.strictEqual(banner.querySelector('.stack-recommendation-preview'), null);
+			const region = banner.querySelector('.stack-recommendation-preview');
+			assert(region);
+			assert(region.hasAttribute('hidden'), 'the preview starts collapsed');
 
 			const preview = out.getByText('Preview stack');
+			assert.strictEqual(preview.getAttribute('aria-controls'), region.id, 'the button always controls the preview');
 			fireEvent.click(preview);
 
 			assert.strictEqual(preview.getAttribute('aria-expanded'), 'true');
-			const list = banner.querySelector('.stack-recommendation-preview .stack-entries');
+			assert.strictEqual(region.hasAttribute('hidden'), false);
+			const list = region.querySelector('.stack-entries');
 			assert(list);
 			assert.strictEqual(list.getAttribute('aria-label'), 'Pull requests merging down into main');
 			assert.deepStrictEqual([...list.querySelectorAll('.stack-entry')].map(entry => entry.querySelector('.stack-entry-details')?.textContent), [
@@ -1269,8 +1273,9 @@ describe('Overview', function () {
 			assert.strictEqual(out.queryByText('Cancel'), null);
 
 			fireEvent.click(preview);
-			assert.strictEqual(banner.querySelector('.stack-recommendation-preview'), null);
+			assert(region.hasAttribute('hidden'));
 			assert.strictEqual(preview.getAttribute('aria-expanded'), 'false');
+			assert.strictEqual(preview.getAttribute('aria-controls'), region.id);
 			assert.strictEqual(preview.textContent, 'Preview stack');
 		});
 
@@ -1343,7 +1348,7 @@ describe('Overview', function () {
 				</PullRequestContext.Provider>,
 			);
 			fireEvent.click(out.getByText('Preview stack'));
-			assert(out.container.querySelector('.stack-recommendation-preview'));
+			assert.strictEqual(out.container.querySelector('.stack-recommendation-preview')?.hasAttribute('hidden'), false);
 
 			fireEvent.click(out.getByText('Create stack'));
 			await wait(() => assert.strictEqual(out.container.querySelector('.stack-recommendation'), null));
@@ -1352,7 +1357,7 @@ describe('Overview', function () {
 			context.handleMessage({ command: 'pr.update', pullrequest: { stackRecommendation: recommendation } });
 
 			const banner = await waitForElement(() => out.container.querySelector('.stack-recommendation'));
-			assert.strictEqual(banner?.querySelector('.stack-recommendation-preview'), null);
+			assert.strictEqual(banner?.querySelector('.stack-recommendation-preview')?.hasAttribute('hidden'), true);
 			assert.strictEqual(out.getByText('Preview stack').getAttribute('aria-expanded'), 'false');
 			assert(consoleError.getCalls().every(call => !String(call.args[0]).includes('unmounted component')));
 		});

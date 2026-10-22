@@ -932,6 +932,8 @@ body button .icon {
 	margin-top: 20px;
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 6px;
+	/* Keeps the banner's background inside the rounded corners. */
+	overflow: hidden;
 }
 
 .stack-recommendation-banner {
@@ -940,13 +942,7 @@ body button .icon {
 	align-items: center;
 	gap: 8px;
 	padding: 8px 8px 8px 12px;
-	border-radius: 5px;
 	background: var(--vscode-textBlockQuote-background);
-}
-
-.stack-recommendation-banner:not(:last-child) {
-	border-bottom-left-radius: 0;
-	border-bottom-right-radius: 0;
 }
 
 .stack-recommendation-banner > .icon {

@@ -370,7 +370,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			}
 		} finally {
-			// Cleared as soon as the loop ends, so a refresh requested after that starts a new loop instead of awaiting this one.
+			// Nothing yields between the last check of the loop condition and this, so a refresh requested at any time
+			// is either picked up by the loop or, once this is cleared, starts a new one.
 			this._stackRefreshPromise = undefined;
 		}
 	}
