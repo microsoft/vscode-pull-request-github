@@ -17,6 +17,7 @@ import {
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	PullRequestStack,
+	PullRequestStackRecommendation,
 	Reaction,
 	ReviewState,
 	StateReason,
@@ -92,6 +93,7 @@ export interface PullRequest extends Issue {
 	stackLoaded?: boolean;
 	stackLoadError?: boolean;
 	stackMergeStatus?: 'pending' | 'enqueued';
+	stackRecommendation?: PullRequestStackRecommendation | null;
 	isCopilotOnMyBehalf: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
@@ -106,6 +108,7 @@ export interface PullRequest extends Issue {
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	pendingReviewSummaryText?: string;
+	pendingAttestation?: boolean;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
 	canUpdateBranch: boolean;
@@ -204,6 +207,11 @@ export interface UnstackAllResult {
 
 export interface UpdateStackResult {
 	updatedPullRequests: number[];
+}
+
+export interface CreateRecommendedStackArgs {
+	/** The previewed stack's pull requests from bottom to top, so a stale preview is not confirmed. */
+	pullRequests: number[];
 }
 
 export interface DeleteReviewResult {

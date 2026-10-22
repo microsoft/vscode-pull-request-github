@@ -12,9 +12,11 @@ import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
+import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
+import { STACKS_DOCUMENTATION_URL } from '../../components/stackRecommendation';
 import { Root as EditorRoot } from '../app';
 import { Overview } from '../overview';
 
@@ -270,8 +272,15 @@ describe('Overview', function () {
 		assert(openOnGitHub.notCalled);
 	});
 
-	it('shows a behind base as waiting and withholds stack merging for it and PRs above it', function () {
-		for (const [number, position] of [[794, 2], [795, 3]]) {
+	it('shows a behind PR without conflicts as ready and withholds stack merging for it and PRs above it', function () {
+		const iconPath = (svg: string) => {
+			const element = document.createElement('div');
+			element.innerHTML = svg;
+			return element.querySelector('path')?.getAttribute('d');
+		};
+		const check = iconPath(require('../../../resources/icons/codicons/pass.svg'));
+		const dot = iconPath(require('../../../resources/icons/codicons/circle-filled.svg'));
+		for (const [number, position, thirdIcon] of [[794, 2, dot], [795, 3, check]] as const) {
 			const pr = new PullRequestBuilder().number(number).stack({
 				position,
 				size: 4,
@@ -290,12 +299,12 @@ describe('Overview', function () {
 			);
 
 			assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(readiness => [
-				readiness.getAttribute('aria-label'), readiness.classList[1],
+				readiness.getAttribute('aria-label'), readiness.classList[1], readiness.querySelector('svg path')?.getAttribute('d'),
 			]), [
-				['Closed pull request cannot be merged', 'blocked'],
-				['A pull request below is behind its base', 'waiting'],
-				['Branch is behind its base', 'waiting'],
-				['Ready to merge', 'ready'],
+				['Closed pull request cannot be merged', 'blocked', iconPath(require('../../../resources/icons/codicons/skip.svg'))],
+				['No conflicts, but a pull request below is behind its base', 'ready', thirdIcon],
+				['No conflicts, but the branch is behind its base', 'ready', check],
+				['Ready to merge', 'ready', check],
 			]);
 			assert.strictEqual(out.container.querySelector('.stack-merge'), null);
 			assert.strictEqual(out.queryByText('Merge Pull Request'), null);
@@ -339,9 +348,9 @@ describe('Overview', function () {
 			entry.getAttribute('aria-label'), entry.classList[1], entry.querySelector('svg path')?.getAttribute('d'),
 		]), [
 			['Mergeability is being checked', 'waiting', dot],
-			['Branch is behind its base', 'waiting', dot],
+			['No conflicts, but the branch is behind its base', 'ready', dot],
 			['Merge requirements not met', 'waiting', dot],
-			['Merge conflicts', 'waiting', dot],
+			['Merge conflicts', 'conflict', iconPath(require('../../../resources/icons/codicons/close.svg'))],
 			['Draft pull request cannot be merged', 'draft', iconPath(require('../../../resources/icons/codicons/git-pull-request-draft.svg'))],
 			['Ready to merge', 'ready', dot],
 			['Ready to merge', 'ready', pass],
@@ -656,7 +665,7 @@ describe('Overview', function () {
 
 		assert(out.container.querySelector('#pull-request-stack')?.textContent?.includes('also merge 1 pull request below it.'));
 		assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')), [
-			'Branch is behind its base',
+			'No conflicts, but the branch is behind its base',
 			'Mergeability is being checked',
 			'Already merged',
 		]);
@@ -764,26 +773,179 @@ describe('Overview', function () {
 		assert(updateBranch.notCalled);
 	});
 
-	it('retains merge-commit updates for unstacked PRs and conflict resolution for stacked PRs', function () {
+	it('retains merge-commit updates and conflict resolution for unstacked PRs', function () {
 		for (const mergeable of [PullRequestMergeability.Behind, PullRequestMergeability.Mergeable]) {
 			const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(mergeable).build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert(out.getByText(/Update with merge commit/i));
 			out.unmount();
 		}
-		const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).stack({
+		const pr = new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).build();
+		const context = new PRContext(pr);
+		const updateBranch = sinon.stub(context, 'updateBranch').resolves();
+		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+		fireEvent.click(out.getByText('Resolve conflicts'));
+		assert(updateBranch.calledOnce);
+	});
+
+	describe('stacked PR conflicts', function () {
+		const conflictingStack = {
 			position: 1, size: 1, base: 'main',
 			pullRequests: [{ position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict }],
-		}).build();
-		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-		assert(out.getByText('Resolve conflicts'));
-		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+		};
+		const stackWithConflictBelow = {
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				conflictingStack.pullRequests[0],
+				{ position: 2, number: 1235, title: 'Second', head: 'D2', url: 'https://example.com/1235', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			],
+		};
+
+		it('resolves conflicts from the stack header instead of creating a merge commit', async function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			let finishUpdate!: () => void;
+			const updateStack = sinon.stub(context, 'updateStack').returns(new Promise(resolve => {
+				finishUpdate = () => resolve({ updatedPullRequests: [1234] });
+			}));
+			const updateBranch = sinon.stub(context, 'updateBranch');
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByText('This branch has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
+			assert(out.getByText('Resolve conflicts').closest('.stack-section'));
+			assert.strictEqual(out.queryByText('Update stack'), null);
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			assert(updateStack.calledOnce);
+			assert(updateBranch.notCalled);
+			await wait(() => assert.strictEqual(out.getByText('Updating...').closest('button')!.disabled, true));
+			assert.strictEqual(out.getByText('Unstack all').closest('button')!.disabled, true, 'stack actions share progress');
+			finishUpdate();
+			await wait(() => assert.strictEqual(out.getByText('Resolve conflicts').closest('button')!.disabled, false));
+		});
+
+		it('offers to resolve conflicts when another pull request in the stack has conflicts', function () {
+			const pr = new PullRequestBuilder().number(1235).canUpdateStack(true).mergeable(PullRequestMergeability.Mergeable).stack(stackWithConflictBelow).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1234, 1235] });
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryByText('This branch has no conflicts with the base branch.'), null);
+			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
+			assert(out.getByText('Resolve conflicts').closest('.stack-section'));
+			assert.strictEqual(out.queryByText('Update stack'), null);
+			fireEvent.click(out.getByText('Resolve conflicts'));
+			assert(updateStack.calledOnce);
+		});
+
+		it('resolves conflicts in another pull request in the stack from the sidebar', function () {
+			const pr = new PullRequestBuilder().number(1235).canUpdateStack(true).mergeable(PullRequestMergeability.Mergeable).stack(stackWithConflictBelow).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [1234, 1235] });
+			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
+			fireEvent.click(out.getByText('Resolve conflicts'));
+			assert(updateStack.calledOnce);
+		});
+
+		it('reports conflicts elsewhere in the stack even when this stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().number(1235).canUpdateStack(false).mergeable(PullRequestMergeability.Mergeable).stack(stackWithConflictBelow).build();
+			for (const Component of [Overview, ActivityBarOverview]) {
+				const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Component {...pr} /></PullRequestContext.Provider>);
+				assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
+				assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+				out.unmount();
+			}
+		});
+
+		it('ignores conflicts in closed pull requests at the top of the stack', function () {
+			const pr = new PullRequestBuilder().number(1234).canUpdateStack(true).mergeable(PullRequestMergeability.Behind).stack({
+				position: 1, size: 2, base: 'main',
+				pullRequests: [
+					{ ...conflictingStack.pullRequests[0], mergeable: PullRequestMergeability.Behind },
+					{ position: 2, number: 1235, title: 'Closed', head: 'D2', url: 'https://example.com/1235', state: GithubItemStateEnum.Closed, isDraft: false, mergeable: PullRequestMergeability.Conflict },
+				],
+			}).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert(out.getByText('Update stack'));
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+			assert.strictEqual(out.queryByText('A pull request in this stack has conflicts that must be resolved.'), null);
+		});
+
+		it('shows a failed conflict resolution with the other stack action errors', async function () {
+			const pr = new PullRequestBuilder().canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			sinon.stub(context, 'updateStack').rejects(new Error('Branch D1 changed on GitHub.'));
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
+			assert(out.getByRole('alert').closest('.stack-section'));
+		});
+
+		it('does not offer a merge commit to resolve conflicts when the stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(false)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert(out.getByText('This branch has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
+
+		it('does not offer conflict resolution before stack membership is known', function () {
+			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).build(), stackLoaded: false };
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
+
+		it('resolves conflicts by updating the stack from the sidebar and shows failures there', async function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const context = new PRContext(pr);
+			const updateStack = sinon.stub(context, 'updateStack').rejects(new Error('Branch D1 changed on GitHub.'));
+			const updateBranch = sinon.stub(context, 'updateBranch');
+			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByText('Resolve conflicts'));
+
+			assert(updateStack.calledOnce);
+			assert(updateBranch.notCalled);
+			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
+		});
+
+		it('does not offer a merge commit to resolve conflicts from the sidebar when the stack cannot be updated', function () {
+			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(false)
+				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+		});
 	});
 
 	it('does not offer merge-commit updates before stack membership is known or when loading fails', function () {
 		for (const change of [{ stackLoaded: false }, { stackLoadError: true }]) {
 			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Behind).build(), ...change };
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+			out.unmount();
+		}
+	});
+
+	it('offers stack merging from the bottom PR when GitHub reports it behind its target branch', function () {
+		const pullRequests = [
+			{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+		];
+		for (const [number, position, offered] of [[793, 1, true], [794, 2, false]] as const) {
+			const pr = new PullRequestBuilder().number(number).mergeable(PullRequestMergeability.Behind)
+				.stack({ position, size: 2, base: 'main', pullRequests }).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert.strictEqual(!!out.container.querySelector('.stack-merge'), offered, `#${number}`);
 			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 			out.unmount();
 		}
@@ -1030,5 +1192,204 @@ describe('Overview', function () {
 		assert.deepStrictEqual(context.pr?.events, []);
 		assert.strictEqual(context.pr?.currentUserReviewState, 'APPROVED');
 		assert.strictEqual(context.pr?.title, pr.title);
+	});
+
+	describe('stack recommendation', function () {
+		function recommendedPullRequest(existingStackSize?: number): PullRequest {
+			const pr = new PullRequestBuilder().number(794).build();
+			const entries = [
+				{ number: 792, title: 'Existing Change', head: 'D0' },
+				{ number: 793, title: 'First Change', head: 'D1' },
+				{ number: 794, title: 'Second Change', head: 'D2' },
+				{ number: 795, title: 'Third Change', head: 'D3' },
+			].slice(existingStackSize === undefined ? 1 : 0);
+			return {
+				...pr,
+				stackRecommendation: {
+					stack: {
+						position: entries.findIndex(entry => entry.number === 794) + 1,
+						size: entries.length,
+						base: 'main',
+						pullRequests: entries.map((entry, index) => ({
+							...entry,
+							position: index + 1,
+							url: `https://example.com/${entry.number}`,
+							state: GithubItemStateEnum.Open,
+							isDraft: false,
+							mergeable: entry.number === 795 ? PullRequestMergeability.Conflict : PullRequestMergeability.Mergeable,
+						})),
+					},
+					existingStackSize,
+				},
+			};
+		}
+
+		function renderOverview(pr: PullRequest, context = new PRContext(pr)) {
+			return render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+		}
+
+		it('recommends stacking above the title and previews the stack like the stack section', function () {
+			const pr = recommendedPullRequest();
+			const out = renderOverview(pr);
+
+			const banner = out.container.querySelector('.stack-recommendation');
+			assert(banner);
+			assert.strictEqual(banner.nextElementSibling?.id, 'title');
+			assert(banner.textContent?.includes('This pull request can be stacked with other pull requests.'));
+			assert.strictEqual(out.getByText('Learn more about stacks').getAttribute('href'), STACKS_DOCUMENTATION_URL);
+			const region = banner.querySelector('.stack-recommendation-preview');
+			assert(region);
+			assert(region.hasAttribute('hidden'), 'the preview starts collapsed');
+
+			const preview = out.getByText('Preview stack');
+			assert.strictEqual(preview.getAttribute('aria-controls'), region.id, 'the button always controls the preview');
+			fireEvent.click(preview);
+
+			assert.strictEqual(preview.getAttribute('aria-expanded'), 'true');
+			assert.strictEqual(region.hasAttribute('hidden'), false);
+			const list = region.querySelector('.stack-entries');
+			assert(list);
+			assert.strictEqual(list.getAttribute('aria-label'), 'Pull requests merging down into main');
+			assert.deepStrictEqual([...list.querySelectorAll('.stack-entry')].map(entry => entry.querySelector('.stack-entry-details')?.textContent), [
+				'Third Change#795 - D3',
+				'Second Change#794 - D2',
+				'First Change#793 - D1',
+			]);
+			assert.deepStrictEqual([...list.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')), [
+				'Merge conflicts',
+				'Ready to merge',
+				'Ready to merge',
+			]);
+			assert.strictEqual(list.querySelector('.stack-entry.current')?.getAttribute('aria-current'), 'step');
+			assert.strictEqual(list.querySelector('a[href="https://example.com/793"]')?.textContent, 'First Change');
+			assert.strictEqual(list.querySelector('.stack-base')?.textContent, 'main');
+			assert(banner.textContent?.includes('3 pull requests will be stacked, merging down into main.'));
+			assert.strictEqual(preview.textContent, 'Hide stack', 'the same button hides the preview');
+			assert.strictEqual(out.queryByText('Preview stack'), null);
+			assert.strictEqual(out.queryByText('Cancel'), null);
+
+			fireEvent.click(preview);
+			assert(region.hasAttribute('hidden'));
+			assert.strictEqual(preview.getAttribute('aria-expanded'), 'false');
+			assert.strictEqual(preview.getAttribute('aria-controls'), region.id);
+			assert.strictEqual(preview.textContent, 'Preview stack');
+		});
+
+		it('describes adding the pull requests to the top of an existing stack', function () {
+			const out = renderOverview(recommendedPullRequest(1));
+			fireEvent.click(out.getByText('Preview stack'));
+
+			assert(out.container.textContent?.includes('3 pull requests will be added to the top of an existing stack of 1 pull request.'));
+			assert(out.getByText('Add to stack', { selector: 'button' }));
+			assert.strictEqual(out.container.querySelectorAll('.stack-recommendation .stack-entry').length, 4);
+		});
+
+		it('stacks the previewed pull requests', async function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			const create = sinon.stub(context, 'createRecommendedStack').resolves();
+			const out = renderOverview(pr, context);
+			fireEvent.click(out.getByText('Preview stack'));
+
+			fireEvent.click(out.getByText('Create stack'));
+
+			assert(create.calledOnceWithExactly([793, 794, 795]));
+			await wait(() => assert.strictEqual((out.getByText('Create stack') as HTMLButtonElement).disabled, false));
+		});
+
+		it('shows an inline error when stacking fails', async function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			sinon.stub(context, 'createRecommendedStack').rejects(new Error('The pull requests that can be stacked have changed.'));
+			const out = renderOverview(pr, context);
+			fireEvent.click(out.getByText('Preview stack'));
+
+			fireEvent.click(out.getByText('Create stack'));
+
+			const alert = await waitForElement(() => out.container.querySelector('.stack-recommendation .stack-action-error[role="alert"]'));
+			assert.strictEqual(alert?.textContent, 'Unable to stack pull requests: The pull requests that can be stacked have changed.');
+			assert.strictEqual((out.getByText('Create stack') as HTMLButtonElement).disabled, false);
+		});
+
+		it('dismisses the recommendation', function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			const dismiss = sinon.stub(context, 'dismissStackRecommendation').resolves();
+			const out = renderOverview(pr, context);
+
+			fireEvent.click(out.getByLabelText('Dismiss stack recommendation'));
+
+			assert(dismiss.calledOnce);
+		});
+
+		it('shows no recommendation when there is none', function () {
+			for (const stackRecommendation of [undefined, null]) {
+				const out = renderOverview({ ...new PullRequestBuilder().build(), stackRecommendation });
+				assert.strictEqual(out.container.querySelector('.stack-recommendation'), null);
+				cleanup();
+			}
+		});
+
+		it('starts collapsed when the recommendation comes back after the pull requests were stacked and unstacked', async function () {
+			const pr = recommendedPullRequest();
+			// The context saves the pull request as webview state and updates it in place.
+			const recommendation = pr.stackRecommendation;
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			const postMessage = sinon.stub(context, 'postMessage').resolves();
+			const consoleError = sinon.spy(console, 'error');
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			fireEvent.click(out.getByText('Preview stack'));
+			assert.strictEqual(out.container.querySelector('.stack-recommendation-preview')?.hasAttribute('hidden'), false);
+
+			fireEvent.click(out.getByText('Create stack'));
+			await wait(() => assert.strictEqual(out.container.querySelector('.stack-recommendation'), null));
+			assert(postMessage.calledWithExactly({ command: 'pr.create-recommended-stack', args: { pullRequests: [793, 794, 795] } }));
+
+			context.handleMessage({ command: 'pr.update', pullrequest: { stackRecommendation: recommendation } });
+
+			const banner = await waitForElement(() => out.container.querySelector('.stack-recommendation'));
+			assert.strictEqual(banner?.querySelector('.stack-recommendation-preview')?.hasAttribute('hidden'), true);
+			assert.strictEqual(out.getByText('Preview stack').getAttribute('aria-expanded'), 'false');
+			assert(consoleError.getCalls().every(call => !String(call.args[0]).includes('unmounted component')));
+		});
+
+		it('hides the recommendation as soon as it is dismissed or stacked', async function () {
+			for (const act of [
+				(context: PRContext) => context.dismissStackRecommendation(),
+				(context: PRContext) => context.createRecommendedStack([793, 794, 795]),
+			]) {
+				const pr = recommendedPullRequest();
+				const context = new PRContext(pr);
+				context.setPR(pr);
+				const postMessage = sinon.stub(context, 'postMessage').resolves();
+
+				await act(context);
+
+				assert.strictEqual(context.pr?.stackRecommendation, null);
+				assert(postMessage.calledOnce);
+				postMessage.restore();
+			}
+		});
+
+		it('keeps the recommendation when stacking fails', async function () {
+			const pr = recommendedPullRequest();
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			const postMessage = sinon.stub(context, 'postMessage').rejects(new Error('Failed'));
+
+			await assert.rejects(context.createRecommendedStack([793, 794, 795]), /Failed/);
+
+			assert(postMessage.calledOnceWithExactly({ command: 'pr.create-recommended-stack', args: { pullRequests: [793, 794, 795] } }));
+			assert(context.pr?.stackRecommendation);
+		});
 	});
 });

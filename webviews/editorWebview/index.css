@@ -16,12 +16,12 @@ html {
 #title {
 	grid-column-start: 1;
 	grid-column-end: 3;
-	grid-row: 1;
+	grid-row: 2;
 }
 
 #main {
 	grid-column: 1;
-	grid-row: 2;
+	grid-row: 3;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -32,7 +32,13 @@ html {
 	flex-direction: column;
 	gap: 16px;
 	grid-column: 2;
-	grid-row: 2;
+	grid-row: 3;
+}
+
+/* The stack recommendation is above the title. Its grid row takes no space when there is no recommendation. */
+.stack-recommendation {
+	grid-column: 1 / 3;
+	grid-row: 1;
 }
 
 #project a {
@@ -702,6 +708,7 @@ body button .icon {
 
 .stack-badge .icon svg,
 .stack-section summary .icon svg,
+.stack-recommendation-banner .icon svg,
 .stack-entry-readiness svg {
 	width: 16px;
 	height: 16px;
@@ -858,6 +865,14 @@ body button .icon {
 	fill: var(--vscode-list-warningForeground);
 }
 
+.stack-entry-readiness.conflict {
+	color: var(--vscode-errorForeground);
+}
+
+.stack-entry-readiness.conflict svg path {
+	fill: var(--vscode-errorForeground);
+}
+
 .stack-entry-details {
 	min-width: 0;
 	overflow-wrap: anywhere;
@@ -913,9 +928,49 @@ body button .icon {
 	}
 }
 
-.stack-action-error {
-	padding: 8px 16px 0;
-	color: var(--vscode-errorForeground);
+.stack-recommendation {
+	margin-top: 20px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 6px;
+	/* Keeps the banner's background inside the rounded corners. */
+	overflow: hidden;
+}
+
+.stack-recommendation-banner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 8px 8px 12px;
+	background: var(--vscode-textBlockQuote-background);
+}
+
+.stack-recommendation-banner > .icon {
+	flex-shrink: 0;
+	color: var(--vscode-textLink-foreground);
+}
+
+.stack-recommendation-message {
+	flex: 1 1 240px;
+	min-width: 0;
+}
+
+.stack-recommendation-preview {
+	border-top: 1px solid var(--vscode-panel-border);
+	padding: 12px 12px 8px;
+}
+
+.stack-recommendation-preview-header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.stack-recommendation-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 8px;
 }
 
 .subtitle .avatar,

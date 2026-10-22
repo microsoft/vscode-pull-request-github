@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import { openItemOnGitHub } from '../commands';
 import { addAttestationCommit, isAttestationCommitsEnabled } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, MergeMethod, ReviewEventEnum, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, MergeMethod, PullRequestStack, ReviewEventEnum, ReviewState } from './interface';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
+import { canUpdateStack, findStackRepository, getCheckedOutPullRequestNumber, getStackUpdateEligibility, updatePullRequestStack } from './pullRequestStackUpdate';
 import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType, SubmitReviewArgs } from './views';
 import { IComment } from '../common/comment';
@@ -30,6 +31,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private _existingReviewers: ReviewState[] = [];
 	private _updatingPromise: Promise<unknown> | undefined;
 	private _stackUpdateSequence = 0;
+	private _hasWritePermission = false;
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -80,6 +82,23 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		);
 	}
 
+	private updateStack(message: IRequestMessage<undefined>): Promise<void> {
+		return updatePullRequestStack({
+			item: this._item,
+			folderRepositoryManager: this._folderRepositoryManager,
+			replyMessage: (request, response) => this._replyMessage(request, response),
+			throwError: (request, error) => this._throwError(request, error),
+			getCheckedOutPullRequestNumber: () => getCheckedOutPullRequestNumber([this._folderRepositoryManager], this._item),
+			getStackRepository: () => findStackRepository([this._folderRepositoryManager], this._folderRepositoryManager, this._item),
+		}, message);
+	}
+
+	private canUpdateStack(stack: PullRequestStack | undefined): boolean {
+		const managers = [this._folderRepositoryManager];
+		return canUpdateStack(getStackUpdateEligibility(stack), getCheckedOutPullRequestNumber(managers, this._item),
+			this._hasWritePermission, () => !!findStackRepository(managers, this._folderRepositoryManager, this._item));
+	}
+
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -98,6 +117,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.mergePullRequest(message);
 			case 'pr.merge-stack':
 				return PullRequestReviewCommon.mergeStack(this.getReviewContext(), message);
+			case 'pr.update-stack':
+				return this.updateStack(message);
 			case 'pr.open-create':
 				return this.create();
 			case 'pr.deleteBranch':
@@ -207,6 +228,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						stack: stack ?? null,
 						stackLoaded: true,
 						stackLoadError: false,
+						canUpdateStack: this.canUpdateStack(stack),
 						mergeQueueMethod: mergeQueueMethod ?? null,
 					} satisfies Partial<PullRequest>,
 				});
@@ -214,7 +236,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} catch (error) {
 			Logger.error(`Failed to load active pull request stack: ${formatError(error)}`, PullRequestViewProvider.name);
 			if (!this.isDisposed && updateSequence === this._stackUpdateSequence && areStacksEnabled()) {
-				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true } satisfies Partial<PullRequest> });
+				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true, canUpdateStack: false } satisfies Partial<PullRequest> });
 			}
 		}
 	}
@@ -296,6 +318,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 			const hasWritePermission = repositoryAccess!.hasWritePermission;
+			this._hasWritePermission = hasWritePermission;
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 			const canEdit = hasWritePermission || viewerCanEdit;
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
@@ -465,7 +488,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private async approvePullRequestCommand(context: SubmitReviewArgs): Promise<void> {
 		const result = context.addAttestation
-			? await addAttestationCommit(this._folderRepositoryManager, this._item)
+			? await PullRequestReviewCommon.addAttestationForReviewCommand(this.getReviewContext(), ReviewType.Approve)
 			: undefined;
 		if (context.addAttestation && !result) {
 			return;

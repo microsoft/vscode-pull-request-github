@@ -514,11 +514,12 @@ export function AddComment({
 	repo,
 	number,
 	attestationCommitsEnabled,
-	isCurrentlyCheckedOut
+	isCurrentlyCheckedOut,
+	pendingAttestation
 }: PullRequest) {
 	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-	const [addAttestation, setAddAttestation] = useState(false);
+	const addAttestation = !!pendingAttestation;
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
@@ -636,7 +637,7 @@ export function AddComment({
 								name="add-attestation"
 								checked={addAttestation}
 								disabled={isBusy || busy}
-								onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+								onChange={(e) => updatePR({ pendingAttestation: e.currentTarget.checked })}
 							/>
 							<label htmlFor="attestation-checkbox" className="attestation-checkbox-label">Add attestation</label>
 						</div>
@@ -727,7 +728,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-	const [addAttestation, setAddAttestation] = useState(false);
+	const addAttestation = !!pr.pendingAttestation;
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
 
@@ -815,7 +816,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 						name="add-attestation"
 						checked={addAttestation}
 						disabled={isBusy || pr.busy}
-						onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+						onChange={(e) => updatePR({ pendingAttestation: e.currentTarget.checked })}
 					/>
 					<label htmlFor="attestation-checkbox-simple" className="attestation-checkbox-label">Add attestation</label>
 				</div>

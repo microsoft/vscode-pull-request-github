@@ -16,7 +16,7 @@ import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
-import { StackSection } from './pullRequestStack';
+import { canUpdatePullRequestStack, StackActions, StackSection, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -24,6 +24,7 @@ import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
 	GithubItemStateEnum,
+	hasConflictingStackEntry,
 	isStackMergeable,
 	MergeMethod,
 	PullRequestCheckStatus,
@@ -146,6 +147,7 @@ const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 };
 
 export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	const stackActions = useStackActions();
 	if (pr.isIssue) {
 		return null;
 	}
@@ -158,8 +160,8 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 					<RequiredReviewers pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
-					{!isSimple ? <StackSection pr={pr} /> : null}
-					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
+					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
+					<MergeStatusAndActions pr={pr} isSimple={isSimple} stackActions={stackActions} />
 					<DeleteOption pr={pr} />
 				</>
 			}
@@ -167,7 +169,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 	);
 };
 
-export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: PullRequest; isSimple: boolean; stackActions?: StackActions }) => {
 	const { create, checkMergeability } = useContext(PullRequestContext);
 
 	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
@@ -187,6 +189,12 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	const { mergeable: _mergeable } = pr;
 	const canUpdateWithMergeCommit = !pr.stack && pr.stackLoaded !== false && !pr.stackLoadError;
+	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
+	// The editor offers that from the stack section; the sidebar has none, so it is offered here instead.
+	const stackUpdate = isSimple && stackActions && canUpdatePullRequestStack(pr) ? {
+		update: stackActions.update,
+		disabled: stackActions.updating || stackActions.unstacking || !!pr.stackMergeStatus,
+	} : undefined;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
 	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
@@ -206,7 +214,10 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	return (
 		<div>
 			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
-				canUpdateWithMergeCommit={canUpdateWithMergeCommit} />
+				canUpdateWithMergeCommit={canUpdateWithMergeCommit} stackUpdate={stackUpdate}
+				stackHasConflicts={hasConflictingStackEntry(pr.stack)} />
+			{/* The simple view has no stack section, which is where stack action errors are otherwise shown. */}
+			{isSimple && stackActions?.error ? <div className="stack-action-error" role="alert">{stackActions.error}</div> : null}
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
 				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
@@ -216,11 +227,24 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit }: { mergeable: PullRequestMergeability; isSimple: boolean; canUpdateBranch: boolean; canUpdateWithMergeCommit: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit, stackUpdate, stackHasConflicts }: {
+	mergeable: PullRequestMergeability;
+	isSimple: boolean;
+	canUpdateBranch: boolean;
+	canUpdateWithMergeCommit: boolean;
+	/** Set when the branch belongs to a stack that can be updated; stacked branches never get merge commits. */
+	stackUpdate?: { update(): Promise<void>; disabled: boolean };
+	/** An open pull request in this branch's stack has conflicts, which block merging the stack and are resolved by updating it. */
+	stackHasConflicts?: boolean;
+}) => {
 	const { updateBranch } = useContext(PullRequestContext);
 	const [busy, setBusy] = useState(false);
 
 	const onClick = () => {
+		if (stackUpdate) {
+			stackUpdate.update();
+			return;
+		}
 		setBusy(true);
 		updateBranch().finally(() => setBusy(false));
 	};
@@ -228,13 +252,19 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	let icon: JSX.Element | null = circleFilledIcon;
 	let summary: string = 'Checking if this branch can be merged...';
 	let action: string | null = null;
-	if (mergeable === PullRequestMergeability.Mergeable) {
-		icon = checkIcon;
-		summary = 'This branch has no conflicts with the base branch.';
-	} else if (mergeable === PullRequestMergeability.Conflict) {
+	const hasConflicts = mergeable === PullRequestMergeability.Conflict || !!stackHasConflicts;
+	if (mergeable === PullRequestMergeability.Conflict) {
 		icon = closeIcon;
 		summary = 'This branch has conflicts that must be resolved.';
-		action = 'Resolve conflicts';
+		action = stackUpdate || canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
+	} else if (stackHasConflicts) {
+		// This branch's own status would contradict the stack's conflicts, which block merging it.
+		icon = closeIcon;
+		summary = 'A pull request in this stack has conflicts that must be resolved.';
+		action = stackUpdate ? 'Resolve conflicts' : null;
+	} else if (mergeable === PullRequestMergeability.Mergeable) {
+		icon = checkIcon;
+		summary = 'This branch has no conflicts with the base branch.';
 	} else if (mergeable === PullRequestMergeability.NotMergeable) {
 		icon = closeIcon;
 		summary = 'Branch protection policy must be fulfilled before merging.';
@@ -246,7 +276,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 
 	if (isSimple) {
 		icon = null;
-		if (mergeable !== PullRequestMergeability.Conflict) {
+		if (!hasConflicts) {
 			action = null;
 		}
 	}
@@ -257,9 +287,9 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 				<p>
 					{summary}
 				</p>
-				{(action && canUpdateBranch) ?
+				{(action && (stackUpdate || canUpdateBranch)) ?
 					<div className="button-container">
-						<button className="secondary" onClick={onClick} disabled={busy} >
+						<button className="secondary" onClick={onClick} disabled={stackUpdate ? stackUpdate.disabled : busy} >
 							{action}
 						</button>
 					</div>
@@ -429,7 +459,10 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		return <div className="status-item">Pull request stack added to the merge queue.</div>;
 	}
 	if (pr.stack) {
-		return hasWritePermission && !pr.mergeQueueEntry && mergeable === PullRequestMergeability.Mergeable
+		// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
+		const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
+		return hasWritePermission && !pr.mergeQueueEntry
+			&& (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
 			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
 	}
 

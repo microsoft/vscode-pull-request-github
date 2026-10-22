@@ -56,7 +56,7 @@ import { Remote } from '../common/remote';
 import { OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
+import { escapeRegExp, gitHubLabelColor, isObject, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -900,6 +900,18 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 		}
 	}
 	return parsed;
+}
+
+/** Whether a GraphQL error only reports that the server does not have the pull request stack fields. */
+export function isStacksUnsupportedError(error: unknown): boolean {
+	const graphQLErrors = isObject(error) ? error.graphQLErrors : undefined;
+	return Array.isArray(graphQLErrors) && graphQLErrors.length > 0 && graphQLErrors.every((graphQLError: unknown) => {
+		if (!isObject(graphQLError) || !isObject(graphQLError.extensions)) {
+			return false;
+		}
+		const { code, typeName, fieldName } = graphQLError.extensions;
+		return code === 'undefinedField' && typeName === 'PullRequest' && (fieldName === 'stack' || fieldName === 'stackEntry');
+	});
 }
 
 export async function parseGraphQLPullRequest(

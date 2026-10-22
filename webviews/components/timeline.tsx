@@ -317,7 +317,7 @@ function AddReviewSummaryComment() {
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
 	const commentText = pr.pendingReviewSummaryText ?? '';
-	const [addAttestation, setAddAttestation] = useState(false);
+	const addAttestation = !!pr.pendingAttestation;
 
 	const showAttestationCheckbox = !isAuthor && !!pr?.attestationCommitsEnabled && !!pr?.isCurrentlyCheckedOut;
 
@@ -386,7 +386,7 @@ function AddReviewSummaryComment() {
 							name="add-attestation"
 							checked={addAttestation}
 							disabled={isBusy || pr?.busy}
-							onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+							onChange={(e) => updatePR({ pendingAttestation: e.currentTarget.checked })}
 						/>
 						<label htmlFor="attestation-checkbox-summary" className="attestation-checkbox-label">Add attestation</label>
 					</div>

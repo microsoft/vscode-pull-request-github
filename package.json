@@ -13,7 +13,6 @@
 	"enabledApiProposals": [
 		"activeComment",
 		"agentSessionsWorkspace",
-		"agentsWindowActivation",
 		"authIssuers",
 		"chatContextProvider",
 		"chatParticipantAdditions",
@@ -45,11 +44,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.170.0",
+	"version": "0.172.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.141.0"
+		"vscode": "^1.143.0"
 	},
 	"categories": [
 		"Other",
@@ -2173,7 +2172,7 @@
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
+					"when": "(config.githubPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",
@@ -3961,10 +3960,12 @@
 				"path": "./src/lm/skills/show-github-search-result/SKILL.md"
 			},
 			{
-				"path": "./src/lm/skills/address-pr-comments/SKILL.md"
+				"path": "./src/lm/skills/address-pr-comments/SKILL.md",
+				"when": "!isSessionsWindow"
 			},
 			{
-				"path": "./src/lm/skills/create-pull-request/SKILL.md"
+				"path": "./src/lm/skills/create-pull-request/SKILL.md",
+				"when": "!isSessionsWindow"
 			}
 		],
 		"languageModelTools": [
@@ -4134,7 +4135,7 @@
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_currentActivePullRequest.description%",
-				"when": "config.githubPullRequests.experimental.chat",
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow",
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -4189,7 +4190,7 @@
 					]
 				},
 				"userDescription": "%languageModelTools.github-pull-request_pullRequestStatusChecks.description%",
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow"
 			},
 			{
 				"name": "github-pull-request_pullRequestInViewport",
@@ -4264,7 +4265,7 @@
 						"head"
 					]
 				},
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow"
 			},
 			{
 				"name": "github-pull-request_resolveReviewThread",
@@ -4279,7 +4280,7 @@
 				"icon": "$(pass)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_resolveReviewThread.description%",
-				"when": "config.githubPullRequests.experimental.chat",
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow",
 				"inputSchema": {
 					"type": "object",
 					"properties": {

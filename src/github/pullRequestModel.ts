@@ -73,11 +73,13 @@ import {
 import { IssueChangeEvent, IssueModel } from './issueModel';
 import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
+import { markOutdatedStackEntries } from './pullRequestStack';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
+	isStacksUnsupportedError,
 	parseAccount,
 	parseCombinedTimelineEvents,
 	parseGraphQLComment,
@@ -1742,15 +1744,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					variables: { owner: remote.owner, name: remote.repositoryName, number: this.number, after },
 				}, false, undefined, false));
 			} catch (error) {
-				const graphQLErrors = isObject(error) ? error.graphQLErrors : undefined;
-				if (!stack && Array.isArray(graphQLErrors) && graphQLErrors.length > 0 &&
-					graphQLErrors.every((graphQLError: unknown) => {
-						if (!isObject(graphQLError) || !isObject(graphQLError.extensions)) {
-							return false;
-						}
-						const { code, typeName, fieldName } = graphQLError.extensions;
-						return code === 'undefinedField' && typeName === 'PullRequest' && (fieldName === 'stack' || fieldName === 'stackEntry');
-					})) {
+				if (!stack && isStacksUnsupportedError(error)) {
 					Logger.debug('Pull request stacks are not supported by this GitHub server.', PullRequestModel.ID);
 					return;
 				}
@@ -1804,20 +1798,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const pageInfo = pullRequest.stack.entries.pageInfo;
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
-				const outdated = await Promise.all(stack.pullRequests.filter(entry =>
-					entry.state === GithubItemStateEnum.Open && entry.mergeable !== PullRequestMergeability.Conflict,
-				).map(async entry => {
-					const refs = comparisons.get(entry.number)!;
-					const comparison = await this.githubRepository.compareCommits(refs.base, refs.head);
-					if (comparison?.behind_by === undefined) {
-						throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
-					}
-					if (comparison.behind_by > 0) {
-						entry.mergeable = PullRequestMergeability.Behind;
-					}
-					return comparison.behind_by > 0;
-				}));
-				stack.needsUpdate = outdated.some(Boolean);
+				stack.needsUpdate = await markOutdatedStackEntries(this.githubRepository, stack.pullRequests, comparisons, true);
 				return stack;
 			}
 			if (!pageInfo.endCursor || pageInfo.endCursor === after) {
@@ -1850,7 +1831,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
+	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, title: string): Promise<void> {
 		const headCommit = pullRequestModel.head?.sha;
 		if (!headCommit) {
 			throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
@@ -1905,7 +1886,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		*/
 		folderManager.telemetry.sendTelemetryEvent('pr.viewChanges', { source: localChanges ? 'git' : 'github' });
-		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+		return vscode.commands.executeCommand('vscode.changes', title, args);
 	}
 
 	private static async getLocalMergeBase(repository: Repository, baseCommit: string, headCommit: string): Promise<string | undefined> {
@@ -2315,7 +2296,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
+			const { data, errors } = await mutate<MarkPullRequestReadyForReviewResponse>({
 				mutation: schema.ReadyForReview,
 				variables: {
 					input: {
@@ -2324,16 +2305,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.markPullRequestReadyForReview?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.readyForReview.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
 
 			const result: ReadyForReview = {
-				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.markPullRequestReadyForReview.pullRequest.mergeable, data!.markPullRequestReadyForReview.pullRequest.mergeStateStatus),
-				allowAutoMerge: data!.markPullRequestReadyForReview.pullRequest.viewerCanEnableAutoMerge || data!.markPullRequestReadyForReview.pullRequest.viewerCanDisableAutoMerge
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
+				allowAutoMerge: pullRequest.viewerCanEnableAutoMerge || pullRequest.viewerCanDisableAutoMerge
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this.item.allowAutoMerge = result.allowAutoMerge;
@@ -2355,7 +2342,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<ConvertPullRequestToDraftResponse>({
+			const { data, errors } = await mutate<ConvertPullRequestToDraftResponse>({
 				mutation: schema.ConvertToDraft,
 				variables: {
 					input: {
@@ -2364,15 +2351,21 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.convertPullRequestToDraft?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.convertToDraft.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.convertToDraft.success');
 
 			const result: ConvertToDraft = {
-				isDraft: data!.convertPullRequestToDraft.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.convertPullRequestToDraft.pullRequest.mergeable, data!.convertPullRequestToDraft.pullRequest.mergeStateStatus),
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this._onDidChange.fire({ draft: true });

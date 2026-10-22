@@ -41,6 +41,28 @@ export interface PullRequestStack {
 	}[];
 }
 
+/** Open pull requests that could form a stack with a pull request that is not in one yet. */
+export interface PullRequestStackRecommendation {
+	/** The stack the pull requests would form, in the same shape as an existing stack. */
+	stack: PullRequestStack;
+	/** The size of the existing stack that the pull requests would be added to, if they extend one. */
+	existingStackSize?: number;
+}
+
+/** An open pull request whose branches line up with another pull request, so they could be stacked. */
+export interface StackablePullRequest {
+	number: number;
+	title: string;
+	url: string;
+	base: string;
+	head: string;
+	isDraft: boolean;
+	isQueued: boolean;
+	mergeable: PullRequestMergeability;
+	/** Where the pull request is in its stack, if it is already in one. */
+	stackEntry?: { position: number; size: number };
+}
+
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
@@ -60,8 +82,7 @@ export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestSt
 	}
 	const firstClosed = stack.pullRequests.findIndex(entry => entry.state === GithubItemStateEnum.Closed);
 	const entries = firstClosed < 0 ? stack.pullRequests : stack.pullRequests.slice(0, firstClosed);
-	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued
-		|| entry.mergeable === PullRequestMergeability.Conflict || entry.mergeable === PullRequestMergeability.Unknown)
+	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued)
 		|| stack.pullRequests.slice(entries.length).some(entry => entry.state !== GithubItemStateEnum.Closed)) {
 		return;
 	}
@@ -70,6 +91,15 @@ export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestSt
 
 export function isStackUpdatable(stack: PullRequestStack): boolean {
 	return !!stack.needsUpdate && !!getUpdatableStackEntries(stack);
+}
+
+/**
+ * Whether an open pull request in the stack has conflicts. Updating such a stack needs a local rebase, where the user
+ * can resolve them; GitHub can rebase other stacks itself. Closed pull requests are skipped when updating a stack.
+ */
+export function hasConflictingStackEntry(stack: PullRequestStack | null | undefined): boolean {
+	return !!stack?.pullRequests.some(entry =>
+		entry.state === GithubItemStateEnum.Open && entry.mergeable === PullRequestMergeability.Conflict);
 }
 
 export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
