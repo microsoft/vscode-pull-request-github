@@ -380,6 +380,11 @@ body img.avatar {
 	visibility: hidden;
 }
 
+/* Points down while the status checks are shown, like the stack section's chevron. */
+#status-checks-display-button[aria-expanded="false"] .icon {
+	transform: rotate(-90deg);
+}
+
 .stack-action-error {
 	padding: 8px 16px 0;
 	color: var(--vscode-errorForeground);

@@ -56,11 +56,14 @@ export function stackHasConflicts(pr: PullRequest): boolean {
 	return pr.mergeable === PullRequestMergeability.Conflict || hasConflictingStackEntry(pr.stack);
 }
 
-/** Stack actions share their progress and errors with every control that can trigger them. */
+/** Stack actions share their progress with every control that can trigger them, and starting one clears both errors. */
 export interface StackActions {
 	unstacking: boolean;
 	updating: boolean;
-	error?: string;
+	/** Shown with the stack, where it is unstacked. */
+	unstackError?: string;
+	/** Shown with the branch status, where the stack is updated. */
+	updateError?: string;
 	unstack(): Promise<void>;
 	update(): Promise<void>;
 }
@@ -69,15 +72,20 @@ export function useStackActions(): StackActions {
 	const { unstackAll, updateStack } = React.useContext(PullRequestContext);
 	const [unstacking, setUnstacking] = React.useState(false);
 	const [updating, setUpdating] = React.useState(false);
-	const [error, setError] = React.useState<string | undefined>();
+	const [unstackError, setUnstackError] = React.useState<string | undefined>();
+	const [updateError, setUpdateError] = React.useState<string | undefined>();
+	const clearErrors = () => {
+		setUnstackError(undefined);
+		setUpdateError(undefined);
+	};
 
 	const unstack = async () => {
 		try {
 			setUnstacking(true);
-			setError(undefined);
+			clearErrors();
 			await unstackAll();
-		} catch (unstackError) {
-			setError(`Unable to unstack pull requests: ${unstackError instanceof Error ? unstackError.message || unstackError.name : String(unstackError)}`);
+		} catch (unstackFailure) {
+			setUnstackError(`Unable to unstack pull requests: ${unstackFailure instanceof Error ? unstackFailure.message || unstackFailure.name : String(unstackFailure)}`);
 		} finally {
 			setUnstacking(false);
 		}
@@ -86,33 +94,53 @@ export function useStackActions(): StackActions {
 	const update = async () => {
 		try {
 			setUpdating(true);
-			setError(undefined);
+			clearErrors();
 			await updateStack();
 		} catch (updateFailure) {
-			setError(`Unable to update the stack: ${updateFailure instanceof Error ? updateFailure.message || updateFailure.name : String(updateFailure)}`);
+			setUpdateError(`Unable to update the stack: ${updateFailure instanceof Error ? updateFailure.message || updateFailure.name : String(updateFailure)}`);
 		} finally {
 			setUpdating(false);
 		}
 	};
 
-	return { unstacking, updating, error, unstack, update };
+	return { unstacking, updating, unstackError, updateError, unstack, update };
 }
 
+/** Rebases the stack's pull requests onto their bases, which is how they are brought up to date and their conflicts resolved. */
+export const StackUpdateButton = ({ pr, actions }: { pr: PullRequest; actions: StackActions }) => {
+	// Updating the stack is also how its conflicts are resolved, so the same action is named for the user's goal.
+	const resolvesConflicts = stackHasConflicts(pr);
+	return (
+		<button className="secondary" type="button" title={resolvesConflicts
+			? 'Rebase all pull requests in this stack, resolve their conflicts, and push them'
+			: 'Rebase and push all pull requests in this stack'}
+			disabled={actions.unstacking || actions.updating || !!pr.stackMergeStatus} onClick={actions.update}>
+			{actions.updating ? 'Updating...' : resolvesConflicts ? 'Resolve conflicts' : 'Update stack'}
+		</button>
+	);
+};
+
 export const StackSection = ({ pr, actions }: { pr: PullRequest; actions: StackActions }) => {
+	const [expanded, setExpanded] = React.useState(true);
 	const { stack } = pr;
 	if (!stack) {
 		return null;
 	}
-	const { unstacking, updating, error, unstack, update } = actions;
+	const { unstacking, updating, unstackError, unstack } = actions;
 	const openBelow = stack.pullRequests.filter(entry => entry.position < stack.position && entry.state === GithubItemStateEnum.Open).length;
 	const canUnstack = pr.hasWritePermission && stack.pullRequests.some(entry => entry.state !== GithubItemStateEnum.Merged);
-	const canUpdate = canUpdatePullRequestStack(pr);
-	// Updating the stack is also how its conflicts are resolved, so the same action is named for the user's goal.
-	const resolvesConflicts = stackHasConflicts(pr);
+	const toggle = () => setExpanded(open => !open);
 
+	// A summary cannot hold the Unstack all button, so the header is laid out as a grid with the button in it,
+	// and the chevron is the disclosure control.
 	return (
-		<details className={`stack-section${canUnstack || canUpdate ? ' has-actions' : ''}`} id="pull-request-stack" open>
-			<summary className="status-item">
+		<div className="stack-section" id="pull-request-stack">
+			{/* Like a summary, clicking anywhere in the header that is not a button toggles the stack. */}
+			<div className="stack-header status-item" onClick={event => {
+				if (!(event.target instanceof Element && event.target.closest('button'))) {
+					toggle();
+				}
+			}}>
 				{layersIcon}
 				<span className="stack-heading-text">
 					<strong>Pull request stack</strong>
@@ -122,23 +150,23 @@ export const StackSection = ({ pr, actions }: { pr: PullRequest; actions: StackA
 							: `${stack.size} pull request${stack.size === 1 ? '' : 's'} in this stack.`}
 					</span>
 				</span>
-				<span className="stack-chevron">{chevronDownIcon}</span>
-			</summary>
-			{canUnstack || canUpdate ? <div className="stack-actions">
-				{canUpdate ? <button className="secondary" type="button" title={resolvesConflicts
-					? 'Rebase all pull requests in this stack, resolve their conflicts, and push them'
-					: 'Rebase and push all pull requests in this stack'}
-					disabled={unstacking || updating || !!pr.stackMergeStatus} onClick={update}>
-					{updating ? 'Updating...' : resolvesConflicts ? 'Resolve conflicts' : 'Update stack'}
-				</button> : null}
-				{canUnstack ? <button className="secondary" type="button" title="Unstack all eligible pull requests"
-					disabled={unstacking || updating || !!pr.stackMergeStatus} onClick={unstack}>
-					{unstacking ? 'Unstacking...' : 'Unstack all'}
-				</button> : null}
-			</div> : null}
-			{error ? <div className="stack-action-error" role="alert">{error}</div> : null}
-			<StackEntryList stack={stack} currentNumber={pr.number} />
-		</details>
+				{canUnstack && expanded ? <div className="stack-actions">
+					<button className="secondary" type="button" title="Unstack all eligible pull requests"
+						disabled={unstacking || updating || !!pr.stackMergeStatus} onClick={unstack}>
+						{unstacking ? 'Unstacking...' : 'Unstack all'}
+					</button>
+				</div> : null}
+				<button className="icon-button stack-chevron" type="button" aria-expanded={expanded} aria-controls="pull-request-stack-content"
+					aria-label={expanded ? 'Collapse pull request stack' : 'Expand pull request stack'}
+					title={expanded ? 'Collapse pull request stack' : 'Expand pull request stack'} onClick={toggle}>
+					{chevronDownIcon}
+				</button>
+			</div>
+			<div id="pull-request-stack-content" hidden={!expanded}>
+				{unstackError ? <div className="stack-action-error" role="alert">{unstackError}</div> : null}
+				<StackEntryList stack={stack} currentNumber={pr.number} />
+			</div>
+		</div>
 	);
 };
 

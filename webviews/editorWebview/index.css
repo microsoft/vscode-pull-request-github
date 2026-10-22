@@ -707,44 +707,65 @@ body button .icon {
 }
 
 .stack-badge .icon svg,
-.stack-section summary .icon svg,
+.stack-header .icon svg,
 .stack-recommendation-banner .icon svg,
 .stack-entry-readiness svg {
 	width: 16px;
 	height: 16px;
 }
 
-.stack-section summary {
+.stack-section {
+	scroll-margin-top: 64px;
+	/* Whether the Unstack all button fits beside the heading depends on the section's width, not the page's. */
+	container: stack-section / inline-size;
+}
+
+.stack-header {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	grid-template-areas: "icon heading actions toggle";
+	gap: 8px;
 	cursor: pointer;
 }
 
-.stack-section {
-	position: relative;
-	scroll-margin-top: 64px;
+.stack-header > .icon {
+	grid-area: icon;
 }
 
 .stack-heading-text {
-	flex: 1;
-	min-width: 0;
+	grid-area: heading;
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 }
 
-.stack-section summary > .icon {
-	flex-shrink: 0;
+.stack-actions {
+	grid-area: actions;
+	display: flex;
+	gap: 8px;
 }
 
-.stack-chevron {
-	margin-left: auto;
+.stack-header .stack-chevron {
+	grid-area: toggle;
+	margin: 0;
 }
 
-.stack-section[open].has-actions .stack-heading-text {
-	padding-right: 230px;
-}
-
-.stack-section:not([open]) .stack-chevron {
+.stack-chevron[aria-expanded="false"] .icon {
 	transform: rotate(-90deg);
+}
+
+/* Too narrow for the button to sit beside the heading, so it goes below it, still in the header. */
+@container stack-section (max-width: 400px) {
+	.stack-header {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"icon heading toggle"
+			". actions .";
+	}
+
+	.stack-actions {
+		justify-self: start;
+	}
 }
 
 .stack-description,
@@ -896,36 +917,6 @@ body button .icon {
 
 .stack-base .branch-tag {
 	width: fit-content;
-}
-
-.stack-actions {
-	position: absolute;
-	top: 16px;
-	right: 48px;
-	display: flex;
-	gap: 8px;
-	margin-left: auto;
-}
-
-.stack-section:not([open]) .stack-actions {
-	display: none;
-}
-
-@media (max-width: 700px) {
-	.stack-section[open].has-actions summary {
-		flex-wrap: wrap;
-	}
-
-	.stack-section[open].has-actions .stack-heading-text {
-		padding-right: 0;
-	}
-
-	.stack-actions {
-		position: static;
-		display: flex;
-		justify-content: flex-end;
-		padding: 0 16px 8px;
-	}
 }
 
 .stack-recommendation {
