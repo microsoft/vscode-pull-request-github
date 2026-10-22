@@ -36,6 +36,10 @@ import {
 	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
+	StackablePullRequestBranchesNode,
+	StackablePullRequestConnection,
+	StackablePullRequestNode,
+	StackablePullRequestsResponse,
 	SuggestedActorsResponse,
 	UserResponse,
 	ViewerPermissionResponse,
@@ -54,6 +58,7 @@ import {
 	PullRequestCheckStatus,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
+	StackablePullRequest,
 	User,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
@@ -69,11 +74,13 @@ import {
 	getOverrideBranch,
 	GraphQLAccount,
 	isInCodespaces,
+	isStacksUnsupportedError,
 	parseAccount,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLUser,
 	parseGraphQLViewerPermission,
+	parseMergeability,
 	parseMergeMethod,
 	parseMilestone,
 	restPaginate,
@@ -888,6 +895,73 @@ export class GitHubRepository extends Disposable {
 
 	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<number[]> {
 		return this.addPullRequestsToStack(candidate, [number]);
+	}
+
+	/**
+	 * Gets the open pull requests whose branches line up with a chain of branches in this repository.
+	 * Pull requests from forks are skipped, and there is no pull request where more than one lines up.
+	 * @param base The branch that the bottom of the chain merges into, or `undefined` to not look below the chain.
+	 * @param head The branch at the top of the chain, or `undefined` to not look above the chain.
+	 * @returns The pull request whose head is `base`, the one whose base is `head`, and the number of the one whose
+	 * base is `base`, which should be the bottom of the chain. `undefined` if this GitHub server does not support
+	 * pull request stacks.
+	 */
+	async getStackablePullRequests(base: string | undefined, head: string | undefined): Promise<{
+		below?: StackablePullRequest;
+		targetingBase?: number;
+		above?: StackablePullRequest;
+	} | undefined> {
+		const { query, remote, schema } = await this.ensure();
+		let data: StackablePullRequestsResponse;
+		try {
+			({ data } = await query<StackablePullRequestsResponse>({
+				query: schema.StackablePullRequests,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					base: base ?? '',
+					head: head ?? '',
+					includeBelow: base !== undefined,
+					includeAbove: head !== undefined,
+				},
+			}, false, undefined, false));
+		} catch (error) {
+			if (isStacksUnsupportedError(error)) {
+				Logger.debug('Pull request stacks are not supported by this GitHub server.', this.id);
+				return;
+			}
+			throw error;
+		}
+		if (!data?.repository) {
+			throw new Error(`Unable to find pull requests to stack in ${remote.owner}/${remote.repositoryName}.`);
+		}
+		const findOnly = <T extends StackablePullRequestBranchesNode>(connection: StackablePullRequestConnection<T> | undefined): T | undefined => {
+			// Another page could hold a second pull request, so there may not be only one.
+			if (!connection || connection.pageInfo.hasNextPage) {
+				return;
+			}
+			const candidates = connection.nodes.filter(node => node.baseRefName !== node.headRefName
+				&& [node.baseRepository, node.headRepository].every(repository => repository
+					&& compareIgnoreCase(repository.owner.login, remote.owner) === 0
+					&& compareIgnoreCase(repository.name, remote.repositoryName) === 0));
+			return candidates.length === 1 ? candidates[0] : undefined;
+		};
+		const toStackable = (node: StackablePullRequestNode | undefined): StackablePullRequest | undefined => node && {
+			number: node.number,
+			title: node.title,
+			url: node.url,
+			base: node.baseRefName,
+			head: node.headRefName,
+			isDraft: node.isDraft,
+			isQueued: !!node.mergeQueueEntry,
+			mergeable: parseMergeability(node.mergeable, node.mergeStateStatus),
+			stackEntry: node.stack && node.stackEntry ? { position: node.stackEntry.position, size: node.stack.size } : undefined,
+		};
+		return {
+			below: toStackable(findOnly(data.repository.below)),
+			targetingBase: findOnly(data.repository.targetingBase)?.number,
+			above: toStackable(findOnly(data.repository.above)),
+		};
 	}
 
 	async addPullRequestsToStack(candidate: StackCandidate, numbers: number[]): Promise<number[]> {

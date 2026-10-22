@@ -140,24 +140,29 @@ export const StackSection = ({ pr, actions }: { pr: PullRequest; actions: StackA
 				</button> : null}
 			</div> : null}
 			{error ? <div className="stack-action-error" role="alert">{error}</div> : null}
-			<ol className="stack-entries" aria-label={`Pull requests merging down into ${stack.base}`}>
-				{[...stack.pullRequests].reverse().map(entry => {
-					const current = entry.number === pr.number;
-					const readiness = getReadiness(entry, stack);
-
-					return <li key={entry.number} className={`stack-entry${current ? ' current' : ''}`} aria-current={current ? 'step' : undefined}>
-						<span className={`stack-entry-readiness ${readiness.kind}`} role="img" aria-label={readiness.label} title={readiness.label}>{readiness.icon}</span>
-						<span className="stack-entry-details">
-							{current ? <strong>{entry.title}</strong> : <a href={entry.url}>{entry.title}</a>}
-							<span className="stack-entry-meta">#{entry.number} - {entry.head}</span>
-						</span>
-					</li>;
-				})}
-				<li className="stack-base">
-					<span className="stack-base-marker" aria-hidden="true" />
-					<code className="branch-tag">{stack.base}</code>
-				</li>
-			</ol>
+			<StackEntryList stack={stack} currentNumber={pr.number} />
 		</details>
 	);
 };
+
+/** The pull requests in a stack from top to bottom, followed by the branch that they merge down into. */
+export const StackEntryList = ({ stack, currentNumber }: { stack: Stack; currentNumber: number }) => (
+	<ol className="stack-entries" aria-label={`Pull requests merging down into ${stack.base}`}>
+		{[...stack.pullRequests].reverse().map(entry => {
+			const current = entry.number === currentNumber;
+			const readiness = getReadiness(entry, stack);
+
+			return <li key={entry.number} className={`stack-entry${current ? ' current' : ''}`} aria-current={current ? 'step' : undefined}>
+				<span className={`stack-entry-readiness ${readiness.kind}`} role="img" aria-label={readiness.label} title={readiness.label}>{readiness.icon}</span>
+				<span className="stack-entry-details">
+					{current ? <strong>{entry.title}</strong> : <a href={entry.url}>{entry.title}</a>}
+					<span className="stack-entry-meta">#{entry.number} - {entry.head}</span>
+				</span>
+			</li>;
+		})}
+		<li className="stack-base">
+			<span className="stack-base-marker" aria-hidden="true" />
+			<code className="branch-tag">{stack.base}</code>
+		</li>
+	</ol>
+);

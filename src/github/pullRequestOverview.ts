@@ -22,12 +22,14 @@ import {
 	MergeMethodsAvailability,
 	PullRequestCheckStatus,
 	PullRequestMergeability,
+	PullRequestStack,
 	ReviewEventEnum,
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
+import { addPullRequestsToStack, getStackCandidateForPullRequests, orderStackablePullRequests } from './pullRequestStack';
 import {
 	canUpdateStack,
 	findStackRepository,
@@ -40,8 +42,9 @@ import {
 } from './pullRequestStackUpdate';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
+import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
 import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
+import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -91,6 +94,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _stackRefreshPromise: Promise<void> | undefined;
 	private _canUpdateStackAccess = false;
 	private _updatableStackPullRequestNumbers: Set<number> | undefined;
+	private _stackRecommendation: StackRecommendation | undefined;
+	/** Pull requests whose stack recommendation was dismissed, until this panel is closed. */
+	private readonly _dismissedStackRecommendations = new Set<string>();
 	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	private getStackManagers(): FolderRepositoryManager[] {
@@ -348,20 +354,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			return Promise.resolve();
 		}
 		this._stackRefreshPending = true;
-		this._stackRefreshPromise ??= Promise.resolve().then(async () => {
+		this._stackRefreshPromise ??= this.processStackRefreshes();
+		return this._stackRefreshPromise;
+	}
+
+	private async processStackRefreshes(): Promise<void> {
+		// Let refreshStack store this promise before it can finish.
+		await Promise.resolve();
+		try {
 			while (this._stackRefreshPending && !this.isDisposed && this._panel.visible && areStacksEnabled()) {
 				this._stackRefreshPending = false;
 				if (this._item) {
 					await this.loadStack(this._item, this._updateSequence);
 				}
 			}
-		}).finally(() => {
+		} finally {
+			// Cleared as soon as the loop ends, so a refresh requested after that starts a new loop instead of awaiting this one.
 			this._stackRefreshPromise = undefined;
-			if (this._stackRefreshPending && !this.isDisposed && this._panel.visible && areStacksEnabled()) {
-				void this.refreshStack();
-			}
-		});
-		return this._stackRefreshPromise;
+		}
 	}
 
 	/**
@@ -526,6 +536,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.debug(`Data timings: ${dataTimingSummary}`, PullRequestOverviewPanel.ID);
 
 			this._updatableStackPullRequestNumbers = undefined;
+			this._stackRecommendation = undefined;
 			this._item = pullRequest;
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
@@ -599,6 +610,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				stackLoaded: !areStacksEnabled(),
 				stackLoadError: false,
 				stackMergeStatus: undefined,
+				stackRecommendation: undefined,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,
@@ -732,23 +744,23 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (this.isDisposed || updateSequence !== this._updateSequence || !areStacksEnabled()) {
 				return;
 			}
-			const mergeQueueMethod = await this._folderRepositoryManager.mergeQueueMethodForBranch(
-				stack?.base ?? pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName);
-			const linkedStack = stack && {
-				...stack,
-				pullRequests: await Promise.all(stack.pullRequests.map(async entry => ({
-					...entry,
-					url: (await toOpenPullRequestWebviewUri({
-						owner: pullRequestModel.remote.owner,
-						repo: pullRequestModel.remote.repositoryName,
-						pullRequestNumber: entry.number,
-					})).toString(),
-				}))),
-			};
+			const [mergeQueueMethod, recommendation] = await Promise.all([
+				this._folderRepositoryManager.mergeQueueMethodForBranch(
+					stack?.base ?? pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+				stack ? undefined : this.findStackRecommendation(pullRequestModel),
+			]);
+			const [linkedStack, linkedRecommendationStack] = await Promise.all([
+				stack && this.linkStackEntries(pullRequestModel, stack),
+				recommendation && this.linkStackEntries(pullRequestModel, recommendation.preview.stack),
+			]);
 			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
+				// The recommendation may have been dismissed while it was being found.
+				const shownRecommendation = this.isStackRecommendationDismissed(pullRequestModel) ? undefined : recommendation;
 				this._updatableStackPullRequestNumbers = getUpdatableStackPullRequestNumbers(stack);
 				this._stackLoaded = true;
-				this._stackPullRequestNumbers = new Set(stack?.pullRequests.map(entry => entry.number));
+				this._stackRecommendation = shownRecommendation;
+				this._stackPullRequestNumbers = new Set([...(stack?.pullRequests ?? []), ...(shownRecommendation?.preview.stack.pullRequests ?? [])]
+					.map(entry => entry.number));
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
@@ -757,6 +769,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						stackLoadError: false,
 						canUpdateStack: this.canUpdateStack(pullRequestModel),
 						mergeQueueMethod: mergeQueueMethod ?? null,
+						stackRecommendation: shownRecommendation ? { ...shownRecommendation.preview, stack: linkedRecommendationStack! } : null,
 					} satisfies Partial<PullRequest>,
 				});
 			}
@@ -764,9 +777,50 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
 				this._updatableStackPullRequestNumbers = undefined;
-				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true, canUpdateStack: false } satisfies Partial<PullRequest> });
+				this._stackRecommendation = undefined;
+				void this._postMessage({
+					command: 'pr.update',
+					pullrequest: { stackLoadError: true, canUpdateStack: false, stackRecommendation: null } satisfies Partial<PullRequest>,
+				});
 			}
 		}
+	}
+
+	private async linkStackEntries(pullRequestModel: PullRequestModel, stack: PullRequestStack): Promise<PullRequestStack> {
+		const pullRequests = await Promise.all(stack.pullRequests.map(async entry => ({
+			...entry,
+			url: (await toOpenPullRequestWebviewUri({
+				owner: pullRequestModel.remote.owner,
+				repo: pullRequestModel.remote.repositoryName,
+				pullRequestNumber: entry.number,
+			})).toString(),
+		})));
+		return { ...stack, pullRequests };
+	}
+
+	/** Finds pull requests that could be stacked with this one. Failing to find them does not stop the stack from loading. */
+	private async findStackRecommendation(pullRequestModel: PullRequestModel): Promise<StackRecommendation | undefined> {
+		if (!this._canUpdateStackAccess || this.isStackRecommendationDismissed(pullRequestModel)) {
+			return;
+		}
+		try {
+			const recommendation = await getStackRecommendation(pullRequestModel);
+			if (recommendation) {
+				Logger.debug(`Pull request #${pullRequestModel.number} can be stacked as ${recommendation.pullRequestNumbers.map(number => `#${number}`).join(', ')}`, PullRequestOverviewPanel.ID);
+			}
+			return recommendation;
+		} catch (error) {
+			Logger.error(`Failed to find pull requests to stack with #${pullRequestModel.number}: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			return;
+		}
+	}
+
+	private isStackRecommendationDismissed(pullRequestModel: PullRequestModel): boolean {
+		return this._dismissedStackRecommendations.has(this.getStackRecommendationKey(pullRequestModel));
+	}
+
+	private getStackRecommendationKey(pullRequestModel: PullRequestModel): string {
+		return panelKey(pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName, pullRequestModel.number).toLowerCase();
 	}
 
 	public override async refreshPanel(): Promise<void> {
@@ -839,6 +893,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.unstackAll(message);
 			case 'pr.update-stack':
 				return this.updateStack(message);
+			case 'pr.create-recommended-stack':
+				return this.createRecommendedStack(message);
+			case 'pr.dismiss-stack-recommendation':
+				return this.dismissStackRecommendation(message);
 			case 'pr.change-email':
 				return this.changeEmail(message);
 			case 'pr.deleteBranch':
@@ -1192,6 +1250,56 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			getCheckedOutPullRequestNumber: () => this.getCheckedOutPullRequestNumber(this._item),
 			getStackRepository: () => this.getStackRepository(this._item),
 		}, message);
+	}
+
+	private async createRecommendedStack(message: IRequestMessage<CreateRecommendedStackArgs>): Promise<void> {
+		const changed = vscode.l10n.t('The pull requests that can be stacked have changed. Review the stack and try again.');
+		try {
+			assertStacksEnabled();
+			const recommendation = this._stackRecommendation;
+			const previewed = message.args?.pullRequests;
+			const recommended = recommendation?.preview.stack.pullRequests.map(entry => entry.number);
+			if (!recommendation || !Array.isArray(previewed) || previewed.length !== recommended!.length
+				|| previewed.some((number, index) => number !== recommended![index])) {
+				throw new Error(changed);
+			}
+			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
+			if (!access.hasWritePermission) {
+				throw new Error(vscode.l10n.t('You do not have permission to stack these pull requests.'));
+			}
+			const repository = this._item.githubRepository;
+			const pullRequests = await Promise.all(recommendation.pullRequestNumbers.map(async number => {
+				const pullRequest = await repository.getPullRequest(number, 'createRecommendedStack');
+				if (!pullRequest) {
+					throw new Error(vscode.l10n.t('Unable to load pull request #{0}.', number));
+				}
+				return pullRequest;
+			}));
+			const ordered = orderStackablePullRequests(pullRequests);
+			if (!ordered || ordered.some((pullRequest, index) => pullRequest.number !== recommendation.pullRequestNumbers[index])) {
+				throw new Error(changed);
+			}
+			const candidate = await getStackCandidateForPullRequests(ordered);
+			if ((candidate.stackNumber !== undefined) !== (recommendation.preview.existingStackSize !== undefined)) {
+				throw new Error(changed);
+			}
+			Logger.appendLine(`Stacking ${ordered.map(pullRequest => `#${pullRequest.number}`).join(', ')} as recommended for #${this._item.number}`, PullRequestOverviewPanel.ID);
+			await addPullRequestsToStack(ordered, candidate);
+			await this._replyMessage(message, {});
+		} catch (error) {
+			Logger.error(`Failed to stack the recommended pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			await this._throwError(message, formatError(error));
+			// Show what can be stacked now, in case that is why it failed.
+			void this.refreshStack();
+		}
+	}
+
+	private async dismissStackRecommendation(message: IRequestMessage<undefined>): Promise<void> {
+		this._dismissedStackRecommendations.add(this.getStackRecommendationKey(this._item));
+		this._stackRecommendation = undefined;
+		// A recommendation is only found for a pull request that is not in a stack, so no other pull requests are shown.
+		this._stackPullRequestNumbers = new Set();
+		await this._replyMessage(message, {});
 	}
 
 	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {

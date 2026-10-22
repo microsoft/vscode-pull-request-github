@@ -26,7 +26,7 @@ import { PRType } from '../github/interface';
 import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
-import { addPullRequestsToStack, orderStackablePullRequests } from '../github/pullRequestStack';
+import { addPullRequestsToStack, getStackCandidateForPullRequests, orderStackablePullRequests } from '../github/pullRequestStack';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -257,11 +257,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
 				return;
 			}
-			const bottom = ordered[0];
-			const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
-			if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
-				throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
-			}
+			const candidate = await getStackCandidateForPullRequests(ordered);
 			const confirmation = getAddToStackConfirmation(ordered, candidate);
 			const approved = await vscode.window.showInformationMessage(
 				confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action,
