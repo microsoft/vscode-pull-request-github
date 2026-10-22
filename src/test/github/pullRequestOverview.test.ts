@@ -44,6 +44,7 @@ import { Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPrevi
 import * as stackGit from '../../github/updateStackBranches';
 import { lockedStacks } from '../../github/pullRequestStackUpdate';
 import { IRequestMessage } from '../../common/webview';
+import { getGitHubCommitFileSystemProvider } from '../../view/githubFileContentProvider';
 
 const EXTENSION_URI = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 
@@ -2339,6 +2340,22 @@ describe('PullRequestOverview', function () {
 			sinon.assert.calledWithExactly(replyMessage, message, response);
 			sinon.assert.calledOnce(refreshPanel);
 			sinon.assert.notCalled(postMessage);
+		});
+	});
+
+	describe('viewChanges', function () {
+		it('opens the changes with the overview tab title', async function () {
+			const { panel, model } = await createPanel();
+			getGitHubCommitFileSystemProvider({ reposManager: repositoriesManager, gitAPI: new GitApiImpl(repositoriesManager), credentialStore });
+			const openReadonlyChanges = sinon.stub(PullRequestModel, 'openReadonlyChanges').resolves();
+			const replyMessage = sinon.stub(panel as any, '_replyMessage').resolves();
+			const message = { req: '1', command: 'pr.view-changes', args: undefined };
+
+			await (panel as any).viewChanges(message);
+
+			assert.strictEqual(panel.getCurrentTitle(), '#1000 New feature');
+			assert(openReadonlyChanges.calledOnceWithExactly(pullRequestManager, model, '#1000 New feature'));
+			assert(replyMessage.calledOnceWithExactly(message, {}));
 		});
 	});
 });

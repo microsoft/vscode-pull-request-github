@@ -1138,7 +1138,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			throw new Error('GitHub commit file system provider is not initialized.');
 		}
 		fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
-		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item);
+		// Match the overview tab title; the changes editor adds its own icon and file count.
+		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item, this.getCurrentTitle());
 		await this._replyMessage(message, {});
 	}
 
