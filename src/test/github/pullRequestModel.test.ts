@@ -1106,12 +1106,13 @@ describe('PullRequestModel', function () {
 				telemetry,
 			} as unknown as FolderRepositoryManager;
 
-			await PullRequestModel.openReadonlyChanges(folderManager, model);
+			await PullRequestModel.openReadonlyChanges(folderManager, model, '#1 Readonly changes');
 
 			assert(getMergeBase.calledOnceWithExactly(baseCommit, headCommit));
 			assert(diffBetween.calledOnceWithExactly(mergeBase, headCommit));
-			const [command, , entries] = executeCommand.firstCall.args;
+			const [command, title, entries] = executeCommand.firstCall.args;
 			assert.strictEqual(command, 'vscode.changes');
+			assert.strictEqual(title, '#1 Readonly changes');
 			assert.strictEqual(entries.length, 1);
 			const [resourceUri, originalUri, modifiedUri] = entries[0];
 			assert.strictEqual(resourceUri.scheme, 'git');
@@ -1134,10 +1135,11 @@ describe('PullRequestModel', function () {
 				telemetry,
 			} as unknown as FolderRepositoryManager;
 
-			await PullRequestModel.openReadonlyChanges(folderManager, model);
+			await PullRequestModel.openReadonlyChanges(folderManager, model, '#1 Readonly changes');
 
 			assert(getAllFileChangesInfo.calledOnce);
-			const [, , entries] = executeCommand.firstCall.args;
+			const [, title, entries] = executeCommand.firstCall.args;
+			assert.strictEqual(title, '#1 Readonly changes');
 			const [resourceUri, originalUri, modifiedUri] = entries[0];
 			assert.strictEqual(resourceUri.scheme, 'githubcommit');
 			assert.strictEqual(originalUri.scheme, 'githubcommit');

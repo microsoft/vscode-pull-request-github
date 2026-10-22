@@ -1854,7 +1854,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
+	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, title: string): Promise<void> {
 		const headCommit = pullRequestModel.head?.sha;
 		if (!headCommit) {
 			throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
@@ -1909,7 +1909,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		*/
 		folderManager.telemetry.sendTelemetryEvent('pr.viewChanges', { source: localChanges ? 'git' : 'github' });
-		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+		return vscode.commands.executeCommand('vscode.changes', title, args);
 	}
 
 	private static async getLocalMergeBase(repository: Repository, baseCommit: string, headCommit: string): Promise<string | undefined> {
