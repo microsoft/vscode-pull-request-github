@@ -1158,6 +1158,42 @@ describe('PullRequestModel', function () {
 		});
 	}
 
+	describe('REST and GraphQL-only fields', function () {
+		it('keeps the known edit permission and mergeability when a REST list response updates the model', function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, {
+				...convertRESTPullRequestToRawPullRequest(pr, repo),
+				viewerCanUpdate: true,
+				mergeable: PullRequestMergeability.Behind,
+			});
+			context.subscriptions.push(model);
+			const onDidChange = sinon.spy();
+			context.subscriptions.push(model.onDidChange(onDidChange));
+
+			const { mergeable: _mergeable, ...listItem } = pr;
+			model.update(convertRESTPullRequestToRawPullRequest(listItem as unknown as Parameters<typeof convertRESTPullRequestToRawPullRequest>[0], repo));
+
+			assert.strictEqual(model.item.viewerCanUpdate, true);
+			assert.strictEqual(model.item.mergeable, PullRequestMergeability.Behind);
+			assert(onDidChange.neverCalledWithMatch({ mergeability: true }));
+		});
+
+		it('refreshes the edit permission with mergeability', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			context.subscriptions.push(model);
+			assert.strictEqual(model.item.viewerCanUpdate, undefined);
+			sinon.stub(repo, 'query').resolves({
+				data: { repository: { pullRequest: { mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', viewerCanUpdate: true } } },
+			} as any);
+
+			const result = await model.getMergeability();
+
+			assert.strictEqual(result.mergeability, PullRequestMergeability.Mergeable);
+			assert.strictEqual(model.item.viewerCanUpdate, true);
+		});
+	});
+
 	describe('rebaseStack', function () {
 		const headers = { 'X-GitHub-Api-Version': '2026-03-10' };
 		const listArgs = ['GET /repos/{owner}/{repo}/stacks', { owner: 'github', repo: 'test', headers, pull_request: 795, per_page: 1 }];

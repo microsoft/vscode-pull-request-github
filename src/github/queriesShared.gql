@@ -786,6 +786,7 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 		pullRequest(number: $number) {
 			mergeable
 			mergeStateStatus
+			viewerCanUpdate
 		}
 	}
 	rateLimit {

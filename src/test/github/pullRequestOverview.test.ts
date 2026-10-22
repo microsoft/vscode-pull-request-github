@@ -1559,6 +1559,70 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
+	describe('branch status changes', function () {
+		async function openPanel() {
+			const result = await createPanel();
+			result.model.item.viewerCanUpdate = true;
+			const upToDate = pullRequestManager.isHeadUpToDateWithBase as sinon.SinonStub;
+			upToDate.resetHistory();
+			const postMessage = sinon.stub(result.panel as any, '_postMessage').resolves();
+			sinon.stub(result.panel, 'refreshPanel').resolves();
+			const branchStatusUpdates = () => postMessage.getCalls()
+				.map(call => call.args[0])
+				.filter(message => message.command === 'pr.update' && 'mergeable' in message.pullrequest)
+				.map(message => message.pullrequest);
+			const lastBranchStatusUpdate = () => {
+				const updates = branchStatusUpdates();
+				return updates[updates.length - 1];
+			};
+			return { ...result, upToDate, branchStatusUpdates, lastBranchStatusUpdate };
+		}
+
+		it('offers to update the branch when the base branch moves ahead after loading', async function () {
+			const { panel, model, upToDate, lastBranchStatusUpdate } = await openPanel();
+			upToDate.resolves(false);
+			const base = model.item.base;
+			assert(base);
+
+			model.update({ ...model.item, base: { ...base, sha: 'updated-base' } });
+			await (panel as any).refreshBranchStatus(true);
+
+			assert(upToDate.called);
+			const update = lastBranchStatusUpdate();
+			assert.strictEqual(update?.canUpdateBranch, true);
+			assert.strictEqual(update?.mergeable, PullRequestMergeability.Mergeable);
+		});
+
+		it('publishes a mergeability change that GitHub reports after loading', async function () {
+			const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
+			upToDate.resolves(false);
+
+			model.update({ ...model.item, mergeable: PullRequestMergeability.Behind });
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			assert(upToDate.calledOnce);
+			const update = lastBranchStatusUpdate();
+			assert.strictEqual(update?.mergeable, PullRequestMergeability.Behind);
+			assert.strictEqual(update?.canUpdateBranch, true);
+		});
+
+		it('ignores an older comparison that finishes after a newer one', async function () {
+			const { panel, upToDate, branchStatusUpdates } = await openPanel();
+			let releaseOlder!: (value: boolean) => void;
+			upToDate.onFirstCall().returns(new Promise<boolean>(resolve => { releaseOlder = resolve; }));
+			upToDate.onSecondCall().resolves(false);
+
+			const older = (panel as any).refreshBranchStatus(true);
+			await (panel as any).refreshBranchStatus(true);
+			releaseOlder(true);
+			await older;
+
+			const updates = branchStatusUpdates();
+			assert.strictEqual(updates.length, 1);
+			assert.strictEqual(updates[0].canUpdateBranch, true);
+		});
+	});
+
 	describe('stack change events', function () {
 		async function openStackPanel() {
 			const result = await createPanel();
