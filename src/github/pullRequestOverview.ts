@@ -98,6 +98,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _stackRecommendation: StackRecommendation | undefined;
 	/** Pull requests whose stack recommendation was dismissed, until this panel is closed. */
 	private readonly _dismissedStackRecommendations = new Set<string>();
+	private _isBranchUpToDateWithBase: boolean | undefined;
+	private _branchStatusSequence = 0;
 	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	private getStackManagers(): FolderRepositoryManager[] {
@@ -346,6 +348,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				} else if (e.title || e.base || e.head || e.mergeability || e.mergeQueue) {
 					void this.refreshStack();
 				}
+				if (e.base || e.head || e.mergeability) {
+					void this.refreshBranchStatus(!!(e.base || e.head));
+				}
 			}));
 		}
 	}
@@ -468,6 +473,41 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return true;
 	}
 
+	private getCanUpdateBranch(isBranchUpToDateWithBase: boolean): boolean {
+		return !!this._item.item.viewerCanUpdate && !isBranchUpToDateWithBase && this.isUpdateBranchWithGitHubEnabled();
+	}
+
+	/**
+	 * Keeps the webview's merge status and "update branch" offer current when the model changes after the panel loaded,
+	 * since moving the base branch does not change the PR's update time that the panel polls.
+	 */
+	private async refreshBranchStatus(baseOrHeadChanged: boolean): Promise<void> {
+		const item = this._item;
+		const updateSequence = this._updateSequence;
+		// Before the initial comparison finishes, only a base or head change can make its result stale.
+		const compareWithBase = baseOrHeadChanged || this._isBranchUpToDateWithBase !== undefined;
+		const branchStatusSequence = compareWithBase ? ++this._branchStatusSequence : this._branchStatusSequence;
+		try {
+			if (compareWithBase) {
+				const isBranchUpToDateWithBase = await this._folderRepositoryManager.isHeadUpToDateWithBase(item);
+				if (this.isDisposed || item !== this._item || updateSequence !== this._updateSequence || branchStatusSequence !== this._branchStatusSequence) {
+					return;
+				}
+				this._isBranchUpToDateWithBase = isBranchUpToDateWithBase;
+			}
+			const isBranchUpToDateWithBase = this._isBranchUpToDateWithBase;
+			await this._postMessage({
+				command: 'pr.update',
+				pullrequest: {
+					mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+					...(isBranchUpToDateWithBase === undefined ? {} : { canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase) }),
+				} satisfies Partial<PullRequest>,
+			});
+		} catch (error) {
+			Logger.error(`Failed to refresh branch status: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
 	protected override continueOnGitHub() {
 		const isCrossRepository: boolean =
 			!!this._item.base &&
@@ -502,6 +542,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._diffLinkHashMapPromise = undefined;
 		const updateSequence = ++this._updateSequence;
 		this._stackLoaded = false;
+		this._isBranchUpToDateWithBase = undefined;
+		const branchStatusSequence = ++this._branchStatusSequence;
 		const updateStart = performance.now();
 
 		try {
@@ -684,14 +726,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					return;
 				}
 				this._existingReviewers = reviewers;
+				// A base or head change during loading starts a newer comparison, which publishes the branch status itself.
+				const isBranchStatusCurrent = branchStatusSequence === this._branchStatusSequence;
+				if (isBranchStatusCurrent) {
+					this._isBranchUpToDateWithBase = isBranchUpToDateWithBase;
+				}
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
 						status: status[0],
 						reviewRequirement: status[1],
 						isLocalHeadDeleted: !branchInfo,
-						canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && this.isUpdateBranchWithGitHubEnabled(),
-						mergeable: mergeability.mergeability,
+						...(isBranchStatusCurrent ? {
+							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
+							mergeable: mergeability.mergeability,
+						} : {}),
 						reviewers,
 						hasReviewDraft,
 						...(this._stackLoaded ? {} : { mergeQueueMethod }),

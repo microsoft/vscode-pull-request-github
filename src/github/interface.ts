@@ -328,7 +328,8 @@ export interface PullRequest extends Issue {
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
 	mergeQueueEntry?: MergeQueueEntry | null;
-	viewerCanUpdate: boolean;
+	/** Undefined when the pull request was loaded through the REST API, which doesn't report it. */
+	viewerCanUpdate?: boolean;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;

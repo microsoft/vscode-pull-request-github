@@ -296,6 +296,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		// REST pull request lists don't include these, so keep the values that are already known.
+		if (item.viewerCanUpdate === undefined) {
+			item.viewerCanUpdate = this.item.viewerCanUpdate;
+		}
+		if (item.mergeable === undefined) {
+			item.mergeable = this.item.mergeable;
+		}
 		const changes = super.doUpdate(item) as IssueChangeEvent;
 		if (this.isDraft !== item.isDraft) {
 			changes.draft = true;
@@ -2277,6 +2284,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			const previousMergeability = this.item.mergeable;
 			this.item.mergeable = mergeability;
+			const viewerCanUpdate = data.repository?.pullRequest.viewerCanUpdate;
+			if (viewerCanUpdate !== undefined) {
+				this.item.viewerCanUpdate = viewerCanUpdate;
+			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
 			this.update(this.item);
 			if (previousMergeability !== mergeability) {
