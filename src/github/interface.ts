@@ -71,6 +71,15 @@ export function isStackUpdatable(stack: PullRequestStack): boolean {
 	return !!stack.needsUpdate && !!getUpdatableStackEntries(stack);
 }
 
+/**
+ * Whether an open pull request in the stack has conflicts. Updating such a stack needs a local rebase, where the user
+ * can resolve them; GitHub can rebase other stacks itself. Closed pull requests are skipped when updating a stack.
+ */
+export function hasConflictingStackEntry(stack: PullRequestStack | null | undefined): boolean {
+	return !!stack?.pullRequests.some(entry =>
+		entry.state === GithubItemStateEnum.Open && entry.mergeable === PullRequestMergeability.Conflict);
+}
+
 export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
 	const current = stack.pullRequests.find(entry => entry.number === number);
 	if (!current || current.position !== stack.position || current.state !== GithubItemStateEnum.Open

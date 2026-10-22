@@ -297,6 +297,10 @@ describe('Active pull request stack changes', function () {
 
 	describe('Update stack', function () {
 		const behind: PullRequestStack = { ...stack, needsUpdate: true };
+		const conflicting: PullRequestStack = {
+			...behind,
+			pullRequests: [{ ...behind.pullRequests[0], mergeable: PullRequestMergeability.Conflict }, ...behind.pullRequests.slice(1)],
+		};
 
 		/** Makes the sidebar's pull request checked out in a local repository that can rewrite its stack. */
 		async function checkOutWithStackGit(): Promise<void> {
@@ -326,11 +330,23 @@ describe('Active pull request stack changes', function () {
 			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
 		});
 
-		it('does not offer to update a stack that is current, not checked out, or not writable', async function () {
+		it('offers to update a stack without conflicts without a checkout, since GitHub rebases it', async function () {
+			stackQuery.resolves(behind);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('does not offer to update a stack that is current, has conflicts without a checkout, or is not writable', async function () {
 			await checkOutWithStackGit();
 			const ineligible: [string, () => void][] = [
 				['up to date', () => stackQuery.resolves(stack)],
-				['not checked out', () => { folderManager.activePullRequest = undefined; }],
+				['conflicts without a checkout', () => {
+					stackQuery.resolves(conflicting);
+					folderManager.activePullRequest = undefined;
+				}],
 				['read-only', () => {
 					(folderManager.getPullRequestRepositoryAccessAndMergeMethods as SinonStub).resolves({
 						hasWritePermission: false,
@@ -350,7 +366,17 @@ describe('Active pull request stack changes', function () {
 			}
 		});
 
-		it('updates the stack from the checked-out pull request when asked by the webview', async function () {
+		it('offers to resolve the conflicts of a checked-out stack', async function () {
+			await checkOutWithStackGit();
+			stackQuery.resolves(conflicting);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('updates the stack when asked by the webview', async function () {
 			await checkOutWithStackGit();
 			stackQuery.resolves(behind);
 			await initialize();

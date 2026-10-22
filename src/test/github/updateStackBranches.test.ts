@@ -9,7 +9,7 @@ import * as path from 'path';
 import { Uri } from 'vscode';
 import { Branch, BranchQuery, Commit, FetchOptions, Ref, Repository, RepositoryState } from '../../api/api';
 import { RefType, Status } from '../../api/api1';
-import { removeOrphanedStackWorktrees, StackBranch, StackConflictResolver, StackGitRepository, StackUpdateCancelledError, updateStackBranches } from '../../github/updateStackBranches';
+import { removeOrphanedStackWorktrees, StackBranch, StackConflictResolver, StackGitRepository, StackUpdateCancelledError, syncLocalStackBranches, updateStackBranches } from '../../github/updateStackBranches';
 import { MockRepository } from '../mocks/mockRepository';
 
 class StackRepository extends MockRepository implements StackGitRepository {
@@ -349,6 +349,64 @@ describe('Update pull request stack branches', function () {
 			await assert.rejects(updateResolving(continueRebase), /caused a conflict/);
 			assert.deepEqual(resolved, []);
 			assert(temporary.calls.includes('abort rebase'));
+		});
+	});
+
+	describe('syncing local branches after GitHub rebased the stack', function () {
+		const rebased = [{ head: 'D1', previousSha: 'd1-old' }, { head: 'D2', previousSha: 'd2-old' }];
+
+		beforeEach(function () {
+			repository.remote.set('D1', 'd1-new');
+			repository.remote.set('D2', 'd2-new');
+		});
+
+		it('moves local branches and the checked-out branch to the rebased commits', async function () {
+			assert.deepEqual(await syncLocalStackBranches(repository, 'origin', rebased), []);
+			assert.deepEqual({
+				local: [...repository.local],
+				operations: repository.calls.filter(call => call.startsWith('local') || call.startsWith('reset-keep')),
+			}, {
+				local: [['D1', 'd1-new'], ['D2', 'd2-new']],
+				operations: ['local D1 d1-new', 'reset-keep d2-new'],
+			});
+		});
+
+		it('leaves a branch with local commits as it is', async function () {
+			repository.local.set('D1', 'local-commit');
+			assert.deepEqual(await syncLocalStackBranches(repository, 'origin', rebased), ['D1']);
+			assert.equal(repository.local.get('D1'), 'local-commit');
+			assert.equal(repository.local.get('D2'), 'd2-new');
+		});
+
+		it('leaves a branch checked out in another worktree as it is', async function () {
+			repository.state.worktrees?.push({ name: 'other', path: '/another', ref: 'refs/heads/D1', main: false, detached: false });
+			assert.deepEqual(await syncLocalStackBranches(repository, 'origin', rebased), ['D1']);
+			assert.equal(repository.local.get('D1'), 'd1-old');
+		});
+
+		it('reports the checked-out branch when its changes would be overwritten', async function () {
+			repository.resetKeep = async () => { throw new Error('Entry would be overwritten'); };
+			assert.deepEqual(await syncLocalStackBranches(repository, 'origin', rebased), ['D2']);
+			assert.equal(repository.local.get('D1'), 'd1-new');
+		});
+
+		it('does not fetch or create branches that do not exist locally', async function () {
+			repository.local.delete('D1');
+			await syncLocalStackBranches(repository, 'origin', rebased);
+			assert.deepEqual({
+				fetched: repository.calls.filter(call => call.startsWith('fetch')),
+				local: [...repository.local],
+			}, {
+				fetched: ['fetch +refs/heads/D2:refs/remotes/origin/D2'],
+				local: [['D2', 'd2-new']],
+			});
+		});
+
+		it('leaves branches that are already up to date alone', async function () {
+			repository.remote.set('D1', 'd1-old');
+			repository.remote.set('D2', 'd2-old');
+			assert.deepEqual(await syncLocalStackBranches(repository, 'origin', rebased), []);
+			assert.equal(repository.calls.some(call => call.startsWith('local') || call.startsWith('reset-keep')), false);
 		});
 	});
 

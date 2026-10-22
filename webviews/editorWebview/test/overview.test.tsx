@@ -270,8 +270,15 @@ describe('Overview', function () {
 		assert(openOnGitHub.notCalled);
 	});
 
-	it('shows a behind base as waiting and withholds stack merging for it and PRs above it', function () {
-		for (const [number, position] of [[794, 2], [795, 3]]) {
+	it('shows a behind PR without conflicts as ready and withholds stack merging for it and PRs above it', function () {
+		const iconPath = (svg: string) => {
+			const element = document.createElement('div');
+			element.innerHTML = svg;
+			return element.querySelector('path')?.getAttribute('d');
+		};
+		const check = iconPath(require('../../../resources/icons/codicons/pass.svg'));
+		const dot = iconPath(require('../../../resources/icons/codicons/circle-filled.svg'));
+		for (const [number, position, thirdIcon] of [[794, 2, dot], [795, 3, check]] as const) {
 			const pr = new PullRequestBuilder().number(number).stack({
 				position,
 				size: 4,
@@ -290,12 +297,12 @@ describe('Overview', function () {
 			);
 
 			assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(readiness => [
-				readiness.getAttribute('aria-label'), readiness.classList[1],
+				readiness.getAttribute('aria-label'), readiness.classList[1], readiness.querySelector('svg path')?.getAttribute('d'),
 			]), [
-				['Closed pull request cannot be merged', 'blocked'],
-				['A pull request below is behind its base', 'waiting'],
-				['Branch is behind its base', 'waiting'],
-				['Ready to merge', 'ready'],
+				['Closed pull request cannot be merged', 'blocked', iconPath(require('../../../resources/icons/codicons/skip.svg'))],
+				['No conflicts, but a pull request below is behind its base', 'ready', thirdIcon],
+				['No conflicts, but the branch is behind its base', 'ready', check],
+				['Ready to merge', 'ready', check],
 			]);
 			assert.strictEqual(out.container.querySelector('.stack-merge'), null);
 			assert.strictEqual(out.queryByText('Merge Pull Request'), null);
@@ -339,7 +346,7 @@ describe('Overview', function () {
 			entry.getAttribute('aria-label'), entry.classList[1], entry.querySelector('svg path')?.getAttribute('d'),
 		]), [
 			['Mergeability is being checked', 'waiting', dot],
-			['Branch is behind its base', 'waiting', dot],
+			['No conflicts, but the branch is behind its base', 'ready', dot],
 			['Merge requirements not met', 'waiting', dot],
 			['Merge conflicts', 'conflict', iconPath(require('../../../resources/icons/codicons/close.svg'))],
 			['Draft pull request cannot be merged', 'draft', iconPath(require('../../../resources/icons/codicons/git-pull-request-draft.svg'))],
@@ -656,7 +663,7 @@ describe('Overview', function () {
 
 		assert(out.container.querySelector('#pull-request-stack')?.textContent?.includes('also merge 1 pull request below it.'));
 		assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')), [
-			'Branch is behind its base',
+			'No conflicts, but the branch is behind its base',
 			'Mergeability is being checked',
 			'Already merged',
 		]);
@@ -921,6 +928,22 @@ describe('Overview', function () {
 		for (const change of [{ stackLoaded: false }, { stackLoadError: true }]) {
 			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Behind).build(), ...change };
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
+			out.unmount();
+		}
+	});
+
+	it('offers stack merging from the bottom PR when GitHub reports it behind its target branch', function () {
+		const pullRequests = [
+			{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+			{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+		];
+		for (const [number, position, offered] of [[793, 1, true], [794, 2, false]] as const) {
+			const pr = new PullRequestBuilder().number(number).mergeable(PullRequestMergeability.Behind)
+				.stack({ position, size: 2, base: 'main', pullRequests }).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert.strictEqual(!!out.container.querySelector('.stack-merge'), offered, `#${number}`);
 			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 			out.unmount();
 		}

@@ -6,9 +6,9 @@
 import * as vscode from 'vscode';
 import { guideRebaseConflicts } from './conflictGuide';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { getUpdatableStackEntries, GithubItemStateEnum, PullRequestStack } from './interface';
+import { getUpdatableStackEntries, GithubItemStateEnum, hasConflictingStackEntry, PullRequestStack } from './interface';
 import { PullRequestModel } from './pullRequestModel';
-import { StackUpdateCancelledError, supportsStackGitOperations, updateStackBranches } from './updateStackBranches';
+import { StackUpdateCancelledError, supportsStackGitOperations, syncLocalStackBranches, updateStackBranches } from './updateStackBranches';
 import { UpdateStackResult } from './views';
 import { Remote as GitRemote, Repository } from '../api/api';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
@@ -77,16 +77,24 @@ export function findStackRepository(managers: readonly FolderRepositoryManager[]
 		?? candidates[0];
 }
 
-/** The open pull requests that Update Stack can be run from, or `undefined` if the stack does not need an update. */
-export function getUpdatableStackPullRequestNumbers(stack: PullRequestStack | undefined): Set<number> | undefined {
-	const entries = stack?.needsUpdate ? getUpdatableStackEntries(stack) : undefined;
-	return entries && new Set(entries.map(entry => entry.number));
+/** Whether and how the stack can be updated, before considering the user's checkout and permissions. */
+export interface StackUpdateEligibility {
+	/** The open pull requests a local rebase can be started from, by having one of them checked out. */
+	pullRequests: ReadonlySet<number>;
+	/** Conflicts must be resolved during a local rebase; otherwise GitHub rebases the stack. */
+	requiresLocalRebase: boolean;
 }
 
-export function canUpdateStack(updatable: ReadonlySet<number> | undefined, checkedOutNumber: number | undefined,
+/** How the stack can be updated, or `undefined` if it does not need, or cannot have, an update. */
+export function getStackUpdateEligibility(stack: PullRequestStack | undefined): StackUpdateEligibility | undefined {
+	const entries = stack?.needsUpdate ? getUpdatableStackEntries(stack) : undefined;
+	return entries && { pullRequests: new Set(entries.map(entry => entry.number)), requiresLocalRebase: hasConflictingStackEntry(stack) };
+}
+
+export function canUpdateStack(eligibility: StackUpdateEligibility | undefined, checkedOutNumber: number | undefined,
 	hasWritePermission: boolean, hasStackRepository: () => boolean): boolean {
-	return areStacksEnabled() && hasWritePermission && checkedOutNumber !== undefined
-		&& !!updatable?.has(checkedOutNumber) && hasStackRepository();
+	return areStacksEnabled() && hasWritePermission && !!eligibility && (!eligibility.requiresLocalRebase
+		|| checkedOutNumber !== undefined && eligibility.pullRequests.has(checkedOutNumber) && hasStackRepository());
 }
 
 export interface StackUpdateContext {
@@ -98,9 +106,20 @@ export interface StackUpdateContext {
 	getStackRepository(): StackRepositoryTarget | undefined;
 }
 
+type OpenStackEntries = NonNullable<ReturnType<typeof getUpdatableStackEntries>>;
+
+interface StackUpdateOutcome {
+	updatedPullRequests: number[];
+	/** GitHub is still rebasing the stack after we stopped waiting. */
+	pending?: boolean;
+	/** Local branches that were not brought up to date after GitHub rebased the stack. */
+	notUpdatedBranches?: string[];
+}
+
 /**
- * Rebases the open pull requests of the item's stack onto their updated bases and pushes them, guiding the user
- * through any conflicts. Nothing is pushed until every branch has been rebased.
+ * Rebases the open pull requests of the item's stack onto their updated bases. Without conflicts, GitHub rebases the
+ * stack and local branches are brought up to date. With conflicts, the stack is rebased locally from a checked-out
+ * pull request, guiding the user through the conflicts; nothing is pushed until every branch has been rebased.
  */
 export async function updatePullRequestStack(ctx: StackUpdateContext, message: IRequestMessage<undefined>): Promise<void> {
 	const { item } = ctx;
@@ -119,9 +138,10 @@ export async function updatePullRequestStack(ctx: StackUpdateContext, message: I
 		if (!stack || !openEntries) {
 			throw new Error(vscode.l10n.t('Update stack requires an open chain of pull requests.'));
 		}
+		const requiresLocalRebase = hasConflictingStackEntry(stack);
 		const activeNumber = ctx.getCheckedOutPullRequestNumber();
-		if (activeNumber === undefined || !openEntries.some(entry => entry.number === activeNumber)) {
-			throw new Error(vscode.l10n.t('Check out a pull request in this stack before updating it.'));
+		if (requiresLocalRebase && (activeNumber === undefined || !openEntries.some(entry => entry.number === activeNumber))) {
+			throw new Error(vscode.l10n.t('Check out a pull request in this stack to resolve its conflicts.'));
 		}
 		const key = stackLockKey(item, stack);
 		if (lockedStacks.has(key)) {
@@ -141,57 +161,30 @@ export async function updatePullRequestStack(ctx: StackUpdateContext, message: I
 			return;
 		}
 		const progress = new PausableProgressNotification(vscode.l10n.t('Updating pull request stack'));
-		let updatedPullRequests: number[];
+		Logger.appendLine(requiresLocalRebase
+			? `Updating the stack of #${item.number} locally from #${activeNumber}, because a pull request in it has conflicts`
+			: `Updating the stack of #${item.number} on GitHub, because no pull request in it has conflicts`, COMPONENT);
+		let outcome: StackUpdateOutcome;
 		try {
-			progress.report(vscode.l10n.t('Checking stack branches'));
-			const current = await item.getStack();
-			const currentOpenEntries = current && getUpdatableStackEntries(current);
-			if (!current || !currentOpenEntries || currentOpenEntries.length !== openEntries.length
-				|| ctx.getCheckedOutPullRequestNumber() !== activeNumber
-				|| current.size !== stack.size || current.pullRequests.some((entry, index) =>
-					entry.number !== stack.pullRequests[index].number || entry.head !== stack.pullRequests[index].head)) {
-				throw new Error(vscode.l10n.t('The pull request stack changed. Refresh and try again.'));
-			}
-			const target = ctx.getStackRepository();
-			if (!target) {
-				throw new Error(vscode.l10n.t('A writable Git remote for this stack is not available locally.'));
-			}
-			const { manager, repository, remote } = target;
-			if (!supportsStackGitOperations(repository)) {
-				throw new Error(vscode.l10n.t('A newer built-in Git extension is required to update this stack.'));
-			}
-			const branches = await Promise.all(currentOpenEntries.map(async (entry, index) => {
-				const pr = await item.githubRepository.getPullRequest(entry.number, 'updateStack');
-				const base = index === 0 ? current.base : current.pullRequests[index - 1].head;
-				if (!pr || pr.state !== GithubItemStateEnum.Open || !pr.head || !pr.base
-					|| pr.mergeQueueEntry || pr.head.ref !== entry.head || pr.base.ref !== base
-					|| pr.head.owner.toLowerCase() !== item.remote.owner.toLowerCase()
-					|| pr.base.owner.toLowerCase() !== item.remote.owner.toLowerCase()
-					|| pr.head.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()
-					|| pr.base.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()) {
-					throw new Error(vscode.l10n.t('Pull request #{0} is no longer part of a supported, open branch chain.', entry.number));
-				}
-				return { number: entry.number, base, head: entry.head, sha: pr.head.sha };
-			}));
-			if (!areStacksEnabled()) {
-				throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-			}
-			updatedPullRequests = await updateStackBranches(repository,
-				path => manager.openWorktreeRepository(vscode.Uri.file(path)),
-				remote.name, branches, activeNumber, step => progress.report(step),
-				(worktree, branch) => {
-					// The conflict guide shows its own notifications while the user resolves conflicts.
-					progress.close();
-					return guideRebaseConflicts(worktree, `#${branch.number} (${branch.head})`);
-				});
+			outcome = requiresLocalRebase
+				? { updatedPullRequests: await rebaseStackLocally(ctx, stack, openEntries, activeNumber!, progress) }
+				: await rebaseStackOnGitHub(ctx, stack, openEntries, progress);
 		} finally {
 			progress.close();
 		}
-		await ctx.replyMessage(message, { updatedPullRequests });
+		Logger.appendLine(`Stack update of #${item.number} finished: ${JSON.stringify(outcome)}`, COMPONENT);
+		await ctx.replyMessage(message, { updatedPullRequests: outcome.updatedPullRequests });
 		item.githubRepository.notifyStackChanged(stackNumbers);
-		void vscode.window.showInformationMessage(updatedPullRequests.length
-			? vscode.l10n.t('Pull request stack updated.')
-			: vscode.l10n.t('Pull request stack is already up to date.'));
+		if (outcome.pending) {
+			void vscode.window.showInformationMessage(vscode.l10n.t('GitHub is still updating the pull request stack. Refresh the pull request later to see the result.'));
+		} else if (outcome.notUpdatedBranches?.length) {
+			void vscode.window.showWarningMessage(vscode.l10n.t('Pull request stack updated. These local branches have other changes and were not updated: {0}',
+				outcome.notUpdatedBranches.join(', ')));
+		} else {
+			void vscode.window.showInformationMessage(outcome.updatedPullRequests.length
+				? vscode.l10n.t('Pull request stack updated.')
+				: vscode.l10n.t('Pull request stack is already up to date.'));
+		}
 	} catch (error) {
 		if (error instanceof StackUpdateCancelledError) {
 			await ctx.replyMessage(message, { updatedPullRequests: [] });
@@ -209,4 +202,75 @@ export async function updatePullRequestStack(ctx: StackUpdateContext, message: I
 			lockedStacks.delete(lockKey);
 		}
 	}
+}
+
+/**
+ * Has GitHub rebase the stack, then brings the stack's local branches up to date when a local repository for them is
+ * available. GitHub checks that the stack still has the pull requests the user confirmed.
+ */
+async function rebaseStackOnGitHub(ctx: StackUpdateContext, stack: PullRequestStack, openEntries: OpenStackEntries,
+	progress: PausableProgressNotification): Promise<StackUpdateOutcome> {
+	progress.report(vscode.l10n.t('Rebasing the stack on GitHub'));
+	const result = await ctx.item.githubRepository.rebaseStack(ctx.item.number, stack.pullRequests.map(entry => entry.number));
+	if (result.status === 'pending') {
+		return { updatedPullRequests: [], pending: true };
+	}
+	const open = new Set(openEntries.map(entry => entry.number));
+	const updatedPullRequests = result.rebasedPullRequests?.filter(number => open.has(number)) ?? [...open];
+	const target = ctx.getStackRepository();
+	if (!target || !supportsStackGitOperations(target.repository)) {
+		Logger.appendLine('No local repository can update the stack branches, so local branches were left as they are', COMPONENT);
+		return { updatedPullRequests };
+	}
+	progress.report(vscode.l10n.t('Updating local branches'));
+	const notUpdatedBranches = await syncLocalStackBranches(target.repository, target.remote.name,
+		result.before.filter(pr => open.has(pr.number)).map(pr => ({ head: pr.ref, previousSha: pr.sha })));
+	return { updatedPullRequests, notUpdatedBranches };
+}
+
+/** Rebases the stack locally from the checked-out pull request, guiding the user through conflicts, then pushes it. */
+async function rebaseStackLocally(ctx: StackUpdateContext, stack: PullRequestStack, openEntries: OpenStackEntries,
+	activeNumber: number, progress: PausableProgressNotification): Promise<number[]> {
+	const { item } = ctx;
+	progress.report(vscode.l10n.t('Checking stack branches'));
+	const current = await item.getStack();
+	const currentOpenEntries = current && getUpdatableStackEntries(current);
+	if (!current || !currentOpenEntries || currentOpenEntries.length !== openEntries.length
+		|| ctx.getCheckedOutPullRequestNumber() !== activeNumber
+		|| current.size !== stack.size || current.pullRequests.some((entry, index) =>
+			entry.number !== stack.pullRequests[index].number || entry.head !== stack.pullRequests[index].head)) {
+		throw new Error(vscode.l10n.t('The pull request stack changed. Refresh and try again.'));
+	}
+	const target = ctx.getStackRepository();
+	if (!target) {
+		throw new Error(vscode.l10n.t('A writable Git remote for this stack is not available locally.'));
+	}
+	const { manager, repository, remote } = target;
+	if (!supportsStackGitOperations(repository)) {
+		throw new Error(vscode.l10n.t('A newer built-in Git extension is required to update this stack.'));
+	}
+	const branches = await Promise.all(currentOpenEntries.map(async (entry, index) => {
+		const pr = await item.githubRepository.getPullRequest(entry.number, 'updateStack');
+		const base = index === 0 ? current.base : current.pullRequests[index - 1].head;
+		if (!pr || pr.state !== GithubItemStateEnum.Open || !pr.head || !pr.base
+			|| pr.mergeQueueEntry || pr.head.ref !== entry.head || pr.base.ref !== base
+			|| pr.head.owner.toLowerCase() !== item.remote.owner.toLowerCase()
+			|| pr.base.owner.toLowerCase() !== item.remote.owner.toLowerCase()
+			|| pr.head.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()
+			|| pr.base.repositoryCloneUrl.repositoryName.toLowerCase() !== item.remote.repositoryName.toLowerCase()) {
+			throw new Error(vscode.l10n.t('Pull request #{0} is no longer part of a supported, open branch chain.', entry.number));
+		}
+		return { number: entry.number, base, head: entry.head, sha: pr.head.sha };
+	}));
+	if (!areStacksEnabled()) {
+		throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
+	}
+	return updateStackBranches(repository,
+		path => manager.openWorktreeRepository(vscode.Uri.file(path)),
+		remote.name, branches, activeNumber, step => progress.report(step),
+		(worktree, branch) => {
+			// The conflict guide shows its own notifications while the user resolves conflicts.
+			progress.close();
+			return guideRebaseConflicts(worktree, `#${branch.number} (${branch.head})`);
+		});
 }

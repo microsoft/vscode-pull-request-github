@@ -32,10 +32,11 @@ import {
 	canUpdateStack,
 	findStackRepository,
 	getCheckedOutPullRequestNumber,
-	getUpdatableStackPullRequestNumbers,
+	getStackUpdateEligibility,
 	lockedStacks,
 	stackLockKey,
 	StackRepositoryTarget,
+	StackUpdateEligibility,
 	updatePullRequestStack,
 } from './pullRequestStackUpdate';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
@@ -90,7 +91,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _stackRefreshPending = false;
 	private _stackRefreshPromise: Promise<void> | undefined;
 	private _canUpdateStackAccess = false;
-	private _updatableStackPullRequestNumbers: Set<number> | undefined;
+	private _stackUpdateEligibility: StackUpdateEligibility | undefined;
 	private _resolveCommentThreadQueue: Promise<void> = Promise.resolve();
 
 	private getStackManagers(): FolderRepositoryManager[] {
@@ -112,7 +113,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private canUpdateStack(item: PullRequestModel): boolean {
-		return canUpdateStack(this._updatableStackPullRequestNumbers, this.getCheckedOutPullRequestNumber(item),
+		return canUpdateStack(this._stackUpdateEligibility, this.getCheckedOutPullRequestNumber(item),
 			this._canUpdateStackAccess, () => !!this.getStackRepository(item));
 	}
 
@@ -525,7 +526,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				.join(', ');
 			Logger.debug(`Data timings: ${dataTimingSummary}`, PullRequestOverviewPanel.ID);
 
-			this._updatableStackPullRequestNumbers = undefined;
+			this._stackUpdateEligibility = undefined;
 			this._item = pullRequest;
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
@@ -746,7 +747,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}))),
 			};
 			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
-				this._updatableStackPullRequestNumbers = getUpdatableStackPullRequestNumbers(stack);
+				this._stackUpdateEligibility = getStackUpdateEligibility(stack);
 				this._stackLoaded = true;
 				this._stackPullRequestNumbers = new Set(stack?.pullRequests.map(entry => entry.number));
 				await this._postMessage({
@@ -763,7 +764,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (error) {
 			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
-				this._updatableStackPullRequestNumbers = undefined;
+				this._stackUpdateEligibility = undefined;
 				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true, canUpdateStack: false } satisfies Partial<PullRequest> });
 			}
 		}

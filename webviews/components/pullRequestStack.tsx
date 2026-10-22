@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, gitPullRequestDraftIcon, layersIcon, passIcon, skipIcon } from './icon';
-import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack as Stack } from '../../src/github/interface';
+import { GithubItemStateEnum, hasConflictingStackEntry, PullRequestMergeability, PullRequestStack as Stack } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
@@ -19,19 +19,22 @@ function getReadiness(entry: Stack['pullRequests'][number], stack: Stack): { ico
 	if (entry.isDraft) {
 		return { icon: gitPullRequestDraftIcon, label: 'Draft pull request cannot be merged', kind: 'draft' };
 	}
+	// Updating the stack brings a pull request up to date with its base, so being behind does not make one without
+	// conflicts look blocked. Pull requests above the current one are shown as a dot rather than a check.
+	const noConflictsIcon = entry.position > stack.position ? circleFilledIcon : passIcon;
 	switch (entry.mergeable) {
 		case PullRequestMergeability.Mergeable:
 			if (stack.pullRequests.some(below => below.position < entry.position && below.state === GithubItemStateEnum.Open
 				&& below.mergeable === PullRequestMergeability.Behind)) {
-				return { icon: circleFilledIcon, label: 'A pull request below is behind its base', kind: 'waiting' };
+				return { icon: noConflictsIcon, label: 'No conflicts, but a pull request below is behind its base', kind: 'ready' };
 			}
-			return { icon: entry.position > stack.position ? circleFilledIcon : passIcon, label: 'Ready to merge', kind: 'ready' };
+			return { icon: noConflictsIcon, label: 'Ready to merge', kind: 'ready' };
 		case PullRequestMergeability.Conflict:
 			return { icon: closeIcon, label: 'Merge conflicts', kind: 'conflict' };
 		case PullRequestMergeability.NotMergeable:
 			return { icon: circleFilledIcon, label: 'Merge requirements not met', kind: 'waiting' };
 		case PullRequestMergeability.Behind:
-			return { icon: circleFilledIcon, label: 'Branch is behind its base', kind: 'waiting' };
+			return { icon: noConflictsIcon, label: 'No conflicts, but the branch is behind its base', kind: 'ready' };
 		default:
 			return { icon: circleFilledIcon, label: 'Mergeability is being checked', kind: 'waiting' };
 	}
@@ -51,12 +54,6 @@ export function canUpdatePullRequestStack(pr: PullRequest): boolean {
 /** Whether any open pull request in the stack, including this one, has conflicts that updating the stack resolves. */
 export function stackHasConflicts(pr: PullRequest): boolean {
 	return pr.mergeable === PullRequestMergeability.Conflict || hasConflictingStackEntry(pr.stack);
-}
-
-/** Whether the stack lists an open pull request with conflicts. Closed pull requests are skipped when updating it. */
-export function hasConflictingStackEntry(stack: Stack | null | undefined): boolean {
-	return !!stack?.pullRequests.some(entry =>
-		entry.state === GithubItemStateEnum.Open && entry.mergeable === PullRequestMergeability.Conflict);
 }
 
 /** Stack actions share their progress and errors with every control that can trigger them. */

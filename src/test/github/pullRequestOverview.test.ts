@@ -21,7 +21,7 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { Repository } from '../../api/api';
-import { GitApiImpl } from '../../api/api1';
+import { GitApiImpl, RefType } from '../../api/api1';
 import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
 import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
 import { openDescription } from '../../commands';
@@ -1786,6 +1786,7 @@ describe('PullRequestOverview', function () {
 			});
 		}
 
+		/** Opens a panel for #1000, checked out, in a stack whose conflicts need a local rebase. */
 		async function openStackPanel() {
 			const result = await createPanel();
 			pullRequestManager.activePullRequest = result.model;
@@ -1793,14 +1794,14 @@ describe('PullRequestOverview', function () {
 			result.stackQuery.resolves({
 				position: 2, size: 2, base: 'main', needsUpdate: true,
 				pullRequests: [
-					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict },
 					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 				],
 			});
 			return result;
 		}
 
-		it('offers Update stack for unpropagated middle changes with a checked-out stack PR in another folder', async function () {
+		it('offers to resolve conflicts with a checked-out stack PR in another folder', async function () {
 			const { panel, model, stackQuery } = await openStackPanel();
 			pullRequestManager.activePullRequest = undefined;
 			const url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
@@ -1825,7 +1826,7 @@ describe('PullRequestOverview', function () {
 					pullRequests: [
 						{ position: 1, number: 998, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 						{ position: 2, number: 999, title: 'Middle', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
-						{ position: 3, number: 1000, title: 'Top', url: '', head: 'D3', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+						{ position: 3, number: 1000, title: 'Top', url: '', head: 'D3', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Conflict },
 					],
 				});
 				await (panel as any).refreshStack();
@@ -2112,6 +2113,129 @@ describe('PullRequestOverview', function () {
 			sinon.assert.callOrder(progress, throwError, changed);
 			await (panel as any)._stackRefreshPromise;
 			cancellation.dispose();
+		});
+
+		describe('without conflicts', function () {
+			const conflictFreeStack: PullRequestStack = {
+				position: 2, size: 2, base: 'main', needsUpdate: true,
+				pullRequests: [
+					{ position: 1, number: 999, title: 'First', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+					{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			};
+			const before = [{ number: 999, ref: 'D1', sha: 'd1-old' }, { number: 1000, ref: 'D2', sha: 'd2-old' }];
+			let cancellation: vscode.CancellationTokenSource;
+
+			/** Opens #1000 without checking anything out, and confirms the update. */
+			async function openConflictFreeStack() {
+				const result = await openStackPanel();
+				pullRequestManager.activePullRequest = undefined;
+				result.stackQuery.resolves(conflictFreeStack);
+				cancellation = new vscode.CancellationTokenSource();
+				sinon.stub(vscode.window, 'showWarningMessage').resolves('Update stack' as never);
+				sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+				return result;
+			}
+
+			afterEach(function () {
+				cancellation?.dispose();
+			});
+
+			it('offers Update stack without a checkout, unless the stack has conflicts', async function () {
+				const { panel, stackQuery } = await openStackPanel();
+				pullRequestManager.activePullRequest = undefined;
+				(panel as any)._canUpdateStackAccess = true;
+				const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+
+				stackQuery.resolves(conflictFreeStack);
+				await (panel as any).refreshStack();
+				assert.strictEqual(postMessage.lastCall.args[0].pullrequest.canUpdateStack, true);
+
+				stackQuery.resolves({ ...conflictFreeStack, pullRequests: [{ ...conflictFreeStack.pullRequests[0], mergeable: PullRequestMergeability.Conflict }, conflictFreeStack.pullRequests[1]] });
+				await (panel as any).refreshStack();
+				assert.strictEqual(postMessage.lastCall.args[0].pullrequest.canUpdateStack, false);
+			});
+
+			it('rebases the stack on GitHub without needing a local repository', async function () {
+				const { panel } = await openConflictFreeStack();
+				const rebase = sinon.stub(repo, 'rebaseStack').resolves({ status: 'rebased', before });
+				sinon.stub(panel as any, 'getStackRepository').returns(undefined);
+				const info = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+				const changed = sinon.spy(repo, 'notifyStackChanged');
+				const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+				const message = { req: 'github', command: 'pr.update-stack' };
+
+				await (panel as any).updateStack(message);
+
+				assert(rebase.calledOnceWithExactly(1000, [999, 1000]));
+				sinon.assert.calledWithExactly(reply, message, { updatedPullRequests: [999, 1000] });
+				assert.strictEqual(info.firstCall.args[0], 'Pull request stack updated.');
+				assert(changed.calledOnceWithExactly([999, 1000]));
+				assert.deepStrictEqual([...lockedStacks], []);
+			});
+
+			it('reports an already up-to-date stack when GitHub changed no pull request', async function () {
+				const { panel } = await openConflictFreeStack();
+				sinon.stub(repo, 'rebaseStack').resolves({ status: 'rebased', before, rebasedPullRequests: [] });
+				sinon.stub(panel as any, 'getStackRepository').returns(undefined);
+				const info = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+				const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+				const message = { req: 'current', command: 'pr.update-stack' };
+
+				await (panel as any).updateStack(message);
+
+				sinon.assert.calledWithExactly(reply, message, { updatedPullRequests: [] });
+				assert.strictEqual(info.firstCall.args[0], 'Pull request stack is already up to date.');
+			});
+
+			it('brings local branches up to date and reports branches with other changes', async function () {
+				const { panel } = await openConflictFreeStack();
+				sinon.stub(repo, 'rebaseStack').resolves({ status: 'rebased', before });
+				const repository = new MockRepository();
+				provideStackGit(repository);
+				sinon.stub(repository, 'getBranches').resolves([
+					{ type: RefType.Head, name: 'D1', commit: 'd1-old' },
+					{ type: RefType.Head, name: 'D2', commit: 'local-commit' },
+				]);
+				sinon.stub(repository, 'fetch').resolves();
+				sinon.stub(repository, 'status').resolves();
+				sinon.stub(repository, 'getBranch').callsFake(async name => ({ type: RefType.Head, name, commit: name.endsWith('D1') ? 'd1-new' : 'd2-new' }));
+				const updateRef = sinon.stub().resolves();
+				Object.assign(repository, { updateRef });
+				sinon.stub(panel as any, 'getStackRepository').returns({ manager: pullRequestManager, repository, remote: { name: 'origin' } });
+				const warning = vscode.window.showWarningMessage as SinonStub;
+				const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+
+				await (panel as any).updateStack({ req: 'sync', command: 'pr.update-stack' });
+
+				assert(reply.calledOnce);
+				assert(updateRef.calledOnceWithExactly('refs/heads/D1', 'd1-new', 'd1-old'));
+				assert.match(warning.lastCall.args[0], /These local branches have other changes and were not updated: D2$/);
+			});
+
+			it('reports a rebase that is still running on GitHub', async function () {
+				const { panel } = await openConflictFreeStack();
+				sinon.stub(repo, 'rebaseStack').resolves({ status: 'pending', before });
+				const info = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+				const reply = sinon.stub(panel as any, '_replyMessage').resolves();
+				const message = { req: 'pending', command: 'pr.update-stack' };
+
+				await (panel as any).updateStack(message);
+
+				sinon.assert.calledWithExactly(reply, message, { updatedPullRequests: [] });
+				assert.match(info.firstCall.args[0], /GitHub is still updating the pull request stack/);
+			});
+
+			it('reports a failed GitHub rebase and releases the stack lock', async function () {
+				const { panel } = await openConflictFreeStack();
+				sinon.stub(repo, 'rebaseStack').rejects(new Error('Rebasing #999 caused a conflict'));
+				const throwError = sinon.stub(panel as any, '_throwError').resolves();
+
+				await (panel as any).updateStack({ req: 'failed', command: 'pr.update-stack' });
+
+				assert.match(throwError.firstCall.args[1], /Rebasing #999 caused a conflict/);
+				assert.deepStrictEqual([...lockedStacks], []);
+			});
 		});
 	});
 
