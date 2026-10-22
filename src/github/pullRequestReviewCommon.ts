@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { addAttestationCommit } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
@@ -13,7 +14,7 @@ import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, Stac
 import Logger from '../common/logger';
 import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { assertStacksEnabled } from '../common/settingsUtils';
-import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { CommitEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
@@ -127,6 +128,27 @@ export namespace PullRequestReviewCommon {
 			ctx.throwError(undefined, `${formatError(e)}`);
 			await ctx.postMessage({ command: 'pr.append-review' });
 		}
+	}
+
+	/**
+	 * Adds an attestation commit ahead of a review submitted through a webview
+	 * context-menu command. Signing and pushing can take a while, so the webview
+	 * is marked busy up front rather than only once the review itself is sent.
+	 * If the attestation fails, the busy state is cleared and `undefined` is returned.
+	 */
+	export async function addAttestationForReviewCommand(
+		ctx: ReviewContext,
+		reviewType: ReviewType,
+	): Promise<{ sha: string; event: CommitEvent } | undefined> {
+		await ctx.postMessage({
+			command: 'pr.submitting-review',
+			lastReviewType: reviewType
+		});
+		const result = await addAttestationCommit(ctx.folderRepositoryManager, ctx.item);
+		if (!result) {
+			await ctx.postMessage({ command: 'pr.append-review' });
+		}
+		return result;
 	}
 
 	export async function doReviewMessage(

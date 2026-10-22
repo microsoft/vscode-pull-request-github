@@ -106,6 +106,7 @@ export interface PullRequest extends Issue {
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	pendingReviewSummaryText?: string;
+	pendingAttestation?: boolean;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
 	canUpdateBranch: boolean;
