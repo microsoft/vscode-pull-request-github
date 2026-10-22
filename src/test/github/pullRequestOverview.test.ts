@@ -449,6 +449,40 @@ describe('PullRequestOverview', function () {
 				sinon.assert.calledWithExactly(reply, message, {});
 			});
 
+			it('checks out a restored remote-only model through the upgraded local manager', async function () {
+				const services = panelServices ??= stubPanelServices();
+				services.models.set(model.number, model);
+				stubModelServices(model);
+				const restoredRemote = new GitHubRemote(remote.repositoryName, remote.url, new Protocol(remote.url), GitHubServerType.GitHubDotCom);
+				const restoredRepository = new MockGitHubRepository(restoredRemote, credentialStore, telemetry, sinon);
+				context.subscriptions.push(restoredRepository);
+				const restoredModel = new PullRequestModel(credentialStore, telemetry, restoredRepository, restoredRemote,
+					convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(model.number).build(), restoredRepository));
+				panel.setItem(restoredModel);
+				discovered = true;
+				const pick = sinon.stub(vscode.commands, 'executeCommand').callThrough().withArgs('pr.pick').callsFake(async (_command: string, pullRequest: PullRequestModel) => {
+					// Review managers only match models from their own repositories.
+					if (pullRequest === model) {
+						pullRequestManager.activePullRequest = model;
+					}
+				});
+				const reply = sinon.stub(panel, '_replyMessage').resolves();
+				const message = { req: 'checkout', command: 'pr.checkout', args: undefined };
+
+				await panel._onDidReceiveMessage(message);
+
+				sinon.assert.calledWithExactly(services.resolvePullRequest, remote.owner, remote.repositoryName, model.number, true, 'overview');
+				sinon.assert.calledOnce(pick);
+				sinon.assert.calledWithExactly(pick, 'pr.pick', model);
+				sinon.assert.calledWithMatch(postMessage, { command: 'pr.initialize', pullrequest: sinonMatch({ isCurrentlyCheckedOut: false }) });
+				sinon.assert.calledWithMatch(postMessage, { command: 'pr.update-checkout-status', isCurrentlyCheckedOut: true });
+				sinon.assert.calledWithExactly(reply, message, { isCurrentlyCheckedOut: true });
+
+				const openChanges = sinon.stub(PullRequestModel, 'openChanges').resolves();
+				await panel._onDidReceiveMessage({ req: 'changes', command: 'pr.open-changes', args: undefined });
+				sinon.assert.calledWithExactly(openChanges, pullRequestManager, model, false);
+			});
+
 			it('updates checkout status and moves listeners when the local repository becomes active', function () {
 				discovered = true;
 				pullRequestManager.activePullRequest = model;
@@ -1429,12 +1463,12 @@ describe('PullRequestOverview', function () {
 		sinon.stub(pullRequestManager, 'isHeadUpToDateWithBase').resolves(true);
 		sinon.stub(pullRequestManager, 'getPreferredEmail').resolves(undefined);
 		sinon.stub(pullRequestManager, 'checkBranchUpToDate').resolves();
-		sinon.stub(pullRequestManager, 'resolvePullRequest').callsFake(async (_owner, _repo, number) => models.get(number));
+		const resolvePullRequest = sinon.stub(pullRequestManager, 'resolvePullRequest').callsFake(async (_owner, _repo, number) => models.get(number));
 		const externalUri = sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		const stackablePullRequests = sinon.stub(repo, 'getStackablePullRequests').resolves({});
 		const query = sinon.spy(repo, 'query');
-		return { models, access, currentUser, branch, queueMethod, externalUri, showError, stackablePullRequests, query };
+		return { models, access, currentUser, branch, queueMethod, resolvePullRequest, externalUri, showError, stackablePullRequests, query };
 	}
 
 	/** A pull request whose branches are both in the test repository, so it can be stacked. */
@@ -1448,13 +1482,7 @@ describe('PullRequestOverview', function () {
 		return convertRESTPullRequestToRawPullRequest(rest, repo);
 	}
 
-	async function createPanel(number = 1000, branches?: { base: string; head: string }) {
-		const prItem = branches
-			? stackablePullRequest(number, branches.base, branches.head)
-			: convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).build(), repo);
-		const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
-		const services = panelServices ??= stubPanelServices();
-		services.models.set(number, model);
+	function stubModelServices(model: PullRequestModel) {
 		sinon.stub(model, 'canEdit').resolves(true);
 		sinon.stub(model, 'getReviewRequests').resolves([]);
 		sinon.stub(model, 'getTimelineEvents').resolves([]);
@@ -1463,7 +1491,17 @@ describe('PullRequestOverview', function () {
 		sinon.stub(model, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
 		sinon.stub(model, 'getCoAuthors').resolves([]);
 		sinon.stub(model, 'getLastUpdateTime').resolves(new Date(0));
-		const stackQuery = sinon.stub(model, 'getStack').resolves(undefined);
+		return sinon.stub(model, 'getStack').resolves(undefined);
+	}
+
+	async function createPanel(number = 1000, branches?: { base: string; head: string }) {
+		const prItem = branches
+			? stackablePullRequest(number, branches.base, branches.head)
+			: convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).build(), repo);
+		const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+		const services = panelServices ??= stubPanelServices();
+		services.models.set(number, model);
+		const stackQuery = stubModelServices(model);
 		const received = new vscode.EventEmitter<WebviewRequest>();
 		const posted = new vscode.EventEmitter<PanelMessage>();
 		const webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, `#${number}`, vscode.ViewColumn.One, {});

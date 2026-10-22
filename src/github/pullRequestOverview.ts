@@ -1280,17 +1280,32 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 	}
 
-	private checkoutPullRequest(message: IRequestMessage<any>): void {
-		vscode.commands.executeCommand('pr.pick', this._item).then(
-			() => {
-				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
-				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
-			},
-			() => {
-				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
-				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
-			},
-		);
+	/**
+	 * Restored panels can keep a remote-only model after upgrading to a local repository.
+	 * Local actions such as checkout need the model owned by that repository.
+	 */
+	private async getItemForFolderRepositoryManager(): Promise<PullRequestModel> {
+		const item = this._item;
+		const manager = this._folderRepositoryManager;
+		if (manager.gitHubRepositories.includes(item.githubRepository)) {
+			return item;
+		}
+		const localItem = await manager.resolvePullRequest(item.remote.owner, item.remote.repositoryName, item.number, true, 'overview');
+		if (!localItem || this.isDisposed || item !== this._item) {
+			return this._item;
+		}
+		await this.updateItem(localItem);
+		return localItem;
+	}
+
+	private async checkoutPullRequest(message: IRequestMessage<undefined>): Promise<void> {
+		try {
+			await vscode.commands.executeCommand('pr.pick', await this.getItemForFolderRepositoryManager());
+		} catch (e) {
+			Logger.error(`Failed to check out pull request: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+		const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
+		return this._replyMessage(message, { isCurrentlyCheckedOut });
 	}
 
 	private updateStack(message: IRequestMessage<undefined>): Promise<void> {
