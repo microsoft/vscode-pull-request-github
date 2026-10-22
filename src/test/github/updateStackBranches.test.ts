@@ -363,7 +363,7 @@ describe('Update pull request stack branches', function () {
 			repository.state.worktrees!.push(orphanFromThisProcess);
 			await update();
 			assert.deepEqual(repository.deletedWorktrees, [orphanFromThisProcess.path, repository.createdWorktrees[0]]);
-			assert.match(path.basename(repository.createdWorktrees[0]), new RegExp(`^vscode-pr-stack-${process.pid}-`));
+			assert.ok(path.basename(repository.createdWorktrees[0]).match(new RegExp(`^vscode-pr-stack-${process.pid}-`)));
 		});
 
 		it('only removes stack worktrees whose owning process has exited', async function () {

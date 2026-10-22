@@ -297,6 +297,11 @@ describe('Active pull request stack changes', function () {
 
 	describe('Update stack', function () {
 		const behind: PullRequestStack = { ...stack, needsUpdate: true };
+		let uiKind: SinonStub;
+
+		beforeEach(function () {
+			uiKind = sinon.stub(vscode.env, 'uiKind').value(vscode.UIKind.Desktop);
+		});
 
 		/** Makes the sidebar's pull request checked out in a local repository that can rewrite its stack. */
 		async function checkOutWithStackGit(): Promise<void> {
@@ -324,6 +329,17 @@ describe('Active pull request stack changes', function () {
 			await settleUpdates();
 
 			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('does not offer local stack updates in a web UI', async function () {
+			uiKind.value(vscode.UIKind.Web);
+			await checkOutWithStackGit();
+			stackQuery.resolves(behind);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, false);
 		});
 
 		it('does not offer to update a stack that is current, not checked out, or not writable', async function () {
@@ -360,7 +376,7 @@ describe('Active pull request stack changes', function () {
 
 			await (provider as any)._onDidReceiveMessage(message);
 
-			assert.match(confirm.firstCall.args[0], /Rebase and push 3 pull requests in this stack\?/);
+			assert.ok(confirm.firstCall.args[0].match(/Rebase and push 3 pull requests in this stack\?/));
 			assert(reply.calledOnceWithExactly(message, { updatedPullRequests: [] }));
 		});
 	});

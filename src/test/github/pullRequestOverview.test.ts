@@ -1772,6 +1772,12 @@ describe('PullRequestOverview', function () {
 	});
 
 	describe('updateStack', function () {
+		let uiKind: SinonStub;
+
+		beforeEach(function () {
+			uiKind = sinon.stub(vscode.env, 'uiKind').value(vscode.UIKind.Desktop);
+		});
+
 		function provideStackGit(repository: Repository): void {
 			Object.assign(repository, {
 				rebase: async () => undefined,
@@ -1798,6 +1804,16 @@ describe('PullRequestOverview', function () {
 			});
 			return result;
 		}
+
+		it('does not offer local stack updates in a web UI', async function () {
+			const { panel, model } = await openStackPanel();
+			const url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
+			model.head = new GitHubRef('D2', `${remote.owner}:D2`, 'a'.repeat(40), url, remote.owner, remote.repositoryName, false);
+			await pullRequestManager.repository.addRemote('origin', url);
+			assert.strictEqual((panel as any).getStackRepository(model)?.repository, pullRequestManager.repository);
+			uiKind.value(vscode.UIKind.Web);
+			assert.strictEqual((panel as any).getStackRepository(model), undefined);
+		});
 
 		it('offers Update stack for unpropagated middle changes with a checked-out stack PR in another folder', async function () {
 			const { panel, model, stackQuery } = await openStackPanel();
@@ -1930,7 +1946,7 @@ describe('PullRequestOverview', function () {
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
 			await (panel as any).updateStack({ req: 'unchecked', command: 'pr.update-stack' });
 			assert(warning.notCalled);
-			assert.match(throwError.firstCall.args[1], /Check out a pull request in this stack/);
+			assert.ok(throwError.firstCall.args[1].match(/Check out a pull request in this stack/));
 		});
 
 		it('updates open panel checkout state when another stack PR becomes active', async function () {
@@ -2007,7 +2023,7 @@ describe('PullRequestOverview', function () {
 
 			sinon.assert.calledWithExactly(reply, message, { updatedPullRequests: [] });
 			assert(throwError.notCalled);
-			assert.match(info.firstCall.args[0], /cancelled\. No branches were pushed/);
+			assert.ok(info.firstCall.args[0].match(/cancelled\. No branches were pushed/));
 			assert.deepStrictEqual([...lockedStacks], []);
 			cancellation.dispose();
 		});
@@ -2027,7 +2043,7 @@ describe('PullRequestOverview', function () {
 			const progress = sinon.stub(vscode.window, 'withProgress');
 			const reply = sinon.stub(panel as any, '_replyMessage').resolves();
 			await (panel as any).updateStack({ req: 'closed-top', command: 'pr.update-stack' });
-			assert.match(confirm.firstCall.args[0], /3 pull requests/);
+			assert.ok(confirm.firstCall.args[0].match(/3 pull requests/));
 			assert(progress.notCalled);
 			assert(reply.calledOnce);
 		});
@@ -2046,7 +2062,7 @@ describe('PullRequestOverview', function () {
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
 			await (panel as any).updateStack({ req: 'closed-middle', command: 'pr.update-stack' });
 			assert(confirm.notCalled);
-			assert.match(throwError.firstCall.args[1], /requires an open chain/);
+			assert.ok(throwError.firstCall.args[1].match(/requires an open chain/));
 		});
 
 		it('rejects a direct update request when stacks are disabled', async function () {
@@ -2055,7 +2071,7 @@ describe('PullRequestOverview', function () {
 			const throwError = sinon.stub(panel as any, '_throwError').resolves();
 			await (panel as any).updateStack({ req: 'disabled', command: 'pr.update-stack' });
 			assert(stackQuery.notCalled);
-			assert.match(throwError.firstCall.args[1], /stack features are disabled/);
+			assert.ok(throwError.firstCall.args[1].match(/stack features are disabled/));
 		});
 
 		it('does not update branches when the user cancels the force-push confirmation', async function () {
@@ -2085,9 +2101,9 @@ describe('PullRequestOverview', function () {
 			const first = (panel as any).updateStack({ req: 'first', command: 'pr.update-stack' });
 			await confirmationStarted;
 			await (panel as any).updateStack({ req: 'second', command: 'pr.update-stack' });
-			assert.match(throwError.firstCall.args[1], /already being updated/);
+			assert.ok(throwError.firstCall.args[1].match(/already being updated/));
 			await (panel as any).updateStack({ req: 'third', command: 'pr.update-stack' });
-			assert.match(throwError.secondCall.args[1], /already being updated/);
+			assert.ok(throwError.secondCall.args[1].match(/already being updated/));
 			assert(warning.calledOnce);
 			finishConfirmation();
 			await first;
@@ -2106,7 +2122,7 @@ describe('PullRequestOverview', function () {
 			assert(progress.calledOnce);
 			assert.strictEqual(progress.firstCall.args[0].location, vscode.ProgressLocation.Notification);
 			assert(throwError.calledOnce);
-			assert.match(throwError.firstCall.args[1], /writable Git remote/);
+			assert.ok(throwError.firstCall.args[1].match(/writable Git remote/));
 			assert(changed.calledOnceWithExactly([999, 1000]));
 			sinon.assert.callOrder(progress, throwError, changed);
 			await (panel as any)._stackRefreshPromise;
@@ -2123,7 +2139,7 @@ describe('PullRequestOverview', function () {
 			try {
 				await (panel as any).unstackAll({ req: 'locked', command: 'pr.unstack-all' });
 				assert(unstack.notCalled);
-				assert.match(throwError.firstCall.args[1], /already being updated/);
+				assert.ok(throwError.firstCall.args[1].match(/already being updated/));
 				assert(lockedStacks.has(`${remote.owner}/${remote.repositoryName}#999`));
 			} finally {
 				lockedStacks.delete(`${remote.owner}/${remote.repositoryName}#999`);
@@ -2159,10 +2175,10 @@ describe('PullRequestOverview', function () {
 			try {
 				await unstackStarted;
 				await (other as any).updateStack({ req: 'update', command: 'pr.update-stack' });
-				assert.match(errors.lastCall.args[1], /already being updated/);
+				assert.ok(errors.lastCall.args[1].match(/already being updated/));
 				assert(lockedStacks.has(key));
 				await (other as any).unstackAll({ req: 'unstack', command: 'pr.unstack-all' });
-				assert.match(errors.lastCall.args[1], /already being updated/);
+				assert.ok(errors.lastCall.args[1].match(/already being updated/));
 				assert(lockedStacks.has(key));
 				assert(unstack.calledOnce);
 				assert(confirm.calledOnce);
@@ -2185,7 +2201,7 @@ describe('PullRequestOverview', function () {
 			try {
 				await (panel as any).unstackAll({ req: 'confirmation-race', command: 'pr.unstack-all' });
 				assert(unstack.notCalled);
-				assert.match(errors.firstCall.args[1], /already being updated/);
+				assert.ok(errors.firstCall.args[1].match(/already being updated/));
 				assert(lockedStacks.has(key));
 			} finally {
 				lockedStacks.delete(key);
@@ -2204,7 +2220,7 @@ describe('PullRequestOverview', function () {
 
 			await (panel as any).unstackAll({ req: 'failed', command: 'pr.unstack-all' });
 
-			assert.match(errors.firstCall.args[1], /Stack is locked on GitHub/);
+			assert.ok(errors.firstCall.args[1].match(/Stack is locked on GitHub/));
 			assert.strictEqual(lockedStacks.has(key), false);
 		});
 
@@ -2220,12 +2236,12 @@ describe('PullRequestOverview', function () {
 			await (panel as any).unstackAll(message);
 
 			assert.strictEqual((confirm.firstCall.args[1] as vscode.MessageOptions).modal, true);
-			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Eligible open, draft, and closed pull requests/);
-			assert.match((confirm.firstCall.args[1] as vscode.MessageOptions).detail!, /Merged, queued, and currently merging pull requests will remain/);
+			assert.ok((confirm.firstCall.args[1] as vscode.MessageOptions).detail!.match(/Eligible open, draft, and closed pull requests/));
+			assert.ok((confirm.firstCall.args[1] as vscode.MessageOptions).detail!.match(/Merged, queued, and currently merging pull requests will remain/));
 			assert(unstack.calledOnceWithExactly(1000, [999, 1000]));
 			sinon.assert.calledWithExactly(reply, message, { cancelled: false, remainingPullRequests: [999] });
 			assert(information.calledOnce);
-			assert.match(information.firstCall.args[0], /1 merged, queued, or currently merging pull requests remain/);
+			assert.ok(information.firstCall.args[0].match(/1 merged, queued, or currently merging pull requests remain/));
 			sinon.assert.callOrder(unstack, reply);
 		});
 
@@ -2257,7 +2273,7 @@ describe('PullRequestOverview', function () {
 
 			await (panel as any).unstackAll({ req: '7', command: 'pr.unstack-all', args: undefined });
 
-			assert.match(information.firstCall.args[0], /No pull requests were unstacked.*currently merging pull requests remain/);
+			assert.ok(information.firstCall.args[0].match(/No pull requests were unstacked.*currently merging pull requests remain/));
 		});
 
 		it('does not unstack when the feature is disabled', async function () {
@@ -2271,7 +2287,7 @@ describe('PullRequestOverview', function () {
 
 			assert(unstack.notCalled);
 			assert(showError.calledOnce);
-			assert.match(throwError.firstCall.args[1], /stack features are disabled/);
+			assert.ok(throwError.firstCall.args[1].match(/stack features are disabled/));
 		});
 
 		it('does not call the Stacks API when confirmation is cancelled', async function () {
@@ -2302,7 +2318,7 @@ describe('PullRequestOverview', function () {
 			await (panel as any).unstackAll(message);
 
 			assert(unstack.notCalled);
-			assert.match(reply.firstCall.args[1], /do not have permission/);
+			assert.ok(reply.firstCall.args[1].match(/do not have permission/));
 		});
 
 		it('does not offer to unstack a stack containing only merged PRs', async function () {
@@ -2319,7 +2335,7 @@ describe('PullRequestOverview', function () {
 
 			assert(warning.notCalled);
 			assert(unstack.notCalled);
-			assert.match(reply.firstCall.args[1], /No unmerged pull requests/);
+			assert.ok(reply.firstCall.args[1].match(/No unmerged pull requests/));
 		});
 	});
 

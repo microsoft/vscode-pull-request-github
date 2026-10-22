@@ -154,7 +154,7 @@ describe('Conflict guide', function () {
 
 			repository.update({ rebaseCommit: undefined });
 			assert.equal(await finished, true);
-			assert.match(showErrorMessage.firstCall.args[0], /Unable to continue the rebase: .*nothing to commit/);
+			assert.ok(showErrorMessage.firstCall.args[0].match(/Unable to continue the rebase: .*nothing to commit/));
 		});
 
 		it('aborts the rebase when the conflict notification is cancelled', async function () {

@@ -4,10 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import * as temp from 'temp';
 import { ExtensionContext, Uri, SecretStorage, Event, SecretStorageChangeEvent, EventEmitter } from 'vscode';
 
 import { InMemoryMemento } from './inMemoryMemento';
+
+function createStorageUri(name: string): Uri {
+	if (typeof process !== 'undefined' && process.versions?.node) {
+		const temp: typeof import('temp') = require('temp');
+		return Uri.file(temp.mkdirSync(name));
+	}
+
+	// Browser unit tests use isolated placeholder URIs, not Node filesystem storage.
+	return Uri.from({ scheme: 'vscode-test-storage', path: `/${name}/${crypto.randomUUID()}` });
+}
 
 export class MockExtensionContext implements ExtensionContext {
 	extensionPath: string;
@@ -59,12 +68,12 @@ export class MockExtensionContext implements ExtensionContext {
 	constructor() {
 		this.extensionPath = path.resolve(__dirname, '..');
 		this.extensionUri = Uri.file(this.extensionPath);
-		this.storagePath = temp.mkdirSync('storage-path');
-		this.storageUri = Uri.file(this.storagePath);
-		this.globalStoragePath = temp.mkdirSync('global-storage-path');
-		this.globalStorageUri = Uri.file(this.globalStoragePath);
-		this.logPath = temp.mkdirSync('log-path');
-		this.logUri = Uri.file(this.logPath);
+		this.storageUri = createStorageUri('storage-path');
+		this.storagePath = this.storageUri.fsPath;
+		this.globalStorageUri = createStorageUri('global-storage-path');
+		this.globalStoragePath = this.globalStorageUri.fsPath;
+		this.logUri = createStorageUri('log-path');
+		this.logPath = this.logUri.fsPath;
 	}
 
 	asAbsolutePath(relativePath: string): string {

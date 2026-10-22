@@ -227,7 +227,7 @@ describe('GitHub Pull Requests view', function () {
 		await (provider as any).addSelectedPullRequestsToStack(undefined, undefined);
 
 		assert(executeCommand.calledWith('setContext', 'github:canAddToStack', false));
-		assert.match(showError.firstCall.args[0], /stack features are disabled/);
+		assert.ok(showError.firstCall.args[0].match(/stack features are disabled/));
 	});
 
 	it('adds selected PRs without fetching stack membership to refresh panels', async function () {
@@ -329,9 +329,9 @@ describe('GitHub Pull Requests view', function () {
 			const message = (provider.view as vscode.TreeView2<unknown>).message;
 			assert.ok(message instanceof vscode.MarkdownString);
 			assert.ok(message.value.includes(escapeMarkdownText('host-b.example:8443/deployment')));
-			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|https?:\/\/|Accounts.*Preferences/);
-			assert.match(message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
-			assert.doesNotMatch(message.value, /command:workbench\.action\.openSettings/);
+			assert.strictEqual(message.value.match(/&nbsp;|\u00a0|https?:\/\/|Accounts.*Preferences/), null);
+			assert.ok(message.value.match(/\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/));
+			assert.strictEqual(message.value.match(/command:workbench\.action\.openSettings/), null);
 
 			getHub.returns({ ...hub, serverUri: hostB });
 			await provider.getChildren();
@@ -356,10 +356,10 @@ describe('GitHub Pull Requests view', function () {
 
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
-			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.ok(loginView.returnValue.message.value.match(/\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/));
 			assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-b.example')));
-			assert.doesNotMatch(loginView.returnValue.message.value, /\]\(command:pr\.signinenterprise\)/);
-			assert.doesNotMatch(loginView.returnValue.message.value, /&nbsp;|\u00a0|command:workbench\.action\.openSettings/);
+			assert.strictEqual(loginView.returnValue.message.value.match(/\]\(command:pr\.signinenterprise\)/), null);
+			assert.strictEqual(loginView.returnValue.message.value.match(/&nbsp;|\u00a0|command:workbench\.action\.openSettings/), null);
 			assert.strictEqual(loginView.returnValue.message, provider.view.message);
 		});
 
@@ -376,8 +376,8 @@ describe('GitHub Pull Requests view', function () {
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
 			assert.ok(loginView.returnValue.message.value.startsWith('Select a GitHub Enterprise account to view repositories on '));
-			assert.match(loginView.returnValue.message.value, /\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/);
-			assert.doesNotMatch(loginView.returnValue.message.value, /&nbsp;|\u00a0|command:workbench\.action\.openSettings/);
+			assert.ok(loginView.returnValue.message.value.match(/\[Select Account\]\(command:pr\.selectEnterpriseAccount\)/));
+			assert.strictEqual(loginView.returnValue.message.value.match(/&nbsp;|\u00a0|command:workbench\.action\.openSettings/), null);
 			assert.deepStrictEqual(loginView.returnValue.message.isTrusted, {
 				enabledCommands: ['pr.signinNoEnterprise', 'pr.selectEnterpriseAccount', 'workbench.action.openSettings'],
 			});
@@ -403,8 +403,8 @@ describe('GitHub Pull Requests view', function () {
 			assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 			const message = loginView.returnValue.message;
 			assert.ok(message instanceof vscode.MarkdownString);
-			assert.match(message.value, /\]\(command:pr\.signinNoEnterprise\)/);
-			assert.match(message.value, /\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.ok(message.value.match(/\]\(command:pr\.signinNoEnterprise\)/));
+			assert.ok(message.value.match(/\]\(command:pr\.selectEnterpriseAccount\)/));
 		});
 
 		it('preserves public sign-in when Enterprise configuration is invalid', async function () {
@@ -423,9 +423,9 @@ describe('GitHub Pull Requests view', function () {
 			const message = loginView.returnValue.message;
 			assert.ok(message instanceof vscode.MarkdownString);
 			assert.ok(message.value.includes('Invalid instance list'));
-			assert.match(message.value, /\]\(command:pr\.signinNoEnterprise\)/);
-			assert.match(message.value, /command:workbench\.action\.openSettings/);
-			assert.doesNotMatch(message.value, /\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.ok(message.value.match(/\]\(command:pr\.signinNoEnterprise\)/));
+			assert.ok(message.value.match(/command:workbench\.action\.openSettings/));
+			assert.strictEqual(message.value.match(/\]\(command:pr\.selectEnterpriseAccount\)/), null);
 		});
 
 		it('renders known repositories and guidance while discovery of an excluded remote is pending', async function () {
@@ -467,7 +467,7 @@ describe('GitHub Pull Requests view', function () {
 				assert.deepStrictEqual(await loginView.args[1].treeDataProvider.getChildren(), []);
 				assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
 				assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-b.example')));
-				assert.doesNotMatch(loginView.returnValue.message.value, /offline\.example/);
+				assert.strictEqual(loginView.returnValue.message.value.match(/offline\.example/), null);
 				assert.strictEqual(discovery.calledOnce, true);
 				assert.strictEqual(reclassification.called, false);
 			} finally {
@@ -503,7 +503,7 @@ describe('GitHub Pull Requests view', function () {
 			await loginView.args[1].treeDataProvider.getChildren();
 			assert.ok(loginView.returnValue.message instanceof vscode.MarkdownString);
 			assert.ok(loginView.returnValue.message.value.includes(escapeMarkdownText('host-a.example')));
-			assert.doesNotMatch(loginView.returnValue.message.value, /host-b\.example/);
+			assert.strictEqual(loginView.returnValue.message.value.match(/host-b\.example/), null);
 		});
 
 		it('reports invalid configuration in the view without falling back to a host', async function () {
@@ -520,8 +520,8 @@ describe('GitHub Pull Requests view', function () {
 			assert.ok(message instanceof vscode.MarkdownString);
 			assert.ok(message.value.includes('Invalid instance list'));
 			assert.ok(message.value.includes('GitHub Enterprise instances in Settings'));
-			assert.match(message.value, /command:workbench\.action\.openSettings/);
-			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/);
+			assert.ok(message.value.match(/command:workbench\.action\.openSettings/));
+			assert.strictEqual(message.value.match(/&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/), null);
 		});
 	});
 

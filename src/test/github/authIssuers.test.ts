@@ -165,7 +165,7 @@ describe('authIssuers', function () {
 			assert.strictEqual(store.isAuthenticated(AuthProvider.githubEnterprise), false);
 			assert.strictEqual(apiCall.called, false);
 			assert.strictEqual(showError.calledOnce, true);
-			assert.match(showError.firstCall.args[0], /GitHub Enterprise is unavailable.*authorization server/);
+			assert.ok(showError.firstCall.args[0].match(/GitHub Enterprise is unavailable.*authorization server/));
 			assert.strictEqual(configuration.calledWith('github-enterprise'), false);
 		});
 	}
@@ -228,7 +228,7 @@ describe('authIssuers', function () {
 		assert.strictEqual(await store.getHubEnsureAdditionalScopes(AuthProvider.githubEnterprise), undefined);
 		assert.strictEqual(enterpriseHub(), hub);
 		assert.strictEqual(store.isAuthenticatedWithAdditionalScopes(AuthProvider.githubEnterprise), false);
-		assert.match(showError.firstCall.args[0], /no longer matches.*account or server/);
+		assert.ok(showError.firstCall.args[0].match(/no longer matches.*account or server/));
 	});
 
 	it('matches repositories and server discovery to the selected deployment', async function () {
