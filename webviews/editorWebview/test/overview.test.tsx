@@ -167,6 +167,29 @@ describe('Overview', function () {
 		}
 	});
 
+	it('shows and hides the status checks with a caret', function () {
+		const status: PullRequestCheckStatus = {
+			id: 'build', state: CheckState.Success, context: 'Build',
+			description: null, targetUrl: null, workflowName: undefined, event: undefined,
+			url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: false, databaseId: undefined,
+		};
+		const pr = new PullRequestBuilder().status(checks => checks.state(CheckState.Success).statuses([status])).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		const caret = out.getByLabelText('Show status checks');
+		assert.strictEqual(caret.getAttribute('aria-expanded'), 'false');
+		assert(caret.querySelector('svg'));
+		assert.strictEqual(out.queryByText('Show'), null);
+		assert.strictEqual(out.container.querySelector('.status-check'), null);
+
+		fireEvent.click(caret);
+
+		assert.strictEqual(caret.getAttribute('aria-expanded'), 'true');
+		assert.strictEqual(caret.getAttribute('aria-label'), 'Hide status checks');
+		assert.strictEqual(out.queryByText('Hide'), null);
+		assert(out.container.querySelector('.status-check'));
+	});
+
 	it('opens a PR number link exactly once', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
@@ -233,7 +256,8 @@ describe('Overview', function () {
 		assert.strictEqual(badge?.getAttribute('title'), 'View pull request stack (2 of 3)');
 		assert.strictEqual(badge?.textContent?.trim(), '2/3');
 		const section = out.container.querySelector('#pull-request-stack');
-		assert(section?.hasAttribute('open'));
+		assert(section);
+		assert.strictEqual(section.querySelector('.stack-chevron')?.getAttribute('aria-expanded'), 'true');
 		assert(section.textContent?.includes('also merge 1 pull request below it.'));
 		assert.deepStrictEqual([...section.querySelectorAll('.stack-entry')].map(entry => entry.querySelector('.stack-entry-details')?.textContent), [
 			'Third Change#795 - D3',
@@ -442,13 +466,13 @@ describe('Overview', function () {
 		const button = out.getByText('Unstack all');
 		const section = button.closest('#pull-request-stack');
 		assert(section);
-		assert.strictEqual(section.children[0].tagName, 'SUMMARY');
-		assert.strictEqual(button.closest('summary'), null);
-		assert.strictEqual(section.children[1], button.parentElement);
-		assert.strictEqual(section.children[0].lastElementChild?.className, 'stack-chevron');
+		const header = section.querySelector('.stack-header');
+		assert(header);
+		assert.strictEqual(button.closest('.stack-actions')?.parentElement, header, 'the button is laid out in the header');
+		assert.strictEqual(header.lastElementChild?.getAttribute('aria-controls'), 'pull-request-stack-content', 'the chevron comes last');
 		assert.strictEqual(fireEvent.click(button), true);
 		assert(unstackAll.calledOnce);
-		assert(section.hasAttribute('open'));
+		assert.strictEqual(header.lastElementChild?.getAttribute('aria-expanded'), 'true', 'clicking the button does not collapse the stack');
 
 		out.rerender(
 			<PullRequestContext.Provider value={new PRContext({ ...pr, hasWritePermission: false })}>
@@ -481,6 +505,7 @@ describe('Overview', function () {
 		fireEvent.click(out.getByText('Unstack all'));
 		const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
 		assert.strictEqual(alert?.textContent, 'Unable to unstack pull requests: Stack is locked');
+		assert(alert.closest('.stack-section'), 'the error is shown with the stack');
 		assert.strictEqual((out.getByText('Unstack all') as HTMLButtonElement).disabled, false);
 	});
 
@@ -505,7 +530,7 @@ describe('Overview', function () {
 		}
 	});
 
-	it('offers Update stack for an open, conflict-free stack without collapsing the heading', async function () {
+	it('offers Update stack with the branch status, below the stack, without collapsing the stack', async function () {
 		const stack = {
 			position: 2, size: 2, base: 'main',
 			pullRequests: [
@@ -522,12 +547,41 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 		const button = out.getByText('Update stack');
-		const section = button.closest('#pull-request-stack');
-		assert.strictEqual(button.closest('summary'), null);
-		assert.strictEqual(section?.children[1], button.parentElement);
+		const section = out.container.querySelector('#pull-request-stack');
+		assert(section);
+		assert.strictEqual(button.closest('.stack-section'), null);
+		assert(section.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING, 'the button is below the stack');
+		assert(button.closest('.status-item')?.textContent?.includes('This branch has no conflicts with the base branch.'));
+		assert.deepStrictEqual([...section.querySelectorAll('.stack-actions button')].map(action => action.textContent), ['Unstack all']);
 		assert.strictEqual(fireEvent.click(button), true);
 		assert(updateStack.calledOnce);
-		assert(section?.hasAttribute('open'));
+		assert.strictEqual(section.querySelector('.stack-chevron')?.getAttribute('aria-expanded'), 'true');
+	});
+
+	it('collapses and expands the stack from the chevron or the header', function () {
+		const pr = new PullRequestBuilder().number(794).stack({
+			position: 1, size: 1, base: 'main',
+			pullRequests: [{ position: 1, number: 794, title: 'First', head: 'D1', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable }],
+		}).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		const chevron = out.getByLabelText('Collapse pull request stack');
+		const content = out.container.querySelector('#pull-request-stack-content');
+		assert(content);
+		assert.strictEqual(chevron.getAttribute('aria-controls'), content.id);
+		assert.strictEqual(content.hasAttribute('hidden'), false);
+		assert(out.getByText('Unstack all'));
+
+		fireEvent.click(chevron);
+
+		assert.strictEqual(chevron.getAttribute('aria-expanded'), 'false');
+		assert.strictEqual(chevron.getAttribute('aria-label'), 'Expand pull request stack');
+		assert(content.hasAttribute('hidden'));
+		assert.strictEqual(out.queryByText('Unstack all'), null, 'the stack is only unstacked while it is shown');
+
+		fireEvent.click(out.getByText('Pull request stack'));
+
+		assert.strictEqual(chevron.getAttribute('aria-expanded'), 'true');
+		assert.strictEqual(content.hasAttribute('hidden'), false);
 	});
 
 	it('does not offer Update stack when the host rejects eligibility or stack details are unavailable', function () {
@@ -559,6 +613,7 @@ describe('Overview', function () {
 		fireEvent.click(out.getByText('Update stack'));
 		const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
 		assert.strictEqual(alert?.textContent, 'Unable to update the stack: Branch changed on GitHub');
+		assert.strictEqual(alert.closest('.stack-section'), null, 'the error is shown with the button');
 		assert.strictEqual((out.getByText('Update stack') as HTMLButtonElement).disabled, false);
 	});
 
@@ -692,7 +747,7 @@ describe('Overview', function () {
 		}
 	});
 
-	it('offers Update stack only in the stack header when a PR is behind', function () {
+	it('offers Update stack with the out-of-date branch status when a PR is behind', function () {
 		const stack = {
 			position: 2, size: 2, base: 'main',
 			pullRequests: [
@@ -709,8 +764,8 @@ describe('Overview', function () {
 
 		assert(out.getByText('This branch is out-of-date with the base branch.'));
 		const button = out.getByText('Update stack');
-		assert.strictEqual(button.closest('summary'), null);
-		assert(button.closest('.stack-section'));
+		assert.strictEqual(button.closest('.stack-section'), null);
+		assert(button.closest('.status-item')?.textContent?.includes('This branch is out-of-date with the base branch.'));
 		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(button);
@@ -734,7 +789,7 @@ describe('Overview', function () {
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794, 795] });
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert.strictEqual(out.getByText('Update stack').closest('summary'), null);
+		assert.strictEqual(out.getByText('Update stack').closest('.stack-section'), null);
 		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(out.getByText('Update stack'));
@@ -754,7 +809,25 @@ describe('Overview', function () {
 		assert.strictEqual(out.queryByText('Update stack'), null);
 	});
 
-	it('keeps Update stack in the header for other updateable stacked branches', function () {
+	it('offers Update stack next to the no-conflicts status when the stack is behind but GitHub reports no conflicts', function () {
+		const pr = new PullRequestBuilder().number(794).canUpdateStack(true).mergeable(PullRequestMergeability.Mergeable).stack({
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Behind },
+			],
+		}).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		assert(out.getByText('Update stack').closest('.status-item')?.textContent?.includes('This branch has no conflicts with the base branch.'));
+		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		out.unmount();
+
+		const sidebar = render(<PullRequestContext.Provider value={new PRContext(pr)}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
+		assert.strictEqual(sidebar.queryByText('Update stack'), null, 'the sidebar only updates the stack to resolve conflicts');
+	});
+
+	it('offers Update stack for other updateable stacked branches', function () {
 		const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
 			.stack({
 				position: 1, size: 1, base: 'main',
@@ -765,7 +838,7 @@ describe('Overview', function () {
 		const updateBranch = sinon.stub(context, 'updateBranch');
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert.strictEqual(out.getByText('Update stack').closest('summary'), null);
+		assert.strictEqual(out.getByText('Update stack').closest('.stack-section'), null);
 		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(out.getByText('Update stack'));
@@ -801,7 +874,7 @@ describe('Overview', function () {
 			],
 		};
 
-		it('resolves conflicts from the stack header instead of creating a merge commit', async function () {
+		it('resolves conflicts from the branch status instead of creating a merge commit', async function () {
 			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(true)
 				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
 			const context = new PRContext(pr);
@@ -814,7 +887,7 @@ describe('Overview', function () {
 
 			assert(out.getByText('This branch has conflicts that must be resolved.'));
 			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
-			assert(out.getByText('Resolve conflicts').closest('.stack-section'));
+			assert(out.getByText('Resolve conflicts').closest('.status-item')?.textContent?.includes('This branch has conflicts that must be resolved.'));
 			assert.strictEqual(out.queryByText('Update stack'), null);
 			fireEvent.click(out.getByText('Resolve conflicts'));
 
@@ -835,7 +908,7 @@ describe('Overview', function () {
 			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
 			assert.strictEqual(out.queryByText('This branch has no conflicts with the base branch.'), null);
 			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
-			assert(out.getByText('Resolve conflicts').closest('.stack-section'));
+			assert(out.getByText('Resolve conflicts').closest('.status-item')?.textContent?.includes('A pull request in this stack has conflicts that must be resolved.'));
 			assert.strictEqual(out.queryByText('Update stack'), null);
 			fireEvent.click(out.getByText('Resolve conflicts'));
 			assert(updateStack.calledOnce);
@@ -876,7 +949,7 @@ describe('Overview', function () {
 			assert.strictEqual(out.queryByText('A pull request in this stack has conflicts that must be resolved.'), null);
 		});
 
-		it('shows a failed conflict resolution with the other stack action errors', async function () {
+		it('shows a failed conflict resolution with the branch status', async function () {
 			const pr = new PullRequestBuilder().canUpdateStack(true)
 				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
 			const context = new PRContext(pr);
@@ -886,7 +959,7 @@ describe('Overview', function () {
 			fireEvent.click(out.getByText('Resolve conflicts'));
 
 			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
-			assert(out.getByRole('alert').closest('.stack-section'));
+			assert.strictEqual(out.getByRole('alert').closest('.stack-section'), null);
 		});
 
 		it('does not offer a merge commit to resolve conflicts when the stack cannot be updated', function () {

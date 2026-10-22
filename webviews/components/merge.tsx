@@ -15,8 +15,8 @@ import React, {
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
-import { checkIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
-import { canUpdatePullRequestStack, StackActions, StackSection, useStackActions } from './pullRequestStack';
+import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { canUpdatePullRequestStack, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -79,11 +79,13 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 					<p className="status-item-detail-text">{getSummaryLabel(status.statuses)}</p>
 					<button
 						id="status-checks-display-button"
-						className="secondary small-button"
+						className="icon-button"
 						onClick={toggleDetails}
 						aria-expanded={showDetails}
+						aria-label={showDetails ? 'Hide status checks' : 'Show status checks'}
+						title={showDetails ? 'Hide status checks' : 'Show status checks'}
 					>
-						{showDetails ? 'Hide' : 'Show'}
+						{chevronDownIcon}
 					</button>
 				</div>
 				{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
@@ -190,11 +192,7 @@ export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: Pull
 	const { mergeable: _mergeable } = pr;
 	const canUpdateWithMergeCommit = !pr.stack && pr.stackLoaded !== false && !pr.stackLoadError;
 	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
-	// The editor offers that from the stack section; the sidebar has none, so it is offered here instead.
-	const stackUpdate = isSimple && stackActions && canUpdatePullRequestStack(pr) ? {
-		update: stackActions.update,
-		disabled: stackActions.updating || stackActions.unstacking || !!pr.stackMergeStatus,
-	} : undefined;
+	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
 	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
@@ -211,13 +209,13 @@ export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: Pull
 		return () => clearInterval(handle);
 	}, [mergeable]);
 
+	const stackConflicts = hasConflictingStackEntry(pr.stack);
 	return (
 		<div>
 			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
 				canUpdateWithMergeCommit={canUpdateWithMergeCommit} stackUpdate={stackUpdate}
-				stackHasConflicts={hasConflictingStackEntry(pr.stack)} />
-			{/* The simple view has no stack section, which is where stack action errors are otherwise shown. */}
-			{isSimple && stackActions?.error ? <div className="stack-action-error" role="alert">{stackActions.error}</div> : null}
+				stackHasConflicts={stackConflicts} />
+			{stackActions?.updateError ? <div className="stack-action-error" role="alert">{stackActions.updateError}</div> : null}
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
 				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
@@ -232,8 +230,8 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	isSimple: boolean;
 	canUpdateBranch: boolean;
 	canUpdateWithMergeCommit: boolean;
-	/** Set when the branch belongs to a stack that can be updated; stacked branches never get merge commits. */
-	stackUpdate?: { update(): Promise<void>; disabled: boolean };
+	/** Updates the stack that this branch is in. Set when the stack can be updated; stacked branches never get merge commits. */
+	stackUpdate?: React.ReactElement;
 	/** An open pull request in this branch's stack has conflicts, which block merging the stack and are resolved by updating it. */
 	stackHasConflicts?: boolean;
 }) => {
@@ -241,10 +239,6 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	const [busy, setBusy] = useState(false);
 
 	const onClick = () => {
-		if (stackUpdate) {
-			stackUpdate.update();
-			return;
-		}
 		setBusy(true);
 		updateBranch().finally(() => setBusy(false));
 	};
@@ -256,12 +250,11 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	if (mergeable === PullRequestMergeability.Conflict) {
 		icon = closeIcon;
 		summary = 'This branch has conflicts that must be resolved.';
-		action = stackUpdate || canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
+		action = canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
 	} else if (stackHasConflicts) {
 		// This branch's own status would contradict the stack's conflicts, which block merging it.
 		icon = closeIcon;
 		summary = 'A pull request in this stack has conflicts that must be resolved.';
-		action = stackUpdate ? 'Resolve conflicts' : null;
 	} else if (mergeable === PullRequestMergeability.Mergeable) {
 		icon = checkIcon;
 		summary = 'This branch has no conflicts with the base branch.';
@@ -274,12 +267,20 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 		action = canUpdateWithMergeCommit ? 'Update with merge commit' : null;
 	}
 
+	// The editor offers to update the stack with the branch's status, whatever it is. The sidebar only offers it to resolve conflicts.
+	let offerStackUpdate = true;
 	if (isSimple) {
 		icon = null;
 		if (!hasConflicts) {
 			action = null;
+			offerStackUpdate = false;
 		}
 	}
+	const button = offerStackUpdate && stackUpdate
+		? stackUpdate
+		: action && canUpdateBranch
+			? <button className="secondary" onClick={onClick} disabled={busy}>{action}</button>
+			: null;
 	return (
 		<div className="status-section">
 			<div className="status-item">
@@ -287,13 +288,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 				<p>
 					{summary}
 				</p>
-				{(action && (stackUpdate || canUpdateBranch)) ?
-					<div className="button-container">
-						<button className="secondary" onClick={onClick} disabled={stackUpdate ? stackUpdate.disabled : busy} >
-							{action}
-						</button>
-					</div>
-				: null}
+				{button ? <div className="button-container">{button}</div> : null}
 			</div>
 		</div>
 	);
