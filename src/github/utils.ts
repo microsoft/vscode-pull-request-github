@@ -36,6 +36,7 @@ import {
 	reviewerId,
 	reviewerLabel,
 	ReviewState,
+	SubIssueReference,
 	toAccountType,
 	User,
 } from './interface';
@@ -1111,6 +1112,22 @@ function parseClosingIssuesReferences(
 		state: issue.state === 'OPEN' ? GithubItemStateEnum.Open : GithubItemStateEnum.Closed,
 		url: issue.url,
 	}));
+}
+
+export function convertRESTSubIssue(issue: OctokitCommon.IssuesListSubIssuesResponseData[number], githubRepository: GitHubRepository): SubIssueReference {
+	const repositoryPath = new URL(issue.repository_url).pathname.split('/').filter(Boolean);
+	const repo = repositoryPath.pop()!;
+	const owner = repositoryPath.pop()!;
+	return {
+		id: issue.id,
+		number: issue.number,
+		title: issue.title,
+		state: issue.state === 'open' ? GithubItemStateEnum.Open : GithubItemStateEnum.Closed,
+		url: issue.html_url,
+		owner,
+		repo,
+		assignees: (issue.assignees ?? []).map(assignee => convertRESTUserToAccount(assignee, githubRepository)),
+	};
 }
 
 /**
