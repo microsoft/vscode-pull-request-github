@@ -554,18 +554,35 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return;
 	}
 
-	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue'): Promise<StackMergeOutcome> {
-		if (!stack.pullRequests.some(entry => entry.number === this.number && entry.state === GithubItemStateEnum.Open)) {
+	/**
+	 * Merges this pull request together with the open pull requests below it in its stack.
+	 * @param upTo The pull request at or above this one to merge the stack up to, which GitHub merges together with
+	 * every open pull request below it.
+	 */
+	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue',
+		upTo: number = this.number): Promise<StackMergeOutcome> {
+		const current = stack.pullRequests.find(entry => entry.number === this.number);
+		if (current?.state !== GithubItemStateEnum.Open) {
 			throw new Error(`Pull request #${this.number} is not open in this stack.`);
 		}
-		if (!isStackMergeable(stack, this.number)) {
+		const top = stack.pullRequests.find(entry => entry.number === upTo);
+		if (!top || top.position < current.position) {
+			throw new Error(`Pull request #${upTo} is not at or above #${this.number} in this stack.`);
+		}
+		if (!isStackMergeable(stack, upTo)) {
 			throw new Error(`Pull request stack for #${this.number} is not ready to merge.`);
 		}
-		const headSha = this.head?.sha;
+		const target = upTo === this.number ? this : await this.githubRepository.getPullRequest(upTo, 'mergeStack');
+		const headSha = target?.head?.sha;
 		if (!headSha) {
-			throw new Error(`Missing head commit for pull request #${this.number}.`);
+			throw new Error(`Missing head commit for pull request #${upTo}.`);
 		}
-		if (this.isActive && await this.confirmLocalChanges(repository)) {
+		// Any of the pull requests that are merged could be the one that is checked out.
+		const checkedOut = stack.pullRequests
+			.filter(entry => entry.position <= top.position && entry.state === GithubItemStateEnum.Open)
+			.map(entry => entry.number === this.number ? this : entry.number === upTo ? target : this.githubRepository.getExistingPullRequestModel(entry.number))
+			.find(model => model?.isActive);
+		if (checkedOut && await checkedOut.confirmLocalChanges(repository)) {
 			return 'cancelled';
 		}
 
@@ -574,7 +591,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const parameters = {
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			pull_number: this.number,
+			pull_number: upTo,
 			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
 		};
 		let response: AsyncMergeResponse;
@@ -616,7 +633,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (response.status !== 'merged' && response.status !== 'enqueued') {
 			throw new Error('GitHub returned an unknown stack merge result.');
 		}
-		Logger.debug(`Stack merge for #${this.number}: ${response.status}`, PullRequestModel.ID);
+		Logger.debug(`Stack merge for #${this.number} up to #${upTo}: ${response.status}`, PullRequestModel.ID);
 		this.githubRepository.notifyStackChanged(stack.pullRequests.map(entry => entry.number));
 		return response.status;
 	}

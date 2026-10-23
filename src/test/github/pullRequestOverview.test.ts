@@ -1409,9 +1409,23 @@ describe('PullRequestOverview', function () {
 			await PullRequestReviewCommon.mergeStack(ctx, message);
 
 			assert(queue.calledOnceWithExactly('production', remote.owner, remote.repositoryName));
-			assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue'));
+			assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue', 1000));
 			sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'enqueued', state: undefined });
 			assert(information.calledOnce);
+			assert(ctx.throwError.notCalled);
+		});
+
+		it('merges up to the pull request that the user confirmed and marks this one merged', async function () {
+			const ctx = createMergeContext();
+			sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
+			sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
+			const merge = sinon.stub(ctx.item, 'mergeStack').resolves('merged');
+			const message = { req: '4', command: 'pr.merge-stack', args: { method: 'rebase' as const, upTo: 1001 } };
+
+			await PullRequestReviewCommon.mergeStack(ctx, message);
+
+			assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'rebase', 'direct_merge', 1001));
+			sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'merged', state: GithubItemStateEnum.Merged });
 			assert(ctx.throwError.notCalled);
 		});
 
