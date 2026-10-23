@@ -466,14 +466,17 @@ describe('PullRequestManager', function () {
 			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
 			repository.preserveConfigOnNextBranchDelete = true;
 
-			await repository.createBranch('other', false, 'commit-hash');
+			await repository.createBranch('feature.preview', false, 'commit-hash');
+			await repository.createBranch('feature.preview.local', false, 'commit-hash');
+			await repository.setConfig('branch.feature.preview.local.remote', 'origin');
+			const createBranch = sinon.spy(repository, 'createBranch');
 			const getConfigs = sinon.spy(repository, 'getConfigs');
 			const nonExistant = new Set<string>();
-			await (manager as any).deleteBranches([{ label: 'feature' }, { label: 'other' }], nonExistant, noopProgress, 2, 0, []);
+			await (manager as any).deleteBranches([{ label: 'feature' }, { label: 'feature.preview' }], nonExistant, noopProgress, 2, 0, []);
 
 			assert.strictEqual(getConfigs.callCount, 2);
-			const configs = await repository.getConfigs();
-			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.feature.')).length, 0);
+			assert.deepStrictEqual(createBranch.args.map(([name]) => name), ['feature']);
+			assert.deepStrictEqual(await repository.getConfigs(), [{ key: 'branch.feature.preview.local.remote', value: 'origin' }]);
 			assert.strictEqual(nonExistant.has('feature'), false);
 		});
 

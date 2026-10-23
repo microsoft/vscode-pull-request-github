@@ -2229,45 +2229,42 @@ export class FolderRepositoryManager extends Disposable {
 
 		// Git removes the whole config section when deleting a branch, including keys with multiple values.
 		// Recreate deleted branches when a provider leaves config behind so Git can perform that cleanup again.
-		const configsAfterDeletion = await this.repository.getConfigs();
-		const branchesNeedingConfigCleanup = picks.filter(pick => {
-			const prefix = `branch.${pick.label}.`;
-			return configsAfterDeletion.some(config => config.key.startsWith(prefix));
-		});
+		// The last dot separates the variable name from the section; a branch name can contain dots.
+		const configSection = (key: string) => key.slice(0, key.lastIndexOf('.'));
+		const sectionsAfterDeletion = new Set((await this.repository.getConfigs()).map(({ key }) => configSection(key)));
 		const branchesNeedingRetry = new Set(needsRetry?.map(pick => pick.label));
-		for (const pick of branchesNeedingConfigCleanup) {
-			if (!branchesNeedingRetry.has(pick.label)) {
-				try {
-					await this.repository.createBranch(pick.label, false, 'HEAD');
-					await this.repository.deleteBranch(pick.label, true);
-				} catch (e) {
-					Logger.error(`Failed to remove leftover git config section for ${pick.label}: ${e}`, this.id);
-				}
+		const branchesToClean = picks.filter(pick => !branchesNeedingRetry.has(pick.label));
+		const sectionsNeedingCleanup = new Set<string>();
+		for (const { label } of branchesToClean) {
+			const section = `branch.${label}`;
+			if (!sectionsAfterDeletion.has(section)) {
+				continue;
+			}
+			sectionsNeedingCleanup.add(section);
+			try {
+				await this.repository.createBranch(label, false, 'HEAD');
+				await this.repository.deleteBranch(label, true);
+			} catch (e) {
+				Logger.error(`Failed to remove leftover git config section for ${label}: ${e}`, this.id);
 			}
 		}
 
 		// Clear associations serially before refreshing the remaining config.
-		for (const pick of picks) {
-			if (!branchesNeedingRetry.has(pick.label)) {
-				await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, pick.label, undefined);
-				await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, pick.label);
-			}
+		for (const { label } of branchesToClean) {
+			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, label, undefined);
+			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, label);
 		}
 
 		// Refresh after the fallback deletions, then remove remaining keys serially.
-		if (this.repository.unsetConfig && branchesNeedingConfigCleanup.length) {
-			const remainingConfigs = await this.repository.getConfigs();
-			for (const pick of branchesNeedingConfigCleanup) {
-				if (branchesNeedingRetry.has(pick.label)) {
+		if (this.repository.unsetConfig && sectionsNeedingCleanup.size) {
+			for (const { key } of await this.repository.getConfigs()) {
+				if (!sectionsNeedingCleanup.has(configSection(key))) {
 					continue;
 				}
-				const prefix = `branch.${pick.label}.`;
-				for (const config of remainingConfigs.filter(config => config.key.startsWith(prefix))) {
-					try {
-						await this.repository.unsetConfig(config.key);
-					} catch (e) {
-						Logger.error(`Failed to remove leftover git config ${config.key}: ${e}`, this.id);
-					}
+				try {
+					await this.repository.unsetConfig(key);
+				} catch (e) {
+					Logger.error(`Failed to remove leftover git config ${key}: ${e}`, this.id);
 				}
 			}
 		}
