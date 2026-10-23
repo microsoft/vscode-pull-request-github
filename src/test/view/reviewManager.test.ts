@@ -227,11 +227,9 @@ describe('ReviewManager polling', function () {
 	it('uses the explicitly checked out pull request for the checked out branch', async function () {
 		await repository.createBranch('feature', true, 'head-sha');
 		sinon.stub(manager, 'updateRepositories').resolves(true);
-		const localMetadata = sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves({
-			owner: 'owner',
-			repositoryName: 'repo',
-			prNumber: 7492,
-		});
+		const localMetadata = sinon.stub(repository, 'getConfigs').resolves([
+			{ key: 'branch.feature.github-pr-owner-number', value: 'owner#repo#7492' },
+		]);
 		const requestedPullRequest = {
 			number: 7231,
 			remote: {
@@ -268,7 +266,7 @@ describe('ReviewManager polling', function () {
 		sinon.stub(manager, 'updateRepositories').returns(new Promise<boolean>(resolve => {
 			resolveUpdateRepositories = resolve;
 		}));
-		const localMetadata = sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch');
+		const localMetadata = sinon.spy(repository, 'getConfigs');
 		const requestedPullRequest = {
 			number: 7231,
 			remote: {
@@ -298,7 +296,6 @@ describe('ReviewManager polling', function () {
 	it('rechecks GitHub when active pull request metadata was not persisted', async function () {
 		await repository.createBranch('feature', true, 'head-sha');
 		sinon.stub(manager, 'updateRepositories').resolves(true);
-		sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves(undefined);
 		sinon.stub(manager, 'activePullRequest').get(() => ({ number: 7231 } as PullRequestModel));
 		const internal = reviewManager as unknown as {
 			_cachedBranchName?: string;
@@ -335,7 +332,6 @@ describe('ReviewManager polling', function () {
 	it('keeps the active pull request when its metadata recheck fails', async function () {
 		await repository.createBranch('feature', true, 'head-sha');
 		sinon.stub(manager, 'updateRepositories').resolves(true);
-		sinon.stub(manager, 'getMatchingPullRequestMetadataForBranch').resolves(undefined);
 		sinon.stub(manager, 'activePullRequest').get(() => ({ number: 7231 } as PullRequestModel));
 		const internal = reviewManager as unknown as {
 			_cachedBranchName?: string;

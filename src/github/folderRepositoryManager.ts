@@ -1041,6 +1041,7 @@ export class FolderRepositoryManager extends Disposable {
 		const localBranches = (await this.repository.getRefs({ pattern: 'refs/heads/' }))
 			.filter(r => r.name !== undefined)
 			.map(r => r.name!);
+		const matchingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, localBranches);
 
 		// Chunk localBranches into chunks of 100 to avoid hitting the GitHub API rate limit
 		const chunkedLocalBranches: string[][] = [];
@@ -1053,10 +1054,7 @@ export class FolderRepositoryManager extends Disposable {
 		const models: (PullRequestModel | undefined)[] = [];
 		for (const chunk of chunkedLocalBranches) {
 			models.push(...await Promise.all(chunk.map(async localBranchName => {
-				const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-					this.repository,
-					localBranchName,
-				);
+				const matchingPRMetadata = matchingMetadata.get(localBranchName);
 
 				if (matchingPRMetadata) {
 					const { owner, prNumber } = matchingPRMetadata;
@@ -1102,7 +1100,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		try {
-			// Only check the 3 most recently used branches to minimize API calls
+			// Only check the 10 most recently used branches to minimize API calls
 			const localBranches = (await this.repository.getRefs({
 				pattern: 'refs/heads/',
 				sort: 'committerdate',
@@ -1113,18 +1111,14 @@ export class FolderRepositoryManager extends Disposable {
 
 			Logger.debug(`Found ${localBranches.length} local branches to check`, this.id);
 
+			const matchingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, localBranches);
 			const associationResults: boolean[] = [];
 
-			// Process all branches (max 3) in parallel
+			// Process the selected branches in parallel
 			const chunkResults = await Promise.all(localBranches.map(async branchName => {
 				try {
 					// Check if this branch already has PR metadata
-					const existingMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-						this.repository,
-						branchName,
-					);
-
-					if (existingMetadata) {
+					if (matchingMetadata.has(branchName)) {
 						// Branch already has PR metadata, skip
 						return false;
 					}
@@ -2215,29 +2209,10 @@ export class FolderRepositoryManager extends Disposable {
 			progress.report({ message: vscode.l10n.t('Deleted {0} of {1} branches', deletedBranches, totalBranches) });
 		};
 
-		const deleteConfig = async (branch: string) => {
-			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, branch, undefined);
-			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
-			if (this.repository.unsetConfig) {
-				const prefix = `branch.${branch}.`;
-				const remaining = (await this.repository.getConfigs()).filter(config => config.key.startsWith(prefix));
-				for (const config of remaining) {
-					try {
-						await this.repository.unsetConfig(config.key);
-					} catch (e) {
-						Logger.error(`Failed to remove leftover git config ${config.key}: ${e}`, this.id);
-					}
-				}
-			}
-		};
-
 		// batch deleting the branches to avoid consuming all available resources
 		await batchPromiseAll(picks, 5, async (pick) => {
 			try {
 				await this.repository.deleteBranch(pick.label, true);
-				if ((await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, pick.label))) {
-					console.log(`Branch ${pick.label} was not deleted`);
-				}
 				reportProgress();
 			} catch (e) {
 				if (typeof e.stderr === 'string' && e.stderr.includes('not found')) {
@@ -2254,27 +2229,43 @@ export class FolderRepositoryManager extends Disposable {
 
 		// Git removes the whole config section when deleting a branch, including keys with multiple values.
 		// Recreate deleted branches when a provider leaves config behind so Git can perform that cleanup again.
-		const configsAfterDeletion = await this.repository.getConfigs();
-		const branchesNeedingConfigCleanup = picks.filter(pick => {
-			const prefix = `branch.${pick.label}.`;
-			return configsAfterDeletion.some(config => config.key.startsWith(prefix));
-		});
+		// The last dot separates the variable name from the section; a branch name can contain dots.
+		const configSection = (key: string) => key.slice(0, key.lastIndexOf('.'));
+		const sectionsAfterDeletion = new Set((await this.repository.getConfigs()).map(({ key }) => configSection(key)));
 		const branchesNeedingRetry = new Set(needsRetry?.map(pick => pick.label));
-		for (const pick of branchesNeedingConfigCleanup) {
-			if (!branchesNeedingRetry.has(pick.label)) {
-				try {
-					await this.repository.createBranch(pick.label, false, 'HEAD');
-					await this.repository.deleteBranch(pick.label, true);
-				} catch (e) {
-					Logger.error(`Failed to remove leftover git config section for ${pick.label}: ${e}`, this.id);
-				}
+		const branchesToClean = picks.filter(pick => !branchesNeedingRetry.has(pick.label));
+		const sectionsNeedingCleanup = new Set<string>();
+		for (const { label } of branchesToClean) {
+			const section = `branch.${label}`;
+			if (!sectionsAfterDeletion.has(section)) {
+				continue;
+			}
+			sectionsNeedingCleanup.add(section);
+			try {
+				await this.repository.createBranch(label, false, 'HEAD');
+				await this.repository.deleteBranch(label, true);
+			} catch (e) {
+				Logger.error(`Failed to remove leftover git config section for ${label}: ${e}`, this.id);
 			}
 		}
 
-		// Config operations can't be parallelized. Clean up any keys left by providers that don't remove sections.
-		for (const pick of picks) {
-			if (!branchesNeedingRetry.has(pick.label)) {
-				await deleteConfig(pick.label);
+		// Clear associations serially before refreshing the remaining config.
+		for (const { label } of branchesToClean) {
+			await PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, label, undefined);
+			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, label);
+		}
+
+		// Refresh after the fallback deletions, then remove remaining keys serially.
+		if (this.repository.unsetConfig && sectionsNeedingCleanup.size) {
+			for (const { key } of await this.repository.getConfigs()) {
+				if (!sectionsNeedingCleanup.has(configSection(key))) {
+					continue;
+				}
+				try {
+					await this.repository.unsetConfig(key);
+				} catch (e) {
+					Logger.error(`Failed to remove leftover git config ${key}: ${e}`, this.id);
+				}
 			}
 		}
 		if (needsRetry && needsRetry.length) {
@@ -2570,18 +2561,6 @@ export class FolderRepositoryManager extends Disposable {
 		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		return githubRepository?.resolveUser(login);
-	}
-
-	async getMatchingPullRequestMetadataForBranch() {
-		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name) {
-			return null;
-		}
-
-		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-			this.repository,
-			this.repository.state.HEAD.name,
-		);
-		return matchingPullRequestMetadata;
 	}
 
 	async getMatchingPullRequestMetadataFromGitHub(branch: Branch, remoteName?: string, remoteUrl?: string, upstreamBranchName?: string): Promise<
