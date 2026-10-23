@@ -626,7 +626,9 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		reactions: parseGraphQLReaction(comment.reactionGroups),
 		isResolved,
 		isOutdated,
-		threadId
+		threadId,
+		isMinimized: comment.isMinimized,
+		minimizedReason: comment.minimizedReason,
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
@@ -649,7 +651,9 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
 		diffHunk: '',
-		reactions: parseGraphQLReaction(comment.reactionGroups)
+		reactions: parseGraphQLReaction(comment.reactionGroups),
+		isMinimized: comment.isMinimized,
+		minimizedReason: comment.minimizedReason
 	};
 }
 
@@ -1294,6 +1298,8 @@ export async function parseCombinedTimelineEvents(
 					graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt,
 					reactions: parseGraphQLReaction(commentEvent.reactionGroups),
+					isMinimized: commentEvent.isMinimized,
+					minimizedReason: commentEvent.minimizedReason
 				});
 				break;
 			case Common.EventType.Reviewed:

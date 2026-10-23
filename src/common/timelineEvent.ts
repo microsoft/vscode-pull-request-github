@@ -48,6 +48,8 @@ export interface CommentEvent {
 	canDelete?: boolean;
 	createdAt: string;
 	reactions?: Reaction[];
+	isMinimized?: boolean;
+	minimizedReason?: string;
 }
 
 export interface ReviewResolveInfo {

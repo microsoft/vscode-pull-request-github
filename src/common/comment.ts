@@ -71,6 +71,8 @@ export interface IComment {
 	 * Populated when the comment is parsed from a review thread.
 	 */
 	threadId?: string;
+	isMinimized?: boolean;
+	minimizedReason?: string;
 }
 
 const COPILOT_AUTHOR = {
