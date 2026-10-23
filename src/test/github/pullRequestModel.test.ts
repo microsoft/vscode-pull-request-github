@@ -11,7 +11,7 @@ import { GitChangeType, SlimFileChange } from '../../common/file';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
+import { getStackMergeAllTarget, GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
@@ -708,6 +708,105 @@ describe('PullRequestModel', function () {
 				});
 
 				assert.strictEqual(await model.mergeStack(new MockRepository(), withMergedBelow, 'squash', 'direct_merge'), 'merged');
+			});
+
+			describe('up to a pull request above', function () {
+				const wholeStack: PullRequestStack = {
+					...stack,
+					size: 3,
+					pullRequests: [
+						...stack.pullRequests,
+						{ position: 3, number: 795, title: 'Third', url: '', head: 'D3', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					],
+				};
+
+				function createTopModel(): PullRequestModel {
+					const pr = new PullRequestBuilder().number(795).head(head => head.sha('top-head-sha')).build();
+					return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+				}
+
+				it('merges the stack through the top pull request with its head SHA', async function () {
+					const model = createModel();
+					const top = createTopModel();
+					const getPullRequest = sinon.stub(repo, 'getPullRequest').resolves(top);
+					const changed = sinon.spy();
+					repo.onDidChangeStack(changed);
+					repo.queryProvider.expectOctokitRequest(['request'], [`PUT ${route}`, { ...requestParams(model), pull_number: 795, sha: 'top-head-sha' }], {
+						status: 'merged',
+						details: { message: 'Merged', sha: 'merge-sha' },
+					});
+
+					assert.strictEqual(await model.mergeStack(new MockRepository(), wholeStack, 'squash', 'direct_merge', 795), 'merged');
+					assert(getPullRequest.calledOnce);
+					assert.strictEqual(getPullRequest.firstCall.args[0], 795);
+					assert(changed.calledOnceWithExactly([793, 794, 795]));
+				});
+
+				it('refuses to merge up to a pull request below this one or outside the stack', async function () {
+					const model = createModel();
+					for (const upTo of [793, 999]) {
+						await assert.rejects(model.mergeStack(new MockRepository(), wholeStack, 'squash', 'direct_merge', upTo), /is not at or above #794/);
+					}
+				});
+
+				it('does not merge up to a pull request above that is not ready to merge', async function () {
+					const model = createModel();
+					const getPullRequest = sinon.stub(repo, 'getPullRequest');
+					for (const change of [
+						{ mergeable: PullRequestMergeability.NotMergeable },
+						{ mergeable: PullRequestMergeability.Behind },
+						{ isDraft: true },
+					]) {
+						const candidate = { ...wholeStack, pullRequests: [...stack.pullRequests, { ...wholeStack.pullRequests[2], ...change }] };
+						await assert.rejects(model.mergeStack(new MockRepository(), candidate, 'squash', 'direct_merge', 795), /not ready to merge/);
+					}
+					assert(getPullRequest.notCalled);
+				});
+
+				it('asks about local changes when a pull request above is the one checked out', async function () {
+					const model = createModel();
+					const top = createTopModel();
+					top.isActive = true;
+					sinon.stub(repo, 'getPullRequest').resolves(top);
+					const repository = new MockRepository();
+					repository.state.workingTreeChanges.push({
+						uri: vscode.Uri.file('/root/file'), originalUri: vscode.Uri.file('/root/file'), renameUri: undefined, status: Status.MODIFIED,
+					});
+					const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+					assert.strictEqual(await model.mergeStack(repository, wholeStack, 'squash', 'direct_merge', 795), 'cancelled');
+					assert(warning.calledOnce);
+				});
+			});
+		});
+
+		describe('getStackMergeAllTarget', function () {
+			const entry = (position: number, change: Partial<PullRequestStack['pullRequests'][number]> = {}): PullRequestStack['pullRequests'][number] => ({
+				position, number: 792 + position, title: `Change ${position}`, url: '', head: `D${position}`,
+				state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable, ...change,
+			});
+			const stackOf = (...pullRequests: PullRequestStack['pullRequests']): PullRequestStack =>
+				({ position: 2, size: pullRequests.length, base: 'main', pullRequests });
+
+			it('is the open pull request at the top when every open pull request is ready', function () {
+				assert.strictEqual(getStackMergeAllTarget(stackOf(entry(1), entry(2), entry(3), entry(4)), 794)?.number, 796);
+				assert.strictEqual(getStackMergeAllTarget(stackOf(entry(1, { state: GithubItemStateEnum.Merged }), entry(2), entry(3)), 794)?.number, 795,
+					'merged pull requests below do not block');
+				assert.strictEqual(getStackMergeAllTarget(stackOf(entry(1), entry(2), entry(3), entry(4, { state: GithubItemStateEnum.Closed })), 794)?.number, 795,
+					'closed pull requests above the top open one are not merged');
+			});
+
+			it('is nothing when this is the top or a pull request in the stack is not ready', function () {
+				assert.strictEqual(getStackMergeAllTarget(stackOf(entry(1), entry(2)), 794), undefined);
+				for (const change of [
+					{ isDraft: true },
+					{ mergeable: PullRequestMergeability.NotMergeable },
+					{ mergeable: PullRequestMergeability.Behind },
+					{ mergeable: PullRequestMergeability.Conflict },
+					{ state: GithubItemStateEnum.Closed },
+				]) {
+					assert.strictEqual(getStackMergeAllTarget(stackOf(entry(1), entry(2), entry(3, change), entry(4)), 794), undefined, JSON.stringify(change));
+				}
 			});
 		});
 

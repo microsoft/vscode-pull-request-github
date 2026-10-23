@@ -405,6 +405,17 @@ body img.avatar {
 	gap: 8px;
 }
 
+.stack-merge-buttons {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* As tall as the button beside it. */
+.stack-merge-buttons .icon-button {
+	padding: 4px;
+}
+
 #status-checks .automerge-section {
 	align-items: center;
 	padding: 16px;

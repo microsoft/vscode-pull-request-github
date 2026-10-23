@@ -195,6 +195,15 @@ export interface MergeResult {
 	events?: TimelineEvent[];
 }
 
+export interface MergeStackArgs {
+	method: MergeMethod;
+	/**
+	 * The pull request at or above this one to merge the stack up to, as the user confirmed it. Every open pull request
+	 * below it is merged with it. Defaults to this pull request.
+	 */
+	upTo?: number;
+}
+
 export interface StackMergeResult {
 	status: StackMergeOutcome;
 	state?: GithubItemStateEnum;
