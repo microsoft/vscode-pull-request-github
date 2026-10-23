@@ -10,8 +10,10 @@ import * as React from 'react';
 import { cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
+import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
-import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
+import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
 import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
@@ -65,6 +67,27 @@ describe('Overview', function () {
 			fireEvent.click(link);
 		});
 		assert.strictEqual(openOnGitHub.callCount, 2);
+	});
+
+	it('offers re-requesting a review from Copilot but not from other bots', function () {
+		const copilot = new AccountBuilder().login(COPILOT_REVIEWER).id(COPILOT_REVIEWER_ID).accountType(AccountType.Bot).build();
+		const otherBot = new AccountBuilder().login('other-bot').id('BOT_other').accountType(AccountType.Bot).build();
+		const pr = new PullRequestBuilder().reviewers([
+			{ reviewer: copilot, state: 'COMMENTED' },
+			{ reviewer: otherBot, state: 'COMMENTED' },
+		]).build();
+		const context = new PRContext(pr);
+		const reRequestReview = sinon.stub(context, 'reRequestReview').resolves();
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const reRequestButtons = out.container.querySelectorAll('button[title="Re-request review"]');
+		assert.strictEqual(reRequestButtons.length, 1);
+		fireEvent.click(reRequestButtons[0]);
+		assert(reRequestReview.calledOnceWithExactly(COPILOT_REVIEWER_ID));
 	});
 
 	it('reserves details and log action slots for every status check', async function () {
