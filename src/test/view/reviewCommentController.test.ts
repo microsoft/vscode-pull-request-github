@@ -59,6 +59,9 @@ class TestReviewCommentController extends ReviewCommentController {
 	public seedWorkspaceThreads(path: string, threads: GHPRCommentThread[]) {
 		this._workspaceFileChangeCommentThreads[path] = threads;
 	}
+	public seedReviewSchemeThreads(path: string, threads: GHPRCommentThread[]) {
+		this._reviewSchemeFileChangeCommentThreads[path] = threads;
+	}
 	public seedObsoleteThreads(path: string, threads: GHPRCommentThread[]) {
 		this._obsoleteFileChangeCommentThreads[path] = threads;
 	}
@@ -470,4 +473,89 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(obsolete[fileName][1], threadB);
 		});
 	});
+
+	describe('getMarkdownPreviewCommentInfo', function () {
+		it('gets the threads of the base side of a renamed file by its current file name', async function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/new.md`);
+			// The base side of a renamed file uses the previous file name.
+			const baseUri = toReviewUri(uri, 'docs/old.md', undefined, '1', false, { base: true }, repository.rootUri);
+			sinon.stub(reviewCommentController, 'getCommentingRanges').resolves({ ranges: [new vscode.Range(0, 0, 30, 0)], enableFileComments: true });
+			sinon.stub(reviewCommentController as any, 'findMatchedFileChangeForReviewDiffView').returns({ fileName: 'docs/new.md' });
+			reviewCommentController.seedReviewSchemeThreads('docs/new.md', [createGHPRCommentThread('thread-A', baseUri)]);
+
+			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri: baseUri } as vscode.TextDocument);
+
+			assert.deepStrictEqual(info, {
+				commentingRanges: [{ start: 0, end: 30 }],
+				threads: [{ id: 'thread-A', start: 21, end: 21, commentCount: 0, resolved: false }],
+			});
+		});
+
+		it('places the threads of a workspace file by its current text, including unsaved changes', async function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			sinon.stub(reviewCommentController, 'getCommentingRanges').resolves([]);
+			// The thread was created on line 22 of the pull request, which `createGHPRCommentThread` maps to line 21.
+			reviewCommentController.seedWorkspaceThreads('docs/guide.md', [createGHPRCommentThread('thread-A', uri)]);
+			sinon.stub(activePullRequest, 'reviewThreadsCache').get(() => [{ id: 'thread-A', startLine: 22, endLine: 22 }]);
+			// Two unsaved lines were added at the start of the file.
+			sinon.stub(reviewCommentController as any, 'getContentDiff').callsFake(async () => '@@ -1,1 +1,3 @@\n first\n+unsaved\n+unsaved\n');
+
+			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri } as vscode.TextDocument);
+
+			assert.deepStrictEqual(info.threads, [{ id: 'thread-A', start: 23, end: 23, commentCount: 0, resolved: false }]);
+		});
+
+		it('finds a comment thread by its GitHub thread id', function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			const threadA = createGHPRCommentThread('thread-A', uri);
+			const threadB = createGHPRCommentThread('thread-B', uri);
+			reviewCommentController.seedWorkspaceThreads('docs/guide.md', [threadA]);
+			reviewCommentController.seedReviewSchemeThreads('docs/guide.md', [threadB]);
+
+			assert.strictEqual(reviewCommentController.getCommentThread('thread-B'), threadB);
+			assert.strictEqual(reviewCommentController.getCommentThread('thread-C'), undefined);
+		});
+
+		it('does not show the current threads on other versions of a file', async function () {
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			// For example, the version of the file that an outdated comment was made on.
+			const historicalUri = toReviewUri(uri, 'docs/guide.md', undefined, 'old-commit', true, { base: true }, repository.rootUri);
+			sinon.stub(reviewCommentController, 'getCommentingRanges').resolves(undefined);
+			sinon.stub(reviewCommentController as any, 'findMatchedFileChangeForReviewDiffView').returns(undefined);
+			reviewCommentController.seedReviewSchemeThreads('docs/guide.md', [createGHPRCommentThread('thread-A', historicalUri)]);
+
+			const info = await reviewCommentController.getMarkdownPreviewCommentInfo({ uri: historicalUri } as vscode.TextDocument);
+
+			assert.deepStrictEqual(info, { commentingRanges: [], threads: [] });
+		});
+	});
+
+	describe('getContentDiff', function () {
+		it('diffs the unsaved changes of a document that is not visible', async function () {
+			// For example, a document whose markdown preview is shown instead of its text editor.
+			const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry);
+			context.subscriptions.push(reviewCommentController);
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/docs/guide.md`);
+			sinon.stub(vscode.window, 'visibleTextEditors').get(() => []);
+			sinon.stub(vscode.workspace, 'textDocuments').get(() => [{ uri, isDirty: true, getText: () => 'unsaved text' }]);
+			sinon.stub(repository, 'getObjectDetails').resolves({ mode: '100644', object: 'committed-blob', size: 0 });
+			const hashObject = sinon.stub(repository, 'hashObject').resolves('unsaved-blob');
+			const diffBlobs = sinon.stub(repository, 'diffBlobs').resolves('unsaved diff');
+
+			const diff = await (reviewCommentController as any).getContentDiff(uri, 'docs/guide.md');
+
+			assert.strictEqual(diff, 'unsaved diff');
+			assert.ok(hashObject.calledOnceWithExactly('unsaved text'));
+			assert.ok(diffBlobs.calledOnceWithExactly('committed-blob', 'unsaved-blob'));
+		});
+	});
 });
+

@@ -85,6 +85,10 @@
 		}
 	},
 	"contributes": {
+		"markdown.markdownItPlugins": true,
+		"markdown.previewScripts": [
+			"./dist/markdown-preview-comments.js"
+		],
 		"chatContext": [
 			{
 				"id": "githubpr",

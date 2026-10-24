@@ -470,6 +470,19 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	// #endregion
 
 	// #region Review
+	/**
+	 * Gets the comment thread of a GitHub review thread, once it has been created for an open editor.
+	 */
+	public getCommentThread(gitHubThreadId: string): GHPRCommentThread | undefined {
+		for (const key in this._commentThreadCache) {
+			const thread = this._commentThreadCache[key].find(candidate => candidate.gitHubThreadId === gitHubThreadId);
+			if (thread) {
+				return thread;
+			}
+		}
+		return undefined;
+	}
+
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
 		let temporaryCommentId: number | undefined = undefined;

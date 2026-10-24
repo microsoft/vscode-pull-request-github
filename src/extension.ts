@@ -54,6 +54,7 @@ import { EmojiCompletionProvider } from './view/emojiCompletionProvider';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getGitHubCommitFileSystemProvider } from './view/githubFileContentProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
+import { extendMarkdownIt, MarkdownPreviewComments } from './view/markdownPreviewComments';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { PrsTreeModel } from './view/prsTreeModel';
@@ -186,6 +187,9 @@ async function init(
 
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, prsTreeModel, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager, notificationsManager);
 	context.subscriptions.push(reviewsManager);
+
+	const markdownPreviewComments = new MarkdownPreviewComments(reviewsManager, reposManager);
+	context.subscriptions.push(markdownPreviewComments);
 
 	context.subscriptions.push(vscode.languages.registerCompletionItemProvider(
 		{ scheme: Schemes.Comment },
@@ -320,7 +324,7 @@ async function init(
 	await resumePendingCheckout(reviewsManager, context, reposManager);
 
 	initChat(context, credentialStore, reposManager);
-	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git, folderRepositoryManagerResolver)));
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git, folderRepositoryManagerResolver, markdownPreviewComments)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
@@ -339,7 +343,7 @@ function initChat(context: vscode.ExtensionContext, credentialStore: CredentialS
 	}
 }
 
-export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
+export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl & { extendMarkdownIt: typeof extendMarkdownIt }> {
 	Logger.appendLine(`Extension version: ${vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version}`, 'Activation');
 
 	// @ts-ignore
@@ -518,7 +522,8 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(Schemes.CheckRunLog, new CheckRunLogContentProvider(reposManager)));
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher, prsTreeModel);
-	return apiImpl;
+	// Lets the built-in markdown extension call into this extension when rendering the markdown preview.
+	return Object.assign(apiImpl, { extendMarkdownIt });
 }
 
 export async function deactivate() {
