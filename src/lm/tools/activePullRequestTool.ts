@@ -20,7 +20,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		protected readonly folderManagers: RepositoriesManager
 	) { }
 
-	protected abstract _findActivePullRequest(): PullRequestModel | undefined;
+	protected abstract _findActivePullRequest(): PullRequestModel | undefined | Promise<PullRequestModel | undefined>;
 
 	protected abstract _confirmationTitle(): string;
 
@@ -29,7 +29,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 	}
 
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
-		const pullRequest = this._findActivePullRequest();
+		const pullRequest = await this._findActivePullRequest();
 		if (!pullRequest) {
 			return {
 				pastTenseMessage: vscode.l10n.t('No active pull request'),
@@ -47,10 +47,10 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, _token: vscode.CancellationToken): Promise<vscode.ExtendedLanguageModelToolResult | undefined> {
-		let pullRequest = this._findActivePullRequest();
+		const pullRequest = await this._findActivePullRequest();
 
 		if (!pullRequest) {
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('There is no active pull request')]);
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('No active pull request was found. An open pull request may still exist for the checked-out branch.')]);
 		}
 
 		if ((options.input as PullRequestToolParams | undefined)?.refresh) {
@@ -64,7 +64,7 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 		const timeline = (pullRequest.timelineEvents && pullRequest.timelineEvents.length > 0) ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
 		const reviewAndCommentEvents = timeline?.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented) || [];
 
-		if ((pullRequest.comments.length === 0) && (reviewAndCommentEvents.length !== 0)) {
+		if (!pullRequest.reviewThreadsCacheReady || ((pullRequest.comments.length === 0) && (reviewAndCommentEvents.length !== 0))) {
 			// Probably missing some comments
 			await pullRequest.initializeReviewThreadCacheAndReviewComments();
 		}
@@ -115,9 +115,27 @@ export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchI
 export class ActivePullRequestTool extends PullRequestTool {
 	public static readonly toolId = 'github-pull-request_currentActivePullRequest';
 
-	protected _findActivePullRequest(): PullRequestModel | undefined {
+	protected async _findActivePullRequest(): Promise<PullRequestModel | undefined> {
 		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
-		return folderManager?.activePullRequest;
+		if (folderManager?.activePullRequest) {
+			return folderManager.activePullRequest;
+		}
+
+		for (const manager of this.folderManagers.folderManagers) {
+			const branch = manager.repository.state.HEAD;
+			if (!branch?.name || !branch.upstream?.remote || !branch.upstream.name) {
+				continue;
+			}
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(
+				branch, branch.upstream.remote, undefined, branch.upstream.name,
+			);
+			if (metadata?.model.isOpen) {
+				return metadata.model;
+			}
+		}
+
+		return undefined;
 	}
 
 	protected _confirmationTitle(): string {
