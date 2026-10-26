@@ -914,6 +914,8 @@ export class GitHubRepository extends Disposable {
 		if (!pullRequests.length) {
 			return;
 		}
+		// A pull request that is loaded again while this request is in flight already has newer stack information.
+		const items = pullRequests.map(pullRequest => pullRequest.item);
 		try {
 			const { query, schema } = await this.ensure();
 			// The stack is not loaded with pull requests from GitHub Enterprise, since not every server supports stacks.
@@ -926,7 +928,7 @@ export class GitHubRepository extends Disposable {
 			}, false, undefined, false);
 			data?.nodes.forEach((summary, index) => {
 				const pullRequest = pullRequests[index];
-				if (summary) {
+				if (summary && pullRequest.item === items[index]) {
 					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) });
 				}
 			});

@@ -410,6 +410,26 @@ describe('GitHubRepository', function () {
 
 			assert.strictEqual(pullRequests[0].item.stack, undefined);
 		});
+
+		it('does not replace the stack of a pull request that was loaded again while the stacks were looked up', async function () {
+			const [pullRequest] = listedModels(1347);
+			let respond!: () => void;
+			const requested = new Promise<void>(started => {
+				sinon.stub(repo, 'query').callsFake(() => new Promise(resolve => {
+					respond = () => resolve({ data: { nodes: [{ stackEntry: null, stack: null }] }, loading: false, stale: false, networkStatus: NetworkStatus.ready });
+					started();
+				}));
+			});
+
+			const loading = repo.loadStackSummaries([pullRequest]);
+			await requested;
+			const newer = { position: 1, size: 1, base: 'main', pullRequests: [] };
+			pullRequest.update({ ...pullRequest.item, stack: newer });
+			respond();
+			await loading;
+
+			assert.strictEqual(pullRequest.item.stack, newer);
+		});
 	});
 
 	describe('isGitHubDotCom', function () {
