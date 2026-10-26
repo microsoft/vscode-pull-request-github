@@ -1404,13 +1404,13 @@ describe('Overview', function () {
 			);
 		}
 
-		it('recommends stacking above the title and previews the stack like the stack section', function () {
+		it('recommends stacking in the status section and previews the stack like the stack section', function () {
 			const pr = recommendedPullRequest();
 			const out = renderOverview(pr);
 
 			const banner = out.container.querySelector('.stack-recommendation');
 			assert(banner);
-			assert.strictEqual(banner.nextElementSibling?.id, 'title');
+			assert.strictEqual(banner.parentElement?.id, 'status-checks');
 			assert(banner.textContent?.includes('This pull request can be stacked with other pull requests.'));
 			assert.strictEqual(out.getByText('Learn more about stacks').getAttribute('href'), STACKS_DOCUMENTATION_URL);
 			const region = banner.querySelector('.stack-recommendation-preview');
@@ -1449,6 +1449,50 @@ describe('Overview', function () {
 			assert.strictEqual(preview.getAttribute('aria-expanded'), 'false');
 			assert.strictEqual(preview.getAttribute('aria-controls'), region.id);
 			assert.strictEqual(preview.textContent, 'Preview stack');
+		});
+
+		it('keeps deferred recommendations below the header through initialization and refresh', async function () {
+			const recommended = recommendedPullRequest();
+			const loading = { ...recommended, stackLoaded: false, stackRecommendation: undefined };
+			const context = new PRContext(loading);
+			context.setPR(loading);
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			const title = out.container.querySelector('#title');
+			const description = out.container.querySelector('#description');
+			assert(title);
+			assert(description);
+
+			for (let refresh = 0; refresh < 2; refresh++) {
+				assert.strictEqual(out.container.querySelector('.stack-recommendation'), null);
+				assert(out.getByText('Checking pull request stack membership...'));
+				context.handleMessage({ command: 'pr.update', pullrequest: { stackLoaded: true, stackRecommendation: recommended.stackRecommendation } });
+
+				const banner = await waitForElement(() => out.container.querySelector('.stack-recommendation'));
+				assert.strictEqual(banner?.parentElement?.id, 'status-checks');
+				assert.strictEqual(out.container.querySelector('#title'), title);
+				assert.strictEqual(out.container.querySelector('#description'), description);
+				assert(title.compareDocumentPosition(banner!) & Node.DOCUMENT_POSITION_FOLLOWING);
+				assert(description.compareDocumentPosition(banner!) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+				context.handleMessage({ command: 'pr.initialize', pullrequest: { ...loading, stackLoaded: false, stackRecommendation: undefined } });
+				await wait(() => assert.strictEqual(out.container.querySelector('.stack-recommendation'), null));
+			}
+		});
+
+		it('does not add a recommendation to the activity bar status section', function () {
+			const pr = recommendedPullRequest();
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<ActivityBarOverview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			assert(out.container.querySelector('#status-checks'));
+			assert.strictEqual(out.container.querySelector('.stack-recommendation'), null);
 		});
 
 		it('describes adding the pull requests to the top of an existing stack', function () {

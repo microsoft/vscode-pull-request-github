@@ -35,12 +35,6 @@ html {
 	grid-row: 3;
 }
 
-/* The stack recommendation is above the title. Its grid row takes no space when there is no recommendation. */
-.stack-recommendation {
-	grid-column: 1 / 3;
-	grid-row: 1;
-}
-
 #project a {
 	cursor: pointer;
 }

@@ -10,7 +10,6 @@ import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
 import { StatusChecksSection } from '../components/merge';
 import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
-import { StackRecommendationBanner } from '../components/stackRecommendation';
 import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
 import { Timeline } from '../components/timeline';
 
@@ -38,7 +37,6 @@ export const Overview = (pr: PullRequest) => {
 
 	return <>
 		<StickyHeader pr={pr} visible={isStuck} />
-		<StackRecommendationBanner pr={pr} />
 		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />

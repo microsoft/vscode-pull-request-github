@@ -18,6 +18,7 @@ import { Dropdown } from './dropdown';
 import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
 import { canUpdatePullRequestStack, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
+import { StackRecommendationBanner } from './stackRecommendation';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { groupBy } from '../../src/common/utils';
@@ -163,6 +164,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 					<RequiredReviewers pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
+					{!isSimple ? <StackRecommendationBanner pr={pr} /> : null}
 					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
 					<MergeStatusAndActions pr={pr} isSimple={isSimple} stackActions={stackActions} />
 					<DeleteOption pr={pr} />
