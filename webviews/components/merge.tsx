@@ -16,7 +16,7 @@ import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
-import { canUpdatePullRequestStack, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
+import { canUpdatePullRequestStack, isStackMembershipKnown, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
@@ -191,7 +191,7 @@ export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: Pull
 	}
 
 	const { mergeable: _mergeable } = pr;
-	const canUpdateWithMergeCommit = !pr.stack && pr.stackLoaded !== false && !pr.stackLoadError;
+	const canUpdateWithMergeCommit = !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
 	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
 	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
 
@@ -436,7 +436,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 	if (pr.stackLoadError) {
 		return <div className="status-item">Unable to load pull request stack details. Refresh to retry merging.</div>;
 	}
-	if (pr.stackLoaded === false) {
+	if (!isStackMembershipKnown(pr)) {
 		return <div className="status-item">Checking pull request stack membership...</div>;
 	}
 	if (isDraft) {
@@ -455,10 +455,16 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		return <div className="status-item">Pull request stack added to the merge queue.</div>;
 	}
 	if (pr.stack) {
+		if (!hasWritePermission || pr.mergeQueueEntry) {
+			return null;
+		}
+		// Merging a stack depends on every pull request in it, which may not be loaded yet.
+		if (pr.stackLoaded === false) {
+			return <div className="status-item">Checking whether the stack can be merged...</div>;
+		}
 		// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
 		const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
-		return hasWritePermission && !pr.mergeQueueEntry
-			&& (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
+		return (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
 			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
 	}
 

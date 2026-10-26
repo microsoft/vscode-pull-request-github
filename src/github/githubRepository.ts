@@ -5,6 +5,7 @@
 
 import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
+import gql from 'graphql-tag';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
@@ -33,6 +34,7 @@ import {
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
+	PullRequestStackSummariesResponse,
 	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
@@ -40,6 +42,7 @@ import {
 	StackablePullRequestConnection,
 	StackablePullRequestNode,
 	StackablePullRequestsResponse,
+	StackBranchStatusResponse,
 	SuggestedActorsResponse,
 	UserResponse,
 	ViewerPermissionResponse,
@@ -83,6 +86,7 @@ import {
 	parseMergeability,
 	parseMergeMethod,
 	parseMilestone,
+	parseStackSummary,
 	restPaginate,
 } from './utils';
 import { IssuePreview, PullRequestPreview } from './views';
@@ -192,6 +196,20 @@ export interface StackMemberHead {
 	number: number;
 	ref: string;
 	sha: string;
+}
+
+/** Two branches to compare, to tell whether the head is behind the base. */
+export interface StackBranchComparison {
+	/** A branch in this repository. */
+	base: string;
+	/** A branch as `owner:branch`, which can be in a fork. */
+	head: string;
+}
+
+export interface StackBranchStatus {
+	/** How many commits each head is behind its base, in the order they were compared. */
+	behindBy: (number | undefined)[];
+	mergeQueueMethod?: MergeMethod;
 }
 
 export type StackRebaseOutcome = {
@@ -708,10 +726,21 @@ export class GitHubRepository extends Disposable {
 	}
 
 	private _branchHasMergeQueue: Map<string, MergeMethod> = new Map();
+	private readonly _mergeQueueRequests = new Map<string, Promise<MergeMethod | undefined>>();
 	async mergeQueueMethodForBranch(branch: string): Promise<MergeMethod | undefined> {
 		if (this._branchHasMergeQueue.has(branch)) {
 			return this._branchHasMergeQueue.get(branch)!;
 		}
+		// The overview looks up its base branch for the merge controls and the stack at the same time, so they share a request.
+		let request = this._mergeQueueRequests.get(branch);
+		if (!request) {
+			request = this.fetchMergeQueueMethod(branch).finally(() => this._mergeQueueRequests.delete(branch));
+			this._mergeQueueRequests.set(branch, request);
+		}
+		return request;
+	}
+
+	private async fetchMergeQueueMethod(branch: string): Promise<MergeMethod | undefined> {
 		try {
 			Logger.debug('Fetch branch has merge queue - enter', this.id);
 			const { query, remote, schema } = await this.ensure();
@@ -736,6 +765,46 @@ export class GitHubRepository extends Disposable {
 		} catch (e) {
 			Logger.error(`Fetching branch has merge queue failed: ${e}`, this.id);
 		}
+	}
+
+	/**
+	 * Gets how many commits each head branch is behind its base branch, and the merge queue of a branch, in one request.
+	 * Unlike the REST comparison, this does not download the changes between the branches.
+	 * @param comparisons The base branch in this repository, and the head branch as `owner:branch`, of each comparison.
+	 * @param mergeQueueBranch A branch to look up the merge queue of.
+	 * @returns How many commits each head is behind its base, or `undefined` when the base branch does not exist.
+	 */
+	async getStackBranchStatus(comparisons: readonly StackBranchComparison[], mergeQueueBranch?: string): Promise<StackBranchStatus> {
+		if (!comparisons.length && mergeQueueBranch === undefined) {
+			return { behindBy: [] };
+		}
+		const { query, remote } = await this.ensure();
+		// Branch names are passed as variables rather than written into the query.
+		const variables: Record<string, string> = { owner: remote.owner, name: remote.repositoryName };
+		const definitions = ['$owner: String!', '$name: String!'];
+		const fields = comparisons.map((comparison, index) => {
+			variables[`base${index}`] = `refs/heads/${comparison.base}`;
+			variables[`head${index}`] = comparison.head;
+			definitions.push(`$base${index}: String!`, `$head${index}: String!`);
+			return `compare${index}: ref(qualifiedName: $base${index}) { compare(headRef: $head${index}) { behindBy } }`;
+		});
+		if (mergeQueueBranch !== undefined) {
+			variables.mergeQueueBranch = mergeQueueBranch;
+			definitions.push('$mergeQueueBranch: String!');
+			fields.push('mergeQueue(branch: $mergeQueueBranch) { configuration { mergeMethod } }');
+		}
+		const { data } = await query<StackBranchStatusResponse>({
+			query: gql(`query StackBranchStatus(${definitions.join(', ')}) { repository(owner: $owner, name: $name) { ${fields.join(' ')} } }`),
+			variables,
+		}, false, undefined, false);
+		const repository = data?.repository;
+		if (!repository) {
+			throw new Error(`Unable to compare the stack branches in ${remote.owner}/${remote.repositoryName}.`);
+		}
+		return {
+			behindBy: comparisons.map((_, index) => repository[`compare${index}`]?.compare?.behindBy),
+			mergeQueueMethod: parseMergeMethod(repository.mergeQueue?.configuration?.mergeMethod),
+		};
 	}
 
 	async commit(branch: string, message: string, files: Map<string, Uint8Array>): Promise<boolean> {
@@ -816,6 +885,8 @@ export class GitHubRepository extends Disposable {
 				})
 				.filter(item => item !== null) as PullRequestModel[];
 
+			// The REST API does not include the stack that each pull request is in, which is shown as soon as one is opened.
+			void this.loadStackSummaries(pullRequests);
 			Logger.debug(`Fetch all pull requests - done`, this.id);
 			return {
 				items: pullRequests,
@@ -833,6 +904,35 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 		return undefined;
+	}
+
+	/**
+	 * Loads the stack that each pull request is in, without the merge status of the pull requests in it, in one request.
+	 * This is for pull requests that were loaded without it, such as by the REST API. Failures are only logged.
+	 */
+	async loadStackSummaries(pullRequests: readonly PullRequestModel[]): Promise<void> {
+		if (!pullRequests.length) {
+			return;
+		}
+		try {
+			const { query, schema } = await this.ensure();
+			// The stack is not loaded with pull requests from GitHub Enterprise, since not every server supports stacks.
+			if (this.areQueriesLimited) {
+				return;
+			}
+			const { data } = await query<PullRequestStackSummariesResponse>({
+				query: schema.PullRequestStackSummaries,
+				variables: { ids: pullRequests.map(pullRequest => pullRequest.graphNodeId) },
+			}, false, undefined, false);
+			data?.nodes.forEach((summary, index) => {
+				const pullRequest = pullRequests[index];
+				if (summary) {
+					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) });
+				}
+			});
+		} catch (e) {
+			Logger.error(`Loading the stacks of ${pullRequests.length} pull requests failed: ${e}`, this.id);
+		}
 	}
 
 	async getPullRequestNumbers(): Promise<PullRequestNumberData[] | undefined> {

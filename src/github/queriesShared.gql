@@ -794,6 +794,45 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+# A pull request in a stack, without its merge status, which is slower for GitHub to work out.
+fragment StackEntryPullRequest on PullRequest {
+	number
+	title
+	url
+	state
+	isDraft
+	headRefName
+}
+
+# The stack that a pull request is in, without the merge status of the pull requests in it, so that it is shown
+# as soon as the pull request is. GitHub Enterprise does not use this, since not every server supports stacks.
+fragment PullRequestStackSummary on PullRequest {
+	stackEntry {
+		position
+	}
+	stack {
+		size
+		baseRefName
+		entries(first: 100) {
+			nodes {
+				position
+				pullRequest {
+					...StackEntryPullRequest
+				}
+			}
+		}
+	}
+}
+
+# The stack that each pull request is in, for pull requests that were loaded without it, such as by the REST API.
+query PullRequestStackSummaries($ids: [ID!]!) {
+	nodes(ids: $ids) {
+		... on PullRequest {
+			...PullRequestStackSummary
+		}
+	}
+}
+
 query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -807,18 +846,8 @@ query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: S
 					nodes {
 						position
 						pullRequest {
-							number
-							title
-							url
-							state
-							isDraft
+							...StackEntryPullRequest
 							baseRefName
-							baseRepository {
-								owner {
-									login
-								}
-							}
-							headRefName
 							headRepository {
 								owner {
 									login

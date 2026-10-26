@@ -53,8 +53,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
-import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -62,6 +61,15 @@ import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
 import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
+
+/** What the stack section shows, and when it started loading. */
+interface StackData {
+	stack: PullRequestStack | undefined;
+	/** The merge queue of the branch that the pull request merges into: the stack's base, or its own when it is not stacked. */
+	mergeQueueMethod: MergeMethod | undefined;
+	start: number;
+	duration: number;
+}
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -93,6 +101,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _stackPullRequestNumbers = new Set<number>();
 	private _stackRefreshPending = false;
 	private _stackRefreshPromise: Promise<void> | undefined;
+	/** The stack, loaded while the rest of the page is so that the first stack load does not wait for it. */
+	private _stackPrefetch: { updateSequence: number; data: Promise<StackData> } | undefined;
+	/** The stack that was last shown with the merge status of its pull requests, while the pull request is still in it. */
+	private _loadedStack: PullRequestStack | undefined;
 	private _canUpdateStackAccess = false;
 	private _stackUpdateEligibility: StackUpdateEligibility | undefined;
 	private _stackRecommendation: StackRecommendation | undefined;
@@ -311,12 +323,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 
 		this.registerPrListeners();
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
-				void this.refreshPanel();
-			}
-		}));
-
 		this.setVisibilityContext();
 	}
 
@@ -355,8 +361,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private refreshStack(): Promise<void> {
-		if (this.isDisposed || !areStacksEnabled()) {
+	/**
+	 * @param initialLoad Whether this is the first load after the page was set up, which can use the stack that was
+	 * loaded while the page was. Any other refresh needs data from after it was requested.
+	 */
+	private refreshStack(initialLoad = false): Promise<void> {
+		if (!initialLoad) {
+			this._stackPrefetch = undefined;
+		}
+		if (this.isDisposed) {
 			return Promise.resolve();
 		}
 		this._stackRefreshPending = true;
@@ -368,7 +381,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		// Let refreshStack store this promise before it can finish.
 		await Promise.resolve();
 		try {
-			while (this._stackRefreshPending && !this.isDisposed && this._panel.visible && areStacksEnabled()) {
+			while (this._stackRefreshPending && !this.isDisposed && this._panel.visible) {
 				this._stackRefreshPending = false;
 				if (this._item) {
 					await this.loadStack(this._item, this._updateSequence);
@@ -545,6 +558,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._isBranchUpToDateWithBase = undefined;
 		const branchStatusSequence = ++this._branchStatusSequence;
 		const updateStart = performance.now();
+		this._stackPrefetch = undefined;
+		if (this._panel.visible) {
+			// The stack only needs the pull request, so it loads while the rest of the page does, and is shown once the page is.
+			const data = this.fetchStackData(pullRequestModel);
+			// A failure is reported when the stack is shown.
+			data.catch(() => undefined);
+			this._stackPrefetch = { updateSequence, data };
+		}
 
 		try {
 			const dataTimings = new Map<string, number>();
@@ -605,9 +626,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					return { ...issue, url: webviewUri.toString() };
 				}));
 			})();
-			const [baseContext, closingIssues] = await Promise.all([
+			const [baseContext, closingIssues, initialStack] = await Promise.all([
 				this.getInitializeContext(currentUser, pullRequest, timelineEvents ?? [], repositoryAccess, viewerCanEdit, []),
 				closingIssuesPromise,
+				this.getInitialStack(pullRequest),
 			]);
 			const contextDuration = performance.now() - contextStart;
 			this._canUpdateStackAccess = baseContext.hasWritePermission;
@@ -650,8 +672,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
-				stack: undefined,
-				stackLoaded: !areStacksEnabled(),
+				stack: initialStack,
+				stackLoaded: false,
 				stackLoadError: false,
 				stackMergeStatus: undefined,
 				stackRecommendation: undefined,
@@ -757,9 +779,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}, error => {
 				Logger.error(`Failed to update deferred pull request data: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			});
-			if (areStacksEnabled()) {
-				void this.refreshStack();
-			}
+			void this.refreshStack(true);
 			const timelineStart = performance.now();
 			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
 				const events = latestTimelineEvents ?? [];
@@ -789,52 +809,84 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	private async fetchStackData(pullRequestModel: PullRequestModel): Promise<StackData> {
+		const start = performance.now();
+		// The merge queue of the pull request's own base is only needed when it is not stacked, but that is not known yet.
+		const [stack, baseMergeQueueMethod] = await Promise.all([
+			pullRequestModel.getStack(),
+			this._folderRepositoryManager.mergeQueueMethodForBranch(
+				pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+		]);
+		return { stack, mergeQueueMethod: stack ? stack.mergeQueueMethod : baseMergeQueueMethod, start, duration: performance.now() - start };
+	}
+
+	/**
+	 * Shows the stack, then, for a pull request that is not in one, the pull requests it could be stacked with,
+	 * which take longer to find and are not needed to merge it.
+	 */
 	private async loadStack(pullRequestModel: PullRequestModel, updateSequence: number): Promise<void> {
+		const prefetch = this._stackPrefetch;
+		this._stackPrefetch = undefined;
+		const isCurrent = () => !this.isDisposed && updateSequence === this._updateSequence;
+		let stack: PullRequestStack | undefined;
 		try {
-			const stack = await pullRequestModel.getStack();
-			if (this.isDisposed || updateSequence !== this._updateSequence || !areStacksEnabled()) {
+			const data = await (prefetch?.updateSequence === updateSequence ? prefetch.data : this.fetchStackData(pullRequestModel));
+			if (!isCurrent()) {
 				return;
 			}
-			const [mergeQueueMethod, recommendation] = await Promise.all([
-				this._folderRepositoryManager.mergeQueueMethodForBranch(
-					stack?.base ?? pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
-				stack ? undefined : this.findStackRecommendation(pullRequestModel),
-			]);
-			const [linkedStack, linkedRecommendationStack] = await Promise.all([
-				stack && this.linkStackEntries(pullRequestModel, stack),
-				recommendation && this.linkStackEntries(pullRequestModel, recommendation.preview.stack),
-			]);
-			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
-				// The recommendation may have been dismissed while it was being found.
-				const shownRecommendation = this.isStackRecommendationDismissed(pullRequestModel) ? undefined : recommendation;
-				this._stackUpdateEligibility = getStackUpdateEligibility(stack);
-				this._stackLoaded = true;
-				this._stackRecommendation = shownRecommendation;
-				this._stackPullRequestNumbers = new Set([...(stack?.pullRequests ?? []), ...(shownRecommendation?.preview.stack.pullRequests ?? [])]
-					.map(entry => entry.number));
-				await this._postMessage({
-					command: 'pr.update',
-					pullrequest: {
-						stack: linkedStack ?? null,
-						stackLoaded: true,
-						stackLoadError: false,
-						canUpdateStack: this.canUpdateStack(pullRequestModel),
-						mergeQueueMethod: mergeQueueMethod ?? null,
-						stackRecommendation: shownRecommendation ? { ...shownRecommendation.preview, stack: linkedRecommendationStack! } : null,
-					} satisfies Partial<PullRequest>,
-				});
+			stack = data.stack;
+			const linkedStack = stack && await this.linkStackEntries(pullRequestModel, stack);
+			if (!isCurrent()) {
+				return;
 			}
+			this._stackUpdateEligibility = getStackUpdateEligibility(stack);
+			this._stackLoaded = true;
+			this._loadedStack = linkedStack;
+			if (stack) {
+				this._stackRecommendation = undefined;
+			}
+			this._stackPullRequestNumbers = new Set([...(stack?.pullRequests ?? []), ...(this._stackRecommendation?.preview.stack.pullRequests ?? [])]
+				.map(entry => entry.number));
+			await this._postMessage({
+				command: 'pr.update',
+				pullrequest: {
+					stack: linkedStack ?? null,
+					stackLoaded: true,
+					stackLoadError: false,
+					canUpdateStack: this.canUpdateStack(pullRequestModel),
+					mergeQueueMethod: data.mergeQueueMethod ?? null,
+					// A recommendation that is shown stays until the search for a new one finishes.
+					...(stack ? { stackRecommendation: null } : {}),
+				} satisfies Partial<PullRequest>,
+			});
+			Logger.debug(`Stack of #${pullRequestModel.number} shown ${Math.round(performance.now() - data.start)}ms after it started loading (loading: ${Math.round(data.duration)}ms)`, PullRequestOverviewPanel.ID);
 		} catch (error) {
 			Logger.error(`Failed to load pull request stack: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-			if (!this.isDisposed && updateSequence === this._updateSequence && areStacksEnabled()) {
+			if (isCurrent()) {
 				this._stackUpdateEligibility = undefined;
 				this._stackRecommendation = undefined;
+				this._loadedStack = undefined;
 				void this._postMessage({
 					command: 'pr.update',
 					pullrequest: { stackLoadError: true, canUpdateStack: false, stackRecommendation: null } satisfies Partial<PullRequest>,
 				});
 			}
+			return;
 		}
+		if (stack || !isCurrent()) {
+			return;
+		}
+		const recommendation = await this.findStackRecommendation(pullRequestModel);
+		if (!isCurrent()) {
+			return;
+		}
+		// The recommendation may have been dismissed while it was being found.
+		this._stackRecommendation = this.isStackRecommendationDismissed(pullRequestModel) ? undefined : recommendation;
+		this._stackPullRequestNumbers = new Set(this._stackRecommendation?.preview.stack.pullRequests.map(entry => entry.number));
+		await this._postMessage({
+			command: 'pr.update',
+			pullrequest: { stackRecommendation: this._stackRecommendation?.preview ?? null } satisfies Partial<PullRequest>,
+		});
 	}
 
 	private async linkStackEntries(pullRequestModel: PullRequestModel, stack: PullRequestStack): Promise<PullRequestStack> {
@@ -849,17 +901,44 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return { ...stack, pullRequests };
 	}
 
-	/** Finds pull requests that could be stacked with this one. Failing to find them does not stop the stack from loading. */
+	/**
+	 * The stack to show until it is loaded: the one already shown, when the pull request's stack has not changed,
+	 * otherwise the one loaded with the pull request, without the merge status of its pull requests.
+	 * @returns `null` when the pull request is not in a stack, and `undefined` when that is not known yet.
+	 */
+	private async getInitialStack(pullRequestModel: PullRequestModel): Promise<PullRequestStack | null | undefined> {
+		const summary = pullRequestModel.item.stack;
+		if (!summary) {
+			return summary;
+		}
+		const loaded = this._loadedStack;
+		const isUnchanged = loaded && loaded.position === summary.position && loaded.size === summary.size && loaded.base === summary.base
+			&& loaded.pullRequests.length === summary.pullRequests.length
+			&& loaded.pullRequests.every((entry, index) => {
+				const { number, position, title, head, state, isDraft } = summary.pullRequests[index];
+				return entry.number === number && entry.position === position && entry.title === title && entry.head === head
+					&& entry.state === state && entry.isDraft === isDraft;
+			});
+		return isUnchanged ? loaded : this.linkStackEntries(pullRequestModel, summary);
+	}
+
+	/**
+	 * Finds pull requests that could be stacked with this one, with the preview linked to them.
+	 * Failing to find them does not affect the stack.
+	 */
 	private async findStackRecommendation(pullRequestModel: PullRequestModel): Promise<StackRecommendation | undefined> {
 		if (!this._canUpdateStackAccess || this.isStackRecommendationDismissed(pullRequestModel)) {
 			return;
 		}
 		try {
+			const start = performance.now();
 			const recommendation = await getStackRecommendation(pullRequestModel);
-			if (recommendation) {
-				Logger.debug(`Pull request #${pullRequestModel.number} can be stacked as ${recommendation.pullRequestNumbers.map(number => `#${number}`).join(', ')}`, PullRequestOverviewPanel.ID);
+			Logger.debug(`Looked for pull requests to stack with #${pullRequestModel.number} in ${Math.round(performance.now() - start)}ms`, PullRequestOverviewPanel.ID);
+			if (!recommendation) {
+				return;
 			}
-			return recommendation;
+			Logger.debug(`Pull request #${pullRequestModel.number} can be stacked as ${recommendation.pullRequestNumbers.map(number => `#${number}`).join(', ')}`, PullRequestOverviewPanel.ID);
+			return { ...recommendation, preview: { ...recommendation.preview, stack: await this.linkStackEntries(pullRequestModel, recommendation.preview.stack) } };
 		} catch (error) {
 			Logger.error(`Failed to find pull requests to stack with #${pullRequestModel.number}: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			return;
@@ -1322,7 +1401,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async createRecommendedStack(message: IRequestMessage<CreateRecommendedStackArgs>): Promise<void> {
 		const changed = vscode.l10n.t('The pull requests that can be stacked have changed. Review the stack and try again.');
 		try {
-			assertStacksEnabled();
 			const recommendation = this._stackRecommendation;
 			const previewed = message.args?.pullRequests;
 			const recommended = recommendation?.preview.stack.pullRequests.map(entry => entry.number);
@@ -1372,7 +1450,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async unstackAll(message: IRequestMessage<undefined>): Promise<void> {
 		let acquiredLockKey: string | undefined;
 		try {
-			assertStacksEnabled();
 			const access = await this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(this._item);
 			if (!access.hasWritePermission) {
 				throw new Error(vscode.l10n.t('You do not have permission to unstack these pull requests.'));

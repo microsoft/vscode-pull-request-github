@@ -3,11 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { GitHubRepository } from './githubRepository';
-import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack } from './interface';
+import type { GitHubRepository, StackBranchComparison } from './githubRepository';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability, PullRequestStack } from './interface';
 import type { PullRequestModel } from './pullRequestModel';
 import { StackCandidate } from '../../common/views';
-import { assertStacksEnabled } from '../common/settingsUtils';
 import { compareIgnoreCase } from '../common/utils';
 
 function sameRepository(first: PullRequestModel, second: PullRequestModel): boolean {
@@ -57,37 +56,48 @@ export function orderStackablePullRequests(pullRequests: readonly PullRequestMod
 }
 
 /**
- * Marks the open pull requests in a stack that are behind their base.
- * @param branches The `owner:branch` base and head of each open pull request, by number.
+ * Marks the open pull requests in a stack that are behind their base, checking all of them in one request that can
+ * also look up the merge queue of a branch.
+ * @param branches The base branch and the `owner:branch` head of each open pull request, by number.
  * @param startsAtBottom Whether the first open pull request is the bottom of the stack.
- * @returns Whether updating the stack would change any of the pull requests.
+ * @param mergeQueueBranch A branch to look up the merge queue of.
+ * @returns Whether updating the stack would change any of the pull requests, and the merge method of the merge queue.
  */
-export async function markOutdatedStackEntries(repository: GitHubRepository, entries: PullRequestStack['pullRequests'],
-	branches: ReadonlyMap<number, { base: string; head: string }>, startsAtBottom: boolean): Promise<boolean> {
+export async function checkStackBranches(repository: GitHubRepository, entries: PullRequestStack['pullRequests'],
+	branches: ReadonlyMap<number, StackBranchComparison>, startsAtBottom: boolean, mergeQueueBranch?: string,
+): Promise<{ needsUpdate: boolean; mergeQueueMethod?: MergeMethod }> {
 	// GitHub merges a stack onto its base, so being behind that base does not block merging when the lowest open
 	// pull request has no conflicts. Updating the stack is still offered. Only staleness inside the stack blocks.
 	const bottom = startsAtBottom ? entries.find(entry => entry.state === GithubItemStateEnum.Open) : undefined;
 	if (bottom?.mergeable === PullRequestMergeability.Behind) {
 		bottom.mergeable = PullRequestMergeability.Mergeable;
 	}
-	const outdated = await Promise.all(entries.filter(entry => entry.state === GithubItemStateEnum.Open).map(async entry => {
-		// A conflict means the base has changes the head does not, so updating the stack is how it is resolved.
-		if (entry.mergeable === PullRequestMergeability.Conflict) {
-			return true;
+	const open = entries.filter(entry => entry.state === GithubItemStateEnum.Open);
+	// A conflict means the base has changes the head does not, so updating the stack is how it is resolved.
+	const compared = open.filter(entry => entry.mergeable !== PullRequestMergeability.Conflict);
+	const comparisons = compared.map(entry => {
+		const comparison = branches.get(entry.number);
+		if (!comparison) {
+			throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
 		}
-		const refs = branches.get(entry.number);
-		const comparison = refs && await repository.compareCommits(refs.base, refs.head);
-		if (comparison?.behind_by === undefined) {
+		return comparison;
+	});
+	const { behindBy, mergeQueueMethod } = await repository.getStackBranchStatus(comparisons, mergeQueueBranch);
+	compared.forEach((entry, index) => {
+		const behind = behindBy[index];
+		if (behind === undefined) {
 			throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
 		}
 		// Being behind is shown as having no conflicts, so only a pull request GitHub reports as mergeable is marked
 		// behind; conflicts that are not checked yet and unmet merge requirements stay visible.
-		if (comparison.behind_by > 0 && entry !== bottom && entry.mergeable === PullRequestMergeability.Mergeable) {
+		if (behind > 0 && entry !== bottom && entry.mergeable === PullRequestMergeability.Mergeable) {
 			entry.mergeable = PullRequestMergeability.Behind;
 		}
-		return comparison.behind_by > 0;
-	}));
-	return outdated.some(Boolean);
+	});
+	return {
+		needsUpdate: compared.length < open.length || behindBy.some(behind => (behind ?? 0) > 0),
+		mergeQueueMethod,
+	};
 }
 
 /** Gets the stack that the bottom of the ordered pull requests would start, or extend if it is the top of one. */
@@ -101,8 +111,6 @@ export async function getStackCandidateForPullRequests(ordered: readonly PullReq
 }
 
 export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[], confirmedCandidate: StackCandidate): Promise<number[]> {
-	assertStacksEnabled();
-
 	const initial = orderStackablePullRequests(pullRequests);
 	if (!initial) {
 		throw new Error('Select two or more open pull requests whose head and base branches form a chain in the same repository.');
