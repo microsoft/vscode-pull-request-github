@@ -14,8 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { EXPERIMENTAL_STACKS, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
-import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
+import { FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -131,7 +130,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
-			canSelectMany: areStacksEnabled(),
+			canSelectMany: true,
 			manageCheckboxStateManually: true
 		}));
 		this._loginView = this._register(vscode.window.createTreeView('github:login', {
@@ -147,11 +146,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		void commands.setContext(contexts.CAN_ADD_TO_STACK, false);
 		this._register(this._view.onDidChangeSelection(() => this.updateCanAddToStack()));
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
-				this.updateCanAddToStack();
-			}
-		}));
 		this._register({ dispose: () => { void commands.setContext(contexts.CAN_ADD_TO_STACK, false); } });
 		this._register(vscode.commands.registerCommand('pr.addToStack',
 			(clicked: PRNode, selected: TreeNode[]) => this.addSelectedPullRequestsToStack(clicked, selected)));
@@ -245,7 +239,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
 		try {
-			assertStacksEnabled();
 			const selection = selected ?? this._view.selection;
 			if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
 				|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
@@ -277,7 +270,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private updateCanAddToStack(): void {
 		const selection = this._view.selection;
 		const selectedPRs = selection.filter((node): node is PRNode => node instanceof PRNode);
-		const stackable = areStacksEnabled() && selectedPRs.length === selection.length
+		const stackable = selectedPRs.length === selection.length
 			&& !!orderStackablePullRequests(selectedPRs.map(node => node.pullRequestModel));
 		void commands.setContext(contexts.CAN_ADD_TO_STACK, stackable);
 	}

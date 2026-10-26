@@ -28,6 +28,8 @@ export interface PullRequestStack {
 	size: number;
 	base: string;
 	needsUpdate?: boolean;
+	/** The merge method of the merge queue for the stack's base branch, if it has one. */
+	mergeQueueMethod?: MergeMethod;
 	pullRequests: {
 		position: number;
 		number: number;
@@ -345,6 +347,11 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	closingIssues?: IssueReference[];
+	/**
+	 * The stack the pull request is in, without the merge status of the pull requests in it, which `getStack` loads.
+	 * `null` when it is not in a stack, and `undefined` when that was not loaded with the pull request.
+	 */
+	stack?: PullRequestStack | null;
 	hasComments?: boolean;
 	additions?: number;
 	deletions?: number;

@@ -15,7 +15,6 @@ import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { PausableProgressNotification } from '../common/progress';
 import { parseRemote } from '../common/remote';
-import { areStacksEnabled } from '../common/settingsUtils';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 
@@ -93,7 +92,7 @@ export function getStackUpdateEligibility(stack: PullRequestStack | undefined): 
 
 export function canUpdateStack(eligibility: StackUpdateEligibility | undefined, checkedOutNumber: number | undefined,
 	hasWritePermission: boolean, hasStackRepository: () => boolean): boolean {
-	return areStacksEnabled() && hasWritePermission && !!eligibility && (!eligibility.requiresLocalRebase
+	return hasWritePermission && !!eligibility && (!eligibility.requiresLocalRebase
 		|| checkedOutNumber !== undefined && eligibility.pullRequests.has(checkedOutNumber) && hasStackRepository());
 }
 
@@ -126,9 +125,6 @@ export async function updatePullRequestStack(ctx: StackUpdateContext, message: I
 	let lockKey: string | undefined;
 	let stackNumbers: number[] = [];
 	try {
-		if (!areStacksEnabled()) {
-			throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-		}
 		const access = await ctx.folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(item);
 		if (!access.hasWritePermission) {
 			throw new Error(vscode.l10n.t('You do not have permission to update this stack.'));
@@ -262,9 +258,6 @@ async function rebaseStackLocally(ctx: StackUpdateContext, stack: PullRequestSta
 		}
 		return { number: entry.number, base, head: entry.head, sha: pr.head.sha };
 	}));
-	if (!areStacksEnabled()) {
-		throw new Error(vscode.l10n.t('Pull request stack features are disabled.'));
-	}
 	return updateStackBranches(repository,
 		path => manager.openWorktreeRepository(vscode.Uri.file(path)),
 		remote.name, branches, activeNumber, step => progress.report(step),

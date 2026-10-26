@@ -87,7 +87,10 @@ export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHT
 export type OverviewItemPreview = IssuePreview | PullRequestPreview;
 
 export interface PullRequest extends Issue {
-	/** Use null to clear a previous value in serialized webview updates. */
+	/**
+	 * `null` when the pull request is not in a stack, and `undefined` when that is not known yet.
+	 * Until `stackLoaded`, the merge status of the pull requests in it is not known.
+	 */
 	stack?: PullRequestStack | null;
 	canUpdateStack?: boolean;
 	stackLoaded?: boolean;

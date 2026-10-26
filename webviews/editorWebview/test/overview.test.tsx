@@ -1293,6 +1293,38 @@ describe('Overview', function () {
 		assert.strictEqual(out.container.querySelector('.automerge-section'), null);
 	});
 
+	it('offers merging and updating a pull request that was loaded without a stack, before its stack is checked', function () {
+		const pr = { ...new PullRequestBuilder().build(), stack: null, stackLoaded: false };
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		assert.strictEqual(out.queryByText('Checking pull request stack membership...'), null);
+		assert(out.container.querySelector('.automerge-section'));
+		out.unmount();
+
+		const behind = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Behind).build(), stack: null, stackLoaded: false };
+		const updating = render(<PullRequestContext.Provider value={new PRContext(behind)}><Overview {...behind} /></PullRequestContext.Provider>);
+		assert(updating.queryByText(/Update with merge commit/i));
+	});
+
+	it('shows a stack loaded with the pull request while the merge status of its pull requests is checked', function () {
+		const unknown = PullRequestMergeability.Unknown;
+		const pr = new PullRequestBuilder().number(794).stackLoaded(false).stack({
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: unknown },
+				{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: unknown },
+			],
+		}).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		assert.strictEqual(out.container.querySelector('.stack-badge')?.textContent, '2/2');
+		assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')),
+			['Mergeability is being checked', 'Already merged']);
+		assert(out.getByText('Checking whether the stack can be merged...'));
+		assert.strictEqual(out.queryByText('Checking pull request stack membership...'), null);
+		assert.strictEqual(out.container.querySelector('.stack-merge'), null);
+		assert.strictEqual(out.container.querySelector('.automerge-section'), null);
+	});
+
 	it('shows view changes in both headers', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);

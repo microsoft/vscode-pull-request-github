@@ -18,8 +18,7 @@ import { IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, EXPERIMENTAL_STACKS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
-import { areStacksEnabled } from '../common/settingsUtils';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
@@ -40,11 +39,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		private _item: PullRequestModel,
 	) {
 		super(extensionUri);
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
-				void this.updatePullRequest(this._item);
-			}
-		}));
 
 		this._register(vscode.commands.registerCommand('pr.readyForReview', async () => {
 			return this.readyForReviewCommand();
@@ -211,31 +205,32 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private async refreshStack(): Promise<void> {
 		const updateSequence = ++this._stackUpdateSequence;
 		const pullRequest = this._item;
-		if (this.isDisposed || !this._view || !areStacksEnabled()) {
+		if (this.isDisposed || !this._view) {
 			return;
 		}
 		try {
-			const stack = await pullRequest.getStack();
-			if (this.isDisposed || updateSequence !== this._stackUpdateSequence || !areStacksEnabled()) {
+			// Without a stack, the pull request merges into its own base, so that branch's merge queue is looked up at the same time.
+			const [stack, baseMergeQueueMethod] = await Promise.all([
+				pullRequest.getStack(),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequest.base.ref, pullRequest.remote.owner, pullRequest.remote.repositoryName),
+			]);
+			if (this.isDisposed || updateSequence !== this._stackUpdateSequence) {
 				return;
 			}
-			const mergeQueueMethod = await this._folderRepositoryManager.mergeQueueMethodForBranch(
-				stack?.base ?? pullRequest.base.ref, pullRequest.remote.owner, pullRequest.remote.repositoryName);
-			if (!this.isDisposed && updateSequence === this._stackUpdateSequence && areStacksEnabled()) {
-				await this._postMessage({
-					command: 'pr.update',
-					pullrequest: {
-						stack: stack ?? null,
-						stackLoaded: true,
-						stackLoadError: false,
-						canUpdateStack: this.canUpdateStack(stack),
-						mergeQueueMethod: mergeQueueMethod ?? null,
-					} satisfies Partial<PullRequest>,
-				});
-			}
+			const mergeQueueMethod = stack ? stack.mergeQueueMethod : baseMergeQueueMethod;
+			await this._postMessage({
+				command: 'pr.update',
+				pullrequest: {
+					stack: stack ?? null,
+					stackLoaded: true,
+					stackLoadError: false,
+					canUpdateStack: this.canUpdateStack(stack),
+					mergeQueueMethod: mergeQueueMethod ?? null,
+				} satisfies Partial<PullRequest>,
+			});
 		} catch (error) {
 			Logger.error(`Failed to load active pull request stack: ${formatError(error)}`, PullRequestViewProvider.name);
-			if (!this.isDisposed && updateSequence === this._stackUpdateSequence && areStacksEnabled()) {
+			if (!this.isDisposed && updateSequence === this._stackUpdateSequence) {
 				void this._postMessage({ command: 'pr.update', pullrequest: { stackLoadError: true, canUpdateStack: false } satisfies Partial<PullRequest> });
 			}
 		}
@@ -376,8 +371,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				mergeMethodsAvailability,
 				defaultMergeMethod,
 				mergeQueueMethod,
-				stack: undefined,
-				stackLoaded: !areStacksEnabled(),
+				stack: pullRequest.item.stack,
+				stackLoaded: false,
 				stackLoadError: false,
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch,

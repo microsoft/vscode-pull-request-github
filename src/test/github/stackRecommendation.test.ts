@@ -27,13 +27,16 @@ describe('getStackRecommendation', function () {
 	let repository: MockGitHubRepository;
 	let remote: GitHubRemote;
 	let telemetry: MockTelemetry;
-	let compare: SinonStub;
+	let branchStatus: SinonStub<Parameters<GitHubRepository['getStackBranchStatus']>, ReturnType<GitHubRepository['getStackBranchStatus']>>;
+	/** How many commits each `base...head` comparison is behind by, when it is behind. */
+	let behindBy: Map<string, number>;
 	/** The open pull requests created by `pullRequest`, which GitHub would also find. */
 	let opened: StackablePullRequest[];
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		opened = [];
+		behindBy = new Map();
 		MockCommandRegistry.install(sinon);
 		context = new MockExtensionContext();
 		telemetry = new MockTelemetry();
@@ -41,8 +44,14 @@ describe('getStackRecommendation', function () {
 		const url = 'https://github.com/owner/repo';
 		remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 		repository = new MockGitHubRepository(remote, credentials, telemetry, sinon);
-		compare = sinon.stub(repository, 'compareCommits').resolves({ behind_by: 0 } as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+		branchStatus = sinon.stub(repository, 'getStackBranchStatus').callsFake(async comparisons =>
+			({ behindBy: comparisons.map(({ base, head }) => behindBy.get(`${base}...${head}`) ?? 0) }));
 	});
+
+	/** The branches that were compared, as `base...head`. */
+	function comparedBranches(): string[] {
+		return branchStatus.args.flatMap(([comparisons]) => comparisons.map(({ base, head }) => `${base}...${head}`)).sort();
+	}
 
 	afterEach(function () {
 		repository.dispose();
@@ -153,19 +162,19 @@ describe('getStackRecommendation', function () {
 
 	it('shows which pull requests are behind their base, like the stack section', async function () {
 		openPullRequests([stackable(3, 'D2', 'D3')]);
-		compare.withArgs('owner:D2', 'owner:D3').resolves({ behind_by: 1 });
+		behindBy.set('D2...owner:D3', 1);
 
 		const recommendation = await getStackRecommendation(pullRequest(2, 'D1', 'D2'));
 
 		assert.deepStrictEqual(recommendation?.preview.stack.pullRequests.map(pr => pr.mergeable),
 			[PullRequestMergeability.Mergeable, PullRequestMergeability.Behind]);
 		assert.strictEqual(recommendation?.preview.stack.needsUpdate, true);
-		assert.deepStrictEqual(compare.args.map(args => args.join('...')).sort(), ['owner:D1...owner:D2', 'owner:D2...owner:D3']);
+		assert.deepStrictEqual(comparedBranches(), ['D1...owner:D2', 'D2...owner:D3']);
 	});
 
 	it('does not mark the bottom of a new stack as behind its base, like the stack section', async function () {
 		openPullRequests([stackable(3, 'D2', 'D3')]);
-		compare.withArgs('owner:D1', 'owner:D2').resolves({ behind_by: 2 });
+		behindBy.set('D1...owner:D2', 2);
 
 		const recommendation = await getStackRecommendation(pullRequest(2, 'D1', 'D2'));
 
@@ -180,7 +189,7 @@ describe('getStackRecommendation', function () {
 			position: 2, size: 2, base: 'main', needsUpdate: false,
 			pullRequests: [entry(1, 4, 'D4'), entry(2, 5, 'D5')],
 		});
-		compare.withArgs('owner:D5', 'owner:D6').resolves({ behind_by: 1 });
+		behindBy.set('D5...owner:D6', 1);
 
 		const recommendation = await getStackRecommendation(pullRequest(6, 'D5', 'D6'));
 
@@ -214,7 +223,7 @@ describe('getStackRecommendation', function () {
 			pullRequestNumbers: [5, 6, 7],
 		});
 		assert.strictEqual(getPullRequest.firstCall.args[0], 5);
-		assert.deepStrictEqual(compare.args.map(args => args[1]).sort(), ['owner:D6', 'owner:D7'], 'the stack is not compared again');
+		assert.deepStrictEqual(comparedBranches(), ['D5...owner:D6', 'D6...owner:D7'], 'the stack is not compared again');
 	});
 
 	it('does not recommend extending a stack that changed since it was found', async function () {

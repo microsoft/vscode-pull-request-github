@@ -17,14 +17,15 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../github/interface';
-import { StackablePullRequestNode } from '../../github/graphql';
+import { PullRequest as GraphQLPullRequest, PullRequestResponse, StackablePullRequestNode, StackBranchStatusResponse } from '../../github/graphql';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
+import { PullRequestBuilder as RestPullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import Logger from '../../common/logger';
 import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { DocumentNode, visit } from 'graphql';
-import { parseAccount } from '../../github/utils';
+import { DocumentNode, print, visit } from 'graphql';
+import { convertRESTPullRequestToRawPullRequest, parseAccount } from '../../github/utils';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -44,6 +45,14 @@ describe('GitHubRepository', function () {
 	afterEach(function () {
 		sinon.restore();
 	});
+
+	/** A pull request in a stack, as GitHub returns it with the pull request that is in the stack. */
+	function stackEntry(position: number, number: number, state = GithubItemStateEnum.Open, isDraft = false) {
+		return {
+			position,
+			pullRequest: { number, title: `Change ${number}`, url: `https://github.com/owner/repo/pull/${number}`, state, isDraft, headRefName: `D${position}` },
+		};
+	}
 
 	describe('query', function () {
 		it('does not switch schemas for an unsupported optional stack query', async function () {
@@ -269,6 +278,157 @@ describe('GitHubRepository', function () {
 
 			assert.strictEqual(await repo.getPullRequest(1347, 'test', false, false, 'overview'), undefined);
 			assert.strictEqual(logError.firstCall.args[0], 'Unable to fetch PR: Error: PR unavailable');
+		});
+
+		/** A pull request response from GitHub.com, which includes the stack that the pull request is in. */
+		function withStack(stack: GraphQLPullRequest['stack'], stackEntry: GraphQLPullRequest['stackEntry'] = stack ? { position: 2 } : null): PullRequestResponse {
+			const response = new GraphQLPullRequestBuilder().build();
+			return { ...response, repository: { pullRequest: { ...response.repository!.pullRequest, stackEntry, stack } } };
+		}
+
+		it('loads the stack that the pull request is in with it, without the merge status of its pull requests', async function () {
+			sinon.stub(repo, 'query').resolves({
+				data: withStack({
+					size: 3, baseRefName: 'main',
+					entries: { nodes: [stackEntry(3, 1348, GithubItemStateEnum.Open, true), stackEntry(1, 1346, GithubItemStateEnum.Merged), stackEntry(2, 1347)] },
+				}),
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			const expected = {
+				position: 2, size: 3, base: 'main',
+				pullRequests: [
+					{ position: 1, number: 1346, title: 'Change 1346', url: 'https://github.com/owner/repo/pull/1346', head: 'D1', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+					{ position: 2, number: 1347, title: 'Change 1347', url: 'https://github.com/owner/repo/pull/1347', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+					{ position: 3, number: 1348, title: 'Change 1348', url: 'https://github.com/owner/repo/pull/1348', head: 'D3', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Unknown },
+				],
+			};
+
+			const pr = await repo.getPullRequest(1347, 'test', false, false, 'overview');
+
+			assert.deepStrictEqual(pr?.item.stack, expected);
+			// Pull request lists from the REST API do not include the stack.
+			repo.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(new RestPullRequestBuilder().number(1347).build(), repo));
+			assert.deepStrictEqual(pr.item.stack, expected, 'the stack is kept when the pull request is updated without it');
+		});
+
+		it('tells a pull request that is not in a stack from one whose stack was not loaded', async function () {
+			const query = sinon.stub(repo, 'query').resolves({ data: withStack(null), loading: false, stale: false, networkStatus: NetworkStatus.ready });
+			assert.strictEqual((await repo.getPullRequest(1347, 'test', false, false, 'overview'))?.item.stack, null);
+
+			query.resolves({ data: new GraphQLPullRequestBuilder().repository(r => r.pullRequest(pr => pr.number(1348))).build(), loading: false, stale: false, networkStatus: NetworkStatus.ready });
+			assert.strictEqual((await repo.getPullRequest(1348, 'test', false, false, 'overview'))?.item.stack, undefined);
+		});
+
+		it('only loads the stack with the pull request from GitHub.com, since not every Enterprise server supports stacks', function () {
+			const spreads = (document: DocumentNode) => {
+				const names: string[] = [];
+				visit(document, { FragmentSpread(spread) { names.push(spread.name.value); } });
+				return names;
+			};
+			// Each query file includes the shared fragments that its queries use.
+			const schemas: [string, DocumentNode, boolean][] = [
+				['default', require('../../github/queries.gql').PullRequest, true],
+				['extra', require('../../github/queriesExtra.gql').PullRequest, true],
+				['limited', require('../../github/queriesLimited.gql').PullRequest, false],
+			];
+			for (const [name, query, includesStack] of schemas) {
+				assert.strictEqual(spreads(query).includes('PullRequestStackSummary'), includesStack, name);
+			}
+		});
+	});
+
+	describe('stacks of pull requests listed by the REST API', function () {
+		let repo: MockGitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		});
+
+		afterEach(function () {
+			repo.dispose();
+		});
+
+		function restPullRequest(number: number) {
+			const pullRequest = new RestPullRequestBuilder().number(number).build();
+			pullRequest.node_id = `PR_${number}`;
+			return pullRequest;
+		}
+
+		function listedModels(...numbers: number[]) {
+			return numbers.map(number => repo.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(restPullRequest(number), repo)));
+		}
+
+		it('loads them for each page of all open pull requests in one request, without delaying the page', async function () {
+			repo.queryProvider.expectOctokitRequest(['pulls', 'list'], [{ owner: 'owner', repo: 'repo', per_page: 20, page: 1 }],
+				[restPullRequest(1347), restPullRequest(1348)]);
+			let respond!: () => void;
+			const query = sinon.stub(repo, 'query');
+			const requested = new Promise<void>(started => {
+				query.callsFake(() => new Promise(resolve => {
+					respond = () => resolve({
+						data: {
+							nodes: [
+								{ stackEntry: { position: 1 }, stack: { size: 2, baseRefName: 'main', entries: { nodes: [stackEntry(1, 1347), stackEntry(2, 1349)] } } },
+								{ stackEntry: null, stack: null },
+							],
+						},
+						loading: false, stale: false, networkStatus: NetworkStatus.ready,
+					});
+					started();
+				}));
+			});
+
+			const page = await repo.getAllPullRequests(1);
+			await requested;
+
+			assert.deepStrictEqual(page?.items.map(pr => pr.item.stack), [undefined, undefined], 'the page does not wait for the stacks');
+			assert(query.calledOnce);
+			assert.strictEqual(query.firstCall.args[0].query, repo.schema.PullRequestStackSummaries);
+			assert.deepStrictEqual(query.firstCall.args[0].variables, { ids: ['PR_1347', 'PR_1348'] });
+			respond();
+			await new Promise(resolve => setImmediate(resolve));
+			assert.deepStrictEqual(page.items.map(pr => pr.item.stack && pr.item.stack.pullRequests.map(entry => entry.number)), [[1347, 1349], null]);
+		});
+
+		it('does not look them up on GitHub Enterprise', async function () {
+			const pullRequests = listedModels(1347);
+			const query = sinon.stub(repo, 'query');
+			sinon.stub(repo, 'areQueriesLimited').get(() => true);
+
+			await repo.loadStackSummaries(pullRequests);
+
+			assert(query.notCalled);
+		});
+
+		it('keeps the pull requests as they are when the stacks cannot be loaded', async function () {
+			const pullRequests = listedModels(1347);
+			sinon.stub(repo, 'query').rejects(new Error('GraphQL unavailable'));
+
+			await repo.loadStackSummaries(pullRequests);
+
+			assert.strictEqual(pullRequests[0].item.stack, undefined);
+		});
+
+		it('does not replace the stack of a pull request that was loaded again while the stacks were looked up', async function () {
+			const [pullRequest] = listedModels(1347);
+			let respond!: () => void;
+			const requested = new Promise<void>(started => {
+				sinon.stub(repo, 'query').callsFake(() => new Promise(resolve => {
+					respond = () => resolve({ data: { nodes: [{ stackEntry: null, stack: null }] }, loading: false, stale: false, networkStatus: NetworkStatus.ready });
+					started();
+				}));
+			});
+
+			const loading = repo.loadStackSummaries([pullRequest]);
+			await requested;
+			const newer = { position: 1, size: 1, base: 'main', pullRequests: [] };
+			pullRequest.update({ ...pullRequest.item, stack: newer });
+			respond();
+			await loading;
+
+			assert.strictEqual(pullRequest.item.stack, newer);
 		});
 	});
 
@@ -609,6 +769,110 @@ describe('GitHubRepository', function () {
 			sinon.stub(repo, 'query').rejects(error);
 
 			await assert.rejects(repo.getStackablePullRequests('D1', 'D2'), candidate => candidate === error);
+		});
+	});
+
+	describe('getStackBranchStatus', function () {
+		let repo: MockGitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		});
+
+		afterEach(function () {
+			repo.dispose();
+		});
+
+		function response(repository: StackBranchStatusResponse['repository']) {
+			return { data: { repository }, loading: false, stale: false, networkStatus: NetworkStatus.ready };
+		}
+
+		it('compares every branch and looks up the merge queue in one request', async function () {
+			const query = sinon.stub(repo, 'query').resolves(response({
+				compare0: { compare: { behindBy: 2 } },
+				compare1: null,
+				mergeQueue: { configuration: { mergeMethod: 'SQUASH' } },
+			}));
+			const branch = 'feature/"quoted") { viewer { login } }';
+
+			const status = await repo.getStackBranchStatus([
+				{ base: 'main', head: `owner:${branch}` },
+				{ base: branch, head: 'fork:D2' },
+			], 'main');
+
+			assert.deepStrictEqual(status, { behindBy: [2, undefined], mergeQueueMethod: 'squash' });
+			assert(query.calledOnce);
+			const { query: document, variables } = query.firstCall.args[0];
+			assert.deepStrictEqual(variables, {
+				owner: 'owner', name: 'repo',
+				base0: 'refs/heads/main', head0: `owner:${branch}`,
+				base1: `refs/heads/${branch}`, head1: 'fork:D2',
+				mergeQueueBranch: 'main',
+			});
+			assert(!print(document).includes('quoted'), 'branch names are only passed as variables');
+		});
+
+		it('does not make a request when there is nothing to look up', async function () {
+			const query = sinon.stub(repo, 'query');
+
+			assert.deepStrictEqual(await repo.getStackBranchStatus([]), { behindBy: [] });
+			assert(query.notCalled);
+		});
+
+		it('fails when the repository cannot be found', async function () {
+			sinon.stub(repo, 'query').resolves(response(null));
+
+			await assert.rejects(repo.getStackBranchStatus([{ base: 'main', head: 'owner:D1' }]), /Unable to compare the stack branches in owner\/repo/);
+		});
+	});
+
+	describe('mergeQueueMethodForBranch', function () {
+		let repo: MockGitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		});
+
+		afterEach(function () {
+			repo.dispose();
+		});
+
+		function response(mergeMethod?: 'MERGE' | 'SQUASH' | 'REBASE') {
+			return {
+				data: { repository: { mergeQueue: mergeMethod ? { configuration: { mergeMethod } } : null } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			};
+		}
+
+		it('shares a lookup that is in progress for the same branch', async function () {
+			const query = sinon.stub(repo, 'query');
+			let respond!: () => void;
+			const requested = new Promise<void>(started => {
+				query.callsFake(() => new Promise(resolve => {
+					respond = () => resolve(response('MERGE'));
+					started();
+				}));
+			});
+
+			const lookups = [repo.mergeQueueMethodForBranch('main'), repo.mergeQueueMethodForBranch('main')];
+			await requested;
+			respond();
+
+			assert.deepStrictEqual(await Promise.all(lookups), ['merge', 'merge']);
+			assert(query.calledOnce);
+		});
+
+		it('looks up a branch without a merge queue again once the lookup finishes', async function () {
+			const query = sinon.stub(repo, 'query').resolves(response());
+
+			assert.strictEqual(await repo.mergeQueueMethodForBranch('main'), undefined);
+			query.resolves(response('SQUASH'));
+			assert.strictEqual(await repo.mergeQueueMethodForBranch('main'), 'squash');
+			assert(query.calledTwice);
 		});
 	});
 
