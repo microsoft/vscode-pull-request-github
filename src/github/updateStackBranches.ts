@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { Repository } from '../api/api';
@@ -16,7 +17,17 @@ const STACK_WORKTREE_NAME = /^vscode-pr-stack-(?<pid>\d+)-[0-9a-f-]+$/i;
 const activeStackWorktrees = new Set<string>();
 
 function normalizeWorktreePath(worktreePath: string): string {
-	const resolved = path.resolve(worktreePath);
+	let resolved = path.resolve(worktreePath);
+	try {
+		resolved = realpathSync.native(resolved);
+	} catch {
+		// An active worktree is registered before it exists. Its parent can still be canonicalized.
+		try {
+			resolved = path.join(realpathSync.native(path.dirname(resolved)), path.basename(resolved));
+		} catch {
+			// Retain lexical matching when the path or its parent cannot be resolved.
+		}
+	}
 	return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
@@ -297,7 +308,8 @@ export async function updateStackBranches(
 	let failure: Error | undefined;
 	// Registered before creation so a concurrent update in this process never treats it as orphaned.
 	const requestedWorktreePath = path.join(tmpdir(), `${STACK_WORKTREE_PREFIX}${process.pid}-${generateUuid()}`);
-	activeStackWorktrees.add(normalizeWorktreePath(requestedWorktreePath));
+	const requestedWorktreeKey = normalizeWorktreePath(requestedWorktreePath);
+	activeStackWorktrees.add(requestedWorktreeKey);
 	try {
 		worktreePath = await repository.createWorktree({
 			path: requestedWorktreePath,
@@ -392,7 +404,7 @@ export async function updateStackBranches(
 		if (worktreePath) {
 			await removeTemporaryWorktree(repository, worktreePath);
 		}
-		activeStackWorktrees.delete(normalizeWorktreePath(requestedWorktreePath));
+		activeStackWorktrees.delete(requestedWorktreeKey);
 	}
 	if (failure) {
 		throw failure;
