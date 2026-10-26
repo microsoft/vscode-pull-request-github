@@ -496,16 +496,17 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 	const open = pr.stack.pullRequests.filter(entry => entry.state === GithubItemStateEnum.Open);
 	const count = 1 + open.filter(entry => entry.position < pr.stack!.position).length;
 	const downstack = count - 1;
+	const stackName = count < open.length ? 'partial stack' : 'stack';
 	const downstackDescription = `${downstack} open pull request${downstack === 1 ? '' : 's'} below it`;
 	// Merging the pull request at the top of the stack also merges every open pull request below it.
 	const top = getStackMergeAllTarget(pr.stack, pr.number);
 	const actions = {
 		stack: {
-			label: queue ? 'Add stack to merge queue' : `Merge stack (${count} pull request${count === 1 ? '' : 's'})`,
+			label: queue ? `Add ${stackName} to merge queue` : `Merge ${stackName} (${count} pull request${count === 1 ? '' : 's'})`,
 			prompt: queue
 				? downstack ? `Add this pull request and ${downstackDescription} to the merge queue?` : 'Add this pull request to the merge queue?'
 				: downstack ? `Merge this pull request and ${downstackDescription}?` : 'Merge this pull request?',
-			progress: queue ? 'Adding stack to merge queue...' : 'Merging stack...',
+			progress: queue ? `Adding ${stackName} to merge queue...` : `Merging ${stackName}...`,
 			upTo: undefined,
 		},
 		all: top && {
