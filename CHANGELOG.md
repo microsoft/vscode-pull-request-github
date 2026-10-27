@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.174.0
+
+### Changes
+
+- The "Update stack" action now uses the GitHub API to update a stacked pull request when possible, so you no longer need to have a pull request from the stack checked out.
+- The pull request overview shows a banner offering to create a stack when the pull request's branches line up with other open pull requests that aren't stacked yet.
+![PR can be stacked](./documentation/changelog/0.174.0/pull_can_stack_banner.png)
+- Polished the "Unstack", "Hide", and "Update stack" buttons in the pull request overview.
+- The changes editor opened from the pull request overview now uses the same title as the overview tab.
+- Hide redundant tools and skills in the Agents window.
+
+### Fixes
+
+- Plugin no longer gives access to GitHub issues while using personal account. https://github.com/microsoft/vscode-pull-request-github/issues/9064
+- Re-requesting a review from Copilot doesn't work. https://github.com/microsoft/vscode-pull-request-github/pull/9089
+- Checkout button doesn't work in a restored pull request overview. https://github.com/microsoft/vscode-pull-request-github/pull/9088
+- The "Update stack" button doesn't show in the pull request overview until it's refreshed. https://github.com/microsoft/vscode-pull-request-github/pull/9086
+- Comment button isn't disabled while an attestation commit is being added during approval. https://github.com/microsoft/vscode-pull-request-github/pull/9078
+
 ## 0.172.0
 
 ### Changes
