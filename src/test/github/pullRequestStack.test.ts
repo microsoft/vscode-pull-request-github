@@ -206,6 +206,24 @@ describe('Pull request stack selection', function () {
 		assert(disableMiddle.notCalled);
 	});
 
+	it('stops disabling auto-merge and does not stack when disabling it fails', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => number === bottom.number ? bottom : top);
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		bottom.item.autoMerge = true;
+		top.item.autoMerge = true;
+		sinon.stub(bottom, 'disableAutoMerge').rejects(new Error('Disable auto-merge failed.'));
+		const disableTop = sinon.stub(top, 'disableAutoMerge').resolves();
+		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+
+		await assert.rejects(addPullRequestsToStack([bottom, top], candidate, [1, 2]), /Disable auto-merge failed/);
+		assert(disableTop.notCalled);
+		assert(add.notCalled);
+	});
+
 	it('rejects a pull request whose auto-merge was enabled after confirmation', async function () {
 		const bottom = pullRequest(1, 'main', 'D1');
 		const top = pullRequest(2, 'D1', 'D2');

@@ -119,7 +119,7 @@ export function refreshPullRequestsForStack(repository: GitHubRepository, number
 	return Promise.all(numbers.map(async number => {
 		const current = await repository.getPullRequest(number, 'refreshPullRequestsForStack');
 		if (!current) {
-			throw new Error(`Unable to refresh pull request #${number} before creating a stack.`);
+			throw new Error(vscode.l10n.t('Unable to refresh pull request #{0} before creating a stack.', number));
 		}
 		return current;
 	}));
@@ -182,9 +182,12 @@ export async function addPullRequestsToStack(pullRequests: readonly PullRequestM
 	const autoMerge = ordered.filter(pr => pr.autoMerge);
 	const unconfirmed = autoMerge.find(pr => !confirmedAutoMerge.includes(pr.number));
 	if (unconfirmed) {
-		throw new Error(`Auto-merge was enabled on pull request #${unconfirmed.number}. Refresh the view and try again.`);
+		throw new Error(vscode.l10n.t('Auto-merge was enabled on pull request #{0}. Refresh the view and try again.', unconfirmed.number));
 	}
-	await Promise.all(autoMerge.map(pr => pr.disableAutoMerge()));
+	// One at a time, so a failure leaves auto-merge enabled on the pull requests after it.
+	for (const pr of autoMerge) {
+		await pr.disableAutoMerge();
+	}
 	await repository.addPullRequestsToStack(candidate, ordered.slice(1).map(pr => pr.number));
 	return ordered.map(pr => pr.number);
 }
