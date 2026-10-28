@@ -25,7 +25,7 @@ import { PRType } from '../github/interface';
 import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
-import { addPullRequestsToStack, getStackCandidateForPullRequests, orderStackablePullRequests } from '../github/pullRequestStack';
+import { addPullRequestsToStack, getStackAutoMergeWarning, getStackCandidateForPullRequests, orderStackablePullRequests, refreshPullRequestsForStack } from '../github/pullRequestStack';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -72,7 +72,8 @@ function enterpriseSettingsMessage(text: string | undefined, actions: { github: 
 	return message;
 }
 
-export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate): { message: string; detail: string; action: string } {
+export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate,
+	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string } {
 	const existing = candidate.stackNumber !== undefined;
 	const additions = ordered.slice(1);
 	const message = existing
@@ -80,9 +81,11 @@ export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], 
 			? vscode.l10n.t('Add 1 pull request to an existing stack?')
 			: vscode.l10n.t('Add {0} pull requests to an existing stack?', additions.length)
 		: vscode.l10n.t('Create a stack with {0} pull requests?', ordered.length);
-	const detail = existing
+	const pullRequests = existing
 		? vscode.l10n.t('Adding {0}\nto #{1}', [additions.map(pr => `#${pr.number} ${pr.title}`).join('\n'), `${ordered[0].number} ${ordered[0].title}`])
 		: ordered.map(pr => `#${pr.number} ${pr.title}`).join('\n');
+	const autoMergeWarning = getStackAutoMergeWarning(autoMerge);
+	const detail = autoMergeWarning ? `${pullRequests}\n\n${autoMergeWarning}` : pullRequests;
 	return { message, detail, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
 }
 
@@ -251,14 +254,17 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				return;
 			}
 			const candidate = await getStackCandidateForPullRequests(ordered);
-			const confirmation = getAddToStackConfirmation(ordered, candidate);
+			// Pull request lists don't include auto-merge, which stacking disables, so get it before confirming.
+			const autoMerge = (await refreshPullRequestsForStack(ordered[0].githubRepository, ordered.map(pr => pr.number)))
+				.filter(pr => pr.autoMerge);
+			const confirmation = getAddToStackConfirmation(ordered, candidate, autoMerge);
 			const approved = await vscode.window.showInformationMessage(
 				confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action,
 			);
 			if (approved !== confirmation.action) {
 				return;
 			}
-			await addPullRequestsToStack(ordered, candidate);
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number));
 			this.refreshAll(true);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {

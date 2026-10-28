@@ -211,6 +211,39 @@ describe('GitHub Pull Requests view', function () {
 		}
 	});
 
+	it('warns that auto-merge will be disabled when only refreshing the pull requests shows it', async function () {
+		const url = 'https://github.com/aaa/bbb';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		const repository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		try {
+			const bottom = stackablePullRequest(repository, 1, 'main', 'D1');
+			const top = stackablePullRequest(repository, 2, 'D1', 'D2');
+			const selected = [bottom, top].map(model => Object.assign(Object.create(PRNode.prototype), { pullRequestModel: model }) as PRNode);
+			sinon.stub(top, 'getStack').resolves(undefined);
+			sinon.stub(repository, 'getStackCandidate').resolves({ parentPullRequestNumber: 1, size: 1, url });
+			sinon.stub(repository, 'getPullRequest').callsFake(async number => {
+				bottom.item.autoMerge = true;
+				return number === 1 ? bottom : top;
+			});
+			const disable = sinon.stub(bottom, 'disableAutoMerge').resolves();
+			const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+			const confirm = sinon.stub(vscode.window, 'showInformationMessage');
+			confirm.onFirstCall().resolves('Create Stack' as never);
+			confirm.onSecondCall().resolves(undefined);
+			const addToStack = (vscode.commands.registerCommand as SinonStub).getCalls()
+				.filter(call => call.args[0] === 'pr.addToStack').pop();
+			assert(addToStack);
+
+			await addToStack.args[1](selected[0], selected);
+
+			assert.match(confirm.firstCall.args[1].detail ?? '', /so it will be disabled for #1\.$/);
+			sinon.assert.callOrder(confirm, disable, add);
+			assert(add.calledOnce);
+		} finally {
+			repository.dispose();
+		}
+	});
+
 	it('has no children when no GitHub remotes are available', async function () {
 		sinon
 			.stub(vscode.workspace, 'workspaceFolders')

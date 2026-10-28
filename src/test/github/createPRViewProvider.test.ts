@@ -104,6 +104,7 @@ describe('Create pull request stack', function () {
 	});
 
 	afterEach(function () {
+		provider.dispose();
 		model.dispose();
 		folderManager.dispose();
 		githubRepository.dispose();
@@ -111,6 +112,14 @@ describe('Create pull request stack', function () {
 		context.dispose();
 		sinon.restore();
 	});
+
+	function stubStackParent(autoMerge: boolean = false): PullRequestModel {
+		const parent = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(795).build(), githubRepository));
+		parent.item.autoMerge = autoMerge;
+		sinon.stub(githubRepository, 'getPullRequest').callsFake(async number => number === parent.number ? parent : undefined);
+		return parent;
+	}
 
 	it('links to the parent PR webview from the stack option', async function () {
 		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
@@ -231,6 +240,23 @@ describe('Create pull request stack', function () {
 		assert.match(warn.firstCall.args[0], /GraphQL unavailable/);
 	});
 
+	it('does not warn about stack eligibility once the view is disposed', async function () {
+		let fail!: (error: Error) => void;
+		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		sinon.stub(githubRepository, 'getStackCandidate').returns(new Promise((_resolve, reject) => { fail = reject; }));
+		const warn = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+		const result = provider.getStackCandidateForTest(
+			{ owner: 'github', repositoryName: 'test' }, 'D3',
+			{ owner: 'github', repositoryName: 'test' }, 'D4',
+		);
+		provider.dispose();
+		fail(new Error('Persistent store not initialized.'));
+
+		assert.strictEqual(await result, undefined);
+		assert(warn.notCalled);
+	});
+
 	for (const stackNumber of [undefined, 12]) {
 		it(`${stackNumber === undefined ? 'creates' : 'extends'} a stack without querying or refreshing webviews directly`, async function () {
 			const cancellation = new vscode.CancellationTokenSource();
@@ -238,6 +264,7 @@ describe('Create pull request stack', function () {
 			const candidate: StackCandidate = { parentPullRequestNumber: 795, stackNumber, size: stackNumber === undefined ? 1 : 3, url: 'https://github.com/github/test/pull/795' };
 			const getCandidate = sinon.stub(githubRepository, 'getStackCandidate').resolves(candidate);
 			sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+			stubStackParent();
 			sinon.stub(model, 'filesHaveChanges').resolves(false);
 			repository.expectFetch('origin', 'D4');
 			const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
@@ -299,12 +326,79 @@ describe('Create pull request stack', function () {
 		cancellation.dispose();
 	});
 
+	it('disables auto-merge on the stack parent after confirming, before adding the new pull request', async function () {
+		const cancellation = new vscode.CancellationTokenSource();
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		const candidate: StackCandidate = { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' };
+		sinon.stub(githubRepository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		const parent = stubStackParent(true);
+		const disable = sinon.stub(parent, 'disableAutoMerge').resolves();
+		const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Disable Auto-Merge' as never);
+		sinon.stub(model, 'filesHaveChanges').resolves(false);
+		repository.expectFetch('origin', 'D4');
+		const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(796).build(), githubRepository));
+		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+		const addToStack = sinon.stub(githubRepository, 'addPullRequestToStack').resolves([795, 796]);
+		sinon.stub(provider, 'postCreate').resolves();
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		const done = asPromise(provider.onDone);
+
+		await provider.createForTest({
+			command: 'pr.create', req: '4',
+			args: {
+				title: 'Second change', body: '', owner: 'github', repo: 'test', base: 'D3',
+				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
+				draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
+				addToStack: true, stackParentPullRequest: 795,
+			},
+		});
+		assert.strictEqual(await done, createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
+		assert(confirm.calledOnce);
+		assert.match(confirm.firstCall.args[1].detail ?? '', /so it will be disabled for #795\.$/);
+		sinon.assert.callOrder(confirm, create, disable, addToStack);
+		cancellation.dispose();
+	});
+
+	it('does not create a pull request when disabling auto-merge on the stack parent is declined', async function () {
+		const cancellation = new vscode.CancellationTokenSource();
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		sinon.stub(githubRepository, 'getStackCandidate').resolves({ parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		const disable = sinon.stub(stubStackParent(true), 'disableAutoMerge').resolves();
+		sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+		sinon.stub(model, 'filesHaveChanges').resolves(false);
+		const create = sinon.stub(folderManager, 'createPullRequest');
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		let finish!: () => void;
+		const finished = new Promise<void>(resolve => { finish = resolve; });
+		sinon.stub(provider, '_replyMessage').callsFake(async () => { finish(); });
+
+		await provider.createForTest({
+			command: 'pr.create', req: '5',
+			args: {
+				title: 'Second change', body: '', owner: 'github', repo: 'test', base: 'D3',
+				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
+				draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
+				addToStack: true, stackParentPullRequest: 795,
+			},
+		});
+		await finished;
+
+		assert(create.notCalled);
+		assert(disable.notCalled);
+		assert(throwError.notCalled);
+		cancellation.dispose();
+	});
+
 	it('reports a failed stack addition while still applying PR details', async function () {
 		const cancellation = new vscode.CancellationTokenSource();
 		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
 		const candidate: StackCandidate = { parentPullRequestNumber: 795, stackNumber: 12, size: 3, url: 'https://github.com/github/test/pull/795' };
 		sinon.stub(githubRepository, 'getStackCandidate').resolves(candidate);
 		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		stubStackParent();
 		sinon.stub(model, 'filesHaveChanges').resolves(false);
 		repository.expectFetch('origin', 'D4');
 		const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,

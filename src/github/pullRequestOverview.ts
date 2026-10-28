@@ -29,7 +29,7 @@ import {
 import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
-import { addPullRequestsToStack, getStackCandidateForPullRequests, orderStackablePullRequests } from './pullRequestStack';
+import { addPullRequestsToStack, confirmDisablingAutoMergeForStack, getStackCandidateForPullRequests, orderStackablePullRequests } from './pullRequestStack';
 import {
 	canUpdateStack,
 	findStackRepository,
@@ -1433,8 +1433,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if ((candidate.stackNumber !== undefined) !== (recommendation.preview.existingStackSize !== undefined)) {
 				throw new Error(changed);
 			}
+			const autoMerge = ordered.filter(pullRequest => pullRequest.autoMerge);
+			if (!(await confirmDisablingAutoMergeForStack(autoMerge))) {
+				await this._replyMessage(message, {});
+				return;
+			}
 			Logger.appendLine(`Stacking ${ordered.map(pullRequest => `#${pullRequest.number}`).join(', ')} as recommended for #${this._item.number}`, PullRequestOverviewPanel.ID);
-			await addPullRequestsToStack(ordered, candidate);
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pullRequest => pullRequest.number));
 			await this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to stack the recommended pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
