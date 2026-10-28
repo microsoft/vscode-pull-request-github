@@ -1035,6 +1035,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
 			user?: IAccount | ITeam | undefined;
 		}> | undefined;
+		let reviewersChanged = false;
 
 		try {
 			const teamsCount = await this._folderRepositoryManager.getOrgTeamsCount(this._item.githubRepository);
@@ -1080,6 +1081,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._replyMessage(message, {
 					reviewers: addedReviewers,
 				});
+				reviewersChanged = true;
 			}
 		} catch (e) {
 			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
@@ -1087,6 +1089,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} finally {
 			quickPick?.hide();
 			quickPick?.dispose();
+		}
+		// Refresh after the quick pick is closed so that it doesn't stay open while the timeline loads.
+		if (reviewersChanged) {
+			await this.refreshTimeline();
 		}
 	}
 
@@ -1473,7 +1479,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async setReadyForReviewAndMerge(message: IRequestMessage<{ mergeMethod: MergeMethod }>): Promise<void> {
-		return PullRequestReviewCommon.setReadyForReviewAndMerge(this.getReviewContext(), message);
+		await PullRequestReviewCommon.setReadyForReviewAndMerge(this.getReviewContext(), message);
+		// The draft change refreshes the panel before the approval and auto-merge are done.
+		await this.refreshTimeline();
 	}
 
 	private async setConvertToDraft(message: IRequestMessage<{}>): Promise<void> {
@@ -1485,7 +1493,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
-		return PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
+		await PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
+		await this.refreshTimeline();
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
@@ -1596,8 +1605,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewMessageWithAttestation(message, (body) => this.submitReview(body));
 	}
 
-	private reRequestReview(message: IRequestMessage<string>): void {
-		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
+	private async reRequestReview(message: IRequestMessage<string>): Promise<void> {
+		await PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
+		await this.refreshTimeline();
 	}
 
 	private async addReviewerCopilot(message: IRequestMessage<void>): Promise<void> {
@@ -1610,7 +1620,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const reply: ChangeReviewersReply = {
 					reviewers: this._existingReviewers
 				};
-				this._replyMessage(message, reply);
+				await this._replyMessage(message, reply);
+				await this.refreshTimeline();
 			} else {
 				this._throwError(message, 'Copilot reviewer not found.');
 			}
@@ -1641,12 +1652,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await this._item.enableAutoMerge(message.args.autoMergeMethod);
 			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
 		}
-		this._replyMessage(message, replyMessage);
+		await this._replyMessage(message, replyMessage);
+		await this.refreshTimeline();
 	}
 
 	private async dequeue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.dequeuePullRequest();
-		this._replyMessage(message, result);
+		await this._replyMessage(message, result);
+		await this.refreshTimeline();
 	}
 
 	private async enqueue(message: IRequestMessage<void>): Promise<void> {
@@ -1664,7 +1677,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		}
 
-		this._replyMessage(message, { mergeQueueEntry: result });
+		await this._replyMessage(message, { mergeQueueEntry: result });
+		await this.refreshTimeline();
 	}
 
 	private async updateBranch(message: IRequestMessage<string>): Promise<void> {

@@ -176,7 +176,7 @@ export namespace PullRequestReviewCommon {
 		}
 	}
 
-	export function reRequestReview(ctx: ReviewContext, message: IRequestMessage<string>): void {
+	export async function reRequestReview(ctx: ReviewContext, message: IRequestMessage<string>): Promise<void> {
 		let targetReviewer: ReviewState | undefined;
 		const userReviewers: IAccount[] = [];
 		const teamReviewers: ITeam[] = [];
@@ -196,13 +196,12 @@ export namespace PullRequestReviewCommon {
 			userReviewers.push(targetReviewer.reviewer);
 		}
 
-		ctx.item.requestReview(userReviewers, teamReviewers, true).then(() => {
-			if (targetReviewer) {
-				targetReviewer.state = 'REQUESTED';
-			}
-			ctx.replyMessage(message, {
-				reviewers: ctx.existingReviewers,
-			});
+		await ctx.item.requestReview(userReviewers, teamReviewers, true);
+		if (targetReviewer) {
+			targetReviewer.state = 'REQUESTED';
+		}
+		ctx.replyMessage(message, {
+			reviewers: ctx.existingReviewers,
 		});
 	}
 

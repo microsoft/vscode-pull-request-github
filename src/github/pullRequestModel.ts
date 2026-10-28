@@ -498,7 +498,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		};
 
 		return mutate<MergePullRequestResponse>({
-			mutation: schema.MergePullRequest,
+			mutation: this.credentialStore.isAuthenticatedWithAdditionalScopes(this.githubRepository.remote.authProviderId) ? schema.MergePullRequestAdditionalScopes : schema.MergePullRequest,
 			variables: {
 				input
 			}
@@ -1011,7 +1011,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const { query, remote, schema } = await this.githubRepository.ensure();
 			try {
 				const { data } = await query<TimelineEventsResponse>({
-					query: schema.TimelineEvents,
+					query: this.credentialStore.isAuthenticatedWithAdditionalScopes(this.githubRepository.remote.authProviderId) ? schema.TimelineEventsAdditionalScopes : schema.TimelineEvents,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,

@@ -574,6 +574,36 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Reopened;
 		case 'BaseRefChangedEvent':
 			return Common.EventType.BaseRefChanged;
+		case 'UnlabeledEvent':
+			return Common.EventType.Unlabeled;
+		case 'DemilestonedEvent':
+			return Common.EventType.Demilestoned;
+		case 'RenamedTitleEvent':
+			return Common.EventType.RenamedTitle;
+		case 'ReviewRequestedEvent':
+			return Common.EventType.ReviewRequested;
+		case 'ReviewRequestRemovedEvent':
+			return Common.EventType.ReviewRequestRemoved;
+		case 'ReadyForReviewEvent':
+			return Common.EventType.ReadyForReview;
+		case 'ConvertToDraftEvent':
+			return Common.EventType.ConvertToDraft;
+		case 'HeadRefForcePushedEvent':
+			return Common.EventType.HeadRefForcePushed;
+		case 'HeadRefRestoredEvent':
+			return Common.EventType.HeadRefRestored;
+		case 'ReviewDismissedEvent':
+			return Common.EventType.ReviewDismissed;
+		case 'AutoMergeEnabledEvent':
+		case 'AutoSquashEnabledEvent':
+		case 'AutoRebaseEnabledEvent':
+			return Common.EventType.AutoMergeEnabled;
+		case 'AutoMergeDisabledEvent':
+			return Common.EventType.AutoMergeDisabled;
+		case 'AddedToMergeQueueEvent':
+			return Common.EventType.AddedToMergeQueue;
+		case 'RemovedFromMergeQueueEvent':
+			return Common.EventType.RemovedFromMergeQueue;
 		default:
 			return Common.EventType.Other;
 	}
@@ -772,18 +802,27 @@ function parseTeam(team: GraphQL.Team, githubRepository: GitHubRepository): ITea
 	};
 }
 
+/**
+ * Returns undefined for reviewers that can't be displayed, such as teams queried without the additional scopes needed to read their details.
+ */
+function parseRequestedReviewer(reviewer: GraphQL.Actor | GraphQL.Account | GraphQL.Team | GraphQL.Node | null, githubRepository: GitHubRepository): IAccount | ITeam | undefined {
+	if (GraphQL.isTeam(reviewer)) {
+		return parseTeam(reviewer, githubRepository);
+	} else if (GraphQL.isAccount(reviewer) || GraphQL.isBot(reviewer)) {
+		return parseAccount(reviewer, githubRepository);
+	}
+	return undefined;
+}
+
 export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, repository: GitHubRepository): (IAccount | ITeam)[] {
 	if (!data.repository) {
 		return [];
 	}
 	const reviewers: (IAccount | ITeam)[] = [];
 	for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
-		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
-			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
-			reviewers.push(team);
-		} else if (GraphQL.isAccount(reviewer.requestedReviewer) || GraphQL.isBot(reviewer.requestedReviewer)) {
-			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
-			reviewers.push(account);
+		const parsed = parseRequestedReviewer(reviewer.requestedReviewer, repository);
+		if (parsed) {
+			reviewers.push(parsed);
 		}
 	}
 	return reviewers;
@@ -1226,6 +1265,22 @@ export function eventTime(event: Common.TimelineEvent): Date | undefined {
 		case Common.EventType.CopilotFinished:
 		case Common.EventType.CopilotFinishedError:
 		case Common.EventType.CopilotReviewStarted:
+		case Common.EventType.Labeled:
+		case Common.EventType.Unlabeled:
+		case Common.EventType.Milestoned:
+		case Common.EventType.Demilestoned:
+		case Common.EventType.RenamedTitle:
+		case Common.EventType.ReviewRequested:
+		case Common.EventType.ReviewRequestRemoved:
+		case Common.EventType.ReadyForReview:
+		case Common.EventType.ConvertToDraft:
+		case Common.EventType.HeadRefForcePushed:
+		case Common.EventType.HeadRefRestored:
+		case Common.EventType.ReviewDismissed:
+		case Common.EventType.AutoMergeEnabled:
+		case Common.EventType.AutoMergeDisabled:
+		case Common.EventType.AddedToMergeQueue:
+		case Common.EventType.RemovedFromMergeQueue:
 			return new Date(event.createdAt);
 		case Common.EventType.Reviewed:
 			return new Date(event.submittedAt);
@@ -1234,18 +1289,19 @@ export function eventTime(event: Common.TimelineEvent): Date | undefined {
 	}
 }
 
+function autoMergeMethod(typename: string): MergeMethod | undefined {
+	switch (typename) {
+		case 'AutoSquashEnabledEvent':
+			return 'squash';
+		case 'AutoRebaseEnabledEvent':
+			return 'rebase';
+		default:
+			return undefined;
+	}
+}
+
 export async function parseCombinedTimelineEvents(
-	events: (
-		| GraphQL.MergedEvent
-		| GraphQL.Review
-		| GraphQL.IssueComment
-		| GraphQL.Commit
-		| GraphQL.AssignedEvent
-		| GraphQL.HeadRefDeletedEvent
-		| GraphQL.CrossReferencedEvent
-		| GraphQL.BaseRefChangedEvent
-		| null
-	)[],
+	events: (GraphQL.TimelineItem | null)[],
 	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
 ): Promise<Common.TimelineEvent[]> {
@@ -1444,6 +1500,133 @@ export async function parseCombinedTimelineEvents(
 					createdAt: baseRefChangedEv.createdAt,
 					currentRefName: baseRefChangedEv.currentRefName,
 					previousRefName: baseRefChangedEv.previousRefName,
+				});
+				break;
+			case Common.EventType.Labeled:
+			case Common.EventType.Unlabeled:
+				const labelEv = event as GraphQL.LabeledEvent;
+
+				addTimelineEvent({
+					id: labelEv.id,
+					event: type,
+					actor: parseAccount(labelEv.actor, githubRepository),
+					createdAt: labelEv.createdAt,
+					label: {
+						name: labelEv.label.name,
+						color: labelEv.label.color,
+						displayName: emojify(labelEv.label.name),
+					},
+				});
+				break;
+			case Common.EventType.Milestoned:
+			case Common.EventType.Demilestoned:
+				const milestoneEv = event as GraphQL.MilestonedEvent;
+
+				addTimelineEvent({
+					id: milestoneEv.id,
+					event: type,
+					actor: parseAccount(milestoneEv.actor, githubRepository),
+					createdAt: milestoneEv.createdAt,
+					milestoneTitle: milestoneEv.milestoneTitle,
+				});
+				break;
+			case Common.EventType.RenamedTitle:
+				const renamedEv = event as GraphQL.RenamedTitleEvent;
+
+				addTimelineEvent({
+					id: renamedEv.id,
+					event: type,
+					actor: parseAccount(renamedEv.actor, githubRepository),
+					createdAt: renamedEv.createdAt,
+					previousTitle: renamedEv.previousTitle,
+					currentTitle: renamedEv.currentTitle,
+				});
+				break;
+			case Common.EventType.ReviewRequested:
+			case Common.EventType.ReviewRequestRemoved:
+				const reviewRequestEv = event as GraphQL.ReviewRequestedEvent;
+				const reviewer = parseRequestedReviewer(reviewRequestEv.requestedReviewer, githubRepository);
+				if (!reviewer) {
+					break;
+				}
+
+				addTimelineEvent({
+					id: reviewRequestEv.id,
+					event: type,
+					actor: parseAccount(reviewRequestEv.actor, githubRepository),
+					createdAt: reviewRequestEv.createdAt,
+					reviewer,
+				});
+				break;
+			case Common.EventType.ReadyForReview:
+			case Common.EventType.ConvertToDraft:
+			case Common.EventType.AddedToMergeQueue:
+				const actorEv = event as GraphQL.ActorTimelineEvent;
+
+				addTimelineEvent({
+					id: actorEv.id,
+					event: type,
+					actor: parseAccount(actorEv.actor, githubRepository),
+					createdAt: actorEv.createdAt,
+				});
+				break;
+			case Common.EventType.HeadRefForcePushed:
+				const forcePushedEv = event as GraphQL.HeadRefForcePushedEvent;
+
+				addTimelineEvent({
+					id: forcePushedEv.id,
+					event: type,
+					actor: parseAccount(forcePushedEv.actor, githubRepository),
+					createdAt: forcePushedEv.createdAt,
+					headRef: forcePushedEv.pullRequest.headRefName,
+					beforeCommit: forcePushedEv.beforeCommit ? { sha: forcePushedEv.beforeCommit.oid, url: forcePushedEv.beforeCommit.commitUrl } : undefined,
+					afterCommit: forcePushedEv.afterCommit ? { sha: forcePushedEv.afterCommit.oid, url: forcePushedEv.afterCommit.commitUrl } : undefined,
+				});
+				break;
+			case Common.EventType.HeadRefRestored:
+				const restoredEv = event as GraphQL.HeadRefRestoredEvent;
+
+				addTimelineEvent({
+					id: restoredEv.id,
+					event: type,
+					actor: parseAccount(restoredEv.actor, githubRepository),
+					createdAt: restoredEv.createdAt,
+					headRef: restoredEv.pullRequest.headRefName,
+				});
+				break;
+			case Common.EventType.ReviewDismissed:
+				const dismissedEv = event as GraphQL.ReviewDismissedEvent;
+
+				addTimelineEvent({
+					id: dismissedEv.id,
+					event: type,
+					actor: parseAccount(dismissedEv.actor, githubRepository),
+					createdAt: dismissedEv.createdAt,
+					reviewAuthor: dismissedEv.review?.author ? parseAccount(dismissedEv.review.author, githubRepository) : undefined,
+					dismissalMessage: dismissedEv.dismissalMessage ?? undefined,
+				});
+				break;
+			case Common.EventType.AutoMergeEnabled:
+				const autoMergeEnabledEv = event as GraphQL.AutoMergeEnabledEvent;
+
+				addTimelineEvent({
+					id: autoMergeEnabledEv.id,
+					event: type,
+					actor: parseAccount(autoMergeEnabledEv.actor, githubRepository),
+					createdAt: autoMergeEnabledEv.createdAt,
+					mergeMethod: autoMergeMethod(autoMergeEnabledEv.__typename),
+				});
+				break;
+			case Common.EventType.AutoMergeDisabled:
+			case Common.EventType.RemovedFromMergeQueue:
+				const reasonEv = event as GraphQL.AutoMergeDisabledEvent | GraphQL.RemovedFromMergeQueueEvent;
+
+				addTimelineEvent({
+					id: reasonEv.id,
+					event: type,
+					actor: parseAccount(reasonEv.actor, githubRepository),
+					createdAt: reasonEv.createdAt,
+					reason: reasonEv.reason ?? undefined,
 				});
 				break;
 			default:

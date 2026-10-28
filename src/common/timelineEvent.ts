@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IComment } from './comment';
-import { IAccount, IActor, Reaction } from '../github/interface';
+import { IAccount, IActor, ITeam, MergeMethod, Reaction } from '../github/interface';
+import type { DisplayLabel } from '../github/views';
 
 export enum EventType {
 	Committed,
@@ -27,6 +28,20 @@ export enum EventType {
 	CopilotFinished,
 	CopilotFinishedError,
 	CopilotReviewStarted,
+	Unlabeled,
+	Demilestoned,
+	RenamedTitle,
+	ReviewRequested,
+	ReviewRequestRemoved,
+	ReadyForReview,
+	ConvertToDraft,
+	HeadRefForcePushed,
+	HeadRefRestored,
+	ReviewDismissed,
+	AutoMergeEnabled,
+	AutoMergeDisabled,
+	AddedToMergeQueue,
+	RemovedFromMergeQueue,
 	Other,
 }
 
@@ -188,6 +203,142 @@ export interface BaseRefChangedEvent {
 	previousRefName: string;
 }
 
+export interface LabeledEvent {
+	id: string;
+	event: EventType.Labeled;
+	actor: IActor;
+	createdAt: string;
+	label: DisplayLabel;
+}
+
+export interface UnlabeledEvent {
+	id: string;
+	event: EventType.Unlabeled;
+	actor: IActor;
+	createdAt: string;
+	label: DisplayLabel;
+}
+
+export interface MilestonedEvent {
+	id: string;
+	event: EventType.Milestoned;
+	actor: IActor;
+	createdAt: string;
+	milestoneTitle: string;
+}
+
+export interface DemilestonedEvent {
+	id: string;
+	event: EventType.Demilestoned;
+	actor: IActor;
+	createdAt: string;
+	milestoneTitle: string;
+}
+
+export interface RenamedTitleEvent {
+	id: string;
+	event: EventType.RenamedTitle;
+	actor: IActor;
+	createdAt: string;
+	previousTitle: string;
+	currentTitle: string;
+}
+
+export interface ReviewRequestedEvent {
+	id: string;
+	event: EventType.ReviewRequested;
+	actor: IActor;
+	createdAt: string;
+	reviewer: IAccount | ITeam;
+}
+
+export interface ReviewRequestRemovedEvent {
+	id: string;
+	event: EventType.ReviewRequestRemoved;
+	actor: IActor;
+	createdAt: string;
+	reviewer: IAccount | ITeam;
+}
+
+export interface ReadyForReviewEvent {
+	id: string;
+	event: EventType.ReadyForReview;
+	actor: IActor;
+	createdAt: string;
+}
+
+export interface ConvertToDraftEvent {
+	id: string;
+	event: EventType.ConvertToDraft;
+	actor: IActor;
+	createdAt: string;
+}
+
+export interface ForcePushedCommit {
+	sha: string;
+	url: string;
+}
+
+export interface HeadRefForcePushedEvent {
+	id: string;
+	event: EventType.HeadRefForcePushed;
+	actor: IActor;
+	createdAt: string;
+	headRef: string;
+	/** Can be undefined when the commit is no longer available (e.g. it was garbage collected). */
+	beforeCommit?: ForcePushedCommit;
+	afterCommit?: ForcePushedCommit;
+}
+
+export interface HeadRefRestoredEvent {
+	id: string;
+	event: EventType.HeadRefRestored;
+	actor: IActor;
+	createdAt: string;
+	headRef: string;
+}
+
+export interface ReviewDismissedEvent {
+	id: string;
+	event: EventType.ReviewDismissed;
+	actor: IActor;
+	createdAt: string;
+	reviewAuthor?: IAccount;
+	dismissalMessage?: string;
+}
+
+export interface AutoMergeEnabledEvent {
+	id: string;
+	event: EventType.AutoMergeEnabled;
+	actor: IActor;
+	createdAt: string;
+	/** Only known when auto-merge was enabled with the squash or rebase method. */
+	mergeMethod?: MergeMethod;
+}
+
+export interface AutoMergeDisabledEvent {
+	id: string;
+	event: EventType.AutoMergeDisabled;
+	actor: IActor;
+	createdAt: string;
+	reason?: string;
+}
+
+export interface AddedToMergeQueueEvent {
+	id: string;
+	event: EventType.AddedToMergeQueue;
+	actor: IActor;
+	createdAt: string;
+}
+
+export interface RemovedFromMergeQueueEvent {
+	id: string;
+	event: EventType.RemovedFromMergeQueue;
+	actor: IActor;
+	createdAt: string;
+	reason?: string;
+}
+
 export interface SessionPullInfo {
 	id: number;
 	host: string;
@@ -230,4 +381,7 @@ export interface CopilotReviewStartedEvent {
 	createdAt: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | BaseRefChangedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent | CopilotReviewStartedEvent;
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | BaseRefChangedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent | CopilotReviewStartedEvent
+	| LabeledEvent | UnlabeledEvent | MilestonedEvent | DemilestonedEvent | RenamedTitleEvent | ReviewRequestedEvent | ReviewRequestRemovedEvent
+	| ReadyForReviewEvent | ConvertToDraftEvent | HeadRefForcePushedEvent | HeadRefRestoredEvent | ReviewDismissedEvent
+	| AutoMergeEnabledEvent | AutoMergeDisabledEvent | AddedToMergeQueueEvent | RemovedFromMergeQueueEvent;

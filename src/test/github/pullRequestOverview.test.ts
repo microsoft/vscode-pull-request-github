@@ -36,7 +36,7 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { GitHubRef } from '../../common/githubRef';
 import { mockStackSetting } from '../mocks/mockStackSetting';
-import { TimelineEvent } from '../../common/timelineEvent';
+import { EventType, TimelineEvent } from '../../common/timelineEvent';
 import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import * as emoji from '../../common/emoji';
@@ -2807,6 +2807,113 @@ describe('PullRequestOverview', function () {
 			sinon.assert.calledWithExactly(replyMessage, message, response);
 			sinon.assert.calledOnce(refreshPanel);
 			sinon.assert.notCalled(postMessage);
+		});
+	});
+
+	describe('timeline refresh after changes', function () {
+		const actor = { login: 'octocat', url: 'https://github.com/octocat' };
+		const milestoned: TimelineEvent = { id: 'milestoned', event: EventType.Milestoned, actor, createdAt: '2026-10-28T10:00:00Z', milestoneTitle: 'October' };
+		const renamed: TimelineEvent = { id: 'renamed', event: EventType.RenamedTitle, actor, createdAt: '2026-10-28T10:01:00Z', previousTitle: 'Old', currentTitle: 'New' };
+
+		let panel: TestPullRequestOverviewPanel;
+		let model: PullRequestModel;
+		let getTimelineEvents: SinonStub<[], Promise<TimelineEvent[] | undefined>>;
+		/** The replies and timeline updates sent to the webview, in order. */
+		let sent: string[];
+		let timelineUpdates: (TimelineEvent[] | undefined)[];
+
+		function createModel(): PullRequestModel {
+			return new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+		}
+
+		/** Holds back the next timeline query. Resolves, once it is requested, to the function that completes it. */
+		function holdNextTimelineQuery(): Promise<(events: TimelineEvent[]) => void> {
+			return new Promise(onRequested => {
+				getTimelineEvents.onCall(getTimelineEvents.callCount).callsFake(() => new Promise<TimelineEvent[]>(resolve => onRequested(resolve)));
+			});
+		}
+
+		beforeEach(function () {
+			setStacksEnabled(false);
+			model = createModel();
+			getTimelineEvents = sinon.stub(model, 'getTimelineEvents').resolves([milestoned]);
+			panel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+			panel.setItem(model);
+			context.subscriptions.push(panel);
+			sent = [];
+			timelineUpdates = [];
+			sinon.stub(panel, '_replyMessage').callsFake(async message => {
+				sent.push(`reply:${message.req}`);
+			});
+			sinon.stub(panel, '_postMessage').callsFake(async message => {
+				if (message.command === 'pr.update' && message.pullrequest && 'events' in message.pullrequest) {
+					sent.push('timeline');
+					timelineUpdates.push(message.pullrequest.events);
+				}
+			});
+		});
+
+		const changes: { command: string; args?: unknown; stub: () => void }[] = [
+			{ command: 'pr.remove-label', args: 'bug', stub: () => sinon.stub(model, 'removeLabel').resolves() },
+			{ command: 'pr.remove-milestone', stub: () => sinon.stub(model, 'updateMilestone').resolves() },
+			{ command: 'pr.edit-title', args: { text: 'New' }, stub: () => sinon.stub(model, 'edit').resolves({ title: 'New', titleHTML: 'New', body: '', bodyHTML: '' }) },
+			{ command: 'pr.re-request-review', args: 'reviewer-id', stub: () => sinon.stub(model, 'requestReview').resolves() },
+			{ command: 'pr.update-automerge', args: { autoMerge: true, autoMergeMethod: 'squash' }, stub: () => sinon.stub(model, 'enableAutoMerge').resolves() },
+			{ command: 'pr.enqueue', stub: () => sinon.stub(model, 'enqueuePullRequest').resolves(undefined) },
+			{ command: 'pr.dequeue', stub: () => sinon.stub(model, 'dequeuePullRequest').resolves(true) },
+		];
+
+		for (const change of changes) {
+			it(`posts the refreshed timeline after replying to ${change.command}`, async function () {
+				change.stub();
+
+				await panel._onDidReceiveMessage({ req: 'change', command: change.command, args: change.args });
+
+				assert.deepStrictEqual(sent, ['reply:change', 'timeline']);
+				assert.deepStrictEqual(timelineUpdates, [[milestoned]]);
+			});
+		}
+
+		it('only posts the most recent refresh when refreshes finish out of order', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+
+			const firstQuery = holdNextTimelineQuery();
+			const first = panel._onDidReceiveMessage({ req: 'first', command: 'pr.remove-label', args: 'bug' });
+			const resolveFirst = await firstQuery;
+			const secondQuery = holdNextTimelineQuery();
+			const second = panel._onDidReceiveMessage({ req: 'second', command: 'pr.remove-label', args: 'question' });
+			const resolveSecond = await secondQuery;
+			resolveSecond([milestoned, renamed]);
+			await second;
+			resolveFirst([milestoned]);
+			await first;
+
+			assert.deepStrictEqual(sent, ['reply:first', 'reply:second', 'timeline']);
+			assert.deepStrictEqual(timelineUpdates, [[milestoned, renamed]]);
+		});
+
+		it('does not post a refresh for a pull request that is no longer shown', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+
+			const query = holdNextTimelineQuery();
+			const change = panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+			const resolve = await query;
+			panel.setItem(createModel());
+			resolve([milestoned]);
+			await change;
+
+			assert.deepStrictEqual(sent, ['reply:change']);
+		});
+
+		it('does not replace the timeline with an empty refresh', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+			getTimelineEvents.resolves([]);
+
+			await panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+
+			sinon.assert.calledOnce(getTimelineEvents);
+			assert.deepStrictEqual(sent, ['reply:change']);
 		});
 	});
 

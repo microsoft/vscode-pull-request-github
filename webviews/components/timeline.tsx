@@ -13,62 +13,149 @@ import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import {
-	AssignEvent,
+	AddedToMergeQueueEvent,
+	AutoMergeDisabledEvent,
+	AutoMergeEnabledEvent,
 	BaseRefChangedEvent,
 	ClosedEvent,
 	CommentEvent,
 	CommitEvent,
+	ConvertToDraftEvent,
 	CopilotFinishedErrorEvent,
 	CopilotFinishedEvent,
 	CopilotReviewStartedEvent,
 	CopilotStartedEvent,
 	CrossReferencedEvent,
+	DemilestonedEvent,
 	EventType,
+	ForcePushedCommit,
 	HeadRefDeleteEvent,
+	HeadRefForcePushedEvent,
+	HeadRefRestoredEvent,
 	MergedEvent,
+	MilestonedEvent,
+	ReadyForReviewEvent,
+	RemovedFromMergeQueueEvent,
+	RenamedTitleEvent,
 	ReopenedEvent,
+	ReviewDismissedEvent,
 	ReviewEvent,
 	TimelineEvent,
-	UnassignEvent,
 } from '../../src/common/timelineEvent';
-import { groupBy, UnreachableCaseError } from '../../src/common/utils';
-import { IAccount, IActor } from '../../src/github/interface';
-import { ReviewType } from '../../src/github/views';
+import { gitHubLabelColor, groupBy, UnreachableCaseError } from '../../src/common/utils';
+import { IAccount, IActor, isITeam, ITeam, reviewerId } from '../../src/github/interface';
+import { DisplayLabel, ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
-function isAssignUnassignEvent(event: TimelineEvent | ConsolidatedAssignUnassignEvent): event is AssignEvent | UnassignEvent {
-	return event.event === EventType.Assigned || event.event === EventType.Unassigned;
-}
+const CONSOLIDATION_WINDOW_MS = 1000 * 60 * 10;
 
 interface ConsolidatedAssignUnassignEvent {
 	id: number;
 	event: EventType.Assigned | EventType.Unassigned;
-	assignees?: IAccount[];
-	unassignees?: IAccount[];
+	assignees: IAccount[];
+	unassignees: IAccount[];
 	actor: IActor;
 	createdAt: string;
 }
 
-export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue: boolean }) => {
-	const consolidatedEvents: (TimelineEvent | ConsolidatedAssignUnassignEvent)[] = [];
-	for (let i = 0; i < events.length; i++) {
-		if ((i > 0) && isAssignUnassignEvent(events[i]) && isAssignUnassignEvent(consolidatedEvents[consolidatedEvents.length - 1])) {
-			const lastEvent = consolidatedEvents[consolidatedEvents.length - 1] as ConsolidatedAssignUnassignEvent;
-			const newEvent = events[i] as ConsolidatedAssignUnassignEvent;
-			if ((lastEvent.actor.login === newEvent.actor.login) && (new Date(lastEvent.createdAt).getTime() + (1000 * 60 * 10) > new Date(newEvent.createdAt).getTime())) { // within 10 minutes
-				const assignees = lastEvent.assignees || [];
-				const unassignees = lastEvent.unassignees || [];
-				const newAssignees = newEvent.assignees?.filter(a => !assignees.some(b => b.id === a.id)) ?? [];
-				const newUnassignees = newEvent.unassignees?.filter(a => !unassignees.some(b => b.id === a.id)) ?? [];
-				lastEvent.assignees = [...assignees, ...newAssignees];
-				lastEvent.unassignees = [...unassignees, ...newUnassignees];
-			} else {
-				consolidatedEvents.push(newEvent);
+interface ConsolidatedLabelEvent {
+	id: string;
+	event: EventType.Labeled | EventType.Unlabeled;
+	added: DisplayLabel[];
+	removed: DisplayLabel[];
+	actor: IActor;
+	createdAt: string;
+}
+
+interface ConsolidatedReviewRequestEvent {
+	id: string;
+	event: EventType.ReviewRequested | EventType.ReviewRequestRemoved;
+	requested: (IAccount | ITeam)[];
+	removed: (IAccount | ITeam)[];
+	actor: IActor;
+	createdAt: string;
+}
+
+type ConsolidatedEventTypes = EventType.Assigned | EventType.Unassigned | EventType.Labeled | EventType.Unlabeled | EventType.ReviewRequested | EventType.ReviewRequestRemoved;
+
+type DisplayedTimelineEvent =
+	| Exclude<TimelineEvent, { event: ConsolidatedEventTypes }>
+	| ConsolidatedAssignUnassignEvent
+	| ConsolidatedLabelEvent
+	| ConsolidatedReviewRequestEvent;
+
+function canConsolidate(previous: { actor: IActor, createdAt: string }, next: { actor: IActor, createdAt: string }): boolean {
+	return (previous.actor.login === next.actor.login)
+		&& (new Date(previous.createdAt).getTime() + CONSOLIDATION_WINDOW_MS > new Date(next.createdAt).getTime());
+}
+
+function addUnique<T>(items: T[], newItems: T[], key: (item: T) => string): T[] {
+	const keys = new Set(items.map(key));
+	return [...items, ...newItems.filter(item => !keys.has(key(item)))];
+}
+
+/**
+ * Combines consecutive assignment, label, and review request changes made by the same actor within a short time window into a single event.
+ */
+function consolidateEvents(events: TimelineEvent[]): DisplayedTimelineEvent[] {
+	const consolidated: DisplayedTimelineEvent[] = [];
+	for (const event of events) {
+		const last = consolidated.length > 0 ? consolidated[consolidated.length - 1] : undefined;
+		switch (event.event) {
+			case EventType.Assigned:
+			case EventType.Unassigned: {
+				const assignees = event.event === EventType.Assigned ? event.assignees : [];
+				const unassignees = event.event === EventType.Unassigned ? event.unassignees : [];
+				if (last && (last.event === EventType.Assigned || last.event === EventType.Unassigned) && canConsolidate(last, event)) {
+					consolidated[consolidated.length - 1] = {
+						...last,
+						assignees: addUnique(last.assignees, assignees, a => a.id),
+						unassignees: addUnique(last.unassignees, unassignees, a => a.id),
+					};
+				} else {
+					consolidated.push({ id: event.id, event: event.event, actor: event.actor, createdAt: event.createdAt, assignees, unassignees });
+				}
+				break;
 			}
-		} else {
-			consolidatedEvents.push(events[i]);
+			case EventType.Labeled:
+			case EventType.Unlabeled: {
+				const added = event.event === EventType.Labeled ? [event.label] : [];
+				const removed = event.event === EventType.Unlabeled ? [event.label] : [];
+				if (last && (last.event === EventType.Labeled || last.event === EventType.Unlabeled) && canConsolidate(last, event)) {
+					consolidated[consolidated.length - 1] = {
+						...last,
+						added: addUnique(last.added, added, l => l.name),
+						removed: addUnique(last.removed, removed, l => l.name),
+					};
+				} else {
+					consolidated.push({ id: event.id, event: event.event, actor: event.actor, createdAt: event.createdAt, added, removed });
+				}
+				break;
+			}
+			case EventType.ReviewRequested:
+			case EventType.ReviewRequestRemoved: {
+				const requested = event.event === EventType.ReviewRequested ? [event.reviewer] : [];
+				const removed = event.event === EventType.ReviewRequestRemoved ? [event.reviewer] : [];
+				if (last && (last.event === EventType.ReviewRequested || last.event === EventType.ReviewRequestRemoved) && canConsolidate(last, event)) {
+					consolidated[consolidated.length - 1] = {
+						...last,
+						requested: addUnique(last.requested, requested, reviewerId),
+						removed: addUnique(last.removed, removed, reviewerId),
+					};
+				} else {
+					consolidated.push({ id: event.id, event: event.event, actor: event.actor, createdAt: event.createdAt, requested, removed });
+				}
+				break;
+			}
+			default:
+				consolidated.push(event);
 		}
 	}
+	return consolidated;
+}
+
+export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue: boolean }) => {
+	const consolidatedEvents = consolidateEvents(events);
 
 	return <>{consolidatedEvents.map(event => {
 		switch (event.event) {
@@ -104,6 +191,32 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				return <CopilotFinishedErrorEventView key={`copilotFinishedError${event.id}`} {...event} />;
 			case EventType.CopilotReviewStarted:
 				return <CopilotReviewStartedEventView key={`copilotReviewStarted${event.id}`} {...event} />;
+			case EventType.Labeled:
+			case EventType.Unlabeled:
+				return <LabelEventView key={`label${event.id}`} event={event} />;
+			case EventType.Milestoned:
+			case EventType.Demilestoned:
+				return <MilestoneEventView key={`milestone${event.id}`} event={event} />;
+			case EventType.RenamedTitle:
+				return <RenamedTitleEventView key={`renamed${event.id}`} event={event} />;
+			case EventType.ReviewRequested:
+			case EventType.ReviewRequestRemoved:
+				return <ReviewRequestEventView key={`reviewRequest${event.id}`} event={event} />;
+			case EventType.ReadyForReview:
+			case EventType.ConvertToDraft:
+				return <DraftStateEventView key={`draftState${event.id}`} event={event} />;
+			case EventType.HeadRefForcePushed:
+				return <HeadRefForcePushedEventView key={`forcePushed${event.id}`} event={event} />;
+			case EventType.HeadRefRestored:
+				return <HeadRefRestoredEventView key={`headRestored${event.id}`} event={event} />;
+			case EventType.ReviewDismissed:
+				return <ReviewDismissedEventView key={`reviewDismissed${event.id}`} event={event} />;
+			case EventType.AutoMergeEnabled:
+			case EventType.AutoMergeDisabled:
+				return <AutoMergeEventView key={`autoMerge${event.id}`} event={event} />;
+			case EventType.AddedToMergeQueue:
+			case EventType.RemovedFromMergeQueue:
+				return <MergeQueueEventView key={`mergeQueue${event.id}`} event={event} />;
 			default:
 				throw new UnreachableCaseError(event);
 		}
@@ -490,13 +603,11 @@ function joinWithAnd(arr: JSX.Element[]): JSX.Element {
 	if (arr.length === 0) return <></>;
 	if (arr.length === 1) return arr[0];
 	if (arr.length === 2) return <>{arr[0]} and {arr[1]}</>;
-	return <>{arr.slice(0, -1).map(item => <>{item}, </>)} and {arr[arr.length - 1]}</>;
+	return <>{arr.slice(0, -1).map((item, index) => <React.Fragment key={index}>{item}, </React.Fragment>)} and {arr[arr.length - 1]}</>;
 }
 
-const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent | ConsolidatedAssignUnassignEvent }) => {
-	const { actor } = event;
-	const assignees = (event as AssignEvent).assignees || [];
-	const unassignees = (event as UnassignEvent).unassignees || [];
+const AssignUnassignEventView = ({ event }: { event: ConsolidatedAssignUnassignEvent }) => {
+	const { actor, assignees, unassignees } = event;
 	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={`${a.id}a`} for={a} />));
 	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={`${a.id}u`} for={a} />));
 
@@ -663,3 +774,149 @@ const CopilotReviewStartedEventView = (event: CopilotReviewStartedEvent) => {
 		</div>
 	);
 };
+
+const ActorEventView = ({ actor, createdAt, children, detail, wrap = false }: { actor: IActor; createdAt: string; children: React.ReactNode; detail?: string; wrap?: boolean }) => {
+	const summary = (
+		<div className="commit-message">
+			<div className="avatar-container">
+				<Avatar for={actor} />
+			</div>
+			<AuthorLink for={actor} />
+			<div className={wrap ? 'message wrap' : 'message'}>{children}</div>
+		</div>
+	);
+	return (
+		<div className="comment-container commit">
+			{detail ? (
+				<div className="timeline-with-detail">
+					{summary}
+					<div className="commit-message-detail timeline-event-detail">{detail}</div>
+				</div>
+			) : summary}
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const TimelineLabel = ({ label }: { label: DisplayLabel }) => {
+	const { pr } = useContext(PullRequestContext);
+	const labelColor = gitHubLabelColor(label.color, !!pr?.isDarkTheme, false);
+	return (
+		<span
+			className="label timeline-label"
+			style={{
+				backgroundColor: labelColor.backgroundColor,
+				color: labelColor.textColor,
+				borderColor: labelColor.borderColor,
+			}}
+		>
+			{label.displayName}
+		</span>
+	);
+};
+
+function joinLabels(labels: DisplayLabel[]): JSX.Element {
+	return <>{labels.map((label, index) => <React.Fragment key={label.name}>{index > 0 ? ' ' : null}<TimelineLabel label={label} /></React.Fragment>)}</>;
+}
+
+const LabelEventView = ({ event }: { event: ConsolidatedLabelEvent }) => {
+	const { added, removed } = event;
+	const noun = (added.length + removed.length) > 1 ? 'labels' : 'label';
+	let message: JSX.Element;
+	if (added.length > 0 && removed.length > 0) {
+		message = <>added {joinLabels(added)} and removed {joinLabels(removed)} {noun}</>;
+	} else if (added.length > 0) {
+		message = <>added {added.length === 1 ? 'the ' : null}{joinLabels(added)} {noun}</>;
+	} else {
+		message = <>removed {removed.length === 1 ? 'the ' : null}{joinLabels(removed)} {noun}</>;
+	}
+	return <ActorEventView actor={event.actor} createdAt={event.createdAt} wrap>{message}</ActorEventView>;
+};
+
+const MilestoneEventView = ({ event }: { event: MilestonedEvent | DemilestonedEvent }) => (
+	<ActorEventView actor={event.actor} createdAt={event.createdAt}>
+		{event.event === EventType.Milestoned ? 'added this to the ' : 'removed this from the '}
+		<strong>{event.milestoneTitle}</strong> milestone
+	</ActorEventView>
+);
+
+const RenamedTitleEventView = ({ event }: { event: RenamedTitleEvent }) => (
+	<ActorEventView actor={event.actor} createdAt={event.createdAt} wrap>
+		changed the title <del className="previous-title">{event.previousTitle}</del> <ins className="current-title">{event.currentTitle}</ins>
+	</ActorEventView>
+);
+
+function joinReviewers(reviewers: (IAccount | ITeam)[]): JSX.Element {
+	return joinWithAnd(reviewers.map(reviewer => <AuthorLink key={reviewerId(reviewer)} for={reviewer} />));
+}
+
+const ReviewRequestEventView = ({ event }: { event: ConsolidatedReviewRequestEvent }) => {
+	const { actor, requested, removed } = event;
+	let requestedMessage: JSX.Element | undefined;
+	if (requested.length === 1 && !isITeam(requested[0]) && requested[0].login === actor.login) {
+		requestedMessage = <>self-requested a review</>;
+	} else if (requested.length === 1) {
+		requestedMessage = <>requested a review from {joinReviewers(requested)}</>;
+	} else if (requested.length > 1) {
+		requestedMessage = <>requested reviews from {joinReviewers(requested)}</>;
+	}
+	const removedMessage = removed.length > 0 ? <>removed the request for review from {joinReviewers(removed)}</> : undefined;
+	const message = (requestedMessage && removedMessage) ? <>{requestedMessage} and {removedMessage}</> : (requestedMessage ?? removedMessage);
+	return <ActorEventView actor={actor} createdAt={event.createdAt} wrap>{message}</ActorEventView>;
+};
+
+const DraftStateEventView = ({ event }: { event: ReadyForReviewEvent | ConvertToDraftEvent }) => (
+	<ActorEventView actor={event.actor} createdAt={event.createdAt}>
+		{event.event === EventType.ReadyForReview ? 'marked this pull request as ready for review' : 'marked this pull request as draft'}
+	</ActorEventView>
+);
+
+const ForcePushedCommitLink = ({ commit }: { commit: ForcePushedCommit }) => (
+	<a className="sha" href={commit.url} title={commit.url}>{commit.sha.slice(0, 7)}</a>
+);
+
+const HeadRefForcePushedEventView = ({ event }: { event: HeadRefForcePushedEvent }) => {
+	const { beforeCommit, afterCommit } = event;
+	return (
+		<ActorEventView actor={event.actor} createdAt={event.createdAt}>
+			force-pushed the <code className="branch-tag">{event.headRef}</code> branch
+			{beforeCommit ? <> from <ForcePushedCommitLink commit={beforeCommit} /></> : null}
+			{afterCommit ? <> to <ForcePushedCommitLink commit={afterCommit} /></> : null}
+		</ActorEventView>
+	);
+};
+
+const HeadRefRestoredEventView = ({ event }: { event: HeadRefRestoredEvent }) => (
+	<ActorEventView actor={event.actor} createdAt={event.createdAt}>
+		restored the <code className="branch-tag">{event.headRef}</code> branch
+	</ActorEventView>
+);
+
+const ReviewDismissedEventView = ({ event }: { event: ReviewDismissedEvent }) => {
+	const { reviewAuthor } = event;
+	return (
+		<ActorEventView actor={event.actor} createdAt={event.createdAt} detail={event.dismissalMessage}>
+			{reviewAuthor ? <>dismissed <AuthorLink for={reviewAuthor} />{'\'s review'}</> : 'dismissed a review'}
+		</ActorEventView>
+	);
+};
+
+const AutoMergeEventView = ({ event }: { event: AutoMergeEnabledEvent | AutoMergeDisabledEvent }) => (
+	event.event === EventType.AutoMergeEnabled
+		? <ActorEventView actor={event.actor} createdAt={event.createdAt}>
+			enabled auto-merge{event.mergeMethod ? ` (${event.mergeMethod})` : null}
+		</ActorEventView>
+		: <ActorEventView actor={event.actor} createdAt={event.createdAt} detail={event.reason}>
+			disabled auto-merge
+		</ActorEventView>
+);
+
+const MergeQueueEventView = ({ event }: { event: AddedToMergeQueueEvent | RemovedFromMergeQueueEvent }) => (
+	event.event === EventType.AddedToMergeQueue
+		? <ActorEventView actor={event.actor} createdAt={event.createdAt}>
+			added this pull request to the merge queue
+		</ActorEventView>
+		: <ActorEventView actor={event.actor} createdAt={event.createdAt} detail={event.reason}>
+			removed this pull request from the merge queue
+		</ActorEventView>
+);

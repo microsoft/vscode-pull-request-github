@@ -662,6 +662,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
+		let labelsChanged = false;
 		try {
 			let newLabels: DisplayLabel[] = [];
 
@@ -690,6 +691,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				await this._replyMessage(message, {
 					added: addedLabels,
 				});
+				labelsChanged = true;
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
@@ -697,12 +699,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			quickPick.hide();
 			quickPick.dispose();
 		}
+		// Refresh after the quick pick is closed so that it doesn't stay open while the timeline loads.
+		if (labelsChanged) {
+			await this.refreshTimeline();
+		}
 	}
 
 	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.removeLabel(message.args);
-			this._replyMessage(message, {});
+			await this._replyMessage(message, {});
+			await this.refreshTimeline();
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -795,11 +802,16 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	/**
 	 * Process code reference links in timeline events (comments, reviews, commits).
-	 * Updates bodyHTML fields for all events that contain them.
+	 * Updates bodyHTML fields for all events that contain them, and emoji in label names.
 	 */
 	protected async processTimelineEvents(events: TimelineEvent[] | undefined): Promise<TimelineEvent[]> {
 		if (!events) {
 			return [];
+		}
+		const hasLabelEvents = events.some(event => event.event === EventType.Labeled || event.event === EventType.Unlabeled);
+		if (hasLabelEvents) {
+			// The emoji map may not have been loaded yet when the timeline events were parsed.
+			await ensureEmojis(this._folderRepositoryManager.context);
 		}
 		return Promise.all(events.map(async (event) => {
 			// Create a shallow copy to avoid mutating the original
@@ -814,6 +826,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						bodyHTML: await this.processLinksInBodyHtml(comment.bodyHTML)
 					})));
 				}
+			} else if (processedEvent.event === EventType.Labeled || processedEvent.event === EventType.Unlabeled) {
+				processedEvent.label = { ...processedEvent.label, displayName: emojify(processedEvent.label.name) };
 			}
 			return processedEvent;
 		}));
@@ -832,8 +846,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		return this._item
 			.edit({ title: message.args.text })
-			.then(result => {
-				return this._replyMessage(message, { titleHTML: result.titleHTML });
+			.then(async result => {
+				await this._replyMessage(message, { titleHTML: result.titleHTML });
+				await this.refreshTimeline();
 			})
 			.catch(e => {
 				this._throwError(message, e);
@@ -844,6 +859,32 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected async _getTimeline(): Promise<TimelineEvent[]> {
 		const events = await this._item.getIssueTimelineEvents();
 		return this.processTimelineEvents(events);
+	}
+
+	private _timelineRefreshSequence = 0;
+
+	/**
+	 * Re-fetches the timeline after a change made from the overview so that the events it creates
+	 * (labels, milestones, title changes, ...) show up without waiting for the next poll.
+	 * Call it after replying so that the change itself isn't delayed by the timeline query.
+	 */
+	protected async refreshTimeline(): Promise<void> {
+		const item = this._item;
+		const sequence = ++this._timelineRefreshSequence;
+		try {
+			const events = await this._getTimeline();
+			// Only post the most recent refresh. An empty timeline is more likely a failed query
+			// than a real result, since the change that triggered the refresh adds an event.
+			if (this.isDisposed || item !== this._item || sequence !== this._timelineRefreshSequence || events.length === 0) {
+				return;
+			}
+			await this._postMessage({
+				command: 'pr.update',
+				pullrequest: { events } satisfies Partial<Issue>,
+			});
+		} catch (e) {
+			Logger.error(`Failed to refresh the timeline: ${formatError(e)}`, IssueOverviewPanel.ID);
+		}
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
@@ -894,15 +935,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			return this.removeMilestone(message);
 		}
 		await this._item.updateMilestone(milestone.id);
-		this._replyMessage(message, {
+		await this._replyMessage(message, {
 			added: milestone,
 		});
+		await this.refreshTimeline();
 	}
 
 	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {
 		try {
 			await this._item.updateMilestone('null');
-			this._replyMessage(message, {});
+			await this._replyMessage(message, {});
+			await this.refreshTimeline();
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
