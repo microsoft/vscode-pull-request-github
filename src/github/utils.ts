@@ -32,6 +32,7 @@ import {
 	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
+	PullRequestStack,
 	Reaction,
 	reviewerId,
 	reviewerLabel,
@@ -991,10 +992,43 @@ export async function parseGraphQLPullRequest(
 		additions: graphQLPullRequest.additions,
 		deletions: graphQLPullRequest.deletions,
 		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes),
+		stack: parseStackSummary(graphQLPullRequest),
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
 	return pr;
+}
+
+/** A pull request in a stack, with its merge status unknown. */
+export function parseStackEntry(entry: GraphQL.StackEntryNode): PullRequestStack['pullRequests'][number] {
+	const { pullRequest } = entry;
+	return {
+		position: entry.position,
+		number: pullRequest.number,
+		title: pullRequest.title,
+		url: pullRequest.url,
+		head: pullRequest.headRefName,
+		state: pullRequest.state,
+		isDraft: pullRequest.isDraft,
+		mergeable: PullRequestMergeability.Unknown,
+	};
+}
+
+/** `undefined` when the stack was not selected, which GitHub Enterprise does not do. */
+export function parseStackSummary(summary: GraphQL.PullRequestStackSummary): PullRequestStack | null | undefined {
+	const { stack, stackEntry } = summary;
+	if (stack === undefined) {
+		return undefined;
+	}
+	if (!stack || !stackEntry) {
+		return null;
+	}
+	return {
+		position: stackEntry.position,
+		size: stack.size,
+		base: stack.baseRefName,
+		pullRequests: stack.entries.nodes.map(parseStackEntry).sort((a, b) => a.position - b.position),
+	};
 }
 
 function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {

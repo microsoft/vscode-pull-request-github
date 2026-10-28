@@ -51,6 +51,11 @@ export function canUpdatePullRequestStack(pr: PullRequest): boolean {
 	return !!pr.stack && !!pr.canUpdateStack && pr.stackLoaded !== false && !pr.stackLoadError;
 }
 
+/** Whether it is known if the pull request is in a stack, which is loaded with the pull request when GitHub supports it. */
+export function isStackMembershipKnown(pr: PullRequest): boolean {
+	return pr.stackLoaded !== false || pr.stack !== undefined;
+}
+
 /** Whether any open pull request in the stack, including this one, has conflicts that updating the stack resolves. */
 export function stackHasConflicts(pr: PullRequest): boolean {
 	return pr.mergeable === PullRequestMergeability.Conflict || hasConflictingStackEntry(pr.stack);

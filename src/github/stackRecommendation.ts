@@ -5,7 +5,7 @@
 
 import { GithubItemStateEnum, PullRequestMergeability, PullRequestStack, PullRequestStackRecommendation, StackablePullRequest } from './interface';
 import type { PullRequestModel } from './pullRequestModel';
-import { isStackablePullRequest, markOutdatedStackEntries } from './pullRequestStack';
+import { checkStackBranches, isStackablePullRequest } from './pullRequestStack';
 
 export interface StackRecommendation {
 	/** What the stack would look like, for the user to confirm. */
@@ -98,8 +98,8 @@ export async function getStackRecommendation(pullRequest: PullRequestModel): Pro
 	}));
 	const owner = pullRequest.remote.owner;
 	// When the pull requests extend a stack, the bottom of the stack is in the part that is already stacked.
-	const outdated = await markOutdatedStackEntries(repository, added,
-		new Map(chain.map(pr => [pr.number, { base: `${owner}:${pr.base}`, head: `${owner}:${pr.head}` }])), !existing);
+	const { needsUpdate } = await checkStackBranches(repository, added,
+		new Map(chain.map(pr => [pr.number, { base: pr.base, head: `${owner}:${pr.head}` }])), !existing);
 	const pullRequests = [...(existing?.pullRequests ?? []), ...added].map((entry, index) => ({ ...entry, position: index + 1 }));
 	return {
 		preview: {
@@ -107,7 +107,7 @@ export async function getStackRecommendation(pullRequest: PullRequestModel): Pro
 				position: pullRequests.findIndex(entry => entry.number === pullRequest.number) + 1,
 				size: pullRequests.length,
 				base: existing?.base ?? chain[0].base,
-				needsUpdate: !!existing?.needsUpdate || outdated,
+				needsUpdate: !!existing?.needsUpdate || needsUpdate,
 				pullRequests,
 			},
 			existingStackSize: existing?.size,

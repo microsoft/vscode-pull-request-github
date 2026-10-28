@@ -11,7 +11,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -102,8 +102,8 @@ export class PRContext {
 		return result;
 	};
 
-	public mergeStack = (method: MergeMethod): Promise<StackMergeResult> =>
-		this.postMessage({ command: 'pr.merge-stack', args: { method } });
+	public mergeStack = (method: MergeMethod, upTo?: number): Promise<StackMergeResult> =>
+		this.postMessage({ command: 'pr.merge-stack', args: { method, upTo } satisfies MergeStackArgs });
 
 	public unstackAll = (): Promise<UnstackAllResult> =>
 		this.postMessage({ command: 'pr.unstack-all' });

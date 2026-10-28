@@ -15,6 +15,7 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
+import { confirmDisablingAutoMergeForStack } from './pullRequestStack';
 import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
@@ -32,14 +33,12 @@ import {
 	ASSIGN_TO,
 	CREATE_BASE_BRANCH,
 	DEFAULT_CREATE_OPTION,
-	EXPERIMENTAL_STACKS,
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
 	PULL_REQUEST_LABELS,
 	PUSH_BRANCH,
 	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
-import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
@@ -687,21 +686,6 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	) {
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
 
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (!e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`) || !this._view) {
-				return;
-			}
-			const sequence = ++this._stackCandidateSequence;
-			void this.getStackCandidateForView(
-				{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName }, this.model.baseBranch,
-				{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName }, this.model.compareBranch,
-			).then(stackCandidate => {
-				if (sequence === this._stackCandidateSequence) {
-					return this._postMessage({ command: 'pr.initialize', params: { stackCandidate } });
-				}
-			});
-		}));
-
 		this._register(this.model.onDidChange(async (e) => {
 			const stackCandidateSequence = ++this._stackCandidateSequence;
 			let baseRemote: RemoteInfo | undefined;
@@ -1128,14 +1112,8 @@ Don't forget to commit your template file to the repository so that it can be us
 	}
 
 	protected async getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
-		if (!areStacksEnabled()) {
-			return;
-		}
 		try {
 			const candidate = await this.getStackCandidate(baseRemote, baseBranch, compareRemote, compareBranch);
-			if (!areStacksEnabled()) {
-				return;
-			}
 			if (!candidate || !baseRemote) {
 				return candidate;
 			}
@@ -1147,7 +1125,10 @@ Don't forget to commit your template file to the repository so that it can be us
 			return { ...candidate, url: url.toString() };
 		} catch (error) {
 			Logger.error(`Failed to check stack eligibility: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
-			void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			// The check can finish after the view is gone, when there is nothing left to warn about.
+			if (!this.isDisposed) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			}
 			return;
 		}
 	}
@@ -1561,8 +1542,8 @@ Don't forget to commit your template file to the repository so that it can be us
 				let stackAdditionFailed = false;
 				try {
 					let stackCandidate: StackCandidate | undefined;
+					let stackParentWithAutoMerge: PullRequestModel | undefined;
 					if (message.args.addToStack) {
-						assertStacksEnabled();
 						if (message.args.autoMerge) {
 							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
 						}
@@ -1573,6 +1554,17 @@ Don't forget to commit your template file to the repository so that it can be us
 							|| stackCandidate.stackNumber !== message.args.stackNumber) {
 							throw new Error(vscode.l10n.t('The selected base branch is no longer at the top of a pull request stack. Refresh and try again.'));
 						}
+						// The new pull request can't have auto-merge, but the one it is stacked on can.
+						const baseRepo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(message.args.owner, message.args.repo);
+						const stackParent = await baseRepo?.getPullRequest(stackCandidate.parentPullRequestNumber, 'createPullRequest');
+						if (!stackParent) {
+							throw new Error(vscode.l10n.t('Unable to load pull request #{0}.', stackCandidate.parentPullRequestNumber));
+						}
+						if (!(await confirmDisablingAutoMergeForStack([stackParent]))) {
+							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+							return;
+						}
+						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}
 					const compareOwner = message.args.compareOwner;
 					const compareRepositoryName = message.args.compareRepo;
@@ -1683,7 +1675,7 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						if (stackCandidate) {
 							try {
-								assertStacksEnabled();
+								await stackParentWithAutoMerge?.disableAutoMerge();
 								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
 							} catch (error) {
 								stackAdditionFailed = true;

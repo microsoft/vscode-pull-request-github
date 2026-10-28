@@ -10,10 +10,9 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
+import { ConvertToDraftReply, MergeStackArgs, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
 import Logger from '../common/logger';
 import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
-import { assertStacksEnabled } from '../common/settingsUtils';
 import { CommitEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -37,16 +36,15 @@ export interface ReviewContext {
  * These are shared between PullRequestOverviewPanel and PullRequestViewProvider.
  */
 export namespace PullRequestReviewCommon {
-	export async function mergeStack(ctx: ReviewContext, message: IRequestMessage<{ method: MergeMethod }>): Promise<void> {
+	export async function mergeStack(ctx: ReviewContext, message: IRequestMessage<MergeStackArgs>): Promise<void> {
 		try {
-			assertStacksEnabled();
 			const { item, folderRepositoryManager } = ctx;
 			const stack = await item.getStack();
 			if (!stack) {
 				throw new Error(vscode.l10n.t('This pull request is no longer part of a stack. Refresh and try again.'));
 			}
-			const queueMethod = await folderRepositoryManager.mergeQueueMethodForBranch(stack.base, item.remote.owner, item.remote.repositoryName);
-			const status = await item.mergeStack(folderRepositoryManager.repository, stack, message.args.method, queueMethod ? 'merge_queue' : 'direct_merge');
+			const status = await item.mergeStack(folderRepositoryManager.repository, stack, message.args.method, stack.mergeQueueMethod ? 'merge_queue' : 'direct_merge',
+				message.args.upTo ?? item.number);
 			const result: StackMergeResult = {
 				status,
 				state: status === 'merged' ? GithubItemStateEnum.Merged : undefined,

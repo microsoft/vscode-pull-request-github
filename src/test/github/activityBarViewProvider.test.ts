@@ -28,7 +28,6 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockRepository } from '../mocks/mockRepository';
-import { mockStackSetting } from '../mocks/mockStackSetting';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
@@ -70,7 +69,6 @@ describe('Active pull request stack changes', function () {
 	let model: PullRequestModel;
 	let stackQuery: SinonStub<[], Promise<PullRequestStack | undefined>>;
 	let queueMethod: SinonStub;
-	let setStacksEnabled: (enabled: boolean) => void;
 	const stack: PullRequestStack = {
 		position: 2, size: 3, base: 'main',
 		pullRequests: [999, 1000, 1001].map((number, index) => ({
@@ -114,7 +112,6 @@ describe('Active pull request stack changes', function () {
 		sinon.stub(vscode.window, 'showErrorMessage').callsFake(message => {
 			assert.fail(message);
 		});
-		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 		context.extensionUri = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 		const telemetry = new MockTelemetry();
@@ -158,6 +155,19 @@ describe('Active pull request stack changes', function () {
 		sinon.restore();
 	});
 
+	it('shows the stack loaded with the pull request until the merge status of its pull requests is loaded', async function () {
+		const summary = { ...stack, pullRequests: stack.pullRequests.map(entry => ({ ...entry, mergeable: PullRequestMergeability.Unknown })) };
+		model.update({ ...model.item, stack: summary });
+
+		await provider.updatePullRequest(model);
+		await settleUpdates();
+
+		const initialize = provider.messages.find(message => message.command === 'pr.initialize');
+		assert.deepStrictEqual(initialize?.pullrequest?.stack, summary);
+		assert.strictEqual(initialize?.pullrequest?.stackLoaded, false);
+		assert.deepStrictEqual(latestStackUpdate().stack, stack);
+	});
+
 	it('clears a three-pull-request stack from the sidebar after unstacking', async function () {
 		await initialize();
 		stackQuery.resolves(undefined);
@@ -190,9 +200,20 @@ describe('Active pull request stack changes', function () {
 		assert.deepStrictEqual(latestStackUpdate().stack, stack);
 	});
 
+	it('uses the merge queue of the stack base for a stacked pull request', async function () {
+		queueMethod.resolves('merge');
+		await initialize();
+		stackQuery.resolves({ ...stack, mergeQueueMethod: 'squash' });
+		repo.notifyStackChanged([1000]);
+		await settleUpdates();
+
+		assert.strictEqual(latestStackUpdate().mergeQueueMethod, 'squash');
+	});
+
 	for (const method of [undefined, 'merge'] as (MergeMethod | undefined)[]) {
 		it(`restores the pull request base branch queue method (${method ?? 'none'}) after unstacking`, async function () {
-			queueMethod.callsFake(async branch => branch === stack.base ? 'squash' : method);
+			stackQuery.resolves({ ...stack, mergeQueueMethod: 'squash' });
+			queueMethod.resolves(method);
 			await initialize();
 			stackQuery.resolves(undefined);
 			repo.notifyStackChanged([1000]);
@@ -218,16 +239,6 @@ describe('Active pull request stack changes', function () {
 		} finally {
 			other.dispose();
 		}
-	});
-
-	it('does not load stacks when the feature is disabled', async function () {
-		setStacksEnabled(false);
-		await initialize();
-		repo.notifyStackChanged([1000]);
-		await settleUpdates();
-
-		assert(stackQuery.notCalled);
-		assert.strictEqual(provider.messages.length, 0);
 	});
 
 	it('ignores an older stack load that completes after unstacking', async function () {

@@ -637,6 +637,15 @@ export interface MergeQueueForBranchResponse {
 	}
 }
 
+/** The response to a query built at runtime that compares the branches of a stack, with one aliased field per comparison. */
+export interface StackBranchStatusResponse {
+	repository: ({
+		mergeQueue?: { configuration?: { mergeMethod: MergeMethod } | null } | null;
+	} & {
+		[comparison: `compare${number}`]: { compare: { behindBy: number } | null } | null;
+	}) | null;
+}
+
 export interface DequeuePullRequestResponse {
 	mergeQueueEntry: MergeQueueEntry;
 }
@@ -882,6 +891,21 @@ export interface PullRequest extends Issue {
 			url: string,
 		}[];
 	};
+	/** Not selected on GitHub Enterprise. */
+	stackEntry?: { position: number } | null;
+	/** Not selected on GitHub Enterprise. */
+	stack?: {
+		size: number;
+		baseRefName: string;
+		entries: { nodes: StackEntryNode[] };
+	} | null;
+}
+
+export type PullRequestStackSummary = Pick<PullRequest, 'stackEntry' | 'stack'>;
+
+export interface PullRequestStackSummariesResponse {
+	/** In the order of the requested IDs, and `null` for an ID that was not found. */
+	nodes: (PullRequestStackSummary | null)[];
 }
 
 export enum DefaultCommitTitle {
@@ -904,6 +928,21 @@ export interface PullRequestResponse {
 	rateLimit: RateLimit;
 }
 
+/** A pull request in a stack, as selected by the `StackEntryPullRequest` fragment. */
+export interface StackEntryPullRequest {
+	number: number;
+	title: string;
+	url: string;
+	state: GithubItemStateEnum;
+	isDraft: boolean;
+	headRefName: string;
+}
+
+export interface StackEntryNode<T extends StackEntryPullRequest = StackEntryPullRequest> {
+	position: number;
+	pullRequest: T;
+}
+
 export interface PullRequestStackResponse {
 	repository: {
 		pullRequest: {
@@ -912,23 +951,13 @@ export interface PullRequestStackResponse {
 				size: number;
 				baseRefName: string;
 				entries: {
-					nodes: {
-						position: number;
-						pullRequest: {
-							number: number;
-							title: string;
-							url: string;
-							state: GithubItemStateEnum;
-							isDraft: boolean;
-							baseRefName: string;
-							baseRepository: { owner: { login: string } } | null;
-							headRefName: string;
-							headRepository: { owner: { login: string } } | null;
-							mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-							mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
-							mergeQueueEntry?: { state: string } | null;
-						};
-					}[];
+					nodes: StackEntryNode<StackEntryPullRequest & {
+						baseRefName: string;
+						headRepository: { owner: { login: string } } | null;
+						mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+						mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+						mergeQueueEntry?: { state: string } | null;
+					}>[];
 					pageInfo: { hasNextPage: boolean; endCursor: string | null };
 				};
 			} | null;

@@ -15,14 +15,15 @@ import React, {
 import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
-import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
-import { canUpdatePullRequestStack, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
+import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { canUpdatePullRequestStack, isStackMembershipKnown, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
 import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
+	getStackMergeAllTarget,
 	GithubItemStateEnum,
 	hasConflictingStackEntry,
 	isStackMergeable,
@@ -190,7 +191,7 @@ export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: Pull
 	}
 
 	const { mergeable: _mergeable } = pr;
-	const canUpdateWithMergeCommit = !pr.stack && pr.stackLoaded !== false && !pr.stackLoadError;
+	const canUpdateWithMergeCommit = !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
 	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
 	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
 
@@ -435,7 +436,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 	if (pr.stackLoadError) {
 		return <div className="status-item">Unable to load pull request stack details. Refresh to retry merging.</div>;
 	}
-	if (pr.stackLoaded === false) {
+	if (!isStackMembershipKnown(pr)) {
 		return <div className="status-item">Checking pull request stack membership...</div>;
 	}
 	if (isDraft) {
@@ -454,10 +455,16 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		return <div className="status-item">Pull request stack added to the merge queue.</div>;
 	}
 	if (pr.stack) {
+		if (!hasWritePermission || pr.mergeQueueEntry) {
+			return null;
+		}
+		// Merging a stack depends on every pull request in it, which may not be loaded yet.
+		if (pr.stackLoaded === false) {
+			return <div className="status-item">Checking whether the stack can be merged...</div>;
+		}
 		// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
 		const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
-		return hasWritePermission && !pr.mergeQueueEntry
-			&& (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
+		return (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
 			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
 	}
 
@@ -485,22 +492,49 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 	const { mergeStack, updatePR } = useContext(PullRequestContext);
 	const [method, setMethod] = useState<MergeMethod>(pr.defaultMergeMethod);
-	const [confirm, setConfirm] = useState(false);
+	const [confirming, setConfirming] = useState<'stack' | 'all' | undefined>();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | undefined>();
 	if (!pr.stack) {
 		throw new Error('A pull request stack is required for stack merge actions.');
 	}
-	const count = 1 + pr.stack.pullRequests.filter(entry => entry.position < pr.stack.position && entry.state === GithubItemStateEnum.Open).length;
+	const queue = !!pr.mergeQueueMethod;
+	const open = pr.stack.pullRequests.filter(entry => entry.state === GithubItemStateEnum.Open);
+	const count = 1 + open.filter(entry => entry.position < pr.stack!.position).length;
 	const downstack = count - 1;
 	const downstackDescription = `${downstack} open pull request${downstack === 1 ? '' : 's'} below it`;
-	const label = pr.mergeQueueMethod ? 'Add stack to merge queue' : `Merge stack (${count} pull request${count === 1 ? '' : 's'})`;
+	// Merging the pull request at the top of the stack also merges every open pull request below it.
+	const top = getStackMergeAllTarget(pr.stack, pr.number);
+	const actions = {
+		stack: {
+			label: queue ? 'Add stack to merge queue' : `Merge stack (${count} pull request${count === 1 ? '' : 's'})`,
+			prompt: queue
+				? downstack ? `Add this pull request and ${downstackDescription} to the merge queue?` : 'Add this pull request to the merge queue?'
+				: downstack ? `Merge this pull request and ${downstackDescription}?` : 'Merge this pull request?',
+			progress: queue ? 'Adding stack to merge queue...' : 'Merging stack...',
+			upTo: undefined,
+		},
+		all: top && {
+			label: queue ? 'Add all to merge queue' : `Merge all (${open.length} pull requests)`,
+			// The icon button that offers this has no text, so this names it.
+			description: queue
+				? `Add all ${open.length} open pull requests in this stack to the merge queue`
+				: `Merge all ${open.length} open pull requests in this stack`,
+			prompt: queue
+				? `Add all ${open.length} open pull requests in this stack to the merge queue?`
+				: `Merge all ${open.length} open pull requests in this stack?`,
+			progress: queue ? 'Adding all to merge queue...' : 'Merging all...',
+			upTo: top.number,
+		},
+	};
+	// The stack can change while the user confirms, so a merge that is no longer possible goes back to the choices.
+	const confirmed = confirming && actions[confirming];
 
 	const submit = async () => {
 		try {
 			setBusy(true);
 			setError(undefined);
-			const result = await mergeStack(method);
+			const result = await (confirmed?.upTo === undefined ? mergeStack(method) : mergeStack(method, confirmed.upTo));
 			if (result.status !== 'cancelled') {
 				updatePR({
 					state: result.state ?? pr.state,
@@ -508,7 +542,7 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 					stackMergeStatus: result.status === 'pending' || result.status === 'enqueued' ? result.status : undefined,
 				});
 			}
-			setConfirm(false);
+			setConfirming(undefined);
 		} catch (mergeError) {
 			setError(mergeError instanceof Error ? mergeError.message || mergeError.name : String(mergeError));
 		} finally {
@@ -517,19 +551,21 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 	};
 
 	return <div className="automerge-section wrapper stack-merge">
-		{confirm ? <>
-			<p>{pr.mergeQueueMethod
-				? downstack ? `Add this pull request and ${downstackDescription} to the merge queue?` : 'Add this pull request to the merge queue?'
-				: downstack ? `Merge this pull request and ${downstackDescription}?` : 'Merge this pull request?'}</p>
+		{confirmed ? <>
+			<p>{confirmed.prompt}</p>
 			{error ? <p role="alert">Unable to merge stack: {error}</p> : null}
-			<button className="secondary" disabled={busy} onClick={() => setConfirm(false)}>Cancel</button>
+			<button className="secondary" disabled={busy} onClick={() => setConfirming(undefined)}>Cancel</button>
 			<button disabled={busy} onClick={submit}>
 				{busy ? <span className="loading-button">{loadingIcon}</span> : null}
-				{busy ? pr.mergeQueueMethod ? 'Adding stack to merge queue...' : 'Merging stack...' : label}
+				{busy ? confirmed.progress : confirmed.label}
 			</button>
 		</> : <>
-			<button onClick={() => setConfirm(true)}>{label}</button>
-			{!pr.mergeQueueMethod ? <div className="stack-merge-method">
+			<div className="stack-merge-buttons">
+				<button onClick={() => setConfirming('stack')}>{actions.stack.label}</button>
+				{actions.all ? <button className="icon-button" type="button" title={actions.all.description} aria-label={actions.all.description}
+					onClick={() => setConfirming('all')}>{layersIcon}</button> : null}
+			</div>
+			{!queue ? <div className="stack-merge-method">
 				<span>using method</span>
 				<MergeSelect {...pr} onChange={event => setMethod(event.target.value as MergeMethod)} />
 			</div> : null}

@@ -87,7 +87,10 @@ export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHT
 export type OverviewItemPreview = IssuePreview | PullRequestPreview;
 
 export interface PullRequest extends Issue {
-	/** Use null to clear a previous value in serialized webview updates. */
+	/**
+	 * `null` when the pull request is not in a stack, and `undefined` when that is not known yet.
+	 * Until `stackLoaded`, the merge status of the pull requests in it is not known.
+	 */
 	stack?: PullRequestStack | null;
 	canUpdateStack?: boolean;
 	stackLoaded?: boolean;
@@ -193,6 +196,15 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface MergeStackArgs {
+	method: MergeMethod;
+	/**
+	 * The pull request at or above this one to merge the stack up to, as the user confirmed it. Every open pull request
+	 * below it is merged with it. Defaults to this pull request.
+	 */
+	upTo?: number;
 }
 
 export interface StackMergeResult {

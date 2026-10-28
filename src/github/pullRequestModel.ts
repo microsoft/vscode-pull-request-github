@@ -13,7 +13,7 @@ import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, StackBranchComparison } from './githubRepository';
 import {
 	AddCommentResponse,
 	AddReactionResponse,
@@ -73,7 +73,7 @@ import {
 import { IssueChangeEvent, IssueModel } from './issueModel';
 import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
-import { markOutdatedStackEntries } from './pullRequestStack';
+import { checkStackBranches } from './pullRequestStack';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -89,6 +89,7 @@ import {
 	parseGraphQLReviewThread,
 	parseMergeability,
 	parseMergeQueueEntry,
+	parseStackEntry,
 	RestAccount,
 	restPaginate,
 } from './utils';
@@ -302,6 +303,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		if (item.mergeable === undefined) {
 			item.mergeable = this.item.mergeable;
+		}
+		if (item.stack === undefined) {
+			item.stack = this.item.stack;
 		}
 		const changes = super.doUpdate(item) as IssueChangeEvent;
 		if (this.isDraft !== item.isDraft) {
@@ -554,18 +558,35 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return;
 	}
 
-	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue'): Promise<StackMergeOutcome> {
-		if (!stack.pullRequests.some(entry => entry.number === this.number && entry.state === GithubItemStateEnum.Open)) {
+	/**
+	 * Merges this pull request together with the open pull requests below it in its stack.
+	 * @param upTo The pull request at or above this one to merge the stack up to, which GitHub merges together with
+	 * every open pull request below it.
+	 */
+	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue',
+		upTo: number = this.number): Promise<StackMergeOutcome> {
+		const current = stack.pullRequests.find(entry => entry.number === this.number);
+		if (current?.state !== GithubItemStateEnum.Open) {
 			throw new Error(`Pull request #${this.number} is not open in this stack.`);
 		}
-		if (!isStackMergeable(stack, this.number)) {
+		const top = stack.pullRequests.find(entry => entry.number === upTo);
+		if (!top || top.position < current.position) {
+			throw new Error(`Pull request #${upTo} is not at or above #${this.number} in this stack.`);
+		}
+		if (!isStackMergeable(stack, upTo)) {
 			throw new Error(`Pull request stack for #${this.number} is not ready to merge.`);
 		}
-		const headSha = this.head?.sha;
+		const target = upTo === this.number ? this : await this.githubRepository.getPullRequest(upTo, 'mergeStack');
+		const headSha = target?.head?.sha;
 		if (!headSha) {
-			throw new Error(`Missing head commit for pull request #${this.number}.`);
+			throw new Error(`Missing head commit for pull request #${upTo}.`);
 		}
-		if (this.isActive && await this.confirmLocalChanges(repository)) {
+		// Any of the pull requests that are merged could be the one that is checked out.
+		const checkedOut = stack.pullRequests
+			.filter(entry => entry.position <= top.position && entry.state === GithubItemStateEnum.Open)
+			.map(entry => entry.number === this.number ? this : entry.number === upTo ? target : this.githubRepository.getExistingPullRequestModel(entry.number))
+			.find(model => model?.isActive);
+		if (checkedOut && await checkedOut.confirmLocalChanges(repository)) {
 			return 'cancelled';
 		}
 
@@ -574,7 +595,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const parameters = {
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			pull_number: this.number,
+			pull_number: upTo,
 			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
 		};
 		let response: AsyncMergeResponse;
@@ -616,7 +637,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (response.status !== 'merged' && response.status !== 'enqueued') {
 			throw new Error('GitHub returned an unknown stack merge result.');
 		}
-		Logger.debug(`Stack merge for #${this.number}: ${response.status}`, PullRequestModel.ID);
+		Logger.debug(`Stack merge for #${this.number} up to #${upTo}: ${response.status}`, PullRequestModel.ID);
 		this.githubRepository.notifyStackChanged(stack.pullRequests.map(entry => entry.number));
 		return response.status;
 	}
@@ -1738,10 +1759,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async getStack(): Promise<PullRequestStack | undefined> {
+		const start = performance.now();
 		const { query, remote, schema } = await this.githubRepository.ensure();
 		let stack: PullRequestStack | undefined;
 		let after: string | null = null;
-		const comparisons = new Map<number, { base: string; head: string }>();
+		const comparisons = new Map<number, StackBranchComparison>();
 
 		while (true) {
 			let data: PullRequestStackResponse;
@@ -1781,22 +1803,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			stack.pullRequests.push(...pullRequest.stack.entries.nodes.map(entry => {
 				const pr = entry.pullRequest;
 				if (pr.state === GithubItemStateEnum.Open) {
-					if (!pr.baseRepository || !pr.headRepository || !pr.baseRefName || !pr.headRefName) {
+					if (!pr.headRepository || !pr.baseRefName || !pr.headRefName) {
 						throw new Error(`Missing branch information for pull request #${pr.number} in this stack.`);
 					}
 					comparisons.set(pr.number, {
-						base: `${pr.baseRepository.owner.login}:${pr.baseRefName}`,
+						// A pull request's base branch is always in its own repository.
+						base: pr.baseRefName,
 						head: `${pr.headRepository.owner.login}:${pr.headRefName}`,
 					});
 				}
 				return {
-					position: entry.position,
-					number: pr.number,
-					title: pr.title,
-					url: pr.url,
-					head: pr.headRefName,
-					state: pr.state,
-					isDraft: pr.isDraft,
+					...parseStackEntry(entry),
 					isQueued: !!pr.mergeQueueEntry,
 					mergeable: parseMergeability(pr.mergeable, pr.mergeStateStatus),
 				};
@@ -1805,7 +1822,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const pageInfo = pullRequest.stack.entries.pageInfo;
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
-				stack.needsUpdate = await markOutdatedStackEntries(this.githubRepository, stack.pullRequests, comparisons, true);
+				const loaded = performance.now();
+				const { needsUpdate, mergeQueueMethod } = await checkStackBranches(this.githubRepository, stack.pullRequests, comparisons, true, stack.base);
+				stack.needsUpdate = needsUpdate;
+				stack.mergeQueueMethod = mergeQueueMethod;
+				Logger.debug(`Loaded the stack of #${this.number} in ${Math.round(performance.now() - start)}ms (stack: ${Math.round(loaded - start)}ms, branches: ${Math.round(performance.now() - loaded)}ms)`, PullRequestModel.ID);
 				return stack;
 			}
 			if (!pageInfo.endCursor || pageInfo.endCursor === after) {

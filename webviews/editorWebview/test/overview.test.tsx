@@ -13,7 +13,7 @@ import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
-import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
+import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
 import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
@@ -1197,6 +1197,82 @@ describe('Overview', function () {
 		assert.strictEqual(out.getByText('Merge stack (1 pull request)').hasAttribute('disabled'), false);
 	});
 
+	describe('merge all', function () {
+		const entry = (position: number, change: Partial<PullRequestStack['pullRequests'][number]> = {}): PullRequestStack['pullRequests'][number] => ({
+			position, number: 792 + position, title: `Change ${position}`, head: `D${position}`, url: `https://example.com/${792 + position}`,
+			state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable, ...change,
+		});
+		const middleOf = (top: Partial<PullRequestStack['pullRequests'][number]> = {}) =>
+			new PullRequestBuilder().number(794).stack({ position: 2, size: 3, base: 'main', pullRequests: [entry(1), entry(2), entry(3, top)] });
+
+		it('offers to merge every open pull request in the stack, up to the top, from an icon button when they are all ready', async function () {
+			const pr = middleOf().build();
+			for (const Component of [Overview, ActivityBarOverview]) {
+				const view = render(<PullRequestContext.Provider value={new PRContext(pr)}><Component {...pr} /></PullRequestContext.Provider>);
+				assert(view.getByText('Merge stack (2 pull requests)'));
+				const mergeAll = view.getByLabelText('Merge all 3 open pull requests in this stack');
+				assert.strictEqual(mergeAll.getAttribute('title'), 'Merge all 3 open pull requests in this stack');
+				assert(mergeAll.classList.contains('icon-button'));
+				assert.strictEqual(mergeAll.textContent, '', 'the button only shows an icon');
+				view.unmount();
+			}
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'merged', state: GithubItemStateEnum.Merged });
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.change(out.getByLabelText('Select merge method'), { target: { value: 'squash' } });
+			fireEvent.click(out.getByLabelText('Merge all 3 open pull requests in this stack'));
+			assert(out.getByText('Merge all 3 open pull requests in this stack?'));
+			assert.strictEqual(out.queryByText('Merge stack (2 pull requests)'), null);
+			fireEvent.click(out.getByText('Merge all (3 pull requests)'));
+
+			await wait(() => assert.strictEqual(context.pr?.state, GithubItemStateEnum.Merged));
+			assert(mergeStack.calledOnceWithExactly('squash', 795));
+		});
+
+		it('offers to add every open pull request to the merge queue when the base has one', function () {
+			const pr = middleOf().mergeQueueMethod('squash').build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByLabelText('Add all 3 open pull requests in this stack to the merge queue'));
+
+			assert(out.getByText('Add all 3 open pull requests in this stack to the merge queue?'));
+			assert(out.getByText('Add all to merge queue'));
+		});
+
+		it('only merges this pull request and the ones below it with Merge stack', async function () {
+			const pr = middleOf().build();
+			const context = new PRContext(pr);
+			const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'merged', state: GithubItemStateEnum.Merged });
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			fireEvent.click(out.getByText('Merge stack (2 pull requests)'));
+			assert(out.getByText('Merge this pull request and 1 open pull request below it?'));
+			fireEvent.click(out.getByText('Merge stack (2 pull requests)'));
+
+			await wait(() => assert(mergeStack.calledOnce));
+			assert(mergeStack.calledOnceWithExactly('merge'));
+		});
+
+		it('is not offered for the top of the stack or when a pull request above is not ready', function () {
+			const notReady = [
+				{ isDraft: true },
+				{ mergeable: PullRequestMergeability.NotMergeable },
+				{ mergeable: PullRequestMergeability.Behind },
+				{ mergeable: PullRequestMergeability.Conflict },
+				{ state: GithubItemStateEnum.Closed },
+			].map(change => middleOf(change).build());
+			const top = new PullRequestBuilder().number(795).stack({ position: 3, size: 3, base: 'main', pullRequests: [entry(1), entry(2), entry(3)] }).build();
+			for (const pr of [...notReady, top]) {
+				const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+				assert(out.getByText(/^Merge stack/));
+				assert.strictEqual(out.queryByLabelText(/^Merge all/), null);
+				out.unmount();
+			}
+		});
+	});
+
 	it('does not offer a legacy merge while stack membership is loading or failed', function () {
 		const pr = new PullRequestBuilder().stackLoaded(false).build();
 		const out = render(
@@ -1214,6 +1290,38 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 		assert(out.getByText('Unable to load pull request stack details. Refresh to retry merging.'));
+		assert.strictEqual(out.container.querySelector('.automerge-section'), null);
+	});
+
+	it('offers merging and updating a pull request that was loaded without a stack, before its stack is checked', function () {
+		const pr = { ...new PullRequestBuilder().build(), stack: null, stackLoaded: false };
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+		assert.strictEqual(out.queryByText('Checking pull request stack membership...'), null);
+		assert(out.container.querySelector('.automerge-section'));
+		out.unmount();
+
+		const behind = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Behind).build(), stack: null, stackLoaded: false };
+		const updating = render(<PullRequestContext.Provider value={new PRContext(behind)}><Overview {...behind} /></PullRequestContext.Provider>);
+		assert(updating.queryByText(/Update with merge commit/i));
+	});
+
+	it('shows a stack loaded with the pull request while the merge status of its pull requests is checked', function () {
+		const unknown = PullRequestMergeability.Unknown;
+		const pr = new PullRequestBuilder().number(794).stackLoaded(false).stack({
+			position: 2, size: 2, base: 'main',
+			pullRequests: [
+				{ position: 1, number: 793, title: 'First', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: unknown },
+				{ position: 2, number: 794, title: 'Second', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: unknown },
+			],
+		}).build();
+		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+		assert.strictEqual(out.container.querySelector('.stack-badge')?.textContent, '2/2');
+		assert.deepStrictEqual([...out.container.querySelectorAll('.stack-entry-readiness')].map(entry => entry.getAttribute('aria-label')),
+			['Mergeability is being checked', 'Already merged']);
+		assert(out.getByText('Checking whether the stack can be merged...'));
+		assert.strictEqual(out.queryByText('Checking pull request stack membership...'), null);
+		assert.strictEqual(out.container.querySelector('.stack-merge'), null);
 		assert.strictEqual(out.container.querySelector('.automerge-section'), null);
 	});
 

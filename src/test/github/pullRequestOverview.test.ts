@@ -35,7 +35,6 @@ import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { GitHubRef } from '../../common/githubRef';
-import { mockStackSetting } from '../mocks/mockStackSetting';
 import { EventType, TimelineEvent } from '../../common/timelineEvent';
 import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
@@ -61,6 +60,17 @@ interface PanelMessage {
 	seq?: string;
 	err?: string;
 	res?: { command?: string; pullrequest?: Partial<PullRequest> };
+}
+
+/**
+ * The data of the last stack update posted through a stubbed `_postMessage`.
+ * For a pull request that is not in a stack, what it can be stacked with is posted after it.
+ */
+function lastStackUpdate(postMessage: SinonStub): Partial<PullRequest> {
+	const update = postMessage.args.map(([message]): Partial<PullRequest> | undefined => message?.pullrequest).reverse()
+		.find(pullrequest => !!pullrequest && 'stack' in pullrequest);
+	assert(update, 'a stack update was posted');
+	return update;
 }
 
 class TestPullRequestOverviewPanel extends PullRequestOverviewPanel {
@@ -106,14 +116,12 @@ describe('PullRequestOverview', function () {
 	let credentialStore: CredentialStore;
 	let mockThemeWatcher: MockThemeWatcher;
 	let repositoriesManager: RepositoriesManager;
-	let setStacksEnabled: (enabled: boolean) => void;
 	let panelServices: ReturnType<typeof stubPanelServices> | undefined;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		panelServices = undefined;
 		MockCommandRegistry.install(sinon);
-		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 
 		const repository = new MockRepository();
@@ -392,7 +400,6 @@ describe('PullRequestOverview', function () {
 			let postMessage: SinonStub;
 
 			beforeEach(function () {
-				setStacksEnabled(false);
 				discovered = false;
 				sinon.stub(pullRequestManager, 'gitHubRepositories').get(() => discovered ? [repo] : []);
 				repositoriesManager.insertFolderManager(pullRequestManager);
@@ -529,7 +536,6 @@ describe('PullRequestOverview', function () {
 			let postMessage: SinonStub;
 
 			beforeEach(async function () {
-				setStacksEnabled(false);
 				await pullRequestManager.repository.addRemote('origin', remote.url);
 				repositoriesManager.insertFolderManager(pullRequestManager);
 				sinon.stub(pullRequestManager, 'gitHubRepositories').get(() => [repo]);
@@ -615,12 +621,12 @@ describe('PullRequestOverview', function () {
 
 		for (const initiallyCheckedOut of [false, true]) {
 			it(`initializes with the latest checkout state when ${initiallyCheckedOut ? 'leaving' : 'entering'} review mode during loading`, async function () {
-				setStacksEnabled(false);
 				const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
 					convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
 				const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
 				pullRequestManager.activePullRequest = initiallyCheckedOut ? model : undefined;
 				sinon.stub(pullRequestManager, 'getCurrentUser').resolves(model.author);
+				sinon.stub(model, 'getStack').resolves(undefined);
 				sinon.stub(model, 'getTimelineEvents').resolves([]);
 				sinon.stub(model, 'getReviewRequests').resolves([]);
 				sinon.stub(model, 'validateDraftMode').resolves(false);
@@ -656,25 +662,6 @@ describe('PullRequestOverview', function () {
 	});
 
 	describe('createOrShow', function () {
-		it('does not load stack membership when stacks are disabled', async function () {
-			setStacksEnabled(false);
-			const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
-				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
-			const getStack = sinon.stub(model, 'getStack');
-			const postMessage = sinon.spy(PullRequestOverviewPanel.prototype as any, '_postMessage');
-			sinon.stub(pullRequestManager, 'getCurrentUser').resolves(model.author);
-
-			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
-				{ owner: remote.owner, repo: remote.repositoryName, number: model.number }, model);
-
-			assert(getStack.notCalled);
-			const initialize = postMessage.getCalls().find(call => call.args[0].command === 'pr.initialize'
-				&& call.args[0].pullrequest?.stackLoaded !== undefined);
-			assert(initialize);
-			assert.strictEqual(initialize?.args[0].pullrequest.stackLoaded, true);
-			assert.strictEqual(initialize?.args[0].pullrequest.stack, undefined);
-		});
-
 		it('creates a new panel', async function () {
 			assert.strictEqual(PullRequestOverviewPanel.findPanel('aaa', 'bbb', 1000), undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
@@ -999,16 +986,111 @@ describe('PullRequestOverview', function () {
 
 		previewLoadingTests(() => ({ model: prModel, preview, getPreview, getRepository, getRepositoryAccess, getAssignableUsers, openPanel, messages, webviewPanel }));
 
+		it('loads the stack while the rest of the page loads, and shows it after the page', async function () {
+			const getStack = sinon.stub(prModel, 'getStack').resolves(undefined);
+			let releaseAccess!: () => void;
+			const accessRequested = new Promise<void>(requested => {
+				getRepositoryAccess.callsFake(() => {
+					requested();
+					return new Promise(resolve => {
+						releaseAccess = () => resolve({
+							hasWritePermission: true,
+							mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+							viewerCanAutoMerge: false,
+						});
+					});
+				});
+			});
+
+			const opening = openPanel();
+			await accessRequested;
+
+			assert(getStack.calledOnce, 'the stack loads while the page does');
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+			releaseAccess();
+			await opening;
+
+			const initialize = messages.findIndex(message => message.command === 'pr.initialize');
+			const shown = messages.findIndex(message => !!message.pullrequest?.stackLoaded);
+			assert.notStrictEqual(initialize, -1);
+			assert(shown > initialize, 'the stack is shown after the page');
+			assert(getStack.calledOnce, 'the stack is not loaded again');
+		});
+
+		describe('stack loaded with the pull request', function () {
+			function entry(position: number, number: number, mergeable = PullRequestMergeability.Unknown): PullRequestStack['pullRequests'][number] {
+				return {
+					position, number, title: `Change ${number}`, url: `https://github.com/aaa/bbb/pull/${number}`, head: `D${position}`,
+					state: GithubItemStateEnum.Open, isDraft: false, mergeable,
+				};
+			}
+			/** What GitHub returns with the pull request: the stack, without the merge status of its pull requests. */
+			const summary: PullRequestStack = { position: 2, size: 2, base: 'main', pullRequests: [entry(1, 999), entry(2, 1000)] };
+			const loaded: PullRequestStack = {
+				...summary, needsUpdate: true,
+				pullRequests: [entry(1, 999, PullRequestMergeability.Mergeable), entry(2, 1000, PullRequestMergeability.Conflict)],
+			};
+			const stackOf = (message: { pullrequest?: Partial<PullRequest> } | undefined) => message?.pullrequest?.stack?.pullRequests.map(pr => [pr.number, pr.mergeable]);
+
+			beforeEach(function () {
+				sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
+				prModel.update({ ...prModel.item, stack: summary });
+			});
+
+			it('shows it with the page, until the merge status of its pull requests is loaded', async function () {
+				sinon.stub(prModel, 'getStack').resolves(loaded);
+
+				await openPanel();
+
+				const initialize = messages.find(message => message.command === 'pr.initialize');
+				assert.strictEqual(initialize?.pullrequest?.stackLoaded, false);
+				assert.deepStrictEqual(stackOf(initialize), [[999, PullRequestMergeability.Unknown], [1000, PullRequestMergeability.Unknown]]);
+				assert(initialize?.pullrequest?.stack?.pullRequests.every(pr => pr.url.includes('/open-pull-request-webview')));
+				assert.deepStrictEqual(stackOf(messages.find(message => message.pullrequest?.stackLoaded)),
+					[[999, PullRequestMergeability.Mergeable], [1000, PullRequestMergeability.Conflict]]);
+			});
+
+			it('keeps showing the loaded stack when the pull request is loaded again with the same stack', async function () {
+				sinon.stub(prModel, 'getStack').resolves(loaded);
+				await openPanel();
+				messages.length = 0;
+
+				await openPanel();
+
+				assert.deepStrictEqual(stackOf(messages.find(message => message.command === 'pr.initialize')),
+					[[999, PullRequestMergeability.Mergeable], [1000, PullRequestMergeability.Conflict]]);
+
+				prModel.update({ ...prModel.item, stack: { ...summary, size: 3, pullRequests: [...summary.pullRequests, entry(3, 1001)] } });
+				messages.length = 0;
+				await openPanel();
+
+				assert.deepStrictEqual(stackOf(messages.find(message => message.command === 'pr.initialize')),
+					[[999, PullRequestMergeability.Unknown], [1000, PullRequestMergeability.Unknown], [1001, PullRequestMergeability.Unknown]],
+					'a stack that changed is shown as it was loaded with the pull request');
+			});
+
+			it('shows that the pull request is not in a stack with the page', async function () {
+				prModel.update({ ...prModel.item, stack: null });
+				sinon.stub(prModel, 'getStack').resolves(undefined);
+
+				await openPanel();
+
+				const initialize = messages.find(message => message.command === 'pr.initialize');
+				assert.strictEqual(initialize?.pullrequest?.stack, null);
+				assert.strictEqual(initialize?.pullrequest?.stackLoaded, false);
+			});
+		});
+
 		it('keeps the stack queue method when deferred PR data arrives after the stack', async function () {
 			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 			sinon.stub(prModel, 'getStack').resolves({
-				position: 1, size: 1, base: 'stack-target',
+				position: 1, size: 1, base: 'stack-target', mergeQueueMethod: 'squash',
 				pullRequests: [{
 					position: 1, number: prModel.number, title: prModel.title, head: 'feature',
 					url: prModel.html_url, state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable,
 				}],
 			});
-			getMergeQueueMethod.callsFake(async branch => branch === 'stack-target' ? 'squash' : 'merge');
+			getMergeQueueMethod.resolves('merge');
 			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
 			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
 
@@ -1051,13 +1133,16 @@ describe('PullRequestOverview', function () {
 
 			await openPanel();
 
-			assert(getStack.calledOnce);
+			// The newer update loads its stack while the older one is still loading, and shows it once that finishes.
+			assert(getStack.calledTwice);
 			assert.strictEqual(messages.some(message => message.pullrequest?.stackLoaded), false);
-			releaseStack(undefined);
+			releaseStack({ position: 1, size: 1, base: 'main', pullRequests: [] });
 			await (panel as any)._stackRefreshPromise;
 
 			assert(getStack.calledTwice);
-			assert.strictEqual(messages.filter(message => message.pullrequest?.stackLoaded).length, 1);
+			const loaded = messages.filter(message => message.pullrequest?.stackLoaded);
+			assert.strictEqual(loaded.length, 1);
+			assert.strictEqual(loaded[0].pullrequest?.stack, null);
 			assert.strictEqual((panel as any)._stackLoaded, true);
 		});
 
@@ -1383,10 +1468,10 @@ describe('PullRequestOverview', function () {
 			],
 		};
 
-		function createMergeContext() {
+		function createMergeContext(mergeQueueMethod?: MergeMethod) {
 			const item = new PullRequestModel(credentialStore, telemetry, repo, remote,
 				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
-			sinon.stub(item, 'getStack').resolves(stack);
+			sinon.stub(item, 'getStack').resolves({ ...stack, mergeQueueMethod });
 			return {
 				item,
 				folderRepositoryManager: pullRequestManager,
@@ -1399,19 +1484,30 @@ describe('PullRequestOverview', function () {
 		}
 
 		it('uses the stack target branch merge queue and reports enqueue without marking the PR merged', async function () {
-			const ctx = createMergeContext();
+			const ctx = createMergeContext('squash');
 			sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
-			const queue = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves('squash');
 			const merge = sinon.stub(ctx.item, 'mergeStack').resolves('enqueued');
 			const information = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
 			const message = { req: '1', command: 'pr.merge-stack', args: { method: 'squash' as const } };
 
 			await PullRequestReviewCommon.mergeStack(ctx, message);
 
-			assert(queue.calledOnceWithExactly('production', remote.owner, remote.repositoryName));
-			assert(merge.calledOnceWithExactly(pullRequestManager.repository, stack, 'squash', 'merge_queue'));
+			assert(merge.calledOnceWithExactly(pullRequestManager.repository, { ...stack, mergeQueueMethod: 'squash' }, 'squash', 'merge_queue', 1000));
 			sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'enqueued', state: undefined });
 			assert(information.calledOnce);
+			assert(ctx.throwError.notCalled);
+		});
+
+		it('merges up to the pull request that the user confirmed and marks this one merged', async function () {
+			const ctx = createMergeContext();
+			sinon.stub(repo, 'getPullRequest').resolves(ctx.item);
+			const merge = sinon.stub(ctx.item, 'mergeStack').resolves('merged');
+			const message = { req: '4', command: 'pr.merge-stack', args: { method: 'rebase' as const, upTo: 1001 } };
+
+			await PullRequestReviewCommon.mergeStack(ctx, message);
+
+			assert(merge.calledOnceWithExactly(pullRequestManager.repository, { ...stack, mergeQueueMethod: undefined }, 'rebase', 'direct_merge', 1001));
+			sinon.assert.calledWithExactly(ctx.replyMessage, message, { status: 'merged', state: GithubItemStateEnum.Merged });
 			assert(ctx.throwError.notCalled);
 		});
 
@@ -1426,21 +1522,6 @@ describe('PullRequestOverview', function () {
 			assert(showError.calledOnce);
 			assert(ctx.replyMessage.notCalled);
 			sinon.assert.calledWithExactly(ctx.throwError, message, 'Required checks failed');
-		});
-
-		it('does not merge a stack when the feature is disabled', async function () {
-			setStacksEnabled(false);
-			const ctx = createMergeContext();
-			const getStack = ctx.item.getStack as ReturnType<SinonSandbox['stub']>;
-			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
-			const message = { req: '3', command: 'pr.merge-stack', args: { method: 'merge' as const } };
-
-			await PullRequestReviewCommon.mergeStack(ctx, message);
-
-			assert(getStack.notCalled);
-			assert(ctx.replyMessage.notCalled);
-			sinon.assert.calledWithExactly(ctx.throwError, message, 'Pull request stack features are disabled.');
-			assert(showError.calledOnce);
 		});
 	});
 
@@ -1757,8 +1838,8 @@ describe('PullRequestOverview', function () {
 			stackQuery.resolves(undefined);
 			repo.notifyStackChanged([999, 1000]);
 			await (panel as any)._stackRefreshPromise;
-			const message = JSON.parse(JSON.stringify(postMessage.lastCall.args[0]));
-			assert.strictEqual(message.pullrequest.stack, null);
+			const message = JSON.parse(JSON.stringify(lastStackUpdate(postMessage)));
+			assert.strictEqual(message.stack, null);
 			assert.strictEqual((panel as any)._stackPullRequestNumbers.size, 0);
 		});
 
@@ -1767,7 +1848,8 @@ describe('PullRequestOverview', function () {
 			it(`restores the PR base queue setting after unstacking ${method ? 'when it has a queue' : 'when it has no queue'}`, async function () {
 				const { panel, model, stackQuery, stack, postMessage, queueMethod } = await openStackPanel();
 				assert.notStrictEqual(model.base.ref, stack.base);
-				queueMethod.callsFake(async base => base === stack.base ? 'squash' : method);
+				stackQuery.resolves({ ...stack, mergeQueueMethod: 'squash' });
+				queueMethod.resolves(method);
 				repo.notifyStackChanged([999, 1000]);
 				await (panel as any)._stackRefreshPromise;
 				assert.strictEqual(postMessage.lastCall.args[0].pullrequest.mergeQueueMethod, 'squash');
@@ -1779,7 +1861,7 @@ describe('PullRequestOverview', function () {
 				await (panel as any)._stackRefreshPromise;
 
 				assert(queueMethod.calledOnceWithExactly(model.base.ref, remote.owner, remote.repositoryName));
-				const update = JSON.parse(JSON.stringify(postMessage.lastCall.args[0])).pullrequest;
+				const update = JSON.parse(JSON.stringify(lastStackUpdate(postMessage)));
 				assert.strictEqual(update.stack, null);
 				assert('mergeQueueMethod' in update);
 				assert.strictEqual(update.mergeQueueMethod, method ?? null);
@@ -1882,14 +1964,6 @@ describe('PullRequestOverview', function () {
 			assert(postMessage.notCalled);
 		});
 
-		it('does not load stack data for notifications when stacks are disabled', async function () {
-			const { panel, stackQuery } = await openStackPanel();
-			setStacksEnabled(false);
-			repo.notifyStackChanged([999, 1000]);
-			await (panel as any)._stackRefreshPromise;
-			assert(stackQuery.notCalled);
-		});
-
 		it('surfaces refresh failures and clears the error after a later successful load', async function () {
 			const { panel, stackQuery, postMessage } = await openStackPanel();
 			stackQuery.onFirstCall().rejects(new Error('Stack is unavailable'));
@@ -1918,7 +1992,7 @@ describe('PullRequestOverview', function () {
 			const result = await createPanel(1000, { base: 'main', head: 'D1' });
 			result.stackQuery.resolves(undefined);
 			result.stackablePullRequests.callsFake(async (_base, head) => ({ above: head === 'D1' ? stackable(1001, 'D1', 'D2') : undefined }));
-			sinon.stub(repo, 'compareCommits').resolves({ behind_by: 0 } as Awaited<ReturnType<GitHubRepository['compareCommits']>>);
+			sinon.stub(repo, 'getStackBranchStatus').callsFake(async comparisons => ({ behindBy: comparisons.map(() => 0) }));
 
 			/** Resolves with the next message that the panel posts to the webview and that matches. */
 			const nextMessage = (matches: (message: PanelMessage) => boolean) => new Promise<PanelMessage>(resolve => {
@@ -1929,12 +2003,23 @@ describe('PullRequestOverview', function () {
 					}
 				});
 			});
-			/** Resolves with the next stack data that the panel posts, which always says what can be stacked. */
-			const nextStackUpdate = async (): Promise<Partial<PullRequest>> => {
-				const message = await nextMessage(posted => posted.res?.command === 'pr.update'
-					&& !!posted.res.pullrequest && 'stackRecommendation' in posted.res.pullrequest);
-				return message.res!.pullrequest!;
-			};
+			/**
+			 * Resolves with the stack data that the panel posts, up to what can be stacked, which is found after the stack is shown.
+			 * The updates are combined, as the webview combines them.
+			 */
+			const nextStackUpdate = () => new Promise<Partial<PullRequest>>(resolve => {
+				let combined: Partial<PullRequest> = {};
+				const listener = result.onDidPost(message => {
+					const update = message.res?.command === 'pr.update' ? message.res.pullrequest : undefined;
+					if (update) {
+						combined = { ...combined, ...update };
+						if ('stackRecommendation' in update) {
+							listener.dispose();
+							resolve(combined);
+						}
+					}
+				});
+			});
 			/** Reloads the stack, the way a change to the pull request's stack does. */
 			const loadStack = () => {
 				const update = nextStackUpdate();
@@ -2006,6 +2091,35 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(update.stackLoadError, false);
 		});
 
+		it('shows the stack before the pull requests it could be stacked with are found', async function () {
+			const { loadStack, onDidPost, stackablePullRequests } = await openRecommendationPanel();
+			const updates: Partial<PullRequest>[] = [];
+			const listener = onDidPost(message => {
+				if (message.res?.command === 'pr.update' && message.res.pullrequest) {
+					updates.push(message.res.pullrequest);
+				}
+			});
+			context.subscriptions.push(listener);
+			let finishFinding!: () => void;
+			const finding = new Promise<void>(started => {
+				stackablePullRequests.callsFake(async (_base, head) => head !== 'D1' ? {} : new Promise(found => {
+					finishFinding = () => found({ above: stackable(1001, 'D1', 'D2') });
+					started();
+				}));
+			});
+
+			const update = loadStack();
+			await finding;
+
+			const shown = updates.find(pullrequest => pullrequest.stackLoaded);
+			assert(shown, 'the stack is shown while the search is still running');
+			assert.strictEqual(shown.stack, null);
+			assert.strictEqual(shown.stackLoadError, false);
+			assert.strictEqual('stackRecommendation' in shown, false, 'the shown recommendation is kept until the search finishes');
+			finishFinding();
+			assert.deepStrictEqual((await update).stackRecommendation?.stack.pullRequests.map(entry => entry.number), [1000, 1001]);
+		});
+
 		it('refreshes the recommendation when a recommended pull request changes', async function () {
 			const { loadStack, nextStackUpdate, stackQuery } = await openRecommendationPanel();
 			await loadStack();
@@ -2066,7 +2180,7 @@ describe('PullRequestOverview', function () {
 				const addToStack = sinon.stub(repo, 'addPullRequestsToStack').resolves([1000, 1001]);
 				const create = (pullRequests: number[]) =>
 					result.request('pr.create-recommended-stack', { pullRequests } satisfies CreateRecommendedStackArgs);
-				return { ...result, getStackCandidate, candidate, addToStack, create };
+				return { ...result, above, getStackCandidate, candidate, addToStack, create };
 			}
 
 			it('stacks the previewed pull requests after checking that they still line up', async function () {
@@ -2078,6 +2192,35 @@ describe('PullRequestOverview', function () {
 				assert.deepStrictEqual(reply.res, {});
 				assert(getStackCandidate.alwaysCalledWithExactly(model.head!.ref));
 				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
+			});
+
+			it('disables auto-merge on the pull requests being stacked once that is confirmed', async function () {
+				const { above, candidate, addToStack, create } = await openCreatePanel();
+				above.item.autoMerge = true;
+				const disable = sinon.stub(above, 'disableAutoMerge').resolves();
+				const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Disable Auto-Merge' as never);
+
+				const reply = await create([1000, 1001]);
+
+				assert.strictEqual(reply.err, undefined);
+				assert(confirm.calledOnce);
+				assert.strictEqual(confirm.firstCall.args[1].modal, true);
+				assert.match(confirm.firstCall.args[1].detail ?? '', /so it will be disabled for #1001\.$/);
+				sinon.assert.callOrder(confirm, disable, addToStack);
+				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
+			});
+
+			it('does not stack pull requests when disabling auto-merge is declined', async function () {
+				const { above, addToStack, create } = await openCreatePanel();
+				above.item.autoMerge = true;
+				const disable = sinon.stub(above, 'disableAutoMerge').resolves();
+				sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+				const reply = await create([1000, 1001]);
+
+				assert.strictEqual(reply.err, undefined);
+				assert(disable.notCalled);
+				assert(addToStack.notCalled);
 			});
 
 			it('does not stack pull requests from a preview that is out of date', async function () {
@@ -2245,8 +2388,8 @@ describe('PullRequestOverview', function () {
 			stackQuery.resolves(undefined);
 			repo.notifyStackChanged([999, 1000]);
 			await (panel as any)._stackRefreshPromise;
-			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.stack, null);
-			assert.strictEqual(postMessage.lastCall.args[0].pullrequest.canUpdateStack, false);
+			assert.strictEqual(lastStackUpdate(postMessage).stack, null);
+			assert.strictEqual(lastStackUpdate(postMessage).canUpdateStack, false);
 		});
 
 		it('hides Update stack when a closed PR interrupts the open chain', async function () {
@@ -2392,15 +2535,6 @@ describe('PullRequestOverview', function () {
 			await (panel as any).updateStack({ req: 'closed-middle', command: 'pr.update-stack' });
 			assert(confirm.notCalled);
 			assert.match(throwError.firstCall.args[1], /requires an open chain/);
-		});
-
-		it('rejects a direct update request when stacks are disabled', async function () {
-			setStacksEnabled(false);
-			const { panel, stackQuery } = await openStackPanel();
-			const throwError = sinon.stub(panel as any, '_throwError').resolves();
-			await (panel as any).updateStack({ req: 'disabled', command: 'pr.update-stack' });
-			assert(stackQuery.notCalled);
-			assert.match(throwError.firstCall.args[1], /stack features are disabled/);
 		});
 
 		it('does not update branches when the user cancels the force-push confirmation', async function () {
@@ -2726,20 +2860,6 @@ describe('PullRequestOverview', function () {
 			await (panel as any).unstackAll({ req: '7', command: 'pr.unstack-all', args: undefined });
 
 			assert.match(information.firstCall.args[0], /No pull requests were unstacked.*currently merging pull requests remain/);
-		});
-
-		it('does not unstack when the feature is disabled', async function () {
-			setStacksEnabled(false);
-			const { panel, showError } = await createPanel();
-			const unstack = sinon.stub(repo, 'unstackAll');
-			const throwError = sinon.stub(panel as any, '_throwError').resolves();
-			const message = { req: 'disabled', command: 'pr.unstack-all', args: undefined };
-
-			await (panel as any).unstackAll(message);
-
-			assert(unstack.notCalled);
-			assert(showError.calledOnce);
-			assert.match(throwError.firstCall.args[1], /stack features are disabled/);
 		});
 
 		it('does not call the Stacks API when confirmation is cancelled', async function () {

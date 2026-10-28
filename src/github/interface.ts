@@ -28,6 +28,8 @@ export interface PullRequestStack {
 	size: number;
 	base: string;
 	needsUpdate?: boolean;
+	/** The merge method of the merge queue for the stack's base branch, if it has one. */
+	mergeQueueMethod?: MergeMethod;
 	pullRequests: {
 		position: number;
 		number: number;
@@ -102,17 +104,25 @@ export function hasConflictingStackEntry(stack: PullRequestStack | null | undefi
 		entry.state === GithubItemStateEnum.Open && entry.mergeable === PullRequestMergeability.Conflict);
 }
 
+/** Whether a pull request and the open pull requests below it in its stack are all ready to be merged together. */
 export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
-	const current = stack.pullRequests.find(entry => entry.number === number);
-	if (!current || current.position !== stack.position || current.state !== GithubItemStateEnum.Open
-		|| current.isDraft || current.mergeable !== PullRequestMergeability.Mergeable) {
-		return false;
-	}
-	return stack.pullRequests.every(entry =>
-		entry.position > stack.position ||
+	const target = stack.pullRequests.find(entry => entry.number === number);
+	return target?.state === GithubItemStateEnum.Open && stack.pullRequests.every(entry =>
+		entry.position > target.position ||
 		entry.state === GithubItemStateEnum.Merged ||
 		(entry.state === GithubItemStateEnum.Open && !entry.isDraft && entry.mergeable === PullRequestMergeability.Mergeable)
 	);
+}
+
+/**
+ * Gets the open pull request at the top of the stack if it is above the given pull request and every open pull request
+ * in the stack is ready to be merged. Merging the top pull request merges all of them.
+ */
+export function getStackMergeAllTarget(stack: PullRequestStack, number: number): PullRequestStack['pullRequests'][number] | undefined {
+	const current = stack.pullRequests.find(entry => entry.number === number);
+	const top = stack.pullRequests.reduce<PullRequestStack['pullRequests'][number] | undefined>((highest, entry) =>
+		entry.state === GithubItemStateEnum.Open && (!highest || entry.position > highest.position) ? entry : highest, undefined);
+	return current && top && top.position > current.position && isStackMergeable(stack, top.number) ? top : undefined;
 }
 
 export enum MergeQueueState {
@@ -337,6 +347,11 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	closingIssues?: IssueReference[];
+	/**
+	 * The stack the pull request is in, without the merge status of the pull requests in it, which `getStack` loads.
+	 * `null` when it is not in a stack, and `undefined` when that was not loaded with the pull request.
+	 */
+	stack?: PullRequestStack | null;
 	hasComments?: boolean;
 	additions?: number;
 	deletions?: number;
