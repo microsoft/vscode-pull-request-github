@@ -12,7 +12,7 @@ import { AuthorLink, Avatar } from './user';
 import { IComment } from '../../src/common/comment';
 import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest, ReviewCommentContext, ReviewType } from '../../src/github/views';
+import { OverviewItemPreview, PullRequest, ReviewCommentContext, ReviewType } from '../../src/github/views';
 import { ariaAnnouncementForReview } from '../common/aria';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
@@ -182,8 +182,16 @@ export function CommentView(commentProps: Props) {
 	);
 }
 
+export const CommentPreview = (preview: OverviewItemPreview | PullRequest) => (
+	<CommentBox for={preview}>
+		{preview.bodyHTML === undefined && preview.body
+			? <div className="comment-body" style={{ whiteSpace: 'pre-wrap' }}>{preview.body}</div>
+			: <CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />}
+	</CommentBox>
+);
+
 type CommentBoxProps = {
-	for: IComment | ReviewEvent | PullRequest | CommentEvent;
+	for: IComment | ReviewEvent | PullRequest | CommentEvent | OverviewItemPreview;
 	header?: React.ReactChild;
 	onFocus?: React.FocusEventHandler;
 	onMouseEnter?: React.MouseEventHandler;
@@ -191,7 +199,7 @@ type CommentBoxProps = {
 	children?: React.ReactNode;
 };
 
-function isReviewEvent(comment: IComment | ReviewEvent | PullRequest | CommentEvent): comment is ReviewEvent {
+function isReviewEvent(comment: CommentBoxProps['for']): comment is ReviewEvent {
 	return (comment as ReviewEvent).authorAssociation !== undefined;
 }
 
@@ -498,11 +506,12 @@ export function AddComment({
 	repo,
 	number,
 	attestationCommitsEnabled,
-	isCurrentlyCheckedOut
+	isCurrentlyCheckedOut,
+	pendingAttestation
 }: PullRequest) {
 	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-	const [addAttestation, setAddAttestation] = useState(false);
+	const addAttestation = !!pendingAttestation;
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
@@ -620,7 +629,7 @@ export function AddComment({
 								name="add-attestation"
 								checked={addAttestation}
 								disabled={isBusy || busy}
-								onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+								onChange={(e) => updatePR({ pendingAttestation: e.currentTarget.checked })}
 							/>
 							<label htmlFor="attestation-checkbox" className="attestation-checkbox-label">Add attestation</label>
 						</div>
@@ -711,7 +720,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-	const [addAttestation, setAddAttestation] = useState(false);
+	const addAttestation = !!pr.pendingAttestation;
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
 
@@ -799,7 +808,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 						name="add-attestation"
 						checked={addAttestation}
 						disabled={isBusy || pr.busy}
-						onChange={(e) => setAddAttestation(e.currentTarget.checked)}
+						onChange={(e) => updatePR({ pendingAttestation: e.currentTarget.checked })}
 					/>
 					<label htmlFor="attestation-checkbox-simple" className="attestation-checkbox-label">Add attestation</label>
 				</div>

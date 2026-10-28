@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ForkDetails } from './githubRepository';
+import { GithubItemStateEnum } from './interface';
 import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 
 interface PageInfo {
@@ -14,11 +15,12 @@ interface PageInfo {
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	actor: Actor;
+	actor: Actor | null;
 	createdAt: string;
 	mergeRef: {
 		name: string;
-	};
+	} | null;
+	mergeRefName: string;
 	commit: {
 		oid: string;
 		commitUrl: string;
@@ -193,12 +195,12 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
-			user: Account;
-		};
+			user: Account | null;
+		} | null;
 		committer: {
 			avatarUrl: string;
 			name: string;
-		};
+		} | null;
 		oid: string;
 		message: string;
 		committedDate: Date;
@@ -548,6 +550,15 @@ export interface MergeQueueForBranchResponse {
 	}
 }
 
+/** The response to a query built at runtime that compares the branches of a stack, with one aliased field per comparison. */
+export interface StackBranchStatusResponse {
+	repository: ({
+		mergeQueue?: { configuration?: { mergeMethod: MergeMethod } | null } | null;
+	} & {
+		[comparison: `compare${number}`]: { compare: { behindBy: number } | null } | null;
+	}) | null;
+}
+
 export interface DequeuePullRequestResponse {
 	mergeQueueEntry: MergeQueueEntry;
 }
@@ -793,6 +804,21 @@ export interface PullRequest extends Issue {
 			url: string,
 		}[];
 	};
+	/** Not selected on GitHub Enterprise. */
+	stackEntry?: { position: number } | null;
+	/** Not selected on GitHub Enterprise. */
+	stack?: {
+		size: number;
+		baseRefName: string;
+		entries: { nodes: StackEntryNode[] };
+	} | null;
+}
+
+export type PullRequestStackSummary = Pick<PullRequest, 'stackEntry' | 'stack'>;
+
+export interface PullRequestStackSummariesResponse {
+	/** In the order of the requested IDs, and `null` for an ID that was not found. */
+	nodes: (PullRequestStackSummary | null)[];
 }
 
 export enum DefaultCommitTitle {
@@ -815,6 +841,75 @@ export interface PullRequestResponse {
 	rateLimit: RateLimit;
 }
 
+/** A pull request in a stack, as selected by the `StackEntryPullRequest` fragment. */
+export interface StackEntryPullRequest {
+	number: number;
+	title: string;
+	url: string;
+	state: GithubItemStateEnum;
+	isDraft: boolean;
+	headRefName: string;
+}
+
+export interface StackEntryNode<T extends StackEntryPullRequest = StackEntryPullRequest> {
+	position: number;
+	pullRequest: T;
+}
+
+export interface PullRequestStackResponse {
+	repository: {
+		pullRequest: {
+			stackEntry: { position: number } | null;
+			stack: {
+				size: number;
+				baseRefName: string;
+				entries: {
+					nodes: StackEntryNode<StackEntryPullRequest & {
+						baseRefName: string;
+						headRepository: { owner: { login: string } } | null;
+						mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+						mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+						mergeQueueEntry?: { state: string } | null;
+					}>[];
+					pageInfo: { hasNextPage: boolean; endCursor: string | null };
+				};
+			} | null;
+		} | null;
+	} | null;
+}
+
+export interface StackablePullRequestBranchesNode {
+	number: number;
+	baseRefName: string;
+	baseRepository: { name: string; owner: { login: string } } | null;
+	headRefName: string;
+	headRepository: { name: string; owner: { login: string } } | null;
+}
+
+export interface StackablePullRequestNode extends StackablePullRequestBranchesNode {
+	title: string;
+	url: string;
+	isDraft: boolean;
+	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+	mergeQueueEntry?: { state: string } | null;
+	stackEntry: { position: number } | null;
+	stack: { size: number } | null;
+}
+
+export interface StackablePullRequestConnection<T extends StackablePullRequestBranchesNode = StackablePullRequestNode> {
+	nodes: T[];
+	pageInfo: { hasNextPage: boolean };
+}
+
+export interface StackablePullRequestsResponse {
+	repository: {
+		below?: StackablePullRequestConnection;
+		targetingBase?: StackablePullRequestConnection<StackablePullRequestBranchesNode>;
+		above?: StackablePullRequestConnection;
+	} | null;
+}
+
 export interface IssueResponse {
 	repository: {
 		issue: PullRequest;
@@ -827,6 +922,7 @@ export interface PullRequestMergabilityResponse {
 		pullRequest: {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+			viewerCanUpdate?: boolean;
 			mergeRequirements?: {
 				conditions: {
 					__typename: string | 'PullRequestMergeConflictStateCondition';

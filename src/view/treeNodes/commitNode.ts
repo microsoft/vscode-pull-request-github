@@ -101,7 +101,9 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				this.pullRequestManager,
 				this.pullRequest as (PullRequestModel & IResolvedPullRequestModel),
 				changeModel,
-				this.isCurrent
+				this.isCurrent,
+				undefined,
+				false
 			);
 
 			fileChangeNode.useViewChangesCommand();
@@ -113,7 +115,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		if (layout === 'tree') {
 			// tree view
-			const dirNode = new DirectoryTreeNode(this, '');
+			const dirNode = new DirectoryTreeNode(this, '', false);
 			fileChangeNodes.forEach(f => dirNode.addFile(f));
 			dirNode.finalize();
 			if (dirNode.label === '') {

@@ -5,14 +5,15 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { addAttestationCommit } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { ConvertToDraftReply, PullRequest, ReadyForReviewReply, ReviewType, SubmitReviewReply } from './views';
+import { ConvertToDraftReply, MergeStackArgs, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
 import Logger from '../common/logger';
 import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
-import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { CommitEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
@@ -35,6 +36,40 @@ export interface ReviewContext {
  * These are shared between PullRequestOverviewPanel and PullRequestViewProvider.
  */
 export namespace PullRequestReviewCommon {
+	export async function mergeStack(ctx: ReviewContext, message: IRequestMessage<MergeStackArgs>): Promise<void> {
+		try {
+			const { item, folderRepositoryManager } = ctx;
+			const stack = await item.getStack();
+			if (!stack) {
+				throw new Error(vscode.l10n.t('This pull request is no longer part of a stack. Refresh and try again.'));
+			}
+			const status = await item.mergeStack(folderRepositoryManager.repository, stack, message.args.method, stack.mergeQueueMethod ? 'merge_queue' : 'direct_merge',
+				message.args.upTo ?? item.number);
+			const result: StackMergeResult = {
+				status,
+				state: status === 'merged' ? GithubItemStateEnum.Merged : undefined,
+			};
+			ctx.replyMessage(message, result);
+
+			if (status === 'pending') {
+				void vscode.window.showInformationMessage(vscode.l10n.t('The stack merge is still processing on GitHub. Refresh the pull request to check its status.'));
+			} else if (status === 'enqueued') {
+				void vscode.window.showInformationMessage(vscode.l10n.t('The pull request stack has been added to the merge queue.'));
+			}
+			if (status === 'merged' || status === 'enqueued') {
+				void item.githubRepository.getPullRequest(item.number, 'mergeStack').then(refreshed => {
+					if (!refreshed) {
+						Logger.error(`Unable to refresh pull request #${item.number} after stack merge`, 'PullRequestReviewCommon');
+					}
+				}, error => Logger.error(`Unable to refresh stack merge: ${formatError(error)}`, 'PullRequestReviewCommon'));
+			}
+		} catch (error) {
+			Logger.error(`Failed to merge pull request stack: ${formatError(error)}`, 'PullRequestReviewCommon');
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request stack: {0}', formatError(error)));
+			ctx.throwError(message, formatError(error));
+		}
+	}
+
 	/**
 	 * Find currently configured user's review status for the current PR
 	 */
@@ -91,6 +126,27 @@ export namespace PullRequestReviewCommon {
 			ctx.throwError(undefined, `${formatError(e)}`);
 			await ctx.postMessage({ command: 'pr.append-review' });
 		}
+	}
+
+	/**
+	 * Adds an attestation commit ahead of a review submitted through a webview
+	 * context-menu command. Signing and pushing can take a while, so the webview
+	 * is marked busy up front rather than only once the review itself is sent.
+	 * If the attestation fails, the busy state is cleared and `undefined` is returned.
+	 */
+	export async function addAttestationForReviewCommand(
+		ctx: ReviewContext,
+		reviewType: ReviewType,
+	): Promise<{ sha: string; event: CommitEvent } | undefined> {
+		await ctx.postMessage({
+			command: 'pr.submitting-review',
+			lastReviewType: reviewType
+		});
+		const result = await addAttestationCommit(ctx.folderRepositoryManager, ctx.item);
+		if (!result) {
+			await ctx.postMessage({ command: 'pr.append-review' });
+		}
+		return result;
 	}
 
 	export async function doReviewMessage(
@@ -311,7 +367,7 @@ export namespace PullRequestReviewCommon {
 		return typeof stderr === 'string' && stderr.includes('not found');
 	}
 
-	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
+	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel, remoteBranchDeletedOnMerge = false): Promise<{ isReply: boolean, message: any }> {
 		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
 		const actions: (vscode.MessageItem & SelectedAction)[] = [];
 		const cleanupDetails: string[] = [];
@@ -322,7 +378,7 @@ export namespace PullRequestReviewCommon {
 			const headRepo = folderRepositoryManager.findRepo(repo => repo.remote.owner === item.head.owner && repo.remote.repositoryName === item.remote.repositoryName);
 
 			const isDefaultBranch = defaultBranch === item.head.ref;
-			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
+			if (!isDefaultBranch && !item.isRemoteHeadDeleted && !remoteBranchDeletedOnMerge) {
 				const remoteBranch = headRepo ? `${headRepo.remote.remoteName}/${branchHeadRef}` : branchHeadRef;
 				const remoteRepository = item.head.repositoryCloneUrl.toString() ??
 					`${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.head.repositoryCloneUrl.repositoryName}`;
@@ -372,9 +428,11 @@ export namespace PullRequestReviewCommon {
 		}
 
 		if (!actions.length) {
-			vscode.window.showWarningMessage(
-				vscode.l10n.t('There is no longer an upstream or local branch for Pull Request #{0}', item.number),
-			);
+			if (!remoteBranchDeletedOnMerge) {
+				vscode.window.showWarningMessage(
+					vscode.l10n.t('There is no longer an upstream or local branch for Pull Request #{0}', item.number),
+				);
+			}
 			return {
 				isReply: true,
 				message: {
@@ -429,7 +487,8 @@ export namespace PullRequestReviewCommon {
 			if (deleteBranchAfterMerge) {
 				await autoDeleteBranchesAfterMerge(folderRepositoryManager, item);
 			} else if ((await item.githubRepository.getMetadata()).delete_branch_on_merge) {
-				const result = await deleteBranch(folderRepositoryManager, item);
+				const remoteBranchDeletedOnMerge = item.head?.repositoryCloneUrl.equals(item.base.repositoryCloneUrl) ?? false;
+				const result = await deleteBranch(folderRepositoryManager, item, remoteBranchDeletedOnMerge);
 				return result.isReply ? undefined : result.message;
 			}
 		} catch (e) {

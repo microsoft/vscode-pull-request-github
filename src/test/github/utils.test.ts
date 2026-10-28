@@ -4,13 +4,68 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
+import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType } from '../../github/interface';
-import { getPRFetchQuery, insertNewCommitsSinceReview, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
+import * as GraphQL from '../../github/graphql';
+import { GitHubRepository } from '../../github/githubRepository';
 
 describe('utils', () => {
+
+	describe('transformHtmlUrlsToExtensionUrls', () => {
+		let sinon: SinonSandbox;
+
+		beforeEach(() => {
+			sinon = createSandbox();
+			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
+		});
+
+		afterEach(() => {
+			sinon.restore();
+		});
+
+		it('does not add an extra quote to issue links', async () => {
+			const githubRepository = {
+				remote: {
+					gitProtocol: { url: { authority: 'github.com' } },
+					owner: 'owner',
+					repositoryName: 'repo',
+					isEnterprise: false,
+				}
+			} as any;
+
+			const issue = {
+				databaseId: 1,
+				id: 'issue-id',
+				number: 42,
+				url: 'https://github.com/owner/repo/issues/42',
+				state: 'OPEN',
+				body: 'issue body',
+				bodyHTML: '<p><a href="https://github.com/owner/repo/issues/42">issue</a> <a href="https://github.com/owner/repo/pull/7">pull request</a></p>',
+				title: 'Issue',
+				titleHTML: 'Issue',
+				author: null,
+				comments: { nodes: [], totalCount: 0 },
+				createdAt: '2026-01-01T00:00:00Z',
+				updatedAt: '2026-01-01T00:00:00Z',
+				labels: { nodes: [] },
+				viewerCanUpdate: false,
+				reactions: { totalCount: 0 },
+				reactionGroups: [],
+			} as any;
+
+			const result = await parseGraphQLIssue(issue, githubRepository);
+			assert.ok(result.bodyHTML !== undefined);
+			const bodyHTML = result.bodyHTML;
+
+			assert.strictEqual((bodyHTML.match(/href="/g) ?? []).length, 2);
+			assert.ok(!bodyHTML.includes('""'));
+		});
+	});
 
 	describe('getPRFetchQuery', () => {
 		it('replaces all instances of ${user}', () => {
@@ -77,6 +132,51 @@ describe('utils', () => {
 		it('leaves ${issueType} unsubstituted when the issue has no issue type', () => {
 			const result = variableSubstitution('${issueType}-${issueNumber}', makeIssueModel({ issueType: undefined, number: 7 }));
 			assert.strictEqual(result, '${issueType}-7');
+		});
+	});
+
+	describe('parseCombinedTimelineEvents', () => {
+		it('handles commits without an author or committer', async () => {
+			const commit = {
+				__typename: 'PullRequestCommit',
+				id: 'commit-id',
+				commit: {
+					author: null,
+					committer: null,
+					oid: 'sha',
+					message: 'Commit message',
+					committedDate: new Date('2024-01-01T12:00:00Z'),
+				},
+				url: 'https://github.com/octocat/repo/commit/sha',
+			} satisfies GraphQL.Commit;
+
+			const events = await parseCombinedTimelineEvents([commit], [], {} as GitHubRepository);
+
+			assert.strictEqual(events.length, 1);
+			assert.strictEqual(events[0].event, EventType.Committed);
+			assert.strictEqual((events[0] as CommitEvent).author.login, '');
+		});
+
+		it('handles merged events whose merge ref was deleted', async () => {
+			const mergedEvent = {
+				__typename: 'MergedEvent',
+				id: 'merged-event-id',
+				actor: null,
+				createdAt: '2024-01-01T12:00:00Z',
+				mergeRef: null,
+				mergeRefName: 'main',
+				commit: {
+					oid: 'sha',
+					commitUrl: 'https://github.com/octocat/repo/commit/sha',
+				},
+				url: 'https://github.com/octocat/repo/pull/1',
+			} satisfies GraphQL.MergedEvent;
+
+			const events = await parseCombinedTimelineEvents([mergedEvent], [], {} as GitHubRepository);
+
+			assert.strictEqual(events.length, 1);
+			assert.strictEqual(events[0].event, EventType.Merged);
+			assert.strictEqual(events[0].mergeRef, 'main');
 		});
 	});
 

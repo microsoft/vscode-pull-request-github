@@ -32,6 +32,7 @@ import {
 	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
+	PullRequestStack,
 	Reaction,
 	reviewerId,
 	reviewerLabel,
@@ -53,10 +54,10 @@ import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
+import { OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
+import { escapeRegExp, gitHubLabelColor, isObject, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -342,7 +343,7 @@ async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: 
 		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`, 'g');
 	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
 		if (issuesOrPull === 'issues') {
-			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}""`;
+			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}"`;
 		} else {
 			return `href="${(await toOpenPullRequestWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, pullRequestNumber: Number(number) })).toString()}"`;
 		}
@@ -444,7 +445,6 @@ export function convertRESTPullRequestToRawPullRequest(
 			: undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
-		viewerCanUpdate: false,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
@@ -898,6 +898,18 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 	return parsed;
 }
 
+/** Whether a GraphQL error only reports that the server does not have the pull request stack fields. */
+export function isStacksUnsupportedError(error: unknown): boolean {
+	const graphQLErrors = isObject(error) ? error.graphQLErrors : undefined;
+	return Array.isArray(graphQLErrors) && graphQLErrors.length > 0 && graphQLErrors.every((graphQLError: unknown) => {
+		if (!isObject(graphQLError) || !isObject(graphQLError.extensions)) {
+			return false;
+		}
+		const { code, typeName, fieldName } = graphQLError.extensions;
+		return code === 'undefinedField' && typeName === 'PullRequest' && (fieldName === 'stack' || fieldName === 'stackEntry');
+	});
+}
+
 export async function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
@@ -941,10 +953,43 @@ export async function parseGraphQLPullRequest(
 		additions: graphQLPullRequest.additions,
 		deletions: graphQLPullRequest.deletions,
 		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes),
+		stack: parseStackSummary(graphQLPullRequest),
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
 	return pr;
+}
+
+/** A pull request in a stack, with its merge status unknown. */
+export function parseStackEntry(entry: GraphQL.StackEntryNode): PullRequestStack['pullRequests'][number] {
+	const { pullRequest } = entry;
+	return {
+		position: entry.position,
+		number: pullRequest.number,
+		title: pullRequest.title,
+		url: pullRequest.url,
+		head: pullRequest.headRefName,
+		state: pullRequest.state,
+		isDraft: pullRequest.isDraft,
+		mergeable: PullRequestMergeability.Unknown,
+	};
+}
+
+/** `undefined` when the stack was not selected, which GitHub Enterprise does not do. */
+export function parseStackSummary(summary: GraphQL.PullRequestStackSummary): PullRequestStack | null | undefined {
+	const { stack, stackEntry } = summary;
+	if (stack === undefined) {
+		return undefined;
+	}
+	if (!stack || !stackEntry) {
+		return null;
+	}
+	return {
+		position: stackEntry.position,
+		size: stack.size,
+		base: stack.baseRefName,
+		pullRequests: stack.entries.nodes.map(parseStackEntry).sort((a, b) => a.position - b.position),
+	};
 }
 
 function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {
@@ -1307,9 +1352,9 @@ export async function parseCombinedTimelineEvents(
 					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
-					author: commitEv.commit.author.user
+					author: commitEv.commit.author?.user
 						? parseAccount(commitEv.commit.author.user, githubRepository)
-						: { login: commitEv.commit.committer.name },
+						: { login: commitEv.commit.committer?.name ?? '' },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
@@ -1337,7 +1382,7 @@ export async function parseCombinedTimelineEvents(
 					event: type,
 					user: parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
-					mergeRef: mergeEv.mergeRef.name,
+					mergeRef: mergeEv.mergeRef?.name ?? mergeEv.mergeRefName,
 					sha: mergeEv.commit.oid,
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,
@@ -1793,25 +1838,6 @@ export function getStateFromQuery(query: string): GithubItemStateEnum | undefine
 
 export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
-}
-
-export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
-}
-
-export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
-	if (config) {
-		let uri = vscode.Uri.parse(config, true);
-		if (uri.scheme === 'http') {
-			uri = uri.with({ scheme: 'https' });
-		}
-		return uri;
-	}
-}
-
-export function hasEnterpriseUri(): boolean {
-	return !!getEnterpriseUri();
 }
 
 export function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {

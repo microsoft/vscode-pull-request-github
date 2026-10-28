@@ -6,17 +6,69 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { RemoteInfo } from '../../common/types';
-import { CreateParamsNew } from '../../common/views';
+import { CreateParamsNew, StackCandidate } from '../../common/views';
 import { isITeam, MergeMethod } from '../../src/github/interface';
 import { ChangeTemplateReply } from '../../src/github/views';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { accountIcon, feedbackIcon, gitCompareIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, layersIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
+
+interface CreateMenuContext {
+	'preventDefaultContextMenuItems': true;
+	'github:createPrMenu': true;
+	'github:createPrMenuDraft': true;
+	'github:createPrMenuMergeWhenReady'?: true;
+	'github:createPrMenuMerge'?: true;
+	'github:createPrMenuSquash'?: true;
+	'github:createPrMenuRebase'?: true;
+}
+
+export const StackOption = ({ candidate, checked, disabled, onChange }: { candidate: StackCandidate; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) => (
+	<div className='stack-option'>
+		<span className='checkbox-wrapper'>
+			<input id='stack-pr-checkbox' type='checkbox' checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />
+		</span>
+		<div className='stack-option-content'>
+			<label htmlFor='stack-pr-checkbox' className='stack-option-title'>
+				{layersIcon}
+				<span>{candidate.stackNumber === undefined ? 'Create a stack with this pull request' : 'Add this pull request to a stack'}</span>
+			</label>
+			<span className='stack-option-description'>
+				This pull request will be stacked with <a href={candidate.url}>#{candidate.parentPullRequestNumber}</a>
+				{candidate.size > 1 ? ` and ${candidate.size - 1} other pull request${candidate.size === 2 ? '' : 's'}` : ''}.
+			</span>
+		</div>
+	</div>
+);
+
+export function makeCreateMenuContext(createParams: CreateParamsNew): string {
+	const createMenuContexts: CreateMenuContext = {
+		'preventDefaultContextMenuItems': true,
+		'github:createPrMenu': true,
+		'github:createPrMenuDraft': true
+	};
+	if (!createParams.addToStack) {
+		if (createParams.baseHasMergeQueue) {
+			createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
+		} else {
+			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.merge) {
+				createMenuContexts['github:createPrMenuMerge'] = true;
+			}
+			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.squash) {
+				createMenuContexts['github:createPrMenuSquash'] = true;
+			}
+			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.rebase) {
+				createMenuContexts['github:createPrMenuRebase'] = true;
+			}
+		}
+	}
+	return JSON.stringify(createMenuContexts);
+}
 
 export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0, disabled }:
 	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined, disabled: boolean }) => {
@@ -131,32 +183,9 @@ export function main() {
 							autoMergeMethod = 'merge';
 							break;
 					}
-					ctx.updateState({ isDraft, autoMerge, autoMergeMethod });
+					ctx.updateState({ isDraft, autoMerge: autoMerge && !params.addToStack, autoMergeMethod });
 					return create();
 				};
-
-				function makeCreateMenuContext(createParams: CreateParamsNew) {
-					const createMenuContexts = {
-						'preventDefaultContextMenuItems': true,
-						'github:createPrMenu': true,
-						'github:createPrMenuDraft': true
-					};
-					if (createParams.baseHasMergeQueue) {
-						createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
-					} else {
-						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['merge']) {
-							createMenuContexts['github:createPrMenuMerge'] = true;
-						}
-						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['squash']) {
-							createMenuContexts['github:createPrMenuSquash'] = true;
-						}
-						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['rebase']) {
-							createMenuContexts['github:createPrMenuRebase'] = true;
-						}
-					}
-					const stringified = JSON.stringify(createMenuContexts);
-					return stringified;
-				}
 
 				if (params.creating) {
 					create();
@@ -357,6 +386,10 @@ export function main() {
 							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}></textarea>
 					</div>
 
+					{params.stackCandidate ? <StackOption candidate={params.stackCandidate} checked={!!params.addToStack}
+						disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.initialized || !ctx.isCreatable}
+						onChange={checked => ctx.updateState({ addToStack: checked, autoMerge: checked ? false : params.autoMerge })} /> : null}
+
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
 						<ErrorBoundary>
 							{params.createError}
@@ -375,8 +408,8 @@ export function main() {
 
 						<ContextDropdown optionsContext={() => makeCreateMenuContext(params)}
 							defaultAction={onCreateButton}
-							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
-							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
+							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, !ctx.createParams.addToStack && ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
+							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, !ctx.createParams.addToStack && ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
 							spreadable={true}

@@ -169,6 +169,45 @@ button.input-box {
 	max-height: 500px;
 }
 
+.stack-option {
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
+	padding: 12px;
+	margin-top: 12px;
+	border-radius: 4px;
+	background: var(--vscode-panel-background);
+}
+
+.stack-option-content {
+	min-width: 0;
+}
+
+.stack-option-title {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	cursor: pointer;
+}
+
+.stack-option-title .icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	height: 18px;
+}
+
+.stack-option-title > span:last-child {
+	min-width: 0;
+}
+
+.stack-option-description {
+	display: block;
+	margin-top: 4px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
 input[type=text],
 textarea {
 	padding: 5px;

@@ -274,6 +274,7 @@ fragment PullRequestFragment on PullRequest {
 			...Node
 		}
 	}
+	...PullRequestStackSummary
 }
 
 query Issue($owner: String!, $name: String!, $number: Int!) {

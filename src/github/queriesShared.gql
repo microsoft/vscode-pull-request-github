@@ -55,6 +55,7 @@ fragment Merged on MergedEvent {
 	mergeRef {
 		name
 	}
+	mergeRefName
 	commit {
 		oid
 		commitUrl
@@ -706,15 +707,233 @@ query GetUser($login: String!) {
 	}
 }
 
+query IssuePreview($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			number
+			title
+			titleHTML
+			url
+			body
+			bodyHTML
+			createdAt
+			state
+			stateReason
+			author {
+				__typename
+				login
+				url
+				avatarUrl
+				... on Node {
+					id
+				}
+				... on User {
+					name
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestPreview($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			number
+			title
+			titleHTML
+			url
+			body
+			bodyHTML
+			createdAt
+			state
+			isDraft
+			author {
+				__typename
+				login
+				url
+				avatarUrl
+				... on Node {
+					id
+				}
+				... on User {
+					name
+				}
+			}
+			baseRefName
+			headRefName
+			baseRepository {
+				owner {
+					login
+				}
+			}
+			headRepository {
+				owner {
+					login
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
 			mergeable
 			mergeStateStatus
+			viewerCanUpdate
 		}
 	}
 	rateLimit {
 		...RateLimit
+	}
+}
+
+# A pull request in a stack, without its merge status, which is slower for GitHub to work out.
+fragment StackEntryPullRequest on PullRequest {
+	number
+	title
+	url
+	state
+	isDraft
+	headRefName
+}
+
+# The stack that a pull request is in, without the merge status of the pull requests in it, so that it is shown
+# as soon as the pull request is. GitHub Enterprise does not use this, since not every server supports stacks.
+fragment PullRequestStackSummary on PullRequest {
+	stackEntry {
+		position
+	}
+	stack {
+		size
+		baseRefName
+		entries(first: 100) {
+			nodes {
+				position
+				pullRequest {
+					...StackEntryPullRequest
+				}
+			}
+		}
+	}
+}
+
+# The stack that each pull request is in, for pull requests that were loaded without it, such as by the REST API.
+query PullRequestStackSummaries($ids: [ID!]!) {
+	nodes(ids: $ids) {
+		... on PullRequest {
+			...PullRequestStackSummary
+		}
+	}
+}
+
+query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			stackEntry {
+				position
+			}
+			stack {
+				size
+				baseRefName
+				entries(first: 100, after: $after) {
+					nodes {
+						position
+						pullRequest {
+							...StackEntryPullRequest
+							baseRefName
+							headRepository {
+								owner {
+									login
+								}
+							}
+							mergeable
+							mergeStateStatus
+							mergeQueueEntry {
+								state
+							}
+						}
+					}
+					pageInfo {
+						hasNextPage
+						endCursor
+					}
+				}
+			}
+		}
+	}
+}
+
+# Finds the open pull requests below and above a chain of branches, so they can be recommended as a stack.
+query StackablePullRequests($owner: String!, $name: String!, $base: String!, $head: String!, $includeBelow: Boolean!, $includeAbove: Boolean!) {
+	repository(owner: $owner, name: $name) {
+		below: pullRequests(headRefName: $base, states: [OPEN], first: 10) @include(if: $includeBelow) {
+			nodes {
+				...StackablePullRequestFields
+			}
+			pageInfo {
+				hasNextPage
+			}
+		}
+		targetingBase: pullRequests(baseRefName: $base, states: [OPEN], first: 10) @include(if: $includeBelow) {
+			nodes {
+				...StackablePullRequestBranches
+			}
+			pageInfo {
+				hasNextPage
+			}
+		}
+		above: pullRequests(baseRefName: $head, states: [OPEN], first: 10) @include(if: $includeAbove) {
+			nodes {
+				...StackablePullRequestFields
+			}
+			pageInfo {
+				hasNextPage
+			}
+		}
+	}
+}
+
+# Only what is needed to tell whether pull requests line up, since the base branch may have many pull requests.
+fragment StackablePullRequestBranches on PullRequest {
+	number
+	baseRefName
+	baseRepository {
+		name
+		owner {
+			login
+		}
+	}
+	headRefName
+	headRepository {
+		name
+		owner {
+			login
+		}
+	}
+}
+
+fragment StackablePullRequestFields on PullRequest {
+	...StackablePullRequestBranches
+	title
+	url
+	isDraft
+	mergeable
+	mergeStateStatus
+	mergeQueueEntry {
+		state
+	}
+	stackEntry {
+		position
+	}
+	stack {
+		size
 	}
 }
 

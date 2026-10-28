@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 import { RemoteInfo } from '../../common/types';
-import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
+import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, StackCandidate, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
 import { PreReviewState } from '../../src/github/views';
 
@@ -32,11 +32,24 @@ const defaultCreateParams: CreateParamsNew = {
 	generateTitleAndDescriptionTitle: undefined,
 	initializeWithGeneratedTitleAndDescription: false,
 	baseHasMergeQueue: false,
+	addToStack: false,
 	preReviewState: PreReviewState.None,
 	preReviewer: undefined,
 	reviewing: false,
 	usingTemplate: false
 };
+
+function remoteChanged(next: RemoteInfo | undefined, current: RemoteInfo | undefined): boolean {
+	return next !== undefined && (next.owner !== current?.owner || next.repositoryName !== current?.repositoryName);
+}
+
+function stackCandidateChanged(next: Partial<CreateParamsNew>, current: StackCandidate | undefined): boolean {
+	if (!Object.prototype.hasOwnProperty.call(next, 'stackCandidate')) {
+		return false;
+	}
+	return next.stackCandidate?.parentPullRequestNumber !== current?.parentPullRequestNumber
+		|| next.stackCandidate?.stackNumber !== current?.stackNumber;
+}
 
 export class CreatePRContextNew {
 	public createParams: CreateParamsNew;
@@ -134,15 +147,24 @@ export class CreatePRContextNew {
 		};
 		const startingBaseOwner = this.createParams.baseRemote?.owner;
 		const startingBaseRepo = this.createParams.baseRemote?.repositoryName;
-		const response: ChooseBaseRemoteAndBranchResult = await this.postMessage({
+		const response: ChooseBaseRemoteAndBranchResult | undefined = await this.postMessage({
 			command: 'pr.changeBaseRemoteAndBranch',
 			args
+		}).catch(error => {
+			this.updateState({ warning: typeof error === 'string' ? error : error instanceof Error ? error.message : 'Unable to change the base branch.' });
+			return undefined;
 		});
+		if (!response) {
+			return;
+		}
 
 		const updateValues: Partial<CreateParamsNew> = {
 			baseRemote: response.baseRemote,
 			baseBranch: response.baseBranch,
-			createError: ''
+			stackCandidate: response.stackCandidate,
+			addToStack: false,
+			createError: '',
+			warning: response.warning
 		};
 		if ((startingBaseOwner !== response.baseRemote.owner) || (startingBaseRepo !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
@@ -177,18 +199,25 @@ export class CreatePRContextNew {
 			currentRemote,
 			currentBranch
 		};
-		const response: ChooseCompareRemoteAndBranchResult = await this.postMessage({
-			command: 'pr.changeCompareRemoteAndBranch',
-			args
-		});
+		try {
+			const response: ChooseCompareRemoteAndBranchResult = await this.postMessage({
+				command: 'pr.changeCompareRemoteAndBranch',
+				args
+			});
 
-		const updateValues: Partial<CreateParamsNew> = {
-			compareRemote: response.compareRemote,
-			compareBranch: response.compareBranch,
-			createError: ''
-		};
+			const updateValues: Partial<CreateParamsNew> = {
+				compareRemote: response.compareRemote,
+				compareBranch: response.compareBranch,
+				stackCandidate: response.stackCandidate,
+				addToStack: false,
+				createError: '',
+				warning: response.warning
+			};
 
-		this.updateState(updateValues);
+			this.updateState(updateValues);
+		} catch (error) {
+			this.updateState({ warning: typeof error === 'string' ? error : error instanceof Error ? error.message : 'Unable to change the merge branch.' });
+		}
 	};
 
 	public generateTitle = async (useCopilot: boolean): Promise<void> => {
@@ -267,8 +296,11 @@ export class CreatePRContextNew {
 			compareOwner: this.createParams.compareRemote!.owner,
 			compareRepo: this.createParams.compareRemote!.repositoryName,
 			draft: !!this.createParams.isDraft,
-			autoMerge: !!this.createParams.autoMerge,
+			autoMerge: !!this.createParams.autoMerge && !this.createParams.addToStack,
 			autoMergeMethod: this.createParams.autoMergeMethod,
+			addToStack: !!this.createParams.addToStack,
+			stackParentPullRequest: this.createParams.stackCandidate?.parentPullRequestNumber,
+			stackNumber: this.createParams.stackCandidate?.stackNumber,
 			labels: this.createParams.labels ?? [],
 			projects: this.createParams.projects ?? [],
 			assignees: this.createParams.assignees ?? [],
@@ -280,6 +312,9 @@ export class CreatePRContextNew {
 	public submit = async (): Promise<void> => {
 		try {
 			this.updateState({ creating: false });
+			if (this.createParams.addToStack && !this.createParams.stackCandidate) {
+				throw new Error('The selected base branch is no longer eligible for a pull request stack.');
+			}
 			const args: CreatePullRequestNew = this.copyParams();
 			await this.postMessage({
 				command: 'pr.create',
@@ -304,6 +339,16 @@ export class CreatePRContextNew {
 			case 'pr.initialize':
 				if (!message.params) {
 					return;
+				}
+				const current = this.createParams;
+				const branchChanged = (message.params.baseBranch !== undefined && message.params.baseBranch !== current.baseBranch)
+					|| (message.params.compareBranch !== undefined && message.params.compareBranch !== current.compareBranch);
+				const selectionChanged = branchChanged
+					|| remoteChanged(message.params.baseRemote, current.baseRemote)
+					|| remoteChanged(message.params.compareRemote, current.compareRemote)
+					|| stackCandidateChanged(message.params, current.stackCandidate);
+				if (selectionChanged) {
+					message.params.addToStack = false;
 				}
 				if (this.createParams.pendingTitle === undefined) {
 					message.params.pendingTitle = message.params.defaultTitle;
@@ -362,6 +407,7 @@ export class CreatePRContextNew {
 				message.params.compareBranch = message.params.defaultCompareBranch ?? this.createParams.compareBranch;
 				message.params.compareRemote = message.params.defaultCompareRemote ?? this.createParams.compareRemote;
 				message.params.autoMerge = (message.params.autoMergeDefault !== undefined ? message.params.autoMergeDefault : this.createParams.autoMerge);
+				message.params.addToStack = false;
 				message.params.autoMergeMethod = (message.params.defaultMergeMethod !== undefined ? message.params.defaultMergeMethod : this.createParams.autoMergeMethod);
 				message.params.isDraft = (message.params.isDraftDefault !== undefined ? message.params.isDraftDefault : this.createParams.isDraft);
 				if (message.params.autoMergeDefault) {
