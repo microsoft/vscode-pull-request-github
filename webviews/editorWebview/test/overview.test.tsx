@@ -309,11 +309,11 @@ describe('Overview', function () {
 		assert.strictEqual(section.querySelector('.stack-base')?.textContent, 'main');
 		assert.strictEqual(out.container.querySelector('#merge-comment-form'), null);
 		assert(out.container.querySelector('.stack-merge .stack-merge-method select'));
-		const mergeButton = out.getByText('Merge stack (2 pull requests)');
+		const mergeButton = out.getByText('Merge partial stack (2 pull requests)');
 		fireEvent.change(out.getByLabelText('Select merge method'), { target: { value: 'squash' } });
 		fireEvent.click(mergeButton);
 		assert(out.getByText('Merge this pull request and 1 open pull request below it?'));
-		fireEvent.click(out.getByText('Merge stack (2 pull requests)'));
+		fireEvent.click(out.getByText('Merge partial stack (2 pull requests)'));
 		await wait(() => assert.strictEqual(context.pr?.state, GithubItemStateEnum.Merged));
 		assert(mergeStack.calledOnceWithExactly('squash'));
 		assert(openOnGitHub.notCalled);
@@ -1101,7 +1101,7 @@ describe('Overview', function () {
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
-		assert(out.getByText('Merge stack (1 pull request)'));
+		assert(out.getByText('Merge partial stack (1 pull request)'));
 	});
 
 	it('does not offer to merge a stack without write permission', function () {
@@ -1209,7 +1209,7 @@ describe('Overview', function () {
 			const pr = middleOf().build();
 			for (const Component of [Overview, ActivityBarOverview]) {
 				const view = render(<PullRequestContext.Provider value={new PRContext(pr)}><Component {...pr} /></PullRequestContext.Provider>);
-				assert(view.getByText('Merge stack (2 pull requests)'));
+				assert(view.getByText('Merge partial stack (2 pull requests)'));
 				const mergeAll = view.getByLabelText('Merge all 3 open pull requests in this stack');
 				assert.strictEqual(mergeAll.getAttribute('title'), 'Merge all 3 open pull requests in this stack');
 				assert(mergeAll.classList.contains('icon-button'));
@@ -1224,7 +1224,7 @@ describe('Overview', function () {
 			fireEvent.change(out.getByLabelText('Select merge method'), { target: { value: 'squash' } });
 			fireEvent.click(out.getByLabelText('Merge all 3 open pull requests in this stack'));
 			assert(out.getByText('Merge all 3 open pull requests in this stack?'));
-			assert.strictEqual(out.queryByText('Merge stack (2 pull requests)'), null);
+			assert.strictEqual(out.queryByText('Merge partial stack (2 pull requests)'), null);
 			fireEvent.click(out.getByText('Merge all (3 pull requests)'));
 
 			await wait(() => assert.strictEqual(context.pr?.state, GithubItemStateEnum.Merged));
@@ -1235,6 +1235,7 @@ describe('Overview', function () {
 			const pr = middleOf().mergeQueueMethod('squash').build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 
+			assert(out.getByText('Add partial stack to merge queue'));
 			fireEvent.click(out.getByLabelText('Add all 3 open pull requests in this stack to the merge queue'));
 
 			assert(out.getByText('Add all 3 open pull requests in this stack to the merge queue?'));
@@ -1247,9 +1248,9 @@ describe('Overview', function () {
 			const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'merged', state: GithubItemStateEnum.Merged });
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			fireEvent.click(out.getByText('Merge stack (2 pull requests)'));
+			fireEvent.click(out.getByText('Merge partial stack (2 pull requests)'));
 			assert(out.getByText('Merge this pull request and 1 open pull request below it?'));
-			fireEvent.click(out.getByText('Merge stack (2 pull requests)'));
+			fireEvent.click(out.getByText('Merge partial stack (2 pull requests)'));
 
 			await wait(() => assert(mergeStack.calledOnce));
 			assert(mergeStack.calledOnceWithExactly('merge'));
@@ -1266,7 +1267,7 @@ describe('Overview', function () {
 			const top = new PullRequestBuilder().number(795).stack({ position: 3, size: 3, base: 'main', pullRequests: [entry(1), entry(2), entry(3)] }).build();
 			for (const pr of [...notReady, top]) {
 				const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-				assert(out.getByText(/^Merge stack/));
+				assert(out.getByText(/^Merge (partial )?stack/));
 				assert.strictEqual(out.queryByLabelText(/^Merge all/), null);
 				out.unmount();
 			}
