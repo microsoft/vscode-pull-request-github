@@ -38,7 +38,7 @@ export const Overview = (pr: PullRequest) => {
 
 	return <>
 		<StickyHeader pr={pr} visible={isStuck} />
-		<StackRecommendationBanner pr={pr} />
+		<StackRecommendationBanner pr={pr} title={titleRef} />
 		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />

@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as React from 'react';
-import { cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
+import { act, cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { AccountBuilder } from './builder/account';
@@ -18,7 +18,7 @@ import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { PRContext, default as PullRequestContext } from '../../common/context';
-import { STACKS_DOCUMENTATION_URL } from '../../components/stackRecommendation';
+import { STACK_RECOMMENDATION_HINT_LABEL as HINT, STACKS_DOCUMENTATION_URL } from '../../components/stackRecommendation';
 import { Root as EditorRoot } from '../app';
 import { Overview } from '../overview';
 
@@ -1436,6 +1436,34 @@ describe('Overview', function () {
 			);
 		}
 
+		/**
+		 * Shows the page without the recommendation, which is found after the page is shown.
+		 * @param titleTop Where the title is in the window before the recommendation is added above it.
+		 */
+		function renderPageBeforeRecommendation(titleTop = 20) {
+			const { stackRecommendation, ...pr } = recommendedPullRequest();
+			assert(stackRecommendation);
+			const context = new PRContext(pr);
+			const page = (current: PullRequest) => <PullRequestContext.Provider value={context}><Overview {...current} /></PullRequestContext.Provider>;
+			const out = render(page(pr));
+			const title = out.container.querySelector('#title');
+			assert(title);
+			// JSDOM has no layout. Here, adding the recommendation moves the title down 60px.
+			sinon.stub(title, 'getBoundingClientRect').callsFake(() => rectAt(titleTop + (out.container.querySelector('.stack-recommendation') ? 60 : 0)));
+			/** Updates the page the way the webview does when the pull request changes. */
+			const update = (current: PullRequest) => out.rerender(page(current));
+			const showRecommendation = () => update({ ...pr, stackRecommendation });
+			return { pr, stackRecommendation, out, title, update, showRecommendation };
+		}
+
+		function rectAt(top: number): DOMRect {
+			const height = 100;
+			return { x: 0, y: top, top, bottom: top + height, left: 0, right: 0, width: 0, height, toJSON() { return this; } };
+		}
+
+		// A boolean, so that a failure does not describe the whole DOM.
+		const hintShown = (out: { queryByLabelText: (text: string) => HTMLElement | null }) => out.queryByLabelText(HINT) !== null;
+
 		it('recommends stacking above the title and previews the stack like the stack section', function () {
 			const pr = recommendedPullRequest();
 			const out = renderOverview(pr);
@@ -1536,6 +1564,88 @@ describe('Overview', function () {
 				assert.strictEqual(out.container.querySelector('.stack-recommendation'), null);
 				cleanup();
 			}
+		});
+
+		it('keeps the page where it is when the recommendation is added above it', function () {
+			const { pr, stackRecommendation, out, title, update, showRecommendation } = renderPageBeforeRecommendation();
+			const scrollTo = sinon.stub(window, 'scrollTo');
+
+			showRecommendation();
+
+			assert.strictEqual(out.container.querySelector('.stack-recommendation')?.nextElementSibling, title);
+			assert.deepStrictEqual(scrollTo.args, [[0, 60]], 'scrolls the recommendation out of view');
+			assert.match(document.documentElement.style.minHeight, /\b60px\b/, 'a short page can be scrolled that far');
+			assert.strictEqual(hintShown(out), true);
+
+			update({ ...pr, stackRecommendation: { ...stackRecommendation } });
+			assert(scrollTo.calledOnce, 'loading the pull request again with the recommendation does not move the page');
+
+			update({ ...pr, stackRecommendation: null });
+			assert.strictEqual(document.documentElement.style.minHeight, '');
+		});
+
+		it('does not move the page for a recommendation that is shown with it', function () {
+			const scrollTo = sinon.stub(window, 'scrollTo');
+
+			const out = renderOverview(recommendedPullRequest());
+
+			assert(out.container.querySelector('.stack-recommendation'));
+			assert(scrollTo.notCalled);
+			assert.strictEqual(document.documentElement.style.minHeight, '');
+			assert.strictEqual(hintShown(out), false);
+		});
+
+		it('stops pointing to the recommendation once the page is scrolled', function () {
+			let scrollY = 0;
+			sinon.stub(window, 'scrollY').get(() => scrollY);
+			sinon.stub(window, 'scrollTo').callsFake((_x: number, y: number) => { scrollY = y; });
+			const { pr, stackRecommendation, out, update, showRecommendation } = renderPageBeforeRecommendation();
+			const scroll = () => act(() => { window.dispatchEvent(new window.Event('scroll')); });
+
+			showRecommendation();
+			scroll();
+			// React runs the effects of a render before it renders again, as it does when the pull request is updated.
+			update({ ...pr, stackRecommendation });
+
+			assert.strictEqual(hintShown(out), true, 'keeping the page where it is does not count as scrolling');
+			scrollY += 1;
+			scroll();
+			assert.strictEqual(hintShown(out), false);
+		});
+
+		it('stops pointing to the recommendation when the page is scrolled right after it is added', function () {
+			let scrollY = 0;
+			sinon.stub(window, 'scrollY').get(() => scrollY);
+			sinon.stub(window, 'scrollTo').callsFake((_x: number, y: number) => { scrollY = y; });
+			const { pr, stackRecommendation, out, update, showRecommendation } = renderPageBeforeRecommendation();
+
+			showRecommendation();
+			// Scrolled before the hint's effects run, so that there is nothing listening for it yet.
+			scrollY += 1;
+			update({ ...pr, stackRecommendation });
+
+			assert.strictEqual(hintShown(out), false);
+		});
+
+		it('does not point to a recommendation added while the page is scrolled past the title', function () {
+			const { out, showRecommendation } = renderPageBeforeRecommendation(-150);
+
+			showRecommendation();
+
+			assert(out.container.querySelector('.stack-recommendation'));
+			assert.strictEqual(hintShown(out), false);
+		});
+
+		it('scrolls up to the recommendation from the hint', function () {
+			const { out, showRecommendation } = renderPageBeforeRecommendation();
+			showRecommendation();
+			const scrollTo = sinon.stub(window, 'scrollTo');
+
+			fireEvent.click(out.getByLabelText(HINT));
+
+			assert.deepStrictEqual(scrollTo.args, [[{ top: 0, behavior: 'smooth' }]]);
+			assert(document.activeElement === out.container.querySelector('.stack-recommendation'), 'focus moves to the recommendation');
+			assert.strictEqual(hintShown(out), false);
 		});
 
 		it('starts collapsed when the recommendation comes back after the pull requests were stacked and unstacked', async function () {

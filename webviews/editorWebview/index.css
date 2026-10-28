@@ -964,6 +964,59 @@ body button .icon {
 	padding-top: 8px;
 }
 
+/* Points to a stack recommendation that was added above the page while it was being read. */
+.stack-recommendation-hint {
+	position: fixed;
+	top: 4px;
+	left: 50%;
+	/* Below the sticky header. */
+	z-index: 150;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 10px 2px 6px;
+	border-radius: 12px;
+	font-size: 12px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	transform: translateX(-50%);
+	animation: stack-recommendation-hint-in 0.2s ease-out;
+}
+
+.stack-recommendation-hint .icon {
+	animation: stack-recommendation-hint-nudge 1s ease-in-out 0.2s 3;
+}
+
+.vscode-high-contrast .stack-recommendation-hint,
+.vscode-high-contrast-light .stack-recommendation-hint {
+	border-color: var(--vscode-contrastBorder);
+	box-shadow: none;
+}
+
+@keyframes stack-recommendation-hint-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -100%);
+	}
+}
+
+@keyframes stack-recommendation-hint-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(-3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.stack-recommendation-hint,
+	.stack-recommendation-hint .icon {
+		animation: none;
+	}
+}
+
 .subtitle .avatar,
 .subtitle .avatar-icon svg {
 	margin-top: 2px;

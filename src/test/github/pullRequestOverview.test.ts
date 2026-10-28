@@ -2033,7 +2033,7 @@ describe('PullRequestOverview', function () {
 				result.received.fire({ command, req, args });
 				return reply;
 			};
-			return { ...result, nextStackUpdate, loadStack, request };
+			return { ...result, nextMessage, nextStackUpdate, loadStack, request };
 		}
 
 		it('recommends the pull requests that line up when this one is not in a stack', async function () {
@@ -2132,6 +2132,36 @@ describe('PullRequestOverview', function () {
 			assert(stackQuery.calledOnce);
 		});
 
+		it('keeps showing the recommendation while the pull request is loaded again', async function () {
+			const { panel, loadStack, nextMessage, nextStackUpdate } = await openRecommendationPanel();
+			const { stackRecommendation } = await loadStack();
+			assert(stackRecommendation);
+			const initialize = nextMessage(message => message.res?.command === 'pr.initialize');
+			const reloaded = nextStackUpdate();
+
+			await panel.refreshPanel();
+
+			assert.deepStrictEqual((await initialize).res?.pullrequest?.stackRecommendation, stackRecommendation, 'the page does not move');
+			assert.deepStrictEqual((await reloaded).stackRecommendation, stackRecommendation);
+		});
+
+		it('stops recommending stacking when the pull request is loaded again in a stack', async function () {
+			const { panel, model, loadStack, nextMessage } = await openRecommendationPanel();
+			await loadStack();
+			model.update({
+				...model.item,
+				stack: {
+					position: 1, size: 1, base: 'main',
+					pullRequests: [{ position: 1, number: 1000, title: 'Change 1000', url: '', head: 'D1', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown }],
+				},
+			});
+			const initialize = nextMessage(message => message.res?.command === 'pr.initialize');
+
+			await panel.refreshPanel();
+
+			assert.strictEqual((await initialize).res?.pullrequest?.stackRecommendation, undefined);
+		});
+
 		it('stops recommending a dismissed stack until the panel is closed', async function () {
 			const { loadStack, request, stackablePullRequests, stackQuery } = await openRecommendationPanel();
 			await loadStack();
@@ -2221,6 +2251,20 @@ describe('PullRequestOverview', function () {
 				assert.strictEqual(reply.err, undefined);
 				assert(disable.notCalled);
 				assert(addToStack.notCalled);
+			});
+
+			it('stacks the pull requests that are still shown after the pull request is loaded again', async function () {
+				const { panel, candidate, addToStack, create, nextMessage, stackablePullRequests } = await openCreatePanel();
+				// The search for a new recommendation does not finish, so only the one that is shown can be stacked.
+				stackablePullRequests.callsFake(() => new Promise(() => { }));
+				const initialize = nextMessage(message => message.res?.command === 'pr.initialize');
+				await panel.refreshPanel();
+				await initialize;
+
+				const reply = await create([1000, 1001]);
+
+				assert.strictEqual(reply.err, undefined);
+				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
 			});
 
 			it('does not stack pull requests from a preview that is out of date', async function () {
