@@ -104,6 +104,7 @@ describe('Create pull request stack', function () {
 	});
 
 	afterEach(function () {
+		provider.dispose();
 		model.dispose();
 		folderManager.dispose();
 		githubRepository.dispose();
@@ -237,6 +238,23 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(result, undefined);
 		assert(warn.calledOnce);
 		assert.match(warn.firstCall.args[0], /GraphQL unavailable/);
+	});
+
+	it('does not warn about stack eligibility once the view is disposed', async function () {
+		let fail!: (error: Error) => void;
+		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		sinon.stub(githubRepository, 'getStackCandidate').returns(new Promise((_resolve, reject) => { fail = reject; }));
+		const warn = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+		const result = provider.getStackCandidateForTest(
+			{ owner: 'github', repositoryName: 'test' }, 'D3',
+			{ owner: 'github', repositoryName: 'test' }, 'D4',
+		);
+		provider.dispose();
+		fail(new Error('Persistent store not initialized.'));
+
+		assert.strictEqual(await result, undefined);
+		assert(warn.notCalled);
 	});
 
 	for (const stackNumber of [undefined, 12]) {

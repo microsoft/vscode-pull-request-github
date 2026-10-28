@@ -1125,7 +1125,10 @@ Don't forget to commit your template file to the repository so that it can be us
 			return { ...candidate, url: url.toString() };
 		} catch (error) {
 			Logger.error(`Failed to check stack eligibility: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
-			void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			// The check can finish after the view is gone, when there is nothing left to warn about.
+			if (!this.isDisposed) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			}
 			return;
 		}
 	}
