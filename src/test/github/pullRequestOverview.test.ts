@@ -279,11 +279,11 @@ describe('AzureDevOpsPullRequestOverview', function () {
 		});
 
 		it('loads the webview before a supplied model resolves', async function () {
-			const { model, openPanel, messages, webviewPanel, getAssignableUsers } = fixture();
+			const { model, preview, openPanel, messages, webviewPanel, getAssignableUsers } = fixture();
 			let resolveModel!: (model: TItem) => void;
 			const opening = openPanel(new Promise<TItem>(resolve => resolveModel = resolve));
 			try {
-				assert.ok(webviewPanel.webview.html.includes('webview-pr-description.js'));
+				assert.ok(webviewPanel.webview.html.includes(preview.isIssue ? 'webview-pr-description.js' : 'webview-azdo-pr.js'));
 				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
 				sinon.assert.notCalled(getAssignableUsers);
 			} finally {

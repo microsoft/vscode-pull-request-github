@@ -167,7 +167,7 @@ export class BadUpstreamError extends Error {
 	}
 }
 
-export const ReposManagerStateContext: string = 'ReposManagerStateContext';
+export const ReposManagerStateContext: string = 'azureDevOps:reposManagerState';
 
 export enum ReposManagerState {
 	Initializing = 'Initializing',
@@ -2573,6 +2573,12 @@ export class FolderRepositoryManager extends Disposable {
 
 			Logger.debug(`Fulfill pull request missing info - start`, this.id);
 			const githubRepository = pullRequest.githubRepository;
+			if (githubRepository.provider) {
+				// The provider snapshot always includes base and head; only the merge base may be missing.
+				pullRequest.mergeBase ??= (await githubRepository.provider.revision(pullRequest.number)).mergeBase;
+				Logger.debug(`Fulfill pull request missing info - done`, this.id);
+				return;
+			}
 			const { octokit, remote } = await githubRepository.ensure();
 
 			if (!pullRequest.base) {

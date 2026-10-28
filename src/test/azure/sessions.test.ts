@@ -53,7 +53,10 @@ describe('Azure-only repository sessions', () => {
 		const calls: URL[] = [];
 		const sessions = new AzureSessions(context, (remote, authorization) => new AzureClient(remote, authorization, async url => {
 			const parsed = new URL(url);
-			calls.push(parsed);
+			// Avatar downloads are cosmetic and cached per identity; the assertions count API requests.
+			if (!parsed.pathname.endsWith('/_api/_common/identityImage')) {
+				calls.push(parsed);
+			}
 			if (handler) {
 				return handler(parsed);
 			}

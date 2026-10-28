@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import fetch, { Response } from 'cross-fetch';
 import * as vscode from 'vscode';
 import { AzureAuthentication, AzureSignInRequired } from './authentication';
 import { AzureApiError, AzureClient } from './client';
@@ -14,6 +15,21 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { IAccount } from '../github/interface';
+
+/** Logs each Azure DevOps request at debug level (method, path, status, duration) to diagnose slow views. */
+async function tracedFetch(url: string, init?: RequestInit): Promise<Response> {
+	const start = Date.now();
+	const target = new URL(url);
+	const describe = `${init?.method ?? 'GET'} ${target.pathname}${target.searchParams.has('path') ? ` path=${target.searchParams.get('path')}` : ''}`;
+	try {
+		const response = await fetch(url, init);
+		Logger.debug(`${describe} → ${response.status} in ${Date.now() - start}ms`, 'AzureRequest');
+		return response;
+	} catch (error) {
+		Logger.debug(`${describe} failed after ${Date.now() - start}ms`, 'AzureRequest');
+		throw error;
+	}
+}
 
 export class AzureSessions extends Disposable {
 	private readonly authentication: AzureAuthentication;
@@ -30,7 +46,7 @@ export class AzureSessions extends Disposable {
 	constructor(
 		context: vscode.ExtensionContext,
 		private readonly createClient: (remote: AzureRemote, authorization: () => Promise<string>) => AzureClient =
-			(remote, authorization) => new AzureClient(remote, authorization),
+			(remote, authorization) => new AzureClient(remote, authorization, tracedFetch),
 	) {
 		super();
 		this.authentication = new AzureAuthentication(context);

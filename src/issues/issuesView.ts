@@ -113,18 +113,11 @@ export class IssuesTreeData
 			}
 
 			if (avatarUser) {
-				// For enterprise, use placeholder icon instead of trying to fetch avatar
-				if (!DataUri.isGitHubDotComAvatar(avatarUser.avatarUrl)) {
-					treeItem.iconPath = new vscode.ThemeIcon('github');
-				} else {
-					treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0] ??
-						(element.isOpen
-							? new vscode.ThemeIcon('issues', new vscode.ThemeColor('azdo.issues.open'))
-							: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('azdo.github.issues.closed')));
-				}
+				// Falls back to the user's initials when no picture is available.
+				treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [avatarUser], 16, 16))[0]
+					?? DataUri.initialsAsImageDataURI(avatarUser, 16);
 			} else {
-				// Use GitHub codicon when assignee setting is selected but no assignees exist
-				treeItem.iconPath = new vscode.ThemeIcon('github');
+				treeItem.iconPath = new vscode.ThemeIcon('account');
 			}
 		}
 

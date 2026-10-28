@@ -476,6 +476,10 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		// Record when we initiated this check regardless of outcome so callers can know staleness.
 		this._lastCheckedForUpdatesAt = new Date();
 		const githubRepository = this.githubRepository;
+		if (githubRepository.provider) {
+			// Azure DevOps has no cheap "updated since" query; the overview's Refresh button reloads explicitly.
+			return time;
+		}
 		const { query, remote, schema } = await githubRepository.ensure();
 		try {
 			const { data } = await query<LatestUpdatesResponse>({

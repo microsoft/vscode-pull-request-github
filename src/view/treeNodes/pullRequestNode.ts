@@ -260,12 +260,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	private async _getAuthorIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
-		// For enterprise, use placeholder icon instead of trying to fetch avatar
-		if (!DataUri.isGitHubDotComAvatar(this.pullRequestModel.author.avatarUrl)) {
-			return new vscode.ThemeIcon('github');
-		}
+		// Falls back to the author's initials when no picture is available.
 		return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-			?? new vscode.ThemeIcon('github');
+			?? DataUri.initialsAsImageDataURI(this.pullRequestModel.author, 16);
 	}
 
 	private async _getBaseIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
@@ -285,7 +282,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				)
 			);
 		} else if (iconMode === 'generic') {
-			return new vscode.ThemeIcon('github');
+			return new vscode.ThemeIcon('git-pull-request');
 		}
 		return this._getAuthorIcon();
 	}

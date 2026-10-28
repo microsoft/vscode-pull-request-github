@@ -235,6 +235,21 @@ body img.avatar {
 	vertical-align: middle;
 }
 
+body span.avatar-initials {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	color: #ffffff;
+	font-size: 9px;
+	font-weight: 600;
+	line-height: 1;
+	vertical-align: middle;
+	user-select: none;
+}
+
 .avatar-link {
 	flex-shrink: 0;
 }

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
@@ -206,8 +207,10 @@ describe('PullRequestGitHelper', function () {
 
 			repository.expectFetch('origin', 'my-branch');
 			const pull = sinon.spy(repository, 'pull');
+			const prompt = sinon.stub(vscode.window, 'showInformationMessage').resolves('Check Out Here as a New Branch' as any);
 
 			await PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined });
+			sinon.assert.calledOnce(prompt);
 
 			const originalBranch = await repository.getBranch('my-branch');
 			assert.strictEqual(originalBranch.commit, 'local-commit-hash', 'Original branch should be preserved');
@@ -215,6 +218,44 @@ describe('PullRequestGitHelper', function () {
 			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
 			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
 			assert.strictEqual(pull.called, false, 'Should not pull a branch checked out in another worktree');
+		});
+
+		it('offers to open the worktree that already has the PR branch instead of failing to create it', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('my-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Same commit locally and remotely: the branch was created by checking the PR out in a worktree.
+			await repository.createBranch('my-branch', false, 'remote-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			repository.setWorktrees([{ name: 'pr-100', path: '/repo.worktrees/pr-100', ref: 'refs/heads/my-branch', main: false, detached: false }]);
+			repository.expectFetch('origin', 'my-branch');
+			sinon.stub(vscode.window, 'showInformationMessage').resolves('Open Worktree' as any);
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves(undefined);
+
+			await assert.rejects(
+				PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined }),
+				/User aborted/,
+			);
+			const open = executeCommand.getCalls().find(call => call.args[0] === 'vscode.openFolder');
+			assert.strictEqual(open?.args[1].fsPath, vscode.Uri.file('/repo.worktrees/pr-100').fsPath);
+			assert.deepStrictEqual(open?.args[2], { forceNewWindow: true });
+			assert.notStrictEqual(repository.state.HEAD?.name, 'my-branch');
 		});
 
 		it('creates a unique branch even when currently checked out on conflicting local branch', async function () {

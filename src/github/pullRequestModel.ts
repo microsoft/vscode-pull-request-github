@@ -164,9 +164,12 @@ function parseAsyncMergeResponse(value: unknown): AsyncMergeResponse {
 	throw new Error('GitHub returned an unknown stack merge result.');
 }
 
+const PROVIDER_SNAPSHOT_REUSE_MS = 3000;
+
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static override ID = 'PullRequestModel';
 	public providerSnapshot?: ProviderSnapshot;
+	private providerSnapshotState?: { at: number; writes: number | undefined };
 
 	private async refreshProviderSnapshot(): Promise<ProviderSnapshot> {
 		const model = await this.githubRepository.getPullRequest(this.number, 'PullRequestModel.refreshProviderSnapshot');
@@ -203,7 +206,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private async refreshProviderDiscussions(): Promise<ProviderDiscussions> {
-		const snapshot = await this.refreshProviderSnapshot();
+		// Opening a file or view asks for the timeline and threads separately, each of which would load the
+		// whole snapshot again. Reuse one loaded moments ago unless anything has been written since.
+		const state = this.providerSnapshotState;
+		const writes = this.githubRepository.provider?.writes;
+		const snapshot = this.providerSnapshot && state && writes !== undefined && state.writes === writes && Date.now() - state.at < PROVIDER_SNAPSHOT_REUSE_MS
+			? this.providerSnapshot
+			: await this.refreshProviderSnapshot();
 		if (snapshot.discussions.state === 'error') {
 			throw new Error(snapshot.discussions.message);
 		}
@@ -219,6 +228,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		const previousSnapshot = this.providerSnapshot;
 		this.providerSnapshot = snapshot;
+		this.providerSnapshotState = { at: Date.now(), writes: this.githubRepository.provider?.writes };
 		const changedRevision = this.head?.sha !== snapshot.pullRequest.head?.sha || this.base?.sha !== snapshot.pullRequest.base?.sha;
 		this.update({
 			...snapshot.pullRequest,

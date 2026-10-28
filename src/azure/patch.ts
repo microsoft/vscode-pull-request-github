@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DiffChangeType, DiffHunk, DiffLine } from '../common/diffHunk';
+
 type Edit = { type: ' ' | '-' | '+'; text: string };
 
 const CONTEXT = 3;
@@ -146,4 +148,35 @@ export function unifiedPatch(base: string, head: string): { patch: string; addit
 		index = end;
 	}
 	return { patch: hunks.join('\n'), additions, deletions };
+}
+
+/**
+ * The diff lines ending at a commented range, like the `diffHunk` GitHub attaches to review comments.
+ * `start`/`end` are 1-based line numbers on the given side; `context` lines precede the range.
+ */
+export function commentExcerpt(base: string, head: string, side: 'left' | 'right', start: number, end: number, context = CONTEXT): DiffHunk | undefined {
+	const script = edits(lines(base), lines(head));
+	let oldLine = 1;
+	let newLine = 1;
+	const numbered = script.map(edit => {
+		const line = { ...edit, old: edit.type !== '+' ? oldLine++ : -1, new: edit.type !== '-' ? newLine++ : -1 };
+		return line;
+	});
+	const lineOf = (line: typeof numbered[number]) => side === 'right' ? line.new : line.old;
+	const last = numbered.findIndex(line => lineOf(line) === end);
+	if (last === -1) {
+		return undefined;
+	}
+	const firstLine = Math.max(1, start - context);
+	let first = numbered.findIndex(line => lineOf(line) >= firstLine);
+	if (first === -1 || first > last) {
+		first = last;
+	}
+	const slice = numbered.slice(first, last + 1);
+	const firstOld = slice.find(line => line.old !== -1)?.old ?? 0;
+	const firstNew = slice.find(line => line.new !== -1)?.new ?? 0;
+	const hunk = new DiffHunk(firstOld, slice.filter(line => line.type !== '+').length, firstNew, slice.filter(line => line.type !== '-').length, 0);
+	const type = { ' ': DiffChangeType.Context, '+': DiffChangeType.Add, '-': DiffChangeType.Delete };
+	hunk.diffLines = slice.map((line, index) => new DiffLine(type[line.type], line.old, line.new, index + 1, `${line.type}${line.text.replace(/\r$/, '')}`));
+	return hunk;
 }

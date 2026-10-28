@@ -1,0 +1,384 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Undo the shared overview grid; this page lays itself out. */
+body {
+	display: block;
+	max-width: none;
+	width: 100%;
+	margin: 0;
+	padding: 0 32px 32px;
+	background-color: var(--vscode-editor-background);
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+}
+
+#app {
+	display: block;
+	width: 100%;
+}
+
+.azdo-loading {
+	display: flex;
+	justify-content: center;
+	padding: 64px;
+}
+
+.azdo-page {
+	width: 100%;
+	max-width: 1600px;
+	margin: 0 auto;
+}
+
+.azdo-secondary {
+	color: var(--vscode-descriptionForeground);
+}
+
+.azdo-small {
+	font-size: 0.9em;
+}
+
+.azdo-error {
+	color: var(--vscode-errorForeground);
+}
+
+.azdo-spacer {
+	flex: 1;
+}
+
+/* Header */
+.azdo-header {
+	padding-top: 20px;
+}
+
+.azdo-header-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.azdo-title {
+	flex: 1;
+	min-width: 200px;
+	margin: 0;
+	font-size: 1.75em;
+	font-weight: 600;
+}
+
+.azdo-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.azdo-subtitle {
+	margin-top: 8px;
+}
+
+.azdo-subtitle-text {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.azdo-id {
+	color: var(--vscode-descriptionForeground);
+}
+
+.azdo-branch {
+	text-decoration: underline;
+}
+
+.azdo-subtitle-text .bolt-button {
+	padding: 2px 4px;
+}
+
+.azdo-header-checkout {
+	margin-top: 12px;
+	gap: 8px;
+}
+
+.azdo-header-reviewers {
+	display: flex;
+	gap: 6px;
+}
+
+.azdo-avatar-with-vote {
+	position: relative;
+	display: inline-flex;
+}
+
+.azdo-vote-badge {
+	position: absolute;
+	right: -3px;
+	bottom: -3px;
+	background: var(--vscode-editor-background);
+	border-radius: 50%;
+}
+
+.azdo-columns {
+	margin-top: 20px;
+}
+
+/* Layout */
+.azdo-columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(240px, 380px);
+	gap: 32px;
+	align-items: start;
+}
+
+@media (max-width: 900px) {
+	.azdo-columns {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.azdo-main {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	min-width: 0;
+}
+
+.azdo-card {
+	width: 100%;
+	border: 1px solid var(--vscode-widget-border, transparent);
+}
+
+/* Status card */
+.azdo-status-list,
+.azdo-markdown {
+	width: 100%;
+}
+
+.azdo-status-list > * + * {
+	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+.azdo-status-row {
+	display: flex;
+	gap: 16px;
+	align-items: flex-start;
+	padding: 16px 20px;
+}
+
+.azdo-status-text {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.azdo-policies {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.azdo-policy {
+	border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.azdo-policy-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+}
+
+.azdo-policy-name {
+	font-weight: 600;
+}
+
+.azdo-log {
+	margin: 0;
+	padding: 8px 12px;
+	background: var(--vscode-terminal-background, #1e1e1e);
+	color: var(--vscode-terminal-ansiRed, #f14c4c);
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-height: 240px;
+	overflow: auto;
+}
+
+.azdo-view-checks {
+	margin-top: 8px;
+	cursor: pointer;
+	align-self: flex-start;
+}
+
+/* Description */
+.azdo-markdown {
+	overflow-wrap: anywhere;
+}
+
+.azdo-markdown img {
+	max-width: 100%;
+}
+
+.azdo-edit {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+}
+
+.azdo-edit-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* Activity */
+.azdo-discussion .azdo-replies {
+	margin: -8px 0 0 32px;
+	border-left: 2px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+	padding-left: 8px;
+}
+
+.azdo-activity {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.azdo-comment-input {
+	width: 100%;
+}
+
+/* Sidebar */
+.azdo-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.azdo-side-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.azdo-side-header h2 {
+	margin: 0;
+	font-size: 1.2em;
+	font-weight: 600;
+}
+
+.azdo-side-subheader {
+	margin: 12px 0 6px;
+	font-size: 0.9em;
+	font-weight: 600;
+	color: var(--vscode-descriptionForeground);
+}
+
+.azdo-empty {
+	padding: 10px;
+	text-align: center;
+	color: var(--vscode-descriptionForeground);
+	background: var(--vscode-editorWidget-background);
+	border-radius: 4px;
+}
+
+.azdo-reviewer {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 0;
+}
+
+.azdo-reviewer-status {
+	width: 16px;
+	display: inline-flex;
+}
+
+.azdo-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.azdo-work-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 6px 0;
+}
+
+/* azure-devops-ui inherits VS Code typography rather than Segoe UI. */
+.bolt-button,
+.bolt-textfield,
+.bolt-pill,
+.bolt-card,
+.bolt-menu {
+	font-family: var(--vscode-font-family);
+}
+
+.bolt-textfield textarea,
+.bolt-textfield input {
+	color: var(--vscode-input-foreground);
+}
+
+/* The shared overview stylesheet (needed by the timeline) styles every <button> and <textarea>; restore azure-devops-ui's own look. */
+body .bolt-button,
+body .bolt-split-button-main,
+body .bolt-expandable-button {
+	padding: revert-layer;
+	font-size: inherit;
+	line-height: inherit;
+	border-radius: 2px;
+}
+
+body .bolt-button:not(.primary):not(.subtle) {
+	background-color: var(--vscode-button-secondaryBackground) !important;
+	color: var(--vscode-button-secondaryForeground);
+}
+
+body .bolt-button:not(.primary):not(.subtle):hover {
+	background-color: var(--vscode-button-secondaryHoverBackground) !important;
+}
+
+body .bolt-button.subtle {
+	background-color: transparent !important;
+	color: var(--vscode-foreground);
+}
+
+body .bolt-button.subtle:hover {
+	background-color: var(--vscode-toolbar-hoverBackground) !important;
+}
+
+body .bolt-button.primary {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+body .bolt-button.primary:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+body .bolt-textfield textarea {
+	min-height: 0;
+	max-height: none;
+	background: transparent;
+}
+
+body .bolt-textfield {
+	background-color: var(--vscode-input-background);
+	border-color: var(--vscode-input-border, var(--vscode-widget-border));
+}

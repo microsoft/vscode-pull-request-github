@@ -333,6 +333,9 @@ export class GitHubRepository extends Disposable {
 	}
 
 	get authMatchesServer(): boolean {
+		if (this.provider) {
+			return this._credentialStore.azure?.isAuthenticated(this.remote) ?? false;
+		}
 		if ((this.remote.githubServerType === GitHubServerType.GitHubDotCom) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			return true;
 		} else if (this.remote.githubServerType === GitHubServerType.Enterprise) {
@@ -779,6 +782,12 @@ export class GitHubRepository extends Disposable {
 	async getCommitParent(ref: string): Promise<string | undefined> {
 		Logger.debug(`Fetch commit for ref ${ref} - enter`, this.id);
 		try {
+			if (this.provider) {
+				if (!this.provider.commitParent) {
+					throw new ProviderUnsupportedError('Reading commit parents');
+				}
+				return await this.provider.commitParent(ref);
+			}
 			const { octokit, remote } = await this.ensure();
 			const commit = (await octokit.call(octokit.api.repos.getCommit, { owner: remote.owner, repo: remote.repositoryName, ref })).data;
 			return commit.parents[0].sha;
@@ -1860,6 +1869,12 @@ export class GitHubRepository extends Disposable {
 
 	async hasBranch(branchName: string): Promise<string | undefined> {
 		Logger.appendLine(`Fetch branch ${branchName} - enter`, this.id);
+		if (this.provider) {
+			if (!this.provider.hasBranch) {
+				throw new ProviderUnsupportedError('Checking for a branch');
+			}
+			return this.provider.hasBranch(branchName);
+		}
 		const { query, remote, schema } = await this.ensure();
 
 		const { data } = await query<GetBranchResponse>({

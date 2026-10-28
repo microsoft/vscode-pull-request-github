@@ -458,6 +458,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._initialized = true;
 		this._register(this._reposManager.onDidChangeState(() => {
+			void commands.setContext(contexts.LOADING_PRS_TREE, this._reposManager.state === ReposManagerState.Initializing);
 			this.refreshAll();
 		}));
 		this._register(this._reposManager.onDidLoadAnyRepositories(() => {
@@ -681,6 +682,11 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 
 	private updateEnterpriseAuthenticationMessage(remotes: readonly Remote[] = this._reposManager.activeGitHubRemotes): void {
+		if (this._reposManager.credentialStore.azure) {
+			this._view.message = undefined;
+			this._loginView.message = undefined;
+			return;
+		}
 		const selected = this._reposManager.credentialStore.getHub(AuthProvider.githubEnterprise)?.serverUri;
 		const showPublicSignIn = remotes.some(remote => remote.authProviderId === AuthProvider.github)
 			&& !this._reposManager.credentialStore.isAuthenticated(AuthProvider.github);
@@ -701,14 +707,16 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
+		const initializing = this._reposManager.state === ReposManagerState.Initializing
+			&& this._reposManager.folderManagers.length > 0;
+		await commands.setContext(contexts.LOADING_PRS_TREE, initializing);
 		if (!this._reposManager?.folderManagers.length) {
 			this._view.message = undefined;
 			this._loginView.message = undefined;
 			return [];
 		}
 
-		if (this._reposManager.state === ReposManagerState.Initializing) {
-			commands.setContext(contexts.LOADING_PRS_TREE, true);
+		if (initializing) {
 			return [];
 		}
 

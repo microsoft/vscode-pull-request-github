@@ -21,6 +21,11 @@ are independently namespaced (`azdo.*`, `azureDevOpsPullRequests.*`).
    `https://devops.example.com/tfs/DefaultCollection`. Workspace settings cannot grant this
    trust, and credentials are only sent to trusted collections.
 
+If a Microsoft session cannot be renewed silently, the view shows **Sign in** rather
+than continuing to load. Choose **Sign in** again (or use a personal access token).
+The Azure view's loading and sign-in state is independent of the GitHub Pull Requests
+extension, so both extensions can remain enabled.
+
 ## Supported workflows
 
 - **Pull request tree:** Local Pull Request Branches, Waiting For My Review, Created By Me,

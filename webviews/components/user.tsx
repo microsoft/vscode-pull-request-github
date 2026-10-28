@@ -4,18 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { Icon } from './icon';
+import { initials, initialsColor } from '../../src/common/initials';
 import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interface';
 
-const InnerAvatar = ({ for: author }: { for: Partial<IAccount> }) => (
-	<>
-		{author.avatarUrl && author.avatarUrl.includes('githubusercontent.com') ? (
-			<img className="avatar" src={author.avatarUrl} alt="" role="presentation" aria-hidden="true"/>
-		) : (
-			<Icon className="avatar-icon" src={require('../../resources/icons/dark/github.svg')} />
-		)}
-	</>
-);
+const InnerAvatar = ({ for: author }: { for: Partial<IAccount> }) => {
+	const [failed, setFailed] = React.useState(false);
+	const name = author.specialDisplayName ?? author.name ?? author.login;
+	if (author.avatarUrl && !failed && (author.avatarUrl.includes('githubusercontent.com') || author.avatarUrl.startsWith('data:image/'))) {
+		return <img className="avatar" src={author.avatarUrl} alt="" role="presentation" aria-hidden="true" onError={() => setFailed(true)} />;
+	}
+	return <span className="avatar avatar-initials" style={{ backgroundColor: initialsColor(name) }} aria-hidden="true">{initials(name)}</span>;
+};
 
 export const Avatar = ({ for: author, link = true, substituteIcon }: { for: Partial<IAccount>, link?: boolean, substituteIcon?: JSX.Element }) => {
 	if (link) {

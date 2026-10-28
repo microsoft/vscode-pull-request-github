@@ -445,4 +445,95 @@ describe('Azure DevOps REST client', () => {
 		assert.strictEqual(client.pullRequestUrl(42), 'https://dev.azure.com/example/My%20Project/_git/My%20Repo/pullrequest/42');
 		assert.strictEqual(client.workItemUrl(12), 'https://dev.azure.com/example/My%20Project/_workitems/edit/12');
 	});
+
+	it('requeues policy evaluations with the policy preview version', async () => {
+		const { client, calls } = fixture([json({ evaluationId: 'eval-1', status: 'queued' })]);
+		await client.requeuePolicy('eval-1');
+		assert.strictEqual(calls[0].init.method, 'PATCH');
+		assert.strictEqual(calls[0].url.pathname, '/example/My%20Project/_apis/policy/evaluations/eval-1');
+		assert.strictEqual(calls[0].url.searchParams.get('api-version'), '7.1-preview.1');
+	});
+
+	it('collects build timeline issues', async () => {
+		const { client } = fixture([json({ records: [
+			{ name: 'Validate', issues: [{ type: 'error', message: 'Bash exited with code 1.' }, { type: 'warning', message: 'Slow' }] },
+			{ name: 'Setup' },
+		] })]);
+		assert.deepStrictEqual(await client.buildIssues(7), [
+			{ type: 'error', message: 'Bash exited with code 1.', recordName: 'Validate' },
+			{ type: 'warning', message: 'Slow', recordName: 'Validate' },
+		]);
+	});
+
+	it('unlinks only the pull request artifact relation, guarded by a test operation', async () => {
+		const artifact = 'vstfs:///Git/PullRequestId/project-id%2Frepository-id%2F42';
+		const { client, calls, body } = fixture([
+			json({ relations: [{ url: 'https://example/other' }, { url: artifact }] }),
+			json({}),
+		]);
+		await client.unlinkWorkItem(pr, 9);
+		assert.strictEqual(calls[0].url.searchParams.get('$expand'), 'relations');
+		assert.strictEqual(calls[1].init.method, 'PATCH');
+		assert.deepStrictEqual(body(1), [
+			{ op: 'test', path: '/relations/1/url', value: artifact },
+			{ op: 'remove', path: '/relations/1' },
+		]);
+	});
+
+	it('refuses to unlink a work item that is not linked to the pull request', async () => {
+		const { client } = fixture([json({ relations: [] })]);
+		await assert.rejects(client.unlinkWorkItem(pr, 9), /not linked/);
+	});
+
+	it('downloads avatars as data URIs and ignores non-image responses', async () => {
+		const { client, calls } = fixture([
+			new Response(Buffer.from([1, 2, 3]), { status: 200, headers: { 'Content-Type': 'image/png; api-version=7.1' } }),
+			json({ message: 'not an image' }),
+		]);
+		assert.strictEqual(await client.avatar('user-id'), 'data:image/png;base64,AQID');
+		assert.strictEqual(calls[0].url.pathname, '/example/_api/_common/identityImage');
+		assert.strictEqual(calls[0].url.searchParams.get('id'), 'user-id');
+		assert.strictEqual((calls[0].init.headers as Record<string, string>).Authorization, 'Bearer test-token');
+		assert.strictEqual(await client.avatar('other'), undefined);
+	});
+
+	it('caches file content at a commit but not at a branch, and retries failures', async () => {
+		const sha = 'a'.repeat(40);
+		const { client, calls } = fixture([
+			json({ content: 'v1' }),
+			json({ content: 'main 1' }),
+			json({ content: 'main 2' }),
+			json({}, 500),
+			json({ content: 'other' }),
+		]);
+		assert.strictEqual(await client.file('/x.ts', sha), 'v1');
+		assert.strictEqual(await client.file('x.ts', sha), 'v1');
+		assert.strictEqual(await client.file('x.ts', 'main', 'branch'), 'main 1');
+		assert.strictEqual(await client.file('x.ts', 'main', 'branch'), 'main 2');
+		await assert.rejects(client.file('y.ts', sha));
+		assert.strictEqual(await client.file('y.ts', sha), 'other');
+		assert.strictEqual(calls.length, 5);
+	});
+
+	it('caches the changes of an iteration and counts writes', async () => {
+		const { client, calls } = fixture([json({ changeEntries: [] }), json({})]);
+		await client.changes(42, 3);
+		await client.changes(42, 3);
+		assert.strictEqual(calls.length, 1);
+		const before = client.writes;
+		await client.updatePullRequest(42, { title: 'x' });
+		assert.strictEqual(client.writes, before + 1);
+	});
+
+	it('resolves a branch by exact name despite the prefix filter, and reads commit parents', async () => {
+		const { client, calls } = fixture([
+			json({ value: [{ name: 'refs/heads/main-old', objectId: 'old' }, { name: 'refs/heads/main', objectId: 'tip' }] }),
+			json({ value: [{ name: 'refs/heads/main-old', objectId: 'old' }] }),
+			json({ commitId: 'c', parents: ['p1', 'p2'] }),
+		]);
+		assert.strictEqual(await client.branchCommit('main'), 'tip');
+		assert.strictEqual(calls[0].url.searchParams.get('filter'), 'heads/main');
+		assert.strictEqual(await client.branchCommit('refs/heads/main'), undefined);
+		assert.strictEqual(await client.commitParent('c'), 'p1');
+	});
 });

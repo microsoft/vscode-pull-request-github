@@ -111,6 +111,8 @@ export interface ProviderCommentReference {
 /** Operations at the repository boundary, expressed using the application's existing models. */
 export interface PullRequestProvider {
 	readonly id: string;
+	/** A counter that changes after any write, so recently loaded snapshots can be reused until then. */
+	readonly writes?: number;
 	readonly capabilities: ProviderCapabilities;
 	repository(): Promise<ProviderRepositoryInfo>;
 	/** Whether the signed-in identity can contribute to pull requests in this repository. */
@@ -133,6 +135,10 @@ export interface PullRequestProvider {
 	changes(number: number, revision: ProviderRevision): Promise<ProviderFileChange[]>;
 	file(path: string, commit: string): Promise<string>;
 	branches(): Promise<string[]>;
+	/** The commit `branch` points to on the remote, or undefined when it does not exist. */
+	hasBranch?(branch: string): Promise<string | undefined>;
+	/** The first parent of a commit. */
+	commitParent?(sha: string): Promise<string | undefined>;
 	pullRequestTemplates(): Promise<string[]>;
 	viewedFiles(number: number): Promise<Record<string, ViewedState>>;
 	setViewed(number: number, paths: string[], viewed: boolean): Promise<void>;

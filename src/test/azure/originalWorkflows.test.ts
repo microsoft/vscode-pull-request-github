@@ -14,12 +14,20 @@ import { DiffSide } from '../../common/comment';
 import { InMemFileChange } from '../../common/file';
 import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
-import { FolderRepositoryManager, ReposManagerState } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from '../../github/folderRepositoryManager';
 import { PRType, PullRequestMergeability } from '../../github/interface';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { PullRequest } from '../../github/views';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { PrsTreeModel } from '../../view/prsTreeModel';
+import { CategoryTreeNode } from '../../view/treeNodes/categoryNode';
+import { PRNode } from '../../view/treeNodes/pullRequestNode';
+import { NotificationsManager } from '../../notifications/notificationsManager';
+import { NotificationsProvider } from '../../notifications/notificationsProvider';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { mockTreeViewWorkbench } from '../mocks/mockTreeViewWorkbench';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -137,13 +145,15 @@ describe('Original application workflows backed by Azure DevOps', function () {
 	let server: AzureServer;
 	let manager: FolderRepositoryManager;
 	let local: MockRepository;
+	let context: MockExtensionContext;
+	let repositories: RepositoriesManager;
 	const disposables: vscode.Disposable[] = [];
 
 	beforeEach(async function () {
 		sandbox = createSandbox();
 		sandbox.stub(vscode.authentication, 'getSession').rejects(new Error('Unexpected global authentication request'));
 		server = new AzureServer();
-		const context = new MockExtensionContext();
+		context = new MockExtensionContext();
 		const secretsChanged = new vscode.EventEmitter<vscode.SecretStorageChangeEvent>();
 		context.secrets = {
 			onDidChange: secretsChanged.event,
@@ -161,10 +171,10 @@ describe('Original application workflows backed by Azure DevOps', function () {
 		}));
 		const telemetry = new MockTelemetry();
 		const credentials = new CredentialStore(telemetry, context, sessions);
-		const repositories = new RepositoriesManager(credentials, telemetry);
+		repositories = new RepositoriesManager(credentials, telemetry);
 		const git = new GitApiImpl(repositories);
 		local = new MockRepository();
-		local.state.remotes.push({ name: 'origin', fetchUrl: `${org}/Project/_git/Repo`, isReadOnly: false });
+		local.state.remotes.push({ name: 'origin', fetchUrl: 'git@ssh.dev.azure.com:v3/Org/Project/Repo', isReadOnly: false });
 		sandbox.stub(local, 'getConfigs').resolves([]);
 		const helper = new CreatePullRequestHelper();
 		manager = new FolderRepositoryManager(0, context, local, telemetry, git, credentials, helper, new MockThemeWatcher());
@@ -187,6 +197,60 @@ describe('Original application workflows backed by Azure DevOps', function () {
 		assert.ok(pullRequest);
 		return pullRequest;
 	}
+
+	it('leaves loading for sign-in, then shows Azure categories and PR nodes without GitHub auth', async function () {
+		MockCommandRegistry.install(sandbox);
+		const { createTreeView, executeCommand } = mockTreeViewWorkbench(sandbox);
+		const credentials = repositories.credentialStore;
+		const telemetry = new MockTelemetry();
+		const treeModel = new PrsTreeModel(telemetry, repositories, context);
+		const notificationsProvider = new NotificationsProvider(credentials, repositories);
+		const notifications = new NotificationsManager(notificationsProvider, credentials, repositories, context);
+		const tree = new PullRequestsTreeDataProvider(treeModel, telemetry, context, repositories);
+		disposables.push(treeModel, notificationsProvider, notifications, tree);
+		tree.initialize([], notifications);
+		sandbox.stub(credentials, 'getHub').throws(new Error('Azure trees must not query GitHub credentials'));
+
+		manager.clearForAuthChange();
+		assert.deepStrictEqual(await tree.getChildren(), []);
+		assert.ok(executeCommand.calledWith('setContext', 'azureDevOps:loadingPrsTree', true));
+		await context.globalState.update(`azureDevOps.pat:${org.toLowerCase()}:signedOut`, true);
+		await manager.updateRepositories();
+		assert.strictEqual(repositories.state, ReposManagerState.NeedsAuthentication);
+		// This must clear even if the PR tree is hidden and VS Code does not ask for its children again.
+		assert.ok(executeCommand.calledWith('setContext', 'azureDevOps:loadingPrsTree', false));
+		assert.ok(executeCommand.calledWith('setContext', 'azureDevOps:reposManagerState', ReposManagerState.NeedsAuthentication));
+		assert.strictEqual(ReposManagerStateContext, 'azureDevOps:reposManagerState');
+		assert.ok(!executeCommand.calledWith('setContext', 'ReposManagerStateContext'));
+		assert.deepStrictEqual(await tree.getChildren(), []);
+		const login = createTreeView.getCalls().find(call => call.args[0] === 'azureDevOps:login');
+		assert.ok(login);
+		assert.deepStrictEqual(await login.args[1].treeDataProvider.getChildren(), []);
+
+		await context.globalState.update(`azureDevOps.pat:${org.toLowerCase()}:signedOut`, false);
+		await manager.updateRepositories();
+		assert.strictEqual(manager.gitHubRepositories[0].authMatchesServer, true);
+		const categories = await tree.getChildren();
+		assert.deepStrictEqual(categories.map(category => category.label),
+			['Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open']);
+		const open = categories.find(category => category instanceof CategoryTreeNode && category.type === PRType.All);
+		assert.ok(open instanceof CategoryTreeNode);
+		const loaded = new Promise<void>(resolve => {
+			const listener = tree.onDidChangeTreeData(node => {
+				if (node === open) {
+					listener.dispose();
+					resolve();
+				}
+			});
+			disposables.push(listener);
+		});
+		assert.deepStrictEqual(await tree.getChildren(open), []);
+		await loaded;
+		const children = await tree.getChildren(open);
+		assert.ok(children[0] instanceof PRNode);
+		assert.strictEqual(children[0].pullRequestModel.number, 42);
+		assert.strictEqual(executeCommand.getCalls().filter(call => call.args[1] === 'azureDevOps:loadingPrsTree').at(-1)?.args[2], false);
+	});
 
 	it('feeds the original category queries with Azure search criteria and rejects unsupported qualifiers', async function () {
 		const response = await manager.getPullRequests(PRType.Query, { fetchNextPage: false }, 'is:open review-requested:${user}');

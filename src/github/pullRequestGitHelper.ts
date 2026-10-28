@@ -9,6 +9,7 @@
 import * as vscode from 'vscode';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 import { Branch, Repository } from '../api/api';
+import { commands } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotesAsync, Remote } from '../common/remote';
@@ -42,6 +43,32 @@ export type BranchInfo = {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
+
+	/** The other worktree that has `branchName` checked out, if any. Git refuses to check it out a second time. */
+	static worktreeWithBranch(repository: Repository, branchName: string) {
+		return repository.state.worktrees?.find(worktree => !worktree.main && !worktree.detached
+			&& (worktree.ref === `refs/heads/${branchName}` || worktree.ref === branchName));
+	}
+
+	/**
+	 * The branch is in use by another worktree: either open that worktree, or check the pull request out here
+	 * under a new branch name. Returns the branch to use, or throws 'User aborted'.
+	 */
+	private static async resolveBranchInWorktree(repository: Repository, pullRequest: PullRequestModel, branchName: string, worktreePath: string): Promise<string> {
+		const open = vscode.l10n.t('Open Worktree');
+		const here = vscode.l10n.t('Check Out Here as a New Branch');
+		const choice = await vscode.window.showInformationMessage(
+			vscode.l10n.t('Branch {0} is already checked out in the worktree at {1}.', branchName, worktreePath),
+			{ modal: true }, open, here,
+		);
+		if (choice === open) {
+			await commands.openFolder(vscode.Uri.file(worktreePath), { forceNewWindow: true });
+		}
+		if (choice !== here) {
+			throw new Error('User aborted');
+		}
+		return PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+	}
 	private static readonly configUpdates = new WeakMap<Repository, Map<string, Promise<void>>>();
 
 	static async checkoutFromFork(
@@ -108,8 +135,34 @@ export class PullRequestGitHelper {
 		await repository.fetch(remoteName, originalBranchName);
 		const trackedBranch = await repository.getBranch(trackedBranchName);
 
+		const worktree = PullRequestGitHelper.worktreeWithBranch(repository, localBranchName);
+		if (worktree) {
+			localBranchName = await PullRequestGitHelper.resolveBranchInWorktree(repository, pullRequest, localBranchName, worktree.path);
+			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', localBranchName) });
+			await repository.createBranch(localBranchName, true, trackedBranch.commit);
+			await repository.setBranchUpstream(localBranchName, trackedBranchName);
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
+			return;
+		}
+
+		let existing: Branch | undefined;
 		try {
-			branch = await repository.getBranch(localBranchName);
+			existing = await repository.getBranch(localBranchName);
+		} catch {
+			existing = undefined;
+		}
+		if (!existing) {
+			// there is no local branch with the same name, so we are good to create and checkout the remote branch.
+			Logger.appendLine(
+				`Branch ${localBranchName} doesn't exist on local disk yet. Creating from remote.`,
+				PullRequestGitHelper.ID,
+			);
+			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', localBranchName) });
+			await repository.createBranch(localBranchName, true, trackedBranch.commit);
+			await repository.setBranchUpstream(localBranchName, trackedBranchName);
+		} else {
+			// Failures past this point are real checkout errors, not a missing branch.
+			branch = existing;
 			const refsHeadsPrefix = 'refs/heads/';
 			const isCheckedOutInAnotherWorktree = repository.state.worktrees?.some(worktree => {
 				if (worktree.main || worktree.detached) {
@@ -160,16 +213,6 @@ export class PullRequestGitHelper {
 				progress.report({ message: vscode.l10n.t('Pulling {0}', localBranchName) });
 				await repository.pull();
 			}
-		} catch (err) {
-			// there is no local branch with the same name, so we are good to create and checkout the remote branch.
-			Logger.appendLine(
-				`Branch ${localBranchName} doesn't exist on local disk yet. Creating from remote.`,
-				PullRequestGitHelper.ID,
-			);
-			// create branch
-			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', localBranchName) });
-			await repository.createBranch(localBranchName, true, trackedBranch.commit);
-			await repository.setBranchUpstream(localBranchName, trackedBranchName);
 		}
 
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
@@ -195,6 +238,10 @@ export class PullRequestGitHelper {
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
 			const branchName = branchInfos[0].branch!;
+			if (PullRequestGitHelper.worktreeWithBranch(repository, branchName)) {
+				// Let fetchAndCheckout offer to open that worktree or use another branch.
+				return false;
+			}
 			progress.report({ message: vscode.l10n.t('Checking out branch {0}', branchName) });
 			await repository.checkout(branchName);
 

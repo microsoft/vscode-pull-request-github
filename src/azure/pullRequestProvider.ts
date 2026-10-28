@@ -3,11 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AzureApiError, AzureBinaryFileError, AzureClient, PullRequest as AzurePullRequest, Identity, PolicyEvaluation, PullRequestStatus, ReviewThread, ThreadComment, ThreadContext } from './client';
+import { AzureApiError, AzureBinaryFileError, AzureClient, PullRequest as AzurePullRequest, Identity, PolicyEvaluation, PullRequestIteration, PullRequestStatus, ReviewThread, ThreadComment, ThreadContext } from './client';
 import { escapeHtml, renderAzureMarkdown } from './markdown';
-import { unifiedPatch } from './patch';
+import { commentExcerpt, unifiedPatch } from './patch';
 import { azureRepositoryUrl } from './remote';
 import { DraftComment, memoryStorage, PendingReviews, ViewedFiles } from './review';
+import { AzdoIdentity, AzdoOverview, AzdoPolicy, AzdoPolicyState, AzdoVote } from '../../common/azdoOverview';
 import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
 import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
@@ -70,8 +71,8 @@ function changeType(value: string): GitChangeType {
 	throw new Error(`Azure DevOps returned an unsupported file change type: ${value}`);
 }
 
-function checkState(state: string): CheckState {
-	switch (state.toLowerCase()) {
+function checkState(state: string | undefined): CheckState {
+	switch ((state ?? 'notSet').toLowerCase()) {
 		case 'approved':
 		case 'succeeded':
 			return CheckState.Success;
@@ -90,6 +91,42 @@ function checkState(state: string): CheckState {
 		default:
 			return CheckState.Unknown;
 	}
+}
+
+function policyState(state: string | undefined): AzdoPolicyState {
+	switch ((state ?? 'notSet').toLowerCase()) {
+		case 'approved':
+		case 'succeeded':
+			return 'succeeded';
+		case 'rejected':
+		case 'failed':
+		case 'error':
+		case 'broken':
+			return 'failed';
+		case 'running':
+		case 'pending':
+			return 'running';
+		case 'queued':
+		case 'notset':
+			return 'queued';
+		case 'notapplicable':
+			return 'notApplicable';
+		default:
+			return 'unknown';
+	}
+}
+
+/** Statuses are posted repeatedly (queued, pending, final); only the newest per context is current. */
+function latestStatuses(statuses: PullRequestStatus[]): PullRequestStatus[] {
+	const latest = new Map<string, PullRequestStatus>();
+	for (const status of statuses) {
+		const key = `${status.context.genre ?? ''}/${status.context.name}`;
+		const existing = latest.get(key);
+		if (!existing || status.id > existing.id) {
+			latest.set(key, status);
+		}
+	}
+	return [...latest.values()];
 }
 
 function timestamp(value: string | undefined): string {
@@ -114,11 +151,43 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		mergeQueue: false, stacks: false, autoMerge: true,
 	});
 
+	/** Avatar data URIs by identity ID; avatars need credentials, so they cannot be loaded by URL in the UI. */
+	private readonly avatars = new Map<string, Promise<string | undefined>>();
+	private readonly loadedAvatars = new Map<string, string>();
+	/** Patches for a revision are derived from immutable content, so recomputing them on every tree refresh is wasted work. */
+	private readonly rawChangesCache = new Map<string, Promise<IRawFileChange[]>>();
+	/** Local draft changes alter snapshots without an Azure write. */
+	private draftWrites = 0;
+
 	constructor(
 		private readonly client: AzureClient,
 		private readonly reviews: PendingReviews,
 		private readonly viewed: ViewedFiles = new ViewedFiles(memoryStorage()),
 	) { }
+
+	private avatarFor(identity: Identity): string | undefined {
+		return this.loadedAvatars.get(identity.id);
+	}
+
+	/** Downloads avatars once per identity so that later synchronous mapping can include them. */
+	private async loadAvatars(identities: (Identity | undefined)[]): Promise<void> {
+		await Promise.all(identities.map(identity => {
+			if (!identity?.id) {
+				return Promise.resolve(undefined);
+			}
+			let avatar = this.avatars.get(identity.id);
+			if (!avatar) {
+				avatar = this.client.avatar(identity.id).catch(() => undefined).then(value => {
+					if (value) {
+						this.loadedAvatars.set(identity.id, value);
+					}
+					return value;
+				});
+				this.avatars.set(identity.id, avatar);
+			}
+			return avatar;
+		}));
+	}
 
 	private account(identity: Identity): IAccount {
 		return {
@@ -127,7 +196,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			name: identity.displayName,
 			specialDisplayName: identity.displayName,
 			email: identity.uniqueName,
-			avatarUrl: identity.imageUrl,
+			avatarUrl: this.avatarFor(identity),
 			url: azureRepositoryUrl(this.client.remote),
 			accountType: AccountType.User,
 		};
@@ -270,7 +339,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 				isRequired: policy.configuration.isBlocking,
 				isCheckRun: false,
 			})),
-			...statuses.map(status => ({
+			...latestStatuses(statuses).map(status => ({
 				id: String(status.id),
 				databaseId: status.id,
 				url: status.targetUrl,
@@ -328,7 +397,9 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 	}
 
 	async currentUser(): Promise<IAccount> {
-		return this.account(await this.client.currentUser());
+		const user = await this.client.currentUser();
+		await this.loadAvatars([user]);
+		return this.account(user);
 	}
 
 	async list(options: ProviderListOptions = {}): Promise<ProviderPage<PullRequest>> {
@@ -346,11 +417,18 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			'searchCriteria.sourceRefName': refs(options.sourceBranch),
 			'searchCriteria.targetRefName': refs(options.targetBranch),
 		});
+		await this.loadAvatars(page.map(pr => pr.createdBy));
 		return { items: page.map(pr => this.model(pr)), nextCursor: page.length === size ? skip + size : undefined };
+	}
+
+	/** Changes whenever this provider writes to Azure DevOps or to local drafts. */
+	get writes(): number {
+		return this.client.writes + this.draftWrites;
 	}
 
 	async load(number: number): Promise<ProviderSnapshot> {
 		const [pr, viewer] = await Promise.all([this.client.pullRequest(number), this.client.currentUser()]);
+		await this.loadAvatars([pr.createdBy, viewer, ...pr.reviewers]);
 		const pullRequest = this.model(pr);
 		const [discussions, labels, checks, commits] = await Promise.all([
 			section(() => this.discussionsFor(number, viewer)), section(() => this.labels(number)),
@@ -387,8 +465,10 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		const iterations = await this.client.iterations(number);
 		const latest = iterations.at(-1);
 		const threads = (await this.client.threads(number, latest?.id)).filter(thread => !thread.isDeleted);
+		await this.loadAvatars([viewer, ...threads.flatMap(thread => thread.comments.map(comment => comment.author))]);
 		const isInline = (thread: ReviewThread) => !!thread.threadContext?.filePath || !!thread.pullRequestThreadContext;
 		const inline = threads.filter(isInline).map(thread => this.thread(number, thread, viewer, latest?.id));
+		await this.attachExcerpts(inline, threads, iterations);
 		const events: TimelineEvent[] = inline.filter(thread => thread.comments.length > 0).map(thread => {
 			const first = thread.comments[0];
 			if (!first.user) {
@@ -414,7 +494,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 				const mapped = this.comment(number, thread, comment, viewer);
 				const event: CommentEvent = {
 					id: mapped.id, threadId: mapped.threadId, graphNodeId: mapped.graphNodeId, htmlUrl: mapped.htmlUrl,
-					body: mapped.body, user: mapped.user, event: EventType.Commented, createdAt: mapped.createdAt,
+					body: mapped.body, bodyHTML: mapped.bodyHTML, user: mapped.user, event: EventType.Commented, createdAt: mapped.createdAt,
 					canEdit: mapped.canEdit, canDelete: mapped.canDelete,
 				};
 				events.push(event);
@@ -436,6 +516,47 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 			}
 		}
 		return { threads: inline, events };
+	}
+
+	/** Adds the code each inline thread is anchored to, read from the iteration the thread refers to. */
+	private async attachExcerpts(inline: IReviewThread[], threads: ReviewThread[], iterations: PullRequestIteration[]): Promise<void> {
+		const latest = iterations.at(-1);
+		const files = new Map<string, Promise<string>>();
+		const file = (path: string, commit: string | undefined) => {
+			if (!commit) {
+				return Promise.resolve('');
+			}
+			const key = `${commit}:${path}`;
+			if (!files.has(key)) {
+				// Missing (added or deleted) and binary files have no content on that side.
+				files.set(key, this.client.file(`/${path}`, commit).catch(() => ''));
+			}
+			return files.get(key)!;
+		};
+		await Promise.all(inline.map(async thread => {
+			const raw = threads.find(candidate => String(candidate.id) === thread.id);
+			const tracked = raw?.pullRequestThreadContext?.trackingCriteria?.secondComparingIteration
+				|| raw?.pullRequestThreadContext?.iterationContext?.secondComparingIteration;
+			const iteration = (thread.isOutdated && iterations.find(candidate => candidate.id === tracked)) || latest;
+			const start = thread.isOutdated ? thread.originalStartLine : thread.startLine;
+			const end = thread.isOutdated ? thread.originalEndLine : thread.endLine;
+			if (!iteration || !start || !end) {
+				return;
+			}
+			try {
+				const [base, head] = await Promise.all([
+					file(thread.path, iteration.commonRefCommit?.commitId), file(thread.path, iteration.sourceRefCommit?.commitId),
+				]);
+				const hunk = commentExcerpt(base, head, thread.diffSide === DiffSide.LEFT ? 'left' : 'right', start, end);
+				if (hunk) {
+					for (const comment of thread.comments) {
+						comment.diffHunks = [hunk];
+					}
+				}
+			} catch {
+				// The excerpt is decorative; the thread is still shown without it.
+			}
+		}));
 	}
 
 	private async checksFor(pr: AzurePullRequest): Promise<PullRequestChecks> {
@@ -487,7 +608,22 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		}));
 	}
 
-	async rawChanges(number: number, revision: ProviderRevision): Promise<IRawFileChange[]> {
+	rawChanges(number: number, revision: ProviderRevision): Promise<IRawFileChange[]> {
+		const key = `${number}:${revision.iteration}:${revision.source}:${revision.mergeBase}`;
+		let changes = this.rawChangesCache.get(key);
+		if (!changes) {
+			changes = this.computeRawChanges(number, revision);
+			this.rawChangesCache.set(key, changes);
+			changes.catch(() => this.rawChangesCache.delete(key));
+			if (this.rawChangesCache.size > 20) {
+				this.rawChangesCache.delete(this.rawChangesCache.keys().next().value!);
+			}
+		}
+		// Callers may mutate the returned objects.
+		return changes.then(files => files.map(file => ({ ...file })));
+	}
+
+	private async computeRawChanges(number: number, revision: ProviderRevision): Promise<IRawFileChange[]> {
 		const changes = await this.changes(number, revision);
 		const status: Record<GitChangeType, IRawFileChange['status']> = {
 			[GitChangeType.ADD]: 'added', [GitChangeType.DELETE]: 'removed', [GitChangeType.MODIFY]: 'modified', [GitChangeType.RENAME]: 'renamed',
@@ -520,15 +656,24 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 				};
 			}
 		};
-		await Promise.all(Array.from({ length: Math.min(6, changes.length) }, worker));
+		await Promise.all(Array.from({ length: Math.min(12, changes.length) }, worker));
 		return result;
 	}
 
 	async changes(number: number, revision: ProviderRevision): Promise<ProviderFileChange[]> {
-		return (await this.client.changes(number, revision.iteration)).filter(change => !change.item.isFolder).map(change => ({
-			path: change.item.path.replace(/^\//, ''), previousPath: change.originalPath?.replace(/^\//, ''),
-			trackingId: change.changeTrackingId, type: changeType(change.changeType), objectId: change.item.objectId,
-		}));
+		return (await this.client.changes(number, revision.iteration)).filter(change => !change.item.isFolder).map(change => {
+			const type = changeType(change.changeType);
+			const path = change.item.path ?? change.originalPath;
+			if (!path) {
+				throw new Error('Azure DevOps returned a file change without a path.');
+			}
+			return {
+				path: path.replace(/^\//, ''),
+				// Deletions report their own path as `originalPath`; only renames have a distinct previous path.
+				previousPath: type === GitChangeType.RENAME ? change.originalPath?.replace(/^\//, '') : undefined,
+				trackingId: change.changeTrackingId, type, objectId: change.item.objectId,
+			};
+		});
 	}
 
 	file(path: string, commit: string): Promise<string> {
@@ -537,6 +682,14 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 
 	branches(): Promise<string[]> {
 		return this.client.branches();
+	}
+
+	commitParent(sha: string): Promise<string | undefined> {
+		return this.client.commitParent(sha);
+	}
+
+	hasBranch(branch: string): Promise<string | undefined> {
+		return this.client.branchCommit(branch);
 	}
 
 	/** Default templates in the locations Azure DevOps uses, read from the default branch. */
@@ -733,6 +886,92 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 		await this.client.resolveThread(number, id, resolved);
 	}
 
+	/** Azure-native data for the pull request overview page. */
+	async overview(number: number): Promise<AzdoOverview> {
+		const [pr, viewer] = await Promise.all([this.client.pullRequest(number), this.client.currentUser()]);
+		const [policies, statuses, workItems, labels, threads] = await Promise.all([
+			section(() => this.client.policies(pr)), section(() => this.client.statuses(number)),
+			section(() => this.client.linkedWorkItems(number)), section(() => this.client.labels(number)),
+			section(() => this.client.threads(number)),
+		]);
+		await this.loadAvatars([pr.createdBy, viewer, pr.autoCompleteSetBy, ...pr.reviewers]);
+		const identity = (value: Identity): AzdoIdentity => ({ id: value.id, displayName: value.displayName, imageUrl: this.avatarFor(value) });
+		const branch = (ref: string) => ref.replace(/^refs\/heads\//, '');
+		const branchUrl = (ref: string) => `${azureRepositoryUrl(this.client.remote)}?version=GB${encodeURIComponent(branch(ref))}`;
+		const policyItems: AzdoPolicy[] = [];
+		if (policies.state === 'loaded') {
+			for (const policy of policies.value.filter(policy => policy.configuration.isEnabled !== false)) {
+				const state = policyState(policy.status);
+				const buildId = policy.context?.buildId;
+				let issues: string[] = [];
+				if (state === 'failed' && buildId) {
+					try {
+						issues = (await this.client.buildIssues(buildId)).filter(issue => issue.type === 'error').map(issue => issue.message).slice(0, 10);
+					} catch {
+						// The build may have been deleted or the token may lack build scope; the summary still shows the failure.
+					}
+				}
+				policyItems.push({
+					id: policy.evaluationId,
+					name: policy.configuration.settings?.displayName || policy.context?.buildDefinitionName || policy.configuration.type.displayName,
+					description: policy.configuration.type.displayName,
+					state, isBlocking: policy.configuration.isBlocking,
+					buildId, buildUrl: buildId ? this.client.buildUrl(buildId) : undefined,
+					canRequeue: !!buildId || !!policy.context?.isExpired, issues,
+				});
+			}
+		}
+		if (statuses.state === 'loaded') {
+			for (const status of latestStatuses(statuses.value)) {
+				policyItems.push({
+					id: `status:${status.id}`, name: status.context.genre ? `${status.context.genre}/${status.context.name}` : status.context.name,
+					description: status.description, state: policyState(status.state), isBlocking: false,
+					buildUrl: status.targetUrl, canRequeue: false, issues: [],
+				});
+			}
+		}
+		const liveThreads = threads.state === 'loaded'
+			? threads.value.filter(thread => !thread.isDeleted && thread.comments.some(comment => !comment.isDeleted && comment.commentType !== 'system' && comment.commentType !== 3))
+			: [];
+		const isActive = (thread: ReviewThread) => ['1', '6', 'active', 'pending'].includes(String(thread.status).toLowerCase());
+		const viewerReviewer = pr.reviewers.find(reviewer => reviewer.id === viewer.id);
+		const errors = (...sections: ProviderSection<unknown>[]) => sections.find((value): value is { state: 'error'; message: string } => value.state === 'error')?.message;
+		return {
+			number, title: pr.title, url: this.client.pullRequestUrl(number), status: pr.status, isDraft: pr.isDraft,
+			createdBy: identity(pr.createdBy), creationDate: pr.creationDate, closedDate: pr.closedDate,
+			sourceBranch: branch(pr.sourceRefName), targetBranch: branch(pr.targetRefName),
+			sourceBranchUrl: branchUrl(pr.sourceRefName), targetBranchUrl: branchUrl(pr.targetRefName),
+			mergeStatus: pr.mergeStatus, viewer: identity(viewer), viewerVote: viewerReviewer?.vote,
+			isAuthor: pr.createdBy.id === viewer.id,
+			autoComplete: pr.autoCompleteSetBy && { setBy: identity(pr.autoCompleteSetBy), mergeStrategy: pr.completionOptions?.mergeStrategy },
+			reviewers: pr.reviewers.map(reviewer => ({ ...identity(reviewer), vote: reviewer.vote ?? 0, isRequired: !!reviewer.isRequired, isContainer: !!reviewer.isContainer })),
+			policies: policyItems, policiesError: errors(policies, statuses),
+			workItems: workItems.state === 'loaded' ? workItems.value.map(item => ({
+				id: item.id, title: item.fields['System.Title'], type: item.fields['System.WorkItemType'], state: item.fields['System.State'],
+				changedDate: item.fields['System.ChangedDate'], url: this.client.workItemUrl(item.id),
+			})) : [],
+			workItemsError: errors(workItems),
+			tags: labels.state === 'loaded' ? labels.value.map(label => label.name) : [],
+			threads: { active: liveThreads.filter(isActive).length, resolved: liveThreads.filter(thread => !isActive(thread)).length },
+		};
+	}
+
+	async setVote(number: number, vote: AzdoVote): Promise<void> {
+		await this.client.vote(number, vote);
+	}
+
+	async requeuePolicy(evaluationId: string): Promise<void> {
+		await this.client.requeuePolicy(evaluationId);
+	}
+
+	async linkWorkItem(number: number, workItem: number): Promise<void> {
+		await this.client.linkWorkItem(await this.client.pullRequest(number), workItem);
+	}
+
+	async unlinkWorkItem(number: number, workItem: number): Promise<void> {
+		await this.client.unlinkWorkItem(await this.client.pullRequest(number), workItem);
+	}
+
 	private reviewKey(number: number): string {
 		return `${azureRepositoryUrl(this.client.remote)}/pullrequest/${number}`;
 	}
@@ -801,10 +1040,12 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 	}
 
 	async startReview(number: number, commit: string): Promise<void> {
+		this.draftWrites++;
 		await this.reviews.start(this.reviewKey(number), (await this.client.currentUser()).id, commit);
 	}
 
 	async addDraft(number: number, content: string, target: ProviderDraftTarget): Promise<IComment> {
+		this.draftWrites++;
 		const key = this.reviewKey(number);
 		const viewer = await this.client.currentUser();
 		const review = this.reviews.get(key);
@@ -828,6 +1069,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 	}
 
 	async editDraft(number: number, id: number, content: string): Promise<IComment> {
+		this.draftWrites++;
 		const key = this.reviewKey(number);
 		await this.reviews.edit(key, id, content);
 		const draft = this.reviews.get(key)?.comments.find(comment => comment.id === id);
@@ -838,10 +1080,12 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 	}
 
 	async deleteDraft(number: number, id: number): Promise<void> {
+		this.draftWrites++;
 		await this.reviews.edit(this.reviewKey(number), id);
 	}
 
 	async discardReview(number: number): Promise<IComment[]> {
+		this.draftWrites++;
 		const key = this.reviewKey(number);
 		const review = this.reviews.get(key);
 		const viewer = await this.client.currentUser();
@@ -853,6 +1097,7 @@ export class AzurePullRequestProvider implements PullRequestProvider {
 	}
 
 	async submitReview(number: number, event: ReviewEventEnum, body: string, expectedHead: string): Promise<void> {
+		this.draftWrites++;
 		await this.reviewedPullRequest(number, expectedHead);
 		const viewer = await this.client.currentUser();
 		const key = this.reviewKey(number);

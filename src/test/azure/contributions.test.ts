@@ -46,6 +46,18 @@ describe('Standalone fork contributions', () => {
 		assert.ok(manifest.activationEvents.includes(`onFileSystem:${Schemes.NewIssue}`));
 	});
 
+	it('uses independent repository state for sign-in views and welcome messages', () => {
+		const views = Object.values(manifest.contributes.views).flat() as { id: string; when?: string }[];
+		const login = views.find(view => view.id === 'azureDevOps:login');
+		const pulls = views.find(view => view.id === 'pr:azureDevOps');
+		assert.ok(login?.when?.includes('azureDevOps:reposManagerState == NeedsAuthentication'));
+		assert.ok(pulls?.when?.includes('azureDevOps:reposManagerState != NeedsAuthentication'));
+		const welcome = manifest.contributes.viewsWelcome as { view: string; when: string }[];
+		assert.ok(welcome.filter(entry => entry.view === 'azureDevOps:login')
+			.every(entry => entry.when.includes('azureDevOps:reposManagerState == NeedsAuthentication')));
+		assert.ok(!JSON.stringify(manifest.contributes).includes('ReposManagerStateContext'));
+	});
+
 	it('builds and hosts the original overview and creation forms, not separate Azure pages', () => {
 		const webpack = readFileSync(path.join(root, 'webpack.config.js'), 'utf8');
 		assert.ok(webpack.includes('webviews/editorWebview/index.ts'));

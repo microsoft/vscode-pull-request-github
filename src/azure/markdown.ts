@@ -40,5 +40,6 @@ renderer.image = (href, title, text) => {
 };
 
 export function renderAzureMarkdown(markdown: string | undefined): string {
-	return marked.parse(markdown ?? '', { renderer, gfm: true, breaks: false });
+	// Azure DevOps hides HTML comments (often bot metadata) rather than showing them as text.
+	return marked.parse((markdown ?? '').replace(/<!--[\s\S]*?-->/g, ''), { renderer, gfm: true, breaks: false });
 }

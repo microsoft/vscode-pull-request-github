@@ -178,7 +178,7 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 				const opening = opener.openExternalUri(uri, { sourceUri: uri }, cancellation.token);
 				try {
 					assert.strictEqual(createWebviewPanel.callCount, 1);
-					assert.ok(createWebviewPanel.firstCall.returnValue.webview.html.includes('webview-pr-description.js'));
+					assert.ok(createWebviewPanel.firstCall.returnValue.webview.html.includes(kind === 'pullRequest' ? 'webview-azdo-pr.js' : 'webview-pr-description.js'));
 					assert.ok(panel.findPanel('aaa', 'bbb', 1000));
 					sandbox.assert.calledOnce(resolveModelStub);
 					assert.deepStrictEqual(resolveModelStub.firstCall.args, ['aaa', 'bbb', 1000, true, kind === 'pullRequest' ? 'overview' : true]);

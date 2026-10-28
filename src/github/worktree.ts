@@ -20,12 +20,15 @@ const logId = 'Worktree';
  * @param folderManager The folder repository manager
  * @param pullRequestModel The pull request to checkout
  * @param repository Optional repository to use (if not provided, uses folderManager.repository)
+ * @param options `direct` skips the location and window prompts: the worktree is created in the default
+ * location (or an existing worktree for the branch is reused) and opened in a new window.
  */
 export async function checkoutPRInWorktree(
 	telemetry: ITelemetry,
 	folderManager: FolderRepositoryManager,
 	pullRequestModel: PullRequestModel,
-	repository: Repository | undefined
+	repository: Repository | undefined,
+	options: { direct?: boolean } = {},
 ): Promise<void> {
 	// Validate that the PR has a valid head branch
 	if (!pullRequestModel.head) {
@@ -49,8 +52,21 @@ export async function checkoutPRInWorktree(
 	const branchName = prHead.ref;
 	const remoteName = pullRequestModel.remote.remoteName;
 
+	if (options.direct) {
+		// Git allows a branch in only one worktree, so reuse the one that already has it.
+		const existing = repositoryToUse.state.worktrees?.find(worktree => worktree.ref === `refs/heads/${branchName}` || worktree.path === defaultWorktreePath);
+		if (existing) {
+			if (existing.main) {
+				vscode.window.showInformationMessage(vscode.l10n.t('Branch {0} is already checked out in this window.', branchName));
+				return;
+			}
+			await commands.openFolder(vscode.Uri.file(existing.path), { forceNewWindow: true });
+			return;
+		}
+	}
+
 	// Ask user for worktree location first (not in progress)
-	const worktreeUri = await vscode.window.showSaveDialog({
+	const worktreeUri = options.direct ? vscode.Uri.file(defaultWorktreePath) : await vscode.window.showSaveDialog({
 		defaultUri: vscode.Uri.file(defaultWorktreePath),
 		title: vscode.l10n.t('Select Worktree Location'),
 		saveLabel: vscode.l10n.t('Create Worktree'),
@@ -105,6 +121,11 @@ export async function checkoutPRInWorktree(
 				}
 			}
 		);
+
+		if (options.direct) {
+			await commands.openFolder(worktreeUri, { forceNewWindow: true });
+			return;
+		}
 
 		// Ask user how they want to open the worktree (modal dialog)
 		const openInNewWindow = vscode.l10n.t('New Window');

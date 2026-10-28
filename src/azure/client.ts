@@ -12,6 +12,7 @@ export interface Identity {
 	uniqueName?: string;
 	vote?: number;
 	isRequired?: boolean;
+	isContainer?: boolean;
 	imageUrl?: string;
 	url?: string;
 }
@@ -57,13 +58,18 @@ export interface PullRequestIteration {
 	sourceRefCommit: Commit;
 	targetRefCommit: Commit;
 	commonRefCommit: Commit;
+	description?: string;
+	author?: Identity;
+	createdDate?: string;
+	reason?: string;
 }
 
 export interface FileChange {
 	changeTrackingId: number;
 	changeType: string;
-	item: { path: string; isFolder?: boolean; objectId?: string };
-	originalPath?: string;
+	/** `path` is null for deletions; the deleted path is then in `originalPath`. */
+	item: { path: string | null; isFolder?: boolean; objectId?: string };
+	originalPath?: string | null;
 }
 
 export interface ThreadComment {
@@ -116,18 +122,27 @@ export interface WorkItem {
 		'System.Description'?: string;
 		'System.AssignedTo'?: Identity;
 		'System.Tags'?: string;
+		'System.ChangedDate'?: string;
 	};
 }
 
 export interface PolicyEvaluation {
 	evaluationId: string;
 	status: string;
-	configuration: { type: { displayName: string }; isBlocking: boolean };
+	configuration: { type: { displayName: string }; isBlocking: boolean; isEnabled?: boolean; settings?: { displayName?: string | null; buildDefinitionId?: number } };
+	context?: { buildId?: number; buildDefinitionName?: string; isExpired?: boolean };
+}
+
+export interface BuildIssue {
+	type: string;
+	message: string;
+	recordName?: string;
 }
 
 export interface PullRequestStatus {
 	id: number;
-	state: string;
+	/** Omitted by Azure DevOps while the status is not set. */
+	state?: string;
 	description?: string;
 	context: { name: string; genre?: string };
 	targetUrl?: string;
@@ -147,11 +162,20 @@ export class AzureApiError extends Error {
 }
 
 type Query = Record<string, string | number | boolean | undefined>;
+
+/** Content at a commit never changes, so it is cached up to this many characters. */
+const FILE_CACHE_CHARACTERS = 64 * 1024 * 1024;
+const COMMIT_SHA = /^[0-9a-f]{40}$/i;
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class AzureClient {
 	private readonly projectPath: string;
 	private readonly repositoryPath: string;
+	private readonly fileCache = new Map<string, { content: Promise<string>; size: number }>();
+	private fileCacheSize = 0;
+	/** Incremented by every write, so callers can tell whether data read earlier may be stale. */
+	writes = 0;
+	private readonly changesCache = new Map<string, Promise<FileChange[]>>();
 
 	constructor(
 		public readonly remote: AzureRemote,
@@ -163,6 +187,9 @@ export class AzureClient {
 	}
 
 	private async send(path: string, method = 'GET', body?: unknown, query: Query = {}, patch = false): Promise<Response> {
+		if (method !== 'GET') {
+			this.writes++;
+		}
 		const url = new URL(path);
 		url.searchParams.set('api-version', '7.1');
 		for (const [key, value] of Object.entries(query)) {
@@ -243,6 +270,14 @@ export class AzureClient {
 		});
 	}
 
+	/** The commit a branch points to, or undefined if it does not exist. */
+	async branchCommit(branch: string): Promise<string | undefined> {
+		const name = `refs/heads/${branch.replace(/^refs\/heads\//, '')}`;
+		const refs = await this.list<{ name: string; objectId: string }>(`${this.repositoryPath}/refs`, { filter: name.replace(/^refs\//, '') });
+		// The filter is a prefix match, so `main` would also return `main-old`.
+		return refs.find(ref => ref.name === name)?.objectId;
+	}
+
 	async branches(): Promise<string[]> {
 		const refs = await this.list<{ name: string }>(`${this.repositoryPath}/refs`, { filter: 'heads/' });
 		return refs.map(ref => ref.name.replace(/^refs\/heads\//, ''));
@@ -258,7 +293,7 @@ export class AzureClient {
 		const changes = iteration ? await this.changes(id, iteration.id) : [];
 		let file: { path: string; base: string; source: string } | undefined;
 		if (path !== undefined) {
-			const change = changes.find(change => change.item.path === path && !change.item.isFolder);
+			const change = changes.find(change => (change.item.path ?? change.originalPath) === path && !change.item.isFolder);
 			if (!change || !iteration) {
 				throw new Error('Choose a changed file from this pull request before requesting file contents.');
 			}
@@ -296,7 +331,22 @@ export class AzureClient {
 		return this.list(`${this.repositoryPath}/pullrequests/${id}/iterations`);
 	}
 
-	async changes(id: number, iteration: number): Promise<FileChange[]> {
+	/** An iteration's changes are fixed once the iteration exists. */
+	changes(id: number, iteration: number): Promise<FileChange[]> {
+		const key = `${id}:${iteration}`;
+		let changes = this.changesCache.get(key);
+		if (!changes) {
+			changes = this.fetchChanges(id, iteration);
+			this.changesCache.set(key, changes);
+			changes.catch(() => this.changesCache.delete(key));
+			if (this.changesCache.size > 50) {
+				this.changesCache.delete(this.changesCache.keys().next().value!);
+			}
+		}
+		return changes;
+	}
+
+	private async fetchChanges(id: number, iteration: number): Promise<FileChange[]> {
 		const result: FileChange[] = [];
 		let skip = 0;
 		let top = 2000;
@@ -315,7 +365,43 @@ export class AzureClient {
 		return result;
 	}
 
-	async file(path: string, version: string, versionType: 'commit' | 'branch' = 'commit'): Promise<string> {
+	file(path: string, version: string, versionType: 'commit' | 'branch' = 'commit'): Promise<string> {
+		if (versionType !== 'commit' || !COMMIT_SHA.test(version)) {
+			return this.fetchFile(path, version, versionType);
+		}
+		const key = `${version.toLowerCase()}:${path.replace(/^\/+/, '')}`;
+		const cached = this.fileCache.get(key);
+		if (cached) {
+			// Refresh recency for least-recently-used eviction.
+			this.fileCache.delete(key);
+			this.fileCache.set(key, cached);
+			return cached.content;
+		}
+		const entry = { content: this.fetchFile(path, version, versionType), size: 0 };
+		this.fileCache.set(key, entry);
+		entry.content.then(content => {
+			if (this.fileCache.get(key) !== entry) {
+				return;
+			}
+			entry.size = content.length;
+			this.fileCacheSize += entry.size;
+			for (const [oldest, value] of this.fileCache) {
+				if (this.fileCacheSize <= FILE_CACHE_CHARACTERS || oldest === key) {
+					break;
+				}
+				this.fileCache.delete(oldest);
+				this.fileCacheSize -= value.size;
+			}
+		}, error => {
+			// Binary files stay binary at a commit; anything else may be transient.
+			if (!(error instanceof AzureBinaryFileError) && this.fileCache.get(key) === entry) {
+				this.fileCache.delete(key);
+			}
+		});
+		return entry.content;
+	}
+
+	private async fetchFile(path: string, version: string, versionType: 'commit' | 'branch'): Promise<string> {
 		const item = await this.json<{ content?: string; contentMetadata?: { isBinary?: boolean } }>(`${this.repositoryPath}/items`, 'GET', undefined, {
 			path, 'versionDescriptor.version': version, 'versionDescriptor.versionType': versionType,
 			includeContent: true, includeContentMetadata: true, '$format': 'json',
@@ -340,6 +426,11 @@ export class AzureClient {
 			result.push(...page);
 		} while (page.length === top);
 		return result;
+	}
+
+	async commitParent(commitId: string): Promise<string | undefined> {
+		const commit = await this.json<{ parents?: string[] }>(`${this.repositoryPath}/commits/${encodeURIComponent(commitId)}`);
+		return commit.parents?.[0];
 	}
 
 	async commits(id: number): Promise<Commit[]> {
@@ -500,6 +591,37 @@ export class AzureClient {
 		});
 	}
 
+	async requeuePolicy(evaluationId: string): Promise<PolicyEvaluation> {
+		return this.json(`${this.projectPath}/policy/evaluations/${encodeURIComponent(evaluationId)}`, 'PATCH', undefined, { 'api-version': '7.1-preview.1' });
+	}
+
+	/** Error and warning issues reported by a build's timeline records. */
+	async buildIssues(buildId: number): Promise<BuildIssue[]> {
+		const timeline = await this.json<{ records?: { name?: string; issues?: { type?: string; message?: string }[] }[] }>(
+			`${this.projectPath}/build/builds/${buildId}/timeline`,
+		);
+		return (timeline.records ?? []).flatMap(record => (record.issues ?? [])
+			.filter(issue => issue.message)
+			.map(issue => ({ type: issue.type ?? 'error', message: issue.message!, recordName: record.name })));
+	}
+
+	buildUrl(buildId: number): string {
+		return `${this.remote.organizationUrl}/${encodeURIComponent(this.remote.project)}/_build/results?buildId=${buildId}`;
+	}
+
+	async unlinkWorkItem(pr: PullRequest, workItem: number): Promise<void> {
+		const item = await this.json<{ relations?: { url: string }[] }>(`${this.projectPath}/wit/workitems/${workItem}`, 'GET', undefined, { '$expand': 'relations' });
+		const target = `vstfs:///git/pullrequestid/${pr.repository.project.id}%2f${pr.repository.id}%2f${pr.pullRequestId}`;
+		const index = (item.relations ?? []).findIndex(relation => relation.url.toLowerCase() === target.toLowerCase());
+		if (index === -1) {
+			throw new Error(`Work item ${workItem} is not linked to this pull request.`);
+		}
+		await this.json(`${this.projectPath}/wit/workitems/${workItem}`, 'PATCH', [
+			{ op: 'test', path: `/relations/${index}/url`, value: item.relations![index].url },
+			{ op: 'remove', path: `/relations/${index}` },
+		], undefined, true);
+	}
+
 	async workItems(query: string): Promise<WorkItem[]> {
 		const result = await this.json<{ workItems: { id: number }[] }>(`${this.projectPath}/wit/wiql`, 'POST', { query });
 		const items: WorkItem[] = [];
@@ -545,6 +667,21 @@ export class AzureClient {
 
 	async workItemComment(id: number, text: string): Promise<void> {
 		await this.json(`${this.projectPath}/wit/workitems/${id}/comments`, 'POST', { text }, { 'api-version': '7.1-preview.4' });
+	}
+
+	/** Downloads an identity's avatar as a data URI; avatars require credentials, so the UI cannot load them by URL. */
+	async avatar(identityId: string): Promise<string | undefined> {
+		const url = new URL(`${this.remote.organizationUrl}/_api/_common/identityImage`);
+		url.searchParams.set('id', identityId);
+		url.searchParams.set('size', '2');
+		const response = await this.request(url.toString(), {
+			method: 'GET', redirect: 'error', headers: { Authorization: await this.authorization(), Accept: 'image/*' },
+		});
+		const type = response.headers.get('content-type')?.split(';')[0].trim();
+		if (!response.ok || !type?.startsWith('image/')) {
+			return undefined;
+		}
+		return `data:${type};base64,${Buffer.from(await response.arrayBuffer()).toString('base64')}`;
 	}
 
 	pullRequestUrl(id: number): string {

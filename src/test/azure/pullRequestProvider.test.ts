@@ -188,7 +188,8 @@ describe('Azure provider for the original application models', () => {
 			const { provider, calls } = fixture(() => ({ value: Array.from({ length: 30 }, (_, index) => ({ ...pr, pullRequestId: index + 1 })) }));
 			const page = await provider.list({ status: 'merged', reviewerId: viewer.id, sourceBranch: 'feature', cursor: 30 });
 			assert.strictEqual(page.nextCursor, 60);
-			assert.strictEqual(calls.length, 1);
+			// One page request; the remaining request downloads the shared author's avatar once.
+			assert.deepStrictEqual(calls.map(call => call.path.endsWith('/identityImage')), [false, true]);
 			const query = calls[0].url.searchParams;
 			assert.strictEqual(query.get('$skip'), '30');
 			assert.strictEqual(query.get('$top'), '30');
@@ -196,7 +197,7 @@ describe('Azure provider for the original application models', () => {
 			assert.strictEqual(query.get('searchCriteria.reviewerId'), viewer.id);
 			assert.strictEqual(query.get('searchCriteria.sourceRefName'), 'refs/heads/feature');
 			await assert.rejects(provider.list({ cursor: -1 }), /cursor is invalid/);
-			assert.strictEqual(calls.length, 1);
+			assert.strictEqual(calls.length, 2);
 		});
 
 		it('enables and cancels auto-complete without transitioning deferred work items', async () => {
@@ -399,4 +400,94 @@ describe('Azure provider for the original application models', () => {
 				await assert.rejects(provider.discussions(42), /invalid inline discussion range/);
 			}
 		});
+
+	it('builds the Azure-native overview with votes, policies, build errors and work items', async () => {
+		const { provider } = fixture(path => {
+			if (path.endsWith('/connectionData')) { return { authenticatedUser: { id: 'other', displayName: 'Other' } }; }
+			if (path.endsWith('/pullrequests/42')) {
+				return { ...pr, reviewers: [{ id: 'r1', displayName: 'Required', vote: 0, isRequired: true }, { id: 'other', displayName: 'Other', vote: 5 }] };
+			}
+			if (path.endsWith('/policy/evaluations')) {
+				return { value: [
+					{ evaluationId: 'e1', status: 'rejected', configuration: { isBlocking: true, type: { displayName: 'Build' }, settings: { displayName: 'benchmarks build' } }, context: { buildId: 7 } },
+					{ evaluationId: 'e2', status: 'approved', configuration: { isBlocking: false, type: { displayName: 'Comment requirements' } } },
+					{ evaluationId: 'e3', status: 'approved', configuration: { isBlocking: true, isEnabled: false, type: { displayName: 'Disabled' } } },
+				] };
+			}
+			if (path.endsWith('/builds/7/timeline')) { return { records: [{ name: 'Validate', issues: [{ type: 'error', message: 'Task validation failed' }] }] }; }
+			if (path.endsWith('/statuses')) {
+				return { value: [
+					{ id: 1, state: 'pending', context: { name: 'scan', genre: 'security' } },
+					{ id: 2, state: 'succeeded', context: { name: 'scan', genre: 'security' } },
+				] };
+			}
+			if (path.endsWith('/pullrequests/42/workitems')) { return { value: [{ id: '5393' }] }; }
+			if (path.endsWith('/wit/workitems/5393')) {
+				return { id: 5393, fields: { 'System.Title': 'Level 2 Process Tasks', 'System.State': 'Active', 'System.WorkItemType': 'Task' } };
+			}
+			if (path.endsWith('/labels')) { return { value: [{ id: 't', name: 'perf' }] }; }
+			if (path.endsWith('/iterations')) { return { value: [{ id: 1, sourceRefCommit: { commitId: 'a' } }, { id: 2, sourceRefCommit: { commitId: 'b' } }] }; }
+			if (path.endsWith('/commits')) { return { value: [{ commitId: 'b', comment: 'Second' }] }; }
+			if (path.endsWith('/threads')) { return { value: threads }; }
+			throw new Error(`Unexpected ${path}`);
+		});
+		const overview = await provider.overview(42);
+		assert.strictEqual(overview.viewerVote, 5);
+		assert.strictEqual(overview.isAuthor, false);
+		assert.deepStrictEqual(overview.reviewers.map(reviewer => [reviewer.id, reviewer.isRequired, reviewer.vote]), [['r1', true, 0], ['other', false, 5]]);
+		assert.deepStrictEqual(overview.policies.map(policy => [policy.name, policy.state, policy.isBlocking]), [
+			['benchmarks build', 'failed', true], ['Comment requirements', 'succeeded', false], ['security/scan', 'succeeded', false],
+		]);
+		assert.deepStrictEqual(overview.policies[0].issues, ['Task validation failed']);
+		assert.strictEqual(overview.policies[0].canRequeue, true);
+		assert.ok(overview.policies[0].buildUrl?.endsWith('/_build/results?buildId=7'));
+		assert.deepStrictEqual(overview.workItems.map(item => [item.id, item.title, item.state]), [[5393, 'Level 2 Process Tasks', 'Active']]);
+		assert.deepStrictEqual(overview.tags, ['perf']);
+		assert.deepStrictEqual(overview.threads, { active: 1, resolved: 1 });
+		assert.strictEqual(overview.sourceBranch, 'feature');
+	});
+
+	it('includes downloaded avatars on accounts and the overview, fetching each identity once', async () => {
+		const { provider, calls } = fixture(path => {
+			if (path.endsWith('/connectionData')) { return { authenticatedUser: viewer }; }
+			if (path.endsWith('/pullrequests')) { return { value: [pr, { ...pr, pullRequestId: 43 }] }; }
+			throw new Error(`Unexpected ${path}`);
+		});
+		const client = (provider as unknown as { client: AzureClient }).client;
+		(client as unknown as { avatar: (id: string) => Promise<string | undefined> }).avatar = async id => `data:image/png;base64,${id}`;
+		const page = await provider.list();
+		assert.deepStrictEqual(page.items.map(item => item.user.avatarUrl), ['data:image/png;base64,viewer-id', 'data:image/png;base64,viewer-id']);
+		assert.strictEqual((await provider.currentUser()).avatarUrl, 'data:image/png;base64,viewer-id');
+		assert.ok(calls.every(call => !call.path.endsWith('/identityImage')));
+	});
+
+	it('handles deleted files (null item path) and statuses without a state', async () => {
+		const { provider } = fixture(path => {
+			if (path.endsWith('/connectionData')) { return { authenticatedUser: viewer }; }
+			if (path.endsWith('/pullrequests/42')) { return pr; }
+			if (path.endsWith('/iterations')) { return { value: [{ id: 2, sourceRefCommit: { commitId: 'head' }, targetRefCommit: { commitId: 'base' }, commonRefCommit: { commitId: 'merge-base' } }] }; }
+			if (path.endsWith('/iterations/2/changes')) {
+				return { changeEntries: [
+					{ changeTrackingId: 1, changeType: 'delete', originalPath: '/gone.txt', item: { path: null } },
+					{ changeTrackingId: 2, changeType: 'rename', originalPath: '/old.txt', item: { path: '/new.txt', objectId: 'blob' } },
+					{ changeTrackingId: 3, changeType: 'edit', item: { path: '/kept.txt', objectId: 'blob2' } },
+				] };
+			}
+			if (path.endsWith('/statuses')) {
+				return { value: [
+					{ id: 1, context: { name: 'coverage', genre: 'ci' } },
+					{ id: 2, state: 'notApplicable', context: { name: 'coverage', genre: 'ci' } },
+				] };
+			}
+			return { value: [] };
+		});
+		const changes = await provider.changes(42, await provider.revision(42));
+		assert.deepStrictEqual(changes.map(change => [change.path, change.previousPath, change.type]), [
+			['gone.txt', undefined, GitChangeType.DELETE],
+			['new.txt', 'old.txt', GitChangeType.RENAME],
+			['kept.txt', undefined, GitChangeType.MODIFY],
+		]);
+		const checks = await provider.checks(42);
+		assert.deepStrictEqual(checks.statuses.map(status => [status.context, status.state]), [['coverage', CheckState.Neutral]]);
+	});
 });

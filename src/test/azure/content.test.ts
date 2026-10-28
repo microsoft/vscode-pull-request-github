@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { renderAzureMarkdown } from '../../azure/markdown';
-import { unifiedPatch } from '../../azure/patch';
+import { commentExcerpt, unifiedPatch } from '../../azure/patch';
 import { DiffChangeType, parsePatch } from '../../common/diffHunk';
 
 function reconstruct(base: string, patch: string): string {
@@ -68,5 +68,24 @@ describe('Azure content rendering for the original views', () => {
 		assert.ok(!html.includes('javascript:'));
 		assert.ok(html.includes('<a href="https://example.com/">good</a>'));
 		assert.ok(!html.includes('<img'));
+	});
+
+	it('builds the diff excerpt that ends at a commented range on either side', () => {
+		const base = 'one\ntwo\nthree\nfour\nfive\n';
+		const head = 'one\ntwo\nTHREE\nfour\nfive\nsix\r\n';
+		const right = commentExcerpt(base, head, 'right', 3, 3, 1)!;
+		assert.deepStrictEqual(right.diffLines.map(line => [line.raw, line.oldLineNumber, line.newLineNumber]), [
+			[' two', 2, 2], ['-three', 3, -1], ['+THREE', -1, 3],
+		]);
+		const left = commentExcerpt(base, head, 'left', 3, 3, 0)!;
+		assert.deepStrictEqual(left.diffLines.map(line => line.type), [DiffChangeType.Delete]);
+		assert.strictEqual(commentExcerpt(base, head, 'right', 6, 6, 0)!.diffLines[0].raw, '+six');
+		assert.strictEqual(commentExcerpt(base, head, 'right', 40, 40), undefined);
+	});
+
+	it('hides HTML comments like Azure DevOps does', () => {
+		const html = renderAzureMarkdown('**major**\n<!-- ai-pr-review:issue=x -->\nBody');
+		assert.ok(!html.includes('ai-pr-review'));
+		assert.ok(html.includes('Body'));
 	});
 });
