@@ -13,22 +13,28 @@ import { generateUuid } from '../common/uuid';
 const STACK_WORKTREE_PREFIX = 'vscode-pr-stack-';
 // Worktree names record the owning process so another window's in-progress update is never removed.
 const STACK_WORKTREE_NAME = /^vscode-pr-stack-(?<pid>\d+)-[0-9a-f-]+$/i;
-// Temporary worktrees owned by updates running in this process.
+// Names of temporary worktrees owned by updates running in this process.
 const activeStackWorktrees = new Set<string>();
 
 function normalizeWorktreePath(worktreePath: string): string {
-	let resolved = path.resolve(worktreePath);
-	try {
-		resolved = realpathSync.native(resolved);
-	} catch {
-		// An active worktree is registered before it exists. Its parent can still be canonicalized.
-		try {
-			resolved = path.join(realpathSync.native(path.dirname(resolved)), path.basename(resolved));
-		} catch {
-			// Retain lexical matching when the path or its parent cannot be resolved.
-		}
-	}
+	const resolved = path.resolve(worktreePath);
 	return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Git records worktree paths with symlinks resolved (on macOS, /private/var rather than /var), so the temporary
+ * directory is matched in both its reported and canonical forms. Paths read from the repository are never resolved,
+ * so they cannot cause file system or network access.
+ */
+function temporaryDirectories(): Set<string> {
+	const directory = tmpdir();
+	const forms = [directory];
+	try {
+		forms.push(realpathSync.native(directory));
+	} catch {
+		// Match the reported form only.
+	}
+	return new Set(forms.map(normalizeWorktreePath));
 }
 
 function isProcessRunning(pid: number): boolean {
@@ -47,11 +53,12 @@ function isProcessRunning(pid: number): boolean {
  */
 export async function removeOrphanedStackWorktrees(repository: StackGitRepository,
 	isRunning: (pid: number) => boolean = isProcessRunning): Promise<void> {
-	const temporaryDirectory = normalizeWorktreePath(tmpdir());
+	const temporaryDirectoryForms = temporaryDirectories();
 	const orphaned = (repository.state.worktrees ?? []).filter(worktree => {
-		const pid = STACK_WORKTREE_NAME.exec(path.basename(worktree.path))?.groups?.pid;
-		if (worktree.main || !pid || normalizeWorktreePath(path.dirname(worktree.path)) !== temporaryDirectory
-			|| activeStackWorktrees.has(normalizeWorktreePath(worktree.path))) {
+		const name = path.basename(worktree.path);
+		const pid = STACK_WORKTREE_NAME.exec(name)?.groups?.pid;
+		if (worktree.main || !pid || !temporaryDirectoryForms.has(normalizeWorktreePath(path.dirname(worktree.path)))
+			|| activeStackWorktrees.has(name.toLowerCase())) {
 			return false;
 		}
 		return Number(pid) === process.pid || !isRunning(Number(pid));
@@ -307,9 +314,9 @@ export async function updateStackBranches(
 	const updated: number[] = [];
 	let failure: Error | undefined;
 	// Registered before creation so a concurrent update in this process never treats it as orphaned.
-	const requestedWorktreePath = path.join(tmpdir(), `${STACK_WORKTREE_PREFIX}${process.pid}-${generateUuid()}`);
-	const requestedWorktreeKey = normalizeWorktreePath(requestedWorktreePath);
-	activeStackWorktrees.add(requestedWorktreeKey);
+	const requestedWorktreeName = `${STACK_WORKTREE_PREFIX}${process.pid}-${generateUuid()}`.toLowerCase();
+	const requestedWorktreePath = path.join(tmpdir(), requestedWorktreeName);
+	activeStackWorktrees.add(requestedWorktreeName);
 	try {
 		worktreePath = await repository.createWorktree({
 			path: requestedWorktreePath,
@@ -404,7 +411,7 @@ export async function updateStackBranches(
 		if (worktreePath) {
 			await removeTemporaryWorktree(repository, worktreePath);
 		}
-		activeStackWorktrees.delete(requestedWorktreeKey);
+		activeStackWorktrees.delete(requestedWorktreeName);
 	}
 	if (failure) {
 		throw failure;
