@@ -71,12 +71,18 @@ describe('Submodule changes', function () {
 		sandbox.restore();
 	});
 
-	async function parseChange(status = 'modified', patch = bumpPatch): Promise<InMemFileChange> {
+	// Like the GitHub files API, report a gitlink's pointed-to commit as its object sha.
+	function pointerSha(patch: string): string | undefined {
+		return (/^\+Subproject commit (?<sha>[a-f\d]{40})$/m.exec(patch) ?? /^-Subproject commit (?<sha>[a-f\d]{40})$/m.exec(patch))?.groups?.sha;
+	}
+
+	async function parseChange(status = 'modified', patch = bumpPatch, sha = pointerSha(patch)): Promise<InMemFileChange> {
 		const [change] = await parseDiff([{
 			filename: 'modules/dependency',
 			previous_filename: status === 'renamed' ? 'old/dependency' : undefined,
 			status,
 			patch,
+			sha,
 			additions: status === 'removed' ? 0 : 1,
 			deletions: status === 'added' ? 0 : 1,
 			blob_url: 'https://github.com/owner/repo',
@@ -85,12 +91,12 @@ describe('Submodule changes', function () {
 		return change;
 	}
 
-	function localModel(change: InMemFileChange): GitFileChangeModel {
+	function localModel(change: InMemFileChange, sha = 'head'): GitFileChangeModel {
 		const uri = vscode.Uri.joinPath(repository.rootUri, change.fileName);
 		return new GitFileChangeModel(
 			folderManager, pr, change, uri,
 			toReviewUri(uri, change.previousFileName ?? change.fileName, undefined, 'base', false, { base: true }, repository.rootUri),
-			'head',
+			sha,
 		);
 	}
 
@@ -202,6 +208,54 @@ describe('Submodule changes', function () {
 			assert.strictEqual(new TextDecoder().decode(await provider.readFile(next.filePath)), `${nextPointer}\n`);
 		} finally {
 			registration.dispose();
+		}
+	});
+
+	it('compares the latest pointers from the checked-out PR tree when the PR receives another push', async function () {
+		const original = localModel(await parseChange());
+		const provider = new InMemPRFileSystemProvider(undefined!, undefined!, undefined!);
+		// Like ReviewManager's provider, this one only knows the change model from before the push.
+		const registration = provider.registerTextDocumentContentProvider(pr.number, uri =>
+			provideDocumentContentForChangeModel(folderManager, pr, fromPRUri(uri)!, original));
+		const nextPointer = `Subproject commit ${'c'.repeat(40)}`;
+		const next = localModel(await parseChange('modified', `@@ -1 +1 @@\n-${oldPointer}\n+${nextPointer}`), 'next-head');
+		const node = new GitFileChangeNode(parent, folderManager, pr, next);
+		try {
+			for (const [uri, expected] of [
+				[node.toPullRequestUri(true), `${oldPointer}\n`],
+				[node.toPullRequestUri(false), `${nextPointer}\n`],
+				[node.localUri, `${nextPointer}\n`],
+			] as const) {
+				assert.strictEqual(uri.scheme, 'pr');
+				assert.strictEqual(new TextDecoder().decode(await provider.readFile(uri)), expected);
+			}
+		} finally {
+			node.dispose();
+			registration.dispose();
+		}
+	});
+
+	it('opens a regular file whose content is a gitlink pointer as a working-tree file', async function () {
+		const lookalikeBlobSha = '46b309a7bb5b2b3d97c6fdb9dcadd27a98646ba3';
+		const change = await parseChange('modified', bumpPatch, lookalikeBlobSha);
+		assert.strictEqual(change.submoduleChange, undefined);
+		const model = localModel(change);
+		assert.strictEqual(model.filePath.scheme, 'vscode-remote');
+		assert.strictEqual(model.parentFilePath.scheme, 'review');
+		const node = new GitFileChangeNode(parent, folderManager, pr, model);
+		const configuration = vscode.workspace.getConfiguration('git', repository.rootUri);
+		sandbox.stub(vscode.workspace, 'getConfiguration').callThrough()
+			.withArgs('git', repository.rootUri).returns({
+				...configuration,
+				get: () => false,
+			});
+		try {
+			await node.resolve();
+			assert.strictEqual(node.command.command, 'vscode.open');
+			assert.strictEqual((node.command.arguments![0] as vscode.Uri).toString(), model.filePath.toString());
+			assert.strictEqual(node.localUri.scheme, 'vscode-remote');
+		} finally {
+			node.dispose();
 		}
 	});
 
