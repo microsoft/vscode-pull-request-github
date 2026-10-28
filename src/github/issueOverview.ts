@@ -367,6 +367,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				Logger.debug('Issue overview preview loaded from model', IssueOverviewPanel.ID);
 			}
 
+			const timelineSequence = ++this._timelineFetchSequence;
 			const [
 				issue,
 				timelineEvents,
@@ -380,7 +381,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.getIssueTimelineEvents(),
+				this.fetchTimelineEvents(issueModel),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -398,7 +399,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
 			// Process permalinks in bodyHTML before sending to webview
-			const context = await this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+			const context = await this.getInitializeContext(currentUser, issue, timelineEvents ?? [], repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+			context.events = this.freshestTimeline(this._item, timelineSequence, context.events);
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
@@ -856,12 +858,41 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	protected async _getTimeline(): Promise<TimelineEvent[]> {
-		const events = await this._item.getIssueTimelineEvents();
-		return this.processTimelineEvents(events);
+	protected fetchTimelineEvents(item: TItem): Promise<TimelineEvent[] | undefined> {
+		return item.getIssueTimelineEvents();
 	}
 
-	private _timelineRefreshSequence = 0;
+	private _timelineFetchSequence = 0;
+	private _freshestTimeline: { item: IssueModel; sequence: number; events: TimelineEvent[] } | undefined;
+
+	/**
+	 * Fetches the timeline of `item` and returns the freshest one known, see {@link freshestTimeline}.
+	 * Send the result to the webview right away, so that a fresher timeline can't be sent before it.
+	 */
+	protected async _getTimeline(item: TItem = this._item): Promise<TimelineEvent[]> {
+		const sequence = ++this._timelineFetchSequence;
+		const events = await this.processTimelineEvents(await this.fetchTimelineEvents(item));
+		return this.freshestTimeline(item, sequence, events);
+	}
+
+	/**
+	 * Timeline fetches can finish in any order, and the webview shows the timeline it was sent last. To keep it from going
+	 * back to an older timeline, every timeline sent to the webview goes through here: a fetch that finishes after a fetch
+	 * that started later gets that fresher timeline instead of its own.
+	 * @param sequence When the fetch started, from `_timelineFetchSequence`, or 0 for a cached timeline.
+	 */
+	protected freshestTimeline(item: TItem, sequence: number, events: TimelineEvent[]): TimelineEvent[] {
+		// An empty timeline is more likely a failed query than a real one, so it's left to the caller.
+		if (events.length === 0) {
+			return events;
+		}
+		const freshest = this._freshestTimeline;
+		if (freshest?.item === item && freshest.sequence > sequence) {
+			return freshest.events;
+		}
+		this._freshestTimeline = { item, sequence, events };
+		return events;
+	}
 
 	/**
 	 * Re-fetches the timeline after a change made from the overview so that the events it creates
@@ -870,12 +901,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	protected async refreshTimeline(): Promise<void> {
 		const item = this._item;
-		const sequence = ++this._timelineRefreshSequence;
 		try {
-			const events = await this._getTimeline();
-			// Only post the most recent refresh. An empty timeline is more likely a failed query
-			// than a real result, since the change that triggered the refresh adds an event.
-			if (this.isDisposed || item !== this._item || sequence !== this._timelineRefreshSequence || events.length === 0) {
+			const events = await this._getTimeline(item);
+			if (this.isDisposed || item !== this._item || events.length === 0) {
 				return;
 			}
 			await this._postMessage({

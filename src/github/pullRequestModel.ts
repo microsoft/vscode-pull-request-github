@@ -1087,7 +1087,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
 			}
 
-			return parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
+			// Await so that a parsing failure is caught here instead of failing the caller's whole batch.
+			return await parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
 		} catch (e) {
 			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
 			console.log(e);

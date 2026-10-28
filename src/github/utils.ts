@@ -1364,7 +1364,8 @@ export async function parseCombinedTimelineEvents(
 
 	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
-		if (!event) {
+		// Every timeline item type that a query selects includes its id. Skip the types it doesn't select.
+		if (!event?.id) {
 			continue;
 		}
 		const type = convertGraphQLEventType(event.__typename);

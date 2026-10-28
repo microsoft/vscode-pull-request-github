@@ -292,6 +292,18 @@ describe('utils', () => {
 			assert.strictEqual(dequeued.reason, undefined);
 			assert.strictEqual(dequeued.actor.login, '');
 		});
+
+		it('skips timeline items whose type the query does not select', async () => {
+			const events = await parseCombinedTimelineEvents([
+				{ __typename: 'LabeledEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'MilestonedEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'HeadRefForcePushedEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'HeadRefRestoredEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'ClosedEvent', id: 'closed', actor, createdAt } satisfies GraphQL.ClosedEvent,
+			], [], githubRepository);
+
+			assert.deepStrictEqual(events.map(event => event.id), ['closed']);
+		});
 	});
 
 	describe('insertNewCommitsSinceReview', () => {

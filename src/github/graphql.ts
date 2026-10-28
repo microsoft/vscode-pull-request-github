@@ -161,6 +161,15 @@ export interface RemovedFromMergeQueueEvent extends ActorTimelineEvent {
 	reason: string | null;
 }
 
+/**
+ * A timeline item whose type the query doesn't select, such as a label event in the lightweight activity query.
+ * GraphQL returns only its `__typename`.
+ */
+export interface UnselectedTimelineItem {
+	__typename: string;
+	id?: undefined;
+}
+
 export interface AbbreviatedIssueComment {
 	author: Account;
 	body: string;
@@ -375,7 +384,7 @@ export interface ReviewThread {
 export type TimelineItem = MergedEvent | Review | IssueComment | Commit | AssignedEvent | UnassignedEvent | HeadRefDeletedEvent | CrossReferencedEvent
 	| ClosedEvent | ReopenedEvent | BaseRefChangedEvent | LabeledEvent | UnlabeledEvent | MilestonedEvent | DemilestonedEvent | RenamedTitleEvent
 	| ReviewRequestedEvent | ReviewRequestRemovedEvent | ReadyForReviewEvent | ConvertToDraftEvent | HeadRefForcePushedEvent | HeadRefRestoredEvent
-	| ReviewDismissedEvent | AutoMergeEnabledEvent | AutoMergeDisabledEvent | AddedToMergeQueueEvent | RemovedFromMergeQueueEvent;
+	| ReviewDismissedEvent | AutoMergeEnabledEvent | AutoMergeDisabledEvent | AddedToMergeQueueEvent | RemovedFromMergeQueueEvent | UnselectedTimelineItem;
 
 export interface TimelineEventsResponse {
 	repository: {

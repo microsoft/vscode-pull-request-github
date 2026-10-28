@@ -641,6 +641,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
+				// The model's cached timeline can be older than one the webview was already sent.
+				events: this.freshestTimeline(pullRequest, 0, baseContext.events),
 				canUpdateStack: this.canUpdateStack(pullRequest),
 				canRequestCopilotReview: false,
 				isCurrentlyCheckedOut: pullRequestModel.equals(this._folderRepositoryManager.activePullRequest),
@@ -781,9 +783,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 			void this.refreshStack(true);
 			const timelineStart = performance.now();
-			void Promise.all([pullRequestModel.getTimelineEvents(), reviewRequestsPromise]).then(async ([latestTimelineEvents, requestedReviewers]) => {
-				const events = latestTimelineEvents ?? [];
-				const processedEvents = await this.processTimelineEvents(events);
+			void Promise.all([this._getTimeline(pullRequestModel), reviewRequestsPromise]).then(async ([events, requestedReviewers]) => {
 				const reviewers = parseReviewers(requestedReviewers!, events, pullRequest.author);
 				if (updateSequence !== this._updateSequence) {
 					return;
@@ -792,7 +792,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
-						events: processedEvents,
+						events,
 						reviewers,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 					} satisfies Partial<PullRequest>,
@@ -1195,9 +1195,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	protected override async _getTimeline(): Promise<TimelineEvent[]> {
-		const events = await this._item.getTimelineEvents();
-		return this.processTimelineEvents(events);
+	protected override fetchTimelineEvents(item: PullRequestModel): Promise<TimelineEvent[] | undefined> {
+		return item.getTimelineEvents();
 	}
 
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
