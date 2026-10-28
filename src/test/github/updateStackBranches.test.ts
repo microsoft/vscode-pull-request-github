@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { strict as assert } from 'assert';
+import { mkdtempSync, realpathSync, rmdirSync, symlinkSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { Uri } from 'vscode';
@@ -411,6 +412,36 @@ describe('Update pull request stack branches', function () {
 	});
 
 	describe('orphaned temporary worktrees', function () {
+		/** Points the temporary directory at an alias of the real one, as macOS does with /var and /private/var. */
+		async function withTemporaryDirectoryAlias(run: (canonical: string) => Promise<void>): Promise<void> {
+			const canonical = realpathSync.native(tmpdir());
+			const directory = mkdtempSync(path.join(canonical, 'stack-path-alias-'));
+			const alias = path.join(directory, 'temporary');
+			const variables = ['TMPDIR', 'TMP', 'TEMP'];
+			const saved = variables.map(name => process.env[name]);
+			try {
+				symlinkSync(canonical, alias, 'junction');
+				try {
+					for (const name of variables) {
+						process.env[name] = alias;
+					}
+					assert.equal(tmpdir(), alias);
+					await run(canonical);
+				} finally {
+					variables.forEach((name, index) => {
+						if (saved[index] === undefined) {
+							delete process.env[name];
+						} else {
+							process.env[name] = saved[index];
+						}
+					});
+					unlinkSync(alias);
+				}
+			} finally {
+				rmdirSync(directory);
+			}
+		}
+
 		const temporaryWorktree = (name: string, directory = tmpdir()) => ({
 			// Git reports worktree paths with forward slashes on Windows.
 			name, path: path.join(directory, name).replace(/\\/g, '/'), ref: '', main: false, detached: true,
@@ -437,6 +468,33 @@ describe('Update pull request stack branches', function () {
 			const running = new Set([222]);
 			await removeOrphanedStackWorktrees(repository, pid => running.has(pid));
 			assert.deepEqual(repository.deletedWorktrees, [exited.path]);
+		});
+
+		it('recognizes an orphan when Git reports the canonical temporary directory', async function () {
+			await withTemporaryDirectoryAlias(async canonical => {
+				const exited = temporaryWorktree('vscode-pr-stack-111-0b9f2c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', canonical);
+				repository.state.worktrees!.push(
+					exited,
+					temporaryWorktree('vscode-pr-stack-222-5e4d3c2b-1a0f-4e9d-8c7b-6a5f4e3d2c1b', canonical),
+					{ ...exited, main: true },
+					temporaryWorktree('vscode-pr-stack-111-0b9f2c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', path.join(canonical, 'nested')),
+				);
+				await removeOrphanedStackWorktrees(repository, pid => pid === 222);
+				assert.deepEqual(repository.deletedWorktrees, [exited.path]);
+			});
+		});
+
+		it('keeps an active worktree when Git reports the canonical temporary directory', async function () {
+			await withTemporaryDirectoryAlias(async canonical => {
+				temporary.conflictingStops = 1;
+				await updateStackBranches(repository, open, 'origin', branches, 2, () => undefined, async worktree => {
+					repository.state.worktrees!.push(temporaryWorktree(path.basename(repository.createdWorktrees[0]), canonical));
+					await removeOrphanedStackWorktrees(repository);
+					assert.deepEqual(repository.deletedWorktrees, []);
+					await worktree.rebaseContinue!();
+					return true;
+				});
+			});
 		});
 
 		it('keeps the worktree of an update that is waiting for conflicts to be resolved', async function () {
