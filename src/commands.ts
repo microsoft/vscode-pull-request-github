@@ -925,7 +925,7 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
 			}
 
-			return checkoutPRInWorktree(telemetry, folderManager, pullRequestModel, repository);
+			return checkoutPRInWorktree(telemetry, repository ?? folderManager.repository, pullRequestModel);
 		}),
 	);
 
@@ -937,7 +937,7 @@ export function registerCommands(
 		if (!resolved) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
-		return checkoutPRInWorktree(telemetry, resolved.folderManager, resolved.pr, undefined);
+		return checkoutPRInWorktree(telemetry, resolved.folderManager.repository, resolved.pr);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {

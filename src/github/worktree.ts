@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { FolderRepositoryManager } from './folderRepositoryManager';
+import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
@@ -14,18 +14,29 @@ import { ITelemetry } from '../common/telemetry';
 
 const logId = 'Worktree';
 
+function getErrorMessages(e: unknown): { summary: string; details: string } {
+	const stderr = e && typeof e === 'object' ? Reflect.get(e, 'stderr') : undefined;
+	const details = typeof stderr === 'string' ? stderr.trim() : '';
+	if (!details) {
+		const message = e instanceof Error ? e.message : String(e);
+		return { summary: message, details: message };
+	}
+
+	// Git also writes progress such as "Preparing worktree (new branch '...')" to stderr, so only summarize the error lines.
+	const errorLines = details.split(/\r?\n/).map(line => line.trim()).filter(line => /^(?:fatal|error):/.test(line));
+	return { summary: errorLines.length ? errorLines.join(' ') : details, details };
+}
+
 /**
  * Checks out a pull request in a new git worktree.
  * @param telemetry Telemetry instance for tracking usage
- * @param folderManager The folder repository manager
+ * @param repository The repository to create the worktree from
  * @param pullRequestModel The pull request to checkout
- * @param repository Optional repository to use (if not provided, uses folderManager.repository)
  */
 export async function checkoutPRInWorktree(
 	telemetry: ITelemetry,
-	folderManager: FolderRepositoryManager,
+	repository: Repository,
 	pullRequestModel: PullRequestModel,
-	repository: Repository | undefined
 ): Promise<void> {
 	// Validate that the PR has a valid head branch
 	if (!pullRequestModel.head) {
@@ -34,7 +45,6 @@ export async function checkoutPRInWorktree(
 	}
 
 	const prHead = pullRequestModel.head;
-	const repositoryToUse = repository || folderManager.repository;
 
 	/* __GDPR__
 		"pr.checkoutInWorktree" : {}
@@ -42,12 +52,11 @@ export async function checkoutPRInWorktree(
 	telemetry.sendTelemetryEvent('pr.checkoutInWorktree');
 
 	// Prepare for operations
-	const repoRootPath = repositoryToUse.rootUri.fsPath;
+	const repoRootPath = repository.rootUri.fsPath;
 	const parentDir = path.dirname(repoRootPath);
 	const repoFolderName = path.basename(repoRootPath);
 	const defaultWorktreePath = path.join(parentDir, `${repoFolderName}.worktrees`, `pr-${pullRequestModel.number}`);
-	const branchName = prHead.ref;
-	const remoteName = pullRequestModel.remote.remoteName;
+	const isFork = !prHead.repositoryCloneUrl.equals(pullRequestModel.remote.gitProtocol);
 
 	// Ask user for worktree location first (not in progress)
 	const worktreeUri = await vscode.window.showSaveDialog({
@@ -61,11 +70,10 @@ export async function checkoutPRInWorktree(
 	}
 
 	const worktreePath = worktreeUri.fsPath;
-	const trackedBranchName = `${remoteName}/${branchName}`;
 
 	try {
 		// Check if the createWorktree API is available
-		if (!repositoryToUse.createWorktree) {
+		if (!repository.createWorktree) {
 			throw new Error(vscode.l10n.t('Git worktree API is not available. Please update VS Code to the latest version.'));
 		}
 
@@ -76,33 +84,45 @@ export async function checkoutPRInWorktree(
 				title: vscode.l10n.t('Creating worktree for Pull Request #{0}...', pullRequestModel.number),
 			},
 			async () => {
-				// Fetch the PR branch first
-				await repositoryToUse.fetch({ remote: remoteName, ref: branchName });
+				const remoteName = isFork
+					? await PullRequestGitHelper.createRemote(repository, pullRequestModel.remote, prHead.repositoryCloneUrl)
+					: pullRequestModel.remote.remoteName;
+				const branchName = isFork
+					? await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequestModel)
+					: prHead.ref;
+				const trackedBranchName = `${remoteName}/${prHead.ref}`;
 
-				// Check if the branch already exists locally
+				// Fetch the PR branch first
+				await repository.fetch({ remote: remoteName, ref: prHead.ref });
+
+				// Fork PRs always get a new unique branch name, so only same-repository PRs can reuse a local branch
 				let branchExists = false;
-				try {
-					await repositoryToUse.getBranch(branchName);
-					branchExists = true;
-				} catch {
-					// Branch doesn't exist locally, we'll create it
-					branchExists = false;
+				if (!isFork) {
+					try {
+						await repository.getBranch(branchName);
+						branchExists = true;
+					} catch {
+						// Branch doesn't exist locally, we'll create it
+					}
 				}
 
 				// Use the git extension's createWorktree API
 				// If branch already exists, don't specify the branch parameter to avoid "branch already exists" error
 				if (branchExists) {
-					await repositoryToUse.createWorktree!({
+					await repository.createWorktree!({
 						path: worktreePath,
 						commitish: branchName
 					});
 				} else {
-					await repositoryToUse.createWorktree!({
+					await repository.createWorktree!({
 						path: worktreePath,
 						commitish: trackedBranchName,
 						branch: branchName
 					});
 				}
+
+				// Branch config is shared by all worktrees, so this links the worktree's branch to the PR
+				await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequestModel, branchName);
 			}
 		);
 
@@ -122,8 +142,8 @@ export async function checkoutPRInWorktree(
 			await commands.openFolder(worktreeUri, { forceNewWindow: false });
 		}
 	} catch (e) {
-		const errorMessage = e instanceof Error ? e.message : String(e);
-		Logger.error(`Failed to create worktree: ${errorMessage}`, logId);
-		vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', errorMessage));
+		const { summary, details } = getErrorMessages(e);
+		Logger.error(`Failed to create worktree: ${details}`, logId);
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to create worktree: {0}', summary));
 	}
 }
