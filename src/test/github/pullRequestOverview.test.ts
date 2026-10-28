@@ -2180,7 +2180,7 @@ describe('PullRequestOverview', function () {
 				const addToStack = sinon.stub(repo, 'addPullRequestsToStack').resolves([1000, 1001]);
 				const create = (pullRequests: number[]) =>
 					result.request('pr.create-recommended-stack', { pullRequests } satisfies CreateRecommendedStackArgs);
-				return { ...result, getStackCandidate, candidate, addToStack, create };
+				return { ...result, above, getStackCandidate, candidate, addToStack, create };
 			}
 
 			it('stacks the previewed pull requests after checking that they still line up', async function () {
@@ -2192,6 +2192,35 @@ describe('PullRequestOverview', function () {
 				assert.deepStrictEqual(reply.res, {});
 				assert(getStackCandidate.alwaysCalledWithExactly(model.head!.ref));
 				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
+			});
+
+			it('disables auto-merge on the pull requests being stacked once that is confirmed', async function () {
+				const { above, candidate, addToStack, create } = await openCreatePanel();
+				above.item.autoMerge = true;
+				const disable = sinon.stub(above, 'disableAutoMerge').resolves();
+				const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Disable Auto-Merge' as never);
+
+				const reply = await create([1000, 1001]);
+
+				assert.strictEqual(reply.err, undefined);
+				assert(confirm.calledOnce);
+				assert.strictEqual(confirm.firstCall.args[1].modal, true);
+				assert.match(confirm.firstCall.args[1].detail ?? '', /so it will be disabled for #1001\.$/);
+				sinon.assert.callOrder(confirm, disable, addToStack);
+				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
+			});
+
+			it('does not stack pull requests when disabling auto-merge is declined', async function () {
+				const { above, addToStack, create } = await openCreatePanel();
+				above.item.autoMerge = true;
+				const disable = sinon.stub(above, 'disableAutoMerge').resolves();
+				sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+				const reply = await create([1000, 1001]);
+
+				assert.strictEqual(reply.err, undefined);
+				assert(disable.notCalled);
+				assert(addToStack.notCalled);
 			});
 
 			it('does not stack pull requests from a preview that is out of date', async function () {

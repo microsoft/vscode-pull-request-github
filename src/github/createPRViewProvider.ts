@@ -15,6 +15,7 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
+import { confirmDisablingAutoMergeForStack } from './pullRequestStack';
 import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
@@ -1538,6 +1539,7 @@ Don't forget to commit your template file to the repository so that it can be us
 				let stackAdditionFailed = false;
 				try {
 					let stackCandidate: StackCandidate | undefined;
+					let stackParentWithAutoMerge: PullRequestModel | undefined;
 					if (message.args.addToStack) {
 						if (message.args.autoMerge) {
 							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
@@ -1549,6 +1551,17 @@ Don't forget to commit your template file to the repository so that it can be us
 							|| stackCandidate.stackNumber !== message.args.stackNumber) {
 							throw new Error(vscode.l10n.t('The selected base branch is no longer at the top of a pull request stack. Refresh and try again.'));
 						}
+						// The new pull request can't have auto-merge, but the one it is stacked on can.
+						const baseRepo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(message.args.owner, message.args.repo);
+						const stackParent = await baseRepo?.getPullRequest(stackCandidate.parentPullRequestNumber, 'createPullRequest');
+						if (!stackParent) {
+							throw new Error(vscode.l10n.t('Unable to load pull request #{0}.', stackCandidate.parentPullRequestNumber));
+						}
+						if (!(await confirmDisablingAutoMergeForStack([stackParent]))) {
+							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+							return;
+						}
+						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}
 					const compareOwner = message.args.compareOwner;
 					const compareRepositoryName = message.args.compareRepo;
@@ -1659,6 +1672,7 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						if (stackCandidate) {
 							try {
+								await stackParentWithAutoMerge?.disableAutoMerge();
 								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
 							} catch (error) {
 								stackAdditionFailed = true;
