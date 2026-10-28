@@ -119,7 +119,7 @@ export function refreshPullRequestsForStack(repository: GitHubRepository, number
 	return Promise.all(numbers.map(async number => {
 		const current = await repository.getPullRequest(number, 'refreshPullRequestsForStack');
 		if (!current) {
-			throw new Error(vscode.l10n.t('Unable to refresh pull request #{0} before creating a stack.', number));
+			throw new Error(vscode.l10n.t('Unable to refresh pull request #{0} before stacking.', number));
 		}
 		return current;
 	}));
