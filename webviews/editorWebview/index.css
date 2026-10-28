@@ -925,11 +925,14 @@ body button .icon {
 	border-radius: 6px;
 	/* Keeps the banner's background inside the rounded corners. */
 	overflow: hidden;
+	/* Whether the Preview stack button fits beside the message depends on the recommendation's width, not the page's. */
+	container: stack-recommendation / inline-size;
 }
 
 .stack-recommendation-banner {
-	display: flex;
-	flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	grid-template-areas: "icon message toggle dismiss";
 	align-items: center;
 	gap: 8px;
 	padding: 8px 8px 8px 12px;
@@ -937,13 +940,35 @@ body button .icon {
 }
 
 .stack-recommendation-banner > .icon {
-	flex-shrink: 0;
+	grid-area: icon;
 	color: var(--vscode-textLink-foreground);
 }
 
 .stack-recommendation-message {
-	flex: 1 1 240px;
-	min-width: 0;
+	grid-area: message;
+}
+
+.stack-recommendation-toggle {
+	grid-area: toggle;
+}
+
+.stack-recommendation-dismiss {
+	grid-area: dismiss;
+}
+
+/* Too narrow for the button to sit beside the message, so it goes below it. Dismiss stays in the top right corner. */
+@container stack-recommendation (max-width: 400px) {
+	.stack-recommendation-banner {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"icon message dismiss"
+			". toggle .";
+		align-items: start;
+	}
+
+	.stack-recommendation-toggle {
+		justify-self: start;
+	}
 }
 
 .stack-recommendation-preview {

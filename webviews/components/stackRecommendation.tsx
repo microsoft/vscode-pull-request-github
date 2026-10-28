@@ -139,11 +139,11 @@ const StackRecommendationContent = ({ recommendation, currentNumber, title, page
 					<span className="stack-recommendation-message">
 						This pull request can be stacked with other pull requests. <a href={STACKS_DOCUMENTATION_URL}>Learn more about stacks</a>
 					</span>
-					<button className="secondary" type="button" aria-expanded={previewing} aria-controls="stack-recommendation-preview"
+					<button className="secondary stack-recommendation-toggle" type="button" aria-expanded={previewing} aria-controls="stack-recommendation-preview"
 						disabled={creating} onClick={() => setPreviewing(open => !open)}>
 						{previewing ? 'Hide stack' : 'Preview stack'}
 					</button>
-					<button className="icon-button" type="button" title="Dismiss" aria-label="Dismiss stack recommendation" disabled={creating}
+					<button className="icon-button stack-recommendation-dismiss" type="button" title="Dismiss" aria-label="Dismiss stack recommendation" disabled={creating}
 						onClick={dismissStackRecommendation}>
 						{closeIcon}
 					</button>
