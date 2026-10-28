@@ -98,6 +98,10 @@ export function onceEvent<T>(event: Event<T>): Event<T> {
 	};
 }
 
+export function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
 function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }

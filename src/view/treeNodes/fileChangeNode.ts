@@ -101,7 +101,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		parent: TreeNodeParent,
 		protected readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		public readonly changeModel: FileChangeModel
+		public readonly changeModel: FileChangeModel,
+		private readonly showCheckbox: boolean = true
 	) {
 		super(parent);
 		const viewed = this.pullRequest.fileChangeViewedState[this.changeModel.fileName] ?? ViewedState.UNVIEWED;
@@ -155,22 +156,12 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
-	/**
-	 * Check if this file node is under a commit node in the tree hierarchy.
-	 * Files under commit nodes should not have checkboxes.
-	 */
-	private isUnderCommitNode(): boolean {
-		// If the file's sha is different from the PR's head sha, it's from an older commit
-		// and should not have a checkbox
-		return this.changeModel.sha !== undefined && this.changeModel.sha !== this.pullRequest.head?.sha;
-	}
-
 	updateViewed(viewed: ViewedState) {
 		this.changeModel.updateViewed(viewed);
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		// Don't show checkboxes for files under commit nodes
-		if (!this.isUnderCommitNode()) {
+		const isOlderCommit = this.changeModel.sha !== undefined && this.changeModel.sha !== this.pullRequest.head?.sha;
+		if (this.showCheckbox && !isOlderCommit) {
 			this.checkboxState = viewed === ViewedState.VIEWED ?
 				{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark File as Unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
 				{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark File as Viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
@@ -315,9 +306,10 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		changeModel: GitFileChangeModel,
 		private isCurrent?: boolean,
-		private _comments?: IComment[]
+		private _comments?: IComment[],
+		showCheckbox: boolean = true
 	) {
-		super(parent, pullRequestManager, pullRequest, changeModel);
+		super(parent, pullRequestManager, pullRequest, changeModel, showCheckbox);
 	}
 
 	get comments(): IComment[] {

@@ -194,7 +194,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 
-		Object.keys(threadsByPath).forEach(path => {
+		await Promise.all(Object.keys(threadsByPath).map(async path => {
 			const threads = threadsByPath[path];
 			const firstThread = threads[0];
 			if (firstThread) {
@@ -217,13 +217,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					}
 				});
 
-				Promise.all(threadPromises);
-
 				this._workspaceFileChangeCommentThreads[path] = rightSideCommentThreads;
 				this._reviewSchemeFileChangeCommentThreads[path] = leftSideThreads;
 				this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
+				await Promise.all(threadPromises);
 			}
-		});
+		}));
 		this.updateResourcesWithCommentingRanges();
 	}
 

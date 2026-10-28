@@ -16,6 +16,7 @@ import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { GithubItemStateEnum } from '../../github/interface';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
+import { isStackablePullRequest } from '../../github/pullRequestStack';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
 import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../theme';
@@ -57,12 +58,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	) {
 		super(parent);
 		this.registerSinceReviewChange();
-		this.registerConfigurationChange();
-		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
-			if (e.new?.number === this.pullRequestModel.number || e.old?.number === this.pullRequestModel.number) {
-				this.refresh(this);
-			}
-		}));
 		this._register(this._folderReposManager.themeWatcher.onDidChangeTheme(() => {
 			this.refresh(this);
 		}));
@@ -137,14 +132,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	protected registerSinceReviewChange() {
 		this._register(this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
 			this.refresh(this);
-		}));
-	}
-
-	protected registerConfigurationChange() {
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`) || e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)) {
-				this.refresh();
-			}
 		}));
 	}
 
@@ -388,7 +375,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
-				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
+				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef') +
+				(isStackablePullRequest(this.pullRequestModel) ? ':stackable' : ''),
 			iconPath: await this._getIcon(),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${number}: ${title} by ${login}`
