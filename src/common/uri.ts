@@ -41,6 +41,7 @@ export interface PRUriParams {
 	status: GitChangeType;
 	remoteName: string;
 	previousFileName?: string;
+	submoduleContent?: string;
 }
 
 export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
@@ -465,7 +466,8 @@ export function toPRUri(
 	fileName: string,
 	base: boolean,
 	status: GitChangeType,
-	previousFileName?: string
+	previousFileName?: string,
+	submoduleContent?: string,
 ): vscode.Uri {
 	const params: PRUriParams = {
 		baseCommit: baseCommit,
@@ -475,7 +477,8 @@ export function toPRUri(
 		prNumber: pullRequestModel.number,
 		status: status,
 		remoteName: pullRequestModel.githubRepository.remote.remoteName,
-		previousFileName
+		previousFileName,
+		submoduleContent,
 	};
 
 	const path = uri.path;
