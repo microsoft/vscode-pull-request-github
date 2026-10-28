@@ -103,8 +103,8 @@ export class ReviewManager extends Disposable {
 	private _switchedToPullRequest?: PullRequestModel;
 	private _switchedToPullRequestBranch?: string;
 	/**
-	 * PR number for which the user chose to keep review mode after declining to discard
-	 * unsaved file-comment drafts when the PR became closed/merged.
+	 * PR number kept in review mode because unsaved file-comment drafts would be lost
+	 * when the PR became closed or merged. Cleared when review mode exits or the PR changes.
 	 */
 	private _retainReviewModeForPr?: number;
 	/**
@@ -762,31 +762,23 @@ export class ReviewManager extends Disposable {
 		// If this is the PR the user explicitly switched to, always use review mode regardless of state
 		const isSwitchedToPullRequest = this._switchedToPullRequest?.number === pr.number;
 		const shouldKeepReviewMode = isSwitchedToPullRequest || this._retainReviewModeForPr === pr.number;
+		const wouldLeaveReviewMode = !shouldKeepReviewMode && (
+			(pr.isClosed && !useReviewConfiguration.closed) ||
+			(pr.isMerged && !useReviewConfiguration.merged)
+		);
 
-		if (pr.isClosed && !useReviewConfiguration.closed && !shouldKeepReviewMode) {
-			if (!(await this.confirmClearWithUnsavedCommentDrafts(
-				vscode.l10n.t('This pull request has been closed. Discard unsaved review comments?')
-			))) {
+		if (wouldLeaveReviewMode) {
+			if (this._reviewCommentController?.hasUnsavedCommentDrafts()) {
+				// Keep review mode and finish this refresh. A non-modal warning lets the user
+				// exit later without blocking validateState (which times out after 2 minutes).
 				this._retainReviewModeForPr = pr.number;
-				this._lastCommitSha = pr.head.sha;
+				this.warnAboutUnsavedCommentDrafts(pr);
+				Logger.appendLine('Keeping review mode because of unsaved comment drafts', this.id);
+			} else {
+				Logger.appendLine(pr.isMerged ? 'This PR is merged' : 'This PR is closed', this.id);
+				await this.clear(true);
 				return;
 			}
-			Logger.appendLine('This PR is closed', this.id);
-			await this.clear(true);
-			return;
-		}
-
-		if (pr.isMerged && !useReviewConfiguration.merged && !shouldKeepReviewMode) {
-			if (!(await this.confirmClearWithUnsavedCommentDrafts(
-				vscode.l10n.t('This pull request has been merged. Discard unsaved review comments?')
-			))) {
-				this._retainReviewModeForPr = pr.number;
-				this._lastCommitSha = pr.head.sha;
-				return;
-			}
-			Logger.appendLine('This PR is merged', this.id);
-			await this.clear(true);
-			return;
 		}
 
 		const neverIgnoreDefaultBranch = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(NEVER_IGNORE_DEFAULT_BRANCH, false);
@@ -1555,21 +1547,20 @@ export class ReviewManager extends Disposable {
 	}
 
 	/**
-	 * Warns when clearing review mode would discard unsaved file-comment drafts.
-	 * @returns true if clearing should proceed, false if the user cancelled.
+	 * Non-modal notice that review mode was kept so unsaved file comments are not dropped.
+	 * Does not await the user's choice, so validateState can finish.
 	 */
-	private async confirmClearWithUnsavedCommentDrafts(message: string): Promise<boolean> {
-		if (!this._reviewCommentController?.hasUnsavedCommentDrafts()) {
-			return true;
-		}
-
-		const discard = vscode.l10n.t('Discard');
-		const result = await vscode.window.showWarningMessage(
-			message,
-			{ modal: true, detail: vscode.l10n.t('You have unsaved review comments that will be lost.') },
-			discard,
-		);
-		return result === discard;
+	private warnAboutUnsavedCommentDrafts(pr: PullRequestModel): void {
+		const exitReviewMode = vscode.l10n.t('Exit Review Mode');
+		const message = pr.isMerged
+			? vscode.l10n.t('This pull request has been merged. You have unsaved review comments.')
+			: vscode.l10n.t('This pull request has been closed. You have unsaved review comments.');
+		void vscode.window.showWarningMessage(message, exitReviewMode).then(choice => {
+			if (choice !== exitReviewMode || this._prNumber !== pr.number) {
+				return;
+			}
+			void this.clear(true);
+		});
 	}
 
 	private async clear(quitReviewMode: boolean) {

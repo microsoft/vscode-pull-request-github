@@ -11,6 +11,9 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { isCopilotOnMyBehalf, PullRequestModel } from '../github/pullRequestModel';
 
+/** Inserted into an empty comment box on Copilot pull requests. Not user-authored. */
+export const COPILOT_COMMENT_MENTION = '@copilot ';
+
 export abstract class CommentControllerBase extends Disposable {
 	constructor(
 		protected _folderRepoManager: FolderRepositoryManager,
@@ -59,7 +62,7 @@ export abstract class CommentControllerBase extends Disposable {
 		}
 
 		return editor.edit(editBuilder => {
-			editBuilder.insert(new vscode.Position(0, 0), '@copilot ');
+			editBuilder.insert(new vscode.Position(0, 0), COPILOT_COMMENT_MENTION);
 		});
 	}
 }
