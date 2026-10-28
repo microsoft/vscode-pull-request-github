@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { Status } from '../../api/api1';
 import { GitChangeType, SlimFileChange } from '../../common/file';
+import { EventType } from '../../common/timelineEvent';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -189,6 +190,35 @@ describe('PullRequestModel', function () {
 		assert.strictEqual(result.mergeability, PullRequestMergeability.NotMergeable);
 		assert(changes.calledOnce);
 		assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+	});
+
+	it('skips the timeline items that the activity query does not select', async function () {
+		const model = repo.createOrUpdatePullRequestModel(
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		repo.queryProvider.expectGraphQLQuery({
+			query: queries.PullRequestActivityTimelineEvents,
+			variables: { owner: 'github', name: 'test', number: 794 },
+		}, {
+			data: {
+				repository: {
+					pullRequest: {
+						timelineItems: {
+							nodes: [
+								{ __typename: 'LabeledEvent' },
+								{ __typename: 'HeadRefForcePushedEvent' },
+								{ __typename: 'HeadRefRestoredEvent' },
+								{ __typename: 'ClosedEvent', id: 'closed', actor: null, createdAt: '2026-10-28T10:00:00Z' },
+							],
+						},
+					},
+				},
+			},
+			loading: false, stale: false, networkStatus: NetworkStatus.ready,
+		});
+
+		const events = await model.getActivityTimelineEvents();
+
+		assert.deepStrictEqual(events.map(event => event.event), [EventType.Closed]);
 	});
 
 	describe('getStack', function () {

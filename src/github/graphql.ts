@@ -79,6 +79,97 @@ export interface BaseRefChangedEvent {
 	previousRefName: string;
 }
 
+export interface ActorTimelineEvent {
+	__typename: string;
+	id: string;
+	actor: Actor | null;
+	createdAt: string;
+}
+
+export interface LabeledEvent extends ActorTimelineEvent {
+	label: {
+		name: string;
+		color: string;
+	};
+}
+
+export type UnlabeledEvent = LabeledEvent;
+
+export interface MilestonedEvent extends ActorTimelineEvent {
+	milestoneTitle: string;
+}
+
+export type DemilestonedEvent = MilestonedEvent;
+
+export interface RenamedTitleEvent extends ActorTimelineEvent {
+	previousTitle: string;
+	currentTitle: string;
+}
+
+export interface ReviewRequestedEvent extends ActorTimelineEvent {
+	/**
+	 * Teams only include their details when queried with additional scopes.
+	 */
+	requestedReviewer: Actor | Account | Team | Node | null;
+}
+
+export type ReviewRequestRemovedEvent = ReviewRequestedEvent;
+
+export type ReadyForReviewEvent = ActorTimelineEvent;
+
+export type ConvertToDraftEvent = ActorTimelineEvent;
+
+export interface HeadRefForcePushedEvent extends ActorTimelineEvent {
+	pullRequest: {
+		headRefName: string;
+	};
+	beforeCommit: {
+		oid: string;
+		commitUrl: string;
+	} | null;
+	afterCommit: {
+		oid: string;
+		commitUrl: string;
+	} | null;
+}
+
+export interface HeadRefRestoredEvent extends ActorTimelineEvent {
+	pullRequest: {
+		headRefName: string;
+	};
+}
+
+export interface ReviewDismissedEvent extends ActorTimelineEvent {
+	dismissalMessage: string | null;
+	review: {
+		author: Actor | Account | null;
+	} | null;
+}
+
+/**
+ * Also used for AutoSquashEnabledEvent and AutoRebaseEnabledEvent, which have the same shape.
+ */
+export type AutoMergeEnabledEvent = ActorTimelineEvent;
+
+export interface AutoMergeDisabledEvent extends ActorTimelineEvent {
+	reason: string | null;
+}
+
+export type AddedToMergeQueueEvent = ActorTimelineEvent;
+
+export interface RemovedFromMergeQueueEvent extends ActorTimelineEvent {
+	reason: string | null;
+}
+
+/**
+ * A timeline item whose type the query doesn't select, such as a label event in the lightweight activity query.
+ * GraphQL returns only its `__typename`.
+ */
+export interface UnselectedTimelineItem {
+	__typename: string;
+	id?: undefined;
+}
+
 export interface AbbreviatedIssueComment {
 	author: Account;
 	body: string;
@@ -290,11 +381,16 @@ export interface ReviewThread {
 	};
 }
 
+export type TimelineItem = MergedEvent | Review | IssueComment | Commit | AssignedEvent | UnassignedEvent | HeadRefDeletedEvent | CrossReferencedEvent
+	| ClosedEvent | ReopenedEvent | BaseRefChangedEvent | LabeledEvent | UnlabeledEvent | MilestonedEvent | DemilestonedEvent | RenamedTitleEvent
+	| ReviewRequestedEvent | ReviewRequestRemovedEvent | ReadyForReviewEvent | ConvertToDraftEvent | HeadRefForcePushedEvent | HeadRefRestoredEvent
+	| ReviewDismissedEvent | AutoMergeEnabledEvent | AutoMergeDisabledEvent | AddedToMergeQueueEvent | RemovedFromMergeQueueEvent | UnselectedTimelineItem;
+
 export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | BaseRefChangedEvent | null)[];
+				nodes: (TimelineItem | null)[];
 			};
 		};
 	} | null;
@@ -1263,7 +1359,7 @@ export interface MergePullRequestResponse {
 	mergePullRequest: {
 		pullRequest: PullRequest & {
 			timelineItems: {
-				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent | BaseRefChangedEvent)[]
+				nodes: (TimelineItem | null)[]
 			}
 		};
 	}

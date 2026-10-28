@@ -1276,6 +1276,32 @@ button.secondary.change-base {
 	cursor: pointer;
 }
 
+.commit .commit-message .message.wrap {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.commit .commit-message .label.timeline-label {
+	display: inline-flex;
+	vertical-align: middle;
+	margin: 1px 0;
+}
+
+.commit .commit-message .message .previous-title {
+	color: var(--vscode-descriptionForeground);
+}
+
+.commit .commit-message .message .current-title {
+	text-decoration: none;
+}
+
+.timeline-event-detail {
+	margin-left: 24px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	color: var(--vscode-descriptionForeground);
+}
+
 .timeline-detail {
 	display: flex;
 	align-items: center;

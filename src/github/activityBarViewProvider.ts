@@ -142,7 +142,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return PullRequestReviewCommon.checkoutDefaultBranch(this.getReviewContext(), message);
 	}
 
-	private reRequestReview(message: IRequestMessage<string>): void {
+	private reRequestReview(message: IRequestMessage<string>): Promise<void> {
 		return PullRequestReviewCommon.reRequestReview(this.getReviewContext(), message);
 	}
 

@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
-import { AccountType } from '../../github/interface';
+import { AccountType, isITeam, reviewerLabel } from '../../github/interface';
 import { getPRFetchQuery, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
@@ -177,6 +177,132 @@ describe('utils', () => {
 			assert.strictEqual(events.length, 1);
 			assert.strictEqual(events[0].event, EventType.Merged);
 			assert.strictEqual(events[0].mergeRef, 'main');
+		});
+
+		const githubRepository = { remote: { owner: 'octocat', isEnterprise: false } } as GitHubRepository;
+		const actor = {
+			__typename: 'User',
+			id: 'user-id',
+			login: 'octocat',
+			avatarUrl: 'https://avatars.githubusercontent.com/u/1',
+			url: 'https://github.com/octocat',
+		} satisfies GraphQL.Actor;
+		const createdAt = '2024-01-01T12:00:00Z';
+
+		it('parses label, milestone, and title events', async () => {
+			const events = await parseCombinedTimelineEvents([
+				{ __typename: 'LabeledEvent', id: 'labeled', actor, createdAt, label: { name: 'bug', color: 'd73a4a' } } satisfies GraphQL.LabeledEvent,
+				{ __typename: 'UnlabeledEvent', id: 'unlabeled', actor, createdAt, label: { name: 'question', color: 'cc317c' } } satisfies GraphQL.UnlabeledEvent,
+				{ __typename: 'MilestonedEvent', id: 'milestoned', actor, createdAt, milestoneTitle: 'October' } satisfies GraphQL.MilestonedEvent,
+				{ __typename: 'DemilestonedEvent', id: 'demilestoned', actor, createdAt, milestoneTitle: 'September' } satisfies GraphQL.DemilestonedEvent,
+				{ __typename: 'RenamedTitleEvent', id: 'renamed', actor, createdAt, previousTitle: 'Old', currentTitle: 'New' } satisfies GraphQL.RenamedTitleEvent,
+			], [], githubRepository);
+
+			assert.deepStrictEqual(events.map(event => event.event), [EventType.Labeled, EventType.Unlabeled, EventType.Milestoned, EventType.Demilestoned, EventType.RenamedTitle]);
+			const [labeled, unlabeled, milestoned, demilestoned, renamed] = events;
+			assert.strictEqual(labeled.event, EventType.Labeled);
+			assert.deepStrictEqual(labeled.label, { name: 'bug', color: 'd73a4a', displayName: 'bug' });
+			assert.strictEqual(labeled.actor.login, 'octocat');
+			assert.strictEqual(unlabeled.event, EventType.Unlabeled);
+			assert.strictEqual(unlabeled.label.name, 'question');
+			assert.strictEqual(milestoned.event, EventType.Milestoned);
+			assert.strictEqual(milestoned.milestoneTitle, 'October');
+			assert.strictEqual(demilestoned.event, EventType.Demilestoned);
+			assert.strictEqual(demilestoned.milestoneTitle, 'September');
+			assert.strictEqual(renamed.event, EventType.RenamedTitle);
+			assert.strictEqual(renamed.previousTitle, 'Old');
+			assert.strictEqual(renamed.currentTitle, 'New');
+		});
+
+		it('parses review requests and skips teams without details', async () => {
+			const user = { ...actor, id: 'reviewer-id', login: 'reviewer', name: 'Reviewer', email: '' } satisfies GraphQL.Account;
+			const bot = { ...actor, __typename: 'Bot', id: 'BOT_1', login: 'review-bot' } satisfies GraphQL.Actor;
+			const team = { id: 'team-id', name: 'Reviewers', slug: 'reviewers', url: 'https://github.com/orgs/octocat/teams/reviewers', avatarUrl: '', repositories: { nodes: [] } } satisfies GraphQL.Team;
+			// Teams are only an id when queried without the read:org scope.
+			const hiddenTeam = { id: 'hidden-team-id' } satisfies GraphQL.Node;
+
+			const events = await parseCombinedTimelineEvents([
+				{ __typename: 'ReviewRequestedEvent', id: 'user', actor, createdAt, requestedReviewer: user } satisfies GraphQL.ReviewRequestedEvent,
+				{ __typename: 'ReviewRequestedEvent', id: 'bot', actor, createdAt, requestedReviewer: bot } satisfies GraphQL.ReviewRequestedEvent,
+				{ __typename: 'ReviewRequestRemovedEvent', id: 'team', actor, createdAt, requestedReviewer: team } satisfies GraphQL.ReviewRequestRemovedEvent,
+				{ __typename: 'ReviewRequestedEvent', id: 'hidden', actor, createdAt, requestedReviewer: hiddenTeam } satisfies GraphQL.ReviewRequestedEvent,
+				{ __typename: 'ReviewRequestedEvent', id: 'deleted', actor, createdAt, requestedReviewer: null } satisfies GraphQL.ReviewRequestedEvent,
+			], [], githubRepository);
+
+			assert.deepStrictEqual(events.map(event => event.id), ['user', 'bot', 'team']);
+			const [userRequest, botRequest, teamRequest] = events;
+			assert.strictEqual(userRequest.event, EventType.ReviewRequested);
+			assert.strictEqual(reviewerLabel(userRequest.reviewer), 'reviewer');
+			assert.strictEqual(botRequest.event, EventType.ReviewRequested);
+			assert.strictEqual(reviewerLabel(botRequest.reviewer), 'review-bot');
+			assert.strictEqual(teamRequest.event, EventType.ReviewRequestRemoved);
+			assert(isITeam(teamRequest.reviewer));
+			assert.strictEqual(teamRequest.reviewer.name, 'Reviewers');
+			assert.strictEqual(teamRequest.reviewer.org, 'octocat');
+		});
+
+		it('parses pull request state events', async () => {
+			const events = await parseCombinedTimelineEvents([
+				{ __typename: 'ConvertToDraftEvent', id: 'draft', actor, createdAt } satisfies GraphQL.ConvertToDraftEvent,
+				{ __typename: 'ReadyForReviewEvent', id: 'ready', actor, createdAt } satisfies GraphQL.ReadyForReviewEvent,
+				{
+					__typename: 'HeadRefForcePushedEvent', id: 'force-pushed', actor, createdAt,
+					pullRequest: { headRefName: 'feature' },
+					beforeCommit: null,
+					afterCommit: { oid: 'after', commitUrl: 'https://github.com/octocat/repo/commit/after' },
+				} satisfies GraphQL.HeadRefForcePushedEvent,
+				{ __typename: 'HeadRefRestoredEvent', id: 'restored', actor, createdAt, pullRequest: { headRefName: 'feature' } } satisfies GraphQL.HeadRefRestoredEvent,
+				{ __typename: 'ReviewDismissedEvent', id: 'dismissed', actor, createdAt, dismissalMessage: null, review: { author: { ...actor, login: 'reviewer' } } } satisfies GraphQL.ReviewDismissedEvent,
+				{ __typename: 'AutoSquashEnabledEvent', id: 'auto-squash', actor, createdAt } satisfies GraphQL.AutoMergeEnabledEvent,
+				{ __typename: 'AutoMergeEnabledEvent', id: 'auto-merge', actor, createdAt } satisfies GraphQL.AutoMergeEnabledEvent,
+				{ __typename: 'AutoMergeDisabledEvent', id: 'auto-merge-disabled', actor, createdAt, reason: 'Base branch was changed' } satisfies GraphQL.AutoMergeDisabledEvent,
+				{ __typename: 'AddedToMergeQueueEvent', id: 'queued', actor, createdAt } satisfies GraphQL.AddedToMergeQueueEvent,
+				{ __typename: 'RemovedFromMergeQueueEvent', id: 'dequeued', actor: null, createdAt, reason: null } satisfies GraphQL.RemovedFromMergeQueueEvent,
+			], [], githubRepository);
+
+			assert.deepStrictEqual(events.map(event => event.event), [
+				EventType.ConvertToDraft,
+				EventType.ReadyForReview,
+				EventType.HeadRefForcePushed,
+				EventType.HeadRefRestored,
+				EventType.ReviewDismissed,
+				EventType.AutoMergeEnabled,
+				EventType.AutoMergeEnabled,
+				EventType.AutoMergeDisabled,
+				EventType.AddedToMergeQueue,
+				EventType.RemovedFromMergeQueue,
+			]);
+			const [, , forcePushed, restored, dismissed, autoSquash, autoMerge, autoMergeDisabled, , dequeued] = events;
+			assert.strictEqual(forcePushed.event, EventType.HeadRefForcePushed);
+			assert.strictEqual(forcePushed.headRef, 'feature');
+			assert.strictEqual(forcePushed.beforeCommit, undefined);
+			assert.deepStrictEqual(forcePushed.afterCommit, { sha: 'after', url: 'https://github.com/octocat/repo/commit/after' });
+			assert.strictEqual(restored.event, EventType.HeadRefRestored);
+			assert.strictEqual(restored.headRef, 'feature');
+			assert.strictEqual(dismissed.event, EventType.ReviewDismissed);
+			assert.strictEqual(dismissed.reviewAuthor?.login, 'reviewer');
+			assert.strictEqual(dismissed.dismissalMessage, undefined);
+			assert.strictEqual(autoSquash.event, EventType.AutoMergeEnabled);
+			assert.strictEqual(autoSquash.mergeMethod, 'squash');
+			assert.strictEqual(autoMerge.event, EventType.AutoMergeEnabled);
+			assert.strictEqual(autoMerge.mergeMethod, undefined);
+			assert.strictEqual(autoMergeDisabled.event, EventType.AutoMergeDisabled);
+			assert.strictEqual(autoMergeDisabled.reason, 'Base branch was changed');
+			assert.strictEqual(dequeued.event, EventType.RemovedFromMergeQueue);
+			assert.strictEqual(dequeued.reason, undefined);
+			assert.strictEqual(dequeued.actor.login, '');
+		});
+
+		it('skips timeline items whose type the query does not select', async () => {
+			const events = await parseCombinedTimelineEvents([
+				{ __typename: 'LabeledEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'MilestonedEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'HeadRefForcePushedEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'HeadRefRestoredEvent' } satisfies GraphQL.UnselectedTimelineItem,
+				{ __typename: 'ClosedEvent', id: 'closed', actor, createdAt } satisfies GraphQL.ClosedEvent,
+			], [], githubRepository);
+
+			assert.deepStrictEqual(events.map(event => event.id), ['closed']);
 		});
 	});
 

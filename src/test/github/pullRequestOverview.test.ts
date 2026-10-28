@@ -35,7 +35,7 @@ import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { GitHubRef } from '../../common/githubRef';
-import { TimelineEvent } from '../../common/timelineEvent';
+import { EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
 import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import * as emoji from '../../common/emoji';
@@ -1566,13 +1566,14 @@ describe('PullRequestOverview', function () {
 	function stubModelServices(model: PullRequestModel) {
 		sinon.stub(model, 'canEdit').resolves(true);
 		sinon.stub(model, 'getReviewRequests').resolves([]);
-		sinon.stub(model, 'getTimelineEvents').resolves([]);
+		const timeline = sinon.stub(model, 'getTimelineEvents').resolves([]);
 		sinon.stub(model, 'validateDraftMode').resolves(false);
 		sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 		sinon.stub(model, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
 		sinon.stub(model, 'getCoAuthors').resolves([]);
 		sinon.stub(model, 'getLastUpdateTime').resolves(new Date(0));
-		return sinon.stub(model, 'getStack').resolves(undefined);
+		const stack = sinon.stub(model, 'getStack').resolves(undefined);
+		return { stack, timeline };
 	}
 
 	async function createPanel(number = 1000, branches?: { base: string; head: string }) {
@@ -1582,7 +1583,7 @@ describe('PullRequestOverview', function () {
 		const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
 		const services = panelServices ??= stubPanelServices();
 		services.models.set(number, model);
-		const stackQuery = stubModelServices(model);
+		const { stack: stackQuery } = stubModelServices(model);
 		const received = new vscode.EventEmitter<WebviewRequest>();
 		const posted = new vscode.EventEmitter<PanelMessage>();
 		const webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, `#${number}`, vscode.ViewColumn.One, {});
@@ -2971,6 +2972,198 @@ describe('PullRequestOverview', function () {
 			sinon.assert.calledWithExactly(replyMessage, message, response);
 			sinon.assert.calledOnce(refreshPanel);
 			sinon.assert.notCalled(postMessage);
+		});
+	});
+
+	describe('timeline refresh after changes', function () {
+		const actor = { login: 'octocat', url: 'https://github.com/octocat' };
+		const milestoned: TimelineEvent = { id: 'milestoned', event: EventType.Milestoned, actor, createdAt: '2026-10-28T10:00:00Z', milestoneTitle: 'October' };
+		const renamed: TimelineEvent = { id: 'renamed', event: EventType.RenamedTitle, actor, createdAt: '2026-10-28T10:01:00Z', previousTitle: 'Old', currentTitle: 'New' };
+		const olderTimeline = [milestoned];
+		const newerTimeline = [milestoned, renamed];
+
+		let panel: TestPullRequestOverviewPanel;
+		let model: PullRequestModel;
+		let getTimelineEvents: SinonStub<[], Promise<TimelineEvent[] | undefined>>;
+		/** The replies and timeline updates sent to the webview, in order. */
+		let sent: string[];
+		/** The timelines sent to the webview, in replies or updates, in order. */
+		let timelines: TimelineEvent[][];
+		let onTimelineSent: (() => void)[];
+
+		function createModel(): PullRequestModel {
+			return new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+		}
+
+		/** Holds back the next timeline query. Resolves, once it is requested, to the function that completes it. */
+		function holdNextTimelineQuery(): Promise<(events: TimelineEvent[]) => void> {
+			return new Promise(onRequested => {
+				getTimelineEvents.onCall(getTimelineEvents.callCount).callsFake(() => new Promise<TimelineEvent[]>(resolve => onRequested(resolve)));
+			});
+		}
+
+		/** Completes a held timeline query, and waits until a timeline is sent to the webview as a result. */
+		async function completeTimelineQuery(complete: (events: TimelineEvent[]) => void, events: TimelineEvent[]): Promise<void> {
+			const timelineSent = new Promise<void>(resolve => onTimelineSent.push(resolve));
+			complete(events);
+			await timelineSent;
+		}
+
+		function recordTimeline(events: TimelineEvent[]): void {
+			timelines.push(events);
+			onTimelineSent.shift()?.();
+		}
+
+		beforeEach(function () {
+			model = createModel();
+			const services = panelServices ??= stubPanelServices();
+			services.models.set(model.number, model);
+			getTimelineEvents = stubModelServices(model).timeline.resolves(olderTimeline);
+			panel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+			panel.setItem(model);
+			context.subscriptions.push(panel);
+			sent = [];
+			timelines = [];
+			onTimelineSent = [];
+			sinon.stub(panel, '_replyMessage').callsFake(async (message, response) => {
+				sent.push(`reply:${message.req}`);
+				if (typeof response === 'object' && response !== null && 'events' in response && Array.isArray(response.events)) {
+					recordTimeline(response.events);
+				}
+			});
+			sinon.stub(panel, '_postMessage').callsFake(async message => {
+				if ((message.command === 'pr.update' || message.command === 'pr.initialize') && message.pullrequest?.events) {
+					sent.push(message.command === 'pr.update' ? 'timeline' : 'initialize');
+					recordTimeline(message.pullrequest.events);
+				}
+			});
+		});
+
+		const changes: { command: string; args?: unknown; stub: () => void }[] = [
+			{ command: 'pr.remove-label', args: 'bug', stub: () => sinon.stub(model, 'removeLabel').resolves() },
+			{ command: 'pr.remove-milestone', stub: () => sinon.stub(model, 'updateMilestone').resolves() },
+			{ command: 'pr.edit-title', args: { text: 'New' }, stub: () => sinon.stub(model, 'edit').resolves({ title: 'New', titleHTML: 'New', body: '', bodyHTML: '' }) },
+			{ command: 'pr.re-request-review', args: 'reviewer-id', stub: () => sinon.stub(model, 'requestReview').resolves() },
+			{ command: 'pr.update-automerge', args: { autoMerge: true, autoMergeMethod: 'squash' }, stub: () => sinon.stub(model, 'enableAutoMerge').resolves() },
+			{ command: 'pr.enqueue', stub: () => sinon.stub(model, 'enqueuePullRequest').resolves(undefined) },
+			{ command: 'pr.dequeue', stub: () => sinon.stub(model, 'dequeuePullRequest').resolves(true) },
+		];
+
+		for (const change of changes) {
+			it(`posts the refreshed timeline after replying to ${change.command}`, async function () {
+				change.stub();
+
+				await panel._onDidReceiveMessage({ req: 'change', command: change.command, args: change.args });
+
+				assert.deepStrictEqual(sent, ['reply:change', 'timeline']);
+				assert.deepStrictEqual(timelines, [olderTimeline]);
+			});
+		}
+
+		it('never goes back to an older timeline when refreshes finish out of order', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+
+			const firstQuery = holdNextTimelineQuery();
+			const first = panel._onDidReceiveMessage({ req: 'first', command: 'pr.remove-label', args: 'bug' });
+			const completeFirst = await firstQuery;
+			const secondQuery = holdNextTimelineQuery();
+			const second = panel._onDidReceiveMessage({ req: 'second', command: 'pr.remove-label', args: 'question' });
+			const completeSecond = await secondQuery;
+			await completeTimelineQuery(completeSecond, newerTimeline);
+			await completeTimelineQuery(completeFirst, olderTimeline);
+			await Promise.all([first, second]);
+
+			assert.deepStrictEqual(timelines, [newerTimeline, newerTimeline]);
+		});
+
+		for (const loadFinishesFirst of [true, false]) {
+			it(`never replaces a refreshed timeline with the one loaded with the panel when the load finishes ${loadFinishesFirst ? 'first' : 'last'}`, async function () {
+				sinon.stub(model, 'removeLabel').resolves();
+				const loadQuery = holdNextTimelineQuery();
+				await panel.updateWithIdentity({ owner: remote.owner, repo: remote.repositoryName, number: model.number }, model);
+				const completeLoad = await loadQuery;
+				const refreshQuery = holdNextTimelineQuery();
+				const change = panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+				const completeRefresh = await refreshQuery;
+
+				if (loadFinishesFirst) {
+					await completeTimelineQuery(completeLoad, olderTimeline);
+					await completeTimelineQuery(completeRefresh, newerTimeline);
+				} else {
+					await completeTimelineQuery(completeRefresh, newerTimeline);
+					await completeTimelineQuery(completeLoad, olderTimeline);
+				}
+				await change;
+
+				// The panel is initialized with the model's cached timeline, which is empty here.
+				assert.deepStrictEqual(timelines, loadFinishesFirst ? [[], olderTimeline, newerTimeline] : [[], newerTimeline, newerTimeline]);
+			});
+		}
+
+		for (const refreshFinishesFirst of [true, false]) {
+			it(`never replaces the timeline of a submitted comment with an earlier refresh when the refresh finishes ${refreshFinishesFirst ? 'first' : 'last'}`, async function () {
+				sinon.stub(model, 'removeLabel').resolves();
+				const review: ReviewEvent = {
+					id: 1, event: EventType.Reviewed, comments: [], submittedAt: '2026-10-28T10:02:00Z', body: 'Looks good',
+					htmlUrl: '', user: model.author, authorAssociation: 'NONE', state: 'COMMENTED',
+				};
+				sinon.stub(model, 'submitReview').resolves(review);
+				const refreshQuery = holdNextTimelineQuery();
+				const change = panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+				const completeRefresh = await refreshQuery;
+				const submitQuery = holdNextTimelineQuery();
+				const submit = panel._onDidReceiveMessage({ req: 'submit', command: 'pr.submit', args: { body: review.body } });
+				const completeSubmit = await submitQuery;
+
+				if (refreshFinishesFirst) {
+					await completeTimelineQuery(completeRefresh, olderTimeline);
+					await completeTimelineQuery(completeSubmit, newerTimeline);
+				} else {
+					await completeTimelineQuery(completeSubmit, newerTimeline);
+					await completeTimelineQuery(completeRefresh, olderTimeline);
+				}
+				await Promise.all([change, submit]);
+
+				assert.deepStrictEqual(timelines, refreshFinishesFirst ? [olderTimeline, newerTimeline] : [newerTimeline, newerTimeline]);
+			});
+		}
+
+		it('initializes the panel with a refreshed timeline that is fresher than the cached one', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+			getTimelineEvents.resolves(newerTimeline);
+			await panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+			sinon.stub(model, 'timelineEvents').get(() => olderTimeline);
+			// Keeps the timeline that the panel loads after initializing from being sent.
+			holdNextTimelineQuery();
+
+			await panel.updateWithIdentity({ owner: remote.owner, repo: remote.repositoryName, number: model.number }, model);
+
+			assert.deepStrictEqual(sent, ['reply:change', 'timeline', 'initialize']);
+			assert.deepStrictEqual(timelines, [newerTimeline, newerTimeline]);
+		});
+
+		it('does not post a refresh for a pull request that is no longer shown', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+
+			const query = holdNextTimelineQuery();
+			const change = panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+			const resolve = await query;
+			panel.setItem(createModel());
+			resolve([milestoned]);
+			await change;
+
+			assert.deepStrictEqual(sent, ['reply:change']);
+		});
+
+		it('does not replace the timeline with an empty refresh', async function () {
+			sinon.stub(model, 'removeLabel').resolves();
+			getTimelineEvents.resolves([]);
+
+			await panel._onDidReceiveMessage({ req: 'change', command: 'pr.remove-label', args: 'bug' });
+
+			sinon.assert.calledOnce(getTimelineEvents);
+			assert.deepStrictEqual(sent, ['reply:change']);
 		});
 	});
 

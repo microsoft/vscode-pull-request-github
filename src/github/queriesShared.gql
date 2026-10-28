@@ -241,6 +241,262 @@ fragment BaseRefChangedEvent on BaseRefChangedEvent {
 	previousRefName
 }
 
+fragment LabeledEvent on LabeledEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	label {
+		name
+		color
+	}
+}
+
+fragment UnlabeledEvent on UnlabeledEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	label {
+		name
+		color
+	}
+}
+
+fragment MilestonedEvent on MilestonedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	milestoneTitle
+}
+
+fragment DemilestonedEvent on DemilestonedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	milestoneTitle
+}
+
+fragment RenamedTitleEvent on RenamedTitleEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	previousTitle
+	currentTitle
+}
+
+# Team details require the read:org scope, see PullRequestTimelineItemTeams.
+fragment ReviewRequestedEvent on ReviewRequestedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	requestedReviewer {
+		...Node
+		...Actor
+		...User
+	}
+}
+
+fragment ReviewRequestRemovedEvent on ReviewRequestRemovedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	requestedReviewer {
+		...Node
+		...Actor
+		...User
+	}
+}
+
+fragment ReadyForReviewEvent on ReadyForReviewEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment ConvertToDraftEvent on ConvertToDraftEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment HeadRefForcePushedEvent on HeadRefForcePushedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	pullRequest {
+		headRefName
+	}
+	beforeCommit {
+		oid
+		commitUrl
+	}
+	afterCommit {
+		oid
+		commitUrl
+	}
+}
+
+fragment HeadRefRestoredEvent on HeadRefRestoredEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	pullRequest {
+		headRefName
+	}
+}
+
+fragment ReviewDismissedEvent on ReviewDismissedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	dismissalMessage
+	review {
+		author {
+			...Node
+			...Actor
+			...User
+		}
+	}
+}
+
+fragment AutoMergeEnabledEvent on AutoMergeEnabledEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment AutoSquashEnabledEvent on AutoSquashEnabledEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment AutoRebaseEnabledEvent on AutoRebaseEnabledEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment AutoMergeDisabledEvent on AutoMergeDisabledEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	reason
+}
+
+fragment AddedToMergeQueueEvent on AddedToMergeQueueEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment RemovedFromMergeQueueEvent on RemovedFromMergeQueueEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	reason
+}
+
+fragment PullRequestTimelineItem on PullRequestTimelineItems {
+	__typename
+	...Merged
+	...Comment
+	...Review
+	...Commit
+	...AssignedEvent
+	...UnassignedEvent
+	...HeadRefDeleted
+	...CrossReferencedEvent
+	...ClosedEvent
+	...ReopenedEvent
+	...BaseRefChangedEvent
+	...LabeledEvent
+	...UnlabeledEvent
+	...MilestonedEvent
+	...DemilestonedEvent
+	...RenamedTitleEvent
+	...ReviewRequestedEvent
+	...ReviewRequestRemovedEvent
+	...ReadyForReviewEvent
+	...ConvertToDraftEvent
+	...HeadRefForcePushedEvent
+	...HeadRefRestoredEvent
+	...ReviewDismissedEvent
+	...AutoMergeEnabledEvent
+	...AutoSquashEnabledEvent
+	...AutoRebaseEnabledEvent
+	...AutoMergeDisabledEvent
+	...AddedToMergeQueueEvent
+	...RemovedFromMergeQueueEvent
+}
+
+# Only usable when authenticated with the read:org scope.
+fragment PullRequestTimelineItemTeams on PullRequestTimelineItems {
+	... on ReviewRequestedEvent {
+		requestedReviewer {
+			...Team
+		}
+	}
+	... on ReviewRequestRemovedEvent {
+		requestedReviewer {
+			...Team
+		}
+	}
+}
+
 fragment Review on PullRequestReview {
 	id
 	databaseId
@@ -332,18 +588,23 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 		pullRequest(number: $number) {
 			timelineItems(last: $last) {
 				nodes {
-					__typename
-					...Merged
-					...Comment
-					...Review
-					...Commit
-					...AssignedEvent
-					...UnassignedEvent
-					...HeadRefDeleted
-					...CrossReferencedEvent
-					...ClosedEvent
-					...ReopenedEvent
-					...BaseRefChangedEvent
+					...PullRequestTimelineItem
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query TimelineEventsAdditionalScopes($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					...PullRequestTimelineItem
+					...PullRequestTimelineItemTeams
 				}
 			}
 		}
@@ -385,6 +646,11 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
+					...LabeledEvent
+					...UnlabeledEvent
+					...MilestonedEvent
+					...DemilestonedEvent
+					...RenamedTitleEvent
 				}
 			}
 		}
@@ -1549,18 +1815,21 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 			id
 			timelineItems(last: $last) {
 				nodes {
-					__typename
-					...Merged
-					...Comment
-					...Review
-					...Commit
-					...AssignedEvent
-					...UnassignedEvent
-					...HeadRefDeleted
-					...CrossReferencedEvent
-					...ClosedEvent
-					...ReopenedEvent
-					...BaseRefChangedEvent
+					...PullRequestTimelineItem
+				}
+			}
+		}
+	}
+}
+
+mutation MergePullRequestAdditionalScopes($input: MergePullRequestInput!, $last: Int = 150) {
+	mergePullRequest(input: $input) {
+		pullRequest {
+			id
+			timelineItems(last: $last) {
+				nodes {
+					...PullRequestTimelineItem
+					...PullRequestTimelineItemTeams
 				}
 			}
 		}
