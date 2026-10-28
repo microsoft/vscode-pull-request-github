@@ -551,6 +551,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async updateItemNow(pullRequestModel: PullRequestModel): Promise<void> {
+		const isReload = !!this._item && this.getStackRecommendationKey(this._item) === this.getStackRecommendationKey(pullRequestModel);
 		this._item = pullRequestModel;
 		this._diffLinkHashMapPromise = undefined;
 		const updateSequence = ++this._updateSequence;
@@ -601,7 +602,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.debug(`Data timings: ${dataTimingSummary}`, PullRequestOverviewPanel.ID);
 
 			this._stackUpdateEligibility = undefined;
-			this._stackRecommendation = undefined;
 			this._item = pullRequest;
 			this.registerPrListeners();
 			this._repositoryDefaultBranch = defaultBranch!;
@@ -633,6 +633,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			]);
 			const contextDuration = performance.now() - contextStart;
 			this._canUpdateStackAccess = baseContext.hasWritePermission;
+			// Reloading the pull request keeps the recommendation that is shown, so that the page does not move,
+			// until the search for a new one finishes. A pull request that is in a stack has nothing to be stacked with.
+			if (!isReload || initialStack) {
+				this._stackRecommendation = undefined;
+			}
 
 			const postDoneAction = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(POST_DONE, CHECKOUT_DEFAULT_BRANCH);
 			const doneCheckoutBranch = postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)
@@ -676,7 +681,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				stackLoaded: false,
 				stackLoadError: false,
 				stackMergeStatus: undefined,
-				stackRecommendation: undefined,
+				stackRecommendation: this._stackRecommendation?.preview,
 				generateDescriptionTitle: this.getGenerateDescriptionTitle(),
 				attestationCommitsEnabled: isAttestationCommitsEnabled(),
 				closingIssues,

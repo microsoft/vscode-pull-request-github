@@ -14,6 +14,7 @@ export default Icon;
 // Codicons
 export const accountIcon = <Icon src={require('../../resources/icons/codicons/account.svg')} />;
 export const addIcon = <Icon src={require('../../resources/icons/codicons/add.svg')} />;
+export const arrowUpIcon = <Icon src={require('../../resources/icons/codicons/arrow-up.svg')} />;
 export const checkIcon = <Icon src={require('../../resources/icons/codicons/check.svg')} className='check' />;
 export const checkAllIcon = <Icon src={require('../../resources/icons/codicons/check-all.svg')} />;
 export const chevronDownIcon = <Icon src={require('../../resources/icons/codicons/chevron-down.svg')} />;
