@@ -402,12 +402,13 @@ export class CredentialStore extends Disposable {
 		const promise = (async () => {
 			try {
 				// Sign-out can invalidate in-flight requests before the session change
-				// event clears our cached authentication state. Only prompt if the
-				// session for the account in use still exists and the hub is unchanged.
+				// event clears our cached authentication state. Only prompt if the hub is
+				// unchanged and the session for its account and server still exists.
 				const existingSession = await findExistingSession(authProviderId);
 				if (!existingSession
 					|| this.getHub(authProviderId) !== failedHub
-					|| hasAccountChanged(this.getAccountId(authProviderId), existingSession.session)) {
+					|| !failedHub.session
+					|| !isSameSessionAccount(failedHub.session, existingSession.session)) {
 					return { canceled: true };
 				}
 				Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);

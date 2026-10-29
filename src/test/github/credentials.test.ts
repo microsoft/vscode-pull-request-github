@@ -9,7 +9,6 @@ import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
 import { createSandbox, match, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
-import { GITHUB_ENTERPRISE, URI } from '../../common/settingKeys';
 import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from '../../github/credentials';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -35,26 +34,14 @@ function createSession(id: string, accountId: string, scopes: string[]): vscode.
 	};
 }
 
-function createTestHub(telemetry: MockTelemetry): GitHub {
+function createTestHub(telemetry: MockTelemetry, session: vscode.AuthenticationSession): GitHub {
 	const rateLogger = new RateLogger(telemetry, false);
 	return {
+		serverUri: vscode.Uri.parse('https://github.com'),
+		session,
 		octokit: new LoggingOctokit(new Octokit(), rateLogger),
 		graphql: new LoggingApolloClient(new ApolloClient({ link: ApolloLink.empty(), cache: new InMemoryCache() }), rateLogger),
 	};
-}
-
-function stubEnterpriseUri(sinon: SinonSandbox, uri: string): void {
-	const getConfiguration = vscode.workspace.getConfiguration;
-	const get = sinon.stub();
-	get.withArgs(URI).returns(uri);
-	const enterpriseConfiguration: vscode.WorkspaceConfiguration = {
-		get,
-		has: section => section === URI,
-		inspect: () => undefined,
-		update: async () => { },
-	};
-	sinon.stub(vscode.workspace, 'getConfiguration').callsFake((section, scope) =>
-		section === GITHUB_ENTERPRISE ? enterpriseConfiguration : getConfiguration(section, scope));
 }
 
 describe('CredentialStore', function () {
@@ -194,7 +181,6 @@ describe('CredentialStore', function () {
 			let credentialStore: CredentialStore;
 			let hub: GitHub;
 			let getHub: SinonStub;
-			let getAccountId: SinonStub;
 			let getSession: SinonStub;
 			let sendTelemetryEvent: SinonStub;
 			let session: vscode.AuthenticationSession;
@@ -202,18 +188,16 @@ describe('CredentialStore', function () {
 			const forcedSignIns = () => getSession.getCalls().filter(call => call.args[2]?.forceNewSession);
 
 			beforeEach(function () {
+				sinon.stub(process, 'env').value({ ...process.env, GITHUB_OAUTH_TOKEN: undefined });
 				telemetry = new MockTelemetry();
 				sendTelemetryEvent = sinon.stub(telemetry, 'sendTelemetryEvent');
 				credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
-				hub = createTestHub(telemetry);
-				getHub = sinon.stub(credentialStore, 'getHub').returns(hub);
-				getAccountId = sinon.stub(credentialStore, 'getAccountId').returns('account');
 				session = createSession('current-session', 'account', defaultScopes);
+				hub = createTestHub(telemetry, session);
+				getHub = sinon.stub(credentialStore, 'getHub').returns(hub);
 				getSession = sinon.stub(vscode.authentication, 'getSession').resolves(session);
 				// The user dismisses the forced sign-in, so no new hub is created.
 				getSession.withArgs(authProvider, match.any, match.has('forceNewSession')).rejects(new Error('User did not consent to login.'));
-				// GitHub Enterprise sign-in is skipped unless a server is configured.
-				stubEnterpriseUri(sinon, 'https://github.example.com');
 			});
 
 			afterEach(function () {
@@ -229,7 +213,7 @@ describe('CredentialStore', function () {
 			});
 
 			it('does not prompt for errors from a hub that is no longer in use', async function () {
-				getHub.returns(createTestHub(telemetry));
+				getHub.returns(createTestHub(telemetry, session));
 
 				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
 				strictEqual(getSession.called, false);
@@ -270,8 +254,7 @@ describe('CredentialStore', function () {
 			it('does not prompt if the account is switched during the session lookup', async function () {
 				const otherSession = createSession('other-session', 'other-account', defaultScopes);
 				getSession.callsFake(async () => {
-					getHub.returns(createTestHub(telemetry));
-					getAccountId.returns(otherSession.account.id);
+					getHub.returns(createTestHub(telemetry, otherSession));
 					return otherSession;
 				});
 
