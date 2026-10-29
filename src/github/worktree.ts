@@ -92,8 +92,9 @@ export async function checkoutPRInWorktree(
 					: prHead.ref;
 				const trackedBranchName = `${remoteName}/${prHead.ref}`;
 
-				// Fetch the PR branch first
-				await repository.fetch({ remote: remoteName, ref: prHead.ref });
+				// Fetch into the remote-tracking ref explicitly: a plain `git fetch <remote> <ref>` only updates it when the
+				// remote's configured refspec covers the branch, which isn't the case for e.g. single-branch or shallow clones
+				await repository.fetch({ remote: remoteName, ref: `+refs/heads/${prHead.ref}:refs/remotes/${trackedBranchName}` });
 
 				// Fork PRs always get a new unique branch name, so only same-repository PRs can reuse a local branch
 				let branchExists = false;
