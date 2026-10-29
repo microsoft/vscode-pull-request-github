@@ -5,7 +5,8 @@
 
 import { strictEqual, deepStrictEqual } from 'assert';
 import { Octokit } from '@octokit/rest';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
+import { createSandbox, match, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
 import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from '../../github/credentials';
@@ -30,6 +31,16 @@ function createSession(id: string, accountId: string, scopes: string[]): vscode.
 			label: accountId,
 		},
 		scopes,
+	};
+}
+
+function createTestHub(telemetry: MockTelemetry, session: vscode.AuthenticationSession): GitHub {
+	const rateLogger = new RateLogger(telemetry, false);
+	return {
+		serverUri: vscode.Uri.parse('https://github.com'),
+		session,
+		octokit: new LoggingOctokit(new Octokit(), rateLogger),
+		graphql: new LoggingApolloClient(new ApolloClient({ link: ApolloLink.empty(), cache: new InMemoryCache() }), rateLogger),
 	};
 }
 
@@ -163,6 +174,111 @@ describe('CredentialStore', function () {
 			strictEqual(hasAccountChanged('old-account', undefined), true);
 		});
 	});
+
+	for (const authProvider of [AuthProvider.github, AuthProvider.githubEnterprise]) {
+		describe(`handleAuthError (${authProvider})`, function () {
+			let telemetry: MockTelemetry;
+			let credentialStore: CredentialStore;
+			let hub: GitHub;
+			let getHub: SinonStub;
+			let getSession: SinonStub;
+			let sendTelemetryEvent: SinonStub;
+			let session: vscode.AuthenticationSession;
+
+			const forcedSignIns = () => getSession.getCalls().filter(call => call.args[2]?.forceNewSession);
+
+			beforeEach(function () {
+				sinon.stub(process, 'env').value({ ...process.env, GITHUB_OAUTH_TOKEN: undefined });
+				telemetry = new MockTelemetry();
+				sendTelemetryEvent = sinon.stub(telemetry, 'sendTelemetryEvent');
+				credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+				session = createSession('current-session', 'account', defaultScopes);
+				hub = createTestHub(telemetry, session);
+				getHub = sinon.stub(credentialStore, 'getHub').returns(hub);
+				getSession = sinon.stub(vscode.authentication, 'getSession').resolves(session);
+				// The user dismisses the forced sign-in, so no new hub is created.
+				getSession.withArgs(authProvider, match.any, match.has('forceNewSession')).rejects(new Error('User did not consent to login.'));
+			});
+
+			afterEach(function () {
+				credentialStore.dispose();
+			});
+
+			it('does not prompt when already signed out', async function () {
+				getHub.returns(undefined);
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(getSession.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt for errors from a hub that is no longer in use', async function () {
+				getHub.returns(createTestHub(telemetry, session));
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(getSession.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt after the session is removed but before cached authentication is cleared', async function () {
+				getSession.resolves(undefined);
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(sendTelemetryEvent.called, false);
+				strictEqual(getSession.called, true);
+				for (const call of getSession.getCalls()) {
+					strictEqual(call.args[0], authProvider);
+					deepStrictEqual(call.args[2], { silent: true });
+				}
+			});
+
+			it('does not prompt when only another account remains signed in', async function () {
+				getSession.resolves(createSession('other-session', 'other-account', defaultScopes));
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt if sign-out finishes during the session lookup', async function () {
+				getSession.callsFake(async () => {
+					getHub.returns(undefined);
+					return session;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt if the account is switched during the session lookup', async function () {
+				const otherSession = createSession('other-session', 'other-account', defaultScopes);
+				getSession.callsFake(async () => {
+					getHub.returns(createTestHub(telemetry, otherSession));
+					return otherSession;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('prompts once for concurrent errors on the current session and preserves the cooldown', async function () {
+				await Promise.all([
+					credentialStore.handleAuthError(authProvider, hub),
+					credentialStore.handleAuthError(authProvider, hub),
+				]);
+
+				const signIns = forcedSignIns();
+				strictEqual(signIns.length, 1);
+				strictEqual(signIns[0].args[0], authProvider);
+				strictEqual(typeof signIns[0].args[2].forceNewSession.detail, 'string');
+				strictEqual(sendTelemetryEvent.calledOnceWithExactly('auth.badCredentials'), true);
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 1);
+			});
+		});
+	}
 
 	it('retries the current user request after a failure', async function () {
 		const telemetry = new MockTelemetry();
