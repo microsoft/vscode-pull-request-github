@@ -8,21 +8,27 @@ import { SinonFakeTimers, SinonSandbox, createSandbox } from 'sinon';
 import * as vscode from 'vscode';
 import type { Branch } from '../../api/api';
 import { GitApiImpl } from '../../api/api1';
+import { GitHubServerType } from '../../common/authentication';
+import { Protocol } from '../../common/protocol';
+import { GitHubRemote } from '../../common/remote';
 import { ITelemetry } from '../../common/telemetry';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestMetadata } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { FOCUS_REVIEW_MODE } from '../../constants';
+import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { MockPrsTreeModel } from '../mocks/mockPRsTreeModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
@@ -349,6 +355,36 @@ describe('ReviewManager polling', function () {
 
 		assert.strictEqual(checkGitHubForPrBranch.calledOnce, true);
 		assert.strictEqual(clear.called, false);
+	});
+
+	it('does not associate a worktree branch with a pull request for the branch it tracks', async function () {
+		sinon.stub(reviewManager, 'updateState').resolves();
+		const url = 'https://github.com/octocat/reponame';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		const githubRepository = new MockGitHubRepository(remote, manager.credentialStore, new MockTelemetry(), sinon);
+		manager['_githubRepositories'] = [githubRepository];
+		const prItem = convertRESTPullRequestToRawPullRequest(
+			new PullRequestBuilder().number(1).state('closed').head(head => head.ref('dev')).build(),
+			githubRepository,
+		);
+		const closedPullRequest = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem);
+		const getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
+		// Like `git worktree add -b my-feature <path> origin/dev`, opened in VS Code
+		await repository.createBranch('my-feature', true);
+		await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
+		repository.setWorktrees([
+			{ name: 'root', path: '/root', ref: 'refs/heads/main', main: true, detached: false },
+			{ name: 'my-feature', path: '/root.worktrees/my-feature', ref: 'refs/heads/my-feature', main: false, detached: false },
+		]);
+
+		try {
+			assert.strictEqual(await reviewManager['checkGitHubForPrBranch'](await repository.getBranch('my-feature')), undefined);
+			assert.strictEqual(getPullRequestForBranch.called, false);
+			assert.deepStrictEqual(await repository.getConfigs(), []);
+		} finally {
+			closedPullRequest.dispose();
+			githubRepository.dispose();
+		}
 	});
 
 	it('caps backoff at the maximum interval', async function () {

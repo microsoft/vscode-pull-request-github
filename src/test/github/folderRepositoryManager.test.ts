@@ -8,6 +8,7 @@ import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -380,6 +381,82 @@ describe('PullRequestManager', function () {
 				repo: 'repo',
 				base: 'main',
 			});
+		});
+	});
+
+	describe('pull request lookup for worktree branches', function () {
+		let githubRepository: MockGitHubRepository;
+		let closedPullRequest: PullRequestModel;
+		let getPullRequestForBranch: SinonStub;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/octocat/reponame';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new MockGitHubRepository(remote, manager.credentialStore, telemetry, sinon);
+			manager['_githubRepositories'] = [githubRepository];
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder().number(1).state('closed').head(head => head.ref('dev')).build(),
+				githubRepository,
+			);
+			closedPullRequest = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem);
+			getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
+
+			// Like `git worktree add -b my-feature <path> origin/dev`
+			await repository.createBranch('my-feature', false);
+			await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
+			await repository.createBranch('feature', false);
+			await repository.setBranchUpstream('feature', 'refs/remotes/origin/feature');
+		});
+
+		afterEach(function () {
+			closedPullRequest.dispose();
+			githubRepository.dispose();
+		});
+
+		function checkOut(mainWorktreeBranch: string, ...linkedWorktreeBranches: string[]) {
+			repository.setWorktrees([
+				{ name: 'root', path: '/root', ref: `refs/heads/${mainWorktreeBranch}`, main: true, detached: false },
+				...linkedWorktreeBranches.map(branchName => ({ name: branchName, path: `/root.worktrees/${branchName}`, ref: `refs/heads/${branchName}`, main: false, detached: false })),
+			]);
+		}
+
+		it('does not look up a pull request by the upstream of a worktree branch tracking another branch', async function () {
+			checkOut('main', 'my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.strictEqual(getPullRequestForBranch.called, false);
+		});
+
+		it('looks up a pull request by the upstream of a main worktree branch tracking another branch', async function () {
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('looks up a pull request by the upstream of a worktree branch tracking its own name', async function () {
+			checkOut('main', 'feature');
+			const branch = await repository.getBranch('feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'feature');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+		});
+
+		it('only associates worktree branches tracking their own name on first activation', async function () {
+			checkOut('main', 'my-feature', 'feature');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
 		});
 	});
 

@@ -1133,6 +1133,9 @@ export class FolderRepositoryManager extends Disposable {
 					// Try to find a matching PR on GitHub
 					const remoteName = branch.upstream.remote;
 					const upstreamBranchName = branch.upstream.name;
+					if (this.isWorktreeBranchTrackingOtherBranch(branchName, upstreamBranchName)) {
+						return false;
+					}
 
 					const githubRepo = githubRepositories.find(
 						repo => repo.remote.remoteName === remoteName,
@@ -2567,6 +2570,9 @@ export class FolderRepositoryManager extends Disposable {
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		try {
+			if (this.isWorktreeBranchTrackingOtherBranch(branch.name, upstreamBranchName)) {
+				return null;
+			}
 			if (remoteName) {
 				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName);
 			}
@@ -2689,6 +2695,19 @@ export class FolderRepositoryManager extends Disposable {
 			return ref === branchName;
 		});
 		return worktree ? vscode.Uri.file(worktree.path) : undefined;
+	}
+
+	/**
+	 * A branch created in a worktree from a base branch (e.g. `git worktree add -b my-feature <path> origin/dev`)
+	 * tracks that base branch, so its upstream name isn't the branch's own name on the remote and would match
+	 * pull requests from the base branch instead.
+	 */
+	private isWorktreeBranchTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): boolean {
+		if (!branchName || !upstreamBranchName || branchName === upstreamBranchName || !this.getWorktreeForBranch(branchName)) {
+			return false;
+		}
+		Logger.debug(`Branch ${branchName} is checked out in a worktree and tracks ${upstreamBranchName}, not looking for a pull request by its upstream`, this.id);
+		return true;
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {
