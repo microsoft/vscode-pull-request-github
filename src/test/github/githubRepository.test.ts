@@ -5,6 +5,7 @@
 
 import { default as assert } from 'assert';
 import { NetworkStatus } from 'apollo-boost';
+import { Octokit } from '@octokit/rest';
 import { SinonSandbox, createSandbox, match } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -12,16 +13,16 @@ import { MockTelemetry } from '../mocks/mockTelemetry';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
-import { Uri } from 'vscode';
+import { authentication, Uri } from 'vscode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
-import { GitHubServerType } from '../../common/authentication';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../github/interface';
 import { PullRequest as GraphQLPullRequest, PullRequestResponse, StackablePullRequestNode, StackBranchStatusResponse } from '../../github/graphql';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import { PullRequestBuilder as RestPullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import Logger from '../../common/logger';
-import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { DocumentNode, print, visit } from 'graphql';
@@ -472,6 +473,39 @@ describe('GitHubRepository', function () {
 	describe('resolveRemote', function () {
 		beforeEach(function () {
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(authentication, 'getAccounts').resolves([]);
+		});
+
+		it('checks account preferences only for a non-SAML repository 404', async function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repo = new GitHubRepository(1, remote, Uri.file('/workspaces/repo'), credentialStore, telemetry, true);
+			const octokit = new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false));
+			sinon.stub(repo, 'ensure').resolves(repo);
+			sinon.stub(repo, 'hub').get(() => ({ octokit }));
+			const request = sinon.stub(octokit, 'call');
+			// Leave the prompt open to ensure it does not block repository discovery.
+			const preferences = sinon.stub(credentialStore, 'showAccountPreferencesForInaccessibleRepository').returns(new Promise<void>(() => { }));
+
+			try {
+				const transient = Object.assign(new Error('Service unavailable'), { status: 503 });
+				request.rejects(transient);
+				await assert.rejects(repo.getMetadata(), candidate => candidate === transient);
+				assert.strictEqual(preferences.called, false);
+
+				const saml = Object.assign(new Error('Resource protected by organization SAML enforcement.'), { status: 404 });
+				request.rejects(saml);
+				await assert.rejects(repo.getMetadata(), candidate => candidate === saml);
+				assert.strictEqual(preferences.called, false);
+
+				request.rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+				assert.strictEqual(await repo.resolveRemote(), false);
+				assert.strictEqual(await repo.resolveRemote(), false);
+				assert.strictEqual(preferences.callCount, 1);
+				assert.deepStrictEqual(preferences.firstCall.args, [AuthProvider.github, 'some/repo']);
+			} finally {
+				repo.dispose();
+			}
 		});
 
 		it('logs and caches an inaccessible repository after a 404', async function () {

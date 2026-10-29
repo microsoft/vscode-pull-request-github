@@ -564,6 +564,7 @@ export class GitHubRepository extends Disposable {
 					if (!this._isInaccessible) {
 						this._isInaccessible = true;
 						Logger.warn(`Repository ${remote.owner}/${remote.repositoryName} from remote ${remote.remoteName} in workspace folder ${this.rootUri.fsPath} returned HTTP 404 and will be skipped for this session.`, this.id);
+						void this._credentialStore.showAccountPreferencesForInaccessibleRepository(remote.authProviderId, `${remote.owner}/${remote.repositoryName}`);
 					}
 				} else {
 					this._metadata = undefined;
