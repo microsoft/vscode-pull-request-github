@@ -27,6 +27,7 @@ export const POST_DONE = 'postDone';
 export const CHECKOUT_PULL_REQUEST_BASE_BRANCH = 'checkoutPullRequestBaseBranch';
 export const CHECKOUT_DEFAULT_BRANCH = 'checkoutDefaultBranch';
 export const QUERIES = 'queries';
+export const AUTO_REFRESH = 'autoRefresh';
 export const PULL_REQUEST_LABELS = 'labelCreated';
 export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';

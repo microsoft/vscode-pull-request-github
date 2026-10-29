@@ -260,6 +260,12 @@
 						}
 					]
 				},
+				"githubPullRequests.autoRefresh": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"markdownDescription": "%githubPullRequests.autoRefresh.description%"
+				},
 				"githubPullRequests.labelCreated": {
 					"type": "array",
 					"items": {

@@ -14,7 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
+import { AUTO_REFRESH, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -105,6 +105,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private _initialized: boolean = false;
 	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
+	private _autoRefreshInterval: ReturnType<typeof setInterval> | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -165,6 +166,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register({
 			dispose: () => {
+				clearInterval(this._autoRefreshInterval);
 				if (this._notificationClearTimeout) {
 					clearTimeout(this._notificationClearTimeout);
 					this._notificationClearTimeout = undefined;
@@ -220,6 +222,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH}`)) {
+				this.updateAutoRefresh();
+			}
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
 				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)
 				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)
@@ -228,6 +233,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this.refreshAll();
 			}
 		}));
+		this.updateAutoRefresh();
 		this._register(vscode.workspace.onDidGrantWorkspaceTrust(() => this.refreshAll()));
 
 		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
@@ -238,6 +244,15 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+	}
+
+	private updateAutoRefresh(): void {
+		clearInterval(this._autoRefreshInterval);
+		this._autoRefreshInterval = undefined;
+		const interval = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(AUTO_REFRESH, 0);
+		if (Number.isFinite(interval) && interval > 0) {
+			this._autoRefreshInterval = setInterval(() => this.prsTreeModel.forceClearCache(), Math.min(interval * 1000, 2147483647));
+		}
 	}
 
 	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
