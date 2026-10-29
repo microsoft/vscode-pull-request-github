@@ -89,7 +89,7 @@ describe('SearchTool', function () {
 		assert.strictEqual(repositoriesManager.getManagerForRepository.calledOnceWith('repository-owner', 'repository-name'), true);
 		assert.strictEqual(githubRepository.getIssues.calledOnceWith(
 			undefined,
-			'(is:issue is:open assignee:jruales) AND repo:repository-owner/repository-name',
+			'is:issue is:open assignee:jruales repo:repository-owner/repository-name',
 		), true);
 		assert.strictEqual(folderManager.getIssues.notCalled, true);
 		const searchResult = JSON.parse((result!.content[0] as vscode.LanguageModelTextPart).value) as SearchToolResult;

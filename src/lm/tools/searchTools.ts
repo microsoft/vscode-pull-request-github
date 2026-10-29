@@ -66,15 +66,16 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 
 		const repositoryQualifier = `repo:${owner}/${name}`;
 		// The model sometimes puts a different `repo:owner/name` (or `repo:"owner/name"`) qualifier in the query than the repo it passed.
-		// Rewrite every standalone qualifier (at the start, or after whitespace or `(`) to the explicit repo, keeping the preceding character.
-		// The whole query is then ANDed with the repo so that clauses joined with OR can't match other repositories.
+		// Rewrite every standalone qualifier (at the start, or after whitespace or `(`) to the explicit repo, keeping the preceding character,
+		// because issue search returns results from all listed repositories when there are several `repo:` qualifiers.
+		// The explicit repo is then appended rather than ANDed, since the issue search API doesn't support parentheses or AND/OR.
 		const scopedQuery = query.replace(
 			/(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
 			(_match, prefix: string) => {
 				return `${prefix}${repositoryQualifier}`;
 			},
 		);
-		return `(${scopedQuery}) AND ${repositoryQualifier}`;
+		return `${scopedQuery} ${repositoryQualifier}`;
 	}
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
