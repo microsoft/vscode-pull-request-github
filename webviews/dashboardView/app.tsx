@@ -23,7 +23,7 @@ function Dashboard() {
 	const [issuesLoading, setIssuesLoading] = useState(true);
 	const [sessionsLoading, setSessionsLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
-	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest' | 'complexity-low' | 'complexity-high'>('date-oldest');
+	const [issueSort, setIssueSort] = useState<'date-oldest' | 'date-newest'>('date-oldest');
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -101,10 +101,6 @@ function Dashboard() {
 				return sortedIssues.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
 			case 'date-newest':
 				return sortedIssues.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-			case 'complexity-low':
-				return sortedIssues.sort((a, b) => (a.complexity || 0) - (b.complexity || 0));
-			case 'complexity-high':
-				return sortedIssues.sort((a, b) => (b.complexity || 0) - (a.complexity || 0));
 			default:
 				return sortedIssues;
 		}

@@ -24,8 +24,6 @@ export interface IssueData {
 	readonly url: string;
 	readonly createdAt: string;
 	readonly updatedAt: string;
-	readonly complexity?: number;
-	readonly complexityReasoning?: string;
 }
 
 export interface DashboardData {
