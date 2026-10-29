@@ -650,8 +650,10 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
+		// Unrecognized hosts may be GitHub Enterprise instances that have not been configured yet.
+		const hasUnrecognizedRemotes = !!this._reposManager?.folderManagers.some(manager => manager.unrecognizedRemotes.length > 0);
 		let actions: PRCategoryActionNode[];
-		if (remotesSetting) {
+		if (remotesSetting && !hasUnrecognizedRemotes) {
 			actions = [
 				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
 				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
@@ -661,7 +663,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		if (remotes.some(remote => remote.isEnterprise) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		if ((hasUnrecognizedRemotes || remotes.some(remote => remote.isEnterprise)) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
 		}
 

@@ -25,7 +25,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PRNode } from '../../view/treeNodes/pullRequestNode';
-import { CategoryTreeNode } from '../../view/treeNodes/categoryNode';
+import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from '../../view/treeNodes/categoryNode';
 import { GitHubRemote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
@@ -34,6 +34,7 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import * as configuration from '../../authentication/configuration';
+import { GitHubManager } from '../../authentication/githubServer';
 import { DataUri } from '../../common/uri';
 import { GithubItemStateEnum, IAccount, ITeam, PRType, PullRequestMergeability } from '../../github/interface';
 import { asPromise } from '../../common/utils';
@@ -502,6 +503,37 @@ describe('GitHub Pull Requests view', function () {
 			assert.ok(message.value.includes('GitHub Enterprise instances in Settings'));
 			assert.match(message.value, /command:workbench\.action\.openSettings/);
 			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/);
+		});
+
+		async function loadSignedInToGitHubDotCom(remoteUrl: string): Promise<PRCategoryActionNode[]> {
+			const repository = new MockRepository();
+			await repository.addRemote('origin', remoteUrl);
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			sinon.stub(GitHubManager.prototype, 'isGitHub').resolves(GitHubServerType.None);
+			sinon.stub(credentialStore, 'isAuthenticated').callsFake(authProviderId => authProviderId === AuthProvider.github);
+			sinon.stub(configuration, 'getEnterpriseUris').returns([]);
+			await folderManager.updateRepositories();
+			provider.initialize([], mockNotificationsManager as NotificationsManager);
+
+			assert.strictEqual(reposManager.state, ReposManagerState.RepositoriesLoaded);
+			const children = await provider.getChildren();
+			const actions = children.filter(child => child instanceof PRCategoryActionNode);
+			assert.strictEqual(actions.length, children.length);
+			return actions;
+		}
+
+		it('offers GitHub Enterprise setup instead of loading indefinitely when a remote host is not recognized', async function () {
+			const actions = await loadSignedInToGitHubDotCom('ssh://git@ghe.example.com/org/repo.git');
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoRemotes, PRCategoryActionType.LoginEnterprise]);
+			assert.strictEqual(actions[1].command?.command, 'pr.signinenterprise');
+		});
+
+		it('does not offer GitHub Enterprise setup for hosts that are never GitHub', async function () {
+			const actions = await loadSignedInToGitHubDotCom('https://codeberg.org/owner/repo');
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
 		});
 	});
 
