@@ -68,11 +68,12 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		// The model sometimes puts a different `repo:owner/name` (or `repo:"owner/name"`) qualifier in the query than the repo it passed.
 		// Rewrite every standalone qualifier (at the start, or after whitespace or `(`) to the explicit repo, keeping the preceding character,
 		// because issue search returns results from all listed repositories when there are several `repo:` qualifiers.
+		// Quoted text, such as phrases and values like `label:"needs repo:owner/name"`, is matched as a whole and left unchanged.
 		// The explicit repo is then appended rather than ANDed, since the issue search API doesn't support parentheses or AND/OR.
 		const scopedQuery = query.replace(
-			/(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
-			(_match, prefix: string) => {
-				return `${prefix}${repositoryQualifier}`;
+			/(?<quoted>"[^"]*")|(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
+			(_match, quoted: string | undefined, prefix: string | undefined) => {
+				return quoted ?? `${prefix}${repositoryQualifier}`;
 			},
 		);
 		return `${scopedQuery} ${repositoryQualifier}`;
