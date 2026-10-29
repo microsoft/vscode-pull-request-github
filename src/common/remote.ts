@@ -3,11 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { AuthProvider, GitHubServerType } from './authentication';
 import Logger from './logger';
-import { Protocol } from './protocol';
+import { Protocol, ProtocolType } from './protocol';
 import { Repository } from '../api/api';
-import { getEnterpriseUri, isEnterprise } from '../github/utils';
+import { getEnterpriseUris } from '../authentication/configuration';
+import { isEnterprise } from '../github/utils';
+
+const GITHUB_DOT_COM_HOSTS = ['github.com', 'ssh.github.com'];
 
 export class Remote {
 	public get host(): string {
@@ -21,12 +25,37 @@ export class Remote {
 	}
 
 	public get normalizedHost(): string {
+		if (this.gitProtocol.type === ProtocolType.HTTP) {
+			const uri = this.gitProtocol.url;
+			const path = uri.path.replace(/\/$/, '');
+			const deploymentPath = path.slice(0, path.lastIndexOf('/', path.lastIndexOf('/') - 1));
+			return uri.with({ authority: uri.authority.replace(/^.*@/, ''), path: deploymentPath, query: '', fragment: '' }).toString().replace(/\/$/, '');
+		}
 		const normalizedUri = this.gitProtocol.normalizeUri();
 		return `${normalizedUri!.scheme}://${normalizedUri!.authority}`;
 	}
 
+	/**
+	 * Classification for a remote whose server type has not been detected. Only hosts that are known to be
+	 * GitHub Enterprise (GHE.com or a configured Enterprise instance) are treated as Enterprise; any other
+	 * host, including non-GitHub servers, falls back to GitHub.com.
+	 */
 	public get authProviderId(): AuthProvider {
-		return this.host === getEnterpriseUri()?.authority ? AuthProvider.githubEnterprise : AuthProvider.github;
+		const host = this.host.toLowerCase();
+		if (GITHUB_DOT_COM_HOSTS.includes(host)) {
+			return AuthProvider.github;
+		}
+		if (host === 'ghe.com' || host.endsWith('.ghe.com')) {
+			return AuthProvider.githubEnterprise;
+		}
+		try {
+			if (getEnterpriseUris().some(uri => this.matchesServerUri(uri))) {
+				return AuthProvider.githubEnterprise;
+			}
+		} catch {
+			// Invalid Enterprise configuration is reported where the setting is consumed; treat it as unconfigured.
+		}
+		return AuthProvider.github;
 	}
 
 	public get isEnterprise(): boolean {
@@ -38,6 +67,19 @@ export class Remote {
 		public readonly url: string,
 		public readonly gitProtocol: Protocol,
 	) { }
+
+	public matchesServerUri(serverUri: vscode.Uri): boolean {
+		const server = new URL(serverUri.toString());
+		if (server.hostname.toLowerCase() === 'github.com') {
+			return GITHUB_DOT_COM_HOSTS.includes(this.host.toLowerCase());
+		}
+		if (this.gitProtocol.type !== ProtocolType.HTTP) {
+			return this.host.toLowerCase() === server.hostname.toLowerCase();
+		}
+		const remote = new URL(this.normalizedHost);
+		return remote.host.toLowerCase() === server.host.toLowerCase()
+			&& remote.pathname.replace(/\/$/, '') === server.pathname.replace(/\/$/, '');
+	}
 
 	equals(remote: Remote): boolean {
 		if (this.remoteName !== remote.remoteName) {

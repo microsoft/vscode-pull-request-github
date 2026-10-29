@@ -32,6 +32,7 @@ import {
 	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
+	PullRequestStack,
 	Reaction,
 	reviewerId,
 	reviewerLabel,
@@ -53,10 +54,10 @@ import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
+import { OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { escapeRegExp, gitHubLabelColor, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
+import { escapeRegExp, gitHubLabelColor, isObject, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -342,7 +343,7 @@ async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: 
 		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`, 'g');
 	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
 		if (issuesOrPull === 'issues') {
-			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}""`;
+			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}"`;
 		} else {
 			return `href="${(await toOpenPullRequestWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, pullRequestNumber: Number(number) })).toString()}"`;
 		}
@@ -444,7 +445,6 @@ export function convertRESTPullRequestToRawPullRequest(
 			: undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
-		viewerCanUpdate: false,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
@@ -575,6 +575,36 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Reopened;
 		case 'BaseRefChangedEvent':
 			return Common.EventType.BaseRefChanged;
+		case 'UnlabeledEvent':
+			return Common.EventType.Unlabeled;
+		case 'DemilestonedEvent':
+			return Common.EventType.Demilestoned;
+		case 'RenamedTitleEvent':
+			return Common.EventType.RenamedTitle;
+		case 'ReviewRequestedEvent':
+			return Common.EventType.ReviewRequested;
+		case 'ReviewRequestRemovedEvent':
+			return Common.EventType.ReviewRequestRemoved;
+		case 'ReadyForReviewEvent':
+			return Common.EventType.ReadyForReview;
+		case 'ConvertToDraftEvent':
+			return Common.EventType.ConvertToDraft;
+		case 'HeadRefForcePushedEvent':
+			return Common.EventType.HeadRefForcePushed;
+		case 'HeadRefRestoredEvent':
+			return Common.EventType.HeadRefRestored;
+		case 'ReviewDismissedEvent':
+			return Common.EventType.ReviewDismissed;
+		case 'AutoMergeEnabledEvent':
+		case 'AutoSquashEnabledEvent':
+		case 'AutoRebaseEnabledEvent':
+			return Common.EventType.AutoMergeEnabled;
+		case 'AutoMergeDisabledEvent':
+			return Common.EventType.AutoMergeDisabled;
+		case 'AddedToMergeQueueEvent':
+			return Common.EventType.AddedToMergeQueue;
+		case 'RemovedFromMergeQueueEvent':
+			return Common.EventType.RemovedFromMergeQueue;
 		default:
 			return Common.EventType.Other;
 	}
@@ -773,18 +803,27 @@ function parseTeam(team: GraphQL.Team, githubRepository: GitHubRepository): ITea
 	};
 }
 
+/**
+ * Returns undefined for reviewers that can't be displayed, such as teams queried without the additional scopes needed to read their details.
+ */
+function parseRequestedReviewer(reviewer: GraphQL.Actor | GraphQL.Account | GraphQL.Team | GraphQL.Node | null, githubRepository: GitHubRepository): IAccount | ITeam | undefined {
+	if (GraphQL.isTeam(reviewer)) {
+		return parseTeam(reviewer, githubRepository);
+	} else if (GraphQL.isAccount(reviewer) || GraphQL.isBot(reviewer)) {
+		return parseAccount(reviewer, githubRepository);
+	}
+	return undefined;
+}
+
 export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, repository: GitHubRepository): (IAccount | ITeam)[] {
 	if (!data.repository) {
 		return [];
 	}
 	const reviewers: (IAccount | ITeam)[] = [];
 	for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
-		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
-			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
-			reviewers.push(team);
-		} else if (GraphQL.isAccount(reviewer.requestedReviewer) || GraphQL.isBot(reviewer.requestedReviewer)) {
-			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
-			reviewers.push(account);
+		const parsed = parseRequestedReviewer(reviewer.requestedReviewer, repository);
+		if (parsed) {
+			reviewers.push(parsed);
 		}
 	}
 	return reviewers;
@@ -898,6 +937,18 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 	return parsed;
 }
 
+/** Whether a GraphQL error only reports that the server does not have the pull request stack fields. */
+export function isStacksUnsupportedError(error: unknown): boolean {
+	const graphQLErrors = isObject(error) ? error.graphQLErrors : undefined;
+	return Array.isArray(graphQLErrors) && graphQLErrors.length > 0 && graphQLErrors.every((graphQLError: unknown) => {
+		if (!isObject(graphQLError) || !isObject(graphQLError.extensions)) {
+			return false;
+		}
+		const { code, typeName, fieldName } = graphQLError.extensions;
+		return code === 'undefinedField' && typeName === 'PullRequest' && (fieldName === 'stack' || fieldName === 'stackEntry');
+	});
+}
+
 export async function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
@@ -941,10 +992,43 @@ export async function parseGraphQLPullRequest(
 		additions: graphQLPullRequest.additions,
 		deletions: graphQLPullRequest.deletions,
 		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes),
+		stack: parseStackSummary(graphQLPullRequest),
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
 	return pr;
+}
+
+/** A pull request in a stack, with its merge status unknown. */
+export function parseStackEntry(entry: GraphQL.StackEntryNode): PullRequestStack['pullRequests'][number] {
+	const { pullRequest } = entry;
+	return {
+		position: entry.position,
+		number: pullRequest.number,
+		title: pullRequest.title,
+		url: pullRequest.url,
+		head: pullRequest.headRefName,
+		state: pullRequest.state,
+		isDraft: pullRequest.isDraft,
+		mergeable: PullRequestMergeability.Unknown,
+	};
+}
+
+/** `undefined` when the stack was not selected, which GitHub Enterprise does not do. */
+export function parseStackSummary(summary: GraphQL.PullRequestStackSummary): PullRequestStack | null | undefined {
+	const { stack, stackEntry } = summary;
+	if (stack === undefined) {
+		return undefined;
+	}
+	if (!stack || !stackEntry) {
+		return null;
+	}
+	return {
+		position: stackEntry.position,
+		size: stack.size,
+		base: stack.baseRefName,
+		pullRequests: stack.entries.nodes.map(parseStackEntry).sort((a, b) => a.position - b.position),
+	};
 }
 
 function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {
@@ -1215,6 +1299,22 @@ export function eventTime(event: Common.TimelineEvent): Date | undefined {
 		case Common.EventType.CopilotFinished:
 		case Common.EventType.CopilotFinishedError:
 		case Common.EventType.CopilotReviewStarted:
+		case Common.EventType.Labeled:
+		case Common.EventType.Unlabeled:
+		case Common.EventType.Milestoned:
+		case Common.EventType.Demilestoned:
+		case Common.EventType.RenamedTitle:
+		case Common.EventType.ReviewRequested:
+		case Common.EventType.ReviewRequestRemoved:
+		case Common.EventType.ReadyForReview:
+		case Common.EventType.ConvertToDraft:
+		case Common.EventType.HeadRefForcePushed:
+		case Common.EventType.HeadRefRestored:
+		case Common.EventType.ReviewDismissed:
+		case Common.EventType.AutoMergeEnabled:
+		case Common.EventType.AutoMergeDisabled:
+		case Common.EventType.AddedToMergeQueue:
+		case Common.EventType.RemovedFromMergeQueue:
 			return new Date(event.createdAt);
 		case Common.EventType.Reviewed:
 			return new Date(event.submittedAt);
@@ -1223,18 +1323,19 @@ export function eventTime(event: Common.TimelineEvent): Date | undefined {
 	}
 }
 
+function autoMergeMethod(typename: string): MergeMethod | undefined {
+	switch (typename) {
+		case 'AutoSquashEnabledEvent':
+			return 'squash';
+		case 'AutoRebaseEnabledEvent':
+			return 'rebase';
+		default:
+			return undefined;
+	}
+}
+
 export async function parseCombinedTimelineEvents(
-	events: (
-		| GraphQL.MergedEvent
-		| GraphQL.Review
-		| GraphQL.IssueComment
-		| GraphQL.Commit
-		| GraphQL.AssignedEvent
-		| GraphQL.HeadRefDeletedEvent
-		| GraphQL.CrossReferencedEvent
-		| GraphQL.BaseRefChangedEvent
-		| null
-	)[],
+	events: (GraphQL.TimelineItem | null)[],
 	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
 ): Promise<Common.TimelineEvent[]> {
@@ -1263,7 +1364,8 @@ export async function parseCombinedTimelineEvents(
 
 	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
-		if (!event) {
+		// Every timeline item type that a query selects includes its id. Skip the types it doesn't select.
+		if (!event?.id) {
 			continue;
 		}
 		const type = convertGraphQLEventType(event.__typename);
@@ -1307,9 +1409,9 @@ export async function parseCombinedTimelineEvents(
 					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
-					author: commitEv.commit.author.user
+					author: commitEv.commit.author?.user
 						? parseAccount(commitEv.commit.author.user, githubRepository)
-						: { login: commitEv.commit.committer.name },
+						: { login: commitEv.commit.committer?.name ?? '' },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					committedDate: new Date(commitEv.commit.committedDate),
@@ -1337,7 +1439,7 @@ export async function parseCombinedTimelineEvents(
 					event: type,
 					user: parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
-					mergeRef: mergeEv.mergeRef.name,
+					mergeRef: mergeEv.mergeRef?.name ?? mergeEv.mergeRefName,
 					sha: mergeEv.commit.oid,
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,
@@ -1433,6 +1535,133 @@ export async function parseCombinedTimelineEvents(
 					createdAt: baseRefChangedEv.createdAt,
 					currentRefName: baseRefChangedEv.currentRefName,
 					previousRefName: baseRefChangedEv.previousRefName,
+				});
+				break;
+			case Common.EventType.Labeled:
+			case Common.EventType.Unlabeled:
+				const labelEv = event as GraphQL.LabeledEvent;
+
+				addTimelineEvent({
+					id: labelEv.id,
+					event: type,
+					actor: parseAccount(labelEv.actor, githubRepository),
+					createdAt: labelEv.createdAt,
+					label: {
+						name: labelEv.label.name,
+						color: labelEv.label.color,
+						displayName: emojify(labelEv.label.name),
+					},
+				});
+				break;
+			case Common.EventType.Milestoned:
+			case Common.EventType.Demilestoned:
+				const milestoneEv = event as GraphQL.MilestonedEvent;
+
+				addTimelineEvent({
+					id: milestoneEv.id,
+					event: type,
+					actor: parseAccount(milestoneEv.actor, githubRepository),
+					createdAt: milestoneEv.createdAt,
+					milestoneTitle: milestoneEv.milestoneTitle,
+				});
+				break;
+			case Common.EventType.RenamedTitle:
+				const renamedEv = event as GraphQL.RenamedTitleEvent;
+
+				addTimelineEvent({
+					id: renamedEv.id,
+					event: type,
+					actor: parseAccount(renamedEv.actor, githubRepository),
+					createdAt: renamedEv.createdAt,
+					previousTitle: renamedEv.previousTitle,
+					currentTitle: renamedEv.currentTitle,
+				});
+				break;
+			case Common.EventType.ReviewRequested:
+			case Common.EventType.ReviewRequestRemoved:
+				const reviewRequestEv = event as GraphQL.ReviewRequestedEvent;
+				const reviewer = parseRequestedReviewer(reviewRequestEv.requestedReviewer, githubRepository);
+				if (!reviewer) {
+					break;
+				}
+
+				addTimelineEvent({
+					id: reviewRequestEv.id,
+					event: type,
+					actor: parseAccount(reviewRequestEv.actor, githubRepository),
+					createdAt: reviewRequestEv.createdAt,
+					reviewer,
+				});
+				break;
+			case Common.EventType.ReadyForReview:
+			case Common.EventType.ConvertToDraft:
+			case Common.EventType.AddedToMergeQueue:
+				const actorEv = event as GraphQL.ActorTimelineEvent;
+
+				addTimelineEvent({
+					id: actorEv.id,
+					event: type,
+					actor: parseAccount(actorEv.actor, githubRepository),
+					createdAt: actorEv.createdAt,
+				});
+				break;
+			case Common.EventType.HeadRefForcePushed:
+				const forcePushedEv = event as GraphQL.HeadRefForcePushedEvent;
+
+				addTimelineEvent({
+					id: forcePushedEv.id,
+					event: type,
+					actor: parseAccount(forcePushedEv.actor, githubRepository),
+					createdAt: forcePushedEv.createdAt,
+					headRef: forcePushedEv.pullRequest.headRefName,
+					beforeCommit: forcePushedEv.beforeCommit ? { sha: forcePushedEv.beforeCommit.oid, url: forcePushedEv.beforeCommit.commitUrl } : undefined,
+					afterCommit: forcePushedEv.afterCommit ? { sha: forcePushedEv.afterCommit.oid, url: forcePushedEv.afterCommit.commitUrl } : undefined,
+				});
+				break;
+			case Common.EventType.HeadRefRestored:
+				const restoredEv = event as GraphQL.HeadRefRestoredEvent;
+
+				addTimelineEvent({
+					id: restoredEv.id,
+					event: type,
+					actor: parseAccount(restoredEv.actor, githubRepository),
+					createdAt: restoredEv.createdAt,
+					headRef: restoredEv.pullRequest.headRefName,
+				});
+				break;
+			case Common.EventType.ReviewDismissed:
+				const dismissedEv = event as GraphQL.ReviewDismissedEvent;
+
+				addTimelineEvent({
+					id: dismissedEv.id,
+					event: type,
+					actor: parseAccount(dismissedEv.actor, githubRepository),
+					createdAt: dismissedEv.createdAt,
+					reviewAuthor: dismissedEv.review?.author ? parseAccount(dismissedEv.review.author, githubRepository) : undefined,
+					dismissalMessage: dismissedEv.dismissalMessage ?? undefined,
+				});
+				break;
+			case Common.EventType.AutoMergeEnabled:
+				const autoMergeEnabledEv = event as GraphQL.AutoMergeEnabledEvent;
+
+				addTimelineEvent({
+					id: autoMergeEnabledEv.id,
+					event: type,
+					actor: parseAccount(autoMergeEnabledEv.actor, githubRepository),
+					createdAt: autoMergeEnabledEv.createdAt,
+					mergeMethod: autoMergeMethod(autoMergeEnabledEv.__typename),
+				});
+				break;
+			case Common.EventType.AutoMergeDisabled:
+			case Common.EventType.RemovedFromMergeQueue:
+				const reasonEv = event as GraphQL.AutoMergeDisabledEvent | GraphQL.RemovedFromMergeQueueEvent;
+
+				addTimelineEvent({
+					id: reasonEv.id,
+					event: type,
+					actor: parseAccount(reasonEv.actor, githubRepository),
+					createdAt: reasonEv.createdAt,
+					reason: reasonEv.reason ?? undefined,
 				});
 				break;
 			default:
@@ -1793,25 +2022,6 @@ export function getStateFromQuery(query: string): GithubItemStateEnum | undefine
 
 export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
-}
-
-export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
-}
-
-export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
-	if (config) {
-		let uri = vscode.Uri.parse(config, true);
-		if (uri.scheme === 'http') {
-			uri = uri.with({ scheme: 'https' });
-		}
-		return uri;
-	}
-}
-
-export function hasEnterpriseUri(): boolean {
-	return !!getEnterpriseUri();
 }
 
 export function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {

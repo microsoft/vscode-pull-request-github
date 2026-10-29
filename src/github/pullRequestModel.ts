@@ -13,7 +13,7 @@ import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, StackBranchComparison } from './githubRepository';
 import {
 	AddCommentResponse,
 	AddReactionResponse,
@@ -36,6 +36,7 @@ import {
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
 	PullRequestMergabilityResponse,
+	PullRequestStackResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
 	ReviewThread,
@@ -54,6 +55,7 @@ import {
 	IGitTreeItem,
 	IRawFileChange,
 	IRawFileContent,
+	isStackMergeable,
 	IssueReference,
 	ISuggestedReviewer,
 	ITeam,
@@ -62,18 +64,22 @@ import {
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
+	PullRequestMergeabilityResult,
 	PullRequestReviewRequirement,
+	PullRequestStack,
 	ReadyForReview,
 	ReviewEventEnum,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
 import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
+import { checkStackBranches } from './pullRequestStack';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
+	isStacksUnsupportedError,
 	parseAccount,
 	parseCombinedTimelineEvents,
 	parseGraphQLComment,
@@ -83,6 +89,7 @@ import {
 	parseGraphQLReviewThread,
 	parseMergeability,
 	parseMergeQueueEntry,
+	parseStackEntry,
 	RestAccount,
 	restPaginate,
 } from './utils';
@@ -99,7 +106,7 @@ import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKe
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
-import { formatError, isDescendant } from '../common/utils';
+import { formatError, isDescendant, isObject } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 
 interface IPullRequestModel {
@@ -128,6 +135,34 @@ export type FileViewedState = { [key: string]: ViewedState };
 type TreeDataMode = '100644' | '100755' | '120000';
 
 const BATCH_SIZE = 50;
+const STACK_MERGE_POLL_INTERVAL_MS = 3000;
+const STACK_MERGE_TIMEOUT_MS = 5 * 60 * 1000;
+
+type AsyncMergeResponse =
+	| { status: 'pending'; details: { uuid: string; message: string } }
+	| { status: 'merged' | 'enqueued' | 'failed'; details: { message: string } };
+
+export type StackMergeOutcome = 'merged' | 'enqueued' | 'pending' | 'cancelled';
+
+function parseAsyncMergeResponse(value: unknown): AsyncMergeResponse {
+	if (!isObject(value)) {
+		throw new Error('GitHub returned an invalid stack merge result.');
+	}
+	const { status, details } = value;
+	if (!isObject(details) || typeof details.message !== 'string') {
+		throw new Error('GitHub returned an invalid stack merge result.');
+	}
+	if (status === 'pending') {
+		if (typeof details.uuid !== 'string' || !details.uuid) {
+			throw new Error('GitHub did not return a stack merge request ID.');
+		}
+		return { status, details: { uuid: details.uuid, message: details.message } };
+	}
+	if (status === 'merged' || status === 'enqueued' || status === 'failed') {
+		return { status, details: { message: details.message } };
+	}
+	throw new Error('GitHub returned an unknown stack merge result.');
+}
 
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static override ID = 'PullRequestModel';
@@ -262,10 +297,29 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		// REST pull request lists don't include these, so keep the values that are already known.
+		if (item.viewerCanUpdate === undefined) {
+			item.viewerCanUpdate = this.item.viewerCanUpdate;
+		}
+		if (item.mergeable === undefined) {
+			item.mergeable = this.item.mergeable;
+		}
+		if (item.stack === undefined) {
+			item.stack = this.item.stack;
+		}
 		const changes = super.doUpdate(item) as IssueChangeEvent;
 		if (this.isDraft !== item.isDraft) {
 			changes.draft = true;
 			this.isDraft = item.isDraft;
+		}
+		if (this.head && item.head && (this.head.ref !== item.head.ref || this.head.sha !== item.head.sha)) {
+			changes.head = true;
+		}
+		if (this.item.mergeable !== item.mergeable) {
+			changes.mergeability = true;
+		}
+		if (this.base && item.base && (this.base.ref !== item.base.ref || this.base.sha !== item.base.sha)) {
+			changes.base = true;
 		}
 
 		this.suggestedReviewers = item.suggestedReviewers;
@@ -284,6 +338,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
 		}
 		if (item.mergeQueueEntry !== undefined) {
+			if (this.mergeQueueEntry?.position !== item.mergeQueueEntry?.position
+				|| this.mergeQueueEntry?.state !== item.mergeQueueEntry?.state
+				|| this.mergeQueueEntry?.url !== item.mergeQueueEntry?.url) {
+				changes.mergeQueue = true;
+			}
 			this.mergeQueueEntry = item.mergeQueueEntry ?? undefined;
 		}
 		if (item.hasComments !== undefined) {
@@ -421,46 +480,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { mutate, schema } = await this.githubRepository.ensure();
 
 		const workingDirectorySHA = repository.state.HEAD?.commit;
-		const mergingPRSHA = this.head?.sha;
-		const workingDirectoryIsDirty = repository.state.workingTreeChanges.length > 0;
 		let expectedHeadOid: string | undefined = this.head?.sha;
 
 		if (this.isActive) {
 			// We're on the branch of the pr being merged.
 			expectedHeadOid = workingDirectorySHA;
-			if (workingDirectorySHA !== mergingPRSHA) {
-				// We are looking at different commit than what will be merged
-				const { ahead } = repository.state.HEAD!;
-				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
-				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
-				if (ahead &&
-					(await vscode.window.showWarningMessage(
-						ahead > 1 ? pluralMessage : singularMessage,
-						{ modal: true },
-						vscode.l10n.t('Yes'),
-					)) === undefined) {
-
-					return {
-						merged: false,
-						message: vscode.l10n.t('unpushed changes'),
-					};
-				}
-			}
-
-			if (workingDirectoryIsDirty) {
-				// We have made changes to the PR that are not committed
-				if (
-					(await vscode.window.showWarningMessage(
-						vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
-						{ modal: true },
-						vscode.l10n.t('Yes'),
-					)) === undefined
-				) {
-					return {
-						merged: false,
-						message: vscode.l10n.t('uncommitted changes'),
-					};
-				}
+			const localChangesWarning = await this.confirmLocalChanges(repository);
+			if (localChangesWarning) {
+				return { merged: false, message: localChangesWarning };
 			}
 		}
 		const input: MergePullRequestInput = {
@@ -475,7 +502,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		};
 
 		return mutate<MergePullRequestResponse>({
-			mutation: schema.MergePullRequest,
+			mutation: this.credentialStore.isAuthenticatedWithAdditionalScopes(this.githubRepository.remote.authProviderId) ? schema.MergePullRequestAdditionalScopes : schema.MergePullRequest,
 			variables: {
 				input
 			}
@@ -502,6 +529,117 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					throw e;
 				}
 			});
+	}
+
+	private async confirmLocalChanges(repository: Repository): Promise<string | undefined> {
+		const localHead = repository.state.HEAD;
+		if (!localHead) {
+			throw new Error('The checked out pull request branch has no HEAD commit.');
+		}
+		if (localHead.commit !== this.head?.sha) {
+			const ahead = localHead.ahead;
+			const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this pull request branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+			const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this pull request branch.\n\nWould you like to proceed anyway?');
+			if (ahead && (await vscode.window.showWarningMessage(
+				ahead > 1 ? pluralMessage : singularMessage,
+				{ modal: true },
+				vscode.l10n.t('Yes'),
+			)) === undefined) {
+				return vscode.l10n.t('unpushed changes');
+			}
+		}
+		if (repository.state.workingTreeChanges.length > 0 && (await vscode.window.showWarningMessage(
+			vscode.l10n.t('You have uncommitted changes on this pull request branch.\n\n Would you like to proceed anyway?'),
+			{ modal: true },
+			vscode.l10n.t('Yes'),
+		)) === undefined) {
+			return vscode.l10n.t('uncommitted changes');
+		}
+		return;
+	}
+
+	/**
+	 * Merges this pull request together with the open pull requests below it in its stack.
+	 * @param upTo The pull request at or above this one to merge the stack up to, which GitHub merges together with
+	 * every open pull request below it.
+	 */
+	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue',
+		upTo: number = this.number): Promise<StackMergeOutcome> {
+		const current = stack.pullRequests.find(entry => entry.number === this.number);
+		if (current?.state !== GithubItemStateEnum.Open) {
+			throw new Error(`Pull request #${this.number} is not open in this stack.`);
+		}
+		const top = stack.pullRequests.find(entry => entry.number === upTo);
+		if (!top || top.position < current.position) {
+			throw new Error(`Pull request #${upTo} is not at or above #${this.number} in this stack.`);
+		}
+		if (!isStackMergeable(stack, upTo)) {
+			throw new Error(`Pull request stack for #${this.number} is not ready to merge.`);
+		}
+		const target = upTo === this.number ? this : await this.githubRepository.getPullRequest(upTo, 'mergeStack');
+		const headSha = target?.head?.sha;
+		if (!headSha) {
+			throw new Error(`Missing head commit for pull request #${upTo}.`);
+		}
+		// Any of the pull requests that are merged could be the one that is checked out.
+		const checkedOut = stack.pullRequests
+			.filter(entry => entry.position <= top.position && entry.state === GithubItemStateEnum.Open)
+			.map(entry => entry.number === this.number ? this : entry.number === upTo ? target : this.githubRepository.getExistingPullRequestModel(entry.number))
+			.find(model => model?.isActive);
+		if (checkedOut && await checkedOut.confirmLocalChanges(repository)) {
+			return 'cancelled';
+		}
+
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const route = '/repos/{owner}/{repo}/pulls/{pull_number}/merge-async';
+		const parameters = {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			pull_number: upTo,
+			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+		};
+		let response: AsyncMergeResponse;
+		try {
+			const result = await octokit.call(() => octokit.api.request(`PUT ${route}`, {
+				...parameters,
+				sha: headSha,
+				merge_action: mergeAction,
+				...(mergeAction === 'direct_merge' ? { merge_method: method } : {}),
+			}));
+			response = parseAsyncMergeResponse(result.data);
+		} catch (error) {
+			if (!isObject(error) || error.status !== 409 || !isObject(error.response)) {
+				throw error;
+			}
+			const pending = parseAsyncMergeResponse(error.response.data);
+			if (pending.status !== 'pending') {
+				throw error;
+			}
+			response = pending;
+		}
+
+		const deadline = Date.now() + STACK_MERGE_TIMEOUT_MS;
+		while (response.status === 'pending') {
+			const uuid = response.details.uuid;
+			if (Date.now() >= deadline) {
+				return 'pending';
+			}
+			await new Promise<void>(resolve => setTimeout(resolve, STACK_MERGE_POLL_INTERVAL_MS));
+			const result = await octokit.call(() => octokit.api.request(`GET ${route}/{uuid}`, {
+				...parameters,
+				uuid,
+			}));
+			response = parseAsyncMergeResponse(result.data);
+		}
+		if (response.status === 'failed') {
+			throw new Error(response.details?.message || 'GitHub could not merge this pull request stack.');
+		}
+		if (response.status !== 'merged' && response.status !== 'enqueued') {
+			throw new Error('GitHub returned an unknown stack merge result.');
+		}
+		Logger.debug(`Stack merge for #${this.number} up to #${upTo}: ${response.status}`, PullRequestModel.ID);
+		this.githubRepository.notifyStackChanged(stack.pullRequests.map(entry => entry.number));
+		return response.status;
 	}
 
 	/**
@@ -894,7 +1032,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const { query, remote, schema } = await this.githubRepository.ensure();
 			try {
 				const { data } = await query<TimelineEventsResponse>({
-					query: schema.TimelineEvents,
+					query: this.credentialStore.isAuthenticatedWithAdditionalScopes(this.githubRepository.remote.authProviderId) ? schema.TimelineEventsAdditionalScopes : schema.TimelineEvents,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
@@ -949,7 +1087,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
 			}
 
-			return parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
+			// Await so that a parsing failure is caught here instead of failing the caller's whole batch.
+			return await parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
 		} catch (e) {
 			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
 			console.log(e);
@@ -1620,6 +1759,84 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this.githubRepository.getStatusChecks(this.number);
 	}
 
+	async getStack(): Promise<PullRequestStack | undefined> {
+		const start = performance.now();
+		const { query, remote, schema } = await this.githubRepository.ensure();
+		let stack: PullRequestStack | undefined;
+		let after: string | null = null;
+		const comparisons = new Map<number, StackBranchComparison>();
+
+		while (true) {
+			let data: PullRequestStackResponse;
+			try {
+				({ data } = await query<PullRequestStackResponse>({
+					query: schema.PullRequestStack,
+					variables: { owner: remote.owner, name: remote.repositoryName, number: this.number, after },
+				}, false, undefined, false));
+			} catch (error) {
+				if (!stack && isStacksUnsupportedError(error)) {
+					Logger.debug('Pull request stacks are not supported by this GitHub server.', PullRequestModel.ID);
+					return;
+				}
+				throw error;
+			}
+			const pullRequest = data?.repository?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(`Unable to load stack for pull request #${this.number}.`);
+			}
+			if (!pullRequest.stack) {
+				if (stack) {
+					throw new Error(`Stack changed while loading pull request #${this.number}.`);
+				}
+				return;
+			}
+			if (!pullRequest.stackEntry) {
+				throw new Error(`Missing stack position for pull request #${this.number}.`);
+			}
+
+			stack ??= {
+				position: pullRequest.stackEntry.position,
+				size: pullRequest.stack.size,
+				base: pullRequest.stack.baseRefName,
+				needsUpdate: false,
+				pullRequests: [],
+			};
+			stack.pullRequests.push(...pullRequest.stack.entries.nodes.map(entry => {
+				const pr = entry.pullRequest;
+				if (pr.state === GithubItemStateEnum.Open) {
+					if (!pr.headRepository || !pr.baseRefName || !pr.headRefName) {
+						throw new Error(`Missing branch information for pull request #${pr.number} in this stack.`);
+					}
+					comparisons.set(pr.number, {
+						// A pull request's base branch is always in its own repository.
+						base: pr.baseRefName,
+						head: `${pr.headRepository.owner.login}:${pr.headRefName}`,
+					});
+				}
+				return {
+					...parseStackEntry(entry),
+					isQueued: !!pr.mergeQueueEntry,
+					mergeable: parseMergeability(pr.mergeable, pr.mergeStateStatus),
+				};
+			}));
+
+			const pageInfo = pullRequest.stack.entries.pageInfo;
+			if (!pageInfo.hasNextPage) {
+				stack.pullRequests.sort((a, b) => a.position - b.position);
+				const loaded = performance.now();
+				const { needsUpdate, mergeQueueMethod } = await checkStackBranches(this.githubRepository, stack.pullRequests, comparisons, true, stack.base);
+				stack.needsUpdate = needsUpdate;
+				stack.mergeQueueMethod = mergeQueueMethod;
+				Logger.debug(`Loaded the stack of #${this.number} in ${Math.round(performance.now() - start)}ms (stack: ${Math.round(loaded - start)}ms, branches: ${Math.round(performance.now() - loaded)}ms)`, PullRequestModel.ID);
+				return stack;
+			}
+			if (!pageInfo.endCursor || pageInfo.endCursor === after) {
+				throw new Error(`Missing next page of stack for pull request #${this.number}.`);
+			}
+			after = pageInfo.endCursor;
+		}
+	}
+
 	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, openToTheSide?: boolean): Promise<void> {
 		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
@@ -1643,7 +1860,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
+	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, title: string): Promise<void> {
 		const headCommit = pullRequestModel.head?.sha;
 		if (!headCommit) {
 			throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
@@ -1698,7 +1915,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		*/
 		folderManager.telemetry.sendTelemetryEvent('pr.viewChanges', { source: localChanges ? 'git' : 'github' });
-		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+		return vscode.commands.executeCommand('vscode.changes', title, args);
 	}
 
 	private static async getLocalMergeBase(repository: Repository, baseCommit: string, headCommit: string): Promise<string | undefined> {
@@ -1836,7 +2053,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		line?: number
 	): Promise<void> {
 		let headUri, baseUri: vscode.Uri;
-		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
+		if ((change instanceof InMemFileChange && change.submoduleChange) || !pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			headUri = toPRUri(
@@ -1847,7 +2064,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				false,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.head : undefined,
 			);
 			baseUri = toPRUri(
 				vscode.Uri.file(resolvePath(folderManager.repository.rootUri, parentFileName)),
@@ -1857,7 +2075,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				true,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.base : undefined,
 			);
 		} else {
 			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
@@ -2055,7 +2274,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the current mergeability of the pull request.
 	 */
-	async getMergeability(): Promise<{ mergeability: PullRequestMergeability, conflicts?: string[] }> {
+	async getMergeability(): Promise<PullRequestMergeabilityResult> {
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
@@ -2087,9 +2306,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
+			const previousMergeability = this.item.mergeable;
 			this.item.mergeable = mergeability;
+			const viewerCanUpdate = data.repository?.pullRequest.viewerCanUpdate;
+			if (viewerCanUpdate !== undefined) {
+				this.item.viewerCanUpdate = viewerCanUpdate;
+			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
 			this.update(this.item);
+			if (previousMergeability !== mergeability) {
+				this._onDidChange.fire({ mergeability: true });
+			}
 			return { mergeability, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
@@ -2104,7 +2331,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
+			const { data, errors } = await mutate<MarkPullRequestReadyForReviewResponse>({
 				mutation: schema.ReadyForReview,
 				variables: {
 					input: {
@@ -2113,16 +2340,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.markPullRequestReadyForReview?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.readyForReview.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
 
 			const result: ReadyForReview = {
-				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.markPullRequestReadyForReview.pullRequest.mergeable, data!.markPullRequestReadyForReview.pullRequest.mergeStateStatus),
-				allowAutoMerge: data!.markPullRequestReadyForReview.pullRequest.viewerCanEnableAutoMerge || data!.markPullRequestReadyForReview.pullRequest.viewerCanDisableAutoMerge
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
+				allowAutoMerge: pullRequest.viewerCanEnableAutoMerge || pullRequest.viewerCanDisableAutoMerge
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this.item.allowAutoMerge = result.allowAutoMerge;
@@ -2144,7 +2377,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<ConvertPullRequestToDraftResponse>({
+			const { data, errors } = await mutate<ConvertPullRequestToDraftResponse>({
 				mutation: schema.ConvertToDraft,
 				variables: {
 					input: {
@@ -2153,15 +2386,21 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.convertPullRequestToDraft?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.convertToDraft.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.convertToDraft.success');
 
 			const result: ConvertToDraft = {
-				isDraft: data!.convertPullRequestToDraft.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.convertPullRequestToDraft.pullRequest.mergeable, data!.convertPullRequestToDraft.pullRequest.mergeStateStatus),
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this._onDidChange.fire({ draft: true });

@@ -5,6 +5,7 @@
 
 import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
+import gql from 'graphql-tag';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
@@ -33,15 +34,22 @@ import {
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
+	PullRequestStackSummariesResponse,
 	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
+	StackablePullRequestBranchesNode,
+	StackablePullRequestConnection,
+	StackablePullRequestNode,
+	StackablePullRequestsResponse,
+	StackBranchStatusResponse,
 	SuggestedActorsResponse,
 	UserResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
 	CheckState,
+	GithubItemStateEnum,
 	IAccount,
 	IMilestone,
 	IProject,
@@ -53,6 +61,7 @@ import {
 	PullRequestCheckStatus,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
+	StackablePullRequest,
 	User,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
@@ -66,16 +75,22 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
+	GraphQLAccount,
 	isInCodespaces,
+	isStacksUnsupportedError,
 	parseAccount,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLUser,
 	parseGraphQLViewerPermission,
+	parseMergeability,
 	parseMergeMethod,
 	parseMilestone,
+	parseStackSummary,
 	restPaginate,
 } from './utils';
+import { IssuePreview, PullRequestPreview } from './views';
+import { StackCandidate } from '../../common/views';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 
 import { Disposable, disposeAll } from '../common/lifecycle';
@@ -86,6 +101,7 @@ import { GitHubRemote, parseRemote } from '../common/remote';
 
 import { BRANCH_LIST_TIMEOUT, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
+import { compareIgnoreCase, isObject } from '../common/utils';
 
 import { PullRequestCommentController } from '../view/pullRequestCommentController';
 
@@ -175,6 +191,93 @@ export interface PullRequestChangeEvent {
 	event: IssueChangeEvent;
 }
 
+/** A pull request in a stack, with the branch and commit GitHub reported for it. */
+export interface StackMemberHead {
+	number: number;
+	ref: string;
+	sha: string;
+}
+
+/** Two branches to compare, to tell whether the head is behind the base. */
+export interface StackBranchComparison {
+	/** A branch in this repository. */
+	base: string;
+	/** A branch as `owner:branch`, which can be in a fork. */
+	head: string;
+}
+
+export interface StackBranchStatus {
+	/** How many commits each head is behind its base, in the order they were compared. */
+	behindBy: (number | undefined)[];
+	mergeQueueMethod?: MergeMethod;
+}
+
+export type StackRebaseOutcome = {
+	status: 'rebased' | 'pending';
+	/** The stack's pull requests as they were before the rebase. */
+	before: StackMemberHead[];
+	/** The pull requests whose head GitHub changed, when GitHub reported them. */
+	rebasedPullRequests?: number[];
+};
+
+const STACK_API_HEADERS = { 'X-GitHub-Api-Version': '2026-03-10' };
+const STACK_REBASE_POLL_INTERVAL_MS = 3000;
+const STACK_REBASE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** GitHub's result for one pull request of a finished stack rebase. */
+interface StackRebasePullRequestResult {
+	number: number;
+	status: string;
+	before?: string;
+	after?: string;
+}
+
+type StackRebaseStatus =
+	| { state: 'pending' }
+	| { state: 'rebased'; pullRequests: StackRebasePullRequestResult[] }
+	| { state: 'failed'; message: string };
+
+/** The states, other than `done`, of a stack rebase job that is still running. Only `pending` has been observed. */
+const PENDING_STACK_REBASE_STATES = new Set(['pending', 'queued', 'running', 'in_progress']);
+
+/**
+ * Parses the status of a stack rebase job. Starting a rebase returns `{ status: 'pending', status_url }`. Polling
+ * returns `{ job_state, pull_requests: [{ pull_request_number, status, before, after }] }`; a finished job has the
+ * state `done`, and each rebased pull request has the status `succeeded`. Other values are not documented yet, so a
+ * value that is not recognized is reported rather than treated as success.
+ */
+function parseStackRebaseStatus(value: unknown): StackRebaseStatus {
+	const state = isObject(value) ? value.job_state ?? value.status : undefined;
+	if (!isObject(value) || typeof state !== 'string') {
+		throw new Error('GitHub returned an invalid stack rebase status.');
+	}
+	if (PENDING_STACK_REBASE_STATES.has(state)) {
+		return { state: 'pending' };
+	}
+	if (state !== 'done') {
+		const message = typeof value.message === 'string' ? ` (${value.message})` : '';
+		throw new Error(`GitHub returned an unknown stack rebase state: ${state}${message}`);
+	}
+	if (!Array.isArray(value.pull_requests) || !value.pull_requests.every((pr: unknown) =>
+		isObject(pr) && typeof pr.pull_request_number === 'number' && typeof pr.status === 'string')) {
+		throw new Error('GitHub returned an invalid stack rebase result.');
+	}
+	const pullRequests: StackRebasePullRequestResult[] = value.pull_requests.map((pr: Record<string, unknown>) => ({
+		number: pr.pull_request_number as number,
+		status: pr.status as string,
+		before: typeof pr.before === 'string' ? pr.before : undefined,
+		after: typeof pr.after === 'string' ? pr.after : undefined,
+	}));
+	const unsuccessful = pullRequests.filter(pr => pr.status !== 'succeeded');
+	if (unsuccessful.length) {
+		return {
+			state: 'failed',
+			message: `GitHub could not rebase every pull request in the stack: ${unsuccessful.map(pr => `#${pr.number} (${pr.status})`).join(', ')}.`,
+		};
+	}
+	return { state: 'rebased', pullRequests };
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	private static _allRepoIds: Set<number> = new Set();
@@ -216,8 +319,17 @@ export class GitHubRepository extends Disposable {
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
 	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
 	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
+	private readonly _onDidChangeStack = this._register(new vscode.EventEmitter<readonly number[]>());
+	public readonly onDidChangeStack = this._onDidChangeStack.event;
+
+	notifyStackChanged(numbers: readonly number[]): void {
+		this._onDidChangeStack.fire(numbers);
+	}
 
 	public get hub(): GitHub {
+		if (this._hub && this.remote.isEnterprise && (!this.authMatchesServer || !this.remote.matchesServerUri(this._hub.serverUri))) {
+			throw new AuthenticationError(vscode.l10n.t('The authentication session no longer matches this GitHub repository. Refresh the repository or sign in again.'));
+		}
 		if (!this._hub) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
@@ -295,6 +407,14 @@ export class GitHubRepository extends Disposable {
 		super();
 		GitHubRepository._allRepoIds.add(this._id);
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, defaultSchema);
+		this._register(this._credentialStore.onDidChangeSessions(e => {
+			if (e.provider.id === this.remote.authProviderId) {
+				this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+				if (e.accountChanged || e.serverChanged) {
+					this._metadata = undefined;
+				}
+			}
+		}));
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -304,8 +424,9 @@ export class GitHubRepository extends Disposable {
 	get authMatchesServer(): boolean {
 		if ((this.remote.githubServerType === GitHubServerType.GitHubDotCom) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			return true;
-		} else if ((this.remote.githubServerType === GitHubServerType.Enterprise) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
-			return true;
+		} else if (this.remote.githubServerType === GitHubServerType.Enterprise) {
+			const hub = this._credentialStore.getHub(AuthProvider.githubEnterprise);
+			return !!hub && this.remote.matchesServerUri(hub.serverUri);
 		} else {
 			// Not good. We have a mismatch between auth type and server type.
 			return false;
@@ -328,7 +449,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables: OperationVariables }): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode, variables: OperationVariables }, allowLimitedFallback: boolean = true): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -355,7 +476,7 @@ export class GitHubRepository extends Disposable {
 				return this.query(query, ignoreSamlErrors);
 			}
 
-			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
+			if (allowLimitedFallback && gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
@@ -477,7 +598,6 @@ export class GitHubRepository extends Disposable {
 
 	async ensure(additionalScopes: boolean = false): Promise<GitHubRepository> {
 		this._initialized = true;
-		const oldHub = this._hub;
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
 			// We need auth now. (ex., a PR is already checked out)
 			// We can no longer wait until later for login to be done
@@ -493,7 +613,15 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 
-		if (oldHub !== this._hub) {
+		if (this._hub && !this.remote.matchesServerUri(this._hub.serverUri)) {
+			this._hub = undefined;
+			const error = new AuthenticationError(vscode.l10n.t('The selected authentication session does not match the GitHub server for this repository.'));
+			Logger.warn(error.message, this.id);
+			throw error;
+		}
+
+		// A session event may have already refreshed the hub before ensure().
+		if (this._hub) {
 			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId) || (this.remote.authProviderId === AuthProvider.githubEnterprise)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default, limitedSchema.default);
@@ -598,10 +726,21 @@ export class GitHubRepository extends Disposable {
 	}
 
 	private _branchHasMergeQueue: Map<string, MergeMethod> = new Map();
+	private readonly _mergeQueueRequests = new Map<string, Promise<MergeMethod | undefined>>();
 	async mergeQueueMethodForBranch(branch: string): Promise<MergeMethod | undefined> {
 		if (this._branchHasMergeQueue.has(branch)) {
 			return this._branchHasMergeQueue.get(branch)!;
 		}
+		// The overview looks up its base branch for the merge controls and the stack at the same time, so they share a request.
+		let request = this._mergeQueueRequests.get(branch);
+		if (!request) {
+			request = this.fetchMergeQueueMethod(branch).finally(() => this._mergeQueueRequests.delete(branch));
+			this._mergeQueueRequests.set(branch, request);
+		}
+		return request;
+	}
+
+	private async fetchMergeQueueMethod(branch: string): Promise<MergeMethod | undefined> {
 		try {
 			Logger.debug('Fetch branch has merge queue - enter', this.id);
 			const { query, remote, schema } = await this.ensure();
@@ -626,6 +765,46 @@ export class GitHubRepository extends Disposable {
 		} catch (e) {
 			Logger.error(`Fetching branch has merge queue failed: ${e}`, this.id);
 		}
+	}
+
+	/**
+	 * Gets how many commits each head branch is behind its base branch, and the merge queue of a branch, in one request.
+	 * Unlike the REST comparison, this does not download the changes between the branches.
+	 * @param comparisons The base branch in this repository, and the head branch as `owner:branch`, of each comparison.
+	 * @param mergeQueueBranch A branch to look up the merge queue of.
+	 * @returns How many commits each head is behind its base, or `undefined` when the base branch does not exist.
+	 */
+	async getStackBranchStatus(comparisons: readonly StackBranchComparison[], mergeQueueBranch?: string): Promise<StackBranchStatus> {
+		if (!comparisons.length && mergeQueueBranch === undefined) {
+			return { behindBy: [] };
+		}
+		const { query, remote } = await this.ensure();
+		// Branch names are passed as variables rather than written into the query.
+		const variables: Record<string, string> = { owner: remote.owner, name: remote.repositoryName };
+		const definitions = ['$owner: String!', '$name: String!'];
+		const fields = comparisons.map((comparison, index) => {
+			variables[`base${index}`] = `refs/heads/${comparison.base}`;
+			variables[`head${index}`] = comparison.head;
+			definitions.push(`$base${index}: String!`, `$head${index}: String!`);
+			return `compare${index}: ref(qualifiedName: $base${index}) { compare(headRef: $head${index}) { behindBy } }`;
+		});
+		if (mergeQueueBranch !== undefined) {
+			variables.mergeQueueBranch = mergeQueueBranch;
+			definitions.push('$mergeQueueBranch: String!');
+			fields.push('mergeQueue(branch: $mergeQueueBranch) { configuration { mergeMethod } }');
+		}
+		const { data } = await query<StackBranchStatusResponse>({
+			query: gql(`query StackBranchStatus(${definitions.join(', ')}) { repository(owner: $owner, name: $name) { ${fields.join(' ')} } }`),
+			variables,
+		}, false, undefined, false);
+		const repository = data?.repository;
+		if (!repository) {
+			throw new Error(`Unable to compare the stack branches in ${remote.owner}/${remote.repositoryName}.`);
+		}
+		return {
+			behindBy: comparisons.map((_, index) => repository[`compare${index}`]?.compare?.behindBy),
+			mergeQueueMethod: parseMergeMethod(repository.mergeQueue?.configuration?.mergeMethod),
+		};
 	}
 
 	async commit(branch: string, message: string, files: Map<string, Uint8Array>): Promise<boolean> {
@@ -706,6 +885,8 @@ export class GitHubRepository extends Disposable {
 				})
 				.filter(item => item !== null) as PullRequestModel[];
 
+			// The REST API does not include the stack that each pull request is in, which is shown as soon as one is opened.
+			void this.loadStackSummaries(pullRequests);
 			Logger.debug(`Fetch all pull requests - done`, this.id);
 			return {
 				items: pullRequests,
@@ -723,6 +904,37 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 		return undefined;
+	}
+
+	/**
+	 * Loads the stack that each pull request is in, without the merge status of the pull requests in it, in one request.
+	 * This is for pull requests that were loaded without it, such as by the REST API. Failures are only logged.
+	 */
+	async loadStackSummaries(pullRequests: readonly PullRequestModel[]): Promise<void> {
+		if (!pullRequests.length) {
+			return;
+		}
+		// A pull request that is loaded again while this request is in flight already has newer stack information.
+		const items = pullRequests.map(pullRequest => pullRequest.item);
+		try {
+			const { query, schema } = await this.ensure();
+			// The stack is not loaded with pull requests from GitHub Enterprise, since not every server supports stacks.
+			if (this.areQueriesLimited) {
+				return;
+			}
+			const { data } = await query<PullRequestStackSummariesResponse>({
+				query: schema.PullRequestStackSummaries,
+				variables: { ids: pullRequests.map(pullRequest => pullRequest.graphNodeId) },
+			}, false, undefined, false);
+			data?.nodes.forEach((summary, index) => {
+				const pullRequest = pullRequests[index];
+				if (summary && pullRequest.item === items[index]) {
+					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) });
+				}
+			});
+		} catch (e) {
+			Logger.error(`Loading the stacks of ${pullRequests.length} pull requests failed: ${e}`, this.id);
+		}
 	}
 
 	async getPullRequestNumbers(): Promise<PullRequestNumberData[] | undefined> {
@@ -759,7 +971,7 @@ export class GitHubRepository extends Disposable {
 		return undefined;
 	}
 
-	async getPullRequestForBranch(branch: string, headOwner: string): Promise<PullRequestModel | undefined> {
+	async getPullRequestForBranch(branch: string, headOwner: string, throwOnError: boolean = false): Promise<PullRequestModel | undefined> {
 		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, this.id);
@@ -779,7 +991,7 @@ export class GitHubRepository extends Disposable {
 			if (data?.repository) {
 				const nodes = [...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
 					.filter((pullRequest, index, pullRequests) => pullRequests.findIndex(candidate => candidate.number === pullRequest.number) === index);
-				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head?.repo.owner === headOwner);
+				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head && compareIgnoreCase(pr.head.repo.owner, headOwner) === 0);
 				if (prs.length === 0) {
 					return undefined;
 				}
@@ -788,6 +1000,9 @@ export class GitHubRepository extends Disposable {
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull request for branch failed: ${e}`, this.id);
+			if (throwOnError) {
+				throw e;
+			}
 			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
@@ -796,6 +1011,303 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 		return undefined;
+	}
+
+	async getStackCandidate(baseBranch: string): Promise<StackCandidate | undefined> {
+		const parent = await this.getPullRequestForBranch(baseBranch, this.remote.owner, true);
+		if (!parent || parent.state !== GithubItemStateEnum.Open || parent.head?.ref !== baseBranch
+			|| parent.head.owner.toLowerCase() !== this.remote.owner.toLowerCase()
+			|| parent.head.repositoryCloneUrl.repositoryName.toLowerCase() !== this.remote.repositoryName.toLowerCase()) {
+			return;
+		}
+
+		const { octokit, remote } = await this.ensure();
+		let data: unknown;
+		try {
+			({ data } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				pull_request: parent.number,
+				per_page: 1,
+				headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+			})));
+		} catch (error) {
+			const response = isObject(error) && isObject(error.response) ? error.response.data : undefined;
+			const unsupportedVersion = isObject(response) && [response.message, response.errors].some(detail => {
+				if (typeof detail !== 'string') {
+					return false;
+				}
+				const text = detail.toLowerCase();
+				return text.includes('version') && (text.includes('not supported') || text.includes('not a supported version'));
+			});
+			if (isObject(error) && (error.status === 404 || (error.status === 400 && unsupportedVersion))) {
+				Logger.debug('Pull request stacks are not supported by this GitHub server.', this.id);
+				return;
+			}
+			throw error;
+		}
+
+		if (!Array.isArray(data) || data.length > 1) {
+			throw new Error('GitHub returned an invalid pull request stack list.');
+		}
+		if (data.length === 0) {
+			return { parentPullRequestNumber: parent.number, size: 1, url: parent.html_url };
+		}
+		const stack: unknown = data[0];
+		if (!isObject(stack) || typeof stack.number !== 'number' || !Array.isArray(stack.pull_requests)
+			|| stack.pull_requests.length === 0) {
+			throw new Error('GitHub returned an invalid pull request stack.');
+		}
+		const top: unknown = stack.pull_requests[stack.pull_requests.length - 1];
+		if (!isObject(top) || typeof top.number !== 'number') {
+			throw new Error('GitHub returned an invalid pull request stack entry.');
+		}
+		if (top.number !== parent.number) {
+			return;
+		}
+		return { parentPullRequestNumber: parent.number, stackNumber: stack.number, size: stack.pull_requests.length, url: parent.html_url };
+	}
+
+	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<number[]> {
+		return this.addPullRequestsToStack(candidate, [number]);
+	}
+
+	/**
+	 * Gets the open pull requests whose branches line up with a chain of branches in this repository.
+	 * Pull requests from forks are skipped, and there is no pull request where more than one lines up.
+	 * @param base The branch that the bottom of the chain merges into, or `undefined` to not look below the chain.
+	 * @param head The branch at the top of the chain, or `undefined` to not look above the chain.
+	 * @returns The pull request whose head is `base`, the one whose base is `head`, and the number of the one whose
+	 * base is `base`, which should be the bottom of the chain. `undefined` if this GitHub server does not support
+	 * pull request stacks.
+	 */
+	async getStackablePullRequests(base: string | undefined, head: string | undefined): Promise<{
+		below?: StackablePullRequest;
+		targetingBase?: number;
+		above?: StackablePullRequest;
+	} | undefined> {
+		const { query, remote, schema } = await this.ensure();
+		let data: StackablePullRequestsResponse;
+		try {
+			({ data } = await query<StackablePullRequestsResponse>({
+				query: schema.StackablePullRequests,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					base: base ?? '',
+					head: head ?? '',
+					includeBelow: base !== undefined,
+					includeAbove: head !== undefined,
+				},
+			}, false, undefined, false));
+		} catch (error) {
+			if (isStacksUnsupportedError(error)) {
+				Logger.debug('Pull request stacks are not supported by this GitHub server.', this.id);
+				return;
+			}
+			throw error;
+		}
+		if (!data?.repository) {
+			throw new Error(`Unable to find pull requests to stack in ${remote.owner}/${remote.repositoryName}.`);
+		}
+		const findOnly = <T extends StackablePullRequestBranchesNode>(connection: StackablePullRequestConnection<T> | undefined): T | undefined => {
+			// Another page could hold a second pull request, so there may not be only one.
+			if (!connection || connection.pageInfo.hasNextPage) {
+				return;
+			}
+			const candidates = connection.nodes.filter(node => node.baseRefName !== node.headRefName
+				&& [node.baseRepository, node.headRepository].every(repository => repository
+					&& compareIgnoreCase(repository.owner.login, remote.owner) === 0
+					&& compareIgnoreCase(repository.name, remote.repositoryName) === 0));
+			return candidates.length === 1 ? candidates[0] : undefined;
+		};
+		const toStackable = (node: StackablePullRequestNode | undefined): StackablePullRequest | undefined => node && {
+			number: node.number,
+			title: node.title,
+			url: node.url,
+			base: node.baseRefName,
+			head: node.headRefName,
+			isDraft: node.isDraft,
+			isQueued: !!node.mergeQueueEntry,
+			mergeable: parseMergeability(node.mergeable, node.mergeStateStatus),
+			stackEntry: node.stack && node.stackEntry ? { position: node.stackEntry.position, size: node.stack.size } : undefined,
+		};
+		return {
+			below: toStackable(findOnly(data.repository.below)),
+			targetingBase: findOnly(data.repository.targetingBase)?.number,
+			above: toStackable(findOnly(data.repository.above)),
+		};
+	}
+
+	async addPullRequestsToStack(candidate: StackCandidate, numbers: number[]): Promise<number[]> {
+		if (numbers.length === 0) {
+			throw new Error('At least one pull request is required to add to a stack.');
+		}
+		const { octokit, remote } = await this.ensure();
+		const params = {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
+		};
+		const stackNumber = candidate.stackNumber;
+		let data: unknown;
+		if (stackNumber !== undefined) {
+			({ data } = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
+				...params,
+				stack_number: stackNumber,
+				pull_requests: numbers,
+			})));
+		} else {
+			({ data } = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks', {
+				...params,
+				pull_requests: [candidate.parentPullRequestNumber, ...numbers],
+			})));
+		}
+		if (!isObject(data) || !Array.isArray(data.pull_requests) || data.pull_requests.length === 0) {
+			throw new Error('GitHub returned an invalid result when adding pull requests to a stack.');
+		}
+		const members = data.pull_requests.map((pr: unknown) => {
+			if (!isObject(pr) || typeof pr.number !== 'number') {
+				throw new Error('GitHub returned an invalid pull request stack entry.');
+			}
+			return pr.number;
+		});
+		this.notifyStackChanged(members);
+		return members;
+	}
+
+	/**
+	 * Finds the stack containing `pullRequestNumber`, and checks it still has exactly the pull requests the user acted
+	 * on, in order, so a change on GitHub since then is reported instead of acted on.
+	 */
+	private async getExpectedStack(pullRequestNumber: number, expectedPullRequests: readonly number[]):
+		Promise<{ number: number; pullRequests: { number: number; head?: { ref: string; sha: string } }[] }> {
+		const { octokit, remote } = await this.ensure();
+		const { data: stacks } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: STACK_API_HEADERS,
+			pull_request: pullRequestNumber,
+			per_page: 1,
+		}));
+		if (!Array.isArray(stacks) || stacks.length !== 1 || !isObject(stacks[0])
+			|| typeof stacks[0].number !== 'number' || !Array.isArray(stacks[0].pull_requests)
+			|| !stacks[0].pull_requests.some((pr: unknown) => isObject(pr) && pr.number === pullRequestNumber)) {
+			throw new Error(`Could not find the stack containing pull request #${pullRequestNumber}.`);
+		}
+		const pullRequests: unknown[] = stacks[0].pull_requests;
+		if (pullRequests.length !== expectedPullRequests.length
+			|| pullRequests.some((pr, index) => !isObject(pr) || pr.number !== expectedPullRequests[index])) {
+			throw new Error('The pull request stack has changed. Refresh the view and try again.');
+		}
+		return {
+			number: stacks[0].number,
+			pullRequests: pullRequests.map(pr => {
+				const { number, head } = pr as { number: number; head?: unknown };
+				return isObject(head) && typeof head.ref === 'string' && typeof head.sha === 'string'
+					? { number, head: { ref: head.ref, sha: head.sha } }
+					: { number };
+			}),
+		};
+	}
+
+	/**
+	 * Asks GitHub to rebase every pull request in the stack onto its base, and waits for the job to finish. The stack
+	 * must still have exactly `expectedPullRequests`. Resolves to `pending` if the job is still running after a few minutes.
+	 */
+	async rebaseStack(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<StackRebaseOutcome> {
+		const stack = await this.getExpectedStack(pullRequestNumber, expectedPullRequests);
+		const before = stack.pullRequests.map(pr => {
+			if (!pr.head) {
+				throw new Error(`GitHub did not return the branch of pull request #${pr.number} in this stack.`);
+			}
+			return { number: pr.number, ref: pr.head.ref, sha: pr.head.sha };
+		});
+		const { octokit } = await this.ensure();
+		const { id: repositoryId } = await this.getMetadata();
+		const route = '/repositories/{repository_id}/stacks/{stack_number}/rebase';
+		const parameters = {
+			repository_id: repositoryId,
+			stack_number: stack.number,
+			headers: STACK_API_HEADERS,
+		};
+		const label = `stack ${stack.number} in repository ${repositoryId}`;
+		Logger.appendLine(`Requesting a rebase of ${label}: ${before.map(pr => `#${pr.number} ${pr.ref}@${pr.sha}`).join(', ')}`, this.id);
+		// The rebase API's responses are logged in full so its status values can be checked against what is parsed.
+		const parse = (request: string, httpStatus: unknown, body: unknown): StackRebaseStatus => {
+			let parsed: StackRebaseStatus | undefined;
+			try {
+				parsed = parseStackRebaseStatus(body);
+				return parsed;
+			} finally {
+				Logger.appendLine(`${request} for ${label} returned HTTP ${httpStatus ?? 'unknown'}, interpreted as ${parsed?.state ?? 'unrecognized'}: ${JSON.stringify(body)}`, this.id);
+			}
+		};
+		let status: StackRebaseStatus;
+		try {
+			// GitHub only rebases the stack if every pull request still has the head it had when the stack was checked.
+			const response = await octokit.call(() => octokit.api.request(`PUT ${route}`, {
+				...parameters,
+				expected_head_oid_by_pr_number: Object.fromEntries(before.map(pr => [pr.number, pr.sha])),
+			}));
+			if (response.headers?.location) {
+				Logger.appendLine(`PUT for ${label} returned the Location header ${response.headers.location}`, this.id);
+			}
+			status = parse('PUT', response.status, response.data);
+		} catch (error) {
+			// Like the async merge API, a rebase that is already running is reported as a conflict, which is then polled.
+			if (!isObject(error) || error.status !== 409 || !isObject(error.response)) {
+				if (isObject(error) && isObject(error.response)) {
+					Logger.appendLine(`PUT for ${label} failed with HTTP ${error.status}: ${JSON.stringify(error.response.data)}`, this.id);
+				}
+				throw error;
+			}
+			status = parse('PUT', error.status, error.response.data);
+			if (status.state !== 'pending') {
+				throw error;
+			}
+		}
+
+		const deadline = Date.now() + STACK_REBASE_TIMEOUT_MS;
+		while (status.state === 'pending') {
+			if (Date.now() >= deadline) {
+				Logger.appendLine(`Stopped waiting for the rebase of ${label} after ${STACK_REBASE_TIMEOUT_MS / 1000} seconds`, this.id);
+				return { status: 'pending', before };
+			}
+			await new Promise<void>(resolve => setTimeout(resolve, STACK_REBASE_POLL_INTERVAL_MS));
+			const response = await octokit.call(() => octokit.api.request(`GET ${route}`, parameters));
+			status = parse('GET', response.status, response.data);
+		}
+		if (status.state === 'failed') {
+			throw new Error(status.message);
+		}
+		return {
+			status: 'rebased',
+			before,
+			rebasedPullRequests: status.pullRequests.filter(pr => !pr.before || !pr.after || pr.before !== pr.after).map(pr => pr.number),
+		};
+	}
+
+	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
+		const { octokit, remote } = await this.ensure();
+		const stack = await this.getExpectedStack(pullRequestNumber, expectedPullRequests);
+		const result = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack', {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: STACK_API_HEADERS,
+			stack_number: stack.number,
+		}));
+		if (result.status === 204) {
+			this.notifyStackChanged(expectedPullRequests);
+			return [];
+		}
+		if (result.status !== 200 || !isObject(result.data) || !Array.isArray(result.data.pull_requests)
+			|| !result.data.pull_requests.every((pr: unknown) => isObject(pr) && typeof pr.number === 'number')) {
+			throw new Error('GitHub returned an invalid result when unstacking pull requests.');
+		}
+		const remaining = result.data.pull_requests.map((pr: { number: number }) => pr.number);
+		this.notifyStackChanged(expectedPullRequests);
+		return remaining;
 	}
 
 	async canGetProjectsNow(): Promise<boolean> {
@@ -1301,13 +1813,67 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number, callerName: string, useCache: boolean = false, silent: boolean = false): Promise<PullRequestModel | undefined> {
+	async getPullRequestPreview(number: number): Promise<PullRequestPreview> {
+		if (!Number.isSafeInteger(number) || number <= 0) {
+			throw new Error(`Invalid pull request number: ${number}`);
+		}
+		const { query, remote, schema } = await this.ensure();
+		type PreviewData = Omit<PullRequestPreview, 'author' | 'base' | 'head'> & {
+			author: GraphQLAccount | null;
+			baseRefName: string;
+			headRefName: string;
+			baseRepository: { owner: { login: string } };
+			headRepository: { owner: { login: string } } | null;
+		};
+		const { data } = await query<{ repository: { pullRequest: PreviewData | null } | null }>({
+			query: schema.PullRequestPreview,
+			variables: { owner: remote.owner, name: remote.repositoryName, number },
+		});
+		if (!data.repository?.pullRequest) {
+			throw new Error(`Unable to load pull request preview for ${remote.owner}/${remote.repositoryName}#${number}`);
+		}
+		// A preview must never populate the shared cache of actionable PR models.
+		const { author, baseRefName, headRefName, baseRepository, headRepository, ...preview } = data.repository.pullRequest;
+		return {
+			...preview,
+			author: parseAccount(author, this),
+			base: `${baseRepository.owner.login}/${remote.repositoryName}:${baseRefName}`,
+			head: headRepository ? `${headRepository.owner.login}/${remote.repositoryName}:${headRefName}` : '',
+		};
+	}
+
+	async getIssuePreview(number: number): Promise<IssuePreview> {
+		if (!Number.isSafeInteger(number) || number <= 0) {
+			throw new Error(`Invalid issue number: ${number}`);
+		}
+		const { query, remote, schema } = await this.ensure();
+		type PreviewData = Omit<IssuePreview, 'author' | 'isIssue'> & {
+			author: GraphQLAccount | null;
+		};
+		const { data } = await query<{ repository: { issue: PreviewData | null } | null }>({
+			query: schema.IssuePreview,
+			variables: { owner: remote.owner, name: remote.repositoryName, number },
+		});
+		if (!data.repository?.issue) {
+			throw new Error(`Unable to load issue preview for ${remote.owner}/${remote.repositoryName}#${number}`);
+		}
+		const { author, ...preview } = data.repository.issue;
+		return {
+			...preview,
+			author: parseAccount(author, this),
+			isIssue: true,
+		};
+	}
+
+	async getPullRequest(id: number, callerName: string, useCache: boolean = false, silent: boolean = false, loadMode: 'default' | 'overview' = 'default'): Promise<PullRequestModel | undefined> {
 		if (useCache && this._pullRequestModelsByNumber.has(id)) {
 			Logger.debug(`Using cached pull request model for ${id}`, this.id);
 			return this._pullRequestModelsByNumber.get(id)!.model;
 		}
 
-		if (!(await this.isPlausibleItemNumber(id))) {
+		// Explicit overview requests already identify a PR; the max-number lookup is
+		// only useful for speculative references extracted from text.
+		if (!Number.isSafeInteger(id) || id <= 0 || (loadMode === 'default' && !(await this.isPlausibleItemNumber(id)))) {
 			Logger.debug(`Skipping pull request fetch for implausible number ${id} (caller: ${callerName})`, this.id);
 			return;
 		}
@@ -1331,7 +1897,9 @@ export class GitHubRepository extends Disposable {
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
 			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this), silent);
-			await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			if (loadMode === 'default') {
+				await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
+			}
 			let repoIds = GitHubRepository._succeededPullRequests.get(id);
 			if (!repoIds) {
 				repoIds = new Set();

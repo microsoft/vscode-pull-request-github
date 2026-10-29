@@ -301,6 +301,7 @@ describe('CredentialStore', function () {
 		const telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
 		const github: GitHub = {
+			serverUri: vscode.Uri.parse('https://github.com'),
 			octokit: new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false)),
 			graphql: {} as LoggingApolloClient,
 		};

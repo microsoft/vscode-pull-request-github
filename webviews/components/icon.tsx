@@ -14,6 +14,7 @@ export default Icon;
 // Codicons
 export const accountIcon = <Icon src={require('../../resources/icons/codicons/account.svg')} />;
 export const addIcon = <Icon src={require('../../resources/icons/codicons/add.svg')} />;
+export const arrowUpIcon = <Icon src={require('../../resources/icons/codicons/arrow-up.svg')} />;
 export const checkIcon = <Icon src={require('../../resources/icons/codicons/check.svg')} className='check' />;
 export const checkAllIcon = <Icon src={require('../../resources/icons/codicons/check-all.svg')} />;
 export const chevronDownIcon = <Icon src={require('../../resources/icons/codicons/chevron-down.svg')} />;
@@ -34,6 +35,7 @@ export const gitPullRequestClosedIcon = <Icon src={require('../../resources/icon
 export const gitPullRequestDraftIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request-draft.svg')} />;
 export const gitPullRequestIcon = <Icon src={require('../../resources/icons/codicons/git-pull-request.svg')} />;
 export const issuescon = <Icon src={require('../../resources/icons/codicons/issues.svg')} />;
+export const layersIcon = <Icon src={require('../../resources/icons/codicons/layers.svg')} />;
 export const loadingIcon = <Icon className='loading' src={require('../../resources/icons/codicons/loading.svg')} />;
 export const milestoneIcon = <Icon src={require('../../resources/icons/codicons/milestone.svg')} />;
 export const notebookTemplate = <Icon src={require('../../resources/icons/codicons/notebook-template.svg')} />;

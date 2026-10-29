@@ -278,7 +278,8 @@ async function init(
 		if (e.provider.id !== AuthProvider.github && e.provider.id !== AuthProvider.githubEnterprise) {
 			return;
 		}
-		if (e.accountChanged) {
+		const clearAuthState = e.accountChanged || e.serverChanged;
+		if (clearAuthState) {
 			IssueOverviewPanel.clearAll();
 			PullRequestOverviewPanel.clearAll();
 			activePrViewCoordinator.clearForAuthChange();
@@ -291,7 +292,7 @@ async function init(
 		}
 		await reposManager.refreshRepositories();
 		await Promise.all(reviewsManager.reviewManagers.map(reviewManager => reviewManager.updateState(true)));
-		reviewsManager.refreshPullRequestsTree(!e.accountChanged);
+		reviewsManager.refreshPullRequestsTree(!clearAuthState);
 		await issueStateManager.refreshAfterAuthChange();
 		notificationsManager.refresh();
 	}));

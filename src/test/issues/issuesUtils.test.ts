@@ -4,10 +4,41 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { createSandbox } from 'sinon';
 import * as vscode from 'vscode';
 import { getIssueOrURLExpression, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../../github/utils';
+import { getUpstreamOrigin } from '../../issues/util';
+import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
 
 describe('Issues utilities', function () {
+	it('derives enterprise links from the upstream deployment of a configured instance', function () {
+		const sinon = createSandbox();
+		try {
+			mockEnterpriseUris(sinon, ['https://host-b.example:8443/deployment']);
+			assert.strictEqual(getUpstreamOrigin({ name: 'origin', fetchUrl: 'https://host-b.example:8443/deployment/owner/repo.git', isReadOnly: false }),
+				'https://host-b.example:8443/deployment');
+			assert.strictEqual(getUpstreamOrigin({ name: 'origin', fetchUrl: 'git@host-b.example:owner/repo.git', isReadOnly: false }),
+				'https://host-b.example');
+		} finally {
+			sinon.restore();
+		}
+	});
+
+	it('does not derive enterprise links from unconfigured non-GitHub upstreams', function () {
+		const sinon = createSandbox();
+		try {
+			mockEnterpriseUris(sinon, undefined);
+			assert.strictEqual(getUpstreamOrigin({ name: 'zefiris', fetchUrl: 'ssh://git@private.example/owner/repo.git', isReadOnly: false }),
+				'https://github.com');
+		} finally {
+			sinon.restore();
+		}
+	});
+
+	it('preserves static public share-link destinations', function () {
+		assert.strictEqual(getUpstreamOrigin({ name: 'origin', fetchUrl: 'git@github.com:owner/repo.git', isReadOnly: false }, 'github.dev'), 'https://github.dev');
+	});
+
 	it('regular expressions', async function () {
 		const issueNumber = '#1234';
 		const issueNumberParsed = parseIssueExpressionOutput(issueNumber.match(ISSUE_OR_URL_EXPRESSION));

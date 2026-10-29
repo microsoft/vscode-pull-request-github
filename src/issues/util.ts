@@ -11,11 +11,12 @@ import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
+import { parseRemote } from '../common/remote';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, NoGitHubReposError, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getEnterpriseUri, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
+import { getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
@@ -388,12 +389,10 @@ export async function createGithubPermalink(
 }
 
 export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github.com') {
-	const enterpriseUri = getEnterpriseUri();
-	let fetchUrl = upstream.fetchUrl;
-	if (enterpriseUri && fetchUrl) {
-		const protocol = new Protocol(fetchUrl);
-		if (protocol.host.startsWith(enterpriseUri.authority) || !protocol.host.includes('github.com')) {
-			resultHost = enterpriseUri.authority;
+	if (upstream.fetchUrl) {
+		const remote = parseRemote(upstream.name, upstream.fetchUrl);
+		if (remote?.isEnterprise) {
+			return remote.normalizedHost;
 		}
 	}
 	return `https://${resultHost}`;
@@ -571,4 +570,3 @@ export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefin
 export function escapeMarkdown(text: string): string {
 	return text.replace(/([_~*])/g, '\\$1');
 }
-

@@ -16,10 +16,13 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	PullRequestStack,
+	PullRequestStackRecommendation,
 	Reaction,
 	ReviewState,
 	StateReason,
 } from './interface';
+import type { StackMergeOutcome } from './pullRequestModel';
 import { IComment } from '../common/comment';
 import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
@@ -73,9 +76,28 @@ export interface Issue {
 	busy?: boolean;
 }
 
+/** Read-only content shown during a cold load; never persisted as a complete issue. */
+export type IssuePreview = Pick<Issue, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'stateReason'> & { isIssue: true };
+
+/** Read-only content shown during a cold load; never persisted as a complete PR. */
+export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head'> & { isIssue?: false; stateReason?: undefined };
+
+export type OverviewItemPreview = IssuePreview | PullRequestPreview;
+
 export interface PullRequest extends Issue {
+	/**
+	 * `null` when the pull request is not in a stack, and `undefined` when that is not known yet.
+	 * Until `stackLoaded`, the merge status of the pull requests in it is not known.
+	 */
+	stack?: PullRequestStack | null;
+	canUpdateStack?: boolean;
+	stackLoaded?: boolean;
+	stackLoadError?: boolean;
+	stackMergeStatus?: 'pending' | 'enqueued';
+	stackRecommendation?: PullRequestStackRecommendation | null;
 	isCopilotOnMyBehalf: boolean;
-	isAgentSessionsWorkspace: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
@@ -89,6 +111,7 @@ export interface PullRequest extends Issue {
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	pendingReviewSummaryText?: string;
+	pendingAttestation?: boolean;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
 	canUpdateBranch: boolean;
@@ -98,7 +121,8 @@ export interface PullRequest extends Issue {
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
-	mergeQueueMethod: MergeMethod | undefined;
+	/** Use null to clear a previous value in serialized webview updates. */
+	mergeQueueMethod: MergeMethod | undefined | null;
 	mergeQueueEntry?: {
 		url: string;
 		position: number;
@@ -172,6 +196,34 @@ export interface MergeResult {
 	state: GithubItemStateEnum;
 	revertable: boolean;
 	events?: TimelineEvent[];
+}
+
+export interface MergeStackArgs {
+	method: MergeMethod;
+	/**
+	 * The pull request at or above this one to merge the stack up to, as the user confirmed it. Every open pull request
+	 * below it is merged with it. Defaults to this pull request.
+	 */
+	upTo?: number;
+}
+
+export interface StackMergeResult {
+	status: StackMergeOutcome;
+	state?: GithubItemStateEnum;
+}
+
+export interface UnstackAllResult {
+	cancelled: boolean;
+	remainingPullRequests?: number[];
+}
+
+export interface UpdateStackResult {
+	updatedPullRequests: number[];
+}
+
+export interface CreateRecommendedStackArgs {
+	/** The previewed stack's pull requests from bottom to top, so a stale preview is not confirmed. */
+	pullRequests: number[];
 }
 
 export interface DeleteReviewResult {

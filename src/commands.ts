@@ -15,7 +15,7 @@ import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './co
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { SessionLinkInfo } from './common/timelineEvent';
-import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
+import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { addAttestationCommit } from './github/attestationCommit';
@@ -193,7 +193,7 @@ export function registerCommands(
 ) {
 	const logId = 'RegisterCommands';
 
-	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry);
+	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, reposManager);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -565,14 +565,14 @@ export function registerCommands(
 
 		}));
 
-	const resolvePr = async (context: BaseContext | undefined): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
+	const resolvePr = async (context: BaseContext | undefined, loadMode: 'default' | 'overview' = 'default'): Promise<{ folderManager: FolderRepositoryManager, pr: PullRequestModel } | undefined> => {
 		if (!context) {
 			return undefined;
 		}
 
 		const folderManager = folderRepositoryManagerResolver.getManagerForRepository(context.owner, context.repo);
 
-		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true);
+		const pr = await folderManager.resolvePullRequest(context.owner, context.repo, context.number, true, loadMode);
 		if (!pr) {
 			return undefined;
 		}
@@ -925,7 +925,7 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
 			}
 
-			return checkoutPRInWorktree(telemetry, folderManager, pullRequestModel, repository);
+			return checkoutPRInWorktree(telemetry, repository ?? folderManager.repository, pullRequestModel);
 		}),
 	);
 
@@ -937,7 +937,7 @@ export function registerCommands(
 		if (!resolved) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
-		return checkoutPRInWorktree(telemetry, resolved.folderManager, resolved.pr, undefined);
+		return checkoutPRInWorktree(telemetry, resolved.folderManager.repository, resolved.pr);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
@@ -1102,7 +1102,7 @@ export function registerCommands(
 					repo: argument.pullRequestDetails.repository.name,
 					number: argument.pullRequestDetails.number,
 					preventDefaultContextMenuItems: true,
-				}))?.pr;
+				}, 'overview'))?.pr;
 			} else if (PRChatContextItem.is(argument)) {
 				issueModel = argument.pr;
 			} else if (IssueChatContextItem.is(argument)) {
@@ -1252,6 +1252,10 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.signinenterprise', async () => {
 			await reposManager.authenticate(true);
 		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.selectEnterpriseAccount', () => reposManager.selectEnterpriseAccount()),
 	);
 
 	context.subscriptions.push(
@@ -1981,7 +1985,7 @@ ${contents}
 
 			const githubRepositories: { manager: FolderRepositoryManager, repo: GitHubRepository }[] = [];
 			for (const manager of reposManager.folderManagers) {
-				const remotes = await manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
+				const remotes = manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
 				const activeGitHubRepos = manager.gitHubRepositories.filter(repo => remotes.find(remote => remote.remoteName === repo.remote.remoteName));
 				githubRepositories.push(...(activeGitHubRepos.map(repo => { return { manager, repo }; })));
 			}
@@ -2198,37 +2202,16 @@ ${contents}
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.diffWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
-			let parentURI = toPRUri(
-				fileChangeNode.resourceUri,
-				fileChangeNode.pullRequest,
-				fileChangeNode.pullRequest.base.sha,
-				fileChangeNode.pullRequest.head.sha,
-				fileChangeNode.fileName,
-				true,
-				fileChangeNode.status);
-			let headURI = toPRUri(
-				fileChangeNode.resourceUri,
-				fileChangeNode.pullRequest,
-				fileChangeNode.pullRequest.base.sha,
-				fileChangeNode.pullRequest.head.sha,
-				fileChangeNode.fileName,
-				false,
-				fileChangeNode.status);
+			const parentURI = fileChangeNode.toPullRequestUri(true);
+			const headURI = fileChangeNode.toPullRequestUri(false);
 			return vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${fileName} (Pull Request Compare Base with Head)`);
 		}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.diffLocalWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
-			let headURI = toPRUri(
-				fileChangeNode.resourceUri,
-				fileChangeNode.pullRequest,
-				fileChangeNode.pullRequest.base.sha,
-				fileChangeNode.pullRequest.head.sha,
-				fileChangeNode.fileName,
-				false,
-				fileChangeNode.status);
-			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.resourceUri, `${fileName} (Pull Request Compare Head with Local)`);
+			const headURI = fileChangeNode.toPullRequestUri(false);
+			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.localUri, `${fileName} (Pull Request Compare Head with Local)`);
 		}));
 
 	async function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {

@@ -8,7 +8,6 @@ import { AuthenticationError, AuthProvider } from '../../common/authentication';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { hasEnterpriseUri } from '../../github/utils';
 
 export interface IToolCall {
 	tool: vscode.LanguageModelToolInformation;
@@ -92,7 +91,7 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 
 	protected getGitHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
-		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			authProvider = AuthProvider.githubEnterprise;
 		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
 			authProvider = AuthProvider.github;
