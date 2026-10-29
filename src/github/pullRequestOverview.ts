@@ -570,20 +570,23 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		try {
 			const dataTimings = new Map<string, number>();
-			const measure = async <T>(name: string, promise: Promise<T>): Promise<T> => {
+			// These are loaded together, so a failure says which one failed.
+			const measure = async <T>(name: string, operation: string, promise: Promise<T>): Promise<T> => {
 				const start = performance.now();
 				try {
 					return await promise;
+				} catch (e) {
+					throw new Error(vscode.l10n.t('{0} failed: {1}', operation, formatError(e)));
 				} finally {
 					dataTimings.set(name, performance.now() - start);
 				}
 			};
 			const cachedTimelineEvents = [...(pullRequestModel.timelineEvents ?? [])];
 			const updatingPromise = Promise.all([
-				measure('defaultBranch', this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)),
-				measure('repositoryAccess', this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)),
-				measure('currentUser', this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository)),
-				measure('canEdit', pullRequestModel.canEdit()),
+				measure('defaultBranch', vscode.l10n.t('Getting the default branch'), this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)),
+				measure('repositoryAccess', vscode.l10n.t('Getting repository permissions'), this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)),
+				measure('currentUser', vscode.l10n.t('Getting the current user'), this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository)),
+				measure('canEdit', vscode.l10n.t('Checking edit permissions'), pullRequestModel.canEdit()),
 			]);
 
 			const [
@@ -810,7 +813,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+			const message = vscode.l10n.t('Error loading pull request #{0}: {1}', pullRequestModel.number, formatError(e));
+			Logger.error(message, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(message);
 		}
 	}
 

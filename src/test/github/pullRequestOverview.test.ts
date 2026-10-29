@@ -6,6 +6,8 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { SinonSandbox, SinonStub, createSandbox, match as sinonMatch } from 'sinon';
+import { Octokit } from '@octokit/rest';
+import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
 
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -26,8 +28,8 @@ import { RemoteOnlyRepository } from '../../api/remoteOnlyRepository';
 import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
 import { openDescription } from '../../commands';
 import { EXTENSION_ID } from '../../constants';
-import { CredentialStore } from '../../github/credentials';
-import { GitHubServerType } from '../../common/authentication';
+import { CredentialStore, GitHub } from '../../github/credentials';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
 import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestMergeability, PullRequestStack, StackablePullRequest } from '../../github/interface';
 import { GitHubRepository } from '../../github/githubRepository';
@@ -45,6 +47,8 @@ import * as stackGit from '../../github/updateStackBranches';
 import { lockedStacks } from '../../github/pullRequestStackUpdate';
 import { IRequestMessage } from '../../common/webview';
 import { getGitHubCommitFileSystemProvider } from '../../view/githubFileContentProvider';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { UserBuilder } from '../builders/rest/userBuilder';
 
 const EXTENSION_URI = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 
@@ -1639,6 +1643,36 @@ describe('PullRequestOverview', function () {
 
 			assert(webviewPostMessage.calledOnce);
 			assert.deepStrictEqual(webviewPostMessage.firstCall.args[0], { seq: message.req, res: response });
+		});
+	});
+
+	describe('loading errors', function () {
+		it('names the request that failed, and loads when opened again', async function () {
+			const services = panelServices = stubPanelServices();
+			// The current user is fetched from GitHub, where the first request times out.
+			services.currentUser.restore();
+			const hub: GitHub = {
+				serverUri: vscode.Uri.parse('https://github.com'),
+				octokit: new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false)),
+				graphql: new LoggingApolloClient(new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() }), new RateLogger(telemetry, false)),
+			};
+			sinon.stub(credentialStore, 'getHub').withArgs(AuthProvider.github).returns(hub);
+			const getAuthenticatedUser = sinon.stub(hub.octokit, 'call');
+			getAuthenticatedUser.onFirstCall().rejects(new Error('Connect Timeout Error'));
+			getAuthenticatedUser.onSecondCall().resolves({ data: new UserBuilder().build() });
+			const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+			stubModelServices(model);
+
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager,
+				{ owner: remote.owner, repo: remote.repositoryName, number: model.number }, model);
+
+			assert.deepStrictEqual(services.showError.args, [['Error loading pull request #1000: Getting the current user failed: Connect Timeout Error']]);
+
+			await createPanel(1000);
+
+			sinon.assert.calledOnce(services.showError);
+			sinon.assert.calledTwice(getAuthenticatedUser);
 		});
 	});
 
