@@ -103,11 +103,6 @@ export class ReviewManager extends Disposable {
 	private _switchedToPullRequest?: PullRequestModel;
 	private _switchedToPullRequestBranch?: string;
 	/**
-	 * PR number kept in review mode because unsaved file-comment drafts would be lost
-	 * when the PR became closed or merged. Cleared when review mode exits or the PR changes.
-	 */
-	private _retainReviewModeForPr?: number;
-	/**
 	 * Track whether this repository is currently selected in the UI.
 	 * Used to show/hide the status bar item based on repository selection.
 	 */
@@ -753,7 +748,6 @@ export class ReviewManager extends Disposable {
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
 		if (previousPrNumber !== pr.number) {
-			this._retainReviewModeForPr = undefined;
 			this.clear(false);
 		}
 
@@ -761,17 +755,15 @@ export class ReviewManager extends Disposable {
 
 		// If this is the PR the user explicitly switched to, always use review mode regardless of state
 		const isSwitchedToPullRequest = this._switchedToPullRequest?.number === pr.number;
-		const shouldKeepReviewMode = isSwitchedToPullRequest || this._retainReviewModeForPr === pr.number;
-		const wouldLeaveReviewMode = !shouldKeepReviewMode && (
+		const wouldLeaveReviewMode = !isSwitchedToPullRequest && (
 			(pr.isClosed && !useReviewConfiguration.closed) ||
 			(pr.isMerged && !useReviewConfiguration.merged)
 		);
 
 		if (wouldLeaveReviewMode) {
 			if (this._reviewCommentController?.hasUnsavedCommentDrafts()) {
-				// Keep review mode and finish this refresh. A non-modal warning lets the user
-				// exit later without blocking validateState (which times out after 2 minutes).
-				this._retainReviewModeForPr = pr.number;
+				// Leaving review mode would dispose the comment controller and drop the drafts. Stay until
+				// they are submitted or discarded; the next full validation re-checks. Don't await the warning.
 				this.warnAboutUnsavedCommentDrafts(pr);
 				Logger.appendLine('Keeping review mode because of unsaved comment drafts', this.id);
 			} else {
@@ -1553,8 +1545,8 @@ export class ReviewManager extends Disposable {
 	private warnAboutUnsavedCommentDrafts(pr: PullRequestModel): void {
 		const exitReviewMode = vscode.l10n.t('Exit Review Mode');
 		const message = pr.isMerged
-			? vscode.l10n.t('This pull request has been merged. You have unsaved review comments.')
-			: vscode.l10n.t('This pull request has been closed. You have unsaved review comments.');
+			? vscode.l10n.t('This pull request has been merged. Exit review mode and discard unsaved comments?')
+			: vscode.l10n.t('This pull request has been closed. Exit review mode and discard unsaved comments?');
 		void vscode.window.showWarningMessage(message, exitReviewMode).then(choice => {
 			if (choice !== exitReviewMode || this._prNumber !== pr.number) {
 				return;
@@ -1578,7 +1570,6 @@ export class ReviewManager extends Disposable {
 			this._folderRepoManager.activePullRequest = undefined;
 			this._switchedToPullRequest = undefined;
 			this._switchedToPullRequestBranch = undefined;
-			this._retainReviewModeForPr = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
