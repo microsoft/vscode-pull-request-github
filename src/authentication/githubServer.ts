@@ -34,6 +34,14 @@ export class GitHubManager {
 		return this._neverGitHubServers.has(host);
 	}
 
+	/**
+	 * Wikis and gists are hosted by GitHub but aren't supported as repositories.
+	 */
+	public static isUnsupportedRepository(remote: Remote): boolean {
+		const host = remote.gitProtocol.normalizeUri();
+		return !!host && (host.path.endsWith('.wiki') || /gist[.]github[.]com/.test(host.authority.toLowerCase()));
+	}
+
 	private reportEnterpriseVersion(version: string): void {
 		if (GitHubManager._reportedEnterpriseVersions.has(version)) {
 			return;
@@ -55,8 +63,7 @@ export class GitHubManager {
 		}
 		const authority = host.authority.toLowerCase();
 
-		// .wiki/.git repos are not supported
-		if (host.path.endsWith('.wiki') || authority.match(/gist[.]github[.]com/)) {
+		if (GitHubManager.isUnsupportedRepository(remote)) {
 			return GitHubServerType.None;
 		}
 

@@ -53,6 +53,15 @@ export function getEnterpriseAuthenticationMessage(remotes: readonly Remote[], i
 	return messages.length ? messages.join('\n\n') : undefined;
 }
 
+function hasConfiguredEnterpriseInstances(): boolean {
+	try {
+		return getEnterpriseUris().length > 0;
+	} catch {
+		// Invalid configuration also has to be fixed in the settings.
+		return true;
+	}
+}
+
 function enterpriseSettingsMessage(text: string | undefined, actions: { github: boolean; githubEnterprise: boolean; configure: boolean }): vscode.MarkdownString | undefined {
 	if (!text) {
 		return undefined;
@@ -650,8 +659,12 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
+		const folderManagers = this._reposManager?.folderManagers ?? [];
+		// Unrecognized hosts may be GitHub Enterprise instances that have not been configured yet.
+		const hasUnrecognizedRemotes = folderManagers.some(manager => manager.unrecognizedRemotes.length > 0);
+		const onlyUnrecognizedRemotes = hasUnrecognizedRemotes && folderManagers.every(manager => manager.unrecognizedRemotes.length > 0);
 		let actions: PRCategoryActionNode[];
-		if (remotesSetting) {
+		if (remotesSetting && !onlyUnrecognizedRemotes) {
 			actions = [
 				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
 				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
@@ -661,7 +674,13 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		if (remotes.some(remote => remote.isEnterprise) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		const enterpriseSignedIn = !!this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise);
+		// Enterprise sign-in only offers to add a host when no instances are configured.
+		const mustConfigureEnterprise = hasUnrecognizedRemotes && (enterpriseSignedIn || hasConfiguredEnterpriseInstances());
+		if (mustConfigureEnterprise) {
+			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.ConfigureEnterprise));
+		}
+		if (!enterpriseSignedIn && ((hasUnrecognizedRemotes && !mustConfigureEnterprise) || remotes.some(remote => remote.isEnterprise))) {
 			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
 		}
 
