@@ -166,6 +166,7 @@ export interface ChooseCompareRemoteAndBranchResult {
 	compareRemote: RemoteInfo;
 	compareBranch: string;
 	defaultCompareBranch: string;
+	defaultDescription?: string;
 	stackCandidate?: StackCandidate;
 	warning?: string;
 }

@@ -214,6 +214,12 @@ export class CreatePRContextNew {
 				warning: response.warning
 			};
 
+			if (response.defaultDescription !== undefined) {
+				updateValues.defaultDescription = response.defaultDescription;
+				if ((this.createParams.pendingDescription === undefined) || (this.createParams.pendingDescription === this.createParams.defaultDescription)) {
+					updateValues.pendingDescription = response.defaultDescription;
+				}
+			}
 			this.updateState(updateValues);
 		} catch (error) {
 			this.updateState({ warning: typeof error === 'string' ? error : error instanceof Error ? error.message : 'Unable to change the merge branch.' });
@@ -354,7 +360,8 @@ export class CreatePRContextNew {
 					message.params.pendingTitle = message.params.defaultTitle;
 				}
 
-				if (this.createParams.pendingDescription === undefined) {
+				if (message.params.defaultDescription !== undefined
+					&& ((current.pendingDescription === undefined) || (current.pendingDescription === current.defaultDescription))) {
 					message.params.pendingDescription = message.params.defaultDescription;
 				}
 

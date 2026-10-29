@@ -164,6 +164,64 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(context.createParams.stackCandidate?.parentPullRequestNumber, 794);
 	});
 
+	it('refreshes an unedited description after changing the compare branch', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'issue-43',
+			defaultDescription: 'Closes #43',
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({ defaultDescription: 'Closes #42', pendingDescription: 'Closes #42' });
+
+		await context.changeMergeRemoteAndBranch();
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'Closes #43');
+	});
+
+	it('preserves an edited description after changing the compare branch', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'issue-43',
+			defaultDescription: 'Closes #43',
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({ defaultDescription: 'Closes #42', pendingDescription: 'My description' });
+
+		await context.changeMergeRemoteAndBranch();
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'My description');
+	});
+
+	it('refreshes an unedited description after checking out another issue branch', async function () {
+		const context = new CreatePRContextNew();
+		context.updateState({ compareBranch: 'issue-42', defaultDescription: 'Closes #42', pendingDescription: 'Closes #42' });
+
+		await context.handleMessage({
+			command: 'pr.initialize',
+			params: { compareBranch: 'issue-43', defaultDescription: 'Closes #43' },
+		});
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'Closes #43');
+	});
+
+	it('preserves an edited description after checking out another issue branch', async function () {
+		const context = new CreatePRContextNew();
+		context.updateState({ compareBranch: 'issue-42', defaultDescription: 'Closes #42', pendingDescription: 'My description' });
+
+		await context.handleMessage({
+			command: 'pr.initialize',
+			params: { compareBranch: 'issue-43', defaultDescription: 'Closes #43' },
+		});
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'My description');
+	});
+
 	it('clears stack selection only when branch, repository or stack membership changes', async function () {
 		const cases = [
 			{ baseBranch: 'D2' },

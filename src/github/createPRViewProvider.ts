@@ -45,6 +45,7 @@ import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '.
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+import { getIssueForBranch } from '../issues/stateManager';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -922,7 +923,26 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
-		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		const template = await this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		return template === undefined ? undefined : this.resolvePullRequestTemplate(template);
+	}
+
+	private async resolvePullRequestTemplate(template: string): Promise<string> {
+		if (!template.includes('${')) {
+			return template;
+		}
+		try {
+			const issue = await getIssueForBranch(this._folderRepositoryManager, this.model.compareBranch);
+			const user = /\$\{user\}/.test(template) ? await this._folderRepositoryManager.getCurrentUser() : undefined;
+			return variableSubstitution(template, issue, {
+				owner: this.model.baseOwner,
+				repo: this.model.repositoryName,
+				base: this.model.baseBranch,
+			}, user?.login);
+		} catch (e) {
+			Logger.debug(`Error resolving pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
+			return template;
+		}
 	}
 
 	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
@@ -977,7 +997,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		if (selectedTemplate) {
 			const reply: ChangeTemplateReply = {
-				description: selectedTemplate.template
+				description: await this.resolvePullRequestTemplate(selectedTemplate.template)
 			};
 			return this._replyMessage(message, reply);
 		}
@@ -1236,11 +1256,12 @@ Don't forget to commit your template file to the repository so that it can be us
 			try {
 				this.model.compareOwner = result.remote.owner;
 				await this.model.setCompareBranch(result.branch);
-				await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+				const titleAndDescription = await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 				chooseResult = {
 					compareRemote: result.remote,
 					compareBranch: result.branch,
 					defaultCompareBranch: defaultBranch,
+					defaultDescription: titleAndDescription.description,
 					stackCandidate: await this.getStackCandidateForView(
 						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
 						this.model.baseBranch, result.remote, result.branch),

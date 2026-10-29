@@ -21,8 +21,10 @@ import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { ViewerPermission } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { IssueModel } from '../../github/issueModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { StateManager } from '../../issues/stateManager';
 import { CreatePullRequestDataModel } from '../../view/createPullRequestDataModel';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
@@ -35,6 +37,14 @@ import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
 class TestCreatePullRequestViewProvider extends CreatePullRequestViewProvider {
 	failTitleAndDescription = false;
+
+	public getDefaultTitleAndDescription(compareBranch: Branch, baseBranch: string) {
+		return super.getTitleAndDescription(compareBranch, baseBranch);
+	}
+
+	public override _onDidReceiveMessage(message: IRequestMessage<unknown>) {
+		return super._onDidReceiveMessage(message);
+	}
 
 	public override getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined) {
 		return super.getStackCandidateForView(baseRemote, baseBranch, compareRemote, compareBranch);
@@ -81,6 +91,7 @@ describe('Create pull request stack', function () {
 	let githubRepository: MockGitHubRepository;
 	let provider: TestCreatePullRequestViewProvider;
 	let model: CreatePullRequestDataModel;
+	let stateManager: StateManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -90,6 +101,7 @@ describe('Create pull request stack', function () {
 		credentials = new CredentialStore(telemetry, context);
 		repository = new MockRepository();
 		const manager = new RepositoriesManager(credentials, telemetry);
+		stateManager = new StateManager(new GitApiImpl(manager), manager, context);
 		folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(manager), credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
 		const url = 'https://github.com/github/test';
 		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
@@ -111,6 +123,98 @@ describe('Create pull request stack', function () {
 		credentials.dispose();
 		context.dispose();
 		sinon.restore();
+	});
+
+	describe('pull request template variables', function () {
+		beforeEach(function () {
+			const configuration = vscode.workspace.getConfiguration('githubPullRequests', undefined);
+			sinon.stub(configuration, 'get').returns('template');
+			sinon.stub(vscode.workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
+			sinon.stub(folderManager, 'getOrigin').resolves(githubRepository);
+			sinon.stub(githubRepository, 'compareCommits').resolves(undefined);
+			sinon.stub(model, 'gitCommits').resolves([]);
+			sinon.stub(folderManager, 'getTipCommitMessage').resolves('A change\n\nCommit body ${issueNumber}');
+		});
+
+		async function associateIssue(owner = 'github', repo = 'test') {
+			const issue = new IssueModel(new MockTelemetry(), githubRepository, new GitHubRemote('origin',
+				`https://github.com/${owner}/${repo}`, new Protocol(`https://github.com/${owner}/${repo}`), GitHubServerType.GitHubDotCom),
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(42).title('Fix the bug').build(), githubRepository));
+			await stateManager.setSavedIssueState(issue, { branch: 'D4' });
+			return sinon.stub(folderManager, 'resolveIssue').resolves(issue);
+		}
+
+		async function description() {
+			return (await provider.getDefaultTitleAndDescription(await repository.getBranch('D4'), 'D3')).description;
+		}
+
+		it('resolves issue variables in the default template without changing commit text', async function () {
+			const resolveIssue = await associateIssue();
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('${issueTitle}\nCloses ${issueNumberLabel}\nIssue ${issueNumber}\n${unknown}');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nFix the bug\nCloses #42\nIssue 42\n${unknown}');
+			assert(resolveIssue.calledOnceWithExactly('github', 'test', 42));
+		});
+
+		it('qualifies issue links when the issue belongs to another repository', async function () {
+			await associateIssue('other', 'issues');
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel}');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses other/issues#42');
+		});
+
+		it('preserves unresolved variables when the compare branch has no associated issue', async function () {
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel}');
+			const resolveIssue = sinon.stub(folderManager, 'resolveIssue');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses ${issueNumberLabel}');
+			sinon.assert.notCalled(resolveIssue);
+		});
+
+		it('keeps the template available if issue resolution fails', async function () {
+			const resolveIssue = await associateIssue();
+			resolveIssue.rejects(new Error('Offline'));
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel}');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses ${issueNumberLabel}');
+		});
+
+		it('preserves variables when the associated issue cannot be found', async function () {
+			const resolveIssue = await associateIssue();
+			resolveIssue.resolves(undefined);
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel}');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses ${issueNumberLabel}');
+		});
+
+		it('resolves repository variables without an associated issue', async function () {
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('${owner}/${repository}');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\ngithub/test');
+		});
+
+		it('does not resolve issues for templates without variables', async function () {
+			const resolveIssue = await associateIssue();
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('## Description');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\n## Description');
+			sinon.assert.notCalled(resolveIssue);
+		});
+
+		it('resolves variables when switching templates', async function () {
+			await associateIssue();
+			sinon.stub(folderManager, 'getAllPullRequestTemplates').resolves(['Closes ${issueNumberLabel}']);
+			const selectedTemplate = {
+				label: 'Closes ${issueNumberLabel}', description: '', template: 'Closes ${issueNumberLabel}'
+			};
+			sinon.stub(vscode.window, 'showQuickPick').resolves(selectedTemplate);
+			const reply = sinon.stub(provider, '_replyMessage').resolves();
+			const message: IRequestMessage<unknown> = { command: 'pr.changeTemplate', req: 'template', args: undefined };
+
+			await provider._onDidReceiveMessage(message);
+
+			assert(reply.calledOnceWithExactly(message, { description: 'Closes #42' }));
+		});
 	});
 
 	function stubStackParent(autoMerge: boolean = false): PullRequestModel {
