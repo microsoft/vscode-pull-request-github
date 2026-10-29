@@ -1344,6 +1344,12 @@
 				"enablement": "!(comment =~ /temporary/)"
 			},
 			{
+				"command": "pr.commentAndResolveReviewThread",
+				"title": "%command.pr.commentAndResolveReviewThread.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!commentIsEmpty"
+			},
+			{
 				"command": "pr.resolveReviewThread",
 				"title": "%command.pr.resolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
@@ -2505,6 +2511,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.commentAndResolveReviewThread",
+					"when": "false"
+				},
+				{
 					"command": "pr.openReview",
 					"when": "false"
 				},
@@ -3387,6 +3397,11 @@
 				}
 			],
 			"comments/commentThread/context": [
+				{
+					"command": "pr.commentAndResolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+				},
 				{
 					"command": "pr.createComment",
 					"group": "inline@1",
