@@ -383,6 +383,46 @@ describe('PullRequestManager', function () {
 		});
 	});
 
+	describe('getMatchingPullRequestMetadataFromGitHub', function () {
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('matches the pull request of a branch whose remote is a URL even when fetching its head fails', async function () {
+			// Like `gh pr checkout` of a fork pull request: the branch has no upstream, only a `branch.<name>.remote` URL.
+			await repository.addRemote('origin', 'git@github.com:owner/repo.git');
+			await repository.createBranch('feature', true, 'head-sha');
+			const baseRepository = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+			assert.ok(baseRepository);
+			const pullRequest = new PullRequestModel(manager.credentialStore, telemetry, baseRepository, baseRepository.remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).head(h => h.ref('feature')).build(), baseRepository));
+			const baseMetadata = new RepositoryBuilder().name('repo').owner(o => o.login('owner')).build();
+			const forkMetadata = { ...new RepositoryBuilder().name('repo').owner(o => o.login('contributor')).fork(true).build(), parent: baseMetadata };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').callsFake(async function (this: GitHubRepository) {
+				return this.remote.owner === 'contributor' ? forkMetadata : baseMetadata;
+			});
+			sinon.stub(GitHubRepository.prototype, 'getPullRequestForBranch').callsFake(async function (this: GitHubRepository, branch: string, headOwner: string) {
+				return (this === baseRepository && branch === 'feature' && headOwner === 'contributor') ? pullRequest : undefined;
+			});
+			const fetch = sinon.stub(repository, 'fetch').rejects(Object.assign(new Error('Failed to execute git'), {
+				stderr: 'git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.',
+			}));
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(
+				await repository.getBranch('feature'), undefined, 'git@github.com:contributor/repo.git', 'feature');
+
+			assert.deepStrictEqual(metadata, { owner: 'owner', repositoryName: 'repo', prNumber: 1347, model: pullRequest });
+			assert.deepStrictEqual(fetch.args, [[{ remote: 'contributor', ref: 'feature' }]]);
+			assert.strictEqual(repository.state.HEAD?.upstream, undefined);
+		});
+	});
+
 	describe('activePullRequest', function () {
 		it('gets and sets the active pull request', function () {
 			assert.strictEqual(manager.activePullRequest, undefined);
