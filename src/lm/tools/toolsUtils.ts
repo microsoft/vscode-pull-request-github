@@ -35,6 +35,12 @@ export interface IssueResult {
 	}[];
 }
 
+interface RepoInfo {
+	owner: string;
+	name: string;
+	folderManager: FolderRepositoryManager;
+}
+
 export abstract class ToolBase<T> implements vscode.LanguageModelTool<T> {
 	constructor() { }
 	abstract invoke(options: vscode.LanguageModelToolInvocationOptions<T>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelToolResult>;
@@ -53,41 +59,54 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 		super();
 	}
 
-	protected async getRepoInfo(options: { owner?: string, name?: string, exact?: boolean }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
+	/**
+	 * Resolves the repository to use, falling back to the workspace's default repository
+	 * when the owner and name are missing or look like LLM placeholders.
+	 */
+	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<RepoInfo> {
+		this.ensureAuthenticated();
+
+		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
+		if (options.owner && options.name && !options.owner.includes('owner') && !options.name.includes('name')) {
+			return this.resolveRepoInfo(options.owner, options.name);
+		}
+
+		const folderManager = this.repositoriesManager.folderManagers[0];
+		if (!folderManager) {
+			throw new Error('No repository found. Make sure to have the repository open.');
+		}
+		const defaults = await folderManager.getPullRequestDefaults();
+		if (defaults) {
+			return { owner: defaults.owner, name: defaults.repo, folderManager };
+		}
+		const remote = folderManager.gitHubRepositories[0].remote;
+		return { owner: remote.owner, name: remote.repositoryName, folderManager };
+	}
+
+	/**
+	 * Resolves exactly the given repository, without falling back to the workspace's default repository.
+	 */
+	protected async getExactRepoInfo(options: { owner?: string, name?: string }): Promise<RepoInfo> {
+		this.ensureAuthenticated();
+		if (!options.owner || !options.name) {
+			throw new Error('Repository owner and name are required.');
+		}
+		return this.resolveRepoInfo(options.owner, options.name);
+	}
+
+	private ensureAuthenticated(): void {
 		if (!this.credentialStore.isAnyAuthenticated()) {
 			throw new AuthenticationError();
 		}
-		if (options.exact && (!options.owner || !options.name)) {
-			throw new Error('Repository owner and name are required.');
-		}
+	}
 
-		let owner: string | undefined;
-		let name: string | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.owner && options.name && (options.exact || (!options.owner.includes('owner') && !options.name.includes('name')))) {
-			owner = options.owner;
-			name = options.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.owner, options.name);
-		}
-
+	private async resolveRepoInfo(owner: string, name: string): Promise<RepoInfo> {
+		let folderManager = this.repositoriesManager.getManagerForRepository(owner, name);
 		if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
 			folderManager = this.repositoriesManager.folderManagers[0];
-			if (owner && name) {
-				await folderManager.createGitHubRepositoryFromOwnerName(owner, name);
-			} else {
-				const defaults = await folderManager.getPullRequestDefaults();
-				if (defaults) {
-					owner = defaults.owner;
-					name = defaults.repo;
-				} else {
-					owner = folderManager.gitHubRepositories[0].remote.owner;
-					name = folderManager.gitHubRepositories[0].remote.repositoryName;
-				}
-			}
+			await folderManager.createGitHubRepositoryFromOwnerName(owner, name);
 		}
-
-		if (!folderManager || !owner || !name) {
+		if (!folderManager) {
 			throw new Error(`No repository found for ${owner}/${name}. Make sure to have the repository open.`);
 		}
 		return { owner, name, folderManager };

@@ -65,6 +65,9 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		}
 
 		const repositoryQualifier = `repo:${owner}/${name}`;
+		// The model sometimes puts a different `repo:owner/name` (or `repo:"owner/name"`) qualifier in the query than the repo it passed.
+		// Rewrite every standalone qualifier (at the start, or after whitespace or `(`) to the explicit repo, keeping the preceding character.
+		// The whole query is then ANDed with the repo so that clauses joined with OR can't match other repositories.
 		const scopedQuery = query.replace(
 			/(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
 			(_match, prefix: string) => {
@@ -86,7 +89,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name, exact: true });
+		const { owner, name, folderManager } = await this.getExactRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
 
 		const parameterQuery = this.toRepositoryQuery(options.input.query, owner, name);
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
