@@ -507,9 +507,9 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	/**
-	 * Remotes whose host was not recognized as GitHub and is not a known non-GitHub host, for example an
-	 * unconfigured GitHub Enterprise instance whose API could not be reached. Only computed while signed in
-	 * and no GitHub remotes are active.
+	 * Remotes whose host was not recognized as GitHub and is not a known non-GitHub host or an unsupported GitHub
+	 * repository, for example an unconfigured GitHub Enterprise instance whose API could not be reached. Only computed
+	 * while signed in and the repository has no recognized GitHub remotes.
 	 */
 	get unrecognizedRemotes(): readonly Remote[] {
 		return this._unrecognizedRemotes;
@@ -549,12 +549,17 @@ export class FolderRepositoryManager extends Disposable {
 		let unrecognizedRemotes: Remote[] = [];
 		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
 			const allUnknownRemotes = await this.computeAllUnknownRemotes();
-			unrecognizedRemotes = allUnknownRemotes.filter(remote => !GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
-			if ((allUnknownRemotes.length > 0) && (unrecognizedRemotes.length === 0)) {
+			const enterpriseCandidates = allUnknownRemotes.filter(remote =>
+				!GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority) && !GitHubManager.isUnsupportedRepository(remote));
+			if ((allUnknownRemotes.length > 0) && (enterpriseCandidates.length === 0)) {
 				this._unrecognizedRemotes = [];
-				Logger.appendLine('No GitHub remotes found and all remotes are marked as never GitHub.', this.id);
+				Logger.appendLine('No GitHub remotes found and all remotes are marked as never GitHub or are unsupported.', this.id);
 				this.state = ReposManagerState.RepositoriesLoaded;
 				return true;
+			}
+			// GitHub remotes excluded by the remotes setting need remote configuration, not Enterprise setup.
+			if (this._allGitHubRemotes.length === 0) {
+				unrecognizedRemotes = enterpriseCandidates;
 			}
 		}
 		this._unrecognizedRemotes = unrecognizedRemotes;
@@ -662,9 +667,11 @@ export class FolderRepositoryManager extends Disposable {
 				this.associateLocalBranchesWithPRsOnFirstActivation().catch(e => {
 					Logger.error(`Failed to associate branches with PRs: ${e}`, this.id);
 				});
-			} else if (isAuthenticated && this._unrecognizedRemotes.length) {
-				// Finish loading so the view can offer GitHub Enterprise setup instead of loading indefinitely.
-				Logger.appendLine(`No GitHub remotes found. Hosts not recognized as GitHub: ${[...new Set(this._unrecognizedRemotes.map(remote => remote.normalizedHost))].join(', ')}`, this.id);
+			} else if (isAuthenticated && (this._unrecognizedRemotes.length || this._allGitHubRemotes.length)) {
+				// Finish loading so the view can offer remote or GitHub Enterprise configuration instead of loading indefinitely.
+				if (this._unrecognizedRemotes.length) {
+					Logger.appendLine(`No GitHub remotes found. Hosts not recognized as GitHub: ${[...new Set(this._unrecognizedRemotes.map(remote => remote.normalizedHost))].join(', ')}`, this.id);
+				}
 				this.state = ReposManagerState.RepositoriesLoaded;
 			} else if (!isAuthenticated) {
 				this.state = ReposManagerState.NeedsAuthentication;

@@ -26,7 +26,7 @@ import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from 
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PRNode } from '../../view/treeNodes/pullRequestNode';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from '../../view/treeNodes/categoryNode';
-import { GitHubRemote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { GitApiImpl } from '../../api/api1';
@@ -43,6 +43,7 @@ import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { PrsTreeModel } from '../../view/prsTreeModel';
 import { TreeNode } from '../../view/treeNodes/treeNode';
 import { escapeMarkdownText } from '../../github/markdownUtils';
+import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -505,14 +506,20 @@ describe('GitHub Pull Requests view', function () {
 			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/);
 		});
 
-		async function loadSignedInToGitHubDotCom(remoteUrl: string): Promise<PRCategoryActionNode[]> {
+		async function loadSignedIn(remotes: Record<string, string>, signedIn: AuthProvider[] = [AuthProvider.github], enterpriseUris: string[] = []): Promise<PRCategoryActionNode[]> {
 			const repository = new MockRepository();
-			await repository.addRemote('origin', remoteUrl);
+			for (const [name, url] of Object.entries(remotes)) {
+				await repository.addRemote(name, url);
+			}
 			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
 			reposManager.insertFolderManager(folderManager);
-			sinon.stub(GitHubManager.prototype, 'isGitHub').resolves(GitHubServerType.None);
-			sinon.stub(credentialStore, 'isAuthenticated').callsFake(authProviderId => authProviderId === AuthProvider.github);
-			sinon.stub(configuration, 'getEnterpriseUris').returns([]);
+			const isGitHub = GitHubManager.prototype.isGitHub;
+			// Discovery would probe other hosts over the network; treat them as unreachable.
+			sinon.stub(GitHubManager.prototype, 'isGitHub').callsFake(function (this: GitHubManager, remote: Remote) {
+				return GitHubManager.isGithubDotCom(remote.host) ? isGitHub.call(this, remote) : Promise.resolve(GitHubServerType.None);
+			});
+			sinon.stub(credentialStore, 'isAuthenticated').callsFake(authProviderId => signedIn.includes(authProviderId));
+			mockEnterpriseUris(sinon, enterpriseUris);
 			await folderManager.updateRepositories();
 			provider.initialize([], mockNotificationsManager as NotificationsManager);
 
@@ -524,14 +531,33 @@ describe('GitHub Pull Requests view', function () {
 		}
 
 		it('offers GitHub Enterprise setup instead of loading indefinitely when a remote host is not recognized', async function () {
-			const actions = await loadSignedInToGitHubDotCom('ssh://git@ghe.example.com/org/repo.git');
+			const actions = await loadSignedIn({ origin: 'ssh://git@ghe.example.com/org/repo.git' });
 
 			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoRemotes, PRCategoryActionType.LoginEnterprise]);
 			assert.strictEqual(actions[1].command?.command, 'pr.signinenterprise');
 		});
 
+		it('offers to configure an unrecognized host when signed in to another GitHub Enterprise instance', async function () {
+			const actions = await loadSignedIn({ origin: 'ssh://git@ghe.example.com/org/repo.git' }, [AuthProvider.github, AuthProvider.githubEnterprise], ['https://other-ghe.example.com']);
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoRemotes, PRCategoryActionType.ConfigureEnterprise]);
+			assert.deepStrictEqual(actions[1].command, { title: 'Configure GitHub Enterprise', command: 'workbench.action.openSettings', arguments: ['github-enterprise.uris'] });
+		});
+
+		it('offers remote configuration when the remotes setting excludes recognized GitHub remotes', async function () {
+			const actions = await loadSignedIn({ fork: 'https://github.com/owner/repo', backup: 'ssh://git@ghe.example.com/org/repo.git' });
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
+		});
+
 		it('does not offer GitHub Enterprise setup for hosts that are never GitHub', async function () {
-			const actions = await loadSignedInToGitHubDotCom('https://codeberg.org/owner/repo');
+			const actions = await loadSignedIn({ origin: 'https://codeberg.org/owner/repo' });
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
+		});
+
+		it('does not offer GitHub Enterprise setup for unsupported GitHub repositories', async function () {
+			const actions = await loadSignedIn({ origin: 'https://github.com/owner/repo.wiki.git' });
 
 			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
 		});
