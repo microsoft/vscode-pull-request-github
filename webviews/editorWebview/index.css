@@ -27,6 +27,56 @@ html {
 	gap: 16px;
 }
 
+.sub-issues {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px 0;
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.sub-issues-header {
+	font-weight: bold;
+}
+
+.sub-issue-row {
+	gap: 8px;
+}
+
+.sub-issue-number {
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
+.parent-issue {
+	color: var(--vscode-descriptionForeground);
+	padding: 4px 0;
+}
+
+.parent-issue-link {
+	color: var(--vscode-textLink-foreground);
+}
+
+.sub-issue-assignees {
+	display: flex;
+	flex-shrink: 0;
+}
+
+.sub-issue-assignee {
+	display: flex;
+}
+
+.sub-issue-assignee + .sub-issue-assignee {
+	margin-left: -6px;
+}
+
+.sub-issue-assignees img.avatar {
+	width: 20px;
+	height: 20px;
+	border: 1px solid var(--vscode-editor-background);
+}
+
 #sidebar {
 	display: flex;
 	flex-direction: column;

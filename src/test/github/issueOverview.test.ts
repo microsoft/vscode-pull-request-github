@@ -10,10 +10,12 @@ import { GitApiImpl } from '../../api/api1';
 import { GitHubServerType } from '../../common/authentication';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote } from '../../common/remote';
+import { fromOpenIssueWebviewUri } from '../../common/uri';
 import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
+import { GithubItemStateEnum } from '../../github/interface';
 import { IssueModel } from '../../github/issueModel';
 import { IssueOverviewPanel, panelKey } from '../../github/issueOverview';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -48,6 +50,10 @@ class TestIssueOverviewPanel extends IssueOverviewPanel {
 
 	public override resolveModel(identity: UnresolvedIdentity): Promise<IssueModel | undefined> {
 		return super.resolveModel(identity);
+	}
+
+	public override updateItem(issueModel: IssueModel): Promise<void> {
+		return super.updateItem(issueModel);
 	}
 
 	public override _postMessage(message: { command: string; isCurrentlyCheckedOut?: boolean }): Promise<void> {
@@ -167,5 +173,89 @@ describe('IssueOverview remote-only manager upgrades', function () {
 
 		sandbox.assert.notCalled(lookup);
 		sandbox.assert.notCalled(postMessage);
+	});
+
+	it('includes sub-issues with in-editor links in pr.initialize', async function () {
+		sandbox.stub(temporaryManager, 'resolveIssue').resolves(issue);
+		sandbox.stub(temporaryManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
+			hasWritePermission: false,
+			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			viewerCanAutoMerge: false,
+		});
+		sandbox.stub(temporaryManager, 'getAssignableUsers').resolves({});
+		sandbox.stub(temporaryManager, 'getCurrentUser').resolves(issue.author);
+		sandbox.stub(issue, 'getIssueTimelineEvents').resolves([]);
+		sandbox.stub(issue, 'canEdit').resolves(false);
+		sandbox.stub(issue, 'getSubIssues').resolves([
+			{ id: 1, number: 7, title: 'child', state: GithubItemStateEnum.Open, url: 'https://github.com/aaa/bbb/issues/7', owner: 'aaa', repo: 'bbb', assignees: [] },
+		]);
+		sandbox.stub(issue, 'getParentIssue').resolves(undefined);
+
+		await panel.updateItem(issue);
+
+		const initialize = postMessage.args.find(([message]) => message.command === 'pr.initialize');
+		assert(initialize);
+		assert.strictEqual(initialize[0].pullrequest.subIssues.length, 1);
+		const subIssueUrl: string = initialize[0].pullrequest.subIssues[0].url;
+		assert.strictEqual(typeof subIssueUrl, 'string');
+		assert.notStrictEqual(subIssueUrl, 'https://github.com/aaa/bbb/issues/7');
+		assert.strictEqual(fromOpenIssueWebviewUri(vscode.Uri.parse(subIssueUrl))?.issueNumber, 7);
+	});
+
+	it('keeps html_url for sub-issues and parent issue on GitHub Enterprise', async function () {
+		sandbox.stub(temporaryManager, 'resolveIssue').resolves(issue);
+		sandbox.stub(temporaryManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
+			hasWritePermission: false,
+			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			viewerCanAutoMerge: false,
+		});
+		sandbox.stub(temporaryManager, 'getAssignableUsers').resolves({});
+		sandbox.stub(temporaryManager, 'getCurrentUser').resolves(issue.author);
+		sandbox.stub(issue, 'getIssueTimelineEvents').resolves([]);
+		sandbox.stub(issue, 'canEdit').resolves(false);
+		sandbox.stub(issue, 'getSubIssues').resolves([
+			{ id: 1, number: 7, title: 'child', state: GithubItemStateEnum.Open, url: 'https://github.com/aaa/bbb/issues/7', owner: 'aaa', repo: 'bbb', assignees: [] },
+		]);
+		sandbox.stub(issue, 'getParentIssue').resolves({
+			id: 5, number: 42, title: 'parent', state: GithubItemStateEnum.Open,
+			url: 'https://github.com/aaa/bbb/issues/42',
+			owner: 'aaa', repo: 'bbb', assignees: [],
+		});
+		sandbox.stub(issue.githubRepository.remote, 'isEnterprise').get(() => true);
+
+		await panel.updateItem(issue);
+
+		const initialize = postMessage.args.find(([message]) => message.command === 'pr.initialize');
+		assert(initialize);
+		assert.strictEqual(initialize[0].pullrequest.subIssues.length, 1);
+		assert.strictEqual(initialize[0].pullrequest.subIssues[0].url, 'https://github.com/aaa/bbb/issues/7');
+		assert.strictEqual(initialize[0].pullrequest.parentIssue.url, 'https://github.com/aaa/bbb/issues/42');
+	});
+
+	it('includes the parent issue with an in-editor link in pr.initialize', async function () {
+		sandbox.stub(temporaryManager, 'resolveIssue').resolves(issue);
+		sandbox.stub(temporaryManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
+			hasWritePermission: false,
+			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			viewerCanAutoMerge: false,
+		});
+		sandbox.stub(temporaryManager, 'getAssignableUsers').resolves({});
+		sandbox.stub(temporaryManager, 'getCurrentUser').resolves(issue.author);
+		sandbox.stub(issue, 'getIssueTimelineEvents').resolves([]);
+		sandbox.stub(issue, 'canEdit').resolves(false);
+		sandbox.stub(issue, 'getSubIssues').resolves([]);
+		sandbox.stub(issue, 'getParentIssue').resolves({
+			id: 5, number: 42, title: 'parent', state: GithubItemStateEnum.Open,
+			url: 'https://github.com/aaa/bbb/issues/42',
+			owner: 'aaa', repo: 'bbb', assignees: [],
+		});
+
+		await panel.updateItem(issue);
+
+		const initialize = postMessage.args.find(([message]) => message.command === 'pr.initialize');
+		assert(initialize);
+		const parentIssue = initialize[0].pullrequest.parentIssue;
+		assert.ok(parentIssue, 'parentIssue should be present');
+		assert.strictEqual(fromOpenIssueWebviewUri(vscode.Uri.parse(parentIssue.url))?.issueNumber, 42);
 	});
 });
