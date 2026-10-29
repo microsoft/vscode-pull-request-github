@@ -368,15 +368,16 @@ export class CredentialStore extends Disposable {
 	}
 
 	/**
-	 * Handles authentication errors that surface from API calls (e.g. "Bad credentials"
-	 * or 401 Unauthorized). Triggers a re-authentication prompt for the affected
-	 * provider, deduplicating concurrent requests so we don't show multiple prompts
-	 * when many in-flight calls fail at once.
+	 * Handles authentication errors that surface from API calls made with `failedHub`
+	 * (e.g. "Bad credentials" or 401 Unauthorized). Triggers a re-authentication prompt
+	 * for the affected provider, deduplicating concurrent requests so we don't show
+	 * multiple prompts when many in-flight calls fail at once.
 	 */
-	public async handleAuthError(authProviderId: AuthProvider): Promise<AuthResult> {
-		// Only prompt if we currently believe we are authenticated for this provider.
-		// Otherwise the regular sign-in flow will handle it.
-		if (!this.isAuthenticated(authProviderId)) {
+	public async handleAuthError(authProviderId: AuthProvider, failedHub: GitHub): Promise<AuthResult> {
+		// Only prompt if the hub that failed is still the one in use for this provider.
+		// Otherwise the user signed out or the session was already replaced, and the
+		// regular session change handling takes care of it.
+		if (this.getHub(authProviderId) !== failedHub) {
 			return { canceled: true };
 		}
 		const inFlight = this._handlingAuthError.get(authProviderId);
@@ -394,9 +395,12 @@ export class CredentialStore extends Disposable {
 		const promise = (async () => {
 			try {
 				// Sign-out can invalidate in-flight requests before the session change
-				// event clears our cached authentication state. Do not prompt in that case.
+				// event clears our cached authentication state. Only prompt if the
+				// session for the account in use still exists and the hub is unchanged.
 				const existingSession = await findExistingSession(authProviderId);
-				if (!existingSession || !this.isAuthenticated(authProviderId)) {
+				if (!existingSession
+					|| this.getHub(authProviderId) !== failedHub
+					|| hasAccountChanged(this.getAccountId(authProviderId), existingSession.session)) {
 					return { canceled: true };
 				}
 				Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
@@ -708,7 +712,7 @@ export class CredentialStore extends Disposable {
 		});
 
 		const rateLogger = new RateLogger(this._telemetry, isEnterprise(authProviderId), (_e) => {
-			void this.handleAuthError(authProviderId);
+			void this.handleAuthError(authProviderId, github);
 		});
 		const github: GitHub = {
 			octokit: new LoggingOctokit(octokit, rateLogger),

@@ -5,9 +5,11 @@
 
 import { strictEqual, deepStrictEqual } from 'assert';
 import { Octokit } from '@octokit/rest';
-import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
+import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
+import { createSandbox, match, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
+import { GITHUB_ENTERPRISE, URI } from '../../common/settingKeys';
 import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from '../../github/credentials';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -31,6 +33,28 @@ function createSession(id: string, accountId: string, scopes: string[]): vscode.
 		},
 		scopes,
 	};
+}
+
+function createTestHub(telemetry: MockTelemetry): GitHub {
+	const rateLogger = new RateLogger(telemetry, false);
+	return {
+		octokit: new LoggingOctokit(new Octokit(), rateLogger),
+		graphql: new LoggingApolloClient(new ApolloClient({ link: ApolloLink.empty(), cache: new InMemoryCache() }), rateLogger),
+	};
+}
+
+function stubEnterpriseUri(sinon: SinonSandbox, uri: string): void {
+	const getConfiguration = vscode.workspace.getConfiguration;
+	const get = sinon.stub();
+	get.withArgs(URI).returns(uri);
+	const enterpriseConfiguration: vscode.WorkspaceConfiguration = {
+		get,
+		has: section => section === URI,
+		inspect: () => undefined,
+		update: async () => { },
+	};
+	sinon.stub(vscode.workspace, 'getConfiguration').callsFake((section, scope) =>
+		section === GITHUB_ENTERPRISE ? enterpriseConfiguration : getConfiguration(section, scope));
 }
 
 describe('CredentialStore', function () {
@@ -166,22 +190,30 @@ describe('CredentialStore', function () {
 
 	for (const authProvider of [AuthProvider.github, AuthProvider.githubEnterprise]) {
 		describe(`handleAuthError (${authProvider})`, function () {
+			let telemetry: MockTelemetry;
 			let credentialStore: CredentialStore;
-			let isAuthenticated: SinonStub;
+			let hub: GitHub;
+			let getHub: SinonStub;
+			let getAccountId: SinonStub;
 			let getSession: SinonStub;
-			let initialize: SinonStub;
 			let sendTelemetryEvent: SinonStub;
 			let session: vscode.AuthenticationSession;
 
+			const forcedSignIns = () => getSession.getCalls().filter(call => call.args[2]?.forceNewSession);
+
 			beforeEach(function () {
-				const telemetry = new MockTelemetry();
+				telemetry = new MockTelemetry();
 				sendTelemetryEvent = sinon.stub(telemetry, 'sendTelemetryEvent');
 				credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
-				isAuthenticated = sinon.stub(credentialStore, 'isAuthenticated').returns(true);
-				initialize = sinon.stub(credentialStore as any, 'initialize');
-				initialize.resolves({ canceled: false });
+				hub = createTestHub(telemetry);
+				getHub = sinon.stub(credentialStore, 'getHub').returns(hub);
+				getAccountId = sinon.stub(credentialStore, 'getAccountId').returns('account');
 				session = createSession('current-session', 'account', defaultScopes);
 				getSession = sinon.stub(vscode.authentication, 'getSession').resolves(session);
+				// The user dismisses the forced sign-in, so no new hub is created.
+				getSession.withArgs(authProvider, match.any, match.has('forceNewSession')).rejects(new Error('User did not consent to login.'));
+				// GitHub Enterprise sign-in is skipped unless a server is configured.
+				stubEnterpriseUri(sinon, 'https://github.example.com');
 			});
 
 			afterEach(function () {
@@ -189,18 +221,25 @@ describe('CredentialStore', function () {
 			});
 
 			it('does not prompt when already signed out', async function () {
-				isAuthenticated.returns(false);
+				getHub.returns(undefined);
 
-				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
 				strictEqual(getSession.called, false);
-				strictEqual(initialize.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt for errors from a hub that is no longer in use', async function () {
+				getHub.returns(createTestHub(telemetry));
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(getSession.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
 			});
 
 			it('does not prompt after the session is removed but before cached authentication is cleared', async function () {
 				getSession.resolves(undefined);
 
-				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
-				strictEqual(initialize.called, false);
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
 				strictEqual(sendTelemetryEvent.called, false);
 				strictEqual(getSession.called, true);
 				for (const call of getSession.getCalls()) {
@@ -209,30 +248,51 @@ describe('CredentialStore', function () {
 				}
 			});
 
-			it('does not prompt if sign-out finishes during the session lookup', async function () {
-				getSession.callsFake(async () => {
-					isAuthenticated.returns(false);
-					return session;
-				});
+			it('does not prompt when only another account remains signed in', async function () {
+				getSession.resolves(createSession('other-session', 'other-account', defaultScopes));
 
-				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
-				strictEqual(initialize.called, false);
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
 				strictEqual(sendTelemetryEvent.called, false);
 			});
 
-			it('deduplicates re-authentication for an existing invalid session and preserves the cooldown', async function () {
-				const results = await Promise.all([
-					credentialStore.handleAuthError(authProvider),
-					credentialStore.handleAuthError(authProvider),
+			it('does not prompt if sign-out finishes during the session lookup', async function () {
+				getSession.callsFake(async () => {
+					getHub.returns(undefined);
+					return session;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt if the account is switched during the session lookup', async function () {
+				const otherSession = createSession('other-session', 'other-account', defaultScopes);
+				getSession.callsFake(async () => {
+					getHub.returns(createTestHub(telemetry));
+					getAccountId.returns(otherSession.account.id);
+					return otherSession;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('prompts once for concurrent errors on the current session and preserves the cooldown', async function () {
+				await Promise.all([
+					credentialStore.handleAuthError(authProvider, hub),
+					credentialStore.handleAuthError(authProvider, hub),
 				]);
 
-				deepStrictEqual(results, [{ canceled: false }, { canceled: false }]);
-				strictEqual(initialize.calledOnce, true);
-				strictEqual(initialize.firstCall.args[0], authProvider);
-				strictEqual(typeof initialize.firstCall.args[1].forceNewSession.detail, 'string');
+				const signIns = forcedSignIns();
+				strictEqual(signIns.length, 1);
+				strictEqual(signIns[0].args[0], authProvider);
+				strictEqual(typeof signIns[0].args[2].forceNewSession.detail, 'string');
 				strictEqual(sendTelemetryEvent.calledOnceWithExactly('auth.badCredentials'), true);
-				deepStrictEqual(await credentialStore.handleAuthError(authProvider), { canceled: true });
-				strictEqual(initialize.calledOnce, true);
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 1);
 			});
 		});
 	}
