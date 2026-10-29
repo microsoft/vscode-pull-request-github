@@ -1133,7 +1133,7 @@ export class FolderRepositoryManager extends Disposable {
 					// Try to find a matching PR on GitHub
 					const remoteName = branch.upstream.remote;
 					const upstreamBranchName = branch.upstream.name;
-					if (this.isWorktreeBranchTrackingOtherBranch(branchName, upstreamBranchName)) {
+					if (await this.isWorktreeBranchTrackingOtherBranch(branchName, upstreamBranchName)) {
 						return false;
 					}
 
@@ -2570,7 +2570,7 @@ export class FolderRepositoryManager extends Disposable {
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		try {
-			if (this.isWorktreeBranchTrackingOtherBranch(branch.name, upstreamBranchName)) {
+			if (await this.isWorktreeBranchTrackingOtherBranch(branch.name, upstreamBranchName)) {
 				return null;
 			}
 			if (remoteName) {
@@ -2700,10 +2700,15 @@ export class FolderRepositoryManager extends Disposable {
 	/**
 	 * A branch created in a worktree from a base branch (e.g. `git worktree add -b my-feature <path> origin/dev`)
 	 * tracks that base branch, so its upstream name isn't the branch's own name on the remote and would match
-	 * pull requests from the base branch instead.
+	 * pull requests from the base branch instead. Worktree branches created for a pull request (e.g. fork pull
+	 * requests checked out as `pr/<author>/<number>`) track its head branch and are already associated with it.
 	 */
-	private isWorktreeBranchTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): boolean {
+	private async isWorktreeBranchTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): Promise<boolean> {
 		if (!branchName || !upstreamBranchName || branchName === upstreamBranchName || !this.getWorktreeForBranch(branchName)) {
+			return false;
+		}
+		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branchName]);
+		if (metadata.has(branchName)) {
 			return false;
 		}
 		Logger.debug(`Branch ${branchName} is checked out in a worktree and tracks ${upstreamBranchName}, not looking for a pull request by its upstream`, this.id);
