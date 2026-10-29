@@ -93,7 +93,7 @@ describe('checkoutPRInWorktree', () => {
 	it('creates a fork remote using the base protocol and checks out its branch', async () => {
 		await checkout();
 
-		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor', ref: 'feature' }));
+		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor', ref: '+refs/heads/feature:refs/remotes/contributor/feature' }));
 		assert.strictEqual(repository.state.remotes[1].fetchUrl, 'git@github.com:contributor/repo');
 		assert.strictEqual(await repository.getConfig('remote.contributor.github-pr-remote'), 'true');
 		assert.ok(createWorktree.calledOnceWithExactly({
@@ -112,7 +112,8 @@ describe('checkoutPRInWorktree', () => {
 		await checkout();
 
 		assert.ok(addRemote.notCalled);
-		assert.ok(fetch.calledOnceWithExactly({ remote: 'existing-fork', ref: 'feature' }));
+		// The explicit destination creates the start point even if the reused remote's refspec doesn't cover the branch
+		assert.ok(fetch.calledOnceWithExactly({ remote: 'existing-fork', ref: '+refs/heads/feature:refs/remotes/existing-fork/feature' }));
 		assert.strictEqual(createWorktree.firstCall.args[0].commitish, 'existing-fork/feature');
 		assert.ok(showError.notCalled);
 	});
@@ -122,7 +123,7 @@ describe('checkoutPRInWorktree', () => {
 
 		await checkout();
 
-		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor1', ref: 'feature' }));
+		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor1', ref: '+refs/heads/feature:refs/remotes/contributor1/feature' }));
 		assert.strictEqual(createWorktree.firstCall.args[0].commitish, 'contributor1/feature');
 		assert.ok(showError.notCalled);
 	});
@@ -134,7 +135,7 @@ describe('checkoutPRInWorktree', () => {
 
 		await checkout(createPullRequest('main'));
 
-		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor', ref: 'main' }));
+		assert.ok(fetch.calledOnceWithExactly({ remote: 'contributor', ref: '+refs/heads/main:refs/remotes/contributor/main' }));
 		assert.ok(createWorktree.calledOnceWithExactly({
 			path: worktreeUri.fsPath,
 			commitish: 'contributor/main',
@@ -153,7 +154,7 @@ describe('checkoutPRInWorktree', () => {
 		await checkout(createPullRequest('feature', 'https://github.com/upstream/repo.git'));
 
 		assert.ok(addRemote.notCalled);
-		assert.ok(fetch.calledOnceWithExactly({ remote: 'origin', ref: 'feature' }));
+		assert.ok(fetch.calledOnceWithExactly({ remote: 'origin', ref: '+refs/heads/feature:refs/remotes/origin/feature' }));
 		assert.ok(createWorktree.calledOnceWithExactly({
 			path: worktreeUri.fsPath,
 			commitish: 'origin/feature',
