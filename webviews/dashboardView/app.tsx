@@ -27,6 +27,11 @@ interface IssueData {
 	url: string;
 	createdAt: string;
 	updatedAt: string;
+	complexityScore?: {
+		score: number;
+		reasoning: string;
+		calculatedAt: string;
+	};
 }
 
 interface DashboardData {
@@ -42,10 +47,13 @@ export function main() {
 	render(<Dashboard />, document.getElementById('app'));
 }
 
+type SortMethod = 'none' | 'complexity-asc' | 'complexity-desc';
+
 function Dashboard() {
 	const [data, setData] = useState<DashboardData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [chatInput, setChatInput] = useState('');
+	const [sortMethod, setSortMethod] = useState<SortMethod>('none');
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -93,10 +101,10 @@ function Dashboard() {
 		});
 	};
 
-	const handleIssueClick = (issueUrl: string) => {
+	const handleIssueClick = (issue: IssueData) => {
 		vscode.postMessage({
 			command: 'open-issue',
-			args: { issueUrl }
+			args: { issue }
 		});
 	};
 
@@ -140,6 +148,79 @@ function Dashboard() {
 				return 'In Progress';
 			default:
 				return status || 'Unknown';
+		}
+	};
+
+	const getComplexityColor = (score: number) => {
+		if (score <= 20) {
+			// allow-any-unicode-next-line
+			return '#28a745';
+		} else if (score <= 40) {
+			// allow-any-unicode-next-line
+			return '#ffc107';
+		} else if (score <= 60) {
+			// allow-any-unicode-next-line
+			return '#fd7e14';
+		} else if (score <= 80) {
+			// allow-any-unicode-next-line
+			return '#dc3545';
+		} else {
+			// allow-any-unicode-next-line
+			return '#6f42c1';
+		}
+	};
+
+	const sortIssues = (issues: IssueData[]): IssueData[] => {
+		if (sortMethod === 'none') {
+			return issues;
+		}
+
+		return [...issues].sort((a, b) => {
+			const scoreA = a.complexityScore?.score ?? 0;
+			const scoreB = b.complexityScore?.score ?? 0;
+
+			if (sortMethod === 'complexity-asc') {
+				return scoreA - scoreB;
+			} else {
+				return scoreB - scoreA;
+			}
+		});
+	};
+
+	const toggleSort = () => {
+		setSortMethod(current => {
+			switch (current) {
+				case 'none':
+					return 'complexity-desc';
+				case 'complexity-desc':
+					return 'complexity-asc';
+				case 'complexity-asc':
+					return 'none';
+				default:
+					return 'none';
+			}
+		});
+	};
+
+	const getSortIcon = () => {
+		switch (sortMethod) {
+			case 'complexity-desc':
+				return '🔽'; // High to low
+			case 'complexity-asc':
+				return '🔼'; // Low to high
+			default:
+				return '⚪'; // No sort
+		}
+	};
+
+	const getSortTooltip = () => {
+		switch (sortMethod) {
+			case 'complexity-desc':
+				return 'Sorted by complexity (high to low). Click to sort low to high.';
+			case 'complexity-asc':
+				return 'Sorted by complexity (low to high). Click to remove sorting.';
+			default:
+				return 'Not sorted by complexity. Click to sort high to low.';
 		}
 	};
 
@@ -192,18 +273,47 @@ function Dashboard() {
 						</p>
 					</div>
 
-					<h3 className="column-header" style={{ marginTop: '24px' }}>September 2025 Issues</h3>
+					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '24px' }}>
+						<h3 className="column-header" style={{ margin: 0 }}>September 2025 Issues</h3>
+						<button
+							className="sort-button"
+							onClick={toggleSort}
+							title={getSortTooltip()}
+							style={{
+								background: 'none',
+								border: '1px solid var(--vscode-button-border)',
+								borderRadius: '3px',
+								padding: '4px 8px',
+								cursor: 'pointer',
+								color: 'var(--vscode-button-foreground)',
+								fontSize: '12px',
+								display: 'flex',
+								alignItems: 'center',
+								gap: '4px'
+							}}
+							onMouseOver={(e) => {
+								e.currentTarget.style.backgroundColor = 'var(--vscode-button-hoverBackground)';
+							}}
+							onMouseOut={(e) => {
+								e.currentTarget.style.backgroundColor = 'transparent';
+							}}
+						>
+							{/* allow-any-unicode-next-line */}
+							<span>{getSortIcon()}</span>
+							<span>Sort</span>
+						</button>
+					</div>
 					<div className="column-content">
 						{!data?.milestoneIssues?.length ? (
 							<div className="empty-state">
 								No issues found for September 2025 milestone
 							</div>
 						) : (
-							data.milestoneIssues.map((issue) => (
+							sortIssues(data.milestoneIssues).map((issue) => (
 								<div
 									key={issue.number}
 									className="issue-item"
-									onClick={() => handleIssueClick(issue.url)}
+									onClick={() => handleIssueClick(issue)}
 								>
 									<div className="item-title">
 										#{issue.number}: {issue.title}
@@ -225,6 +335,25 @@ function Dashboard() {
 											{/* allow-any-unicode-next-line */}
 											<span>📅 Updated {formatDate(issue.updatedAt)}</span>
 										</div>
+										{issue.complexityScore && (
+											<div className="metadata-item">
+												<span
+													className="complexity-badge"
+													style={{
+														backgroundColor: getComplexityColor(issue.complexityScore.score),
+														color: 'white',
+														padding: '2px 6px',
+														borderRadius: '3px',
+														fontSize: '11px',
+														fontWeight: 'bold',
+														display: 'inline-block'
+													}}
+													title={`Complexity: ${issue.complexityScore.score}/100\n\n${issue.complexityScore.reasoning}`}
+												>
+													{issue.complexityScore.score}
+												</span>
+											</div>
+										)}
 									</div>
 								</div>
 							))

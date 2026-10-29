@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { ComplexityScore, IssueComplexityService } from '../issues/complexityService';
 import { ChatSessionWithPR } from './copilotApi';
 import { CopilotRemoteAgentManager } from './copilotRemoteAgent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -39,6 +40,7 @@ export interface IssueData {
 	url: string;
 	createdAt: string;
 	updatedAt: string;
+	complexityScore?: ComplexityScore;
 }
 
 export class DashboardWebviewProvider extends WebviewBase {
@@ -47,6 +49,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 	public static currentPanel?: DashboardWebviewProvider;
 
 	protected readonly _panel: vscode.WebviewPanel;
+	private readonly _complexityService: IssueComplexityService;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -59,6 +62,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 		super();
 		this._panel = panel;
 		this._webview = panel.webview;
+		this._complexityService = new IssueComplexityService();
 		super.initialize();
 
 		// Set webview options
@@ -206,7 +210,25 @@ export class DashboardWebviewProvider extends WebviewBase {
 				return [];
 			}
 
-			return searchResult.items.map(issue => this.convertIssueToData(issue));
+			// Convert issues to data and calculate complexity scores
+			const issueDataPromises = searchResult.items.map(async issue => {
+				const issueData = this.convertIssueToData(issue);
+
+				// Calculate complexity score asynchronously
+				try {
+					const complexityScore = await this._complexityService.getComplexityScore(issue);
+					if (complexityScore) {
+						issueData.complexityScore = complexityScore;
+					}
+				} catch (error) {
+					Logger.debug(`Failed to calculate complexity for issue ${issue.number}: ${error}`, DashboardWebviewProvider.ID);
+					// Continue without complexity score
+				}
+
+				return issueData;
+			});
+
+			return await Promise.all(issueDataPromises);
 		} catch (error) {
 			Logger.debug(`Failed to get issues for milestone ${milestoneTitle}: ${error}`, DashboardWebviewProvider.ID);
 			return [];
@@ -238,7 +260,7 @@ export class DashboardWebviewProvider extends WebviewBase {
 				await this.openSession(message.args?.sessionId);
 				break;
 			case 'open-issue':
-				await this.openIssue(message.args?.issueUrl);
+				await this.openIssue(message.args?.issue);
 				break;
 			case 'open-pull-request':
 				await this.openPullRequest(message.args?.pullRequest);
@@ -276,16 +298,44 @@ export class DashboardWebviewProvider extends WebviewBase {
 		}
 	}
 
-	private async openIssue(issueUrl: string): Promise<void> {
-		if (!issueUrl) {
+	private async openIssue(issue: IssueData): Promise<void> {
+		if (!issue) {
 			return;
 		}
 
 		try {
-			await vscode.env.openExternal(vscode.Uri.parse(issueUrl));
+			// Parse the issue URL to get owner and repo
+			const urlMatch = issue.url.match(/github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/);
+			if (urlMatch) {
+				const [, owner, repo] = urlMatch;
+
+				// Find the appropriate folder manager for this issue
+				for (const folderManager of this._repositoriesManager.folderManagers) {
+					try {
+						// Try to resolve the issue using the folder manager
+						const issueModel = await folderManager.resolveIssue(owner, repo, issue.number);
+						if (issueModel) {
+							// Use the same command that the tree view uses
+							await vscode.commands.executeCommand('issue.openDescription', issueModel);
+							return;
+						}
+					} catch (error) {
+						// Continue trying other folder managers
+						Logger.debug(`Failed to resolve issue with folder manager: ${error}`, DashboardWebviewProvider.ID);
+					}
+				}
+			}
+
+			// Fallback to opening externally if we can't resolve the issue locally
+			await vscode.env.openExternal(vscode.Uri.parse(issue.url));
 		} catch (error) {
 			Logger.error(`Failed to open issue: ${error}`, DashboardWebviewProvider.ID);
-			vscode.window.showErrorMessage('Failed to open issue.');
+			// Fallback to opening externally
+			try {
+				await vscode.env.openExternal(vscode.Uri.parse(issue.url));
+			} catch (fallbackError) {
+				vscode.window.showErrorMessage('Failed to open issue.');
+			}
 		}
 	}
 
