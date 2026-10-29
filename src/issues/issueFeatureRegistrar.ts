@@ -170,6 +170,19 @@ export class IssueFeatureRegistrar extends Disposable {
 		);
 		this._register(
 			vscode.commands.registerCommand(
+				'issue.openIssueAndCodingAgentSideBySide',
+				(issueModel: any) => {
+					/* __GDPR__
+				"issue.openIssueAndCodingAgentSideBySide" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.openIssueAndCodingAgentSideBySide');
+					return this.openIssueAndCodingAgentSideBySide(issueModel);
+				},
+				this,
+			),
+		);
+		this._register(
+			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
 				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
@@ -1544,6 +1557,65 @@ ${options?.body ?? ''}\n
 			vscode.window.showInformationMessage(vscode.l10n.t('Issue #{0} has been assigned to Copilot coding agent', issueModel.number));
 		} catch (error) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to assign issue to coding agent: {0}', error.message));
+		}
+	}
+
+	async openIssueAndCodingAgentSideBySide(issueModel: any) {
+		if (!issueModel || !(issueModel instanceof IssueModel)) {
+			return;
+		}
+
+		try {
+			// Get the folder manager for this issue
+			const folderManager = this.manager.getManagerForIssueModel(issueModel);
+			if (!folderManager) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to find repository for issue #{0}', issueModel.number));
+				return;
+			}
+
+			// Open the issue overview panel on the left (active column)
+			await IssueOverviewPanel.createOrShow(
+				this.telemetry,
+				this.context.extensionUri,
+				folderManager,
+				issueModel,
+				false, // toTheSide = false to use current column
+				true   // preserveFocus = true
+			);
+
+			// Prepare the chat query with issue information
+			const issueUrl = issueModel.html_url;
+			const issueTitle = issueModel.title;
+			const issueBody = issueModel.body || '';
+
+			// Create a comprehensive prompt that includes the issue link and content
+			const chatQuery = `${issueUrl}
+
+I'm looking at this GitHub issue and want to work on it with the coding agent. Let me share the details:
+
+**Title:** ${issueTitle}
+
+**Description:**
+${issueBody}
+
+Before we delegate this to the coding agent, please analyze what needs to be implemented and ask only essential clarifying questions that would help create better instructions for the coding agent. Keep your response concise - only include direct questions if there are genuine ambiguities or missing details that could impact implementation.
+
+Ask at most THREE clarifying questions (0-3). If more would be helpful, ask only the most critical ones now and wait for a follow-up turn.`;
+
+			// Open chat in the side panel (to the right)
+			// Wait a brief moment for the issue panel to fully open, then open chat to the side
+			setTimeout(async () => {
+				try {
+					await vscode.commands.executeCommand('workbench.action.chat.open', { query: chatQuery });
+				} catch (error) {
+					Logger.error(`Failed to open chat: ${error}`, 'IssueFeatureRegistrar');
+					// Fallback to opening chat without query
+					await vscode.commands.executeCommand('workbench.action.chat.open');
+				}
+			}, 100);
+
+		} catch (error) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open issue and coding agent view: {0}', error.message));
 		}
 	}
 }

@@ -1688,6 +1688,13 @@
 				"enablement": "config.githubPullRequests.codingAgent.enabled"
 			},
 			{
+				"command": "issue.openIssueAndCodingAgentSideBySide",
+				"title": "%command.issue.openIssueAndCodingAgentSideBySide.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(split-horizontal)",
+				"enablement": "config.githubPullRequests.codingAgent.enabled"
+			},
+			{
 				"command": "issues.configureIssuesViewlet",
 				"title": "%command.issues.configureIssuesViewlet.title%",
 				"category": "%command.issues.category%",
@@ -2426,6 +2433,10 @@
 					"when": "false"
 				},
 				{
+					"command": "issue.openIssueAndCodingAgentSideBySide",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyIssueNumber",
 					"when": "false"
 				},
@@ -2993,7 +3004,7 @@
 					"group": "issues_1@1"
 				},
 				{
-					"command": "issue.assignToCodingAgent",
+					"command": "issue.openIssueAndCodingAgentSideBySide",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && config.githubPullRequests.codingAgent.enabled",
 					"group": "issues_1@2"
 				},
