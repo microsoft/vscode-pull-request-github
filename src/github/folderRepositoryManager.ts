@@ -1809,7 +1809,7 @@ export class FolderRepositoryManager extends Disposable {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel | undefined> {
+	async createPullRequest(params: OctokitCommon.PullsCreateParams, isRetryAfterPush: boolean = false): Promise<PullRequestModel | undefined> {
 		const repo = this._githubRepositories.find(
 			r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo,
 		);
@@ -1833,7 +1833,8 @@ export class FolderRepositoryManager extends Disposable {
 			this.telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
-			if (e.message.indexOf('No commits between ') > -1) {
+			// If there are still no commits after pushing, then pushing again won't help.
+			if (!isRetryAfterPush && e.message.indexOf('No commits between ') > -1) {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
@@ -1845,7 +1846,7 @@ export class FolderRepositoryManager extends Disposable {
 					);
 					if (shouldPush === pushCommits) {
 						await this._repository.push();
-						return this.createPullRequest(params);
+						return this.createPullRequest(params, true);
 					} else {
 						return;
 					}
@@ -1863,7 +1864,7 @@ export class FolderRepositoryManager extends Disposable {
 						await this._repository.add(this._repository.state.indexChanges.map(change => change.uri.fsPath));
 						await this.repository.commit(`${params.title}${params.body ? `\n${params.body}` : ''}`);
 						await this._repository.push();
-						return this.createPullRequest(params);
+						return this.createPullRequest(params, true);
 					} else {
 						return;
 					}

@@ -5,10 +5,10 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import { CreatePullRequestNew, StackCandidate } from '../../../common/views';
 import { RemoteInfo } from '../../../common/types';
-import { GitApiImpl } from '../../api/api1';
+import { GitApiImpl, RefType } from '../../api/api1';
 import { Branch } from '../../api/api';
 import { GitHubServerType } from '../../common/authentication';
 import { Protocol } from '../../common/protocol';
@@ -65,6 +65,10 @@ class TestCreatePullRequestViewProvider extends CreatePullRequestViewProvider {
 
 	public override postCreate(message: IRequestMessage<CreatePullRequestNew>, createdPR: PullRequestModel) {
 		return super.postCreate(message, createdPR);
+	}
+
+	public override detectBaseMetadata(defaultCompareBranch: Branch) {
+		return super.detectBaseMetadata(defaultCompareBranch);
 	}
 
 	createForTest(message: { command: string; args: CreatePullRequestNew; req: string }) {
@@ -425,5 +429,138 @@ describe('Create pull request stack', function () {
 		assert(showError.calledOnce);
 		assert.match(showError.firstCall.args[0], /#796 was created but could not be added to its stack: Stack is locked/);
 		cancellation.dispose();
+	});
+});
+
+describe('Create pull request for a branch created from the remote HEAD', function () {
+	let sinon: SinonSandbox;
+	let context: MockExtensionContext;
+	let credentials: CredentialStore;
+	let folderManager: FolderRepositoryManager;
+	let repository: MockRepository;
+	let githubRepository: MockGitHubRepository;
+	let provider: TestCreatePullRequestViewProvider;
+	let model: CreatePullRequestDataModel;
+	let cancellation: vscode.CancellationTokenSource;
+	let getBranch: SinonStub;
+	let showInformationMessage: SinonStub;
+
+	beforeEach(async function () {
+		sinon = createSandbox();
+		MockCommandRegistry.install(sinon);
+		context = new MockExtensionContext();
+		const telemetry = new MockTelemetry();
+		credentials = new CredentialStore(telemetry, context);
+		repository = new MockRepository();
+		const manager = new RepositoriesManager(credentials, telemetry);
+		folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(manager), credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
+		const url = 'https://github.com/github/test';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		githubRepository = new MockGitHubRepository(remote, credentials, telemetry, sinon);
+		sinon.stub(folderManager, 'gitHubRepositories').get(() => [githubRepository]);
+		sinon.stub(folderManager, 'findRepo').callsFake(predicate => predicate(githubRepository) ? githubRepository : undefined);
+		// `git switch -c feature origin/HEAD` sets the upstream to `origin/main`, not `origin/feature`.
+		await repository.createBranch('feature', false, 'feature-sha');
+		await repository.setBranchUpstream('feature', 'refs/remotes/origin/main');
+		sinon.stub(githubRepository, 'hasBranch').resolves('feature-sha');
+		model = new CreatePullRequestDataModel(folderManager, 'github', 'main', 'github', 'feature', 'test');
+		provider = new TestCreatePullRequestViewProvider(telemetry, model, vscode.Uri.file(__dirname), folderManager, { owner: 'github', repo: 'test', base: 'main' });
+		cancellation = new vscode.CancellationTokenSource();
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		sinon.stub(model, 'filesHaveChanges').resolves(false);
+		getBranch = sinon.stub(repository, 'getBranch').callThrough();
+		showInformationMessage = sinon.stub(vscode.window, 'showInformationMessage');
+	});
+
+	afterEach(function () {
+		cancellation.dispose();
+		provider.dispose();
+		model.dispose();
+		folderManager.dispose();
+		githubRepository.dispose();
+		credentials.dispose();
+		context.dispose();
+		sinon.restore();
+	});
+
+	function stubFeatureBranch(ahead: number) {
+		getBranch.withArgs('feature').resolves({ type: RefType.Head, name: 'feature', commit: 'feature-sha', upstream: { remote: 'origin', name: 'main' }, ahead, behind: 0 });
+	}
+
+	async function createPullRequest(): Promise<void> {
+		const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(796).build(), githubRepository));
+		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+		sinon.stub(provider, 'postCreate').resolves();
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		const done = asPromise(provider.onDone);
+
+		await provider.createForTest({
+			command: 'pr.create', req: '1',
+			args: {
+				title: 'Feature', body: '', owner: 'github', repo: 'test', base: 'main',
+				compareOwner: 'github', compareRepo: 'test', compareBranch: 'feature',
+				draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
+			},
+		});
+		assert.strictEqual(await done, createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
+		assert(create.calledOnce);
+		assert.strictEqual(create.firstCall.args[0].head, 'github:feature');
+	}
+
+	it('uses the default branch as the base instead of HEAD', async function () {
+		sinon.stub(repository, 'getBranchBase').resolves({ type: RefType.RemoteHead, name: 'HEAD', remote: 'origin', commit: 'main-sha' });
+		githubRepository.buildMetadata(metadata => metadata.default_branch('develop'));
+
+		const baseMetadata = await provider.detectBaseMetadata(await repository.getBranch('feature'));
+
+		assert.deepStrictEqual(baseMetadata, { branch: 'develop', owner: 'github', repositoryName: 'test' });
+	});
+
+	it('does not ask to push commits that are already on the remote branch', async function () {
+		stubFeatureBranch(1);
+		getBranch.withArgs('refs/remotes/origin/feature').resolves({ type: RefType.RemoteHead, name: 'feature', remote: 'origin', commit: 'feature-sha' });
+		repository.expectFetch('origin', 'main');
+		repository.expectFetch('origin', 'feature');
+		const push = sinon.spy(repository, 'push');
+
+		await createPullRequest();
+
+		assert(showInformationMessage.notCalled);
+		assert(push.notCalled);
+	});
+
+	it('asks to push only the commits that are not on the remote branch', async function () {
+		stubFeatureBranch(3);
+		getBranch.withArgs('refs/remotes/origin/feature').resolves({ type: RefType.RemoteHead, name: 'feature', remote: 'origin', commit: 'pushed-sha' });
+		repository.expectFetch('origin', 'main');
+		repository.expectFetch('origin', 'feature');
+		const log = sinon.stub(repository, 'log').resolves([{ hash: 'feature-sha', message: 'Unpushed change', parents: ['pushed-sha'] }]);
+		showInformationMessage.resolves('Push Commits');
+		repository.expectPush('origin', 'feature');
+		const push = sinon.spy(repository, 'push');
+
+		await createPullRequest();
+
+		assert(log.calledOnceWithExactly({ range: 'refs/remotes/origin/feature..refs/heads/feature' }));
+		assert(showInformationMessage.calledOnce);
+		assert.match(showInformationMessage.firstCall.args[0], /^You have 1 unpushed commit\(s\) on 'feature'\./);
+		assert(push.calledOnceWithExactly('origin', 'feature'));
+	});
+
+	it('asks to push all the commits ahead of the upstream when the branch has not been pushed', async function () {
+		stubFeatureBranch(2);
+		repository.expectFetch('origin', 'main');
+		const fetch = sinon.stub(repository, 'fetch').callThrough();
+		fetch.withArgs('origin', 'feature').rejects(new Error('fatal: couldn\'t find remote ref feature'));
+		showInformationMessage.resolves('Push Commits');
+		repository.expectPush('origin', 'feature');
+		const push = sinon.spy(repository, 'push');
+
+		await createPullRequest();
+
+		assert(showInformationMessage.calledOnce);
+		assert.match(showInformationMessage.firstCall.args[0], /^You have 2 unpushed commit\(s\) on 'feature'\./);
+		assert(push.calledOnceWithExactly('origin', 'feature'));
 	});
 });
