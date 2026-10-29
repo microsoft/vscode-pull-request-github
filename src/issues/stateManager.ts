@@ -335,7 +335,9 @@ export class StateManager {
 
 	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
+			console.log(`Setting issues for query: ${query}`);
 			const issues = await folderManager.getIssues(query);
+			console.log(`Found ${issues?.items?.length || 0} issues from folderManager.getIssues`);
 			this._onDidChangeIssueData.fire();
 			const issueItems = issues?.items.map(item => {
 				const issueItem: IssueItem = item as IssueItem;
@@ -345,18 +347,32 @@ export class StateManager {
 
 			// Calculate complexity scores for all issues
 			if (issueItems) {
-				// Calculate complexity scores in the background
-				Promise.all(issueItems.map(async issueItem => {
-					try {
-						issueItem.complexity = await this.complexityService.calculateComplexity(issueItem);
-					} catch (error) {
-						// Don't fail the whole operation if complexity calculation fails
-						console.error(`Failed to calculate complexity for issue #${issueItem.number}:`, error);
+				console.log(`Starting complexity calculation for ${issueItems.length} issues`);
+				// Calculate complexity scores with rate limiting (5 at a time)
+				const batchSize = 5;
+				for (let i = 0; i < issueItems.length; i += batchSize) {
+					const batch = issueItems.slice(i, i + batchSize);
+					console.log(`Processing complexity batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(issueItems.length/batchSize)} (${batch.length} issues)`);
+
+					await Promise.all(batch.map(async issueItem => {
+						try {
+							issueItem.complexity = await this.complexityService.calculateComplexity(issueItem);
+							console.log(`Calculated complexity for issue #${issueItem.number}: ${issueItem.complexity?.score}`);
+						} catch (error) {
+							// Don't fail the whole operation if complexity calculation fails
+							console.error(`Failed to calculate complexity for issue #${issueItem.number}:`, error);
+						}
+					}));
+
+					// Small delay between batches to avoid overwhelming the API
+					if (i + batchSize < issueItems.length) {
+						console.log('Waiting 2 seconds before next batch...');
+						await new Promise(resolve => setTimeout(resolve, 2000));
 					}
-				})).then(() => {
-					// Fire the change event again after complexity scores are calculated
-					this._onDidChangeIssueData.fire();
-				});
+				}
+				console.log('Finished calculating complexity for all issues');
+				// Fire the change event again after complexity scores are calculated
+				this._onDidChangeIssueData.fire();
 			}
 
 			resolve(issueItems);

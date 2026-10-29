@@ -42,6 +42,7 @@ export interface IssueData {
 	updatedAt: string;
 	complexity?: number;
 	complexityReasoning?: string;
+	codeSearchUsed?: boolean;
 }
 
 export class DashboardWebviewProvider extends WebviewBase {
@@ -189,11 +190,68 @@ export class DashboardWebviewProvider extends WebviewBase {
 		try {
 			const issues: IssueData[] = [];
 
+			console.log(`Getting milestone issues for ${this._repositoriesManager.folderManagers.length} folder managers`);
+
 			for (const folderManager of this._repositoriesManager.folderManagers) {
-				const milestoneIssues = await this.getIssuesForMilestone(folderManager, 'September 2025');
-				issues.push(...milestoneIssues);
+				// TODO: Temporarily showing all recent issues for testing complexity feature
+				// Revert this to specific milestone filtering once testing is complete
+				try {
+					const query = 'is:open assignee:@me sort:updated-desc';
+					const searchResult = await folderManager.getIssues(query);
+					if (searchResult?.items) {
+						const recentIssues = await Promise.all(searchResult.items.slice(0, 10).map(issue => this.convertIssueToData(issue)));
+						console.log(`Found ${recentIssues.length} recent issues for testing`);
+						issues.push(...recentIssues);
+					}
+				} catch (error) {
+					console.log(`Failed to get recent issues: ${error}`);
+				}
+
+				// TODO: Original milestone-based logic (commented out for testing)
+				/*
+				// Try multiple milestone queries to find relevant issues
+				const milestoneQueries = [
+					'September 2025',
+					'October 2025',
+					'2025-Q4',
+					'Current Sprint',
+					// Also try without milestone filter to get any assigned issues
+					null
+				];
+
+				let foundIssues: IssueData[] = [];
+				for (const milestone of milestoneQueries) {
+					if (milestone === null) {
+						// Get recent issues assigned to user without milestone filter
+						try {
+							const query = 'is:open assignee:@me sort:updated-desc';
+							const searchResult = await folderManager.getIssues(query);
+							if (searchResult?.items) {
+								const recentIssues = await Promise.all(searchResult.items.slice(0, 5).map(issue => this.convertIssueToData(issue)));
+								if (recentIssues.length > 0) {
+									console.log(`Found ${recentIssues.length} recent issues without milestone filter`);
+									foundIssues = recentIssues;
+									break;
+								}
+							}
+						} catch (error) {
+							console.log(`Failed to get issues without milestone: ${error}`);
+						}
+					} else {
+						const milestoneIssues = await this.getIssuesForMilestone(folderManager, milestone);
+						if (milestoneIssues.length > 0) {
+							console.log(`Found ${milestoneIssues.length} issues for milestone: ${milestone}`);
+							foundIssues = milestoneIssues;
+							break; // Use the first milestone that has issues
+						}
+					}
+				}
+
+				issues.push(...foundIssues);
+				*/
 			}
 
+			console.log(`Total milestone issues found: ${issues.length}`);
 			return issues;
 		} catch (error) {
 			Logger.error(`Failed to get milestone issues: ${error}`, DashboardWebviewProvider.ID);
@@ -219,23 +277,32 @@ export class DashboardWebviewProvider extends WebviewBase {
 	}
 
 	private async convertIssueToData(issue: IssueModel): Promise<IssueData> {
+		console.log(`Converting issue #${issue.number} to data`);
 		let complexity: number | undefined;
 		let complexityReasoning: string | undefined;
+		let codeSearchUsed: boolean | undefined;
 
 		// Check if complexity is already calculated (from IssueItem)
 		if ((issue as any).complexity?.score) {
 			complexity = (issue as any).complexity.score;
 			complexityReasoning = (issue as any).complexity.reasoning;
+			codeSearchUsed = (issue as any).complexity.codeSearchUsed;
+			console.log(`Using cached complexity for issue #${issue.number}: ${complexity}`);
 		} else {
 			// Calculate complexity on demand
 			try {
+				console.log(`Calculating complexity for issue #${issue.number}`);
 				const complexityResult = await this._complexityService.calculateComplexity(issue);
 				complexity = complexityResult.score;
 				complexityReasoning = complexityResult.reasoning;
+				codeSearchUsed = complexityResult.codeSearchUsed;
+				console.log(`Calculated complexity for issue #${issue.number}: ${complexity}, reasoning: ${complexityReasoning}`);
 			} catch (error) {
-				Logger.debug(`Failed to calculate complexity for issue #${issue.number}: ${error}`, DashboardWebviewProvider.ID);
+				console.log(`Failed to calculate complexity for issue #${issue.number}: ${error}`);
 			}
 		}
+
+		console.log(`Dashboard provider returning for issue #${issue.number}: complexity=${complexity}, codeSearchUsed=${codeSearchUsed}`);
 
 		return {
 			number: issue.number,
@@ -247,7 +314,8 @@ export class DashboardWebviewProvider extends WebviewBase {
 			createdAt: issue.createdAt,
 			updatedAt: issue.updatedAt,
 			complexity,
-			complexityReasoning
+			complexityReasoning,
+			codeSearchUsed
 		};
 	}
 

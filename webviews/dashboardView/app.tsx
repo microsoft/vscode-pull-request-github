@@ -29,6 +29,7 @@ interface IssueData {
 	updatedAt: string;
 	complexity?: number;
 	complexityReasoning?: string;
+	codeSearchUsed?: boolean;
 }
 
 interface DashboardData {
@@ -217,7 +218,9 @@ function Dashboard() {
 								No issues found for September 2025 milestone
 							</div>
 						) : (
-							data.milestoneIssues.map((issue) => (
+							data.milestoneIssues.map((issue) => {
+								console.log(`Frontend issue #${issue.number}: complexity=${issue.complexity}, codeSearchUsed=${issue.codeSearchUsed}`);
+								return (
 								<div
 									key={issue.number}
 									className="issue-item"
@@ -227,12 +230,12 @@ function Dashboard() {
 										<div className="item-title">
 											#{issue.number}: {issue.title}
 										</div>
-										{issue.complexity && (
-											<div 
+										{issue.complexity && issue.complexity !== -1 && (
+											<div
 												className="complexity-score"
 												title={issue.complexityReasoning || `Complexity score: ${issue.complexity}`}
 											>
-												{issue.complexity}
+												{issue.complexity}{issue.codeSearchUsed ? '*' : ''}
 											</div>
 										)}
 									</div>
@@ -255,7 +258,8 @@ function Dashboard() {
 										</div>
 									</div>
 								</div>
-							))
+								);
+							})
 						)}
 					</div>
 				</div>
