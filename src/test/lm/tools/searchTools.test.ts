@@ -1,0 +1,134 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { default as assert } from 'assert';
+import { createSandbox, SinonSandbox } from 'sinon';
+import * as vscode from 'vscode';
+
+import { CredentialStore } from '../../../github/credentials';
+import { FolderRepositoryManager } from '../../../github/folderRepositoryManager';
+import { GitHubRepository } from '../../../github/githubRepository';
+import { AccountType, Issue } from '../../../github/interface';
+import { RepositoriesManager } from '../../../github/repositoriesManager';
+import { SearchTool, SearchToolResult } from '../../../lm/tools/searchTools';
+
+describe('SearchTool', function () {
+	let sinon: SinonSandbox;
+
+	beforeEach(function () {
+		sinon = createSandbox();
+	});
+
+	afterEach(function () {
+		sinon.restore();
+	});
+
+	function createStubbedSearchTool() {
+		const credentialStore = sinon.createStubInstance(CredentialStore);
+		credentialStore.isAnyAuthenticated.returns(true);
+		const repositoriesManager = sinon.createStubInstance(RepositoriesManager);
+		const folderManager = sinon.createStubInstance(FolderRepositoryManager);
+		const githubRepository = sinon.createStubInstance(GitHubRepository);
+		repositoriesManager.getManagerForRepository.returns(folderManager as unknown as FolderRepositoryManager);
+		folderManager.findExistingGitHubRepository.returns(githubRepository as unknown as GitHubRepository);
+		githubRepository.getIssues.resolves({ items: [], hasMorePages: false, totalCount: 0 });
+
+		const tool = new SearchTool(
+			credentialStore as unknown as CredentialStore,
+			repositoriesManager as unknown as RepositoriesManager,
+		);
+		return { tool, repositoriesManager, folderManager, githubRepository };
+	}
+
+	async function invokeSearch(tool: SearchTool, input: { query: string; repo: { owner: string; name: string } }) {
+		const tokenSource = new vscode.CancellationTokenSource();
+		try {
+			return await tool.invoke({ input, toolInvocationToken: undefined }, tokenSource.token);
+		} finally {
+			tokenSource.dispose();
+		}
+	}
+
+	it('uses the explicit repository when the query has a repository qualifier', async function () {
+		const tool = new SearchTool({} as CredentialStore, {} as RepositoriesManager);
+
+		const invocation = await tool.prepareInvocation({
+			input: {
+				repo: { owner: 'microsoft', name: 'vscode' },
+				query: '(repo:"other/repository" OR label:bug)',
+			},
+		});
+
+		const message = invocation.invocationMessage as vscode.MarkdownString;
+		assert.strictEqual(message.value.match(/repo:microsoft\/vscode/g)?.length, 2);
+		assert.strictEqual(message.value.includes('repo:other/repository'), false);
+	});
+
+	it('searches the explicit repository when it is not an active workspace remote', async function () {
+		const { tool, repositoriesManager, folderManager, githubRepository } = createStubbedSearchTool();
+		const issue: Issue = {
+			id: 332663,
+			graphNodeId: 'I_332663',
+			title: 'Known matching issue',
+			titleHTML: 'Known matching issue',
+			body: '',
+			url: 'https://github.com/repository-owner/repository-name/issues/332663',
+			number: 332663,
+			labels: [],
+			state: 'OPEN',
+			assignees: [{ login: 'jruales', id: 'jruales', url: 'https://github.com/jruales', accountType: AccountType.User }],
+			createdAt: '2026-09-01T00:00:00Z',
+			updatedAt: '2026-09-07T00:00:00Z',
+			user: { login: 'author', id: 'author', url: 'https://github.com/author', accountType: AccountType.User },
+			commentCount: 0,
+			reactionCount: 0,
+			reactions: [],
+		};
+
+		githubRepository.getIssues.resolves({
+			items: [issue],
+			hasMorePages: false,
+			totalCount: 1,
+		});
+
+		const result = await invokeSearch(tool, {
+			repo: { owner: 'repository-owner', name: 'repository-name' },
+			query: 'is:issue is:open assignee:jruales',
+		});
+
+		assert.strictEqual(repositoriesManager.getManagerForRepository.calledOnceWith('repository-owner', 'repository-name'), true);
+		assert.strictEqual(githubRepository.getIssues.calledOnceWith(
+			undefined,
+			'is:issue is:open assignee:jruales repo:repository-owner/repository-name',
+		), true);
+		assert.strictEqual(folderManager.getIssues.notCalled, true);
+		const searchResult = JSON.parse((result!.content[0] as vscode.LanguageModelTextPart).value) as SearchToolResult;
+		assert.strictEqual(searchResult.totalIssues, 1);
+		assert.strictEqual(searchResult.arrayOfIssues![0].number, 332663);
+	});
+
+	it('does not rewrite repository qualifiers inside quoted text', async function () {
+		const { tool, githubRepository } = createStubbedSearchTool();
+		const cases = [
+			{
+				query: 'label:"needs repo:other/repository review"',
+				expected: 'label:"needs repo:other/repository review" repo:microsoft/vscode',
+			},
+			{
+				query: '"crash in repo:other/repository on startup" is:open',
+				expected: '"crash in repo:other/repository on startup" is:open repo:microsoft/vscode',
+			},
+			{
+				query: 'label:"needs repo:other/repository review" repo:"other/repository"',
+				expected: 'label:"needs repo:other/repository review" repo:microsoft/vscode repo:microsoft/vscode',
+			},
+		];
+
+		for (const { query, expected } of cases) {
+			await invokeSearch(tool, { repo: { owner: 'microsoft', name: 'vscode' }, query });
+			assert.strictEqual(githubRepository.getIssues.lastCall.args[1], expected);
+		}
+	});
+});
