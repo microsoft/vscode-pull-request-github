@@ -25,6 +25,7 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
+import { ComplexityScore } from './complexityService';
 import { CurrentIssue } from './currentIssue';
 
 const CURRENT_ISSUE_KEY = 'currentIssue';
@@ -50,6 +51,7 @@ const DEFAULT_QUERY_CONFIGURATION_VALUE: { label: string, query: string, groupBy
 
 export class IssueItem extends IssueModel {
 	uri: vscode.Uri;
+	complexityScore?: ComplexityScore;
 }
 
 interface SingleRepoState {
@@ -335,7 +337,14 @@ export class StateManager {
 			resolve(
 				issues?.items.map(item => {
 					const issueItem: IssueItem = item as IssueItem;
-					issueItem.uri = folderManager.repository.rootUri;
+					// Create a unique URI for each issue using the repository URI with the issue number
+					issueItem.uri = vscode.Uri.from({
+						scheme: 'github-issue',
+						authority: folderManager.repository.rootUri.authority,
+						path: `/${folderManager.repository.rootUri.path}/issues/${item.number}`,
+						query: folderManager.repository.rootUri.query,
+						fragment: folderManager.repository.rootUri.fragment
+					});
 					return issueItem;
 				}),
 			);

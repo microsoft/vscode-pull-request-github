@@ -12,6 +12,7 @@ import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepo
 import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { IssueComplexityService } from './complexityService';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 
@@ -38,11 +39,15 @@ export class IssuesTreeData
 		FolderRepositoryManager | IssueItem | null | undefined | void
 	> = this._onDidChangeTreeData.event;
 
+	private readonly complexityService: IssueComplexityService;
+
 	constructor(
 		private stateManager: StateManager,
 		private manager: RepositoriesManager,
 		private context: vscode.ExtensionContext,
 	) {
+		this.complexityService = new IssueComplexityService();
+
 		context.subscriptions.push(
 			this.manager.onDidChangeState(() => {
 				this._onDidChangeTreeData.fire();
@@ -76,7 +81,29 @@ export class IssuesTreeData
 	}
 
 	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
+		// Create the tree item with just the title
 		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
+
+		// Handle complexity score calculation and display
+		if (!element.complexityScore) {
+			// Show loading state in description
+			treeItem.description = '⏳';
+
+			// Asynchronously calculate and cache the complexity score
+			this.complexityService.getComplexityScore(element).then(score => {
+				if (score) {
+					element.complexityScore = score;
+					// Refresh the tree item to display the complexity score
+					this._onDidChangeTreeData.fire();
+				}
+			}).catch(error => {
+				console.error('Failed to get complexity score for issue:', element.number, error);
+			});
+		} else {
+			// Show compact complexity badge in description
+			treeItem.description = this.getCompactComplexityBadge(element.complexityScore.score);
+		}
+
 		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0] ??
 			(element.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
@@ -87,6 +114,11 @@ export class IssuesTreeData
 			title: vscode.l10n.t('View Issue Description'),
 			arguments: [element]
 		};
+
+		// Set tooltip with complexity reasoning if available
+		if (element.complexityScore?.reasoning) {
+			treeItem.tooltip = `Complexity Score: ${element.complexityScore.score}/100\n\n${element.complexityScore.reasoning}`;
+		}
 
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
 			treeItem.label = `✓ ${treeItem.label as string}`;
@@ -103,6 +135,28 @@ export class IssuesTreeData
 			treeItem.contextValue = 'link' + treeItem.contextValue;
 		}
 		return treeItem;
+	}
+
+	/**
+	 * Get a compact complexity badge for the description field
+	 */
+	private getCompactComplexityBadge(score: number): string {
+		let colorEmoji: string;
+
+		if (score <= 20) {
+			colorEmoji = '🟢'; // Green for very simple
+		} else if (score <= 40) {
+			colorEmoji = '🟡'; // Yellow for simple
+		} else if (score <= 60) {
+			colorEmoji = '🟠'; // Orange for moderate
+		} else if (score <= 80) {
+			colorEmoji = '🔴'; // Red for complex
+		} else {
+			colorEmoji = '🟣'; // Purple for very complex
+		}
+
+		// Very compact: just emoji and number
+		return `${colorEmoji}${score}`;
 	}
 
 	async getTreeItem(element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem): Promise<vscode.TreeItem> {
