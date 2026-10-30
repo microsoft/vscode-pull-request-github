@@ -46,6 +46,13 @@ interface IssuesState {
 	branches: Record<string, { owner: string; repositoryName: string; number: number }>;
 }
 
+export async function getIssueForBranch(folderManager: FolderRepositoryManager, branchName: string): Promise<IssueModel | undefined> {
+	const stateString = folderManager.context.workspaceState.get<string>(ISSUES_KEY);
+	const state: IssuesState | undefined = stateString ? JSON.parse(stateString) : undefined;
+	const issue = state?.branches && Object.prototype.hasOwnProperty.call(state.branches, branchName) ? state.branches[branchName] : undefined;
+	return issue ? folderManager.resolveIssue(issue.owner, issue.repositoryName, issue.number) : undefined;
+}
+
 // eslint-disable-next-line no-template-curly-in-string
 const DEFAULT_QUERY_CONFIGURATION_VALUE: { label: string, query: string, groupBy: QueryGroup[] }[] = [{ label: vscode.l10n.t('My Issues'), query: 'is:open assignee:@me repo:${owner}/${repository}', groupBy: ['milestone'] }];
 
@@ -407,24 +414,14 @@ export class StateManager {
 			return;
 		}
 
-		const state: IssuesState = this.getSavedState();
-		for (const branch in state.branches) {
-			if (branch === branchName) {
-				const issueModel = await singleRepoState.folderManager.resolveIssue(
-					state.branches[branch].owner,
-					state.branches[branch].repositoryName,
-					state.branches[branch].number,
-				);
-				if (issueModel) {
-					await this.setCurrentIssue(
-						singleRepoState,
-						new CurrentIssue(issueModel, singleRepoState.folderManager, this),
-						false,
-						silent
-					);
-				}
-				return;
-			}
+		const issueModel = await getIssueForBranch(singleRepoState.folderManager, branchName);
+		if (issueModel) {
+			await this.setCurrentIssue(
+				singleRepoState,
+				new CurrentIssue(issueModel, singleRepoState.folderManager, this),
+				false,
+				silent
+			);
 		}
 	}
 

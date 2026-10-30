@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SinonSandbox, SinonSpy, SinonStub, createSandbox } from 'sinon';
+import { SinonFakeTimers, SinonSandbox, SinonSpy, SinonStub, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
@@ -44,6 +44,7 @@ import { PrsTreeModel } from '../../view/prsTreeModel';
 import { TreeNode } from '../../view/treeNodes/treeNode';
 import { escapeMarkdownText } from '../../github/markdownUtils';
 import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
+import { AUTO_REFRESH_QUERIES, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -135,6 +136,105 @@ describe('GitHub Pull Requests view', function () {
 		credentialStore.dispose();
 		context.dispose();
 		sinon.restore();
+	});
+
+	describe('automatic refresh', function () {
+		let clock: SinonFakeTimers;
+		let configurationChanged: vscode.EventEmitter<vscode.ConfigurationChangeEvent>;
+		let interval: number;
+		let refresh: SinonSpy;
+		let treeChanged: SinonSpy;
+
+		function changeInterval(value: number): void {
+			interval = value;
+			configurationChanged.fire({
+				affectsConfiguration: section => section === `${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`,
+			});
+		}
+
+		beforeEach(function () {
+			provider.dispose();
+			clock = sinon.useFakeTimers();
+			interval = 0;
+			const configuration: vscode.WorkspaceConfiguration = {
+				get: sinon.stub().callsFake((key: string, fallback?: unknown) => key === AUTO_REFRESH_QUERIES ? interval : fallback),
+				has: key => key === AUTO_REFRESH_QUERIES,
+				inspect: () => undefined,
+				update: async () => { },
+			};
+			sinon.stub(vscode.workspace, 'getConfiguration').returns(configuration);
+			configurationChanged = new vscode.EventEmitter<vscode.ConfigurationChangeEvent>();
+			context.subscriptions.push(configurationChanged);
+			sinon.stub(vscode.workspace, 'onDidChangeConfiguration').callsFake(configurationChanged.event);
+			refresh = sinon.spy(prsTreeModel, 'forceClearCache');
+			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+			treeChanged = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(treeChanged));
+		});
+
+		it('does not refresh when disabled', function () {
+			clock.tick(60000);
+			sinon.assert.notCalled(refresh);
+			sinon.assert.notCalled(treeChanged);
+		});
+
+		it('uses the configured interval on startup', function () {
+			provider.dispose();
+			interval = 2;
+			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+			clock.tick(1999);
+			sinon.assert.notCalled(refresh);
+			clock.tick(1);
+			sinon.assert.calledOnce(refresh);
+		});
+
+		it('refreshes query caches and the tree repeatedly at the interval in seconds', function () {
+			changeInterval(2);
+			clock.tick(1999);
+			sinon.assert.notCalled(refresh);
+			clock.tick(1);
+			sinon.assert.calledOnce(refresh);
+			sinon.assert.calledOnce(treeChanged);
+			clock.tick(2000);
+			sinon.assert.calledTwice(refresh);
+			sinon.assert.calledTwice(treeChanged);
+		});
+
+		it('replaces the timer when changed and stops when set to zero', function () {
+			changeInterval(2);
+			clock.tick(1000);
+			changeInterval(5);
+			clock.tick(4999);
+			sinon.assert.notCalled(refresh);
+			clock.tick(1);
+			sinon.assert.calledOnce(refresh);
+			changeInterval(0);
+			clock.tick(10000);
+			sinon.assert.calledOnce(refresh);
+		});
+
+		it('does not restart the timer for unrelated configuration changes', function () {
+			changeInterval(2);
+			clock.tick(1000);
+			configurationChanged.fire({ affectsConfiguration: () => false });
+			clock.tick(1000);
+			sinon.assert.calledOnce(refresh);
+		});
+
+		it('stops refreshing when disposed', function () {
+			changeInterval(2);
+			provider.dispose();
+			clock.tick(10000);
+			sinon.assert.notCalled(refresh);
+		});
+
+		it('does not schedule invalid intervals or overflow large intervals', function () {
+			for (const value of [-1, NaN, Infinity, Number.MAX_VALUE]) {
+				changeInterval(value);
+				clock.tick(10000);
+			}
+			sinon.assert.notCalled(refresh);
+		});
 	});
 
 	it('has no children when no workspace folders are open', async function () {

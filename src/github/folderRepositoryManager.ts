@@ -616,16 +616,29 @@ export class FolderRepositoryManager extends Disposable {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
 				// Make a test call to see if the user has SAML enabled.
 				const samlTest = result.canceled ? [] : await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
-				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+				let stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
 				// Make a test call to see if the user has SAML enabled.
 				if (stillMissing.length > 0) {
-					if (stillMissing.length === repositories.length) {
-						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
-						this.dispose();
-						return true;
+					const reauthenticate = { title: vscode.l10n.t('Reauthenticate') };
+					const errorMessage = stillMissing.length === repositories.length
+						? vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.')
+						: vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.');
+					const choice = await vscode.window.showErrorMessage(errorMessage, { modal: true }, reauthenticate);
+					if (choice?.title === reauthenticate.title) {
+						const retryResult = await this._credentialStore.showSamlMessageAndAuth(stillMissing.map(repo => repo.remote.owner));
+						if (!retryResult.canceled) {
+							const retryTest = await Promise.all(stillMissing.map(repo => repo.resolveRemote()));
+							stillMissing = retryTest.map((result, index) => !result ? stillMissing[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+						}
 					}
-					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
-					cleanUpMissingSaml(stillMissing);
+
+					if (stillMissing.length > 0) {
+						if (stillMissing.length === repositories.length) {
+							this.dispose();
+							return true;
+						}
+						await cleanUpMissingSaml(stillMissing);
+					}
 				}
 			}
 
@@ -1787,27 +1800,19 @@ export class FolderRepositoryManager extends Disposable {
 		if (upstreamRef && upstreamRef.remote !== '.') {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
+			if (upstream) {
+				return upstream;
+			}
 
 			// If the upstream wasn't listed in the remotes setting, create a GitHubRepository
 			// object for it if is does point to GitHub.
-			if (!upstream) {
-				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
-				if (remote) {
-					return this.createAndAddGitHubRepository(remote, this._credentialStore);
-				}
-
-				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`, this.id);
-
-				// No GitHubRepository? We currently won't try pushing elsewhere,
-				// so fail.
-				throw new BadUpstreamError(this.repository.state.HEAD!.name!, upstreamRef, 'is not a GitHub repo');
+			const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
+			if (remote) {
+				return this.createAndAddGitHubRepository(remote, this._credentialStore);
 			}
-
-			// Otherwise, we'll push upstream.
-			return upstream;
 		}
 
-		// If no upstream is set, let's go digging.
+		// If no GitHub upstream is set, let's go digging.
 		const [first, ...rest] = this._githubRepositories;
 		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.

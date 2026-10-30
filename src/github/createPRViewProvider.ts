@@ -45,6 +45,7 @@ import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '.
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+import { getIssueForBranch } from '../issues/stateManager';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -851,7 +852,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
+				descriptionSource === 'template' ? this.getPullRequestTemplate(name, baseBranch) : undefined
 			]);
 			let totalNonMergeCommitsCount: number | undefined = totalCommits?.filter(commit => commit.parents.length < 2).length;
 
@@ -921,8 +922,31 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return { title, description };
 	}
 
-	private async getPullRequestTemplate(): Promise<string | undefined> {
-		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+	private async getPullRequestTemplate(compareBranch: string | undefined, baseBranch: string): Promise<string | undefined> {
+		const template = await this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		return template === undefined ? undefined : this.resolvePullRequestTemplate(template, compareBranch, baseBranch);
+	}
+
+	private async resolvePullRequestTemplate(template: string, compareBranch: string | undefined, baseBranch: string): Promise<string> {
+		if (!template.includes('${')) {
+			return template;
+		}
+		const issue = compareBranch ? await this.lookupTemplateValue('issue', () => getIssueForBranch(this._folderRepositoryManager, compareBranch)) : undefined;
+		const user = /\$\{user\}/.test(template) ? await this.lookupTemplateValue('user', () => this._folderRepositoryManager.getCurrentUser()) : undefined;
+		return variableSubstitution(template, issue, {
+			owner: this.model.baseOwner,
+			repo: this.model.repositoryName,
+			base: baseBranch,
+		}, user?.login);
+	}
+
+	private async lookupTemplateValue<T>(name: string, lookup: () => Promise<T>): Promise<T | undefined> {
+		try {
+			return await lookup();
+		} catch (e) {
+			Logger.debug(`Unable to resolve the ${name} for pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
+			return undefined;
+		}
 	}
 
 	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
@@ -977,7 +1001,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		if (selectedTemplate) {
 			const reply: ChangeTemplateReply = {
-				description: selectedTemplate.template
+				description: await this.resolvePullRequestTemplate(selectedTemplate.template, this.model.compareBranch, this.model.baseBranch)
 			};
 			return this._replyMessage(message, reply);
 		}
@@ -1237,11 +1261,12 @@ Don't forget to commit your template file to the repository so that it can be us
 			try {
 				this.model.compareOwner = result.remote.owner;
 				await this.model.setCompareBranch(result.branch);
-				await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+				const titleAndDescription = await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 				chooseResult = {
 					compareRemote: result.remote,
 					compareBranch: result.branch,
 					defaultCompareBranch: defaultBranch,
+					defaultDescription: titleAndDescription.description,
 					stackCandidate: await this.getStackCandidateForView(
 						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
 						this.model.baseBranch, result.remote, result.branch),
@@ -1374,7 +1399,7 @@ Don't forget to commit your template file to the repository so that it can be us
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
-				const templatePromise = this.getPullRequestTemplate(); // Fetch in parallel
+				const templatePromise = this.getPullRequestTemplate(this.model.compareBranch, this.model.baseBranch); // Fetch in parallel
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
 				const issues = await this.model.findIssueContext(commitMessages);
 				const template = await templatePromise;

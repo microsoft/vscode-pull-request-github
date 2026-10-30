@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { SinonSandbox, createSandbox } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { mockTreeViewWorkbench } from '../mocks/mockTreeViewWorkbench';
@@ -22,11 +22,11 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote } from '../../common/remote';
-import { GHPRCommentThread } from '../../github/prComment';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
-import { DiffSide, SubjectType } from '../../common/comment';
+import { DiffSide, IComment, SubjectType } from '../../common/comment';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -41,6 +41,7 @@ import { AccountType } from '../../github/interface';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { asPromise } from '../../common/utils';
 import { PrsTreeModel } from '../../view/prsTreeModel';
+import { PullRequestCommentController } from '../../view/pullRequestCommentController';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -410,6 +411,130 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 1);
+		});
+	});
+
+	function testCommentAndResolve(createController: () => ReviewCommentController | PullRequestCommentController) {
+		let controller: ReviewCommentController | PullRequestCommentController;
+		let thread: GHPRCommentThread;
+		let comment: IComment;
+		let pendingReview: SinonStub;
+		let submitReview: SinonStub;
+		let resolveThread: SinonStub;
+		let showError: SinonStub;
+
+		function assertEditableReply(text: string) {
+			const reply = thread.comments[1];
+			assert.ok(reply instanceof TemporaryComment);
+			const body = reply.body;
+			assert.ok(body instanceof vscode.MarkdownString);
+			assert.strictEqual(body.value, text);
+			assert.strictEqual(reply.mode, vscode.CommentMode.Editing);
+		}
+
+		beforeEach(function () {
+			controller = createController();
+			context.subscriptions.push(controller);
+			thread = createGHPRCommentThread('thread-1', vscode.Uri.joinPath(repository.rootUri, 'file.ts'));
+			const user = { login: 'reviewer', url: 'https://github.com/reviewer', id: '123', accountType: AccountType.User };
+			comment = {
+				id: 1,
+				graphNodeId: 'comment-1',
+				body: 'Original comment',
+				createdAt: '',
+				htmlUrl: '',
+				url: 'https://github.com/owner/repo/pull/1#discussion_r1',
+				diffHunk: '',
+				user,
+			};
+			thread.comments = [new GHPRComment(context, comment, thread)];
+			sinon.stub(manager, 'getCurrentUser').resolves(user);
+			pendingReview = sinon.stub(activePullRequest, 'getPendingReviewId').resolves(undefined);
+			submitReview = sinon.stub(activePullRequest, 'submitReview').resolves(undefined);
+			resolveThread = sinon.stub(activePullRequest, 'resolveReviewThread').resolves();
+			showError = sinon.stub(vscode.window, 'showErrorMessage').resolves();
+		});
+
+		it('posts the reply and submits it before resolving without a pending review', async function () {
+			const reply = sinon.stub(activePullRequest, 'createCommentReply').resolves(comment);
+
+			await controller.resolveReviewThread(thread, 'Fixed this');
+
+			sinon.assert.calledOnce(reply);
+			sinon.assert.calledWithExactly(reply, 'Fixed this', 'comment-1', true);
+			sinon.assert.callOrder(reply, submitReview, resolveThread);
+			sinon.assert.calledOnce(resolveThread);
+			sinon.assert.calledWithExactly(resolveThread, 'thread-1');
+		});
+
+		it('keeps the reply in an existing pending review before resolving', async function () {
+			sinon.stub(activePullRequest, 'hasPendingReview').get(() => true);
+			pendingReview.resolves('review-1');
+			const reply = sinon.stub(activePullRequest, 'createCommentReply').resolves(comment);
+
+			await controller.resolveReviewThread(thread, 'Fixed this');
+
+			sinon.assert.calledOnce(reply);
+			sinon.assert.calledWithExactly(reply, 'Fixed this', 'comment-1', false);
+			sinon.assert.notCalled(submitReview);
+			sinon.assert.callOrder(reply, resolveThread);
+		});
+
+		it('does not resolve when posting the reply fails and keeps it editable', async function () {
+			sinon.stub(activePullRequest, 'createCommentReply').rejects(new Error('Reply failed'));
+
+			await controller.resolveReviewThread(thread, 'Keep this reply');
+
+			sinon.assert.notCalled(resolveThread);
+			sinon.assert.notCalled(submitReview);
+			assertEditableReply('Keep this reply');
+		});
+
+		it('does not resolve when the reply cannot be created because the pull request has no upstream branch', async function () {
+			sinon.stub(activePullRequest, 'hasPendingReview').get(() => true);
+			pendingReview.resolves('review-1');
+			activePullRequest.head = null;
+			const showWarning = sinon.stub(vscode.window, 'showWarningMessage').resolves();
+
+			await controller.resolveReviewThread(thread, 'Keep this reply');
+
+			sinon.assert.calledOnce(showWarning);
+			sinon.assert.notCalled(showError);
+			sinon.assert.notCalled(submitReview);
+			sinon.assert.notCalled(resolveThread);
+			assertEditableReply('Keep this reply');
+		});
+
+		it('does not resolve when submitting the review fails', async function () {
+			sinon.stub(activePullRequest, 'createCommentReply').resolves(comment);
+			submitReview.rejects(new Error('Submit failed'));
+
+			await controller.resolveReviewThread(thread, 'Fixed this');
+
+			sinon.assert.notCalled(resolveThread);
+		});
+
+		it('still resolves without creating a reply when no text is provided', async function () {
+			const reply = sinon.stub(activePullRequest, 'createCommentReply');
+
+			await controller.resolveReviewThread(thread);
+
+			sinon.assert.notCalled(reply);
+			sinon.assert.notCalled(pendingReview);
+			sinon.assert.calledOnce(resolveThread);
+			sinon.assert.calledWithExactly(resolveThread, 'thread-1');
+		});
+	}
+
+	describe('comment and resolve in a checked out pull request', function () {
+		testCommentAndResolve(() => new ReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry));
+	});
+
+	describe('comment and resolve in a browsed pull request', function () {
+		testCommentAndResolve(() => {
+			const commentController = vscode.comments.createCommentController('test-comment-and-resolve', 'Test');
+			context.subscriptions.push(commentController);
+			return new PullRequestCommentController(activePullRequest, manager, commentController, telemetry);
 		});
 	});
 
