@@ -21,7 +21,7 @@ import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } fr
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, StackCandidate, TitleAndDescriptionArgs } from '../../common/views';
-import type { Branch } from '../api/api';
+import type { Branch, UpstreamRef } from '../api/api';
 import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';
@@ -1101,7 +1101,8 @@ Don't forget to commit your template file to the repository so that it can be us
 				const repo = this._folderRepositoryManager.findRepo(repo => repo.remote.remoteName === baseFromProvider.remote);
 				if (repo) {
 					return {
-						branch: baseFromProvider.name,
+						// A branch created from `<remote>/HEAD` is based on the branch that the remote's HEAD points to, which is the default branch.
+						branch: baseFromProvider.name === 'HEAD' ? await repo.getDefaultBranch() : baseFromProvider.name,
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName
 					};
@@ -1513,6 +1514,31 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
+	/**
+	 * The ahead count of a branch is relative to its upstream, but the branch is pushed to the remote branch with the same name.
+	 * When the upstream is a different branch (ex. the branch was created with `git switch -c feature origin/main`),
+	 * the unpushed commits are the ones that aren't on the remote branch with the same name.
+	 */
+	private async getUnpushedCommitCount(branchName: string, branch: Branch, upstream: UpstreamRef): Promise<number> {
+		if (upstream.name === branchName) {
+			return branch.ahead ?? 0;
+		}
+		const repository = this._folderRepositoryManager.repository;
+		const remoteBranchRef = `refs/remotes/${upstream.remote}/${branchName}`;
+		try {
+			await repository.fetch(upstream.remote, branchName);
+			const remoteBranch = await repository.getBranch(remoteBranchRef);
+			if (remoteBranch.commit === branch.commit) {
+				return 0;
+			}
+			return (await repository.log({ range: `${remoteBranchRef}..refs/heads/${branchName}` })).length;
+		} catch (e) {
+			// The branch hasn't been pushed yet, so all the commits that are ahead of the upstream are unpushed.
+			Logger.debug(`Unable to compare ${branchName} with ${remoteBranchRef}: ${formatError(e)}`, CreatePullRequestViewProvider.ID);
+			return branch.ahead ?? 0;
+		}
+	}
+
 	private checkGeneratedTitleAndDescription(title: string, description: string) {
 		if (!this.lastGeneratedTitleAndDescription) {
 			return;
@@ -1610,10 +1636,10 @@ Don't forget to commit your template file to the repository so that it can be us
 					}
 
 					// Check for unpushed commits when there's an upstream
-					if (compareBranch.upstream && compareBranch.ahead && compareBranch.ahead > 0) {
+					const commitCount = compareBranch.upstream ? await this.getUnpushedCommitCount(compareBranchName, compareBranch, compareBranch.upstream) : 0;
+					if (compareBranch.upstream && commitCount > 0) {
 						const pushCommits = vscode.l10n.t('Push Commits');
 						const continueWithoutPushing = vscode.l10n.t('Continue Without Pushing');
-						const commitCount = compareBranch.ahead;
 						const messageResult = await vscode.window.showInformationMessage(
 							vscode.l10n.t({
 								message: 'You have {0} unpushed commit(s) on \'{1}\'.\n\nDo you want to push them before creating the pull request?',

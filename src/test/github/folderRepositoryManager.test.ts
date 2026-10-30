@@ -460,6 +460,32 @@ describe('PullRequestManager', function () {
 		});
 	});
 
+	describe('createPullRequest', function () {
+		it('only offers to push once when there are still no commits after pushing', async function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = await manager.createGitHubRepository(remote, manager.credentialStore);
+			const create = sinon.stub(githubRepository, 'createPullRequest').rejects(new Error('Validation Failed: No commits between main and owner:feature'));
+			// The branch is ahead of the branch it tracks, but its commits have already been pushed to `origin/feature`.
+			sinon.stub(repository.state, 'HEAD').value({ type: RefType.Head, name: 'feature', upstream: { remote: 'origin', name: 'main' }, ahead: 1, behind: 0 });
+			const showInformationMessage: SinonStub = sinon.stub(window, 'showInformationMessage');
+			showInformationMessage.resolves('Push Commits');
+			repository.expectPush();
+
+			try {
+				await assert.rejects(
+					manager.createPullRequest({ owner: 'owner', repo: 'repo', title: 'Feature', head: 'owner:feature', base: 'main' }),
+					/No commits between main and owner:feature/,
+				);
+			} finally {
+				githubRepository.dispose();
+			}
+
+			assert(showInformationMessage.calledOnce);
+			assert(create.calledTwice);
+		});
+	});
+
 	describe('pull request lookup for branches tracking another branch', function () {
 		let githubRepository: MockGitHubRepository;
 		let closedPullRequest: PullRequestModel;
