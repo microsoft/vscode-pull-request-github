@@ -1081,6 +1081,27 @@ describe('PullRequestOverview', function () {
 			});
 		});
 
+		it('publishes the current bypass capability after deferred data outlives a revocation', async function () {
+			prModel.update({ ...prModel.item, viewerCanMergeAsAdmin: true });
+			(prModel.getMergeability as SinonStub).resolves({
+				mergeability: PullRequestMergeability.NotMergeable,
+				viewerCanMergeAsAdmin: true,
+			});
+			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
+			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
+
+			await openPanel();
+			assert.strictEqual(messages.some(message => !!message.pullrequest?.status), false);
+			prModel.update({ ...prModel.item, viewerCanMergeAsAdmin: false });
+			messages.length = 0;
+			releaseReviewRequests([]);
+			await new Promise(resolve => setImmediate(resolve));
+
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert(deferred, 'deferred data should be published after the remaining request finishes');
+			assert.strictEqual(deferred.pullrequest!.viewerCanMergeAsAdmin, false);
+		});
+
 		it('keeps the stack queue method when deferred PR data arrives after the stack', async function () {
 			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 			sinon.stub(prModel, 'getStack').resolves({

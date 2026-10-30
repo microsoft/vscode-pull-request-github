@@ -771,7 +771,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						...(isBranchStatusCurrent ? {
 							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
 							mergeable: mergeability.mergeability,
-							viewerCanMergeAsAdmin: mergeability.viewerCanMergeAsAdmin === true,
+							// Other deferred data can finish after a capability refresh.
+							viewerCanMergeAsAdmin: pullRequestModel.item.viewerCanMergeAsAdmin === true,
 						} : {}),
 						reviewers,
 						hasReviewDraft,
