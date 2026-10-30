@@ -43,6 +43,16 @@ function remoteChanged(next: RemoteInfo | undefined, current: RemoteInfo | undef
 	return next !== undefined && (next.owner !== current?.owner || next.repositoryName !== current?.repositoryName);
 }
 
+// Defaults are computed for the default branches, which can differ from a selection restored from webview state.
+function showsDefaultSelection(next: Partial<CreateParamsNew>, current: CreateParamsNew): boolean {
+	const compareBranch = next.compareBranch ?? current.compareBranch ?? next.defaultCompareBranch;
+	const baseBranch = next.baseBranch ?? current.baseBranch ?? next.defaultBaseBranch;
+	return (next.defaultCompareBranch === undefined || next.defaultCompareBranch === compareBranch)
+		&& (next.defaultBaseBranch === undefined || next.defaultBaseBranch === baseBranch)
+		&& !remoteChanged(next.defaultCompareRemote, next.compareRemote ?? current.compareRemote ?? next.defaultCompareRemote)
+		&& !remoteChanged(next.defaultBaseRemote, next.baseRemote ?? current.baseRemote ?? next.defaultBaseRemote);
+}
+
 function stackCandidateChanged(next: Partial<CreateParamsNew>, current: StackCandidate | undefined): boolean {
 	if (!Object.prototype.hasOwnProperty.call(next, 'stackCandidate')) {
 		return false;
@@ -360,9 +370,15 @@ export class CreatePRContextNew {
 					message.params.pendingTitle = message.params.defaultTitle;
 				}
 
-				if (message.params.defaultDescription !== undefined
-					&& ((current.pendingDescription === undefined) || (current.pendingDescription === current.defaultDescription))) {
-					message.params.pendingDescription = message.params.defaultDescription;
+				if (message.params.defaultDescription !== undefined) {
+					if (current.pendingDescription === undefined) {
+						message.params.pendingDescription = message.params.defaultDescription;
+					} else if (!showsDefaultSelection(message.params, current)) {
+						// Keep the description and the baseline used to detect edits for the branches still shown.
+						message.params.defaultDescription = current.defaultDescription;
+					} else if (current.pendingDescription === current.defaultDescription) {
+						message.params.pendingDescription = message.params.defaultDescription;
+					}
 				}
 
 				if (this.createParams.baseRemote === undefined) {

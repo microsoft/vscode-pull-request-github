@@ -222,6 +222,53 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(context.createParams.pendingDescription, 'My description');
 	});
 
+	const shownSelection = {
+		baseRemote: { owner: 'owner', repositoryName: 'repo' },
+		compareRemote: { owner: 'owner', repositoryName: 'repo' },
+		baseBranch: 'main',
+		compareBranch: 'issue-42',
+	};
+	const defaultSelection = {
+		defaultBaseRemote: shownSelection.baseRemote,
+		defaultCompareRemote: shownSelection.compareRemote,
+		defaultBaseBranch: shownSelection.baseBranch,
+		defaultCompareBranch: shownSelection.compareBranch,
+	};
+
+	it('keeps the description of a restored selection when reinitialized with defaults for other branches', async function () {
+		const cases = [
+			{ compareBranch: 'issue-43' },
+			{ baseBranch: 'release' },
+			{ compareRemote: { owner: 'fork', repositoryName: 'repo' } },
+			{ baseRemote: { owner: 'upstream', repositoryName: 'repo' } },
+		];
+		for (const selection of cases) {
+			const context = new CreatePRContextNew();
+			context.updateState({ ...shownSelection, ...selection, defaultDescription: 'Closes #43', pendingDescription: 'Closes #43' });
+
+			await context.handleMessage({
+				command: 'pr.initialize',
+				params: { ...defaultSelection, defaultDescription: 'Closes #42' },
+			});
+
+			assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+			assert.strictEqual(context.createParams.pendingDescription, 'Closes #43');
+		}
+	});
+
+	it('refreshes an unedited description when reinitialized with defaults for the shown branches', async function () {
+		const context = new CreatePRContextNew();
+		context.updateState({ ...shownSelection, defaultDescription: 'Closes #42', pendingDescription: 'Closes #42' });
+
+		await context.handleMessage({
+			command: 'pr.initialize',
+			params: { ...defaultSelection, defaultDescription: 'Fixes #42' },
+		});
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Fixes #42');
+		assert.strictEqual(context.createParams.pendingDescription, 'Fixes #42');
+	});
+
 	it('clears stack selection only when branch, repository or stack membership changes', async function () {
 		const cases = [
 			{ baseBranch: 'D2' },

@@ -138,16 +138,16 @@ describe('Create pull request stack', function () {
 			sinon.stub(folderManager, 'getTipCommitMessage').resolves('A change\n\nCommit body ${issueNumber}');
 		});
 
-		async function associateIssue(owner = 'github', repo = 'test') {
+		async function associateIssue(owner = 'github', repo = 'test', branch = 'D4') {
 			const issue = new IssueModel(new MockTelemetry(), githubRepository, new GitHubRemote('origin',
 				`https://github.com/${owner}/${repo}`, new Protocol(`https://github.com/${owner}/${repo}`), GitHubServerType.GitHubDotCom),
 				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(42).title('Fix the bug').build(), githubRepository));
-			await stateManager.setSavedIssueState(issue, { branch: 'D4' });
+			await stateManager.setSavedIssueState(issue, { branch });
 			return sinon.stub(folderManager, 'resolveIssue').resolves(issue);
 		}
 
-		async function description() {
-			return (await provider.getDefaultTitleAndDescription(await repository.getBranch('D4'), 'D3')).description;
+		async function description(branch = 'D4') {
+			return (await provider.getDefaultTitleAndDescription(await repository.getBranch(branch), 'D3')).description;
 		}
 
 		it('resolves issue variables in the default template without changing commit text', async function () {
@@ -156,6 +156,15 @@ describe('Create pull request stack', function () {
 
 			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nFix the bug\nCloses #42\nIssue 42\n${unknown}');
 			assert(resolveIssue.calledOnceWithExactly('github', 'test', 42));
+		});
+
+		it('resolves issue variables for the described branch rather than the selected compare branch', async function () {
+			await repository.createBranch('issue-42', false, 'commit-sha');
+			await associateIssue('github', 'test', 'issue-42');
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel}');
+
+			assert.strictEqual(model.compareBranch, 'D4');
+			assert.strictEqual(await description('issue-42'), 'Commit body ${issueNumber}\n\nCloses #42');
 		});
 
 		it('qualifies issue links when the issue belongs to another repository', async function () {
