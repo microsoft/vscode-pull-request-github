@@ -1154,7 +1154,7 @@ export class FolderRepositoryManager extends Disposable {
 					// Search for a PR with this head branch
 					const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
 
-					if (matchingPR) {
+					if (matchingPR && (matchingPR.isOpen || !this.isTrackingOtherBranch(branchName, upstreamBranchName))) {
 						Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
 						await PullRequestGitHelper.associateBranchWithPullRequest(
 							this.repository,
@@ -2573,17 +2573,18 @@ export class FolderRepositoryManager extends Disposable {
 			if (await this.isWorktreeBranchTrackingOtherBranch(branch.name, upstreamBranchName)) {
 				return null;
 			}
+			const openOnly = this.isTrackingOtherBranch(branch.name, upstreamBranchName);
 			if (remoteName) {
-				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName);
+				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName, openOnly);
 			}
-			return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName);
+			return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName, openOnly);
 		} catch (e) {
 			Logger.error(`Unable to get matching pull request metadata from GitHub: ${e}`, this.id);
 			return null;
 		}
 	}
 
-	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteUrl}`, this.id);
@@ -2599,7 +2600,7 @@ export class FolderRepositoryManager extends Disposable {
 				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
 			}
 		}
-		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
+		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
 		if (matchingPR && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
 			const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo?.remote, protocol);
 			const trackedBranchName = `refs/remotes/${newRemote}/${matchingPR.model.head?.name}`;
@@ -2610,7 +2611,7 @@ export class FolderRepositoryManager extends Disposable {
 		return matchingPR;
 	}
 
-	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteName}`, this.id);
@@ -2635,10 +2636,10 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}
 
-		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
+		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
 	}
 
-	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string): Promise<
+	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		if (!headGitHubRepo || !upstreamBranchName) {
@@ -2661,7 +2662,9 @@ export class FolderRepositoryManager extends Disposable {
 		// Search through each github repo to see if it has a PR with this head branch.
 		for (const repo of parentRepos) {
 			const matchingPullRequest = await repo.getPullRequestForBranch(upstreamBranchName, headRepoMetadata.owner.login);
-			if (matchingPullRequest) {
+			if (matchingPullRequest && openOnly && !matchingPullRequest.isOpen) {
+				Logger.debug(`Pull request #${matchingPullRequest.number} for ${upstreamBranchName} is not open, not matching it to a branch that tracks ${upstreamBranchName} under another name`, this.id);
+			} else if (matchingPullRequest) {
 				return {
 					owner: repo.remote.owner,
 					repositoryName: repo.remote.repositoryName,
@@ -2698,13 +2701,22 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	/**
+	 * A branch created from a base branch (e.g. `git checkout -b my-feature origin/dev`) tracks that base branch, so its
+	 * upstream name isn't the branch's own name on the remote and matches pull requests from the base branch instead.
+	 * Only an open pull request is matched to such a branch, since tracking another pull request's branch under a
+	 * different name is a legitimate setup.
+	 */
+	private isTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): boolean {
+		return !!branchName && !!upstreamBranchName && branchName !== upstreamBranchName;
+	}
+
+	/**
 	 * A branch created in a worktree from a base branch (e.g. `git worktree add -b my-feature <path> origin/dev`)
-	 * tracks that base branch, so its upstream name isn't the branch's own name on the remote and would match
-	 * pull requests from the base branch instead. Worktree branches created for a pull request (e.g. fork pull
-	 * requests checked out as `pr/<author>/<number>`) track its head branch and are already associated with it.
+	 * doesn't get matched to pull requests by its upstream at all. Worktree branches created for a pull request (e.g.
+	 * fork pull requests checked out as `pr/<author>/<number>`) track its head branch and are already associated with it.
 	 */
 	private async isWorktreeBranchTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): Promise<boolean> {
-		if (!branchName || !upstreamBranchName || branchName === upstreamBranchName || !this.getWorktreeForBranch(branchName)) {
+		if (!branchName || !this.isTrackingOtherBranch(branchName, upstreamBranchName) || !this.getWorktreeForBranch(branchName)) {
 			return false;
 		}
 		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branchName]);

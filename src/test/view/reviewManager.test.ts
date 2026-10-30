@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { SinonFakeTimers, SinonSandbox, createSandbox } from 'sinon';
+import { SinonFakeTimers, SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import * as vscode from 'vscode';
 import type { Branch } from '../../api/api';
 import { GitApiImpl } from '../../api/api1';
@@ -357,34 +357,66 @@ describe('ReviewManager polling', function () {
 		assert.strictEqual(clear.called, false);
 	});
 
-	it('does not associate a worktree branch with a pull request for the branch it tracks', async function () {
-		sinon.stub(reviewManager, 'updateState').resolves();
-		const url = 'https://github.com/octocat/reponame';
-		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
-		const githubRepository = new MockGitHubRepository(remote, manager.credentialStore, new MockTelemetry(), sinon);
-		manager['_githubRepositories'] = [githubRepository];
-		const prItem = convertRESTPullRequestToRawPullRequest(
-			new PullRequestBuilder().number(1).state('closed').head(head => head.ref('dev')).build(),
-			githubRepository,
-		);
-		const closedPullRequest = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem);
-		const getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
-		// Like `git worktree add -b my-feature <path> origin/dev`, opened in VS Code
-		await repository.createBranch('my-feature', true);
-		await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
-		repository.setWorktrees([
-			{ name: 'root', path: '/root', ref: 'refs/heads/main', main: true, detached: false },
-			{ name: 'my-feature', path: '/root.worktrees/my-feature', ref: 'refs/heads/my-feature', main: false, detached: false },
-		]);
+	describe('checking GitHub for a branch tracking another branch', function () {
+		let githubRepository: MockGitHubRepository;
+		let closedPullRequest: PullRequestModel;
+		let openPullRequest: PullRequestModel;
+		let getPullRequestForBranch: SinonStub;
 
-		try {
+		beforeEach(async function () {
+			sinon.stub(reviewManager, 'updateState').resolves();
+			const url = 'https://github.com/octocat/reponame';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new MockGitHubRepository(remote, manager.credentialStore, new MockTelemetry(), sinon);
+			manager['_githubRepositories'] = [githubRepository];
+			const createPullRequest = (number: number, state: 'open' | 'closed') => new PullRequestModel(
+				manager.credentialStore,
+				telemetry,
+				githubRepository,
+				remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).state(state).head(head => head.ref('dev')).build(), githubRepository),
+			);
+			closedPullRequest = createPullRequest(1, 'closed');
+			openPullRequest = createPullRequest(2, 'open');
+			getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
+			// Like `git checkout -b my-feature origin/dev` or `git worktree add -b my-feature <path> origin/dev`, opened in VS Code
+			await repository.createBranch('my-feature', true);
+			await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
+		});
+
+		afterEach(function () {
+			closedPullRequest.dispose();
+			openPullRequest.dispose();
+			githubRepository.dispose();
+		});
+
+		it('does not associate a worktree branch with a pull request for the branch it tracks', async function () {
+			repository.setWorktrees([
+				{ name: 'root', path: '/root', ref: 'refs/heads/main', main: true, detached: false },
+				{ name: 'my-feature', path: '/root.worktrees/my-feature', ref: 'refs/heads/my-feature', main: false, detached: false },
+			]);
+
 			assert.strictEqual(await reviewManager['checkGitHubForPrBranch'](await repository.getBranch('my-feature')), undefined);
 			assert.strictEqual(getPullRequestForBranch.called, false);
 			assert.deepStrictEqual(await repository.getConfigs(), []);
-		} finally {
-			closedPullRequest.dispose();
-			githubRepository.dispose();
-		}
+		});
+
+		it('does not associate a branch with a closed pull request for the branch it tracks', async function () {
+			assert.strictEqual(await reviewManager['checkGitHubForPrBranch'](await repository.getBranch('my-feature')), undefined);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), []);
+		});
+
+		it('associates a branch with an open pull request for the branch it tracks', async function () {
+			getPullRequestForBranch.resolves(openPullRequest);
+
+			const metadata = await reviewManager['checkGitHubForPrBranch'](await repository.getBranch('my-feature'));
+
+			assert.strictEqual(metadata?.model, openPullRequest);
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.my-feature.github-pr-owner-number', value: 'octocat#reponame#2' },
+			]);
+		});
 	});
 
 	it('caps backoff at the maximum interval', async function () {
