@@ -8,9 +8,11 @@ import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
@@ -435,6 +437,149 @@ describe('PullRequestManager', function () {
 
 			assert.deepStrictEqual(origin.remote, upstreamRemote);
 			assert.ok(manager.gitHubRepositories.includes(origin));
+		});
+	});
+
+	describe('pull request lookup for branches tracking another branch', function () {
+		let githubRepository: MockGitHubRepository;
+		let closedPullRequest: PullRequestModel;
+		let openPullRequest: PullRequestModel;
+		let getPullRequestForBranch: SinonStub;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/octocat/reponame';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new MockGitHubRepository(remote, manager.credentialStore, telemetry, sinon);
+			manager['_githubRepositories'] = [githubRepository];
+			const createPullRequest = (number: number, state: 'open' | 'closed') => new PullRequestModel(
+				manager.credentialStore,
+				telemetry,
+				githubRepository,
+				remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).state(state).head(head => head.ref('dev')).build(), githubRepository),
+			);
+			closedPullRequest = createPullRequest(1, 'closed');
+			openPullRequest = createPullRequest(2, 'open');
+			getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
+
+			// Like `git checkout -b my-feature origin/dev` or `git worktree add -b my-feature <path> origin/dev`
+			await repository.createBranch('my-feature', false);
+			await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
+			await repository.createBranch('feature', false);
+			await repository.setBranchUpstream('feature', 'refs/remotes/origin/feature');
+		});
+
+		afterEach(function () {
+			closedPullRequest.dispose();
+			openPullRequest.dispose();
+			githubRepository.dispose();
+		});
+
+		function checkOut(mainWorktreeBranch: string, ...linkedWorktreeBranches: string[]) {
+			repository.setWorktrees([
+				{ name: 'root', path: '/root', ref: `refs/heads/${mainWorktreeBranch}`, main: true, detached: false },
+				...linkedWorktreeBranches.map(branchName => ({ name: branchName, path: `/root.worktrees/${branchName}`, ref: `refs/heads/${branchName}`, main: false, detached: false })),
+			]);
+		}
+
+		it('does not look up a pull request by the upstream of a worktree branch tracking another branch', async function () {
+			checkOut('main', 'my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.strictEqual(getPullRequestForBranch.called, false);
+		});
+
+		it('does not match a closed pull request to a main worktree branch tracking another branch', async function () {
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches an open pull request to a main worktree branch tracking another branch', async function () {
+			getPullRequestForBranch.resolves(openPullRequest);
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, openPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('looks up a pull request by the upstream of a worktree branch tracking its own name', async function () {
+			checkOut('main', 'feature');
+			const branch = await repository.getBranch('feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'feature');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+		});
+
+		async function createPullRequestBranch() {
+			// Like fork pull requests checked out as `pr/<author>/<number>`
+			await repository.createBranch('pr/octocat/1', false);
+			await repository.setBranchUpstream('pr/octocat/1', 'refs/remotes/origin/dev');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, closedPullRequest, 'pr/octocat/1');
+			return repository.getBranch('pr/octocat/1');
+		}
+
+		it('matches a closed pull request to a main worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches a closed pull request to a worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('main', 'pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('only associates worktree branches tracking their own name on first activation', async function () {
+			checkOut('main', 'my-feature', 'feature');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
+		});
+
+		it('does not associate a closed pull request with a main worktree branch tracking another branch on first activation', async function () {
+			checkOut('main');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledWithExactly('dev', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
+		});
+
+		it('associates an open pull request with a main worktree branch tracking another branch on first activation', async function () {
+			getPullRequestForBranch.withArgs('dev', 'octocat').resolves(openPullRequest);
+			checkOut('main');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			const configs = (await repository.getConfigs()).sort((a, b) => a.key.localeCompare(b.key));
+			assert.deepStrictEqual(configs, [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+				{ key: 'branch.my-feature.github-pr-owner-number', value: 'octocat#reponame#2' },
+			]);
 		});
 	});
 

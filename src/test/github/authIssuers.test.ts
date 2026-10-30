@@ -332,11 +332,25 @@ describe('authIssuers', function () {
 		selected.set(AuthProvider.githubEnterprise, original);
 		await store.create({ silent: true });
 		getSession.resetHistory();
-		await store.handleAuthError(AuthProvider.githubEnterprise);
-		assert.strictEqual(getSession.firstCall.args[0], AuthProvider.githubEnterprise);
-		assert.deepStrictEqual(getSession.firstCall.args[2].account, original.account);
-		assert.deepStrictEqual(getSession.firstCall.args[2].authorizationServer, original.authorizationServer);
-		assert.ok(getSession.firstCall.args[2].forceNewSession);
+		await store.handleAuthError(AuthProvider.githubEnterprise, enterpriseHub());
+		const forced = getSession.getCalls().filter(call => call.args[2].forceNewSession);
+		assert.strictEqual(forced.length, 1);
+		assert.strictEqual(forced[0].args[0], AuthProvider.githubEnterprise);
+		assert.deepStrictEqual(forced[0].args[2].account, original.account);
+		assert.deepStrictEqual(forced[0].args[2].authorizationServer, original.authorizationServer);
+	});
+
+	it('does not force reauthentication when only the same account on another Enterprise server remains', async function () {
+		selected.set(AuthProvider.githubEnterprise, session(`${hostB}/login/oauth`));
+		await store.create({ silent: true });
+		const hub = enterpriseHub();
+		// The session moved to another server, but the session change event has not been handled yet.
+		selected.set(AuthProvider.githubEnterprise, session(`${hostA}/login/oauth`, { id: 'host-a-session' }));
+		getSession.resetHistory();
+
+		assert.deepStrictEqual(await store.handleAuthError(AuthProvider.githubEnterprise, hub), { canceled: true });
+		assert.ok(getSession.called);
+		assert.ok(getSession.getCalls().every(call => !call.args[2].forceNewSession));
 	});
 
 	it('does not open a picker or guess a host when silent native selection is unavailable', async function () {
