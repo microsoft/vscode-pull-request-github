@@ -127,8 +127,10 @@ describe('Create pull request stack', function () {
 
 	describe('pull request template variables', function () {
 		beforeEach(function () {
-			const configuration = vscode.workspace.getConfiguration('githubPullRequests', undefined);
-			sinon.stub(configuration, 'get').returns('template');
+			const configuration: vscode.WorkspaceConfiguration = {
+				...vscode.workspace.getConfiguration('githubPullRequests', undefined),
+				get: sinon.stub().returns('template'),
+			};
 			sinon.stub(vscode.workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
 			sinon.stub(folderManager, 'getOrigin').resolves(githubRepository);
 			sinon.stub(githubRepository, 'compareCommits').resolves(undefined);
