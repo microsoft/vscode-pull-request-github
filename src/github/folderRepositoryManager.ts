@@ -1133,7 +1133,8 @@ export class FolderRepositoryManager extends Disposable {
 					// Try to find a matching PR on GitHub
 					const remoteName = branch.upstream.remote;
 					const upstreamBranchName = branch.upstream.name;
-					if (await this.isWorktreeBranchTrackingOtherBranch(branchName, upstreamBranchName)) {
+					const upstreamMatch = await this.getUpstreamPullRequestMatch(branchName, upstreamBranchName);
+					if (upstreamMatch === 'none') {
 						return false;
 					}
 
@@ -1154,7 +1155,7 @@ export class FolderRepositoryManager extends Disposable {
 					// Search for a PR with this head branch
 					const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
 
-					if (matchingPR && (matchingPR.isOpen || !this.isTrackingOtherBranch(branchName, upstreamBranchName))) {
+					if (matchingPR && (upstreamMatch === 'all' || matchingPR.isOpen)) {
 						Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
 						await PullRequestGitHelper.associateBranchWithPullRequest(
 							this.repository,
@@ -2570,10 +2571,11 @@ export class FolderRepositoryManager extends Disposable {
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		try {
-			if (await this.isWorktreeBranchTrackingOtherBranch(branch.name, upstreamBranchName)) {
+			const upstreamMatch = await this.getUpstreamPullRequestMatch(branch.name, upstreamBranchName);
+			if (upstreamMatch === 'none') {
 				return null;
 			}
-			const openOnly = this.isTrackingOtherBranch(branch.name, upstreamBranchName);
+			const openOnly = upstreamMatch === 'open';
 			if (remoteName) {
 				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName, openOnly);
 			}
@@ -2703,28 +2705,24 @@ export class FolderRepositoryManager extends Disposable {
 	/**
 	 * A branch created from a base branch (e.g. `git checkout -b my-feature origin/dev`) tracks that base branch, so its
 	 * upstream name isn't the branch's own name on the remote and matches pull requests from the base branch instead.
-	 * Only an open pull request is matched to such a branch, since tracking another pull request's branch under a
-	 * different name is a legitimate setup.
+	 * Such a branch is only matched to an open pull request by its upstream, since tracking another pull request's branch
+	 * under a different name is a legitimate setup, and isn't matched at all when it's checked out in a worktree.
+	 * Branches created for a pull request (e.g. fork pull requests checked out as `pr/<author>/<number>`) also track a
+	 * branch with another name, but they're associated with the pull request when they're created.
 	 */
-	private isTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): boolean {
-		return !!branchName && !!upstreamBranchName && branchName !== upstreamBranchName;
-	}
-
-	/**
-	 * A branch created in a worktree from a base branch (e.g. `git worktree add -b my-feature <path> origin/dev`)
-	 * doesn't get matched to pull requests by its upstream at all. Worktree branches created for a pull request (e.g.
-	 * fork pull requests checked out as `pr/<author>/<number>`) track its head branch and are already associated with it.
-	 */
-	private async isWorktreeBranchTrackingOtherBranch(branchName: string | undefined, upstreamBranchName: string | undefined): Promise<boolean> {
-		if (!branchName || !this.isTrackingOtherBranch(branchName, upstreamBranchName) || !this.getWorktreeForBranch(branchName)) {
-			return false;
+	private async getUpstreamPullRequestMatch(branchName: string | undefined, upstreamBranchName: string | undefined): Promise<'all' | 'open' | 'none'> {
+		if (!branchName || !upstreamBranchName || branchName === upstreamBranchName) {
+			return 'all';
 		}
 		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branchName]);
 		if (metadata.has(branchName)) {
-			return false;
+			return 'all';
 		}
-		Logger.debug(`Branch ${branchName} is checked out in a worktree and tracks ${upstreamBranchName}, not looking for a pull request by its upstream`, this.id);
-		return true;
+		if (this.getWorktreeForBranch(branchName)) {
+			Logger.debug(`Branch ${branchName} is checked out in a worktree and tracks ${upstreamBranchName}, not looking for a pull request by its upstream`, this.id);
+			return 'none';
+		}
+		return 'open';
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {

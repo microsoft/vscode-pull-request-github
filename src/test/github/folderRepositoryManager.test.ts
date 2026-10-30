@@ -464,18 +464,31 @@ describe('PullRequestManager', function () {
 			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
 		});
 
-		it('looks up a pull request by the upstream of a worktree branch checked out for a pull request', async function () {
-			// Like fork pull requests checked out in a worktree as `pr/<author>/<number>`
-			getPullRequestForBranch.resolves(openPullRequest);
+		async function createPullRequestBranch() {
+			// Like fork pull requests checked out as `pr/<author>/<number>`
 			await repository.createBranch('pr/octocat/1', false);
 			await repository.setBranchUpstream('pr/octocat/1', 'refs/remotes/origin/dev');
 			await PullRequestGitHelper.associateBranchWithPullRequest(repository, closedPullRequest, 'pr/octocat/1');
-			checkOut('main', 'pr/octocat/1');
-			const branch = await repository.getBranch('pr/octocat/1');
+			return repository.getBranch('pr/octocat/1');
+		}
+
+		it('matches a closed pull request to a main worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('pr/octocat/1');
 
 			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
 
-			assert.strictEqual(metadata?.model, openPullRequest);
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches a closed pull request to a worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('main', 'pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
 			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
 		});
 

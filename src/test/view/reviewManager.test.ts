@@ -14,7 +14,7 @@ import { GitHubRemote } from '../../common/remote';
 import { ITelemetry } from '../../common/telemetry';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestMetadata } from '../../github/pullRequestGitHelper';
+import { PullRequestGitHelper, PullRequestMetadata } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
@@ -416,6 +416,16 @@ describe('ReviewManager polling', function () {
 			assert.deepStrictEqual(await repository.getConfigs(), [
 				{ key: 'branch.my-feature.github-pr-owner-number', value: 'octocat#reponame#2' },
 			]);
+		});
+
+		it('finds a closed pull request for a branch checked out for a pull request', async function () {
+			// Like fork pull requests checked out as `pr/<author>/<number>`
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, closedPullRequest, 'my-feature');
+
+			const metadata = await reviewManager['checkGitHubForPrBranch'](await repository.getBranch('my-feature'));
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
 		});
 	});
 
