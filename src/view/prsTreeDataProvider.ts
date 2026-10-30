@@ -14,7 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { AUTO_REFRESH, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
+import { AUTO_REFRESH_QUERIES, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -222,7 +222,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH}`)) {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`)) {
 				this.updateAutoRefresh();
 			}
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
@@ -249,7 +249,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private updateAutoRefresh(): void {
 		clearInterval(this._autoRefreshInterval);
 		this._autoRefreshInterval = undefined;
-		const interval = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(AUTO_REFRESH, 0);
+		const interval = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(AUTO_REFRESH_QUERIES, 0);
 		if (Number.isFinite(interval) && interval > 0) {
 			this._autoRefreshInterval = setInterval(() => this.prsTreeModel.forceClearCache(), Math.min(interval * 1000, 2147483647));
 		}

@@ -42,7 +42,7 @@ import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { PrsTreeModel } from '../../view/prsTreeModel';
 import { TreeNode } from '../../view/treeNodes/treeNode';
 import { escapeMarkdownText } from '../../github/markdownUtils';
-import { AUTO_REFRESH, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { AUTO_REFRESH_QUERIES, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -146,7 +146,7 @@ describe('GitHub Pull Requests view', function () {
 		function changeInterval(value: number): void {
 			interval = value;
 			configurationChanged.fire({
-				affectsConfiguration: section => section === `${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH}`,
+				affectsConfiguration: section => section === `${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`,
 			});
 		}
 
@@ -155,8 +155,8 @@ describe('GitHub Pull Requests view', function () {
 			clock = sinon.useFakeTimers();
 			interval = 0;
 			const configuration: vscode.WorkspaceConfiguration = {
-				get: sinon.stub().callsFake((key: string, fallback?: unknown) => key === AUTO_REFRESH ? interval : fallback),
-				has: key => key === AUTO_REFRESH,
+				get: sinon.stub().callsFake((key: string, fallback?: unknown) => key === AUTO_REFRESH_QUERIES ? interval : fallback),
+				has: key => key === AUTO_REFRESH_QUERIES,
 				inspect: () => undefined,
 				update: async () => { },
 			};

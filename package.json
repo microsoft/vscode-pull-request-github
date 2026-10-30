@@ -260,11 +260,11 @@
 						}
 					]
 				},
-				"githubPullRequests.autoRefresh": {
+				"githubPullRequests.autoRefreshQueries": {
 					"type": "number",
 					"default": 0,
 					"minimum": 0,
-					"markdownDescription": "%githubPullRequests.autoRefresh.description%"
+					"markdownDescription": "%githubPullRequests.autoRefreshQueries.description%"
 				},
 				"githubPullRequests.labelCreated": {
 					"type": "array",
