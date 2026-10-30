@@ -75,6 +75,7 @@ export enum PullRequestMergeability {
 
 export interface PullRequestMergeabilityResult {
 	mergeability: PullRequestMergeability;
+	viewerCanMergeAsAdmin?: boolean;
 	conflicts?: string[];
 }
 
@@ -337,6 +338,8 @@ export interface PullRequest extends Issue {
 	}[];
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
+	/** GitHub-reported bypass capability, never inferred from repository permissions. */
+	viewerCanMergeAsAdmin?: boolean;
 	mergeQueueEntry?: MergeQueueEntry | null;
 	/** Undefined when the pull request was loaded through the REST API, which doesn't report it. */
 	viewerCanUpdate?: boolean;

@@ -15,7 +15,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { getStackMergeAllTarget, GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeMethod, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
-import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
@@ -190,6 +190,145 @@ describe('PullRequestModel', function () {
 		assert.strictEqual(result.mergeability, PullRequestMergeability.NotMergeable);
 		assert(changes.calledOnce);
 		assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+	});
+
+	describe('viewerCanMergeAsAdmin', function () {
+		for (const capability of [true, false, undefined]) {
+			it(`parses GraphQL admin merge capability ${capability}`, async function () {
+				const pr = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
+				if (capability === undefined) {
+					delete pr.viewerCanMergeAsAdmin;
+				} else {
+					pr.viewerCanMergeAsAdmin = capability;
+				}
+
+				const parsed = await parseGraphQLPullRequest(pr, repo);
+
+				assert.strictEqual(parsed.viewerCanMergeAsAdmin, capability === true);
+			});
+		}
+
+		for (const capability of [true, false, undefined]) {
+			it(`refreshes admin merge capability to ${capability} and emits only when changed`, async function () {
+				const model = repo.createOrUpdatePullRequestModel({
+					...convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo),
+					mergeable: PullRequestMergeability.Mergeable,
+					viewerCanMergeAsAdmin: capability !== true,
+				});
+				const changes = sinon.spy();
+				repo.onDidChangePullRequests(changes);
+
+				for (let attempt = 0; attempt < 2; attempt++) {
+					changes.resetHistory();
+					repo.queryProvider.expectGraphQLQuery({
+						query: queries.PullRequestMergeability,
+						variables: { owner: 'github', name: 'test', number: 794 },
+					}, {
+						data: { repository: { pullRequest: {
+							mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN',
+							...(capability === undefined ? {} : { viewerCanMergeAsAdmin: capability }),
+						} } },
+						loading: false, stale: false, networkStatus: NetworkStatus.ready,
+					});
+
+					const result = await model.getMergeability();
+
+					assert.strictEqual(result.mergeability, PullRequestMergeability.Mergeable);
+					assert.strictEqual(result.viewerCanMergeAsAdmin, capability === true);
+					assert.strictEqual(model.item.viewerCanMergeAsAdmin, capability === true);
+					if (attempt === 0) {
+						assert(changes.calledOnce);
+						assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+					} else {
+						assert(changes.notCalled);
+					}
+				}
+			});
+		}
+
+		for (const supersedingUpdate of ['model refresh', 'newer request']) {
+			it(`ignores a delayed admin capability grant after a ${supersedingUpdate}`, async function () {
+				const model = repo.createOrUpdatePullRequestModel({
+					...convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo),
+					mergeable: PullRequestMergeability.Mergeable,
+					viewerCanMergeAsAdmin: true,
+					viewerCanUpdate: true,
+				});
+				const response = (viewerCanMergeAsAdmin: boolean) => ({
+					data: { repository: { pullRequest: {
+						mergeable: 'MERGEABLE',
+						mergeStateStatus: viewerCanMergeAsAdmin ? 'CLEAN' : 'BLOCKED',
+						viewerCanMergeAsAdmin,
+						viewerCanUpdate: viewerCanMergeAsAdmin,
+						mergeRequirements: { conditions: [{
+							__typename: 'PullRequestMergeConflictStateCondition',
+							conflicts: viewerCanMergeAsAdmin ? ['stale.ts'] : ['current.ts'],
+						}] },
+					} } },
+					loading: false, stale: false, networkStatus: NetworkStatus.ready,
+				});
+				let completeOlder!: (value: ReturnType<typeof response>) => void;
+				const delayed = new Promise<ReturnType<typeof response>>(resolve => { completeOlder = resolve; });
+				let markStarted!: () => void;
+				const started = new Promise<void>(resolve => { markStarted = resolve; });
+				const query = sinon.stub(repo, 'query');
+				query.onFirstCall().callsFake(() => {
+					markStarted();
+					return delayed;
+				});
+				query.onSecondCall().resolves(response(false));
+				const changes = sinon.spy();
+				repo.onDidChangePullRequests(changes);
+
+				const older = model.getMergeability();
+				await started;
+				if (supersedingUpdate === 'model refresh') {
+					model.update({ ...model.item,
+						mergeable: PullRequestMergeability.NotMergeable,
+						viewerCanMergeAsAdmin: false,
+						viewerCanUpdate: false,
+					});
+					model.conflicts = ['current.ts'];
+				} else {
+					await model.getMergeability();
+				}
+				changes.resetHistory();
+				completeOlder(response(true));
+				const result = await older;
+
+				assert.deepStrictEqual(result, {
+					mergeability: PullRequestMergeability.NotMergeable,
+					viewerCanMergeAsAdmin: false,
+					conflicts: ['current.ts'],
+				});
+				assert.strictEqual(model.item.mergeable, PullRequestMergeability.NotMergeable);
+				assert.strictEqual(model.item.viewerCanMergeAsAdmin, false);
+				assert.strictEqual(model.item.viewerCanUpdate, false);
+				assert.deepStrictEqual(model.conflicts, ['current.ts']);
+				assert(changes.notCalled);
+			});
+		}
+
+		it('preserves admin merge capability on REST updates but accepts explicit revocation', function () {
+			const pr = new PullRequestBuilder().number(794).build();
+			const model = repo.createOrUpdatePullRequestModel({
+				...convertRESTPullRequestToRawPullRequest(pr, repo),
+				viewerCanMergeAsAdmin: true,
+			});
+			const changes = sinon.spy();
+			repo.onDidChangePullRequests(changes);
+
+			model.update(convertRESTPullRequestToRawPullRequest(pr, repo));
+
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, true);
+			assert(changes.notCalled);
+
+			model.update({ ...model.item, viewerCanMergeAsAdmin: false });
+
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, false);
+			assert(changes.calledOnce);
+			assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+		});
 	});
 
 	it('skips the timeline items that the activity query does not select', async function () {

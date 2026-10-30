@@ -248,6 +248,7 @@ fragment PullRequestFragment on PullRequest {
 	reviewThreads {
 		totalCount
 	}
+	viewerCanMergeAsAdmin
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
 	viewerCanUpdate

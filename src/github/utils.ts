@@ -971,6 +971,7 @@ export async function parseGraphQLPullRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAccount(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
+		viewerCanMergeAsAdmin: graphQLPullRequest.viewerCanMergeAsAdmin === true,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
 		hasComments: graphQLPullRequest.reviewThreads.totalCount > 0,

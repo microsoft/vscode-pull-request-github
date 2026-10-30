@@ -30,6 +30,7 @@ import {
 	MergeMethod,
 	PullRequestCheckStatus,
 	PullRequestMergeability,
+	PullRequestMergeabilityResult,
 	PullRequestReviewRequirement,
 	reviewerId,
 	ReviewState,
@@ -175,40 +176,58 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: PullRequest; isSimple: boolean; stackActions?: StackActions }) => {
 	const { create, checkMergeability } = useContext(PullRequestContext);
 
+	// A polling result belongs only to the snapshot that requested it. Any refreshed
+	// snapshot (including another Unknown or a capability revocation) invalidates it.
+	const [polled, setPolled] = useState<{ source: PullRequest; result: PullRequestMergeabilityResult }>();
+	const currentPR = useRef(pr);
+	currentPR.current = pr;
+	const result = polled?.source === pr ? polled.result : undefined;
+	const mergeable = result?.mergeability ?? pr.mergeable;
+	const viewerCanMergeAsAdmin = result ? result.viewerCanMergeAsAdmin === true : pr.viewerCanMergeAsAdmin;
+	const canUpdateWithMergeCommit = !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
+	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
+	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
+
+	useEffect(() => {
+		if (pr.state !== GithubItemStateEnum.Open || mergeable !== PullRequestMergeability.Unknown) {
+			return;
+		}
+		let cancelled = false;
+		let pending = false;
+		const handle = setInterval(async () => {
+			if (pending) {
+				return;
+			}
+			pending = true;
+			try {
+				const result = await checkMergeability();
+				if (!cancelled && currentPR.current === pr) {
+					if (result.mergeability !== PullRequestMergeability.Unknown) {
+						clearInterval(handle);
+					}
+					setPolled({ source: pr, result });
+				}
+			} finally {
+				pending = false;
+			}
+		}, 3000);
+		return () => {
+			cancelled = true;
+			clearInterval(handle);
+		};
+	}, [pr, mergeable, checkMergeability]);
+
 	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
-		const string = 'Create New Pull Request...';
 		return (
 			<div className="branch-status-container">
 				<form>
-					<button type="submit" onClick={create}>
-						{string}
-					</button>
+					<button type="submit" onClick={create}>Create New Pull Request...</button>
 				</form>
 			</div>
 		);
 	} else if (pr.state !== GithubItemStateEnum.Open) {
 		return null;
 	}
-
-	const { mergeable: _mergeable } = pr;
-	const canUpdateWithMergeCommit = !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
-	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
-	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
-
-	const [mergeable, setMergeability] = useState(_mergeable);
-	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
-		setMergeability(_mergeable);
-	}
-
-	useEffect(() => {
-		const handle = setInterval(async () => {
-			if (mergeable === PullRequestMergeability.Unknown) {
-				const { mergeability: newMergeability } = await checkMergeability();
-				setMergeability(newMergeability);
-			}
-		}, 3000);
-		return () => clearInterval(handle);
-	}, [mergeable]);
 
 	const stackConflicts = hasConflictingStackEntry(pr.stack);
 	return (
@@ -219,7 +238,7 @@ export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: Pull
 			{stackActions?.updateError ? <div className="stack-action-error" role="alert">{stackActions.updateError}</div> : null}
 			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
 				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
-			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
+			<PrActions pr={{ ...pr, mergeable, viewerCanMergeAsAdmin }} isSimple={isSimple} />
 		</div>
 	);
 };
@@ -468,6 +487,13 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
 	}
 
+	// Queue bypass is intentionally outside this single-PR branch-protection flow.
+	if (pr.state === GithubItemStateEnum.Open
+		&& (mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Behind)
+		&& pr.viewerCanMergeAsAdmin === true && hasWritePermission && pr.stackLoaded !== false && !pr.mergeQueueEntry && !pr.mergeQueueMethod) {
+		return <BypassBranchProtection key={`${pr.url}:${pr.head}:${pr.base}`} pr={pr} isSimple={isSimple} />;
+	}
+
 	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
 		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
 	} else if (!pr.stack && !isSimple && hasWritePermission && !pr.mergeQueueEntry) {
@@ -487,6 +513,25 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 	}
 
 	return null;
+};
+
+/**
+ * Consent is local to this blocked PR and is discarded when bypass is no longer available.
+ * The normal merge mutation enforces GitHub's authorization; there is no client-side force flag.
+ */
+const BypassBranchProtection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	const [bypass, setBypass] = useState(false);
+	const ctx = useContext(PullRequestContext);
+	return <div>
+		<label>
+			<input type="checkbox" checked={bypass} onChange={event => setBypass(event.target.checked)} />
+			Bypass branch protection and merge
+		</label>
+		{bypass
+			? isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />
+			: !isSimple ? <AutoMerge {...pr} updateState={params => ctx.updateAutoMerge(params)} baseHasMergeQueue={false}
+				defaultMergeMethod={pr.autoMergeMethod ?? pr.defaultMergeMethod} /> : null}
+	</div>;
 };
 
 export const MergeStack = ({ pr }: { pr: PullRequest }) => {

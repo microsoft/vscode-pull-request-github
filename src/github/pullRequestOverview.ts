@@ -502,6 +502,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const branchStatusSequence = compareWithBase ? ++this._branchStatusSequence : this._branchStatusSequence;
 		try {
 			if (compareWithBase) {
+				if (!baseOrHeadChanged) {
+					// Revocations and conflicts must not wait for the independent branch comparison.
+					await this._postMessage({
+						command: 'pr.update',
+						pullrequest: {
+							mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+							viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
+						} satisfies Partial<PullRequest>,
+					});
+				}
 				const isBranchUpToDateWithBase = await this._folderRepositoryManager.isHeadUpToDateWithBase(item);
 				if (this.isDisposed || item !== this._item || updateSequence !== this._updateSequence || branchStatusSequence !== this._branchStatusSequence) {
 					return;
@@ -513,6 +523,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				command: 'pr.update',
 				pullrequest: {
 					mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+					viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
 					...(isBranchUpToDateWithBase === undefined ? {} : { canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase) }),
 				} satisfies Partial<PullRequest>,
 			});
@@ -662,6 +673,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				reviewRequirement: null,
 				canUpdateBranch: false,
 				mergeable: pullRequest.item.mergeable ?? PullRequestMergeability.Unknown,
+				viewerCanMergeAsAdmin: pullRequest.item.viewerCanMergeAsAdmin === true,
 				reviewers: this._existingReviewers,
 				isDraft: pullRequest.isDraft,
 				mergeMethodsAvailability,
@@ -743,7 +755,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				branchInfo,
 				mergeQueueMethod,
 				isBranchUpToDateWithBase,
-				mergeability,
+				_mergeability,
 				emailForCommit,
 				coAuthors,
 				hasReviewDraft,
@@ -768,7 +780,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						isLocalHeadDeleted: !branchInfo,
 						...(isBranchStatusCurrent ? {
 							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
-							mergeable: mergeability.mergeability,
+							// Other deferred data can finish after mergeability or capability refreshes.
+							mergeable: pullRequestModel.item.mergeable ?? PullRequestMergeability.Unknown,
+							viewerCanMergeAsAdmin: pullRequestModel.item.viewerCanMergeAsAdmin === true,
 						} : {}),
 						reviewers,
 						hasReviewDraft,
