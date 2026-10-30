@@ -301,6 +301,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (item.viewerCanUpdate === undefined) {
 			item.viewerCanUpdate = this.item.viewerCanUpdate;
 		}
+		if (item.viewerCanMergeAsAdmin === undefined) {
+			item.viewerCanMergeAsAdmin = this.item.viewerCanMergeAsAdmin;
+		}
 		if (item.mergeable === undefined) {
 			item.mergeable = this.item.mergeable;
 		}
@@ -315,7 +318,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (this.head && item.head && (this.head.ref !== item.head.ref || this.head.sha !== item.head.sha)) {
 			changes.head = true;
 		}
-		if (this.item.mergeable !== item.mergeable) {
+		if (this.item.mergeable !== item.mergeable || this.item.viewerCanMergeAsAdmin !== item.viewerCanMergeAsAdmin) {
 			changes.mergeability = true;
 		}
 		if (this.base && item.base && (this.base.ref !== item.base.ref || this.base.sha !== item.base.sha)) {
@@ -2307,6 +2310,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			const previousMergeability = this.item.mergeable;
+			const previousCanMergeAsAdmin = this.item.viewerCanMergeAsAdmin;
+			this.item.viewerCanMergeAsAdmin = data.repository?.pullRequest.viewerCanMergeAsAdmin === true;
 			this.item.mergeable = mergeability;
 			const viewerCanUpdate = data.repository?.pullRequest.viewerCanUpdate;
 			if (viewerCanUpdate !== undefined) {
@@ -2314,10 +2319,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
 			this.update(this.item);
-			if (previousMergeability !== mergeability) {
+			if (previousMergeability !== mergeability || previousCanMergeAsAdmin !== this.item.viewerCanMergeAsAdmin) {
 				this._onDidChange.fire({ mergeability: true });
 			}
-			return { mergeability, conflicts: this.conflicts };
+			return { mergeability, viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
 			return { mergeability: PullRequestMergeability.Unknown };

@@ -513,6 +513,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				command: 'pr.update',
 				pullrequest: {
 					mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+					viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
 					...(isBranchUpToDateWithBase === undefined ? {} : { canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase) }),
 				} satisfies Partial<PullRequest>,
 			});
@@ -662,6 +663,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				reviewRequirement: null,
 				canUpdateBranch: false,
 				mergeable: pullRequest.item.mergeable ?? PullRequestMergeability.Unknown,
+				viewerCanMergeAsAdmin: pullRequest.item.viewerCanMergeAsAdmin === true,
 				reviewers: this._existingReviewers,
 				isDraft: pullRequest.isDraft,
 				mergeMethodsAvailability,
@@ -769,6 +771,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						...(isBranchStatusCurrent ? {
 							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
 							mergeable: mergeability.mergeability,
+							viewerCanMergeAsAdmin: mergeability.viewerCanMergeAsAdmin === true,
 						} : {}),
 						reviewers,
 						hasReviewDraft,

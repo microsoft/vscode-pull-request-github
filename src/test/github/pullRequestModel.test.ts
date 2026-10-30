@@ -15,7 +15,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { getStackMergeAllTarget, GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeMethod, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
-import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
@@ -190,6 +190,82 @@ describe('PullRequestModel', function () {
 		assert.strictEqual(result.mergeability, PullRequestMergeability.NotMergeable);
 		assert(changes.calledOnce);
 		assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+	});
+
+	describe('viewerCanMergeAsAdmin', function () {
+		for (const capability of [true, false, undefined]) {
+			it(`parses GraphQL admin merge capability ${capability}`, async function () {
+				const pr = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
+				if (capability === undefined) {
+					delete pr.viewerCanMergeAsAdmin;
+				} else {
+					pr.viewerCanMergeAsAdmin = capability;
+				}
+
+				const parsed = await parseGraphQLPullRequest(pr, repo);
+
+				assert.strictEqual(parsed.viewerCanMergeAsAdmin, capability === true);
+			});
+		}
+
+		for (const capability of [true, false, undefined]) {
+			it(`refreshes admin merge capability to ${capability} and emits only when changed`, async function () {
+				const model = repo.createOrUpdatePullRequestModel({
+					...convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo),
+					mergeable: PullRequestMergeability.Mergeable,
+					viewerCanMergeAsAdmin: capability !== true,
+				});
+				const changes = sinon.spy();
+				repo.onDidChangePullRequests(changes);
+
+				for (let attempt = 0; attempt < 2; attempt++) {
+					changes.resetHistory();
+					repo.queryProvider.expectGraphQLQuery({
+						query: queries.PullRequestMergeability,
+						variables: { owner: 'github', name: 'test', number: 794 },
+					}, {
+						data: { repository: { pullRequest: {
+							mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN',
+							...(capability === undefined ? {} : { viewerCanMergeAsAdmin: capability }),
+						} } },
+						loading: false, stale: false, networkStatus: NetworkStatus.ready,
+					});
+
+					const result = await model.getMergeability();
+
+					assert.strictEqual(result.mergeability, PullRequestMergeability.Mergeable);
+					assert.strictEqual(result.viewerCanMergeAsAdmin, capability === true);
+					assert.strictEqual(model.item.viewerCanMergeAsAdmin, capability === true);
+					if (attempt === 0) {
+						assert(changes.calledOnce);
+						assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+					} else {
+						assert(changes.notCalled);
+					}
+				}
+			});
+		}
+
+		it('preserves admin merge capability on REST updates but accepts explicit revocation', function () {
+			const pr = new PullRequestBuilder().number(794).build();
+			const model = repo.createOrUpdatePullRequestModel({
+				...convertRESTPullRequestToRawPullRequest(pr, repo),
+				viewerCanMergeAsAdmin: true,
+			});
+			const changes = sinon.spy();
+			repo.onDidChangePullRequests(changes);
+
+			model.update(convertRESTPullRequestToRawPullRequest(pr, repo));
+
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, true);
+			assert(changes.notCalled);
+
+			model.update({ ...model.item, viewerCanMergeAsAdmin: false });
+
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, false);
+			assert(changes.calledOnce);
+			assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+		});
 	});
 
 	it('skips the timeline items that the activity query does not select', async function () {

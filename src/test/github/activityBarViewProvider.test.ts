@@ -155,6 +155,34 @@ describe('Active pull request stack changes', function () {
 		sinon.restore();
 	});
 
+	for (const viewerCanMergeAsAdmin of [true, false]) {
+		it(`refreshes the sidebar when admin merge capability becomes ${viewerCanMergeAsAdmin}`, async function () {
+			model.update({ ...model.item, viewerCanMergeAsAdmin: !viewerCanMergeAsAdmin });
+			await initialize();
+			const mergeable = model.item.mergeable;
+
+			model.update({ ...model.item, viewerCanMergeAsAdmin });
+			await settleUpdates();
+
+			const updates = provider.messages.filter(message => message.command === 'pr.initialize');
+			assert.strictEqual(updates.length, 1);
+			assert.strictEqual(updates[0].pullrequest?.viewerCanMergeAsAdmin, viewerCanMergeAsAdmin);
+			assert.strictEqual(updates[0].pullrequest?.mergeable, mergeable);
+		});
+	}
+
+	it('refreshes the sidebar when only mergeability changes', async function () {
+		model.update({ ...model.item, mergeable: PullRequestMergeability.Unknown });
+		await initialize();
+
+		model.update({ ...model.item, mergeable: PullRequestMergeability.Mergeable });
+		await settleUpdates();
+
+		const updates = provider.messages.filter(message => message.command === 'pr.initialize');
+		assert.strictEqual(updates.length, 1);
+		assert.strictEqual(updates[0].pullrequest?.mergeable, PullRequestMergeability.Mergeable);
+	});
+
 	it('shows the stack loaded with the pull request until the merge status of its pull requests is loaded', async function () {
 		const summary = { ...stack, pullRequests: stack.pullRequests.map(entry => ({ ...entry, mergeable: PullRequestMergeability.Unknown })) };
 		model.update({ ...model.item, stack: summary });
