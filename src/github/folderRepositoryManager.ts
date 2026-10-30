@@ -2633,11 +2633,17 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}
 		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
-		if (matchingPR && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
-			const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo?.remote, protocol);
-			const trackedBranchName = `refs/remotes/${newRemote}/${matchingPR.model.head?.name}`;
-			await this.repository.fetch({ remote: newRemote, ref: matchingPR.model.head?.name });
-			await this.repository.setBranchUpstream(branch.name, trackedBranchName);
+		const headBranchName = matchingPR?.model.head?.ref;
+		if (matchingPR && headBranchName && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
+			// Setting up the upstream is best effort: a failed fetch (for example, an SSH key that needs a passphrase)
+			// must not prevent the branch from being recognized as the pull request's branch.
+			try {
+				const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo.remote, protocol);
+				await this.repository.fetch({ remote: newRemote, ref: headBranchName });
+				await this.repository.setBranchUpstream(branch.name, `refs/remotes/${newRemote}/${headBranchName}`);
+			} catch (e) {
+				Logger.warn(`Unable to set the upstream of branch ${branch.name} for pull request #${matchingPR.prNumber}: ${formatError(e)}`, this.id);
+			}
 		}
 
 		return matchingPR;
