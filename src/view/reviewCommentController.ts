@@ -830,11 +830,16 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					await this._folderRepoManager.activePullRequest.createCommentReply(
+					// The model has already warned the user if the reply couldn't be created.
+					const reply = await this._folderRepoManager.activePullRequest.createCommentReply(
 						input,
 						comment.rawComment.graphNodeId,
 						isSingleComment,
 					);
+					if (!reply) {
+						this.reopenTemporaryComment(thread, temporaryCommentId);
+						return false;
+					}
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
@@ -855,13 +860,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
 			}
 
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
+			this.reopenTemporaryComment(thread, temporaryCommentId);
 			return false;
 		}
 	}

@@ -361,7 +361,11 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 		try {
 			if (hasExistingComments) {
-				await this.reply(thread, input, isSingleComment);
+				// The model has already warned the user if the reply couldn't be created.
+				if (!await this.reply(thread, input, isSingleComment)) {
+					this.reopenTemporaryComment(thread, temporaryCommentId);
+					return false;
+				}
 			} else {
 				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
@@ -391,13 +395,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			} else {
 				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
 			}
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
+			this.reopenTemporaryComment(thread, temporaryCommentId);
 			return false;
 		}
 	}

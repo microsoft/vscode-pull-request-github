@@ -9,6 +9,7 @@ import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
+import { GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { isCopilotOnMyBehalf, PullRequestModel } from '../github/pullRequestModel';
 
 export abstract class CommentControllerBase extends Disposable {
@@ -43,6 +44,16 @@ export abstract class CommentControllerBase extends Disposable {
 	}
 
 	protected abstract onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined);
+
+	protected reopenTemporaryComment(thread: GHPRCommentThread, temporaryCommentId: number): void {
+		thread.comments = thread.comments.map(c => {
+			if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
+				c.mode = vscode.CommentMode.Editing;
+			}
+
+			return c;
+		});
+	}
 
 	protected async tryAddCopilotMention(editor: vscode.TextEditor, pullRequest: PullRequestModel) {
 		if (editor.document.uri.scheme !== Schemes.Comment) {

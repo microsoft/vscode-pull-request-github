@@ -421,6 +421,16 @@ describe('ReviewCommentController', function () {
 		let pendingReview: SinonStub;
 		let submitReview: SinonStub;
 		let resolveThread: SinonStub;
+		let showError: SinonStub;
+
+		function assertEditableReply(text: string) {
+			const reply = thread.comments[1];
+			assert.ok(reply instanceof TemporaryComment);
+			const body = reply.body;
+			assert.ok(body instanceof vscode.MarkdownString);
+			assert.strictEqual(body.value, text);
+			assert.strictEqual(reply.mode, vscode.CommentMode.Editing);
+		}
 
 		beforeEach(function () {
 			controller = createController();
@@ -442,7 +452,7 @@ describe('ReviewCommentController', function () {
 			pendingReview = sinon.stub(activePullRequest, 'getPendingReviewId').resolves(undefined);
 			submitReview = sinon.stub(activePullRequest, 'submitReview').resolves(undefined);
 			resolveThread = sinon.stub(activePullRequest, 'resolveReviewThread').resolves();
-			sinon.stub(vscode.window, 'showErrorMessage').resolves();
+			showError = sinon.stub(vscode.window, 'showErrorMessage').resolves();
 		});
 
 		it('posts the reply and submits it before resolving without a pending review', async function () {
@@ -477,12 +487,22 @@ describe('ReviewCommentController', function () {
 
 			sinon.assert.notCalled(resolveThread);
 			sinon.assert.notCalled(submitReview);
-			const reply = thread.comments[1];
-			assert.ok(reply instanceof TemporaryComment);
-			const body = reply.body;
-			assert.ok(body instanceof vscode.MarkdownString);
-			assert.strictEqual(body.value, 'Keep this reply');
-			assert.strictEqual(reply.mode, vscode.CommentMode.Editing);
+			assertEditableReply('Keep this reply');
+		});
+
+		it('does not resolve when the reply cannot be created because the pull request has no upstream branch', async function () {
+			sinon.stub(activePullRequest, 'hasPendingReview').get(() => true);
+			pendingReview.resolves('review-1');
+			activePullRequest.head = null;
+			const showWarning = sinon.stub(vscode.window, 'showWarningMessage').resolves();
+
+			await controller.resolveReviewThread(thread, 'Keep this reply');
+
+			sinon.assert.calledOnce(showWarning);
+			sinon.assert.notCalled(showError);
+			sinon.assert.notCalled(submitReview);
+			sinon.assert.notCalled(resolveThread);
+			assertEditableReply('Keep this reply');
 		});
 
 		it('does not resolve when submitting the review fails', async function () {
