@@ -1787,27 +1787,19 @@ export class FolderRepositoryManager extends Disposable {
 		if (upstreamRef && upstreamRef.remote !== '.') {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
+			if (upstream) {
+				return upstream;
+			}
 
 			// If the upstream wasn't listed in the remotes setting, create a GitHubRepository
 			// object for it if is does point to GitHub.
-			if (!upstream) {
-				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
-				if (remote) {
-					return this.createAndAddGitHubRepository(remote, this._credentialStore);
-				}
-
-				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`, this.id);
-
-				// No GitHubRepository? We currently won't try pushing elsewhere,
-				// so fail.
-				throw new BadUpstreamError(this.repository.state.HEAD!.name!, upstreamRef, 'is not a GitHub repo');
+			const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
+			if (remote) {
+				return this.createAndAddGitHubRepository(remote, this._credentialStore);
 			}
-
-			// Otherwise, we'll push upstream.
-			return upstream;
 		}
 
-		// If no upstream is set, let's go digging.
+		// If no GitHub upstream is set, let's go digging.
 		const [first, ...rest] = this._githubRepositories;
 		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
