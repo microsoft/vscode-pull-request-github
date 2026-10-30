@@ -1336,6 +1336,71 @@ describe('PullRequestModel', function () {
 			assert.strictEqual(result.mergeability, PullRequestMergeability.Mergeable);
 			assert.strictEqual(model.item.viewerCanUpdate, true);
 		});
+
+		it('maps REST milestones by node_id and reports removal', function () {
+			const pr = new PullRequestBuilder().build();
+			const raw = convertRESTPullRequestToRawPullRequest(pr, repo);
+			assert.strictEqual(raw.milestone?.id, pr.milestone!.node_id);
+			assert.strictEqual(raw.milestone?.title, pr.milestone!.title);
+			assert.strictEqual(raw.milestone?.number, pr.milestone!.number);
+
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, raw);
+			context.subscriptions.push(model);
+			const onDidChange = sinon.spy();
+			context.subscriptions.push(model.onDidChange(onDidChange));
+
+			const { milestone: _milestone, ...withoutMilestone } = pr;
+			model.update(convertRESTPullRequestToRawPullRequest(
+				{ ...withoutMilestone, milestone: null } as unknown as Parameters<typeof convertRESTPullRequestToRawPullRequest>[0],
+				repo,
+			));
+
+			assert.strictEqual(model.item.milestone, undefined);
+			sinon.assert.calledWithMatch(onDidChange, { milestone: true });
+		});
+
+		it('reports a milestone rename that keeps the same node_id', async function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(
+				credentials,
+				telemetry,
+				repo,
+				remote,
+				convertRESTPullRequestToRawPullRequest(pr, repo)
+			);
+			context.subscriptions.push(model);
+			const onDidChange = sinon.spy();
+			model.onDidChange(onDidChange, undefined, context.subscriptions);
+
+			// Same node_id, different title - simulates a milestone rename
+			const renamed = new PullRequestBuilder()
+				.milestone(m => m.title('renamed milestone'))
+				.build();
+			assert.strictEqual(renamed.milestone!.node_id, pr.milestone!.node_id, 'node_id must be unchanged');
+
+			model.update(convertRESTPullRequestToRawPullRequest(renamed, repo));
+
+			sinon.assert.calledWithMatch(onDidChange, { milestone: true });
+			assert.strictEqual(model.milestone?.title, 'renamed milestone');
+			assert.strictEqual(model.milestone?.id, pr.milestone!.node_id);
+		});
+
+		it('confirms the milestone only for freshly fetched data, not for stack-only updates', function () {
+			const pr = new PullRequestBuilder().build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			context.subscriptions.push(model);
+			const onDidChange = sinon.spy();
+			context.subscriptions.push(model.onDidChange(onDidChange));
+
+			// A stack-only update spreads the existing item - same milestone reference
+			model.update({ ...model.item, stack: null });
+			assert(onDidChange.getCalls().every(c => !c.args[0].milestoneConfirmed),
+				'stack-only update must not emit milestoneConfirmed');
+
+			// A fresh REST response builds a new milestone object - should emit milestoneConfirmed
+			model.update(convertRESTPullRequestToRawPullRequest(pr, repo));
+			sinon.assert.calledWithMatch(onDidChange, { milestoneConfirmed: true });
+		});
 	});
 
 	describe('rebaseStack', function () {

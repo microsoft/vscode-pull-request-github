@@ -381,9 +381,18 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${number}: ${title} by ${login}`
 			},
-			resourceUri: createPRNodeUri(this.pullRequestModel, this.parent instanceof CategoryTreeNode && this.parent.isCopilot ? true : undefined),
+			resourceUri: createPRNodeUri(this.pullRequestModel, this._getCategory()?.isCopilot ? true : undefined),
 			command
 		};
+	}
+
+	private _getCategory(): CategoryTreeNode | undefined {
+		let node: TreeNodeParent | undefined = this.parent;
+		while (node instanceof TreeNode) {
+			if (node instanceof CategoryTreeNode) return node;
+			node = node.parent;
+		}
+		return undefined;
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {

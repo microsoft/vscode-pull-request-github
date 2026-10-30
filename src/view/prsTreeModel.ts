@@ -15,11 +15,11 @@ import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
 import { PullRequestChangeEvent } from '../github/githubRepository';
-import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
+import { CheckState, IMilestone, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { extractRepoFromQuery, UnsatisfiedChecks } from '../github/utils';
-import { CategoryTreeNode } from './treeNodes/categoryNode';
+import { CategoryTreeNode, PRGroupTreeNode } from './treeNodes/categoryNode';
 import { TreeNode } from './treeNodes/treeNode';
 import { CodingAgentPRAndStatus, CopilotStateModel, getCopilotQuery } from '../github/copilotPrWatcher';
 
@@ -38,6 +38,8 @@ interface CachedPRs {
 
 export class PrsTreeModel extends Disposable {
 	private static readonly ID = 'PrsTreeModel';
+	// Caps the loop iterations in `_fetchRemainingPages`; the initial page is not counted, so up to 51 pages can be fetched in total.
+	private static readonly MAX_AUTO_LOADED_PAGES = 50;
 
 	private _activePRDisposables: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private readonly _onDidChangePrStatus: vscode.EventEmitter<string[]> = this._register(new vscode.EventEmitter<string[]>());
@@ -55,6 +57,10 @@ export class PrsTreeModel extends Disposable {
 	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, CachedPRs>> = new Map();
 	// For ease of finding which PRs we know about
 	private _allCachedPRs: Set<PullRequestModel> = new Set();
+	// Milestone id to latest title, so milestone groups keep renamed titles across category rebuilds
+	private readonly _milestoneTitles = new Map<string, string>();
+	private _pendingMilestoneTitleIds: Set<string> = new Set();
+	private _pendingMilestoneFlushId: ReturnType<typeof setTimeout> | undefined;
 
 	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private _getPullRequestsForQueryLock: Promise<void> = Promise.resolve();
@@ -118,10 +124,35 @@ export class PrsTreeModel extends Disposable {
 				if (pr.event.state) {
 					stateChanged.push(pr);
 				}
-				needsRefresh.push(pr);
+				let eventForRefresh = pr.event;
+				if (pr.event.milestone || pr.event.milestoneConfirmed) {
+					const titleChanged = this._recordMilestoneTitle(pr.model.milestone);
+					if (titleChanged && !pr.event.milestone) {
+						eventForRefresh = { ...pr.event, milestone: true };
+					} else if (!titleChanged && Object.keys(pr.event).every(k => k === 'milestoneConfirmed')) {
+						// Confirmation-only event with no title change; skip redraw.
+						continue;
+					}
+				}
+				needsRefresh.push({ model: pr.model, event: eventForRefresh });
 			}
 			this.forceClearQueriesContainingPullRequests(stateChanged);
-			this._onDidChangeData.fire(needsRefresh);
+			if (needsRefresh.length > 0) {
+				this._onDidChangeData.fire(needsRefresh);
+			}
+		}));
+
+		this._register(this._reposManager.onMilestoneTitleKnown((milestone) => {
+			const titleChanged = this._recordMilestoneTitle(milestone);
+			if (titleChanged && this._hasLoaded && milestone) {
+				this._pendingMilestoneTitleIds.add(milestone.id);
+				if (this._pendingMilestoneFlushId === undefined) {
+					this._pendingMilestoneFlushId = setTimeout(() => {
+						this._pendingMilestoneFlushId = undefined;
+						this._flushPendingMilestoneTitles();
+					}, 0);
+				}
+			}
 		}));
 
 		this._register(this._reposManager.onDidAddPullRequest(() => {
@@ -168,7 +199,7 @@ export class PrsTreeModel extends Disposable {
 		if (!this._expandedQueries) {
 			this._expandedQueries = new Set();
 		}
-		if ((element instanceof CategoryTreeNode) && element.id) {
+		if ((element instanceof CategoryTreeNode || element instanceof PRGroupTreeNode) && element.id) {
 			if (isExpanded) {
 				this._expandedQueries.add(element.id);
 			} else {
@@ -198,10 +229,22 @@ export class PrsTreeModel extends Disposable {
 		return this._queriedPullRequests.get(identifier);
 	}
 
+	public getMilestoneTitle(milestoneId: string): string | undefined {
+		return this._milestoneTitles.get(milestoneId);
+	}
+
+	private _recordMilestoneTitle(milestone: IMilestone | undefined): boolean {
+		if (!milestone) return false;
+		const previous = this._milestoneTitles.get(milestone.id);
+		this._milestoneTitles.set(milestone.id, milestone.title);
+		return previous !== milestone.title;
+	}
+
 	public forceClearCache(silent: boolean = false) {
 		this._allPullRequestsCacheGeneration++;
 		this._cachedPRs.clear();
 		this._allCachedPRs.clear();
+		this._milestoneTitles.clear();
 		if (!silent) {
 			this._onDidChangeData.fire();
 		}
@@ -370,8 +413,45 @@ export class PrsTreeModel extends Disposable {
 		return repo.getMaxPullRequest();
 	}
 
+	private async _fetchRemainingPages(
+		first: ItemsResponseResult<PullRequestModel>,
+		fetchNext: () => Promise<ItemsResponseResult<PullRequestModel>>,
+	): Promise<ItemsResponseResult<PullRequestModel>> {
+		let response = first;
+		const items = [...response.items];
+		const seen = new Set<number>(items.map(item => item.id));
+		let iterations = 0;
+		while (response.hasMorePages || response.hasUnsearchedRepositories) {
+			if (iterations >= PrsTreeModel.MAX_AUTO_LOADED_PAGES) {
+				Logger.warn(`Auto-load reached the ${PrsTreeModel.MAX_AUTO_LOADED_PAGES}-page cap; stopping early.`, PrsTreeModel.ID);
+				// Preserve the real pagination flags so the next refresh can continue from the cache.
+				return { ...response, items };
+			}
+			const next = await fetchNext();
+			const progressIsTracked =
+				next.paginationProgress !== undefined &&
+				response.paginationProgress !== undefined;
+			const progressStalled =
+				progressIsTracked &&
+				next.paginationProgress! <= response.paginationProgress!;
+			const newItems = next.items.filter(item => !seen.has(item.id));
+			if (progressStalled || (!progressIsTracked && newItems.length === 0)) {
+				Logger.warn('Auto-load pagination stalled; stopping early.', PrsTreeModel.ID);
+				return { ...next, items, hasMorePages: false, hasUnsearchedRepositories: false };
+			}
+			for (const item of newItems) {
+				seen.add(item.id);
+			}
+			items.push(...newItems);
+			response = next;
+			iterations++;
+		}
+		return { ...response, items };
+	}
+
 	// Returns the cumulative query results, including all previously fetched pages.
-	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string, fetchOnePagePerRepo: boolean = false): Promise<ItemsResponseResult<PullRequestModel>> {
+	// When `fetchAllPages` is true, every remaining page is fetched before returning.
+	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string, fetchOnePagePerRepo: boolean = false, fetchAllPages: boolean = false): Promise<ItemsResponseResult<PullRequestModel>> {
 		let release: () => void;
 		const lock = new Promise<void>(resolve => { release = resolve; });
 		const prev = this._getPullRequestsForQueryLock;
@@ -382,12 +462,17 @@ export class PrsTreeModel extends Disposable {
 			let maxKnownPR: number | undefined;
 			const cache = this.getFolderCache(folderRepoManager);
 			const cachedPRs = cache.get(query)!;
+			let continueFromCache = false;
 			if (!fetchNextPage && cache.has(query)) {
 				const shouldRefresh = await this._testIfRefreshNeeded(cache.get(query)!, query, folderRepoManager);
 				maxKnownPR = cachedPRs.maxKnownPR;
 				if (!shouldRefresh) {
 					cachedPRs.clearRequested = false;
-					return cachedPRs.items;
+					const incomplete = cachedPRs.items.hasMorePages || cachedPRs.items.hasUnsearchedRepositories;
+					if (!(fetchAllPages && incomplete)) {
+						return cachedPRs.items;
+					}
+					continueFromCache = true;
 				}
 			}
 
@@ -398,13 +483,25 @@ export class PrsTreeModel extends Disposable {
 				}
 			}
 
-			const prs = await folderRepoManager.getPullRequests(
-				PRType.Query,
-				{ fetchNextPage, fetchOnePagePerRepo },
-				query,
-			);
-			if (fetchNextPage) {
-				prs.items = cachedPRs?.items.items.concat(prs.items) ?? prs.items;
+			let prs: ItemsResponseResult<PullRequestModel>;
+			if (continueFromCache) {
+				prs = cachedPRs.items;
+			} else {
+				prs = await folderRepoManager.getPullRequests(
+					PRType.Query,
+					{ fetchNextPage, fetchOnePagePerRepo },
+					query,
+				);
+				if (fetchNextPage) {
+					prs.items = cachedPRs?.items.items.concat(prs.items) ?? prs.items;
+				}
+			}
+			if (fetchAllPages) {
+				prs = await this._fetchRemainingPages(prs, () => folderRepoManager.getPullRequests(
+					PRType.Query,
+					{ fetchNextPage: true, fetchOnePagePerRepo },
+					query,
+				));
 			}
 			cache.set(query, { clearRequested: false, items: prs, maxKnownPR });
 			prs.items.forEach(pr => this._allCachedPRs.add(pr));
@@ -426,7 +523,8 @@ export class PrsTreeModel extends Disposable {
 		}
 	}
 
-	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
+	// When `fetchAllPages` is true, every remaining page is fetched before returning.
+	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean, fetchAllPages: boolean = false): Promise<ItemsResponseResult<PullRequestModel>> {
 		let release: () => void;
 		const lock = new Promise<void>(resolve => { release = resolve; });
 		const prev = this._getAllPullRequestsLocks.get(folderRepoManager) ?? Promise.resolve();
@@ -438,16 +536,32 @@ export class PrsTreeModel extends Disposable {
 			const cacheGeneration = this._allPullRequestsCacheGeneration;
 			const cache = this.getFolderCache(folderRepoManager);
 			const allCache = cache.get(PRType.All);
+			let continueFromCache = false;
 			if (!update && allCache && !allCache.clearRequested && !fetchNextPage) {
-				return allCache.items;
+				const incomplete = allCache.items.hasMorePages || allCache.items.hasUnsearchedRepositories;
+				if (!(fetchAllPages && incomplete)) {
+					return allCache.items;
+				}
+				continueFromCache = true;
 			}
 
-			const prs = await folderRepoManager.getPullRequests(
-				PRType.All,
-				{ fetchNextPage }
-			);
-			if (fetchNextPage) {
-				prs.items = allCache?.items.items.concat(prs.items) ?? prs.items;
+			let prs: ItemsResponseResult<PullRequestModel>;
+			if (continueFromCache) {
+				prs = allCache!.items;
+			} else {
+				prs = await folderRepoManager.getPullRequests(
+					PRType.All,
+					{ fetchNextPage }
+				);
+				if (fetchNextPage) {
+					prs.items = allCache?.items.items.concat(prs.items) ?? prs.items;
+				}
+			}
+			if (fetchAllPages) {
+				prs = await this._fetchRemainingPages(prs, () => folderRepoManager.getPullRequests(
+					PRType.All,
+					{ fetchNextPage: true }
+				));
 			}
 			// An invalidation during the fetch must not be undone by its response.
 			if (cacheGeneration === this._allPullRequestsCacheGeneration && cache.get(PRType.All) === allCache) {
@@ -463,6 +577,13 @@ export class PrsTreeModel extends Disposable {
 			this._getChecks(prs.items);
 			this.hasLoaded = true;
 			return prs;
+		} catch (error) {
+			if (fetchAllPages) {
+				// Restore all reached pages on retry, including any page whose request failed.
+				this.getFolderCache(folderRepoManager).delete(PRType.All);
+			}
+			// When fetchAllPages is false the cache is preserved so Load More can resume from the saved position.
+			throw error;
 		} finally {
 			release!();
 			if (this._getAllPullRequestsLocks.get(folderRepoManager) === queued) {
@@ -638,9 +759,40 @@ export class PrsTreeModel extends Disposable {
 		return this.copilotStateModel.all;
 	}
 
+	private _flushPendingMilestoneTitles() {
+		const ids = new Set(this._pendingMilestoneTitleIds);
+		this._pendingMilestoneTitleIds.clear();
+		const allLivePRs = new Set<PullRequestModel>();
+		for (const queries of this._cachedPRs.values()) {
+			for (const cache of queries.values()) {
+				if (cache?.items?.items) {
+					for (const pr of cache.items.items) {
+						allLivePRs.add(pr);
+					}
+				}
+			}
+		}
+		const affected: PullRequestChangeEvent[] = [];
+		for (const pr of allLivePRs) {
+			if (pr.milestone && ids.has(pr.milestone.id)) {
+				affected.push({ model: pr, event: { milestone: true } });
+			}
+		}
+		if (affected.length > 0) {
+			this._onDidChangeData.fire(affected);
+		}
+	}
+
 	override dispose() {
 		super.dispose();
 		disposeAll(Array.from(this._activePRDisposables.values()).flat());
+		// Titles are already recorded in _milestoneTitles when they arrive; the pending flush
+		// only triggers a redraw, which is moot after disposal.
+		if (this._pendingMilestoneFlushId !== undefined) {
+			clearTimeout(this._pendingMilestoneFlushId);
+			this._pendingMilestoneFlushId = undefined;
+		}
+		this._pendingMilestoneTitleIds.clear();
 	}
 
 }

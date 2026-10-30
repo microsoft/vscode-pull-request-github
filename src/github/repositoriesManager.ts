@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { PullRequestChangeEvent } from './githubRepository';
+import { IMilestone } from './interface';
 import { IssueModel } from './issueModel';
 import { findDotComAndEnterpriseRemotes } from './utils';
 import { Repository } from '../api/api';
@@ -57,6 +58,9 @@ export class RepositoriesManager extends Disposable {
 
 	private _onDidAddPullRequest = new vscode.EventEmitter<IssueModel>();
 	readonly onDidAddPullRequest = this._onDidAddPullRequest.event;
+
+	private _onMilestoneTitleKnown = new vscode.EventEmitter<IMilestone | undefined>();
+	readonly onMilestoneTitleKnown = this._onMilestoneTitleKnown.event;
 
 	private _onDidAddAnyGitHubRepository = new vscode.EventEmitter<FolderRepositoryManager>();
 	readonly onDidChangeAnyGitHubRepository = this._onDidAddAnyGitHubRepository.event;
@@ -122,6 +126,7 @@ export class RepositoriesManager extends Disposable {
 			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository)),
 			folderManager.onDidChangeAnyPullRequests(e => this._onDidChangeAnyPullRequests.fire(e)),
 			folderManager.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)),
+			folderManager.onMilestoneTitleKnown(m => this._onMilestoneTitleKnown.fire(m)),
 			folderManager.onDidChangeGithubRepositories(() => this._onDidAddAnyGitHubRepository.fire(folderManager)),
 			folderManager.repository.state.onDidChange(() => this.checkWorktreeChanges(folderManager.repository)),
 		];

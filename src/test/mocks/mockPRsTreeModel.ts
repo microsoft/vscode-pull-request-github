@@ -59,10 +59,10 @@ export class MockPrsTreeModel implements Partial<PrsTreeModel> {
 			hasUnsearchedRepositories: false
 		};
 	}
-	getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string): Promise<ItemsResponseResult<PullRequestModel>> {
+	getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string, fetchOnePagePerRepo?: boolean, fetchAllPages?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
 		throw new Error("Method not implemented.");
 	}
-	getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
+	getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean, fetchAllPages?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
 		throw new Error("Method not implemented.");
 	}
 	getCopilotNotificationsCount(owner: string, repo: string): number {

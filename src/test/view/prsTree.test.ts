@@ -22,10 +22,11 @@ import { mockTreeViewWorkbench } from '../mocks/mockTreeViewWorkbench';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { GitHubRepository, PullRequestChangeEvent } from '../../github/githubRepository';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PRNode } from '../../view/treeNodes/pullRequestNode';
-import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from '../../view/treeNodes/categoryNode';
+import { CategoryTreeNode, collectPRNodes, findPullRequestNode, PRCategoryActionNode, PRCategoryActionType, PRGroupTreeNode } from '../../view/treeNodes/categoryNode';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
@@ -40,10 +41,11 @@ import { GithubItemStateEnum, IAccount, ITeam, PRType, PullRequestMergeability }
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
-import { PrsTreeModel } from '../../view/prsTreeModel';
-import { TreeNode } from '../../view/treeNodes/treeNode';
+import { EXPANDED_QUERIES_STATE, PrsTreeModel } from '../../view/prsTreeModel';
 import { escapeMarkdownText } from '../../github/markdownUtils';
 import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
+import { TreeNode } from '../../view/treeNodes/treeNode';
+import { IssueChangeEvent } from '../../github/issueModel';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -107,7 +109,7 @@ describe('GitHub Pull Requests view', function () {
 		sinon.stub(folderManager, 'createGitHubRepository').resolves(githubRepository);
 	}
 
-	function stackablePullRequest(repository: MockGitHubRepository, number: number, base: string, head: string): PullRequestModel {
+	function stackableRestPullRequest(repository: GitHubRepository, number: number, base: string, head: string) {
 		const remote = repository.remote;
 		const rest = new PullRequestBuilder().number(number).id(number)
 			.html_url(`https://github.com/${remote.owner}/${remote.repositoryName}/pull/${number}`)
@@ -117,6 +119,12 @@ describe('GitHub Pull Requests view', function () {
 			ref.repo.name = remote.repositoryName;
 			ref.repo.clone_url = `https://github.com/${remote.owner}/${remote.repositoryName}.git`;
 		}
+		return rest;
+	}
+
+	function stackablePullRequest(repository: MockGitHubRepository, number: number, base: string, head: string): PullRequestModel {
+		const remote = repository.remote;
+		const rest = stackableRestPullRequest(repository, number, base, head);
 		return new PullRequestModel(credentialStore, telemetry, repository, remote,
 			convertRESTPullRequestToRawPullRequest(rest, repository));
 	}
@@ -642,6 +650,31 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(getPullRequests.callCount, 1);
 		});
 
+		it('fetches one page and shows a Load more node that loads the next page', async function () {
+			sinon.stub(prsTreeModel, 'hasLoaded').get(() => true);
+			getPullRequests.onCall(0).resolves({ items: [pullRequest], hasMorePages: true, hasUnsearchedRepositories: false });
+			getPullRequests.onCall(1).resolves({ items: [pullRequest, nextPullRequest], hasMorePages: false, hasUnsearchedRepositories: false });
+			const category = new CategoryTreeNode({} as any, folderManager, telemetry, PRType.All, mockNotificationsManager as NotificationsManager, prsTreeModel);
+
+			const children = await category.getChildren();
+
+			assert.strictEqual(getPullRequests.callCount, 1);
+			assert.strictEqual(children.length, 2);
+			assert.ok(children[0] instanceof PRNode);
+			assert.ok(children[1] instanceof PRCategoryActionNode);
+			assert.strictEqual((children[1] as PRCategoryActionNode).type, PRCategoryActionType.More);
+			assert.strictEqual((children[1] as PRCategoryActionNode).command?.command, 'pr.loadMore');
+
+			category.fetchNextPage = true;
+			const children2 = await category.getChildren();
+
+			assert.strictEqual(getPullRequests.callCount, 2);
+			assert.strictEqual(children2.length, 2);
+			assert.ok(children2[0] instanceof PRNode);
+			assert.ok(children2[1] instanceof PRNode);
+			assert.strictEqual(category.fetchNextPage, false);
+		});
+
 		it('releases the lock after a failed fetch so a queued request can succeed', async function () {
 			let rejectFetch!: (error: Error) => void;
 			const pendingFetch = new Promise<ItemsResponseResult<PullRequestModel>>((_, reject) => { rejectFetch = reject; });
@@ -1025,6 +1058,798 @@ describe('GitHub Pull Requests view', function () {
 			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 			'Tree should display categories after GitHub repositories are discovered',
 		);
+	});
+
+	describe('Query groupBy', function () {
+		let folderManager: FolderRepositoryManager;
+		let repoAaa: MockGitHubRepository;
+		let repoCcc: MockGitHubRepository;
+		let prA1: PullRequestModel;
+		let prB1: PullRequestModel;
+		let prA2: PullRequestModel;
+		let getPullRequestsForQuery: SinonStub;
+
+		beforeEach(function () {
+			const repository = new MockRepository();
+			folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			repoAaa = new MockGitHubRepository(new GitHubRemote('origin', 'https://github.com/aaa/bbb', new Protocol('https://github.com/aaa/bbb'), GitHubServerType.GitHubDotCom), credentialStore, telemetry, sinon);
+			repoCcc = new MockGitHubRepository(new GitHubRemote('origin', 'https://github.com/ccc/ddd', new Protocol('https://github.com/ccc/ddd'), GitHubServerType.GitHubDotCom), credentialStore, telemetry, sinon);
+			prA1 = stackablePullRequest(repoAaa, 1, 'main', 'feature-1');
+			prB1 = stackablePullRequest(repoCcc, 2, 'main', 'feature-2');
+			prA2 = stackablePullRequest(repoAaa, 3, 'main', 'feature-3');
+			getPullRequestsForQuery = sinon.stub(prsTreeModel, 'getPullRequestsForQuery').resolves({
+				items: [prA1, prB1, prA2],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			});
+			// The setter lets the real getPullRequestsForQuery assign hasLoaded in the pagination tests.
+			sinon.stub(prsTreeModel, 'hasLoaded').get(() => true).set(() => { });
+		});
+
+		afterEach(function () {
+			repoAaa.dispose();
+			repoCcc.dispose();
+		});
+
+		function createQueryCategory(groupBy?: unknown): CategoryTreeNode {
+			const parent = {} as any;
+			return new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, mockNotificationsManager as NotificationsManager, prsTreeModel, 'Test Query', 'is:open', groupBy);
+		}
+
+		// Rebuilds the model and provider so PR changes can be fired through reposManager, and roots the category under the provider.
+		function createProviderWithCategory(groupBy?: unknown): { changes: vscode.EventEmitter<PullRequestChangeEvent[]>; category: CategoryTreeNode } {
+			const changes = new vscode.EventEmitter<PullRequestChangeEvent[]>();
+			context.subscriptions.push(changes);
+			sinon.stub(reposManager, 'onDidChangeAnyPullRequests').callsFake(changes.event);
+			provider.dispose();
+			prsTreeModel.dispose();
+			prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
+			sinon.stub(prsTreeModel, 'getPullRequestsForQuery').resolves({
+				items: [prA1, prB1, prA2],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			});
+			sinon.stub(prsTreeModel, 'hasLoaded').get(() => true);
+			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+			const category = createQueryCategory(groupBy);
+			(provider as any)._children = [category];
+			return { changes, category };
+		}
+
+		// Runs the real update path for one PR with REST data that renames its milestone while keeping the node_id.
+		function renameMilestoneOverRest(changes: vscode.EventEmitter<PullRequestChangeEvent[]>, pullRequest: PullRequestModel, head: string, title: string): void {
+			context.subscriptions.push(pullRequest.onDidChange(event => changes.fire([{ model: pullRequest, event }])));
+			const rest = stackableRestPullRequest(repoAaa, pullRequest.number, 'main', head);
+			rest.milestone!.title = title;
+			pullRequest.update(convertRESTPullRequestToRawPullRequest(rest, repoAaa));
+		}
+
+		it('groups query results under owner/repo nodes', async function () {
+			const category = createQueryCategory(['repository']);
+			const children = await category.getChildren();
+			assert.deepStrictEqual(children.map(child => child.label), ['aaa/bbb', 'ccc/ddd']);
+			assert.ok(children.every(child => child instanceof PRGroupTreeNode));
+
+			const aaaGroupChildren = await (children[0] as PRGroupTreeNode).getChildren(false);
+			assert.ok(aaaGroupChildren.every(child => child instanceof PRNode));
+			assert.deepStrictEqual((aaaGroupChildren as PRNode[]).map(child => child.pullRequestModel.number), [prA1.number, prA2.number]);
+
+			const cccGroupChildren = await (children[1] as PRGroupTreeNode).getChildren(false);
+			assert.deepStrictEqual((cccGroupChildren as PRNode[]).map(child => child.pullRequestModel.number), [prB1.number]);
+		});
+
+		it('produces flat PRNodes when groupBy is absent', async function () {
+			const category = createQueryCategory();
+			const children = await category.getChildren();
+			assert.strictEqual(children.length, 3);
+			assert.ok(children.every(child => child instanceof PRNode));
+			assert.deepStrictEqual((children as PRNode[]).map(child => child.pullRequestModel.number), [prA1.number, prB1.number, prA2.number]);
+		});
+
+		it('ignores unknown and duplicate groupBy values', async function () {
+			const category = createQueryCategory(['label', 'repository', 'repository']);
+			const children = await category.getChildren();
+			assert.deepStrictEqual(children.map(child => child.label), ['aaa/bbb', 'ccc/ddd']);
+			const aaaGroupChildren = await (children[0] as PRGroupTreeNode).getChildren(false);
+			assert.ok(aaaGroupChildren.every(child => child instanceof PRNode));
+		});
+
+		it('requests all pages and shows only group nodes', async function () {
+			// Page draining happens inside PrsTreeModel, so this stub is only called once; that behavior is covered by prsTreeModel.test.ts.
+			getPullRequestsForQuery.onFirstCall().resolves({
+				items: [prA1, prB1, prA2],
+				hasMorePages: true,
+				hasUnsearchedRepositories: false,
+			});
+			const category = createQueryCategory(['repository']);
+			const children = await category.getChildren();
+			assert.strictEqual(getPullRequestsForQuery.lastCall.lastArg, true);
+			assert.strictEqual(children.length, 2);
+			assert.ok(children[0] instanceof PRGroupTreeNode);
+			assert.ok(children[1] instanceof PRGroupTreeNode);
+			assert.ok(children.every(child => !(child instanceof PRCategoryActionNode)));
+		});
+
+		it('does not build children of unexpanded groups when collecting PR nodes', async function () {
+			const category = createQueryCategory(['repository']);
+			const groups = await category.getChildren() as PRGroupTreeNode[];
+			assert.deepStrictEqual(collectPRNodes(category), []);
+			assert.ok(groups.every(group => group.children === undefined));
+
+			const aaaChildren = await groups[0].getChildren();
+			const collected = collectPRNodes(category);
+			assert.strictEqual(collected.length, aaaChildren.length);
+			collected.forEach((node, i) => assert.strictEqual(node, aaaChildren[i]));
+		});
+
+		it('finds pull request nodes inside groups using PullRequestModel.equals', async function () {
+			const category = createQueryCategory(['repository']);
+			const groups = await category.getChildren() as PRGroupTreeNode[];
+			const sameNumberOtherRepo = stackablePullRequest(repoCcc, prA1.number, 'main', 'other');
+			assert.strictEqual(await findPullRequestNode(groups, sameNumberOtherRepo), undefined);
+			assert.ok(groups.every(group => group.children === undefined), 'no group may be materialized when the PR is not found');
+			const found = await findPullRequestNode(groups, prB1);
+			assert.ok(found);
+			assert.strictEqual(found!.pullRequestModel, prB1);
+			assert.strictEqual(groups[0].children, undefined, 'skipped group must not be materialized');
+		});
+
+		it('reuses cached group children so revealed nodes keep their identity', async function () {
+			const category = createQueryCategory(['repository']);
+			const children = await category.getChildren() as PRGroupTreeNode[];
+			const found = await findPullRequestNode(children, prB1);
+			assert.ok(found);
+			// getChildren with default shouldDispose=true must return the same cached instances
+			const again = await (children[1] as PRGroupTreeNode).getChildren();
+			assert.strictEqual(again[0], found);
+			// A second call also returns the same array
+			const third = await (children[1] as PRGroupTreeNode).getChildren();
+			assert.strictEqual(third, again);
+		});
+
+		it('refreshes a grouped category when a PR in an unexpanded group changes state', async function () {
+			const { changes, category } = createProviderWithCategory(['repository']);
+			await category.getChildren();
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			changes.fire([{ model: prB1, event: { state: true } }]);
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			assert.ok((onDidChangeTreeData.firstCall.args[0] as unknown[]).includes(category));
+		});
+
+		it('rebuilds milestone groups when a PR\'s milestone changes', async function () {
+			const milestone1 = { id: 'milestone-1', title: 'v1', createdAt: '', number: 1 };
+			const milestone2 = { id: 'milestone-2', title: 'v2', createdAt: '', number: 2 };
+			prA1.milestone = milestone1;
+			prA2.milestone = milestone1;
+			prB1.milestone = milestone2;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			prA1.milestone = milestone2;
+			changes.fire([{ model: prA1, event: { milestone: true } }]);
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			assert.deepStrictEqual(onDidChangeTreeData.firstCall.args[0], [category]);
+		});
+
+		it('refreshes only the row for milestone changes when not grouped by milestone', async function () {
+			const { changes, category } = createProviderWithCategory(['repository']);
+			const groups = await category.getChildren() as PRGroupTreeNode[];
+			await groups[0].getChildren();
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			changes.fire([{ model: prA1, event: { milestone: true } }]);
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			const refreshed = onDidChangeTreeData.firstCall.args[0] as TreeNode[];
+			assert.strictEqual(refreshed.length, 1);
+			assert.ok(refreshed[0] instanceof PRNode);
+			assert.strictEqual((refreshed[0] as PRNode).pullRequestModel, prA1);
+			onDidChangeTreeData.resetHistory();
+
+			changes.fire([{ model: prB1, event: { milestone: true } }]);
+
+			sinon.assert.notCalled(onDidChangeTreeData);
+		});
+
+		it('keeps milestone groups when All Open refreshes shared models over REST', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+			// Prime the milestone title map before observing rebuilds. The first milestoneConfirmed
+			// for an unrecorded milestone ID is treated as a change (undefined -> title). Priming here
+			// means the actual test update sees an already-recorded title and does not rebuild.
+			changes.fire([{ model: prA1, event: { milestoneConfirmed: true } }]);
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			// Forward real model events into the stubbed changes emitter (simulating folderManager).
+			const modelEvents: IssueChangeEvent[] = [];
+			context.subscriptions.push(prA1.onDidChange(event => {
+				modelEvents.push(event);
+				changes.fire([{ model: prA1, event }]);
+			}));
+
+			// Run the real update path with REST data that has the same milestone node_id.
+			const raw = convertRESTPullRequestToRawPullRequest(stackableRestPullRequest(repoAaa, prA1.number, 'main', 'feature-1'), repoAaa);
+			assert.strictEqual(raw.milestone?.id, milestone.id);
+			prA1.update(raw);
+
+			// No { milestone: true } event must have fired - the category must not rebuild.
+			assert.ok(modelEvents.every(event => !event.milestone), 'REST refresh must not report a milestone change');
+			assert.ok(onDidChangeTreeData.getCalls().every(call => !(call.args[0] as unknown[]).includes(category)));
+			assert.strictEqual(prA1.milestone?.id, milestone.id);
+		});
+
+		it('uses the renamed milestone title when only a later PR in the group is updated', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			const before = await category.getChildren() as PRGroupTreeNode[];
+			assert.deepStrictEqual(before.map(group => group.label), ['milestone title']);
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			renameMilestoneOverRest(changes, prA2, 'feature-3', 'renamed milestone');
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			assert.deepStrictEqual(onDidChangeTreeData.firstCall.args[0], [category]);
+			assert.strictEqual(prA1.milestone?.title, 'milestone title');
+			const after = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(after[0].label, 'renamed milestone');
+			const again = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(again[0].label, 'renamed milestone');
+		});
+
+		it('uses the renamed milestone title when only a middle PR in the group is updated', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			const before = await category.getChildren() as PRGroupTreeNode[];
+			assert.deepStrictEqual(before.map(group => group.label), ['milestone title']);
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			// prB1 is second in query order [prA1, prB1, prA2]; the label must follow the rename event on prB1, not which PR is seen first
+			renameMilestoneOverRest(changes, prB1, 'feature-2', 'renamed milestone');
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			assert.deepStrictEqual(onDidChangeTreeData.firstCall.args[0], [category]);
+			assert.strictEqual(prA1.milestone?.title, 'milestone title');
+			assert.strictEqual(prA2.milestone?.title, 'milestone title');
+			const after = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(after[0].label, 'renamed milestone');
+			const again = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(again[0].label, 'renamed milestone');
+		});
+
+		it('restores the original title when the milestone is renamed back', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+
+			// Rename prB1 forward
+			renameMilestoneOverRest(changes, prB1, 'feature-2', 'renamed milestone');
+			const after = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(after[0].label, 'renamed milestone');
+
+			// Rename prB1 back - use update() directly to avoid double-subscribing
+			const rest2 = stackableRestPullRequest(repoCcc, prB1.number, 'main', 'feature-2');
+			rest2.milestone!.title = 'milestone title';
+			prB1.update(convertRESTPullRequestToRawPullRequest(rest2, repoCcc));
+
+			const restored = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(restored[0].label, 'milestone title');
+			const again = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(again[0].label, 'milestone title');
+		});
+
+		it('restores the original title when only a different PR is refreshed without a milestone event', async function () {
+			// Scenario: rename milestone v1->v2 (B refreshed), then rename back v2->v1 (only A refreshed).
+			// A already had v1 locally, so no { milestone: true } fires for A.
+			// A state change fires instead; doUpdate also fires { milestoneConfirmed: true } because A's
+			// milestone is present and unchanged. The handler records A's v1 and the label corrects itself.
+			// Without the fix, the map retains v2 and the label stays 'renamed milestone'.
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			// Rename forward (via prB1) - fires { milestone: true } from B
+			renameMilestoneOverRest(changes, prB1, 'feature-2', 'renamed milestone');
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			const afterRename = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(afterRename[0].label, 'renamed milestone');
+			onDidChangeTreeData.resetHistory();
+
+			// Rename back to original title, but refresh prA1 (which never saw the rename).
+			// prA1.milestone is still { id: 'milestone0', title: 'milestone title' }, so update() with
+			// matching milestone data fires no { milestone: true }. We change its state instead.
+			context.subscriptions.push(prA1.onDidChange(event => changes.fire([{ model: prA1, event }])));
+			const restWithStateChange = stackableRestPullRequest(repoAaa, prA1.number, 'main', 'feature-1');
+			restWithStateChange.state = 'closed';
+			prA1.update(convertRESTPullRequestToRawPullRequest(restWithStateChange, repoAaa));
+
+			// The state event triggers a category rebuild. The fix ensures prA1's milestone title
+			// (still 'milestone title') is recorded in the map even though no milestone event fired.
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			const afterRenameBack = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(afterRenameBack[0].label, 'milestone title');
+			const again = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(again[0].label, 'milestone title');
+		});
+
+		it('does not overwrite a renamed milestone title when a timeline event fires on the stale PR', async function () {
+			// After B fires { milestone: true } recording 'renamed milestone', a { timeline: true }
+			// event on A (e.g., from a new comment) must not overwrite the map with A's stale title.
+			// { timeline: true } comes from IssueModel directly, not from doUpdate, so milestoneConfirmed
+			// is not set - the handler must ignore it.
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes } = createProviderWithCategory(['milestone']);
+
+			renameMilestoneOverRest(changes, prB1, 'feature-2', 'renamed milestone');
+			assert.strictEqual(prsTreeModel.getMilestoneTitle('milestone0'), 'renamed milestone');
+
+			// Fire a timeline event for prA1 (which still has the old title locally)
+			changes.fire([{ model: prA1, event: { timeline: true } }]);
+
+			assert.strictEqual(
+				prsTreeModel.getMilestoneTitle('milestone0'),
+				'renamed milestone',
+				'timeline event must not overwrite the canonical milestone title with stale data',
+			);
+		});
+
+		it('does not overwrite a renamed milestone title when a stack-only update arrives for a stale PR', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes } = createProviderWithCategory(['milestone']);
+			context.subscriptions.push(prA1.onDidChange(event => changes.fire([{ model: prA1, event }])));
+
+			// prB1 gets a REST refresh with a renamed milestone
+			renameMilestoneOverRest(changes, prB1, 'feature-2', 'renamed milestone');
+			assert.strictEqual(prsTreeModel.getMilestoneTitle('milestone0'), 'renamed milestone');
+
+			// prA1 sends a stack-only update (same milestone reference - must not overwrite)
+			prA1.update({ ...prA1.item, stack: null });
+			assert.strictEqual(prsTreeModel.getMilestoneTitle('milestone0'), 'renamed milestone',
+				'stack-only update from a stale PR must not revert the renamed milestone title');
+		});
+
+		it('keeps the renamed milestone title after the category node is recreated', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+
+			renameMilestoneOverRest(changes, prB1, 'feature-2', 'renamed milestone');
+			assert.strictEqual(prA1.milestone?.title, 'milestone title');
+
+			// Simulate root rebuild: dispose old category, create a fresh one
+			category.dispose();
+			const replacement = createQueryCategory(['milestone']);
+			(provider as any)._children = [replacement];
+
+			const groups = await replacement.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(groups[0].label, 'renamed milestone');
+		});
+
+		it('rebuilds a milestone group when the rename arrives through a PR outside the category', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			prA2.milestone = milestone;
+			prB1.milestone = milestone;
+			const outside = stackablePullRequest(repoCcc, 4, 'main', 'feature-4');
+			outside.milestone = milestone;
+
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+			assert.ok(!category.prs.has(outside.id), 'outside PR must not be in this category');
+
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			renameMilestoneOverRest(changes, outside, 'feature-4', 'renamed milestone');
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			assert.deepStrictEqual(onDidChangeTreeData.firstCall.args[0], [category]);
+			const groups = await category.getChildren() as PRGroupTreeNode[];
+			assert.strictEqual(groups[0].label, 'renamed milestone');
+		});
+
+		it('does not rebuild when an outside PR renames an unrelated milestone', async function () {
+			const otherMilestone = { id: 'milestone-other', title: 'other', createdAt: '', number: 2 };
+			prA1.milestone = otherMilestone;
+			prA2.milestone = otherMilestone;
+			prB1.milestone = otherMilestone;
+			const outside = stackablePullRequest(repoCcc, 4, 'main', 'feature-4');
+			outside.milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+
+			const { changes, category } = createProviderWithCategory(['milestone']);
+			await category.getChildren();
+
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			renameMilestoneOverRest(changes, outside, 'feature-4', 'renamed milestone');
+
+			sinon.assert.notCalled(onDidChangeTreeData);
+		});
+
+		it('forgets recorded milestone titles after a forced cache clear', async function () {
+			const milestone = { id: 'milestone0', title: 'milestone title', createdAt: '2019-01-01T10:00:00Z', number: 100 };
+			prA1.milestone = milestone;
+			const { changes } = createProviderWithCategory(['milestone']);
+
+			renameMilestoneOverRest(changes, prA1, 'feature-1', 'renamed milestone');
+			assert.strictEqual(prsTreeModel.getMilestoneTitle('milestone0'), 'renamed milestone');
+
+			prsTreeModel.forceClearCache(true);
+			assert.strictEqual(prsTreeModel.getMilestoneTitle('milestone0'), undefined);
+		});
+
+		it('keeps milestones with the same title in separate groups', async function () {
+			prA1.milestone = { id: 'milestone-a', title: 'v1', createdAt: '', number: 1 };
+			prA2.milestone = { id: 'milestone-a', title: 'v1', createdAt: '', number: 1 };
+			prB1.milestone = { id: 'milestone-b', title: 'v1', createdAt: '', number: 2 };
+			const category = createQueryCategory(['milestone']);
+
+			const children = await category.getChildren() as PRGroupTreeNode[];
+
+			assert.strictEqual(children.length, 2);
+			assert.ok(children.every(c => c instanceof PRGroupTreeNode));
+			assert.deepStrictEqual(children.map(c => c.label), ['v1', 'v1']);
+			assert.notStrictEqual(children[0].id, children[1].id);
+			assert.ok(children[0].id!.endsWith(':milestone-a'));
+			assert.ok(children[1].id!.endsWith(':milestone-b'));
+			assert.deepStrictEqual((await children[0].getChildren(false) as PRNode[]).map(n => n.pullRequestModel.number), [prA1.number, prA2.number]);
+			assert.deepStrictEqual((await children[1].getChildren(false) as PRNode[]).map(n => n.pullRequestModel.number), [prB1.number]);
+		});
+
+		it('throws when PRGroupTreeNode is constructed without a parent id', async function () {
+			const category = createQueryCategory(['repository']);
+			await category.getChildren();
+			assert.throws(
+				() => new PRGroupTreeNode({} as any, category, 0, 'k', 'k', [], prsTreeModel),
+				/requires a parent with an id/,
+			);
+		});
+
+		it('groups a query whose label is an empty string', async function () {
+			const category = new CategoryTreeNode({} as any, folderManager, telemetry, PRType.Query, mockNotificationsManager as NotificationsManager, prsTreeModel, '', 'is:open', ['repository']);
+			assert.strictEqual(category.id, '');
+			const children = await category.getChildren();
+			assert.deepStrictEqual(children.map((c: TreeNode) => c.label), ['aaa/bbb', 'ccc/ddd']);
+			assert.deepStrictEqual(children.map((c: TreeNode) => c.id), ['/repository:aaa/bbb', '/repository:ccc/ddd']);
+		});
+
+		describe('pagination with groupBy', function () {
+			function useRealQueryPagination() {
+				// Restore the stub so the real getPullRequestsForQuery runs.
+				// It calls folderManager.getPullRequests, which we control below.
+				getPullRequestsForQuery.restore();
+				sinon.stub(folderManager, 'getPullRequestDefaults').resolves({ owner: 'aaa', repo: 'bbb', base: 'main' });
+				// Suppress background status-check calls
+				for (const pr of [prA1, prB1, prA2]) {
+					sinon.stub(pr, 'getStatusChecks').resolves([null, null]);
+				}
+				return sinon.stub(folderManager, 'getPullRequests');
+			}
+
+			it('loads every page of a grouped query and places each PR under its repository group', async function () {
+				const getPRs = useRealQueryPagination();
+				getPRs.onCall(0).resolves({ items: [prA1], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+				getPRs.onCall(1).resolves({ items: [prB1], hasMorePages: false, hasUnsearchedRepositories: true, paginationProgress: 2 });
+				getPRs.onCall(2).resolves({ items: [prA2], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 3 });
+
+				const category = createQueryCategory(['repository']);
+				const children = await category.getChildren();
+
+				// All three pages were fetched
+				assert.strictEqual(getPRs.callCount, 3);
+				// Children are group nodes, not flat PR nodes
+				assert.ok(children.every(c => c instanceof PRGroupTreeNode), 'expected PRGroupTreeNode children');
+				assert.ok(children.every(c => !(c instanceof PRCategoryActionNode)), 'grouped category must not append action nodes even when hasMorePages is true');
+				const groups = children as PRGroupTreeNode[];
+				const labels = groups.map(g => g.label);
+				assert.deepStrictEqual(labels.sort(), ['aaa/bbb', 'ccc/ddd']);
+				const aaaBbb = groups.find(g => g.label === 'aaa/bbb')!;
+				const cccDdd = groups.find(g => g.label === 'ccc/ddd')!;
+				const aaaChildren = await aaaBbb.getChildren();
+				const cccChildren = await cccDdd.getChildren();
+				assert.deepStrictEqual(aaaChildren.map((n: any) => n.pullRequestModel), [prA1, prA2]);
+				assert.deepStrictEqual(cccChildren.map((n: any) => n.pullRequestModel), [prB1]);
+
+				// A second render uses the cache - no extra fetch calls
+				await category.getChildren();
+				assert.strictEqual(getPRs.callCount, 3);
+			});
+
+			it('continues an incomplete cached first page and groups the PRs from every page', async function () {
+				const getPRs = useRealQueryPagination();
+				getPRs.onCall(0).resolves({ items: [prA1], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+				getPRs.onCall(1).resolves({ items: [prB1, prA2], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 2 });
+
+				// Pre-warm the cache with one page that reports hasMorePages: true, as would happen after a cap stop or initial single-page load.
+				await prsTreeModel.getPullRequestsForQuery(folderManager, false, 'is:open');
+				assert.strictEqual(getPRs.callCount, 1);
+
+				const category = createQueryCategory(['repository']);
+				const children = await category.getChildren();
+
+				// Continued from the cached position - no restart
+				assert.strictEqual(getPRs.callCount, 2);
+				const groups = children as PRGroupTreeNode[];
+				const aaaBbb = groups.find(g => g.label === 'aaa/bbb')!;
+				const cccDdd = groups.find(g => g.label === 'ccc/ddd')!;
+				assert.ok(aaaBbb, 'expected aaa/bbb group');
+				assert.ok(cccDdd, 'expected ccc/ddd group');
+				const aaaChildren = await aaaBbb.getChildren();
+				const cccChildren = await cccDdd.getChildren();
+				assert.ok(aaaChildren.map((n: any) => n.pullRequestModel).includes(prA1), 'prA1 must come from the cached page, not a restart');
+				assert.deepStrictEqual(aaaChildren.map((n: any) => n.pullRequestModel), [prA1, prA2]);
+				assert.deepStrictEqual(cccChildren.map((n: any) => n.pullRequestModel), [prB1]);
+			});
+
+			it('fetches one page for an ungrouped query and shows a Load more node', async function () {
+				const getPRs = useRealQueryPagination();
+				getPRs.onCall(0).resolves({ items: [prA1], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+				getPRs.onCall(1).resolves({ items: [prA1, prB1, prA2], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 2 });
+
+				const category = createQueryCategory([]);
+				const children = await category.getChildren();
+
+				assert.strictEqual(getPRs.callCount, 1, 'only one page on first render');
+				assert.ok(children[children.length - 1] instanceof PRCategoryActionNode, 'last child should be Load more');
+				assert.strictEqual((children[children.length - 1] as PRCategoryActionNode).type, PRCategoryActionType.More);
+
+				category.fetchNextPage = true;
+				const children2 = await category.getChildren();
+
+				assert.strictEqual(getPRs.callCount, 2, 'second page loaded on demand');
+				assert.ok(children2.every(c => c instanceof PRNode), 'all PRNodes after loading more');
+			});
+
+			it('shows Continue fetching from other remotes for an ungrouped query with unsearched repositories', async function () {
+				const getPRs = useRealQueryPagination();
+				getPRs.onCall(0).resolves({ items: [prA1], hasMorePages: false, hasUnsearchedRepositories: true, paginationProgress: 1 });
+
+				const category = createQueryCategory([]);
+				const children = await category.getChildren();
+
+				assert.strictEqual(getPRs.callCount, 1);
+				const last = children[children.length - 1];
+				assert.ok(last instanceof PRCategoryActionNode);
+				assert.strictEqual((last as PRCategoryActionNode).type, PRCategoryActionType.TryOtherRemotes);
+			});
+		});
+
+		describe('reveal inside groups', function () {
+			it('selects a grouped PR node when its overview becomes active', async function () {
+				const { category } = createProviderWithCategory(['repository']);
+				category.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+				const groups = await category.getChildren() as PRGroupTreeNode[];
+				const reveal = sinon.spy(provider.view, 'reveal');
+
+				await (provider as any).syncWithActivePullRequest(prB1);
+
+				sinon.assert.calledOnce(reveal);
+				const revealedNode = reveal.args[0][0] as any;
+				const revealOpts = reveal.args[0][1];
+				assert.ok(revealedNode.pullRequestModel === prB1, 'revealed node should be prB1');
+				assert.deepStrictEqual(revealOpts, { select: true, focus: false, expand: false });
+				// The aaa/bbb group was not materialized during the search
+				const aaaBbb = groups.find(g => g.label === 'aaa/bbb')!;
+				assert.ok(!(aaaBbb as any)._children, 'unrelated group should not be materialized');
+			});
+
+			it('reveals a PR nested two group levels deep', async function () {
+				const milestone1 = { id: 'milestone-1', title: 'v1', createdAt: '', number: 1 };
+				const milestone2 = { id: 'milestone-2', title: 'v2', createdAt: '', number: 2 };
+				prA1.milestone = milestone1;
+				prB1.milestone = milestone1;
+				prA2.milestone = milestone2;
+
+				const { category } = createProviderWithCategory(['milestone', 'repository']);
+				category.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+				await category.getChildren();
+				const reveal = sinon.spy(provider.view, 'reveal');
+
+				await (provider as any).syncWithActivePullRequest(prB1);
+
+				sinon.assert.calledOnce(reveal);
+				const revealedNode = reveal.args[0][0] as any;
+				assert.ok(revealedNode.pullRequestModel === prB1);
+				// Verify parent chain: ccc/ddd group → v1 milestone group → category
+				const cccDddGroup = await provider.getParent(revealedNode);
+				assert.ok((cccDddGroup as any).label === 'ccc/ddd');
+				const v1Group = await provider.getParent(cccDddGroup!);
+				assert.ok((v1Group as any).label === 'v1');
+				assert.ok(await provider.getParent(v1Group!) === category);
+			});
+
+			it('expandPullRequest reveals and selects a PR inside a group', async function () {
+				const category = createQueryCategory(['repository']);
+				const revealed: any[] = [];
+				// TreeNode.reveal forwards to its parent, so the parent stands in for the tree view.
+				// Spy on parent.reveal (TreeNode.reveal delegates here); update this spy target if
+				// expandPullRequest is ever refactored to call view.reveal directly.
+				(category as any).parent = { reveal: (node: any, opts: any) => { revealed.push({ node, opts }); return Promise.resolve(); } };
+
+				const found = await category.expandPullRequest(prB1);
+
+				assert.strictEqual(found, true);
+				assert.strictEqual(revealed.length, 1);
+				assert.ok(revealed[0].node.pullRequestModel === prB1);
+				assert.deepStrictEqual(revealed[0].opts, { expand: true, select: true });
+			});
+		});
+
+		describe('group expansion state across reload', function () {
+			function reloadTree(groupBy: string[]) {
+				const expand = new vscode.EventEmitter<vscode.TreeViewExpansionEvent<TreeNode>>();
+				const collapse = new vscode.EventEmitter<vscode.TreeViewExpansionEvent<TreeNode>>();
+				context.subscriptions.push(expand, collapse);
+				const baseView = createTreeView('pr:github', {});
+				createTreeView.callsFake(() => ({
+					...baseView,
+					onDidExpandElement: expand.event,
+					onDidCollapseElement: collapse.event,
+				}));
+				provider.dispose();
+				prsTreeModel.dispose();
+				prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
+				sinon.stub(prsTreeModel, 'getPullRequestsForQuery').resolves({
+					items: [prA1, prB1, prA2],
+					hasMorePages: false,
+					hasUnsearchedRepositories: false,
+				});
+				sinon.stub(prsTreeModel, 'hasLoaded').get(() => true);
+				provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+				const category = createQueryCategory(groupBy);
+				(provider as any)._children = [category];
+				return { category, expand, collapse };
+			}
+
+			it('keeps a collapsed group collapsed after reload while its expanded sibling stays expanded', async function () {
+				const first = reloadTree(['repository']);
+				first.expand.fire({ element: first.category });
+				const groups = await first.category.getChildren() as PRGroupTreeNode[];
+				for (const g of groups) {
+					first.expand.fire({ element: g });
+				}
+				const aaaBbb = groups.find(g => g.label === 'aaa/bbb')!;
+				first.collapse.fire({ element: aaaBbb });
+
+				// After collapsing aaa/bbb, it should NOT be in expandedQueries; ccc/ddd and the category should be
+				const stored = context.workspaceState.get<string[]>(EXPANDED_QUERIES_STATE) ?? [];
+				assert.ok(stored.includes('Test Query'), 'category should be in expandedQueries');
+				assert.ok(stored.includes('Test Query/repository:ccc/ddd'), 'ccc/ddd should be in expandedQueries');
+				assert.ok(!stored.includes('Test Query/repository:aaa/bbb'), 'aaa/bbb should not be in expandedQueries');
+
+				// Reload (simulate window reload)
+				const second = reloadTree(['repository']);
+				assert.strictEqual(second.category.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
+				const reloaded = await second.category.getChildren() as PRGroupTreeNode[];
+				assert.ok(reloaded[0] !== groups[0], 'should be new instances after reload');
+				assert.deepStrictEqual(reloaded.map(g => g.id), groups.map(g => g.id), 'group ids should be stable');
+				const reloadedAaa = reloaded.find(g => g.label === 'aaa/bbb')!;
+				const reloadedCcc = reloaded.find(g => g.label === 'ccc/ddd')!;
+				const aaaItem = await reloadedAaa.getTreeItem();
+				const cccItem = await reloadedCcc.getTreeItem();
+				assert.strictEqual(aaaItem.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
+				assert.strictEqual(cccItem.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
+			});
+
+			it('persists nested group state per level', async function () {
+				const milestone1 = { id: 'milestone-1', title: 'v1', createdAt: '', number: 1 };
+				const milestone2 = { id: 'milestone-2', title: 'v2', createdAt: '', number: 2 };
+				prA1.milestone = milestone1;
+				prB1.milestone = milestone1;
+				prA2.milestone = milestone2;
+
+				const first = reloadTree(['milestone', 'repository']);
+				first.expand.fire({ element: first.category });
+				const milestoneGroups = await first.category.getChildren() as PRGroupTreeNode[];
+				const v1 = milestoneGroups.find(g => g.label === 'v1')!;
+				first.expand.fire({ element: v1 });
+				const repoGroupsUnderV1 = await v1.getChildren() as PRGroupTreeNode[];
+				const v1Aaa = repoGroupsUnderV1.find(g => g.label === 'aaa/bbb')!;
+				const v1Ccc = repoGroupsUnderV1.find(g => g.label === 'ccc/ddd')!;
+				first.expand.fire({ element: v1Aaa });
+				first.expand.fire({ element: v1Ccc });
+				first.collapse.fire({ element: v1Aaa });
+				// v2 is never expanded
+
+				const second = reloadTree(['milestone', 'repository']);
+				const reloadedMilestoneGroups = await second.category.getChildren() as PRGroupTreeNode[];
+				const reloadedV1 = reloadedMilestoneGroups.find(g => g.label === 'v1')!;
+				const reloadedV2 = reloadedMilestoneGroups.find(g => g.label === 'v2')!;
+				const v1Item = await reloadedV1.getTreeItem();
+				const v2Item = await reloadedV2.getTreeItem();
+				assert.strictEqual(v1Item.collapsibleState, vscode.TreeItemCollapsibleState.Expanded, 'v1 should be expanded');
+				assert.strictEqual(v2Item.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed, 'v2 should be collapsed');
+
+				const reloadedReposUnderV1 = await reloadedV1.getChildren() as PRGroupTreeNode[];
+				const reloadedV1Aaa = reloadedReposUnderV1.find(g => g.label === 'aaa/bbb')!;
+				const reloadedV1Ccc = reloadedReposUnderV1.find(g => g.label === 'ccc/ddd')!;
+				const v1AaaItem = await reloadedV1Aaa.getTreeItem();
+				const v1CccItem = await reloadedV1Ccc.getTreeItem();
+				assert.strictEqual(v1AaaItem.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed, 'v1/aaa should be collapsed');
+				assert.strictEqual(v1CccItem.collapsibleState, vscode.TreeItemCollapsibleState.Expanded, 'v1/ccc should be expanded');
+			});
+		});
+
+		it('rebuilds milestone groups for PRs from repositories discovered by a cross-repository query', async function () {
+			// Use the real production path: createGitHubRepositoryFromOwnerName -> createAndAddGitHubRepository.
+			// resolveMetadata=false skips the network call to validateGitHubRepositoryAccess.
+			const discovered = await folderManager.createGitHubRepositoryFromOwnerName('eee', 'fff', false);
+			assert.ok(discovered, 'createGitHubRepositoryFromOwnerName must return a repository');
+			assert.ok(folderManager.gitHubRepositories.includes(discovered));
+
+			// Create a PR on the discovered repo with the same default milestone (milestone0 / 'milestone title')
+			// as prA1/prA2/prB1 so they all land in one group.
+			const discoveredPr = discovered.createOrUpdatePullRequestModel(
+				convertRESTPullRequestToRawPullRequest(stackableRestPullRequest(discovered, 5, 'main', 'feature-5'), discovered),
+				true, // silent - do not fire onDidAddPullRequest yet
+			);
+
+			getPullRequestsForQuery.resolves({
+				items: [prA1, discoveredPr, prA2],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false,
+			});
+
+			const category = createQueryCategory(['milestone']);
+			(provider as any)._children = [category];
+			const before = await category.getChildren() as PRGroupTreeNode[];
+			assert.deepStrictEqual(before.map(g => g.label), ['milestone title']);
+
+			const onDidChangeTreeData = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(onDidChangeTreeData));
+
+			// Clear the milestone via the real model-update path; IssueModel.update fires { milestone: true }.
+			// GitHubRepository._onPullRequestModelChanged forwards it to onDidChangePullRequests, which must
+			// now reach PrsTreeModel via the forwardGitHubRepositoryEvents wiring added to
+			// createAndAddGitHubRepository. Without that wiring this assertion fails with 0 calls.
+			const clearRest = stackableRestPullRequest(discovered, 5, 'main', 'feature-5');
+			(clearRest as any).milestone = null;
+			discoveredPr.update(convertRESTPullRequestToRawPullRequest(clearRest, discovered));
+
+			sinon.assert.calledOnce(onDidChangeTreeData);
+			assert.deepStrictEqual(onDidChangeTreeData.firstCall.args[0], [category]);
+
+			const after = await category.getChildren() as PRGroupTreeNode[];
+			const labels = after.map(g => g.label).sort();
+			assert.ok(labels.includes('milestone title'), 'prA1/prA2 must still be under their milestone group');
+			assert.ok(labels.includes('No Milestone'), 'discoveredPr must move to No Milestone after milestone is cleared');
+		});
 	});
 
 	describe('Local Pull Request Branches', function () {

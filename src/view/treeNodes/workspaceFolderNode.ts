@@ -18,6 +18,11 @@ import { NotificationsManager } from '../../notifications/notificationsManager';
 export interface IQueryInfo {
 	label: string;
 	query: string;
+	/**
+	 * Raw, unvalidated value of the `githubPullRequests.queries[].groupBy` setting.
+	 * `CategoryTreeNode` validates it with `normalizePRGroupBy`, so callers must pass it through unchanged.
+	 */
+	groupBy?: unknown;
 }
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
@@ -86,7 +91,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 			} else if (isAllQuery(queryInfo)) {
 				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel));
 			} else {
-				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query));
+				queryCategories.set(queryInfo.label, new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query, queryInfo.groupBy));
 			}
 		}
 

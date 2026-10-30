@@ -222,15 +222,20 @@ export class CopilotPRWatcher extends Disposable {
 			Logger.error(`Refreshing Copilot pull request state failed: ${formatError(error)}`, CopilotPRWatcher.ID);
 		}), 50);
 		this._register(this._reposManager.onDidChangeAnyPullRequests(e => {
-			if (e.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
+			// Ignore events that carry only a milestone confirmation; no actual PR data changed.
+			const meaningful = e.filter(pr => Object.keys(pr.event).some(k => k !== 'milestoneConfirmed'));
+			if (meaningful.length === 0) {
+				return;
+			}
+			if (meaningful.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
 				if (!this._model.isInitialized) {
 					return;
 				}
-				if (e.some(pr => this._model.get(pr.model.remote.owner, pr.model.remote.repositoryName, pr.model.number) === CopilotPRStatus.None)) {
+				if (meaningful.some(pr => this._model.get(pr.model.remote.owner, pr.model.remote.repositoryName, pr.model.number) === CopilotPRStatus.None)) {
 					// A PR we don't know about was updated
 					updateFullState();
 				} else {
-					for (const pr of e) {
+					for (const pr of meaningful) {
 						if (pr.model instanceof PullRequestModel) {
 							this._updateSingleState(pr.model);
 						}
