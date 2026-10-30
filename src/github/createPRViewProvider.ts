@@ -931,17 +931,21 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		if (!template.includes('${')) {
 			return template;
 		}
+		const issue = compareBranch ? await this.lookupTemplateValue('issue', () => getIssueForBranch(this._folderRepositoryManager, compareBranch)) : undefined;
+		const user = /\$\{user\}/.test(template) ? await this.lookupTemplateValue('user', () => this._folderRepositoryManager.getCurrentUser()) : undefined;
+		return variableSubstitution(template, issue, {
+			owner: this.model.baseOwner,
+			repo: this.model.repositoryName,
+			base: baseBranch,
+		}, user?.login);
+	}
+
+	private async lookupTemplateValue<T>(name: string, lookup: () => Promise<T>): Promise<T | undefined> {
 		try {
-			const issue = compareBranch ? await getIssueForBranch(this._folderRepositoryManager, compareBranch) : undefined;
-			const user = /\$\{user\}/.test(template) ? await this._folderRepositoryManager.getCurrentUser() : undefined;
-			return variableSubstitution(template, issue, {
-				owner: this.model.baseOwner,
-				repo: this.model.repositoryName,
-				base: baseBranch,
-			}, user?.login);
+			return await lookup();
 		} catch (e) {
-			Logger.debug(`Error resolving pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
-			return template;
+			Logger.debug(`Unable to resolve the ${name} for pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
+			return undefined;
 		}
 	}
 

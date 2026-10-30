@@ -182,12 +182,20 @@ describe('Create pull request stack', function () {
 			sinon.assert.notCalled(resolveIssue);
 		});
 
-		it('keeps the template available if issue resolution fails', async function () {
+		it('resolves the remaining variables if issue resolution fails', async function () {
 			const resolveIssue = await associateIssue();
 			resolveIssue.rejects(new Error('Offline'));
-			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel}');
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel} in ${owner}/${repository}');
 
-			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses ${issueNumberLabel}');
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses ${issueNumberLabel} in github/test');
+		});
+
+		it('resolves the remaining variables if user resolution fails', async function () {
+			await associateIssue();
+			sinon.stub(folderManager, 'getCurrentUser').throws(new Error('No GitHub repositories'));
+			sinon.stub(folderManager, 'getPullRequestTemplateBody').resolves('Closes ${issueNumberLabel} by ${user}');
+
+			assert.strictEqual(await description(), 'Commit body ${issueNumber}\n\nCloses #42 by ${user}');
 		});
 
 		it('preserves variables when the associated issue cannot be found', async function () {
