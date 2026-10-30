@@ -21,6 +21,7 @@ import {
 	Reaction,
 	ReviewState,
 	StateReason,
+	SubIssueReference,
 } from './interface';
 import type { StackMergeOutcome } from './pullRequestModel';
 import { IComment } from '../common/comment';
@@ -74,6 +75,8 @@ export interface Issue {
 	canRequestCopilotReview: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
+	subIssues?: SubIssueReference[];
+	parentIssue?: SubIssueReference;
 }
 
 /** Read-only content shown during a cold load; never persisted as a complete issue. */

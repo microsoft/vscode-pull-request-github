@@ -1359,6 +1359,140 @@ describe('Overview', function () {
 		assert.strictEqual(out.container.querySelector('[aria-label="View Pull Request Changes"]'), null);
 	});
 
+	it('renders sub-issues inline for an issue', function () {
+		const alice = new AccountBuilder().login('alice').avatarUrl('https://avatars.githubusercontent.com/u/1').build();
+		const bob = new AccountBuilder().login('bob').avatarUrl('https://avatars.githubusercontent.com/u/2').build();
+		const pr = new PullRequestBuilder().isIssue(true).subIssues([
+			{ id: 1, number: 7, title: 'open child', state: GithubItemStateEnum.Open, url: 'https://github.com/owner/name/issues/7', owner: 'owner', repo: 'name', assignees: [alice, bob] },
+			{ id: 2, number: 9, title: 'closed child', state: GithubItemStateEnum.Closed, url: 'https://github.com/other/repo/issues/9', owner: 'other', repo: 'repo', assignees: [] },
+		]).parentIssue(undefined).build();
+		const context = new PRContext(pr);
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const section = out.container.querySelector('#sub-issues');
+		assert(section);
+		const rows = section.querySelectorAll('.issue-item');
+		assert.strictEqual(rows.length, 2);
+		assert.strictEqual(rows[0].querySelector('.issue-item-text')!.textContent, 'open child');
+		assert.strictEqual(rows[0].querySelector('.sub-issue-number')!.textContent, '#7');
+		assert.strictEqual(rows[1].querySelector('.issue-item-text')!.textContent, 'closed child');
+		assert.strictEqual(rows[1].querySelector('.sub-issue-number')!.textContent, 'other/repo#9');
+		assert(section.querySelector('.section-icon.issue-open'));
+		assert(section.querySelector('.section-icon.issue-closed'));
+		assert.strictEqual(rows[0].querySelector('.section-icon')!.getAttribute('aria-label'), 'Open');
+		assert.strictEqual(rows[1].querySelector('.section-icon')!.getAttribute('aria-label'), 'Closed');
+		const assigneeWrappers = rows[0].querySelectorAll('.sub-issue-assignee[role="img"]');
+		assert.deepStrictEqual(Array.from(assigneeWrappers).map(el => el.getAttribute('aria-label')), ['alice', 'bob']);
+		assert.strictEqual(rows[0].querySelectorAll('.sub-issue-assignees img.avatar').length, 2);
+		assert.strictEqual(rows[0].getAttribute('href'), 'https://github.com/owner/name/issues/7');
+		assert.strictEqual(rows[1].getAttribute('href'), 'https://github.com/other/repo/issues/9');
+	});
+
+	it('does not render a sub-issues section when there are none', function () {
+		for (const subIssues of [undefined, []]) {
+			const pr = new PullRequestBuilder().isIssue(true).subIssues(subIssues).parentIssue(undefined).build();
+			const context = new PRContext(pr);
+
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			assert.strictEqual(out.container.querySelector('#sub-issues'), null);
+			cleanup();
+		}
+	});
+
+	it('does not render sub-issues for pull requests', function () {
+		const pr = new PullRequestBuilder().isIssue(false).subIssues([
+			{ id: 1, number: 7, title: 'child', state: GithubItemStateEnum.Open, url: 'https://github.com/owner/name/issues/7', owner: 'owner', repo: 'name', assignees: [] },
+		]).parentIssue(undefined).build();
+		const context = new PRContext(pr);
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(out.container.querySelector('#sub-issues'), null);
+	});
+
+	it('renders a Part of indicator for a sub-issue', function () {
+		const pr = new PullRequestBuilder().isIssue(true).parentIssue({
+			id: 5, number: 42, title: 'parent issue title',
+			state: GithubItemStateEnum.Open,
+			url: 'https://github.com/owner/repo/issues/42',
+			owner: 'owner', repo: 'repo', assignees: [],
+		}).build();
+		const context = new PRContext(pr);
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const parentDiv = out.container.querySelector('#parent-issue');
+		assert.ok(parentDiv, '#parent-issue should exist');
+		assert.ok(parentDiv.textContent?.includes('Part of'), 'should say Part of');
+		assert.ok(parentDiv.textContent?.includes('#42'), 'should show issue number');
+		assert.ok(parentDiv.textContent?.includes('parent issue title'), 'should show title');
+		const link = parentDiv.querySelector('.parent-issue-link') as HTMLAnchorElement;
+		assert.strictEqual(link?.href, 'https://github.com/owner/repo/issues/42');
+		// parent-issue must be before #description
+		const main = out.container.querySelector('#main')!;
+		const children = Array.from(main.children);
+		assert.ok(children.findIndex(c => c.id === 'parent-issue') < children.findIndex(c => c.id === 'description'));
+	});
+
+	it('renders cross-repo parent label', function () {
+		const pr = new PullRequestBuilder().isIssue(true).owner('myowner').repo('myrepo').parentIssue({
+			id: 6, number: 42, title: 'cross parent',
+			state: GithubItemStateEnum.Open,
+			url: 'https://github.com/other/thing/issues/42',
+			owner: 'other', repo: 'thing', assignees: [],
+		}).build();
+		const context = new PRContext(pr);
+
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const parentDiv = out.container.querySelector('#parent-issue');
+		assert.ok(parentDiv?.textContent?.includes('other/thing#42'));
+	});
+
+	it('does not render Part of for issues without a parent or for pull requests', function () {
+		const noParentPr = new PullRequestBuilder().isIssue(true).parentIssue(undefined).build();
+		const noParent = render(
+			<PullRequestContext.Provider value={new PRContext(noParentPr)}>
+				<Overview {...noParentPr} />
+			</PullRequestContext.Provider>,
+		);
+		assert.strictEqual(noParent.container.querySelector('#parent-issue'), null);
+		cleanup();
+
+		const isPRPr = new PullRequestBuilder().isIssue(false).parentIssue({
+			id: 7, number: 1, title: 'x', state: GithubItemStateEnum.Open,
+			url: 'https://github.com/a/b/issues/1', owner: 'a', repo: 'b', assignees: [],
+		}).build();
+		const isPR = render(
+			<PullRequestContext.Provider value={new PRContext(isPRPr)}>
+				<Overview {...isPRPr} />
+			</PullRequestContext.Provider>,
+		);
+		assert.strictEqual(isPR.container.querySelector('#parent-issue'), null);
+	});
+
 	it('applies sticky class when scrolled', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);

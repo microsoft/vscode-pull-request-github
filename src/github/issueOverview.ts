@@ -11,7 +11,7 @@ import { openItemOnGitHub } from '../commands';
 import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods, SubIssueReference } from './interface';
 import { IssueModel } from './issueModel';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
@@ -24,6 +24,7 @@ import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
+import { toOpenIssueWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewBase } from '../common/webview';
@@ -374,7 +375,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				repositoryAccess,
 				viewerCanEdit,
 				assignableUsers,
-				currentUser
+				currentUser,
+				subIssues,
+				parentIssue,
 			] = await Promise.all([
 				this._folderRepositoryManager.resolveIssue(
 					issueModel.remote.owner,
@@ -386,6 +389,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
 				this._folderRepositoryManager.getCurrentUser(),
+				issueModel.getSubIssues(),
+				issueModel.getParentIssue(),
 				ensureEmojis(this._folderRepositoryManager.context),
 			]);
 
@@ -400,6 +405,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 			// Process permalinks in bodyHTML before sending to webview
 			const context = await this.getInitializeContext(currentUser, issue, timelineEvents ?? [], repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+			context.subIssues = await this.resolveSubIssueLinks(subIssues, issue.githubRepository.remote.isEnterprise);
+			context.parentIssue = parentIssue ? await this.resolveIssueReferenceLink(parentIssue, issue.githubRepository.remote.isEnterprise) : undefined;
 			context.events = this.freshestTimeline(this._item, timelineSequence, context.events);
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
@@ -411,6 +418,27 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating issue description: ${formatError(e)}`);
 		}
+	}
+
+	private async resolveIssueReferenceLink(ref: SubIssueReference, isEnterprise: boolean): Promise<SubIssueReference> {
+		if (isEnterprise) {
+			// toOpenIssueWebviewUri has no host identity; keep html_url for Enterprise remotes
+			return ref;
+		}
+		try {
+			const uri = await toOpenIssueWebviewUri({ owner: ref.owner, repo: ref.repo, issueNumber: ref.number });
+			return { ...ref, url: uri.toString() };
+		} catch (e) {
+			Logger.debug(`Failed to resolve issue reference link for #${ref.number} - ${formatError(e)}`, IssueOverviewPanel.ID);
+			return ref;
+		}
+	}
+
+	private async resolveSubIssueLinks(subIssues: SubIssueReference[], isEnterprise: boolean): Promise<SubIssueReference[]> {
+		if (isEnterprise) {
+			return subIssues;
+		}
+		return Promise.all(subIssues.map(s => this.resolveIssueReferenceLink(s, isEnterprise)));
 	}
 
 	protected registerPrListeners() {

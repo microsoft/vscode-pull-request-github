@@ -66,6 +66,8 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isEnterprise: { default: false },
 	hasReviewDraft: { default: false },
 	busy: { default: undefined },
+	subIssues: { default: undefined },
+	parentIssue: { default: undefined },
 	lastReviewType: { default: undefined },
 	closingIssues: { default: [] },
 	canAssignCopilot: { default: false },

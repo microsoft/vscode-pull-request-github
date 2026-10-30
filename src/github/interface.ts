@@ -326,6 +326,12 @@ export interface IssueReference {
 	url: string;
 }
 
+export interface SubIssueReference extends IssueReference {
+	owner: string;
+	repo: string;
+	assignees: IAccount[];
+}
+
 export interface PullRequest extends Issue {
 	isDraft?: boolean;
 	isRemoteHeadDeleted?: boolean;

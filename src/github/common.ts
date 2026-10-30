@@ -47,6 +47,7 @@ export namespace OctokitCommon {
 	export type PullsCreateReviewCommentResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/comments']['response']['data'];
 	export type PullsGetResponseData = OctokitRest.RestEndpointMethodTypes['pulls']['get']['response']['data'];
 	export type IssuesGetResponseData = OctokitRest.RestEndpointMethodTypes['issues']['get']['response']['data'];
+	export type IssuesListSubIssuesResponseData = OctokitRest.RestEndpointMethodTypes['issues']['listSubIssues']['response']['data'];
 	export type PullsGetResponseUser = Exclude<PullsGetResponseData['user'], null>;
 	export type PullsListCommitsResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/commits']['response']['data'];
 	export type PullsListRequestedReviewersResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers']['response']['data'];
