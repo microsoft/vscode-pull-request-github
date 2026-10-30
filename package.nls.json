@@ -2,7 +2,7 @@
 	"displayName": "GitHub Pull Requests",
 	"description": "Pull Request and Issue Provider for GitHub",
 	"githubPullRequests.pullRequestDescription.description": "The description used when creating pull requests.",
-	"githubPullRequests.pullRequestDescription.template": "Use a pull request template and commit description, or just use the commit description if no templates were found.",
+	"githubPullRequests.pullRequestDescription.template": "Use a pull request template and commit description, or just use the commit description if no templates were found. Templates support variables such as ${issueTitle}, ${issueNumber}, and ${issueNumberLabel} for the issue associated with the compare branch by Start Working on an Issue.",
 	"githubPullRequests.pullRequestDescription.commit": "Use the latest commit message only.",
 	"githubPullRequests.pullRequestDescription.branchName": "Use the branch name as the pull request title",
 	"githubPullRequests.pullRequestDescription.none": "Do not have a default description.",
