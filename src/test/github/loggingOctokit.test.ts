@@ -4,10 +4,67 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { isAuthError, RateLogger } from '../../github/loggingOctokit';
+import { createSandbox } from 'sinon';
+import { GitHubRef } from '../../common/githubRef';
+import { GitHubServerType } from '../../common/authentication';
+import { Protocol } from '../../common/protocol';
+import { GitHubRemote } from '../../common/remote';
+import { compareCommits, isAuthError, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockTelemetry } from '../mocks/mockTelemetry';
+import { QueryProvider } from '../mocks/queryProvider';
 
 describe('loggingOctokit', () => {
+	describe('compareCommits', () => {
+		const remote = new GitHubRemote('origin', 'github/test', new Protocol('https://github.com/github/test.git'), GitHubServerType.GitHubDotCom);
+		const base = new GitHubRef('main', 'github:main', 'base-sha', 'https://github.com/github/test.git', 'github', 'test', false);
+		const head = new GitHubRef('feature', 'github:feature', 'head-sha', 'https://github.com/github/test.git', 'github', 'test', false);
+
+		it('uses a three-dot comparison when excluding merge commits', async () => {
+			const sinon = createSandbox();
+			try {
+				const queryProvider = new QueryProvider(sinon);
+				const octokit = new LoggingOctokit(queryProvider.octokit, new RateLogger(new MockTelemetry(), true));
+				queryProvider.expectOctokitRequest(['repos', 'compareCommitsWithBasehead'], [{
+					repo: 'test',
+					owner: 'github',
+					basehead: 'github:review-sha...github:head-sha',
+				}], {
+					files: [],
+					merge_base_commit: { sha: 'merge-base-sha' },
+				});
+
+				const result = await compareCommits(remote, octokit, base, head, 'review-sha', 1, 'test', true);
+
+				assert.deepStrictEqual(result, { mergeBaseSha: 'merge-base-sha', files: [] });
+			} finally {
+				sinon.restore();
+			}
+		});
+
+		it('uses the standard comparison by default', async () => {
+			const sinon = createSandbox();
+			try {
+				const queryProvider = new QueryProvider(sinon);
+				const octokit = new LoggingOctokit(queryProvider.octokit, new RateLogger(new MockTelemetry(), true));
+				queryProvider.expectOctokitRequest(['repos', 'compareCommits'], [{
+					repo: 'test',
+					owner: 'github',
+					base: 'github:review-sha',
+					head: 'github:head-sha',
+				}], {
+					files: [],
+					merge_base_commit: { sha: 'merge-base-sha' },
+				});
+
+				const result = await compareCommits(remote, octokit, base, head, 'review-sha', 1, 'test');
+
+				assert.deepStrictEqual(result, { mergeBaseSha: 'merge-base-sha', files: [] });
+			} finally {
+				sinon.restore();
+			}
+		});
+	});
+
 	describe('isAuthError', () => {
 		it('returns true for an Octokit-style 401 with "Bad credentials" message', () => {
 			const e: any = new Error('Bad credentials');

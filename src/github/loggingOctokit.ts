@@ -285,8 +285,8 @@ export class LoggingOctokit {
 	}
 }
 
-export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
-	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}`, logId);
+export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string, excludeMergeCommits: boolean = false): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
+	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}${excludeMergeCommits ? ' (excluding merge commits)' : ''}`, logId);
 	let files: IRawFileChange[] | undefined;
 	let mergeBaseSha: string | undefined;
 
@@ -299,12 +299,19 @@ export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctok
 	};
 
 	try {
-		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
-			head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
-		});
+		const response = excludeMergeCommits
+			? await octokit.call(octokit.api.repos.compareCommitsWithBasehead, {
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				basehead: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}...${head.repositoryCloneUrl.owner}:${head.sha}`,
+			})
+			: await octokit.call(octokit.api.repos.compareCommits, {
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+				head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
+			});
+		const { data } = response;
 		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
 
 		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
