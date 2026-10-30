@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
-import { CreatePullRequestNew, StackCandidate } from '../../../common/views';
+import { CreateParamsNew, CreatePullRequestNew, StackCandidate } from '../../../common/views';
 import { RemoteInfo } from '../../../common/types';
 import { GitApiImpl } from '../../api/api1';
 import { Branch } from '../../api/api';
@@ -425,5 +425,175 @@ describe('Create pull request stack', function () {
 		assert(showError.calledOnce);
 		assert.match(showError.firstCall.args[0], /#796 was created but could not be added to its stack: Stack is locked/);
 		cancellation.dispose();
+	});
+});
+
+describe('Create pull request with unpushed commits', function () {
+	let sinon: SinonSandbox;
+	let context: MockExtensionContext;
+	let telemetry: MockTelemetry;
+	let credentials: CredentialStore;
+	let folderManager: FolderRepositoryManager;
+	let repository: MockRepository;
+	let origin: MockGitHubRepository;
+	let createdRepositories: MockGitHubRepository[];
+	let gitHubRepositories: MockGitHubRepository[];
+	let provider: TestCreatePullRequestViewProvider;
+	let model: CreatePullRequestDataModel;
+	let cancellation: vscode.CancellationTokenSource;
+
+	function createRepository(remoteName: string, owner: string): MockGitHubRepository {
+		const url = `https://github.com/${owner}/test`;
+		const remote = new GitHubRemote(remoteName, url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		const githubRepository = new MockGitHubRepository(remote, credentials, telemetry, sinon);
+		createdRepositories.push(githubRepository);
+		return githubRepository;
+	}
+
+	function createMessage(req: string): { command: string; args: CreatePullRequestNew; req: string } {
+		return {
+			command: 'pr.create', req,
+			args: {
+				title: 'Fix typo', body: '', owner: 'github', repo: 'test', base: 'main',
+				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
+				draft: false, autoMerge: false, labels: [], projects: [], assignees: [], reviewers: [],
+			},
+		};
+	}
+
+	function createPullRequestModel(githubRepository: MockGitHubRepository): PullRequestModel {
+		return new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(796).build(), githubRepository));
+	}
+
+	beforeEach(async function () {
+		sinon = createSandbox();
+		MockCommandRegistry.install(sinon);
+		context = new MockExtensionContext();
+		telemetry = new MockTelemetry();
+		credentials = new CredentialStore(telemetry, context);
+		repository = new MockRepository();
+		const manager = new RepositoriesManager(credentials, telemetry);
+		folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(manager), credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
+		createdRepositories = [];
+		origin = createRepository('origin', 'github');
+		gitHubRepositories = [origin];
+		sinon.stub(folderManager, 'gitHubRepositories').get(() => gitHubRepositories);
+		sinon.stub(folderManager, 'findRepo').callsFake(predicate => gitHubRepositories.find(predicate));
+		sinon.stub(folderManager, 'getGitHubRemotes').callsFake(async () => gitHubRepositories.map(githubRepository => githubRepository.remote));
+		sinon.stub(folderManager, 'createGitHubRepository').resolves(origin);
+		await repository.createBranch('D4', false, 'commit-sha');
+		await repository.setBranchUpstream('D4', 'refs/remotes/origin/D4');
+		// D4 has a commit that hasn't been pushed to the branch it tracks yet.
+		const branch = await repository.getBranch('D4');
+		sinon.stub(repository, 'getBranch').resolves({ ...branch, ahead: 1, behind: 0 });
+		sinon.stub(repository, 'status').resolves();
+		repository.expectFetch('origin', 'D4');
+		sinon.stub(origin, 'hasBranch').resolves('parent-sha');
+		model = new CreatePullRequestDataModel(folderManager, 'github', 'main', 'github', 'D4', 'test');
+		provider = new TestCreatePullRequestViewProvider(telemetry, model, vscode.Uri.file(__dirname), folderManager, { owner: 'github', repo: 'test', base: 'main' });
+		cancellation = new vscode.CancellationTokenSource();
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		sinon.stub(model, 'filesHaveChanges').resolves(false);
+		sinon.stub(provider, 'postCreate').resolves();
+	});
+
+	afterEach(function () {
+		provider.dispose();
+		model.dispose();
+		folderManager.dispose();
+		createdRepositories.forEach(githubRepository => githubRepository.dispose());
+		cancellation.dispose();
+		credentials.dispose();
+		context.dispose();
+		sinon.restore();
+	});
+
+	it('pushes the commits to the tracked remote when the user can push to it', async function () {
+		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Write);
+		const prompt = sinon.stub(vscode.window, 'showInformationMessage').resolves('Push Commits' as never);
+		const doFork = sinon.stub(folderManager, 'doFork');
+		repository.expectPush('origin', 'D4', true);
+		const push = sinon.spy(repository, 'push');
+		const createdPR = createPullRequestModel(origin);
+		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		const done = asPromise(provider.onDone);
+
+		await provider.createForTest(createMessage('1'));
+		assert.strictEqual(await done, createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
+		assert(prompt.calledOnce);
+		assert(doFork.notCalled);
+		assert(push.calledOnceWithExactly('origin', 'D4', true));
+		assert(create.calledOnce);
+		assert.strictEqual(create.firstCall.args[0].head, 'github:D4');
+		sinon.assert.callOrder(push, create);
+	});
+
+	it('offers to fork and creates the pull request from the fork when the user cannot push to the tracked remote', async function () {
+		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
+		const prompt = sinon.stub(vscode.window, 'showInformationMessage');
+		prompt.onFirstCall().resolves('Push Commits' as never);
+		prompt.onSecondCall().resolves('Fork' as never);
+		// Forking points `origin` at the fork and renames the original remote to `upstream`.
+		const fork = createRepository('origin', 'contributor');
+		const upstream = createRepository('upstream', 'github');
+		const doFork = sinon.stub(folderManager, 'doFork').callsFake(async () => {
+			gitHubRepositories = [fork, upstream];
+			return 'origin';
+		});
+		repository.expectPush('origin', 'D4', true);
+		const push = sinon.spy(repository, 'push');
+		const createdPR = createPullRequestModel(upstream);
+		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		const done = asPromise(provider.onDone);
+		const viewCompareRemote = new Promise<RemoteInfo>(resolve => {
+			sinon.stub(provider, '_postMessage').callsFake(async (message: { command: string; params?: Partial<CreateParamsNew> }) => {
+				if (message.command === 'pr.initialize' && message.params?.compareRemote) {
+					resolve(message.params.compareRemote);
+				}
+			});
+		});
+
+		await provider.createForTest(createMessage('2'));
+		assert.strictEqual(await done, createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
+		assert(prompt.calledTwice);
+		assert.match(prompt.secondCall.args[0], /^You don't have permission to push to github\/test\./);
+		assert(doFork.calledOnce);
+		assert.strictEqual(doFork.firstCall.args[0], origin);
+		assert(push.calledOnceWithExactly('origin', 'D4', true));
+		assert(create.calledOnce);
+		const params = create.firstCall.args[0];
+		assert.strictEqual(params.owner, 'github');
+		assert.strictEqual(params.repo, 'test');
+		assert.strictEqual(params.head, 'contributor:D4');
+		sinon.assert.callOrder(doFork, push, create);
+		// The view selects the fork, so that a retry from it also uses the fork as the head.
+		assert.strictEqual(model.compareOwner, 'contributor');
+		assert.strictEqual((await viewCompareRemote).owner, 'contributor');
+	});
+
+	it('does not create a pull request when forking is declined', async function () {
+		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
+		const prompt = sinon.stub(vscode.window, 'showInformationMessage');
+		prompt.onFirstCall().resolves('Push Commits' as never);
+		prompt.onSecondCall().resolves('Don\'t Fork' as never);
+		const doFork = sinon.stub(folderManager, 'doFork');
+		const push = sinon.spy(repository, 'push');
+		const create = sinon.stub(folderManager, 'createPullRequest');
+		const throwError = sinon.stub(provider, '_throwError').resolves();
+		let finish!: () => void;
+		const finished = new Promise<void>(resolve => { finish = resolve; });
+		sinon.stub(provider, '_replyMessage').callsFake(async () => { finish(); });
+
+		await provider.createForTest(createMessage('3'));
+		await finished;
+
+		assert(prompt.calledTwice);
+		assert(doFork.notCalled);
+		assert(push.notCalled);
+		assert(create.notCalled);
+		assert(throwError.notCalled);
 	});
 });

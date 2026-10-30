@@ -1488,6 +1488,26 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
+	/**
+	 * Pushes the commits of the compare branch to the remote it tracks. Without permission to push to that remote,
+	 * the user is offered to fork the repository, and the commits are pushed to the fork instead.
+	 * @returns The fork that the commits were pushed to, if any, or undefined if the commits weren't pushed.
+	 */
+	private async pushCommits(upstreamRemoteName: string, compareBranchName: string): Promise<{ fork?: GitHubRemote } | undefined> {
+		const upstreamRemote = this._folderRepositoryManager.findRepo(byRemoteName(upstreamRemoteName))?.remote;
+		if (!upstreamRemote) {
+			await this._folderRepositoryManager.repository.push(upstreamRemoteName, compareBranchName);
+			return {};
+		}
+
+		const pushRemote = await this._folderRepositoryManager.publishBranch(upstreamRemote, compareBranchName);
+		if (!pushRemote) {
+			return undefined;
+		}
+		const isFork = (compareIgnoreCase(pushRemote.owner, upstreamRemote.owner) !== 0) || (compareIgnoreCase(pushRemote.repositoryName, upstreamRemote.repositoryName) !== 0);
+		return { fork: isFork ? pushRemote : undefined };
+	}
+
 	private checkGeneratedTitleAndDescription(title: string, description: string) {
 		if (!this.lastGeneratedTitleAndDescription) {
 			return;
@@ -1571,8 +1591,8 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}
-					const compareOwner = message.args.compareOwner;
-					const compareRepositoryName = message.args.compareRepo;
+					let compareOwner = message.args.compareOwner;
+					let compareRepositoryName = message.args.compareRepo;
 					const compareBranchName = message.args.compareBranch;
 					const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
 					let compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
@@ -1602,7 +1622,21 @@ Don't forget to commit your template file to the repository so that it can be us
 						if (messageResult === pushCommits) {
 							progress.report({ message: vscode.l10n.t('Pushing commits'), increment: 10 });
 							totalIncrement += 10;
-							await this._folderRepositoryManager.repository.push(compareBranch.upstream.remote, compareBranchName);
+							const pushResult = await this.pushCommits(compareBranch.upstream.remote, compareBranchName);
+							if (!pushResult) {
+								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+								return;
+							}
+							if (pushResult.fork) {
+								// The commits were pushed to a fork, which becomes the head of the pull request.
+								compareOwner = pushResult.fork.owner;
+								compareRepositoryName = pushResult.fork.repositoryName;
+								// Also select the fork in the view, so that retrying after a failed create doesn't use the
+								// original repository, which also has this branch, as the head.
+								if (compareIgnoreCase(compareRepositoryName, this.model.repositoryName) === 0) {
+									this.model.compareOwner = compareOwner;
+								}
+							}
 						} else if (messageResult !== continueWithoutPushing) {
 							// User cancelled (clicked X or pressed Escape)
 							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
