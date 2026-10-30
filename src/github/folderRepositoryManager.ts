@@ -616,16 +616,29 @@ export class FolderRepositoryManager extends Disposable {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
 				// Make a test call to see if the user has SAML enabled.
 				const samlTest = result.canceled ? [] : await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
-				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+				let stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
 				// Make a test call to see if the user has SAML enabled.
 				if (stillMissing.length > 0) {
-					if (stillMissing.length === repositories.length) {
-						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
-						this.dispose();
-						return true;
+					const reauthenticate = { title: vscode.l10n.t('Reauthenticate') };
+					const errorMessage = stillMissing.length === repositories.length
+						? vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.')
+						: vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.');
+					const choice = await vscode.window.showErrorMessage(errorMessage, { modal: true }, reauthenticate);
+					if (choice?.title === reauthenticate.title) {
+						const retryResult = await this._credentialStore.showSamlMessageAndAuth(stillMissing.map(repo => repo.remote.owner));
+						if (!retryResult.canceled) {
+							const retryTest = await Promise.all(stillMissing.map(repo => repo.resolveRemote()));
+							stillMissing = retryTest.map((result, index) => !result ? stillMissing[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+						}
 					}
-					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
-					cleanUpMissingSaml(stillMissing);
+
+					if (stillMissing.length > 0) {
+						if (stillMissing.length === repositories.length) {
+							this.dispose();
+							return true;
+						}
+						await cleanUpMissingSaml(stillMissing);
+					}
 				}
 			}
 

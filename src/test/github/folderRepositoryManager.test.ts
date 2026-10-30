@@ -191,6 +191,26 @@ describe('PullRequestManager', function () {
 	});
 
 	describe('updateRepositories', function () {
+		it('offers to reauthenticate after a SAML authorization failure', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/repo');
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			const showSamlMessageAndAuth = sinon.stub(manager.credentialStore, 'showSamlMessageAndAuth').resolves({ canceled: false });
+			const showErrorMessage = sinon.stub(window, 'showErrorMessage').resolves({ title: 'Reauthenticate' });
+			const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').resolves(metadata);
+			let resolveRemoteCalls = 0;
+			sinon.stub(GitHubRepository.prototype, 'resolveRemote').callsFake(async () => ++resolveRemoteCalls === 3);
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(showSamlMessageAndAuth.calledTwice, true);
+			assert.strictEqual(showErrorMessage.calledOnce, true);
+			assert.deepStrictEqual(showErrorMessage.firstCall.args[2], { title: 'Reauthenticate' });
+			assert.strictEqual(manager.gitHubRepositories.length, 1);
+		});
+
 		it('skips a repository after a 404 without affecting healthy repositories', async function () {
 			const inaccessibleUrl = 'https://github.com/owner/missing';
 			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
