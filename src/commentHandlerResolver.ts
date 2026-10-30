@@ -13,7 +13,7 @@ export interface CommentHandler {
 	commentController: vscode.CommentController;
 	hasCommentThread(thread: GHPRCommentThread): boolean;
 
-	createOrReplyComment(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<void>;
+	createOrReplyComment(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<boolean>;
 	editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
 	deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
 
