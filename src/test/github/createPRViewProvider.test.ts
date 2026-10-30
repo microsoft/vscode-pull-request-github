@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
-import { CreatePullRequestNew, StackCandidate } from '../../../common/views';
+import { CreateParamsNew, CreatePullRequestNew, StackCandidate } from '../../../common/views';
 import { RemoteInfo } from '../../../common/types';
 import { GitApiImpl } from '../../api/api1';
 import { Branch } from '../../api/api';
@@ -548,6 +548,13 @@ describe('Create pull request with unpushed commits', function () {
 		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
 		const throwError = sinon.stub(provider, '_throwError').resolves();
 		const done = asPromise(provider.onDone);
+		const viewCompareRemote = new Promise<RemoteInfo>(resolve => {
+			sinon.stub(provider, '_postMessage').callsFake(async (message: { command: string; params?: Partial<CreateParamsNew> }) => {
+				if (message.command === 'pr.initialize' && message.params?.compareRemote) {
+					resolve(message.params.compareRemote);
+				}
+			});
+		});
 
 		await provider.createForTest(createMessage('2'));
 		assert.strictEqual(await done, createdPR, throwError.firstCall?.args[1] ?? 'Pull request creation did not complete.');
@@ -562,6 +569,9 @@ describe('Create pull request with unpushed commits', function () {
 		assert.strictEqual(params.repo, 'test');
 		assert.strictEqual(params.head, 'contributor:D4');
 		sinon.assert.callOrder(doFork, push, create);
+		// The view selects the fork, so that a retry from it also uses the fork as the head.
+		assert.strictEqual(model.compareOwner, 'contributor');
+		assert.strictEqual((await viewCompareRemote).owner, 'contributor');
 	});
 
 	it('does not create a pull request when forking is declined', async function () {

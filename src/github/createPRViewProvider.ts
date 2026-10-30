@@ -1631,6 +1631,11 @@ Don't forget to commit your template file to the repository so that it can be us
 								// The commits were pushed to a fork, which becomes the head of the pull request.
 								compareOwner = pushResult.fork.owner;
 								compareRepositoryName = pushResult.fork.repositoryName;
+								// Also select the fork in the view, so that retrying after a failed create doesn't use the
+								// original repository, which also has this branch, as the head.
+								if (compareIgnoreCase(compareRepositoryName, this.model.repositoryName) === 0) {
+									this.model.compareOwner = compareOwner;
+								}
 							}
 						} else if (messageResult !== continueWithoutPushing) {
 							// User cancelled (clicked X or pressed Escape)
