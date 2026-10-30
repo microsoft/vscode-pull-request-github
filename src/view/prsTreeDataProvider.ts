@@ -14,7 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
+import { AUTO_REFRESH_QUERIES, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -51,6 +51,15 @@ export function getEnterpriseAuthenticationMessage(remotes: readonly Remote[], i
 		messages.push(vscode.l10n.t('Add {0} to your GitHub Enterprise instances in Settings.', hosts(unconfigured)));
 	}
 	return messages.length ? messages.join('\n\n') : undefined;
+}
+
+function hasConfiguredEnterpriseInstances(): boolean {
+	try {
+		return getEnterpriseUris().length > 0;
+	} catch {
+		// Invalid configuration also has to be fixed in the settings.
+		return true;
+	}
 }
 
 function enterpriseSettingsMessage(text: string | undefined, actions: { github: boolean; githubEnterprise: boolean; configure: boolean }): vscode.MarkdownString | undefined {
@@ -105,6 +114,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private _initialized: boolean = false;
 	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
+	private _autoRefreshInterval: ReturnType<typeof setInterval> | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -165,6 +175,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register({
 			dispose: () => {
+				clearInterval(this._autoRefreshInterval);
 				if (this._notificationClearTimeout) {
 					clearTimeout(this._notificationClearTimeout);
 					this._notificationClearTimeout = undefined;
@@ -220,6 +231,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`)) {
+				this.updateAutoRefresh();
+			}
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
 				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)
 				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)
@@ -228,6 +242,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this.refreshAll();
 			}
 		}));
+		this.updateAutoRefresh();
 		this._register(vscode.workspace.onDidGrantWorkspaceTrust(() => this.refreshAll()));
 
 		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
@@ -238,6 +253,15 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+	}
+
+	private updateAutoRefresh(): void {
+		clearInterval(this._autoRefreshInterval);
+		this._autoRefreshInterval = undefined;
+		const interval = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(AUTO_REFRESH_QUERIES, 0);
+		if (Number.isFinite(interval) && interval > 0) {
+			this._autoRefreshInterval = setInterval(() => this.prsTreeModel.forceClearCache(), Math.min(interval * 1000, 2147483647));
+		}
 	}
 
 	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
@@ -650,8 +674,12 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
+		const folderManagers = this._reposManager?.folderManagers ?? [];
+		// Unrecognized hosts may be GitHub Enterprise instances that have not been configured yet.
+		const hasUnrecognizedRemotes = folderManagers.some(manager => manager.unrecognizedRemotes.length > 0);
+		const onlyUnrecognizedRemotes = hasUnrecognizedRemotes && folderManagers.every(manager => manager.unrecognizedRemotes.length > 0);
 		let actions: PRCategoryActionNode[];
-		if (remotesSetting) {
+		if (remotesSetting && !onlyUnrecognizedRemotes) {
 			actions = [
 				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
 				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
@@ -661,7 +689,13 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		if (remotes.some(remote => remote.isEnterprise) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		const enterpriseSignedIn = !!this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise);
+		// Enterprise sign-in only offers to add a host when no instances are configured.
+		const mustConfigureEnterprise = hasUnrecognizedRemotes && (enterpriseSignedIn || hasConfiguredEnterpriseInstances());
+		if (mustConfigureEnterprise) {
+			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.ConfigureEnterprise));
+		}
+		if (!enterpriseSignedIn && ((hasUnrecognizedRemotes && !mustConfigureEnterprise) || remotes.some(remote => remote.isEnterprise))) {
 			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
 		}
 

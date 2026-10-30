@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SinonSandbox, SinonSpy, SinonStub, createSandbox } from 'sinon';
+import { SinonFakeTimers, SinonSandbox, SinonSpy, SinonStub, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
@@ -25,8 +25,8 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { PRNode } from '../../view/treeNodes/pullRequestNode';
-import { CategoryTreeNode } from '../../view/treeNodes/categoryNode';
-import { GitHubRemote } from '../../common/remote';
+import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from '../../view/treeNodes/categoryNode';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { GitApiImpl } from '../../api/api1';
@@ -34,6 +34,7 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
 import * as configuration from '../../authentication/configuration';
+import { GitHubManager } from '../../authentication/githubServer';
 import { DataUri } from '../../common/uri';
 import { GithubItemStateEnum, IAccount, ITeam, PRType, PullRequestMergeability } from '../../github/interface';
 import { asPromise } from '../../common/utils';
@@ -42,6 +43,8 @@ import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { PrsTreeModel } from '../../view/prsTreeModel';
 import { TreeNode } from '../../view/treeNodes/treeNode';
 import { escapeMarkdownText } from '../../github/markdownUtils';
+import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
+import { AUTO_REFRESH_QUERIES, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -133,6 +136,105 @@ describe('GitHub Pull Requests view', function () {
 		credentialStore.dispose();
 		context.dispose();
 		sinon.restore();
+	});
+
+	describe('automatic refresh', function () {
+		let clock: SinonFakeTimers;
+		let configurationChanged: vscode.EventEmitter<vscode.ConfigurationChangeEvent>;
+		let interval: number;
+		let refresh: SinonSpy;
+		let treeChanged: SinonSpy;
+
+		function changeInterval(value: number): void {
+			interval = value;
+			configurationChanged.fire({
+				affectsConfiguration: section => section === `${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`,
+			});
+		}
+
+		beforeEach(function () {
+			provider.dispose();
+			clock = sinon.useFakeTimers();
+			interval = 0;
+			const configuration: vscode.WorkspaceConfiguration = {
+				get: sinon.stub().callsFake((key: string, fallback?: unknown) => key === AUTO_REFRESH_QUERIES ? interval : fallback),
+				has: key => key === AUTO_REFRESH_QUERIES,
+				inspect: () => undefined,
+				update: async () => { },
+			};
+			sinon.stub(vscode.workspace, 'getConfiguration').returns(configuration);
+			configurationChanged = new vscode.EventEmitter<vscode.ConfigurationChangeEvent>();
+			context.subscriptions.push(configurationChanged);
+			sinon.stub(vscode.workspace, 'onDidChangeConfiguration').callsFake(configurationChanged.event);
+			refresh = sinon.spy(prsTreeModel, 'forceClearCache');
+			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+			treeChanged = sinon.spy();
+			context.subscriptions.push(provider.onDidChangeTreeData(treeChanged));
+		});
+
+		it('does not refresh when disabled', function () {
+			clock.tick(60000);
+			sinon.assert.notCalled(refresh);
+			sinon.assert.notCalled(treeChanged);
+		});
+
+		it('uses the configured interval on startup', function () {
+			provider.dispose();
+			interval = 2;
+			provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
+			clock.tick(1999);
+			sinon.assert.notCalled(refresh);
+			clock.tick(1);
+			sinon.assert.calledOnce(refresh);
+		});
+
+		it('refreshes query caches and the tree repeatedly at the interval in seconds', function () {
+			changeInterval(2);
+			clock.tick(1999);
+			sinon.assert.notCalled(refresh);
+			clock.tick(1);
+			sinon.assert.calledOnce(refresh);
+			sinon.assert.calledOnce(treeChanged);
+			clock.tick(2000);
+			sinon.assert.calledTwice(refresh);
+			sinon.assert.calledTwice(treeChanged);
+		});
+
+		it('replaces the timer when changed and stops when set to zero', function () {
+			changeInterval(2);
+			clock.tick(1000);
+			changeInterval(5);
+			clock.tick(4999);
+			sinon.assert.notCalled(refresh);
+			clock.tick(1);
+			sinon.assert.calledOnce(refresh);
+			changeInterval(0);
+			clock.tick(10000);
+			sinon.assert.calledOnce(refresh);
+		});
+
+		it('does not restart the timer for unrelated configuration changes', function () {
+			changeInterval(2);
+			clock.tick(1000);
+			configurationChanged.fire({ affectsConfiguration: () => false });
+			clock.tick(1000);
+			sinon.assert.calledOnce(refresh);
+		});
+
+		it('stops refreshing when disposed', function () {
+			changeInterval(2);
+			provider.dispose();
+			clock.tick(10000);
+			sinon.assert.notCalled(refresh);
+		});
+
+		it('does not schedule invalid intervals or overflow large intervals', function () {
+			for (const value of [-1, NaN, Infinity, Number.MAX_VALUE]) {
+				changeInterval(value);
+				clock.tick(10000);
+			}
+			sinon.assert.notCalled(refresh);
+		});
 	});
 
 	it('has no children when no workspace folders are open', async function () {
@@ -502,6 +604,62 @@ describe('GitHub Pull Requests view', function () {
 			assert.ok(message.value.includes('GitHub Enterprise instances in Settings'));
 			assert.match(message.value, /command:workbench\.action\.openSettings/);
 			assert.doesNotMatch(message.value, /&nbsp;|\u00a0|\]\(command:pr\.selectEnterpriseAccount\)/);
+		});
+
+		async function loadSignedIn(remotes: Record<string, string>, signedIn: AuthProvider[] = [AuthProvider.github], enterpriseUris: string[] = []): Promise<PRCategoryActionNode[]> {
+			const repository = new MockRepository();
+			for (const [name, url] of Object.entries(remotes)) {
+				await repository.addRemote(name, url);
+			}
+			const folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(folderManager);
+			const isGitHub = GitHubManager.prototype.isGitHub;
+			// Discovery would probe other hosts over the network; treat them as unreachable.
+			sinon.stub(GitHubManager.prototype, 'isGitHub').callsFake(function (this: GitHubManager, remote: Remote) {
+				return GitHubManager.isGithubDotCom(remote.host) ? isGitHub.call(this, remote) : Promise.resolve(GitHubServerType.None);
+			});
+			sinon.stub(credentialStore, 'isAuthenticated').callsFake(authProviderId => signedIn.includes(authProviderId));
+			mockEnterpriseUris(sinon, enterpriseUris);
+			await folderManager.updateRepositories();
+			provider.initialize([], mockNotificationsManager as NotificationsManager);
+
+			assert.strictEqual(reposManager.state, ReposManagerState.RepositoriesLoaded);
+			const children = await provider.getChildren();
+			const actions = children.filter(child => child instanceof PRCategoryActionNode);
+			assert.strictEqual(actions.length, children.length);
+			return actions;
+		}
+
+		it('offers GitHub Enterprise setup instead of loading indefinitely when a remote host is not recognized', async function () {
+			const actions = await loadSignedIn({ origin: 'ssh://git@ghe.example.com/org/repo.git' });
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoRemotes, PRCategoryActionType.LoginEnterprise]);
+			assert.strictEqual(actions[1].command?.command, 'pr.signinenterprise');
+		});
+
+		it('offers to configure an unrecognized host when signed in to another GitHub Enterprise instance', async function () {
+			const actions = await loadSignedIn({ origin: 'ssh://git@ghe.example.com/org/repo.git' }, [AuthProvider.github, AuthProvider.githubEnterprise], ['https://other-ghe.example.com']);
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoRemotes, PRCategoryActionType.ConfigureEnterprise]);
+			assert.deepStrictEqual(actions[1].command, { title: 'Configure GitHub Enterprise', command: 'workbench.action.openSettings', arguments: ['github-enterprise.uris'] });
+		});
+
+		it('offers remote configuration when the remotes setting excludes recognized GitHub remotes', async function () {
+			const actions = await loadSignedIn({ fork: 'https://github.com/owner/repo', backup: 'ssh://git@ghe.example.com/org/repo.git' });
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
+		});
+
+		it('does not offer GitHub Enterprise setup for hosts that are never GitHub', async function () {
+			const actions = await loadSignedIn({ origin: 'https://codeberg.org/owner/repo' });
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
+		});
+
+		it('does not offer GitHub Enterprise setup for unsupported GitHub repositories', async function () {
+			const actions = await loadSignedIn({ origin: 'https://github.com/owner/repo.wiki.git' });
+
+			assert.deepStrictEqual(actions.map(action => action.type), [PRCategoryActionType.NoMatchingRemotes, PRCategoryActionType.ConfigureRemotes]);
 		});
 	});
 
