@@ -26,6 +26,20 @@ async function createOnPublish() {
 	}
 }
 
+export function migrateAddRepoScope(queries: IQueryInfo[]): IQueryInfo[] {
+	return queries.map(query => {
+		if (isLocalQuery(query) || isAllQuery(query)) {
+			return query;
+		}
+		// Spread is intentional: it preserves the remaining query properties (e.g. groupBy).
+		// The previous inline version only kept label and query and dropped everything else.
+		return {
+			...query,
+			query: query.query.includes('repo:') ? query.query : `repo:\${owner}/\${repository} ${query.query}`,
+		};
+	});
+}
+
 const HAS_MIGRATED_QUERIES = 'hasMigratedQueries';
 async function makeQueriesScopedToRepo(context: vscode.ExtensionContext) {
 	const hasMigratedUserQueries = context.globalState.get<boolean>(HAS_MIGRATED_QUERIES, false);
@@ -37,17 +51,7 @@ async function makeQueriesScopedToRepo(context: vscode.ExtensionContext) {
 	const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 	const settingValue = configuration.inspect(QUERIES);
 
-	const addRepoScope = (queries: IQueryInfo[]) => {
-		return queries.map(query => {
-			if (isLocalQuery(query) || isAllQuery(query)) {
-				return query;
-			}
-			return {
-				label: query.label,
-				query: query.query.includes('repo:') ? query.query : `repo:\${owner}/\${repository} ${query.query}`,
-			};
-		});
-	};
+	const addRepoScope = (queries: IQueryInfo[]) => migrateAddRepoScope(queries);
 
 	// User setting
 	if (!hasMigratedUserQueries && settingValue?.globalValue) {

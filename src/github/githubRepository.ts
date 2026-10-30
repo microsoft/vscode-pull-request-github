@@ -317,6 +317,8 @@ export class GitHubRepository extends Disposable {
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
+	private _onMilestoneTitleKnown = this._register(new vscode.EventEmitter<IMilestone | undefined>());
+	public readonly onMilestoneTitleKnown: vscode.Event<IMilestone | undefined> = this._onMilestoneTitleKnown.event;
 	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
 	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 	private readonly _onDidChangeStack = this._register(new vscode.EventEmitter<readonly number[]>());
@@ -1731,6 +1733,7 @@ export class GitHubRepository extends Disposable {
 			const disposables: vscode.Disposable[] = [];
 			disposables.push(model.onDidChange(e => this._onPullRequestModelChanged(prModel, e)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
+			this._onMilestoneTitleKnown.fire(model.milestone);
 			if (!silent) {
 				this._onDidAddPullRequest.fire(model);
 			}

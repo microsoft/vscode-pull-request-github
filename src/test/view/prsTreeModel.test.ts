@@ -61,7 +61,7 @@ describe('Copilot pull request polling', function () {
 	}
 
 	function pullRequest(number: number, githubRepository: GitHubRepository = origin): PullRequestModel {
-		const raw = new PullRequestBuilder().number(number).user(user => user.login('copilot-swe-agent')).build();
+		const raw = new PullRequestBuilder().number(number).id(number).user(user => user.login('copilot-swe-agent')).build();
 		const pr = new PullRequestModel(credentialStore, telemetry, githubRepository, githubRepository.remote,
 			convertRESTPullRequestToRawPullRequest(raw, githubRepository));
 		createdPullRequests.push(pr);
@@ -494,6 +494,137 @@ describe('Copilot pull request polling', function () {
 			sinon.assert.calledTwice(refresh);
 			sinon.assert.calledWithExactly(log, 'Refreshing Copilot pull request state failed: Debounced refresh failed', 'CopilotPRWatcher');
 			assert.strictEqual(scheduledPolls(), 1);
+		});
+	});
+
+	describe('loading all pages', function () {
+		let getPullRequests: SinonStub;
+
+		beforeEach(function () {
+			getPullRequests = sinon.stub(folderManager, 'getPullRequests');
+		});
+
+		it('drains every page in one call', async function () {
+			const prs = [pullRequest(1), pullRequest(2), pullRequest(3)];
+			getPullRequests.onFirstCall().resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+			getPullRequests.onSecondCall().resolves({ items: [prs[1]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 2 });
+			getPullRequests.onThirdCall().resolves({ items: [prs[2]], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 3 });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.deepStrictEqual(result.items, prs);
+			assert.strictEqual(result.hasMorePages, false);
+			assert.strictEqual(getPullRequests.callCount, 3);
+
+			const cached = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.deepStrictEqual(cached.items, prs);
+			assert.strictEqual(getPullRequests.callCount, 3);
+		});
+
+		it('stops when pagination does not advance', async function () {
+			const pr = pullRequest(1);
+			getPullRequests.resolves({ items: [pr], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.strictEqual(getPullRequests.callCount, 2);
+			assert.strictEqual(result.hasMorePages, false);
+		});
+
+		it('continues an incomplete cached query result', async function () {
+			const first = pullRequest(1);
+			const second = pullRequest(2);
+			getPullRequests.onFirstCall().resolves({ items: [first], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+			getPullRequests.onSecondCall().resolves({ items: [second], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 2 });
+			await model.getPullRequestsForQuery(folderManager, false, query);
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.strictEqual(getPullRequests.callCount, 2);
+			assert.deepStrictEqual(getPullRequests.secondCall.args[1], { fetchNextPage: true, fetchOnePagePerRepo: false });
+			assert.deepStrictEqual(result.items, [first, second]);
+		});
+
+		it('stops when pages repeat without pagination progress', async function () {
+			const pr = pullRequest(1);
+			getPullRequests.resolves({ items: [pr], hasMorePages: true, hasUnsearchedRepositories: false });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.strictEqual(getPullRequests.callCount, 2);
+			assert.deepStrictEqual(result.items, [pr]);
+			assert.strictEqual(result.hasMorePages, false);
+		});
+
+		it('stops on an empty page without pagination progress', async function () {
+			const pr = pullRequest(1);
+			getPullRequests.onFirstCall().resolves({ items: [pr], hasMorePages: true, hasUnsearchedRepositories: false });
+			getPullRequests.onSecondCall().resolves({ items: [], hasMorePages: true, hasUnsearchedRepositories: false });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.strictEqual(getPullRequests.callCount, 2);
+			assert.deepStrictEqual(result.items, [pr]);
+			assert.strictEqual(result.hasMorePages, false);
+		});
+
+		it('keeps draining pages without pagination progress while new items arrive', async function () {
+			const prs = [pullRequest(1), pullRequest(2), pullRequest(3)];
+			getPullRequests.onFirstCall().resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false });
+			getPullRequests.onSecondCall().resolves({ items: [prs[1]], hasMorePages: true, hasUnsearchedRepositories: false });
+			getPullRequests.onThirdCall().resolves({ items: [prs[2]], hasMorePages: false, hasUnsearchedRepositories: false });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.deepStrictEqual(result.items, prs);
+			assert.strictEqual(getPullRequests.callCount, 3);
+		});
+
+		it('continues past an empty page when pagination progress advances', async function () {
+			const prs = [pullRequest(1), pullRequest(2)];
+			// Page 2 returns only pr1 (duplicate) - newItems is empty, but progress advanced.
+			getPullRequests.onCall(0).resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+			getPullRequests.onCall(1).resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 2 });
+			getPullRequests.onCall(2).resolves({ items: [prs[1]], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 3 });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.deepStrictEqual(result.items, prs);
+			assert.strictEqual(getPullRequests.callCount, 3);
+			assert.strictEqual(result.hasMorePages, false);
+		});
+
+		it('does not append duplicate items when progress advances', async function () {
+			const prs = [pullRequest(1), pullRequest(2)];
+			getPullRequests.onFirstCall().resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+			getPullRequests.onSecondCall().resolves({ items: [prs[0], prs[1]], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 2 });
+
+			const result = await model.getPullRequestsForQuery(folderManager, false, query, false, true);
+
+			assert.deepStrictEqual(result.items, prs);
+			assert.strictEqual(getPullRequests.callCount, 2);
+		});
+
+		it('restores All Open cache after a failed page so retry re-fetches from the start', async function () {
+			const prs = [pullRequest(1), pullRequest(2), pullRequest(3)];
+			// Initial non-fetchAllPages call: caches page 1
+			getPullRequests.onCall(0).resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+			// fetchAllPages continuation: page 2 ok, page 3 fails
+			getPullRequests.onCall(1).resolves({ items: [prs[1]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 2 });
+			const error = new Error('Temporary failure');
+			getPullRequests.onCall(2).rejects(error);
+			// Retry: fresh start re-fetches all three pages
+			getPullRequests.onCall(3).resolves({ items: [prs[0]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 1 });
+			getPullRequests.onCall(4).resolves({ items: [prs[1]], hasMorePages: true, hasUnsearchedRepositories: false, paginationProgress: 2 });
+			getPullRequests.onCall(5).resolves({ items: [prs[2]], hasMorePages: false, hasUnsearchedRepositories: false, paginationProgress: 3 });
+
+			await model.getAllPullRequests(folderManager, false);
+			await assert.rejects(model.getAllPullRequests(folderManager, false, false, true), error);
+			const result = await model.getAllPullRequests(folderManager, false, false, true);
+
+			assert.deepStrictEqual(result.items, prs);
+			assert.strictEqual(getPullRequests.callCount, 6);
 		});
 	});
 });

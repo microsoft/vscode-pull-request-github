@@ -223,11 +223,28 @@
 						"properties": {
 							"label": {
 								"type": "string",
+								"minLength": 1,
 								"description": "%githubPullRequests.queries.label.description%"
 							},
 							"query": {
 								"type": "string",
 								"description": "%githubPullRequests.queries.query.description%"
+							},
+							"groupBy": {
+								"type": "array",
+								"uniqueItems": true,
+								"markdownDescription": "%githubPullRequests.queries.groupBy%",
+								"items": {
+									"type": "string",
+									"enum": [
+										"repository",
+										"milestone"
+									],
+									"enumDescriptions": [
+										"%githubPullRequests.queries.groupBy.repository%",
+										"%githubPullRequests.queries.groupBy.milestone%"
+									]
+								}
 							}
 						},
 						"default": {

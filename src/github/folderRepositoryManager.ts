@@ -232,6 +232,8 @@ export class FolderRepositoryManager extends Disposable {
 	readonly onDidChangeAnyPullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangeAnyPullRequests.event;
 	private readonly _onDidAddPullRequest = this._register(new vscode.EventEmitter<IssueModel>());
 	readonly onDidAddPullRequest: vscode.Event<IssueModel> = this._onDidAddPullRequest.event;
+	private readonly _onMilestoneTitleKnown = this._register(new vscode.EventEmitter<IMilestone | undefined>());
+	readonly onMilestoneTitleKnown: vscode.Event<IMilestone | undefined> = this._onMilestoneTitleKnown.event;
 
 	private _onDidDispose = this._register(new vscode.EventEmitter<void>());
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
@@ -632,8 +634,7 @@ export class FolderRepositoryManager extends Disposable {
 			disposeAll(this._onDidChangePullRequestsEvents);
 			this._githubRepositories = repositories;
 			for (const repo of this._githubRepositories) {
-				this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(e => this._onDidChangeAnyPullRequests.fire(e)));
-				this._onDidChangePullRequestsEvents.push(repo.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)));
+				this.forwardGitHubRepositoryEvents(repo);
 			}
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 
@@ -3066,10 +3067,17 @@ export class FolderRepositoryManager extends Disposable {
 		);
 	}
 
+	private forwardGitHubRepositoryEvents(repo: GitHubRepository): void {
+		this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(e => this._onDidChangeAnyPullRequests.fire(e)));
+		this._onDidChangePullRequestsEvents.push(repo.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)));
+		this._onDidChangePullRequestsEvents.push(repo.onMilestoneTitleKnown(m => this._onMilestoneTitleKnown.fire(m)));
+	}
+
 	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
 		const repoId = this._id + (this._githubRepositories.length * 0.1);
 		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
+		this.forwardGitHubRepositoryEvents(repo);
 		return repo;
 	}
 

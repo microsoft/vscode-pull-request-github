@@ -13,6 +13,7 @@ import { formatError } from '../../common/utils';
 import { isCopilotQuery } from '../../github/copilotPrWatcher';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
+import { IssueChangeEvent, IssueModel } from '../../github/issueModel';
 import { isAuthError } from '../../github/loggingOctokit';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { extractRepoFromQuery } from '../../github/utils';
@@ -21,6 +22,39 @@ import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 import { IQueryInfo } from './workspaceFolderNode';
 import { NotificationsManager } from '../../notifications/notificationsManager';
+
+export type PRQueryGroup = 'repository' | 'milestone';
+
+export function normalizePRGroupBy(value: unknown): PRQueryGroup[] {
+	if (!Array.isArray(value)) return [];
+	const valid: PRQueryGroup[] = ['repository', 'milestone'];
+	const seen = new Set<PRQueryGroup>();
+	const result: PRQueryGroup[] = [];
+	for (const v of value) {
+		if (valid.includes(v) && !seen.has(v)) {
+			seen.add(v);
+			result.push(v);
+		}
+	}
+	return result;
+}
+
+// GitHub node_ids are never empty strings, so the empty string is a safe sentinel for the "no milestone" bucket.
+const NO_MILESTONE_KEY = '';
+
+export function getPullRequestGroupKey(pr: PullRequestModel, group: PRQueryGroup): string {
+	if (group === 'repository') {
+		return `${pr.remote.owner}/${pr.remote.repositoryName}`;
+	}
+	return pr.milestone?.id ?? NO_MILESTONE_KEY;
+}
+
+export function getPullRequestGroupLabel(pr: PullRequestModel, group: PRQueryGroup): string {
+	if (group === 'repository') {
+		return `${pr.remote.owner}/${pr.remote.repositoryName}`;
+	}
+	return pr.milestone?.title ?? vscode.l10n.t('No Milestone');
+}
 
 export enum PRCategoryActionType {
 	Empty,
@@ -50,19 +84,11 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				break;
 			case PRCategoryActionType.More:
 				this.label = vscode.l10n.t('Load more');
-				this.command = {
-					title: vscode.l10n.t('Load more'),
-					command: 'pr.loadMore',
-					arguments: [node],
-				};
+				this.command = { title: vscode.l10n.t('Load more'), command: 'pr.loadMore', arguments: [node] };
 				break;
 			case PRCategoryActionType.TryOtherRemotes:
 				this.label = vscode.l10n.t('Continue fetching from other remotes');
-				this.command = {
-					title: vscode.l10n.t('Load more'),
-					command: 'pr.loadMore',
-					arguments: [node],
-				};
+				this.command = { title: vscode.l10n.t('Continue fetching from other remotes'), command: 'pr.loadMore', arguments: [node] };
 				break;
 			case PRCategoryActionType.Login:
 				this.label = vscode.l10n.t('Sign in');
@@ -112,6 +138,86 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
+export function collectPRNodes(node: TreeNode): PRNode[] {
+	// Only reads cached children - never builds unloaded groups.
+	const result: PRNode[] = [];
+	for (const child of node.children ?? []) {
+		if (child instanceof PRNode) {
+			result.push(child);
+		} else if (child instanceof PRGroupTreeNode) {
+			result.push(...collectPRNodes(child));
+		}
+	}
+	return result;
+}
+
+export async function findPullRequestNode(nodes: readonly TreeNode[], pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+	for (const child of nodes) {
+		if (child instanceof PRNode && child.pullRequestModel.equals(pullRequest)) {
+			return child;
+		}
+		if (child instanceof PRGroupTreeNode) {
+			if (!child.pullRequests.some(pr => pr.equals(pullRequest))) {
+				continue;
+			}
+			const found = await findPullRequestNode(await child.getChildren(false), pullRequest);
+			if (found) return found;
+		}
+	}
+	return undefined;
+}
+
+export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
+	public collapsibleState: vscode.TreeItemCollapsibleState;
+
+	constructor(
+		parent: CategoryTreeNode | PRGroupTreeNode,
+		public readonly category: CategoryTreeNode,
+		public readonly level: number,
+		public readonly groupKey: string,
+		groupLabel: string,
+		public readonly pullRequests: PullRequestModel[],
+		private readonly _prsTreeModel: PrsTreeModel,
+	) {
+		super(parent);
+		const parentId = parent.id;
+		if (typeof parentId !== 'string') {
+			throw new Error('PRGroupTreeNode requires a parent with an id');
+		}
+		this.label = groupLabel;
+		this.id = `${parentId}/${category.groupBy[level]}:${groupKey}`;
+		const expandedQueries = _prsTreeModel.expandedQueries;
+		if (expandedQueries === undefined) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		} else {
+			this.collapsibleState = expandedQueries.has(this.id)
+				? vscode.TreeItemCollapsibleState.Expanded
+				: vscode.TreeItemCollapsibleState.Collapsed;
+		}
+	}
+
+	override getTreeItem(): vscode.TreeItem {
+		return this;
+	}
+
+	// _shouldDispose is intentionally ignored: a group's PR list is fixed for its lifetime;
+	// category refreshes replace the group node itself rather than re-building its children.
+	override async getChildren(_shouldDispose: boolean = true): Promise<TreeNode[]> {
+		// A group's pull requests are fixed for its lifetime; category refreshes replace the group itself.
+		if (!this._children) {
+			this._children = this.category.createPullRequestChildren(this, this.level + 1, this.pullRequests);
+		}
+		return this._children;
+	}
+
+	override dispose(): void {
+		super.dispose();
+		if (this._children) {
+			this._children.forEach(c => c.dispose());
+		}
+	}
+}
+
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean;
@@ -138,12 +244,13 @@ export function isAllQuery(queryInfo: IQueryInfo): boolean {
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: Map<number, PullRequestModel>;
-	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
+	public fetchNextPage: boolean = false;
 	public contextValue: string;
 	public resourceUri: vscode.Uri;
 	public tooltip?: string | vscode.MarkdownString | undefined;
 	readonly isCopilot: boolean;
+	public readonly groupBy: PRQueryGroup[];
 	private _repo: RemoteInfo | undefined;
 
 	constructor(
@@ -155,11 +262,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		private _prsTreeModel: PrsTreeModel,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
+		groupBy?: unknown,
 	) {
 		super(parent);
 
 		this.prs = new Map();
 		this.isCopilot = !!_categoryQuery && isCopilotQuery(_categoryQuery);
+		this.groupBy = this.type === PRType.Query ? normalizePRGroupBy(groupBy) : [];
 
 		switch (this.type) {
 			case PRType.All:
@@ -241,18 +350,70 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			retry = false;
 		}
 		if (this._children) {
-			for (const child of this._children) {
-				if (child instanceof PRNode) {
-					if (child.pullRequestModel.equals(pullRequest)) {
-						this.reveal(child, { expand: true, select: true });
-						return true;
-					}
-				}
+			const prNode = await findPullRequestNode(this._children, pullRequest);
+			if (prNode) {
+				this.reveal(prNode, { expand: true, select: true });
+				return true;
 			}
 			// If we didn't find the PR, we might need to re-run the query
 			if (retry) {
 				await this.getChildren();
 				return await this.expandPullRequest(pullRequest, false);
+			}
+		}
+		return false;
+	}
+
+	public createPullRequestChildren(
+		parent: CategoryTreeNode | PRGroupTreeNode,
+		level: number,
+		prs: PullRequestModel[],
+	): (PRGroupTreeNode | PRNode)[] {
+		if (level >= this.groupBy.length) {
+			return prs.map(
+				pr =>
+					new PRNode(
+						parent,
+						this.folderRepoManager,
+						pr,
+						this.type === PRType.LocalPullRequest,
+						this._notificationProvider,
+						this._prsTreeModel,
+					),
+			);
+		}
+		const buckets = new Map<string, { label: string; prs: PullRequestModel[] }>();
+		for (const pr of prs) {
+			const group = this.groupBy[level];
+			const key = getPullRequestGroupKey(pr, group);
+			const label = group === 'milestone'
+				? (this._prsTreeModel.getMilestoneTitle(key) ?? getPullRequestGroupLabel(pr, group))
+				: getPullRequestGroupLabel(pr, group);
+			if (!buckets.has(key)) {
+				buckets.set(key, { label, prs: [] });
+			}
+			buckets.get(key)!.prs.push(pr);
+		}
+		return Array.from(buckets.entries()).map(
+			([key, bucket]) =>
+				new PRGroupTreeNode(parent, this, level, key, bucket.label, bucket.prs, this._prsTreeModel),
+		);
+	}
+
+	public needsRebuildForChange(model: IssueModel, event: IssueChangeEvent): boolean {
+		const groupsByMilestone = this.groupBy.includes('milestone');
+		if (this.prs.has(model.id)) {
+			return !!event.state || (!!event.milestone && groupsByMilestone);
+		}
+		// A rename reported through a PR outside this category still relabels
+		// this category's group for that milestone.
+		const milestoneId = model.milestone?.id;
+		if (!event.milestone || !groupsByMilestone || !milestoneId) {
+			return false;
+		}
+		for (const pr of this.prs.values()) {
+			if (pr.milestone?.id === milestoneId) {
+				return true;
 			}
 		}
 		return false;
@@ -276,11 +437,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	private _firstLoad: Promise<TreeNode[]> | undefined;
 	private async doGetChildren(): Promise<TreeNode[]> {
+		let needLogin = false;
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
-		let needLogin = false;
 		const fetchNextPage = this.fetchNextPage;
 		this.fetchNextPage = false;
+		const fetchAllPages = this.groupBy.length > 0;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
 				this.prs.clear();
@@ -297,15 +459,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 						response = await this._prsTreeModel.getAllPullRequests(this.folderRepoManager, fetchNextPage);
 						break;
 					case PRType.Query:
-						response = await this._prsTreeModel.getPullRequestsForQuery(this.folderRepoManager, fetchNextPage, this._categoryQuery!);
+						response = await this._prsTreeModel.getPullRequestsForQuery(this.folderRepoManager, fetchNextPage, this._categoryQuery!, false, fetchAllPages);
 						break;
 				}
+				hasMorePages = response.hasMorePages;
+				hasUnsearchedRepositories = response.hasUnsearchedRepositories ?? false;
 				if (!fetchNextPage) {
 					this.prs.clear();
 				}
 				response.items.forEach(item => this.prs.set(item.id, item));
-				hasMorePages = response.hasMorePages;
-				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
 				if (this.isCopilot && (e?.response?.status === 422) && e.message?.includes('the users do not exist')) {
 					// Skip it, it's copilot and the repo doesn't have copilot
@@ -337,13 +499,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs.size > 0) {
-			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
-				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider, this._prsTreeModel),
-			);
-			if (hasMorePages) {
-				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
-			} else if (hasUnsearchedRepositories) {
-				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.TryOtherRemotes, this));
+			const allPrs = Array.from(this.prs.values());
+			const nodes: (PRNode | PRGroupTreeNode | PRCategoryActionNode)[] = [
+				...this.createPullRequestChildren(this, 0, allPrs),
+			];
+			if (!fetchAllPages) {
+				if (hasMorePages) {
+					nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
+				} else if (hasUnsearchedRepositories) {
+					nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.TryOtherRemotes, this));
+				}
 			}
 
 			this._children = nodes;

@@ -30,6 +30,7 @@ export interface IssueChangeEvent {
 	title?: true;
 	body?: true;
 	milestone?: true;
+	milestoneConfirmed?: true;
 	// updatedAt?: true;
 	state?: true;
 	labels?: true;
@@ -175,9 +176,14 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			changes.body = true;
 			this.body = issue.body;
 		}
-		if (this.milestone?.id !== issue.milestone?.id) {
+		if (this.milestone?.id !== issue.milestone?.id || this.milestone?.title !== issue.milestone?.title) {
 			changes.milestone = true;
 			this.milestone = issue.milestone;
+		} else if (issue.milestone && issue.milestone !== this.item?.milestone) {
+			// Only a milestone object freshly delivered by the server (a new reference) confirms
+			// the title. Spread-based local updates (e.g. loadStackSummaries) reuse the same
+			// milestone reference and must not trigger a re-confirm.
+			changes.milestoneConfirmed = true;
 		}
 		if (this.updatedAt !== issue.updatedAt) {
 			this.updatedAt = issue.updatedAt;

@@ -427,6 +427,7 @@ export function convertRESTPullRequestToRawPullRequest(
 		node_id,
 		id,
 		draft,
+		milestone,
 	} = pullRequest;
 
 	const item: PullRequest = {
@@ -449,6 +450,13 @@ export function convertRESTPullRequestToRawPullRequest(
 		base: convertRESTHeadToIGitHubRef(base),
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
+		milestone: milestone ? {
+			title: milestone.title,
+			dueOn: milestone.due_on ?? undefined,
+			createdAt: milestone.created_at,
+			id: milestone.node_id,
+			number: milestone.number,
+		} : undefined,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 		projectItems: [], // projects only available through GraphQL API
 		commits: [], // commits only available through GraphQL API
