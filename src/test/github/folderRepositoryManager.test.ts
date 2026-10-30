@@ -191,6 +191,26 @@ describe('PullRequestManager', function () {
 	});
 
 	describe('updateRepositories', function () {
+		it('offers to reauthenticate after a SAML authorization failure', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/repo');
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			const showSamlMessageAndAuth = sinon.stub(manager.credentialStore, 'showSamlMessageAndAuth').resolves({ canceled: false });
+			const showErrorMessage = sinon.stub(window, 'showErrorMessage').resolves({ title: 'Reauthenticate' });
+			const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').resolves(metadata);
+			let resolveRemoteCalls = 0;
+			sinon.stub(GitHubRepository.prototype, 'resolveRemote').callsFake(async () => ++resolveRemoteCalls === 3);
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(showSamlMessageAndAuth.calledTwice, true);
+			assert.strictEqual(showErrorMessage.calledOnce, true);
+			assert.deepStrictEqual(showErrorMessage.firstCall.args[2], { title: 'Reauthenticate' });
+			assert.strictEqual(manager.gitHubRepositories.length, 1);
+		});
+
 		it('skips a repository after a 404 without affecting healthy repositories', async function () {
 			const inaccessibleUrl = 'https://github.com/owner/missing';
 			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
@@ -357,6 +377,30 @@ describe('PullRequestManager', function () {
 	});
 
 	describe('getPullRequestDefaults', function () {
+		it('uses the configured GitHub remote when HEAD tracks a non-GitHub remote', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('github', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(githubRepository);
+			await repository.addRemote('origin', 'https://example.com/owner/repo.git');
+			await repository.addRemote('github', url);
+			await repository.createBranch('main', true);
+			await repository.setBranchUpstream('main', 'refs/remotes/origin/main');
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([remote]);
+			sinon.stub(githubRepository, 'getMetadata').resolves({
+				...new RepositoryBuilder().build(),
+				owner: new UserBuilder().login('owner').build(),
+				name: 'repo',
+				default_branch: 'main',
+			});
+
+			assert.deepStrictEqual(await manager.getPullRequestDefaults(), {
+				owner: 'owner',
+				repo: 'repo',
+				base: 'main',
+			});
+		});
+
 		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
 			const url = 'https://github.com/owner/repo.git';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
@@ -436,6 +480,37 @@ describe('PullRequestManager', function () {
 			assert.deepStrictEqual(metadata, { owner: 'owner', repositoryName: 'repo', prNumber: 1347, model: pullRequest });
 			assert.deepStrictEqual(fetch.args, [[{ remote: 'contributor', ref: 'feature' }]]);
 			assert.strictEqual(repository.state.HEAD?.upstream, undefined);
+		});
+	});
+
+	describe('getOrigin', function () {
+		let githubRepository: GitHubRepository;
+		let upstreamRemote: GitHubRemote;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('github', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(githubRepository);
+			upstreamRemote = new GitHubRemote('upstream', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			await repository.createBranch('main', true);
+			await repository.setBranchUpstream('main', 'refs/remotes/upstream/main');
+		});
+
+		it('prefers the branch GitHub upstream over another configured remote', async function () {
+			const upstreamRepository = new GitHubRepository(2, upstreamRemote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(upstreamRepository);
+
+			assert.strictEqual(await manager.getOrigin(), upstreamRepository);
+		});
+
+		it('still discovers a GitHub upstream not listed in the remotes setting', async function () {
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([githubRepository.remote, upstreamRemote]);
+
+			const origin = await manager.getOrigin();
+
+			assert.deepStrictEqual(origin.remote, upstreamRemote);
+			assert.ok(manager.gitHubRepositories.includes(origin));
 		});
 	});
 
