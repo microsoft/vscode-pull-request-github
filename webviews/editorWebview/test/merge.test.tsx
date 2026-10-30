@@ -49,6 +49,40 @@ describe('Merge status and actions', function () {
 		});
 	}));
 
+	it('waits for queue requirements before offering bypass on an unstacked PR', function () {
+		const pr = { ...blockedPR(), stack: null, stackLoaded: false };
+		const context = new PRContext(pr);
+		const content = (value: PullRequest) => <PullRequestContext.Provider value={context}><PrActions pr={value} isSimple={false} /></PullRequestContext.Provider>;
+		const view = render(content(pr));
+		assert.strictEqual(view.queryByLabelText(bypassLabel), null);
+		view.rerender(content({ ...pr, stackLoaded: true, mergeQueueMethod: 'squash' }));
+		assert.strictEqual(view.queryByLabelText(bypassLabel), null);
+		view.rerender(content({ ...pr, stackLoaded: true }));
+		assert.strictEqual((view.getByLabelText(bypassLabel) as HTMLInputElement).checked, false);
+	});
+
+	it('preserves the context receiver when updating auto-merge before bypass consent', async function () {
+		const pr = { ...blockedPR(), allowAutoMerge: true, autoMerge: false };
+		const context = new PRContext(pr);
+		const postMessage = sinon.stub(context, 'postMessage').resolves({ autoMerge: true, autoMergeMethod: 'merge' });
+		const view = render(<PullRequestContext.Provider value={context}><PrActions pr={pr} isSimple={false} /></PullRequestContext.Provider>);
+		fireEvent.click(view.getByLabelText('Auto-merge'));
+		await new Promise(resolve => setTimeout(resolve, 50));
+		assert.strictEqual(postMessage.callCount, 1);
+		assert.strictEqual(context.pr.autoMerge, true);
+		assert.deepStrictEqual(postMessage.firstCall.args[0], {
+			command: 'pr.update-automerge', args: { autoMerge: true, autoMergeMethod: 'merge' },
+		});
+		view.unmount();
+		const methodView = render(<PullRequestContext.Provider value={context}><PrActions pr={context.pr} isSimple={false} /></PullRequestContext.Provider>);
+		fireEvent.change(methodView.getByLabelText('Select merge method'), { target: { value: 'squash' } });
+		await new Promise(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(postMessage.secondCall.args[0], {
+			command: 'pr.update-automerge', args: { autoMerge: undefined, autoMergeMethod: 'squash' },
+		});
+		assert.strictEqual((methodView.getByLabelText(bypassLabel) as HTMLInputElement).checked, false);
+	});
+
 	it('uses the normal confirmation and merge request after opting in', async function () {
 		const pr = blockedPR();
 		const context = new PRContext(pr);
@@ -76,6 +110,7 @@ describe('Merge status and actions', function () {
 		['closed', { state: GithubItemStateEnum.Closed }],
 		['merged', { state: GithubItemStateEnum.Merged }],
 		['unknown stack membership', { stack: undefined, stackLoaded: false }],
+		['queue requirements still loading for an unstacked PR', { stack: null, stackLoaded: false, mergeQueueMethod: undefined }],
 		['stack load failure', { stackLoadError: true }],
 		['stack', { stack: { position: 1, size: 1, base: 'main', pullRequests: [] } }],
 		['pending stack merge', { stackMergeStatus: 'pending' }],

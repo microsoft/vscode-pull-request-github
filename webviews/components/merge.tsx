@@ -490,7 +490,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 	// Queue bypass is intentionally outside this single-PR branch-protection flow.
 	if (pr.state === GithubItemStateEnum.Open
 		&& (mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Behind)
-		&& pr.viewerCanMergeAsAdmin === true && hasWritePermission && !pr.mergeQueueEntry && !pr.mergeQueueMethod) {
+		&& pr.viewerCanMergeAsAdmin === true && hasWritePermission && pr.stackLoaded !== false && !pr.mergeQueueEntry && !pr.mergeQueueMethod) {
 		return <BypassBranchProtection key={`${pr.url}:${pr.head}:${pr.base}`} pr={pr} isSimple={isSimple} />;
 	}
 
@@ -521,7 +521,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
  */
 const BypassBranchProtection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	const [bypass, setBypass] = useState(false);
-	const { updateAutoMerge } = useContext(PullRequestContext);
+	const ctx = useContext(PullRequestContext);
 	return <div>
 		<label>
 			<input type="checkbox" checked={bypass} onChange={event => setBypass(event.target.checked)} />
@@ -529,7 +529,7 @@ const BypassBranchProtection = ({ pr, isSimple }: { pr: PullRequest; isSimple: b
 		</label>
 		{bypass
 			? isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />
-			: !isSimple ? <AutoMerge {...pr} updateState={updateAutoMerge} baseHasMergeQueue={false}
+			: !isSimple ? <AutoMerge {...pr} updateState={params => ctx.updateAutoMerge(params)} baseHasMergeQueue={false}
 				defaultMergeMethod={pr.autoMergeMethod ?? pr.defaultMergeMethod} /> : null}
 	</div>;
 };

@@ -195,6 +195,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeChangesSinceReview = this._register(new vscode.EventEmitter<void>());
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
+	private _mergeabilityVersion = 0;
 	private _hasComments: boolean;
 	private _comments: readonly IComment[] | undefined;
 
@@ -297,6 +298,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		// A model refresh supersedes any mergeability query already in flight.
+		this._mergeabilityVersion++;
 		// REST pull request lists don't include these, so keep the values that are already known.
 		if (item.viewerCanUpdate === undefined) {
 			item.viewerCanUpdate = this.item.viewerCanUpdate;
@@ -2278,6 +2281,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the current mergeability of the pull request.
 	 */
 	async getMergeability(): Promise<PullRequestMergeabilityResult> {
+		const version = ++this._mergeabilityVersion;
+		const currentResult = (): PullRequestMergeabilityResult => ({
+			mergeability: this.item.mergeable ?? PullRequestMergeability.Unknown,
+			viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin === true,
+			conflicts: this.conflicts,
+		});
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
@@ -2303,6 +2312,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					number: this.number,
 				}
 			});
+			// Check before mutating any model state: a refresh or newer request may
+			// have revoked capabilities while this request was in flight.
+			if (version !== this._mergeabilityVersion) {
+				return currentResult();
+			}
 			if (data.repository === null) {
 				Logger.error('Unexpected null repository while getting mergeability', PullRequestModel.ID);
 			}
@@ -2325,7 +2339,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return { mergeability, viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
-			return { mergeability: PullRequestMergeability.Unknown };
+			return version !== this._mergeabilityVersion ? currentResult() : { mergeability: PullRequestMergeability.Unknown };
 		}
 	}
 
