@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { CommentControllerBase } from './commentControllBase';
+import { CommentControllerBase, COPILOT_COMMENT_MENTION } from './commentControllBase';
 import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
@@ -1027,6 +1027,24 @@ ${suggestionInformation.suggestionContent}
 		}
 		await editor.edit(builder => {
 			builder.replace(range.with(undefined, editor.document.lineAt(range.end.line).range.end), suggestion);
+		});
+	}
+
+	/**
+	 * Returns true when a file-comment widget for this controller has unsaved draft text.
+	 * Used to warn before disposing the controller (e.g. when a PR is merged).
+	 */
+	public hasUnsavedCommentDrafts(): boolean {
+		const controllerId = this._commentController.id;
+		const autoMention = COPILOT_COMMENT_MENTION.trim();
+		return vscode.workspace.textDocuments.some(document => {
+			// Comment input URIs use the controller id as the authority, exactly.
+			if (document.uri.scheme !== Schemes.Comment || document.uri.authority !== controllerId) {
+				return false;
+			}
+			const text = document.getText().trim();
+			// tryAddCopilotMention inserts this into empty boxes; it is not a user draft.
+			return text.length > 0 && text !== autoMention;
 		});
 	}
 

@@ -375,15 +375,16 @@ export class CredentialStore extends Disposable {
 	}
 
 	/**
-	 * Handles authentication errors that surface from API calls (e.g. "Bad credentials"
-	 * or 401 Unauthorized). Triggers a re-authentication prompt for the affected
-	 * provider, deduplicating concurrent requests so we don't show multiple prompts
-	 * when many in-flight calls fail at once.
+	 * Handles authentication errors that surface from API calls made with `failedHub`
+	 * (e.g. "Bad credentials" or 401 Unauthorized). Triggers a re-authentication prompt
+	 * for the affected provider, deduplicating concurrent requests so we don't show
+	 * multiple prompts when many in-flight calls fail at once.
 	 */
-	public async handleAuthError(authProviderId: AuthProvider): Promise<AuthResult> {
-		// Only prompt if we currently believe we are authenticated for this provider.
-		// Otherwise the regular sign-in flow will handle it.
-		if (!this.isAuthenticated(authProviderId)) {
+	public async handleAuthError(authProviderId: AuthProvider, failedHub: GitHub): Promise<AuthResult> {
+		// Only prompt if the hub that failed is still the one in use for this provider.
+		// Otherwise the user signed out or the session was already replaced, and the
+		// regular session change handling takes care of it.
+		if (this.getHub(authProviderId) !== failedHub) {
 			return { canceled: true };
 		}
 		const inFlight = this._handlingAuthError.get(authProviderId);
@@ -398,14 +399,24 @@ export class CredentialStore extends Disposable {
 		if (lastHandled !== undefined && (Date.now() - lastHandled) < CredentialStore.AUTH_ERROR_COOLDOWN_MS) {
 			return { canceled: true };
 		}
-		Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
-		/* __GDPR__
-			"auth.badCredentials" : {}
-		*/
-		this._telemetry.sendTelemetryEvent('auth.badCredentials');
-		const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 		const promise = (async () => {
 			try {
+				// Sign-out can invalidate in-flight requests before the session change
+				// event clears our cached authentication state. Only prompt if the hub is
+				// unchanged and the session for its account and server still exists.
+				const existingSession = await findExistingSession(authProviderId);
+				if (!existingSession
+					|| this.getHub(authProviderId) !== failedHub
+					|| !failedHub.session
+					|| !isSameSessionAccount(failedHub.session, existingSession.session)) {
+					return { canceled: true };
+				}
+				Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
+				/* __GDPR__
+					"auth.badCredentials" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.badCredentials');
+				const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 				// Force re-auth only for the affected provider, not both. Going through
 				// recreate()/doCreate() would prompt re-auth for both GitHub.com and
 				// GitHub Enterprise when both are configured.
@@ -713,9 +724,7 @@ export class CredentialStore extends Disposable {
 		});
 
 		const rateLogger = new RateLogger(this._telemetry, isEnterprise(authProviderId), (_e) => {
-			if (this.getHub(authProviderId) === github) {
-				void this.handleAuthError(authProviderId);
-			}
+			void this.handleAuthError(authProviderId, github);
 		});
 		const github: GitHub = {
 			serverUri,

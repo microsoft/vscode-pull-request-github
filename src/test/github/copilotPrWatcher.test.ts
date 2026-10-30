@@ -4,11 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { CopilotStateModel } from '../../github/copilotPrWatcher';
+import { CopilotStateModel, isCopilotQuery } from '../../github/copilotPrWatcher';
 import { CopilotPRStatus } from '../../common/copilot';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 describe('Copilot PR watcher', () => {
+
+	describe('isCopilotQuery', () => {
+
+		it('matches queries authored by a Copilot login', () => {
+			assert.strictEqual(isCopilotQuery('repo:${owner}/${repository} is:open author:copilot assignee:${user}'), true);
+			assert.strictEqual(isCopilotQuery('author:Copilot is:open'), true);
+			assert.strictEqual(isCopilotQuery('is:open author:copilot-swe-agent'), true);
+		});
+
+		it('does not match queries that exclude Copilot', () => {
+			assert.strictEqual(isCopilotQuery('repo:${owner}/${repository} is:open -author:copilot -author:${user}'), false);
+			assert.strictEqual(isCopilotQuery('repo:${owner}/${repository} is:open assignee:${user} -author:copilot'), false);
+		});
+
+		it('does not match other authors', () => {
+			assert.strictEqual(isCopilotQuery('repo:${owner}/${repository} is:open author:${user}'), false);
+			assert.strictEqual(isCopilotQuery('is:open author:copilotfan'), false);
+			assert.strictEqual(isCopilotQuery('is:open review-requested:copilot'), false);
+		});
+	});
 
 	describe('CopilotStateModel', () => {
 
