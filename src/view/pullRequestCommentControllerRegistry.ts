@@ -10,7 +10,7 @@ import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { GHPRComment } from '../github/prComment';
+import { GHPRComment, GHPRCommentThread } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CommentReactionHandler } from '../github/utils';
 
@@ -24,19 +24,35 @@ interface PRCommentingRangeProviderInfo extends vscode.Disposable {
 	refCount: number;
 }
 
-export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
+export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider2, CommentReactionHandler {
+	private static _onDidChangeCommentingRangeProviders = new vscode.EventEmitter<void>();
+	/**
+	 * Fires when a commenting range provider of a pull request is registered or removed, in any repository.
+	 */
+	public static readonly onDidChangeCommentingRangeProviders = PRCommentControllerRegistry._onDidChangeCommentingRangeProviders.event;
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
 	private _prCommentingRangeProviders: { [key: number]: PRCommentingRangeProviderInfo } = {};
 	private readonly _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 	public readonly resourceHints = { schemes: [Schemes.Pr] };
+	private readonly _onDidProvideCommentingRanges = this._register(new vscode.EventEmitter<vscode.Uri>());
+	/**
+	 * Fires when VS Code has been given the commenting ranges of a document.
+	 */
+	public readonly onDidProvideCommentingRanges = this._onDidProvideCommentingRanges.event;
 
 	constructor(public readonly commentsController: vscode.CommentController, private readonly _telemetry: ITelemetry) {
 		super();
-		this.commentsController.commentingRangeProvider = this;
+		this.commentsController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | vscode.CommentingRanges | undefined> {
+		const ranges = await this.getCommentingRanges(document, token);
+		this._onDidProvideCommentingRanges.fire(document.uri);
+		return ranges;
+	}
+
+	async getCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | vscode.CommentingRanges | undefined> {
 		const uri = document.uri;
 		const params = fromPRUri(uri);
 
@@ -111,6 +127,13 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 		return this._prCommentHandlers[prNumber];
 	}
 
+	/**
+	 * Gets the comment thread of a GitHub review thread of a pull request, once it has been created for an open editor.
+	 */
+	public getCommentThread(prNumber: number, gitHubThreadId: string): GHPRCommentThread | undefined {
+		return this._prCommentHandlers[prNumber]?.handler.getCommentThread(gitHubThreadId);
+	}
+
 	public registerCommentingRangeProvider(prNumber: number, provider: vscode.CommentingRangeProvider2): vscode.Disposable {
 		if (this._prCommentingRangeProviders[prNumber]) {
 			this._prCommentingRangeProviders[prNumber].refCount += 1;
@@ -128,9 +151,11 @@ export class PRCommentControllerRegistry extends Disposable implements vscode.Co
 				this._prCommentingRangeProviders[prNumber].refCount -= 1;
 				if (this._prCommentingRangeProviders[prNumber].refCount === 0) {
 					delete this._prCommentingRangeProviders[prNumber];
+					PRCommentControllerRegistry._onDidChangeCommentingRangeProviders.fire();
 				}
 			}
 		};
+		PRCommentControllerRegistry._onDidChangeCommentingRangeProviders.fire();
 
 		return this._prCommentingRangeProviders[prNumber];
 	}

@@ -59,6 +59,8 @@ export class ReviewManager extends Disposable {
 	private _lastCommitSha?: string;
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController | undefined;
+	private readonly _onDidChangeCommentThreads = this._register(new vscode.EventEmitter<void>());
+	public readonly onDidChangeCommentThreads = this._onDidChangeCommentThreads.event;
 	private _quickDiffProvider: vscode.Disposable | undefined;
 	private _inMemGitHubContentProvider: vscode.Disposable | undefined;
 
@@ -370,6 +372,10 @@ export class ReviewManager extends Disposable {
 
 	get repository(): Repository {
 		return this._repository;
+	}
+
+	get reviewCommentController(): ReviewCommentController | undefined {
+		return this._reviewCommentController;
 	}
 
 	get reviewModel() {
@@ -1384,6 +1390,7 @@ export class ReviewManager extends Disposable {
 				this._telemetry
 			);
 
+			this._reviewCommentController.onDidChangeCommentThreads(() => this._onDidChangeCommentThreads.fire());
 			await this._reviewCommentController.initialize();
 		}
 	}
@@ -1592,8 +1599,11 @@ export class ReviewManager extends Disposable {
 			this._folderRepoManager.setFileViewedContext();
 		}
 
-		this._reviewCommentController?.dispose();
-		this._reviewCommentController = undefined;
+		if (this._reviewCommentController) {
+			this._reviewCommentController.dispose();
+			this._reviewCommentController = undefined;
+			this._onDidChangeCommentThreads.fire();
+		}
 		this._inMemGitHubContentProvider?.dispose();
 		this._inMemGitHubContentProvider = undefined;
 	}

@@ -16,6 +16,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { UnresolvedIdentity } from './github/views';
+import { MarkdownPreviewComments } from './view/markdownPreviewComments';
 import { ReviewsManager } from './view/reviewsManager';
 
 export const PENDING_CHECKOUT_PULL_REQUEST_KEY = 'pendingCheckoutPullRequest';
@@ -109,6 +110,7 @@ export class UriHandler implements vscode.UriHandler {
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _git: GitApiImpl,
 		private readonly _folderRepositoryManagerResolver: FolderRepositoryManagerResolver,
+		private readonly _markdownPreviewComments: MarkdownPreviewComments,
 	) { }
 
 	async handleUri(uri: vscode.Uri): Promise<void> {
@@ -123,6 +125,8 @@ export class UriHandler implements vscode.UriHandler {
 				return this._checkoutPullRequest(uri);
 			case UriHandlerPaths.OpenPullRequestChanges:
 				return this._openPullRequestChanges(uri);
+			case UriHandlerPaths.CommentOnMarkdownPreview:
+				return this._commentOnMarkdownPreview(uri);
 		}
 	}
 
@@ -175,6 +179,19 @@ export class UriHandler implements vscode.UriHandler {
 			return;
 		}
 		return PullRequestModel.openChanges(resolved.folderManager, pullRequest);
+	}
+
+	private async _commentOnMarkdownPreview(uri: vscode.Uri): Promise<void> {
+		const query = new URLSearchParams(uri.query);
+		const documentId = query.get('document');
+		// `Number(null)` is 0, so check that the lines are present before parsing them.
+		const start = query.has('start') ? Number(query.get('start')) : NaN;
+		const end = query.has('end') ? Number(query.get('end')) : NaN;
+		if (!documentId || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) {
+			Logger.error(`Invalid markdown preview comment URI: ${uri.toString()}`, UriHandler.ID);
+			return;
+		}
+		return this._markdownPreviewComments.commentOnLines(documentId, start, end, query.get('thread') ?? undefined);
 	}
 
 	private async _savePendingCheckoutAndOpenFolder(params: { owner: string; repo: string; pullRequestNumber: number }, folderUri: vscode.Uri): Promise<void> {

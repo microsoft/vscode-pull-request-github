@@ -429,6 +429,7 @@ module.exports =
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
 				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
+				'markdown-preview-comments': './webviews/markdownPreviewComments/index.ts',
 			}),
 		]);
 	};
