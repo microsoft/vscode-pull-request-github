@@ -3124,9 +3124,9 @@ export class FolderRepositoryManager extends Disposable {
 	async findUpstreamForItem(item: {
 		remote: Remote;
 		githubRepository: GitHubRepository;
-	}): Promise<{ needsFork: boolean; upstream?: GitHubRepository; remote?: Remote }> {
+	}): Promise<{ needsFork: boolean; upstream?: GitHubRepository; remote?: GitHubRemote }> {
 		let upstream: GitHubRepository | undefined;
-		let existingForkRemote: Remote | undefined;
+		let existingForkRemote: GitHubRemote | undefined;
 		for (const githubRepo of this.gitHubRepositories) {
 			if (
 				!upstream &&
@@ -3252,9 +3252,15 @@ export class FolderRepositoryManager extends Disposable {
 			pushRemote,
 			this.credentialStore,
 		);
-		let permission: ViewerPermission;
+		let needsFork: boolean;
+		let existingFork: GitHubRemote | undefined;
 		try {
-			permission = await githubRepo.getViewerPermission();
+			const permission = await githubRepo.getViewerPermission();
+			needsFork = permission === ViewerPermission.Read || permission === ViewerPermission.Triage || permission === ViewerPermission.Unknown;
+			if (needsFork) {
+				// Reuse a fork that already has a remote, such as one created by an earlier attempt whose push failed.
+				existingFork = (await this.findUpstreamForItem({ remote: githubRepo.remote, githubRepository: githubRepo })).remote;
+			}
 		} catch (e) {
 			if (isRateLimitError(e)) {
 				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'), { modal: true });
@@ -3263,11 +3269,9 @@ export class FolderRepositoryManager extends Disposable {
 			throw e;
 		}
 		let selectedRemote: GitHubRemote | undefined;
-		if (
-			permission === ViewerPermission.Read ||
-			permission === ViewerPermission.Triage ||
-			permission === ViewerPermission.Unknown
-		) {
+		if (existingFork) {
+			selectedRemote = existingFork;
+		} else if (needsFork) {
 			// No permission to publish the branch to the chosen remote. Offer to fork.
 			const fork = await this.tryOfferToFork(githubRepo);
 			if (!fork) {
@@ -3276,7 +3280,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === fork);
 		} else {
-			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === pushRemote.remoteName);
+			// Keep the repository that the permission was checked for: a remote's push URL can point to a different
+			// repository than its fetch URL, so looking the remote up by name could return the wrong one.
+			selectedRemote = githubRepo.remote;
 		}
 
 		if (!selectedRemote) {

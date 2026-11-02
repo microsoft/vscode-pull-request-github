@@ -28,7 +28,7 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { GitHubRemote } from '../common/remote';
+import { GitHubRemote, parseRemote } from '../common/remote';
 import {
 	ASSIGN_TO,
 	CREATE_BASE_BRANCH,
@@ -1491,21 +1491,39 @@ Don't forget to commit your template file to the repository so that it can be us
 	/**
 	 * Pushes the commits of the compare branch to the remote it tracks. Without permission to push to that remote,
 	 * the user is offered to fork the repository, and the commits are pushed to the fork instead.
-	 * @returns The fork that the commits were pushed to, if any, or undefined if the commits weren't pushed.
+	 * @returns The repository that the commits were pushed to when it isn't the one the branch tracks, such as a fork,
+	 * or undefined if the commits weren't pushed.
 	 */
-	private async pushCommits(upstreamRemoteName: string, compareBranchName: string): Promise<{ fork?: GitHubRemote } | undefined> {
-		const upstreamRemote = this._folderRepositoryManager.findRepo(byRemoteName(upstreamRemoteName))?.remote;
-		if (!upstreamRemote) {
-			await this._folderRepositoryManager.repository.push(upstreamRemoteName, compareBranchName);
+	private async pushCommits(remoteName: string, compareBranchName: string): Promise<{ headRemote?: GitHubRemote } | undefined> {
+		const trackedRemote = this._folderRepositoryManager.findRepo(byRemoteName(remoteName))?.remote;
+		const pushRemote = trackedRemote ? this.getPushRemote(trackedRemote) : undefined;
+		if (!trackedRemote || !pushRemote) {
+			await this._folderRepositoryManager.repository.push(remoteName, compareBranchName);
 			return {};
 		}
 
-		const pushRemote = await this._folderRepositoryManager.publishBranch(upstreamRemote, compareBranchName);
-		if (!pushRemote) {
+		const pushedTo = await this._folderRepositoryManager.publishBranch(pushRemote, compareBranchName);
+		if (!pushedTo) {
 			return undefined;
 		}
-		const isFork = (compareIgnoreCase(pushRemote.owner, upstreamRemote.owner) !== 0) || (compareIgnoreCase(pushRemote.repositoryName, upstreamRemote.repositoryName) !== 0);
-		return { fork: isFork ? pushRemote : undefined };
+		const isTrackedRepository = (compareIgnoreCase(pushedTo.owner, trackedRemote.owner) === 0) && (compareIgnoreCase(pushedTo.repositoryName, trackedRemote.repositoryName) === 0);
+		return { headRemote: isTrackedRepository ? undefined : pushedTo };
+	}
+
+	/**
+	 * Git pushes to a remote's push URL, which can point to a different repository than its fetch URL, such as a fork.
+	 * @returns The remote for the repository that the push URL points to, or undefined if it isn't on the same server.
+	 */
+	private getPushRemote(remote: GitHubRemote): GitHubRemote | undefined {
+		const gitRemote = this._folderRepositoryManager.repository.state.remotes.find(candidate => candidate.name === remote.remoteName);
+		if (!gitRemote?.pushUrl || (gitRemote.pushUrl === gitRemote.fetchUrl)) {
+			return remote;
+		}
+		const pushRemote = parseRemote(remote.remoteName, gitRemote.pushUrl);
+		if (!pushRemote || (compareIgnoreCase(pushRemote.host, remote.host) !== 0)) {
+			return undefined;
+		}
+		return new GitHubRemote(remote.remoteName, gitRemote.pushUrl, pushRemote.gitProtocol, remote.githubServerType);
 	}
 
 	private checkGeneratedTitleAndDescription(title: string, description: string) {
@@ -1627,14 +1645,18 @@ Don't forget to commit your template file to the repository so that it can be us
 								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
 								return;
 							}
-							if (pushResult.fork) {
-								// The commits were pushed to a fork, which becomes the head of the pull request.
-								compareOwner = pushResult.fork.owner;
-								compareRepositoryName = pushResult.fork.repositoryName;
-								// Also select the fork in the view, so that retrying after a failed create doesn't use the
+							if (pushResult.headRemote) {
+								// The commits were pushed to another repository than the one the branch tracks, such as a fork,
+								// which becomes the head of the pull request.
+								compareOwner = pushResult.headRemote.owner;
+								compareRepositoryName = pushResult.headRemote.repositoryName;
+								// Also select it in the view, so that retrying after a failed create doesn't use the
 								// original repository, which also has this branch, as the head.
 								if (compareIgnoreCase(compareRepositoryName, this.model.repositoryName) === 0) {
 									this.model.compareOwner = compareOwner;
+									// The model change only reaches the view after looking up existing and stacked pull requests,
+									// which a retry could beat.
+									await this._postMessage({ command: 'pr.initialize', params: { compareRemote: serializeRemoteInfo(pushResult.headRemote) } });
 								}
 							}
 						} else if (messageResult !== continueWithoutPushing) {
