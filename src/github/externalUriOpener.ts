@@ -56,6 +56,8 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 			return model;
 		};
 
+		const toTheSide = openContext.viewColumn === vscode.ViewColumn.Beside;
+
 		try {
 			const folderRepositoryManager = this._folderRepositoryManagerResolver.getManagerForRepository(identity.owner, identity.repo);
 			if (identity.kind === 'pullRequest') {
@@ -66,6 +68,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 					folderRepositoryManager,
 					identity,
 					pullRequest,
+					toTheSide,
 				);
 			} else {
 				const issue = folderRepositoryManager.resolveIssue(identity.owner, identity.repo, identity.number, true, true).then(requireModel);
@@ -75,6 +78,7 @@ class GitHubIssueOrPullRequestExternalUriOpener extends Disposable implements vs
 					folderRepositoryManager,
 					identity,
 					issue,
+					toTheSide,
 				);
 			}
 		} catch (error) {
