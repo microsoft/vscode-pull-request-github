@@ -244,7 +244,7 @@ export class CreatePullRequestHelper extends Disposable {
 			);
 
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
-			const model = addDisposable(new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch?.name ?? pullRequestDefaults.base, compareOrigin.remote.repositoryName), this._currentDisposables);
+			const model = addDisposable(new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch?.name ?? pullRequestDefaults.base, compareOrigin.remote.repositoryName, pullRequestDefaults.repo), this._currentDisposables);
 			createViewProvider = this._createPRViewProvider = new CreatePullRequestViewProvider(
 				telemetry,
 				model,

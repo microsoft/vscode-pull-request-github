@@ -195,7 +195,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	// Called once the detected base branch is known, before getTitleAndDescription runs.
 	// Subclasses can override to update model state that getTitleAndDescription depends on.
-	protected onBaseBranchDetected(_baseOwner: string, _baseBranch: string): void { }
+	protected onBaseBranchDetected(_baseRemote: RemoteInfo, _baseBranch: string): void { }
 
 	protected getTitleAndDescriptionProvider(name?: string) {
 		return this._folderRepositoryManager.getTitleAndDescriptionProvider(name);
@@ -223,7 +223,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
 
 		// Notify subclasses so they can update model state before getTitleAndDescription runs.
-		this.onBaseBranchDetected(defaultBaseRemote.owner, defaultBaseBranch);
+		this.onBaseBranchDetected(defaultBaseRemote, defaultBaseBranch);
 
 		let defaultTitleAndDescription: { title: string; description: string };
 		let mergeConfiguration: RepoAccessAndMergeMethods | undefined;
@@ -691,8 +691,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const stackCandidateSequence = ++this._stackCandidateSequence;
 			let baseRemote: RemoteInfo | undefined;
 			let baseBranch: string | undefined;
-			if (e.baseOwner) {
-				const gitHubRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.baseOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+			if (e.baseOwner || e.baseRepositoryName) {
+				const gitHubRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.baseRepositoryName) === 0)?.remote;
 				baseRemote = gitHubRemote ? serializeRemoteInfo(gitHubRemote) : undefined;
 				baseBranch = this.model.baseBranch;
 			}
@@ -716,7 +716,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				compareBranch,
 				warning: await this.existingPRMessage(),
 				stackCandidate: await this.getStackCandidateForView(
-					{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
+					{ owner: this.model.baseOwner, repositoryName: this.model.baseRepositoryName },
 					this.model.baseBranch,
 					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName },
 					this.model.compareBranch
@@ -754,9 +754,9 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			return;
 		}
 		this._defaultCompareBranch = compareBranch.name;
-		const { baseOwner, baseBranch, compareOwner } = this.model;
+		const { baseOwner, baseRepositoryName, baseBranch, compareOwner } = this.model;
 		const isCurrentSelection = () =>
-			this.model.baseOwner === baseOwner && this.model.baseBranch === baseBranch
+			this.model.baseOwner === baseOwner && this.model.baseRepositoryName === baseRepositoryName && this.model.baseBranch === baseBranch
 			&& this.model.compareOwner === compareOwner && this.model.compareBranch === compareBranch.name;
 		try {
 			const titleAndDescription = await this.changeBranch(compareBranch.name, false);
@@ -766,7 +766,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [warning, stackCandidate] = await Promise.all([
 				this.existingPRMessage(),
 				this.getStackCandidateForView(
-					{ owner: baseOwner, repositoryName: this.model.repositoryName },
+					{ owner: baseOwner, repositoryName: baseRepositoryName },
 					baseBranch,
 					{ owner: compareOwner, repositoryName: this.model.repositoryName },
 					compareBranch.name
@@ -1114,8 +1114,9 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
-	protected override onBaseBranchDetected(baseOwner: string, baseBranch: string): void {
-		this.model.baseOwner = baseOwner;
+	protected override onBaseBranchDetected(baseRemote: RemoteInfo, baseBranch: string): void {
+		this.model.baseOwner = baseRemote.owner;
+		this.model.baseRepositoryName = baseRemote.repositoryName;
 		this.model.baseBranch = baseBranch;
 	}
 
@@ -1210,6 +1211,7 @@ Don't forget to commit your template file to the repository so that it can be us
 			const baseRemoteChanged = this.model.baseOwner !== result.remote.owner;
 			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
 			this.model.baseOwner = result.remote.owner;
+			this.model.baseRepositoryName = result.remote.repositoryName;
 			this.model.baseBranch = result.branch;
 
 			// Save the selected base branch to recently used branches
@@ -1268,7 +1270,7 @@ Don't forget to commit your template file to the repository so that it can be us
 					defaultCompareBranch: defaultBranch,
 					defaultDescription: titleAndDescription.description,
 					stackCandidate: await this.getStackCandidateForView(
-						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
+						{ owner: this.model.baseOwner, repositoryName: this.model.baseRepositoryName },
 						this.model.baseBranch, result.remote, result.branch),
 					warning: await this.existingPRMessage()
 				};
