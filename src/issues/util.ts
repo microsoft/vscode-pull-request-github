@@ -554,12 +554,24 @@ export async function isComment(document: vscode.TextDocument, position: vscode.
 	return true;
 }
 
-export async function shouldShowHover(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+/**
+ * Hovers are shown anywhere in markdown and plaintext. In other languages they are only shown in comments,
+ * and additionally in strings for the languages in `stringLanguageIds`.
+ */
+export async function shouldShowHover(document: vscode.TextDocument, position: vscode.Position, stringLanguageIds: string[] = []): Promise<boolean> {
 	if (document.lineAt(position.line).range.end.character > 10000) {
 		return false;
 	}
 
-	return isComment(document, position);
+	if (document.languageId === 'markdown' || document.languageId === 'plaintext') {
+		return true;
+	}
+
+	const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+	if (tokenInfo.type === vscode.StandardTokenType.Comment) {
+		return true;
+	}
+	return tokenInfo.type === vscode.StandardTokenType.String && stringLanguageIds.includes(document.languageId);
 }
 
 export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefined {
