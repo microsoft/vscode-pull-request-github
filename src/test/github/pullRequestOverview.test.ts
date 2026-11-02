@@ -13,6 +13,7 @@ import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { IssueOverviewPanel, panelKey } from '../../github/issueOverview';
 import { IssueModel } from '../../github/issueModel';
+import { getMathResourceRoots, getMathStyleUris, MARKDOWN_MATH_EXTENSION_ID } from '../../github/markdownMath';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { Protocol } from '../../common/protocol';
@@ -317,6 +318,26 @@ describe('PullRequestOverview', function () {
 				await opening;
 			}
 			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.title, model.title);
+		});
+
+		it('typesets math in the description with the Markdown Math styles', async function () {
+			if (!vscode.extensions.getExtension(MARKDOWN_MATH_EXTENSION_ID)) {
+				this.skip();
+			}
+			const { model, openPanel, messages, webviewPanel } = fixture();
+			model.bodyHTML = '<p dir="auto">Area <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="1">$\\pi r^2$</math-renderer></p>';
+			await openPanel();
+
+			const bodyHTML = messages.find(message => message.command === 'pr.initialize')?.pullrequest?.bodyHTML;
+			assert.match(bodyHTML ?? '', /^<p dir="auto">Area <span class="katex">[\s\S]*<\/span><\/p>$/);
+			for (const style of getMathStyleUris()) {
+				assert.ok(webviewPanel.webview.html.includes(webviewPanel.webview.asWebviewUri(style).toString()));
+			}
+			assert.ok(webviewPanel.webview.html.includes(`font-src ${webviewPanel.webview.cspSource};`));
+			assert.deepStrictEqual(webviewPanel.webview.options.localResourceRoots?.map(root => root.toString()), [
+				vscode.Uri.joinPath(EXTENSION_URI, 'dist').toString(),
+				...getMathResourceRoots().map(root => root.toString()),
+			]);
 		});
 
 		it('does not initialize a closed panel when its model resolves', async function () {
@@ -684,7 +705,7 @@ describe('PullRequestOverview', function () {
 				createWebviewPanel.calledWith(sinonMatch.string, '#1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist')],
+					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist'), ...getMathResourceRoots()],
 					enableFindWidget: true
 				}),
 			);
