@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { getIssueOrURLExpression, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../../github/utils';
 import { getUpstreamOrigin, shouldShowHover } from '../../issues/util';
 import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
+import { MockTextDocument } from '../mocks/mockTextDocument';
 
 describe('Issues utilities', function () {
 	it('derives enterprise links from the upstream deployment of a configured instance', function () {
@@ -142,14 +143,6 @@ describe('Issues utilities', function () {
 describe('shouldShowHover', function () {
 	let sinon: SinonSandbox;
 
-	before(async function () {
-		// Opening the first document of a language activates its built-in language extensions, which can be slow.
-		this.timeout(20000);
-		for (const language of ['markdown', 'plaintext', 'yaml', 'sql']) {
-			await vscode.workspace.openTextDocument({ language, content: '' });
-		}
-	});
-
 	beforeEach(function () {
 		sinon = createSandbox();
 	});
@@ -165,7 +158,7 @@ describe('shouldShowHover', function () {
 	it('shows hovers anywhere in markdown and plaintext', async function () {
 		stubTokenType(vscode.StandardTokenType.Other);
 		for (const language of ['markdown', 'plaintext']) {
-			const document = await vscode.workspace.openTextDocument({ language, content: 'Fixes #123 thanks to @alexr00' });
+			const document = new MockTextDocument(language, 'Fixes #123 thanks to @alexr00');
 			assert.strictEqual(await shouldShowHover(document, new vscode.Position(0, 8)), true, language);
 			assert.strictEqual(await shouldShowHover(document, new vscode.Position(0, 24)), true, language);
 		}
@@ -173,30 +166,30 @@ describe('shouldShowHover', function () {
 
 	it('shows hovers in comments', async function () {
 		stubTokenType(vscode.StandardTokenType.Comment);
-		const document = await vscode.workspace.openTextDocument({ language: 'yaml', content: 'key: value # see #123' });
+		const document = new MockTextDocument('yaml', 'key: value # see #123');
 		assert.strictEqual(await shouldShowHover(document, new vscode.Position(0, 18)), true);
 	});
 
 	it('shows hovers in strings only for the given languages', async function () {
 		stubTokenType(vscode.StandardTokenType.String);
-		const yaml = await vscode.workspace.openTextDocument({ language: 'yaml', content: '- Fixed crash (#123)' });
+		const yaml = new MockTextDocument('yaml', '- Fixed crash (#123)');
 		const position = new vscode.Position(0, 16);
 		assert.strictEqual(await shouldShowHover(yaml, position, ['yaml']), true);
 		assert.strictEqual(await shouldShowHover(yaml, position), false);
 
-		const sql = await vscode.workspace.openTextDocument({ language: 'sql', content: `SELECT 'Fixed crash (#123)';` });
+		const sql = new MockTextDocument('sql', `SELECT 'Fixed crash (#123)';`);
 		assert.strictEqual(await shouldShowHover(sql, new vscode.Position(0, 23), ['yaml']), false);
 	});
 
 	it('does not show hovers outside of comments and strings', async function () {
 		stubTokenType(vscode.StandardTokenType.Other);
-		const document = await vscode.workspace.openTextDocument({ language: 'yaml', content: 'key: [GH-123]' });
+		const document = new MockTextDocument('yaml', 'key: [GH-123]');
 		assert.strictEqual(await shouldShowHover(document, new vscode.Position(0, 5), ['yaml']), false);
 	});
 
 	it('does not show hovers on very long lines', async function () {
 		stubTokenType(vscode.StandardTokenType.Comment);
-		const document = await vscode.workspace.openTextDocument({ language: 'markdown', content: `Fixes #123 ${'a'.repeat(10000)}` });
+		const document = new MockTextDocument('markdown', `Fixes #123 ${'a'.repeat(10000)}`);
 		assert.strictEqual(await shouldShowHover(document, new vscode.Position(0, 8)), false);
 	});
 });
