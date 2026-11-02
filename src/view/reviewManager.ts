@@ -761,17 +761,22 @@ export class ReviewManager extends Disposable {
 
 		// If this is the PR the user explicitly switched to, always use review mode regardless of state
 		const isSwitchedToPullRequest = this._switchedToPullRequest?.number === pr.number;
+		const wouldLeaveReviewMode = !isSwitchedToPullRequest && (
+			(pr.isClosed && !useReviewConfiguration.closed) ||
+			(pr.isMerged && !useReviewConfiguration.merged)
+		);
 
-		if (pr.isClosed && !useReviewConfiguration.closed && !isSwitchedToPullRequest) {
-			Logger.appendLine('This PR is closed', this.id);
-			await this.clear(true);
-			return;
-		}
-
-		if (pr.isMerged && !useReviewConfiguration.merged && !isSwitchedToPullRequest) {
-			Logger.appendLine('This PR is merged', this.id);
-			await this.clear(true);
-			return;
+		if (wouldLeaveReviewMode) {
+			if (this._reviewCommentController?.hasUnsavedCommentDrafts()) {
+				// Leaving review mode would dispose the comment controller and drop the drafts. Stay until
+				// they are submitted or discarded; the next full validation re-checks. Don't await the warning.
+				this.warnAboutUnsavedCommentDrafts(pr);
+				Logger.appendLine('Keeping review mode because of unsaved comment drafts', this.id);
+			} else {
+				Logger.appendLine(pr.isMerged ? 'This PR is merged' : 'This PR is closed', this.id);
+				await this.clear(true);
+				return;
+			}
 		}
 
 		const neverIgnoreDefaultBranch = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(NEVER_IGNORE_DEFAULT_BRANCH, false);
@@ -1538,6 +1543,23 @@ export class ReviewManager extends Disposable {
 		this._cachedBranchName = undefined;
 		this._staleMetadataCheckedBranches.clear();
 		await this.clear(true);
+	}
+
+	/**
+	 * Non-modal notice that review mode was kept so unsaved file comments are not dropped.
+	 * Does not await the user's choice, so validateState can finish.
+	 */
+	private warnAboutUnsavedCommentDrafts(pr: PullRequestModel): void {
+		const exitReviewMode = vscode.l10n.t('Exit Review Mode');
+		const message = pr.isMerged
+			? vscode.l10n.t('This pull request has been merged. Exit review mode and discard unsaved comments?')
+			: vscode.l10n.t('This pull request has been closed. Exit review mode and discard unsaved comments?');
+		void vscode.window.showWarningMessage(message, exitReviewMode).then(choice => {
+			if (choice !== exitReviewMode || this._prNumber !== pr.number) {
+				return;
+			}
+			void this.clear(true);
+		});
 	}
 
 	private async clear(quitReviewMode: boolean) {

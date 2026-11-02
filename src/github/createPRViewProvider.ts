@@ -21,7 +21,7 @@ import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } fr
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, StackCandidate, TitleAndDescriptionArgs } from '../../common/views';
-import type { Branch } from '../api/api';
+import type { Branch, UpstreamRef } from '../api/api';
 import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';
@@ -45,6 +45,7 @@ import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '.
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+import { getIssueForBranch } from '../issues/stateManager';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -851,7 +852,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
+				descriptionSource === 'template' ? this.getPullRequestTemplate(name, baseBranch) : undefined
 			]);
 			let totalNonMergeCommitsCount: number | undefined = totalCommits?.filter(commit => commit.parents.length < 2).length;
 
@@ -921,8 +922,31 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return { title, description };
 	}
 
-	private async getPullRequestTemplate(): Promise<string | undefined> {
-		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+	private async getPullRequestTemplate(compareBranch: string | undefined, baseBranch: string): Promise<string | undefined> {
+		const template = await this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		return template === undefined ? undefined : this.resolvePullRequestTemplate(template, compareBranch, baseBranch);
+	}
+
+	private async resolvePullRequestTemplate(template: string, compareBranch: string | undefined, baseBranch: string): Promise<string> {
+		if (!template.includes('${')) {
+			return template;
+		}
+		const issue = compareBranch ? await this.lookupTemplateValue('issue', () => getIssueForBranch(this._folderRepositoryManager, compareBranch)) : undefined;
+		const user = /\$\{user\}/.test(template) ? await this.lookupTemplateValue('user', () => this._folderRepositoryManager.getCurrentUser()) : undefined;
+		return variableSubstitution(template, issue, {
+			owner: this.model.baseOwner,
+			repo: this.model.repositoryName,
+			base: baseBranch,
+		}, user?.login);
+	}
+
+	private async lookupTemplateValue<T>(name: string, lookup: () => Promise<T>): Promise<T | undefined> {
+		try {
+			return await lookup();
+		} catch (e) {
+			Logger.debug(`Unable to resolve the ${name} for pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
+			return undefined;
+		}
 	}
 
 	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
@@ -977,7 +1001,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		if (selectedTemplate) {
 			const reply: ChangeTemplateReply = {
-				description: selectedTemplate.template
+				description: await this.resolvePullRequestTemplate(selectedTemplate.template, this.model.compareBranch, this.model.baseBranch)
 			};
 			return this._replyMessage(message, reply);
 		}
@@ -1077,7 +1101,8 @@ Don't forget to commit your template file to the repository so that it can be us
 				const repo = this._folderRepositoryManager.findRepo(repo => repo.remote.remoteName === baseFromProvider.remote);
 				if (repo) {
 					return {
-						branch: baseFromProvider.name,
+						// A branch created from `<remote>/HEAD` is based on the branch that the remote's HEAD points to, which is the default branch.
+						branch: baseFromProvider.name === 'HEAD' ? await repo.getDefaultBranch() : baseFromProvider.name,
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName
 					};
@@ -1236,11 +1261,12 @@ Don't forget to commit your template file to the repository so that it can be us
 			try {
 				this.model.compareOwner = result.remote.owner;
 				await this.model.setCompareBranch(result.branch);
-				await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+				const titleAndDescription = await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 				chooseResult = {
 					compareRemote: result.remote,
 					compareBranch: result.branch,
 					defaultCompareBranch: defaultBranch,
+					defaultDescription: titleAndDescription.description,
 					stackCandidate: await this.getStackCandidateForView(
 						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
 						this.model.baseBranch, result.remote, result.branch),
@@ -1373,7 +1399,7 @@ Don't forget to commit your template file to the repository so that it can be us
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
-				const templatePromise = this.getPullRequestTemplate(); // Fetch in parallel
+				const templatePromise = this.getPullRequestTemplate(this.model.compareBranch, this.model.baseBranch); // Fetch in parallel
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
 				const issues = await this.model.findIssueContext(commitMessages);
 				const template = await templatePromise;
@@ -1488,6 +1514,31 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
+	/**
+	 * The ahead count of a branch is relative to its upstream, but the branch is pushed to the remote branch with the same name.
+	 * When the upstream is a different branch (ex. the branch was created with `git switch -c feature origin/main`),
+	 * the unpushed commits are the ones that aren't on the remote branch with the same name.
+	 */
+	private async getUnpushedCommitCount(branchName: string, branch: Branch, upstream: UpstreamRef): Promise<number> {
+		if (upstream.name === branchName) {
+			return branch.ahead ?? 0;
+		}
+		const repository = this._folderRepositoryManager.repository;
+		const remoteBranchRef = `refs/remotes/${upstream.remote}/${branchName}`;
+		try {
+			await repository.fetch(upstream.remote, branchName);
+			const remoteBranch = await repository.getBranch(remoteBranchRef);
+			if (remoteBranch.commit === branch.commit) {
+				return 0;
+			}
+			return (await repository.log({ range: `${remoteBranchRef}..refs/heads/${branchName}` })).length;
+		} catch (e) {
+			// The branch hasn't been pushed yet, so all the commits that are ahead of the upstream are unpushed.
+			Logger.debug(`Unable to compare ${branchName} with ${remoteBranchRef}: ${formatError(e)}`, CreatePullRequestViewProvider.ID);
+			return branch.ahead ?? 0;
+		}
+	}
+
 	private checkGeneratedTitleAndDescription(title: string, description: string) {
 		if (!this.lastGeneratedTitleAndDescription) {
 			return;
@@ -1585,10 +1636,10 @@ Don't forget to commit your template file to the repository so that it can be us
 					}
 
 					// Check for unpushed commits when there's an upstream
-					if (compareBranch.upstream && compareBranch.ahead && compareBranch.ahead > 0) {
+					const commitCount = compareBranch.upstream ? await this.getUnpushedCommitCount(compareBranchName, compareBranch, compareBranch.upstream) : 0;
+					if (compareBranch.upstream && commitCount > 0) {
 						const pushCommits = vscode.l10n.t('Push Commits');
 						const continueWithoutPushing = vscode.l10n.t('Continue Without Pushing');
-						const commitCount = compareBranch.ahead;
 						const messageResult = await vscode.window.showInformationMessage(
 							vscode.l10n.t({
 								message: 'You have {0} unpushed commit(s) on \'{1}\'.\n\nDo you want to push them before creating the pull request?',

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { RemoteInfo } from '../../../common/types';
 import { AuthenticationError } from '../../common/authentication';
-import { DEV_MODE, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { DEV_MODE, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, URIS } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { toQueryUri } from '../../common/uri';
 import { formatError } from '../../common/utils';
@@ -31,6 +31,7 @@ export enum PRCategoryActionType {
 	NoRemotes,
 	NoMatchingRemotes,
 	ConfigureRemotes,
+	ConfigureEnterprise,
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
@@ -91,6 +92,14 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					title: vscode.l10n.t('Configure remotes'),
 					command: 'pr.configureRemotes',
 					arguments: [],
+				};
+				break;
+			case PRCategoryActionType.ConfigureEnterprise:
+				this.label = vscode.l10n.t('Configure GitHub Enterprise...');
+				this.command = {
+					title: vscode.l10n.t('Configure GitHub Enterprise'),
+					command: 'workbench.action.openSettings',
+					arguments: [`${GITHUB_ENTERPRISE}.${URIS}`],
 				};
 				break;
 			default:
