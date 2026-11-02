@@ -260,6 +260,12 @@
 						}
 					]
 				},
+				"githubPullRequests.autoRefreshQueries": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"markdownDescription": "%githubPullRequests.autoRefreshQueries.description%"
+				},
 				"githubPullRequests.labelCreated": {
 					"type": "array",
 					"items": {
@@ -1342,6 +1348,12 @@
 				"category": "%command.pull.request.category%",
 				"icon": "$(trash)",
 				"enablement": "!(comment =~ /temporary/)"
+			},
+			{
+				"command": "pr.commentAndResolveReviewThread",
+				"title": "%command.pr.commentAndResolveReviewThread.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "pr.resolveReviewThread",
@@ -2505,6 +2517,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.commentAndResolveReviewThread",
+					"when": "false"
+				},
+				{
 					"command": "pr.openReview",
 					"when": "false"
 				},
@@ -3387,6 +3403,11 @@
 				}
 			],
 			"comments/commentThread/context": [
+				{
+					"command": "pr.commentAndResolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+				},
 				{
 					"command": "pr.createComment",
 					"group": "inline@1",

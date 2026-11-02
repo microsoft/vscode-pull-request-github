@@ -1323,7 +1323,7 @@ export function registerCommands(
 		return { thread, text };
 	}
 
-	const resolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment | undefined, resolve: boolean, focusReply?: boolean) => {
+	const resolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment | undefined, resolve: boolean, focusReply?: boolean, commentText?: string) => {
 		if (resolve) {
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
@@ -1351,7 +1351,7 @@ export function registerCommands(
 
 		if (handler) {
 			if (resolve) {
-				await handler.resolveReviewThread(thread, text);
+				await handler.resolveReviewThread(thread, commentText ?? text);
 			} else {
 				await handler.unresolveReviewThread(thread, text);
 				if (focusReply) {
@@ -1360,6 +1360,10 @@ export function registerCommands(
 			}
 		}
 	};
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.commentAndResolveReviewThread', (reply: CommentReply) => resolve(reply, true, false, reply.text))
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, true))

@@ -781,7 +781,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		input: string,
 		isSingleComment: boolean,
 		inDraft?: boolean,
-	): Promise<void> {
+	): Promise<boolean> {
 		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment without an active pull request.');
 		}
@@ -830,11 +830,16 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					await this._folderRepoManager.activePullRequest.createCommentReply(
+					// The model has already warned the user if the reply couldn't be created.
+					const reply = await this._folderRepoManager.activePullRequest.createCommentReply(
 						input,
 						comment.rawComment.graphNodeId,
 						isSingleComment,
 					);
+					if (!reply) {
+						this.reopenTemporaryComment(thread, temporaryCommentId);
+						return false;
+					}
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
@@ -843,6 +848,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			if (isSingleComment) {
 				await this._folderRepoManager.activePullRequest.submitReview();
 			}
+			return true;
 		} catch (e) {
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
@@ -854,13 +860,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
 			}
 
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
+			this.reopenTemporaryComment(thread, temporaryCommentId);
+			return false;
 		}
 	}
 
@@ -884,18 +885,18 @@ ${suggestionInformation.suggestionContent}
 		);
 	}
 
-	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<boolean> {
 		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment on resolve without an active pull request.');
 		}
 		const pendingReviewId = await this._folderRepoManager.activePullRequest.getPendingReviewId();
-		await this.createOrReplyComment(thread, input, !pendingReviewId);
+		return this.createOrReplyComment(thread, input, !pendingReviewId);
 	}
 
 	async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
 		try {
-			if (input) {
-				await this.createCommentOnResolve(thread, input);
+			if (input && !await this.createCommentOnResolve(thread, input)) {
+				return;
 			}
 
 			await this._folderRepoManager.activePullRequest!.resolveReviewThread(thread.gitHubThreadId);
@@ -906,8 +907,8 @@ ${suggestionInformation.suggestionContent}
 
 	async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
 		try {
-			if (input) {
-				await this.createCommentOnResolve(thread, input);
+			if (input && !await this.createCommentOnResolve(thread, input)) {
+				return;
 			}
 
 			await this._folderRepoManager.activePullRequest!.unresolveReviewThread(thread.gitHubThreadId);

@@ -350,7 +350,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		input: string,
 		isSingleComment: boolean,
 		inDraft?: boolean,
-	): Promise<void> {
+	): Promise<boolean> {
 		const hasExistingComments = thread.comments.length;
 		const isDraft = isSingleComment
 			? false
@@ -361,7 +361,11 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 		try {
 			if (hasExistingComments) {
-				await this.reply(thread, input, isSingleComment);
+				// The model has already warned the user if the reply couldn't be created.
+				if (!await this.reply(thread, input, isSingleComment)) {
+					this.reopenTemporaryComment(thread, temporaryCommentId);
+					return false;
+				}
 			} else {
 				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
@@ -380,6 +384,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			if (isSingleComment) {
 				await this.pullRequestModel.submitReview();
 			}
+			return true;
 		} catch (e) {
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
@@ -390,13 +395,8 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			} else {
 				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
 			}
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
+			this.reopenTemporaryComment(thread, temporaryCommentId);
+			return false;
 		}
 	}
 
@@ -527,15 +527,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		updateCommentThreadLabel(thread);
 	}
 
-	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<boolean> {
 		const pendingReviewId = await this.pullRequestModel.getPendingReviewId();
-		await this.createOrReplyComment(thread, input, !pendingReviewId);
+		return this.createOrReplyComment(thread, input, !pendingReviewId);
 	}
 
 	public async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
 		try {
-			if (input) {
-				await this.createCommentOnResolve(thread, input);
+			if (input && !await this.createCommentOnResolve(thread, input)) {
+				return;
 			}
 
 			await this.pullRequestModel.resolveReviewThread(thread.gitHubThreadId);
@@ -546,8 +546,8 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 	public async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
 		try {
-			if (input) {
-				await this.createCommentOnResolve(thread, input);
+			if (input && !await this.createCommentOnResolve(thread, input)) {
+				return;
 			}
 
 			await this.pullRequestModel.unresolveReviewThread(thread.gitHubThreadId);
