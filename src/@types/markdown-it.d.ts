@@ -4,9 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'markdown-it' {
+	export interface Token {
+		type: string;
+		content: string;
+		children: Token[] | null;
+	}
+
+	export interface Renderer {
+		renderInline(tokens: Token[], options: object, env: object): string;
+	}
+
 	class MarkdownIt {
 		constructor();
-		renderInline(src: string, env?: unknown): string;
+		readonly options: object;
+		readonly renderer: Renderer;
+		parseInline(src: string, env: object): Token[];
 	}
 
 	export default MarkdownIt;

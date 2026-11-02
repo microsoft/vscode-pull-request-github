@@ -31,6 +31,8 @@ const DISPLAY_MATH_CLASS_REGEX = /\bclass="[^"]*\bjs-display-math\b/;
 const HTML_ENTITY_REGEX = /&(?:#(?<decimal>\d+)|#[xX](?<hex>[\da-fA-F]+)|(?<name>[a-zA-Z]+));/g;
 const NAMED_HTML_ENTITIES = new Map([['amp', '&'], ['lt', '<'], ['gt', '>'], ['quot', '"'], ['apos', '\'']]);
 
+const MATH_INLINE_TOKEN = 'math_inline';
+const MATH_BLOCK_TOKEN = 'math_block';
 const KATEX_INLINE_ROOT = '<span class="katex">';
 const KATEX_DISPLAY_ROOT = '<span class="katex-display">';
 const KATEX_BLOCK_REGEX = /^<p class="katex-block">(?<display>[\s\S]*)<\/p>\s*$/;
@@ -63,20 +65,23 @@ export function renderMathElements(html: string, renderTex: TexRenderer): string
 
 /**
  * Renders TeX with a markdown-it instance that has been extended by the Markdown Math extension.
- * Returns undefined unless the result is exactly one KaTeX expression.
+ * Returns undefined unless the TeX is parsed as exactly one math expression that KaTeX can render.
  */
-export function renderTexWithMarkdownIt(md: Pick<MarkdownIt, 'renderInline'>, tex: string, displayMode: boolean): string | undefined {
-	let html: string;
-	let root: string;
+export function renderTexWithMarkdownIt(md: Pick<MarkdownIt, 'parseInline' | 'renderer' | 'options'>, tex: string, displayMode: boolean): string | undefined {
+	const delimiter = displayMode ? '$$' : '$';
+	const env = {};
+	// Only the math token is rendered, so that the TeX can't add Markdown, such as links and images, around it.
+	const tokens = md.parseInline(`${delimiter}${tex}${delimiter}`, env)[0]?.children;
+	if (tokens?.length !== 1 || tokens[0].type !== (displayMode ? MATH_BLOCK_TOKEN : MATH_INLINE_TOKEN) || tokens[0].content !== tex) {
+		return undefined;
+	}
+	const html = md.renderer.renderInline(tokens, md.options, env);
 	if (displayMode) {
 		// Display math is wrapped in a paragraph, which can't be nested in the paragraph that GitHub puts it in.
-		html = KATEX_BLOCK_REGEX.exec(md.renderInline(`$$${tex}$$`))?.groups?.display ?? '';
-		root = KATEX_DISPLAY_ROOT;
-	} else {
-		html = md.renderInline(`$${tex}$`);
-		root = KATEX_INLINE_ROOT;
+		const display = KATEX_BLOCK_REGEX.exec(html)?.groups?.display;
+		return display?.startsWith(KATEX_DISPLAY_ROOT) ? display : undefined;
 	}
-	return html.startsWith(root) && html.endsWith('</span>') && !html.includes(root, root.length) ? html : undefined;
+	return html.startsWith(KATEX_INLINE_ROOT) ? html : undefined;
 }
 
 let markdownIt: { settings: string; md: Promise<MarkdownIt | undefined> } | undefined;

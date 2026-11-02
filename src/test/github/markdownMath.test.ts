@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import type { Token } from 'markdown-it';
 import * as vscode from 'vscode';
 import { getMathStyleUris, MARKDOWN_MATH_EXTENSION_ID, processMath, renderMathElements, renderTexWithMarkdownIt } from '../../github/markdownMath';
 
@@ -55,27 +56,42 @@ describe('markdownMath', function () {
 		const inline = '<span class="katex"><span class="katex-html">x</span></span>';
 		const display = `<span class="katex-display">${inline}</span>`;
 
-		function renderer(output: string) {
+		function markdownIt(children: Token[], output: string) {
 			const sources: string[] = [];
+			const rendered: Token[][] = [];
 			return {
 				sources,
+				rendered,
 				md: {
-					renderInline: (src: string) => {
+					options: {},
+					parseInline: (src: string): Token[] => {
 						sources.push(src);
-						return output;
+						return [{ type: 'inline', content: src, children }];
+					},
+					renderer: {
+						renderInline: (tokens: Token[]) => {
+							rendered.push(tokens);
+							return output;
+						}
 					}
 				}
 			};
 		}
 
+		function token(type: string, content: string = 'x'): Token {
+			return { type, content, children: null };
+		}
+
 		it('renders inline math as a single KaTeX expression', function () {
-			const { md, sources } = renderer(inline);
+			const children = [token('math_inline')];
+			const { md, sources, rendered } = markdownIt(children, inline);
 			assert.strictEqual(renderTexWithMarkdownIt(md, 'x', false), inline);
 			assert.deepStrictEqual(sources, ['$x$']);
+			assert.deepStrictEqual(rendered, [children]);
 		});
 
 		it('renders display math without the paragraph around it', function () {
-			const { md, sources } = renderer(`<p class="katex-block">${display}</p>\n`);
+			const { md, sources } = markdownIt([token('math_block')], `<p class="katex-block">${display}</p>\n`);
 			assert.strictEqual(renderTexWithMarkdownIt(md, 'x', true), display);
 			assert.deepStrictEqual(sources, ['$$x$$']);
 		});
@@ -83,13 +99,25 @@ describe('markdownMath', function () {
 		for (const [name, output, displayMode] of [
 			['errors', '<span class="katex-error" title="\\foo">\\foo</span>', false],
 			['display errors', '<p class="katex-block katex-error" title="\\foo">\\foo</p>\n', true],
-			['unparsed math', '$x$', false],
-			['text around the math', `${inline}y`, false],
-			['multiple expressions', `${inline} y ${inline}`, false],
-			['multiple display expressions', `<p class="katex-block">${display}</p>\n<p class="katex-block">${display}</p>\n`, true],
 		] as const) {
 			it(`does not use ${name}`, function () {
-				assert.strictEqual(renderTexWithMarkdownIt(renderer(output).md, 'x', displayMode), undefined);
+				const { md } = markdownIt([token(displayMode ? 'math_block' : 'math_inline')], output);
+				assert.strictEqual(renderTexWithMarkdownIt(md, 'x', displayMode), undefined);
+			});
+		}
+
+		for (const [name, children, displayMode] of [
+			['unparsed math', [token('text', '$x$')], false],
+			['text around the math', [token('math_inline'), token('text', ' y')], false],
+			['Markdown between expressions', [token('math_inline'), token('image', ''), token('math_inline', 'y')], false],
+			['multiple display expressions', [token('math_block'), token('math_block')], true],
+			['inline math in display mode', [token('math_inline')], true],
+			['math with different content', [token('math_inline', 'y')], false],
+		] as const) {
+			it(`does not render ${name}`, function () {
+				const { md, rendered } = markdownIt([...children], inline);
+				assert.strictEqual(renderTexWithMarkdownIt(md, 'x', displayMode), undefined);
+				assert.deepStrictEqual(rendered, []);
 			});
 		}
 	});
@@ -107,10 +135,20 @@ describe('markdownMath', function () {
 			assert.doesNotMatch(result, /<math-renderer|katex-block/);
 		});
 
-		it('keeps math that KaTeX cannot render', async function () {
-			const html = '<p dir="auto"><math-renderer class="js-inline-math">$\\notacommand$</math-renderer></p>';
-			assert.strictEqual(await processMath(html), html);
+		it('typesets escaped dollar signs', async function () {
+			const result = await processMath('<math-renderer class="js-inline-math">$x = \\$$</math-renderer>');
+			assert.match(result, /^<span class="katex">[\s\S]*\$[\s\S]*<\/span>$/);
 		});
+
+		for (const html of [
+			'<p dir="auto"><math-renderer class="js-inline-math">$\\notacommand$</math-renderer></p>',
+			'<p dir="auto"><math-renderer class="js-inline-math">$x$ ![](https://example.com/a.png) [a](https://example.com) $\\relax\\foo$</math-renderer></p>',
+			'<p dir="auto"><math-renderer class="js-display-math">$$x$$ ![](https://example.com/a.png) $$y$$</math-renderer></p>',
+		]) {
+			it(`keeps math that cannot be rendered as a single expression: ${html}`, async function () {
+				assert.strictEqual(await processMath(html), html);
+			});
+		}
 
 		it('provides the KaTeX styles', function () {
 			assert.ok(getMathStyleUris().some(uri => uri.path.endsWith('katex.min.css')));
