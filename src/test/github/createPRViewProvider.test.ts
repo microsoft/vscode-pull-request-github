@@ -845,6 +845,10 @@ describe('Create pull request for a branch created from the remote HEAD', functi
 		sinon.stub(model, 'filesHaveChanges').resolves(false);
 		getBranch = sinon.stub(repository, 'getBranch').callThrough();
 		showInformationMessage = sinon.stub(vscode.window, 'showInformationMessage');
+		// Pushing commits publishes the branch, which checks the permission to push to the remote first.
+		sinon.stub(folderManager, 'createGitHubRepository').resolves(githubRepository);
+		sinon.stub(githubRepository, 'getViewerPermission').resolves(ViewerPermission.Write);
+		sinon.stub(repository, 'status').resolves();
 	});
 
 	afterEach(function () {
@@ -912,7 +916,8 @@ describe('Create pull request for a branch created from the remote HEAD', functi
 		repository.expectFetch('origin', 'feature');
 		const log = sinon.stub(repository, 'log').resolves([{ hash: 'feature-sha', message: 'Unpushed change', parents: ['pushed-sha'] }]);
 		showInformationMessage.resolves('Push Commits');
-		repository.expectPush('origin', 'feature');
+		// Publishing the branch also makes it track `origin/feature` instead of `origin/main`.
+		repository.expectPush('origin', 'feature', true);
 		const push = sinon.spy(repository, 'push');
 
 		await createPullRequest();
@@ -920,7 +925,7 @@ describe('Create pull request for a branch created from the remote HEAD', functi
 		assert(log.calledOnceWithExactly({ range: 'refs/remotes/origin/feature..refs/heads/feature' }));
 		assert(showInformationMessage.calledOnce);
 		assert.match(showInformationMessage.firstCall.args[0], /^You have 1 unpushed commit\(s\) on 'feature'\./);
-		assert(push.calledOnceWithExactly('origin', 'feature'));
+		assert(push.calledOnceWithExactly('origin', 'feature', true));
 	});
 
 	it('asks to push all the commits ahead of the upstream when the branch has not been pushed', async function () {
@@ -929,13 +934,13 @@ describe('Create pull request for a branch created from the remote HEAD', functi
 		const fetch = sinon.stub(repository, 'fetch').callThrough();
 		fetch.withArgs('origin', 'feature').rejects(new Error('fatal: couldn\'t find remote ref feature'));
 		showInformationMessage.resolves('Push Commits');
-		repository.expectPush('origin', 'feature');
+		repository.expectPush('origin', 'feature', true);
 		const push = sinon.spy(repository, 'push');
 
 		await createPullRequest();
 
 		assert(showInformationMessage.calledOnce);
 		assert.match(showInformationMessage.firstCall.args[0], /^You have 2 unpushed commit\(s\) on 'feature'\./);
-		assert(push.calledOnceWithExactly('origin', 'feature'));
+		assert(push.calledOnceWithExactly('origin', 'feature', true));
 	});
 });
