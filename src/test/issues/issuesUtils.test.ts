@@ -142,6 +142,14 @@ describe('Issues utilities', function () {
 describe('shouldShowHover', function () {
 	let sinon: SinonSandbox;
 
+	before(async function () {
+		// Opening the first document of a language activates its built-in language extensions, which can be slow.
+		this.timeout(20000);
+		for (const language of ['markdown', 'plaintext', 'yaml', 'sql']) {
+			await vscode.workspace.openTextDocument({ language, content: '' });
+		}
+	});
+
 	beforeEach(function () {
 		sinon = createSandbox();
 	});
