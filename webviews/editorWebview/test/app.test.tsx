@@ -189,6 +189,20 @@ describe('Root', function () {
 		assert.strictEqual(out.container.querySelector('#description .comment-body')?.textContent, 'Bumps the npm group with 1 update:lodash');
 	});
 
+	it('does not show the text of a description that renders to nothing', function () {
+		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).build();
+		pr.body = '<!-- Describe your changes -->';
+		pr.bodyHTML = '';
+		const context = new PRContext(pr);
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(out.container.querySelector('#description .comment-body')?.textContent, '');
+	});
+
 	it('uses a collapsed metadata placeholder in a narrow preview', function () {
 		const media = window.matchMedia('(max-width: 768px)');
 		sinon.stub(window, 'matchMedia').returns({ ...media, matches: true, addEventListener() { }, removeEventListener() { } });

@@ -436,9 +436,9 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 
 	const { applyPatch } = useContext(PullRequestContext);
 	// Without the rendered HTML, such as before it has loaded, show the text rather than an empty body.
-	const renderedBody = bodyHTML
-		? <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />
-		: <div style={{ whiteSpace: 'pre-wrap' }}>{body}</div>;
+	const renderedBody = bodyHTML === undefined
+		? <div style={{ whiteSpace: 'pre-wrap' }}>{body}</div>
+		: <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
 
 	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
 	const applyPatchButton =
