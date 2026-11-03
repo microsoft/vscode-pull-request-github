@@ -62,7 +62,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			reviewers: issueOrPullRequest instanceof PullRequestModel ? issueOrPullRequest.reviewers?.map(r => isITeam(r) ? r.name : r.login).filter((login): login is string => !!login) : undefined
 		};
 		if (issueOrPullRequest instanceof PullRequestModel && issueOrPullRequest.isResolved()) {
-			const fileChanges = await issueOrPullRequest.getFileChangesInfo();
+			const fileChanges = await issueOrPullRequest.getFileChangesInfo(folderManager.repository);
 			const fetchedFileChanges: FileChange[] = [];
 			for (const fileChange of fileChanges) {
 				if (fileChange instanceof InMemFileChange) {

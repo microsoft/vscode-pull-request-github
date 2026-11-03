@@ -91,7 +91,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		if (!pr) {
 			return;
 		}
-		const rawChanges = await pr.getFileChangesInfo();
+		const rawChanges = await pr.getFileChangesInfo(folderRepositoryManager.repository);
 		const mergeBase = pr.mergeBase;
 		if (!mergeBase) {
 			return;
