@@ -178,10 +178,14 @@ describe('CredentialStore', function () {
 	});
 
 	describe('account preferences for inaccessible repositories', function () {
+		let telemetry: MockTelemetry;
 		let credentialStore: CredentialStore;
+		let getHub: SinonStub;
 
 		beforeEach(function () {
-			credentialStore = new CredentialStore(new MockTelemetry(), new MockExtensionContext());
+			telemetry = new MockTelemetry();
+			credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+			getHub = sinon.stub(credentialStore, 'getHub').returns(createTestHub(telemetry, createSession('session', 'personal', defaultScopes)));
 		});
 
 		afterEach(function () {
@@ -235,6 +239,25 @@ describe('CredentialStore', function () {
 
 			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
 			strictEqual(warning.callCount, 1);
+		});
+
+		it('does not prompt when GITHUB_OAUTH_TOKEN supplies the credential', async function () {
+			getHub.callThrough();
+			sinon.stub(process, 'env').value({ ...process.env, GITHUB_OAUTH_TOKEN: 'environment-token' });
+			// Answers the current user request made when the hub is created.
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({ data: { login: 'octocat', node_id: 'MDQ6VXNlcjE=', html_url: 'https://github.com/octocat', avatar_url: '', type: 'User' } });
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const hub = await credentialStore.login(AuthProvider.github);
+			strictEqual(!!hub && !hub.session, true);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			strictEqual(getAccounts.called, false);
+			strictEqual(warning.called, false);
 		});
 
 		it('does not prompt without multiple accounts, but can prompt after another account is added', async function () {

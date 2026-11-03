@@ -613,7 +613,8 @@ export class CredentialStore extends Disposable {
 
 	public async showAccountPreferencesForInaccessibleRepository(authProviderId: AuthProvider, repository: string): Promise<void> {
 		// Enterprise accounts can belong to other hosts, and account information does not identify the host.
-		if (authProviderId !== AuthProvider.github || this.isDisposed || this._hasOfferedAccountPreferences) {
+		// A GITHUB_OAUTH_TOKEN credential has no session, so account preferences cannot replace it.
+		if (authProviderId !== AuthProvider.github || !this.getHub(AuthProvider.github)?.session || this.isDisposed || this._hasOfferedAccountPreferences) {
 			return;
 		}
 		try {

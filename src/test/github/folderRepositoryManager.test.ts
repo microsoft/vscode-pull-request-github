@@ -390,6 +390,20 @@ describe('PullRequestManager', function () {
 			assert.deepStrictEqual(request.firstCall.args[1], { owner: 'owner', repo: '.github' });
 			assert.strictEqual(preferences.called, false);
 		});
+
+		it('does not offer them when the folder closes while its remotes are resolving', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+			request.callsFake(async () => {
+				manager.dispose();
+				throw Object.assign(new Error('Not Found'), { status: 404 });
+			});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(request.calledOnce, true);
+			assert.strictEqual(preferences.called, false);
+		});
 	});
 
 	describe('getLocalPullRequests', function () {
