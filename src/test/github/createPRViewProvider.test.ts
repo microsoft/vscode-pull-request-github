@@ -573,12 +573,21 @@ describe('Create pull request with unpushed commits', function () {
 	let throwError: SinonStub;
 	let finishWithoutPullRequest: () => void;
 
-	function createRepository(remoteName: string, owner: string): MockGitHubRepository {
-		const url = `https://github.com/${owner}/test`;
-		const remote = new GitHubRemote(remoteName, url, new Protocol(url), GitHubServerType.GitHubDotCom);
+	function createRepository(remoteName: string, owner: string, url = `https://github.com/${owner}/test`, serverType = GitHubServerType.GitHubDotCom): MockGitHubRepository {
+		const remote = new GitHubRemote(remoteName, url, new Protocol(url), serverType);
 		const githubRepository = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		createdRepositories.push(githubRepository);
 		return githubRepository;
+	}
+
+	/** Like forking: `origin` points to the fork, and the original remote, which the branch then tracks, is renamed to `upstream`. */
+	async function forkOrigin(fork: MockGitHubRepository, upstream: MockGitHubRepository): Promise<string> {
+		gitHubRepositories = [fork, upstream];
+		await repository.removeRemote('origin');
+		await repository.addRemote('upstream', upstream.remote.url);
+		await repository.addRemote('origin', fork.remote.url);
+		await repository.setBranchUpstream('D4', 'refs/remotes/upstream/D4');
+		return 'origin';
 	}
 
 	function createMessage(req: string): { command: string; args: CreatePullRequestNew; req: string } {
@@ -616,6 +625,7 @@ describe('Create pull request with unpushed commits', function () {
 		folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(manager), credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
 		createdRepositories = [];
 		origin = createRepository('origin', 'github');
+		await repository.addRemote('origin', origin.remote.url);
 		gitHubRepositories = [origin];
 		sinon.stub(folderManager, 'gitHubRepositories').get(() => gitHubRepositories);
 		sinon.stub(folderManager, 'findRepo').callsFake(predicate => gitHubRepositories.find(predicate));
@@ -692,13 +702,9 @@ describe('Create pull request with unpushed commits', function () {
 		const prompt = sinon.stub(vscode.window, 'showInformationMessage');
 		prompt.onFirstCall().resolves('Push Commits' as never);
 		prompt.onSecondCall().resolves('Fork' as never);
-		// Forking points `origin` at the fork and renames the original remote to `upstream`.
 		const fork = createRepository('origin', 'contributor');
 		const upstream = createRepository('upstream', 'github');
-		const doFork = sinon.stub(folderManager, 'doFork').callsFake(async () => {
-			gitHubRepositories = [fork, upstream];
-			return 'origin';
-		});
+		const doFork = sinon.stub(folderManager, 'doFork').callsFake(() => forkOrigin(fork, upstream));
 		repository.expectPush('origin', 'D4', true);
 		const push = sinon.spy(repository, 'push');
 		const createdPR = createPullRequestModel(upstream);
@@ -737,12 +743,7 @@ describe('Create pull request with unpushed commits', function () {
 		sinon.stub(fork, 'getRepositoryForkDetails').resolves({ isFork: true, parent: { owner: { login: 'github' }, name: 'test' } });
 		sinon.stub(fork, 'getViewerPermission').resolves(ViewerPermission.Write);
 		sinon.stub(upstream, 'getViewerPermission').resolves(ViewerPermission.Read);
-		const doFork = sinon.stub(folderManager, 'doFork').callsFake(async () => {
-			gitHubRepositories = [fork, upstream];
-			// Renaming `origin` to `upstream` also renames the remote that the branch tracks.
-			await repository.setBranchUpstream('D4', 'refs/remotes/upstream/D4');
-			return 'origin';
-		});
+		const doFork = sinon.stub(folderManager, 'doFork').callsFake(() => forkOrigin(fork, upstream));
 		const push = sinon.stub(repository, 'push');
 		push.onFirstCall().rejects(Object.assign(new Error('Updates were rejected'), { gitErrorCode: GitErrorCodes.PushRejected }));
 		push.onSecondCall().resolves();
@@ -764,30 +765,59 @@ describe('Create pull request with unpushed commits', function () {
 		assert.strictEqual(create.firstCall.args[0].head, 'contributor:D4');
 	});
 
-	it('pushes the commits to the repository that the tracked remote\'s push URL points to', async function () {
-		// `origin` fetches from github/test, which the user can't push to, but pushes to their fork.
-		sinon.replace(repository, 'state', {
-			...repository.state,
-			remotes: [{ name: 'origin', fetchUrl: 'https://github.com/github/test', pushUrl: 'https://github.com/contributor/test', isReadOnly: false }],
-		});
-		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
-		const pushTarget = createRepository('origin', 'contributor');
-		sinon.stub(pushTarget, 'getViewerPermission').resolves(ViewerPermission.Write);
-		const prompt = sinon.stub(vscode.window, 'showInformationMessage').resolves('Push Commits' as never);
-		const doFork = sinon.stub(folderManager, 'doFork');
-		repository.expectPush('origin', 'D4', true);
-		const push = sinon.spy(repository, 'push');
-		const createdPR = createPullRequestModel(origin);
-		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+	for (const pushUrl of ['https://github.com/contributor/test', 'ssh://git@ssh.github.com:443/contributor/test.git']) {
+		it(`pushes the commits to the repository that the tracked remote's push URL points to: ${pushUrl}`, async function () {
+			// `origin` fetches from github/test, which the user can't push to, but pushes to their fork.
+			await repository.removeRemote('origin');
+			await repository.addRemote('origin', origin.remote.url, pushUrl);
+			sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
+			const pushTarget = createRepository('origin', 'contributor');
+			sinon.stub(pushTarget, 'getViewerPermission').resolves(ViewerPermission.Write);
+			const prompt = sinon.stub(vscode.window, 'showInformationMessage').resolves('Push Commits' as never);
+			const doFork = sinon.stub(folderManager, 'doFork');
+			repository.expectPush('origin', 'D4', true);
+			const push = sinon.spy(repository, 'push');
+			const createdPR = createPullRequestModel(origin);
+			const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
 
-		assert(await createFromView('6'), throwError.firstCall?.args[1] ?? 'The pull request was not created.');
-		assert(prompt.calledOnce);
-		assert(doFork.notCalled);
-		assert(push.calledOnceWithExactly('origin', 'D4', true));
-		assert(create.calledOnce);
-		assert.strictEqual(create.firstCall.args[0].head, 'contributor:D4');
-		assert.strictEqual(model.compareOwner, 'contributor');
-	});
+			assert(await createFromView('6'), throwError.firstCall?.args[1] ?? 'The pull request was not created.');
+			assert(prompt.calledOnce);
+			assert(doFork.notCalled);
+			assert(push.calledOnceWithExactly('origin', 'D4', true));
+			assert(create.calledOnce);
+			assert.strictEqual(create.firstCall.args[0].head, 'contributor:D4');
+			assert.strictEqual(model.compareOwner, 'contributor');
+		});
+	}
+
+	for (const { description, remoteName, url, pushUrl, serverType } of [
+		{ description: 'is on another server', remoteName: 'fork', url: 'https://ghe.example.com/contributor/test', pushUrl: 'https://ghe.example.com/contributor/test', serverType: GitHubServerType.Enterprise },
+		{ description: 'pushes to another repository', remoteName: 'fork', url: 'https://github.com/contributor/test', pushUrl: 'https://github.com/github/test', serverType: GitHubServerType.GitHubDotCom },
+		// A repository that is only known through the API uses its name as the remote name.
+		{ description: 'has no Git remote', remoteName: 'test', url: 'https://github.com/contributor/test', pushUrl: undefined, serverType: GitHubServerType.GitHubDotCom },
+	]) {
+		it(`offers to fork instead of pushing to a writable fork that ${description}`, async function () {
+			sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
+			const fork = createRepository(remoteName, 'contributor', url, serverType);
+			gitHubRepositories.push(fork);
+			if (pushUrl) {
+				await repository.addRemote(remoteName, url, pushUrl);
+			}
+			sinon.stub(fork, 'getRepositoryForkDetails').resolves({ isFork: true, parent: { owner: { login: 'github' }, name: 'test' } });
+			sinon.stub(fork, 'getViewerPermission').resolves(ViewerPermission.Write);
+			const prompt = sinon.stub(vscode.window, 'showInformationMessage');
+			prompt.onFirstCall().resolves('Push Commits' as never);
+			prompt.onSecondCall().resolves('Don\'t Fork' as never);
+			const push = sinon.spy(repository, 'push');
+			const create = sinon.stub(folderManager, 'createPullRequest');
+
+			assert.strictEqual(await createFromView('7'), false);
+			assert(prompt.calledTwice);
+			assert.match(prompt.secondCall.args[0], /^You don't have permission to push to github\/test\./);
+			assert(push.notCalled);
+			assert(create.notCalled);
+		});
+	}
 
 	it('does not create a pull request when forking is declined', async function () {
 		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
@@ -830,6 +860,7 @@ describe('Create pull request for a branch created from the remote HEAD', functi
 		const manager = new RepositoriesManager(credentials, telemetry);
 		folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(manager), credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
 		const url = 'https://github.com/github/test';
+		await repository.addRemote('origin', url);
 		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 		githubRepository = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		sinon.stub(folderManager, 'gitHubRepositories').get(() => [githubRepository]);

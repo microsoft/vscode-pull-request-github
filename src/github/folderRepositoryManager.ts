@@ -3194,9 +3194,9 @@ export class FolderRepositoryManager extends Disposable {
 	async findUpstreamForItem(item: {
 		remote: Remote;
 		githubRepository: GitHubRepository;
-	}): Promise<{ needsFork: boolean; upstream?: GitHubRepository; remote?: GitHubRemote }> {
+	}): Promise<{ needsFork: boolean; upstream?: GitHubRepository; remote?: Remote }> {
 		let upstream: GitHubRepository | undefined;
-		let existingForkRemote: GitHubRemote | undefined;
+		let existingForkRemote: Remote | undefined;
 		for (const githubRepo of this.gitHubRepositories) {
 			if (
 				!upstream &&
@@ -3317,6 +3317,53 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
+	/**
+	 * Git pushes to a remote's push URL, which can point to a different repository than its fetch URL, such as a fork.
+	 * @returns The remote for the repository that `git push` sends commits to, or undefined if there is no Git remote
+	 * with this name or its push URL is on another server.
+	 */
+	public getPushRemote(remote: GitHubRemote): GitHubRemote | undefined {
+		const gitRemote = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName);
+		const pushUrl = gitRemote?.pushUrl ?? gitRemote?.fetchUrl;
+		if (!gitRemote || !pushUrl) {
+			return undefined;
+		}
+		if (pushUrl === gitRemote.fetchUrl) {
+			return remote;
+		}
+		const pushRemote = parseRemote(remote.remoteName, pushUrl);
+		if (!pushRemote || !isOnServerOf(pushRemote, remote)) {
+			return undefined;
+		}
+		return new GitHubRemote(remote.remoteName, pushUrl, pushRemote.gitProtocol, remote.githubServerType);
+	}
+
+	/**
+	 * Finds the remote of a fork of `githubRepository` that the user can push to, such as one created by an earlier attempt
+	 * whose push failed. Only forks on the same server with a Git remote that pushes to the fork itself are considered.
+	 */
+	private async findPushableFork(githubRepository: GitHubRepository): Promise<GitHubRemote | undefined> {
+		const { owner, repositoryName } = githubRepository.remote;
+		for (const candidate of this.gitHubRepositories) {
+			if ((candidate === githubRepository) || !isOnServerOf(candidate.remote, githubRepository.remote)) {
+				continue;
+			}
+			const pushRemote = this.getPushRemote(candidate.remote);
+			if (!pushRemote || (compareIgnoreCase(pushRemote.owner, candidate.remote.owner) !== 0) || (compareIgnoreCase(pushRemote.repositoryName, candidate.remote.repositoryName) !== 0)) {
+				continue;
+			}
+			const forkDetails = await candidate.getRepositoryForkDetails();
+			if (!forkDetails?.isFork || (compareIgnoreCase(forkDetails.parent.owner.login, owner) !== 0) || (compareIgnoreCase(forkDetails.parent.name, repositoryName) !== 0)) {
+				continue;
+			}
+			const permission = await candidate.getViewerPermission();
+			if ((permission === ViewerPermission.Admin) || (permission === ViewerPermission.Maintain) || (permission === ViewerPermission.Write)) {
+				return candidate.remote;
+			}
+		}
+		return undefined;
+	}
+
 	public async publishBranch(pushRemote: Remote, branchName: string): Promise<GitHubRemote | undefined> {
 		const githubRepo = await this.createGitHubRepository(
 			pushRemote,
@@ -3328,8 +3375,7 @@ export class FolderRepositoryManager extends Disposable {
 			const permission = await githubRepo.getViewerPermission();
 			needsFork = permission === ViewerPermission.Read || permission === ViewerPermission.Triage || permission === ViewerPermission.Unknown;
 			if (needsFork) {
-				// Reuse a fork that already has a remote, such as one created by an earlier attempt whose push failed.
-				existingFork = (await this.findUpstreamForItem({ remote: githubRepo.remote, githubRepository: githubRepo })).remote;
+				existingFork = await this.findPushableFork(githubRepo);
 			}
 		} catch (e) {
 			if (isRateLimitError(e)) {
@@ -3462,6 +3508,12 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
+
+/** Whether `remote` is on the same server as `githubRemote`, which for GitHub.com includes its SSH host. */
+function isOnServerOf(remote: Remote, githubRemote: GitHubRemote): boolean {
+	const serverUri = githubRemote.githubServerType === GitHubServerType.GitHubDotCom ? 'https://github.com' : githubRemote.normalizedHost;
+	return remote.matchesServerUri(vscode.Uri.parse(serverUri));
+}
 
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;

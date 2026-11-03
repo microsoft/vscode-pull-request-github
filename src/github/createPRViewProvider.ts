@@ -28,7 +28,7 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { GitHubRemote, parseRemote } from '../common/remote';
+import { GitHubRemote } from '../common/remote';
 import {
 	ASSIGN_TO,
 	CREATE_BASE_BRANCH,
@@ -1522,7 +1522,7 @@ Don't forget to commit your template file to the repository so that it can be us
 	 */
 	private async pushCommits(remoteName: string, compareBranchName: string): Promise<{ headRemote?: GitHubRemote } | undefined> {
 		const trackedRemote = this._folderRepositoryManager.findRepo(byRemoteName(remoteName))?.remote;
-		const pushRemote = trackedRemote ? this.getPushRemote(trackedRemote) : undefined;
+		const pushRemote = trackedRemote ? this._folderRepositoryManager.getPushRemote(trackedRemote) : undefined;
 		if (!trackedRemote || !pushRemote) {
 			await this._folderRepositoryManager.repository.push(remoteName, compareBranchName);
 			return {};
@@ -1534,22 +1534,6 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 		const isTrackedRepository = (compareIgnoreCase(pushedTo.owner, trackedRemote.owner) === 0) && (compareIgnoreCase(pushedTo.repositoryName, trackedRemote.repositoryName) === 0);
 		return { headRemote: isTrackedRepository ? undefined : pushedTo };
-	}
-
-	/**
-	 * Git pushes to a remote's push URL, which can point to a different repository than its fetch URL, such as a fork.
-	 * @returns The remote for the repository that the push URL points to, or undefined if it isn't on the same server.
-	 */
-	private getPushRemote(remote: GitHubRemote): GitHubRemote | undefined {
-		const gitRemote = this._folderRepositoryManager.repository.state.remotes.find(candidate => candidate.name === remote.remoteName);
-		if (!gitRemote?.pushUrl || (gitRemote.pushUrl === gitRemote.fetchUrl)) {
-			return remote;
-		}
-		const pushRemote = parseRemote(remote.remoteName, gitRemote.pushUrl);
-		if (!pushRemote || (compareIgnoreCase(pushRemote.host, remote.host) !== 0)) {
-			return undefined;
-		}
-		return new GitHubRemote(remote.remoteName, gitRemote.pushUrl, pushRemote.gitProtocol, remote.githubServerType);
 	}
 
 	/**
